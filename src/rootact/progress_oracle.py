@@ -46,3 +46,6 @@ class ProgressOracle(ABC):
     def evaluate(self, context: dict[str, Any]) -> Rooted[ProgressVerdict]:
         """Return a verdict for the current loop state."""
         ...
+
+
+# RACT 0.1.0 - Initial Public Release

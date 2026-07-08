@@ -277,3 +277,6 @@ class LoopPlanner:
         if not found:
             raise KeyError(f"Milestone not found: {milestone_id}")
         return result
+
+
+# RACT 0.1.0 - Initial Public Release

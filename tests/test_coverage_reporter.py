@@ -65,3 +65,6 @@ def test_root_knot_is_used() -> None:
     from rootact.coverage_reporter import _ROOT_KNOT as source_knot
 
     assert _ROOT_KNOT is source_knot
+
+
+# RACT 0.1.0 - Initial Public Release

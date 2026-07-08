@@ -121,3 +121,6 @@ class DependencyGraph:
             A dictionary mapping each artifact to its dependencies.
         """
         return {node: deps for node, deps in self._graph.items()}
+
+
+# RACT 0.1.0 - Initial Public Release

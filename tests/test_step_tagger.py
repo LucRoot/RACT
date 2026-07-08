@@ -101,3 +101,6 @@ def test_reset_resets_counter():
     tagger.reset()
     result3 = tagger.tag_plan(plan1)
     assert result3["steps"][0]["tag"] == tag1  # cycles back
+
+
+# RACT 0.1.0 - Initial Public Release

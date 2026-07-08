@@ -66,3 +66,6 @@ def extract_scenarios(user_story: str) -> List[str]:
         found.append("Payment Failure")
 
     return found[:3]
+
+
+# RACT 0.1.0 - Initial Public Release

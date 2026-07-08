@@ -33,3 +33,6 @@ def test_update_status_unknown_raises(tmp_path):
     registry = HandshakeRegistry(tmp_path)
     with __import__("pytest").raises(KeyError):
         registry.update_status("missing", "approved")
+
+
+# RACT 0.1.0 - Initial Public Release

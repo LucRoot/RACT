@@ -240,3 +240,6 @@ def test_infer_source_from_test_returns_none_when_module_missing(tmp_project):
 def test_relative_path_handles_os_error(tmp_path):
     diagnoser = TestFailureDiagnoser(tmp_path)
     assert diagnoser._relative_path("\x00invalid") is None
+
+
+# RACT 0.1.0 - Initial Public Release

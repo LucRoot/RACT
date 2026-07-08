@@ -67,3 +67,6 @@ def normalize_pytest_fixture_names(
         normalized_fixtures.append(fixture)
 
     return normalized_fixtures
+
+
+# RACT 0.1.0 - Initial Public Release

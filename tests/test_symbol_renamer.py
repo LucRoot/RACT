@@ -210,3 +210,6 @@ def test_rename_symbol_skips_missing_reference_node(tmp_path):
     graph.nodes["mod.helper"].incoming.add("mod.missing")
     edits = renamer._rename_symbol(graph, "mod.helper", "assist")
     assert any(e.new_text == "assist" for e in edits)
+
+
+# RACT 0.1.0 - Initial Public Release

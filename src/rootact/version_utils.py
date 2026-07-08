@@ -59,3 +59,6 @@ def resolve_latest(versions: list[str] | None = None) -> str:
         if compare_versions(v, latest) > 0:
             latest = v
     return latest
+
+
+# RACT 0.1.0 - Initial Public Release

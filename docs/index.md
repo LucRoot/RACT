@@ -54,3 +54,5 @@ RACT is the public, standalone expression of ideas I've been developing around a
 RACT is licensed under the **PolyForm Noncommercial License 1.0.0** — free for personal use, research, education, and noncommercial organizations.
 
 Commercial use requires a separate agreement. See [`COMMERCIAL.md`](../COMMERCIAL.md) for details, or email info@lucasroot.com.
+
+<!-- RACT 0.1.0 - Initial Public Release -->

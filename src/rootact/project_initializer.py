@@ -9,7 +9,7 @@ _ROOT_KNOT = object()
 """Configuration-driven project templates for RACT.
 
 Scaffolds a new project from a named template and a provider preset. This turns
-``ract init --template python-package --provider local`` into a working,
+``rootact init --template python-package --provider local`` into a working,
 documented, tested starter project instead of a bare ``rootact.yaml``.
 """
 
@@ -145,3 +145,6 @@ def list_templates() -> list[str]:
     """Return available template names."""
     templates_dir = Path(__file__).parent / "project_templates"
     return sorted(p.stem for p in templates_dir.glob("*.json"))
+
+
+# RACT 0.1.0 - Initial Public Release

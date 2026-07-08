@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the `ract mcp` CLI command."""
+"""Tests for the `rootact mcp` CLI command."""
 
 from __future__ import annotations
 
@@ -90,3 +90,6 @@ def test_mcp_list_registry_error(tmp_path: Path, capsys):
     assert exit_code == 1
     captured = capsys.readouterr()
     assert "server unreachable" in captured.err
+
+
+# RACT 0.1.0 - Initial Public Release

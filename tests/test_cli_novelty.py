@@ -56,3 +56,6 @@ def test_cli_novelty_scan_json_output(capsys, tmp_path):
     assert payload["has_dictionary"] is True
     assert "familiar.py" in payload["scores"]
     assert "outlier.py" in payload["scores"]
+
+
+# RACT 0.1.0 - Initial Public Release

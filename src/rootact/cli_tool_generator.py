@@ -155,3 +155,6 @@ class CliToolGenerator:
             ]
         )
         return "\n".join(lines) + "\n"
+
+
+# RACT 0.1.0 - Initial Public Release

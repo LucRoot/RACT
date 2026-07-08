@@ -68,3 +68,6 @@ def validate_generated_fixtures(
             return False
 
     return True
+
+
+# RACT 0.1.0 - Initial Public Release

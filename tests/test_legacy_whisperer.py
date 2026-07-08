@@ -205,3 +205,6 @@ def test_candidate_paths_falls_back_to_keyword_search(tmp_path: Path):
     whisperer = LegacyWhisperer(tmp_path, FakeProvider("brief"))
     paths = whisperer._candidate_paths("widget", None)
     assert any("widget.py" in str(p) for p in paths)
+
+
+# RACT 0.1.0 - Initial Public Release

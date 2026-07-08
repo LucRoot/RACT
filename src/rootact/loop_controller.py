@@ -933,3 +933,6 @@ class LoopController:
         }
         target.write_text(json.dumps(data, indent=2), encoding="utf-8")
         return target
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -103,3 +103,6 @@ class FakeCapableBackend(ModelBackend):
 
     def process(self, task_type: str) -> str:
         return f"capable processed by {self.name}"
+
+
+# RACT 0.1.0 - Initial Public Release

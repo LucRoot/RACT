@@ -145,3 +145,6 @@ class DeadCodeAuction:
 
         items.sort(key=lambda item: item.last_modified_days, reverse=True)
         return items
+
+
+# RACT 0.1.0 - Initial Public Release

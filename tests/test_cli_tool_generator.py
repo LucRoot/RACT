@@ -46,3 +46,6 @@ def test_empty_description_falls_back() -> None:
     result = gen.generate("")
     assert result["name"] == "cli_tool"
     assert "argparse" in result["script"]
+
+
+# RACT 0.1.0 - Initial Public Release

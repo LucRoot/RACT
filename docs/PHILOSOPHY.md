@@ -37,3 +37,5 @@ If this line of thinking interests you, I explore it in much more depth in my [A
 No pressure. Use RACT however it helps you build better software. The philosophy is there if you want it.
 
 — Dr. Lucas Root, Ph.D.
+
+<!-- RACT 0.1.0 - Initial Public Release -->

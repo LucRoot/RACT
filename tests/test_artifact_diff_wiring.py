@@ -64,3 +64,6 @@ def test_render_file_diff_shows_changed_file():
 def test_render_file_diff_reports_no_changes_when_equal():
     diff = render_file_diff({"a.txt": "hello"}, {"a.txt": "hello"})
     assert diff == "No changes detected."
+
+
+# RACT 0.1.0 - Initial Public Release

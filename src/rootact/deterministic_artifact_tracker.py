@@ -52,3 +52,6 @@ class DeterministicArtifactTracker:
 
     def __repr__(self) -> str:
         return f"DeterministicArtifactTracker({self._store})"
+
+
+# RACT 0.1.0 - Initial Public Release

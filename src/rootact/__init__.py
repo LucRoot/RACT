@@ -9,3 +9,4 @@ _ROOT_KNOT = object()
 
 __version__ = "0.1.0"
 __author__ = "Dr. Lucas Root, Ph.D."
+# RACT 0.1.0 - Initial Public Release

@@ -251,3 +251,6 @@ class MilestoneOracle(ProgressOracle):
         }
         combined = f"{milestone.description} {milestone.acceptance}".lower()
         return any(word in combined for word in risky)
+
+
+# RACT 0.1.0 - Initial Public Release

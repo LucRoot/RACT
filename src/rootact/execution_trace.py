@@ -42,3 +42,6 @@ def build_trace_context(context: Dict[str, Any], action: str) -> Dict[str, Any]:
     output even when context is incomplete.
     """
     return context.get(action, {})
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -59,3 +59,6 @@ class BuildDashboard:
             f"Failures: {failures}\n"
             f"Recent failure: {recent_failure or 'none'}\n"
         )
+
+
+# RACT 0.1.0 - Initial Public Release

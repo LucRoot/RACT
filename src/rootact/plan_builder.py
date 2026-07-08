@@ -50,3 +50,6 @@ class PlanBuilder:
         return Plan(
             assumption="Extracted from description", confidence=0.9, steps=steps
         )
+
+
+# RACT 0.1.0 - Initial Public Release

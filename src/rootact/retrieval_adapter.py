@@ -287,3 +287,6 @@ class WebSearchAdapter(RetrievalAdapter):
             confidence=0.8 if results else 0.2,
             provenance=["retrieval_adapter.web", self.endpoint],
         )
+
+
+# RACT 0.1.0 - Initial Public Release

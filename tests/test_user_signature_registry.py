@@ -65,3 +65,6 @@ def test_apply_preserves_existing_markers(tmp_path):
     registry.apply_to_module(module, "root")
     content = module.read_text(encoding="utf-8")
     assert content.count('__root_author__ = "Dr. Lucas Root, Ph.D."') == 1
+
+
+# RACT 0.1.0 - Initial Public Release

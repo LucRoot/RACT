@@ -145,3 +145,6 @@ def test_registry_from_config_builds_stdio_clients():
     registry = McpToolRegistry.from_config(config)
     assert "fs" in registry._servers
     assert isinstance(registry._servers["fs"], StdioMcpClient)
+
+
+# RACT 0.1.0 - Initial Public Release

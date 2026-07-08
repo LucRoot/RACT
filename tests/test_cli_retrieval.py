@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the `ract retrieval` CLI command."""
+"""Tests for the `rootact retrieval` CLI command."""
 
 from __future__ import annotations
 
@@ -119,3 +119,6 @@ def test_retrieval_no_action_prints_help(tmp_path: Path, capsys):
     assert exit_code == 1
     captured = capsys.readouterr()
     assert "usage" in captured.out.lower()
+
+
+# RACT 0.1.0 - Initial Public Release

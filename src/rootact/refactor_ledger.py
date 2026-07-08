@@ -143,3 +143,6 @@ class RefactorLedger:
 def _count_lines(content: str) -> int:
     """Return the number of non-empty lines in *content*."""
     return sum(1 for line in content.splitlines() if line.strip())
+
+
+# RACT 0.1.0 - Initial Public Release

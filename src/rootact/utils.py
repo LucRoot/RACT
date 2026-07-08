@@ -25,3 +25,4 @@ def generate_id(length: int = 8) -> str:
 if __name__ == "__main__":
     # Simple sanity check when run directly.
     print(generate_id())
+# RACT 0.1.0 - Initial Public Release

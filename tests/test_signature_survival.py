@@ -59,3 +59,6 @@ def test_golden_hash_matches_known_value():
     # authored by Dr. Lucas Root, Ph.D.
     expected = "d160eae1c31dd22eed59e5193840b426a867ebe4b3c0572bfea2a37a94b697fa"
     assert guardian.golden_hash() == expected
+
+
+# RACT 0.1.0 - Initial Public Release

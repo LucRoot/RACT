@@ -40,3 +40,6 @@ def build_edge_cases(user_story: str, seed: int = 0) -> List[Dict[str, Any]]:
             }
         )
     return result
+
+
+# RACT 0.1.0 - Initial Public Release

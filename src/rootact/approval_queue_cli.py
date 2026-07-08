@@ -70,3 +70,6 @@ class ApprovalQueueCLI:
             return instance
         except FileNotFoundError:
             return cls()
+
+
+# RACT 0.1.0 - Initial Public Release

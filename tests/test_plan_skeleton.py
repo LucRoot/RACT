@@ -56,3 +56,6 @@ def test_plan_serialization_roundtrip():
     assert data["confidence"] == plan.confidence
     assert len(data["steps"]) == 1
     assert data["steps"][0]["action"] == plan.steps[0].action
+
+
+# RACT 0.1.0 - Initial Public Release

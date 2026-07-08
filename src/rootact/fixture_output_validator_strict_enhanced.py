@@ -14,3 +14,6 @@ def validate_fixture_output_strict_enhanced(captured: object) -> None:
         raise AssertionError("stdout is empty or whitespace-only")
     if not err or not err.strip():
         raise AssertionError("stderr is empty or whitespace-only")
+
+
+# RACT 0.1.0 - Initial Public Release

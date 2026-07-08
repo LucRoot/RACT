@@ -45,3 +45,6 @@ class ArtifactTracker:
     def list_identifiers(self) -> Set[str]:
         """Return a set of all registered artifact identifiers."""
         return set(self._registry.keys())
+
+
+# RACT 0.1.0 - Initial Public Release

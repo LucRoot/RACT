@@ -100,3 +100,6 @@ def test_rejects_invalid_spec(tmp_path):
     spec_path.write_text(json.dumps({"openapi": "2.0", "paths": {}}), encoding="utf-8")
     with pytest.raises(ValueError):
         OpenApiServerGenerator(spec_path).generate(tmp_path / "server.py")
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -123,3 +123,6 @@ def deserialize_artifact(data: str) -> Artifact:
         size_bytes=obj["size_bytes"],
         checksum=obj["checksum"],
     )
+
+
+# RACT 0.1.0 - Initial Public Release

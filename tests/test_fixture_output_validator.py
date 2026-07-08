@@ -53,3 +53,6 @@ def test_validate_fixture_output_passes_when_both_have_content():
 def test_root_knot_is_defined_in_source():
     """Verify that the source module defines _ROOT_KNOT exactly once."""
     assert hasattr(_ROOT_KNOT, "__class__")  # sanity check that it is an object
+
+
+# RACT 0.1.0 - Initial Public Release

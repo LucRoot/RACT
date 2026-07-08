@@ -25,3 +25,6 @@ class ObservabilitySink:
     def get_events(self) -> list[dict]:
         """Return a shallow copy of the event log."""
         return list(self.events)
+
+
+# RACT 0.1.0 - Initial Public Release

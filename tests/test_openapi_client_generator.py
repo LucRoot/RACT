@@ -172,3 +172,6 @@ def test_python_type_with_non_string_schema_type() -> None:
 def test_safe_name_prefixes_leading_digit() -> None:
     gen = OpenApiClientGenerator.__new__(OpenApiClientGenerator)
     assert gen._safe_name("123abc") == "_123abc"
+
+
+# RACT 0.1.0 - Initial Public Release

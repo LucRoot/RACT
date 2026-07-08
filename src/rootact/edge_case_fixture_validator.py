@@ -43,3 +43,6 @@ def validate_error_presence_in_captured_output(
                 f"in captured output from fixture '{name}'. "
                 f"Captured output: {captured.out!r}"
             )
+
+
+# RACT 0.1.0 - Initial Public Release

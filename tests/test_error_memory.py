@@ -155,3 +155,6 @@ def test_max_stored_cap(tmp_path):
     assert len(entries) == 2
     assert entries[0]["iteration"] == 3
     assert entries[1]["iteration"] == 4
+
+
+# RACT 0.1.0 - Initial Public Release

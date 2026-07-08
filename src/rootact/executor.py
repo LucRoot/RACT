@@ -942,3 +942,6 @@ class Executor:
             confidence=plan.confidence,
             provenance=["executor.execute"],
         )
+
+
+# RACT 0.1.0 - Initial Public Release

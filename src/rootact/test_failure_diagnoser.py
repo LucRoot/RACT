@@ -348,3 +348,6 @@ class TestFailureDiagnoser:
             return str(rel).replace("\\", "/")
         except (ValueError, OSError):
             return None
+
+
+# RACT 0.1.0 - Initial Public Release

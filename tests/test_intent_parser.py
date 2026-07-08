@@ -54,3 +54,4 @@ class TestIntentParser(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+# RACT 0.1.0 - Initial Public Release

@@ -63,3 +63,6 @@ def enrich_harness_run(
         lambda report: DiffExtension().attach_diff_summary(report),
         step="harness_report_enricher.attach_diff_summary",
     )
+
+
+# RACT 0.1.0 - Initial Public Release

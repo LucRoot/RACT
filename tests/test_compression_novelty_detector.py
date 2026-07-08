@@ -192,3 +192,6 @@ def test_detector_scan_project_returns_scores(tmp_path):
     assert "scores" in result
     assert "a.py" in result["scores"]
     assert "b.py" in result["scores"]
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -72,3 +72,6 @@ class RetryPolicy:
                 sleeper(self.calculate_delay(attempt + 1))
 
         return None, last_error
+
+
+# RACT 0.1.0 - Initial Public Release

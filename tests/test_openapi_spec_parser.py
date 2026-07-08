@@ -140,3 +140,6 @@ def test_safe_name_starts_with_digit() -> None:
 
 def test_to_snake_case() -> None:
     assert to_snake_case("GetUserProfile") == "get_user_profile"
+
+
+# RACT 0.1.0 - Initial Public Release

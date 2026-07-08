@@ -158,3 +158,6 @@ def test_novelty_budget_summary_after_spending(tmp_path):
     assert summary["budget"] == 15
     assert summary["spent"] == 9  # new_file 3 + new_public_symbol 6
     assert summary["remaining"] == 6
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -100,3 +100,6 @@ class HandshakeRegistry:
                 self._save(items)
                 return items[i]
         raise KeyError(f"Handshake not found: {milestone_id}")
+
+
+# RACT 0.1.0 - Initial Public Release

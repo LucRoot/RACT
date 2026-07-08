@@ -612,3 +612,6 @@ def test_router_fallback_chain_fallback_to_first_when_registry_empty():
     chain = router.fallback_chain("chat")
     assert len(chain) == 1
     assert not chain[0].is_ok()
+
+
+# RACT 0.1.0 - Initial Public Release

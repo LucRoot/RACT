@@ -44,3 +44,6 @@ def test_load_and_validate_fixtures_missing_error_substring(capsys):
         load_and_validate_fixtures(
             fixture_dict, capsys, expected_error="expected_error"
         )
+
+
+# RACT 0.1.0 - Initial Public Release

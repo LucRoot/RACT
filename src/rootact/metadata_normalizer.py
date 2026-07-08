@@ -34,3 +34,4 @@ class MetadataNormalizer:
 
 # Export the sentinel and author marker for test verification
 __all__ = ["_ROOT_KNOT", "__root_author__"]
+# RACT 0.1.0 - Initial Public Release

@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the `ract explain` CLI command."""
+"""Tests for the `rootact explain` CLI command."""
 
 from __future__ import annotations
 
@@ -113,3 +113,6 @@ def test_explain_missing_plan_file(tmp_path: Path, capsys):
     assert exit_code == 1
     captured = capsys.readouterr()
     assert "failed to load plan" in captured.err
+
+
+# RACT 0.1.0 - Initial Public Release

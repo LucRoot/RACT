@@ -150,3 +150,6 @@ def test_report_without_benchmarks() -> None:
     )
     report = mode.report()
     assert "No benchmarks recorded." in report.summary
+
+
+# RACT 0.1.0 - Initial Public Release

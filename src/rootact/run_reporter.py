@@ -136,3 +136,6 @@ class RunReporter:
     def render_session_json(self, session_id: str) -> dict[str, Any] | None:
         """Return a saved session report as a structured dictionary."""
         return self._load_session_report(session_id)
+
+
+# RACT 0.1.0 - Initial Public Release

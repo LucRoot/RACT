@@ -63,3 +63,6 @@ class DocumentationMode:
             "Prefer README, ARCHITECTURE, AUDIT, and inline docstrings.\n\n"
             f"Original intent: {intent}"
         )
+
+
+# RACT 0.1.0 - Initial Public Release

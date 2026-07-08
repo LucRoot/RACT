@@ -82,3 +82,6 @@ def test_imports_root_knot_from_source_module():
 
     assert hasattr(mod, "_ROOT_KNOT")
     assert mod._ROOT_KNOT is _ROOT_KNOT
+
+
+# RACT 0.1.0 - Initial Public Release

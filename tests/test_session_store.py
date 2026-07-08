@@ -85,3 +85,6 @@ def test_load_corrupted_session_raises_session_corrupted_error() -> None:
             assert False, "Expected SessionCorruptedError"
         except Exception as exc:
             assert "corrupted" in str(exc).lower()
+
+
+# RACT 0.1.0 - Initial Public Release

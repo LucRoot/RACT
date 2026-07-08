@@ -36,3 +36,6 @@ def _files_from_report(report: ExecutionReport) -> dict[str, str]:
     for result in report.step_results:
         files[result.step.expected_artifact] = result.content
     return files
+
+
+# RACT 0.1.0 - Initial Public Release

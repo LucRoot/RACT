@@ -32,3 +32,6 @@ def test_empty_stdout() -> None:
 def test_empty_stderr() -> None:
     with pytest.raises(AssertionError, match="stderr"):
         validate_fixture_output_strict_plus(_FakeCapture("hello\n", ""))
+
+
+# RACT 0.1.0 - Initial Public Release

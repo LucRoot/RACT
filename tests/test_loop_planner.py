@@ -243,3 +243,6 @@ def test_generate_backlog_passes_historian_context_to_planner(tmp_project: Path)
     prompt = call_args[0][0]
     assert "Existing symbols related to this intent" in prompt
     assert "core_helper" in prompt
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -51,14 +51,14 @@ RootAct is a standalone, model-agnostic Agentic Coding Tool. It turns user inten
 | `ArtifactStore` / `ArtifactTracker` | `src/rootact/artifact_store.py`, `artifact_tracker.py` | Artifact persistence and change tracking. |
 | `ProvenanceTracker` | `src/rootact/provenance_tracker.py` | Tracks where decisions and artifacts came from. |
 | `ObservabilitySink` | `src/rootact/observability_sink.py` | Structured event logging. |
-| `RunReporter` | `src/rootact/run_reporter.py` | Summarizes loop/session runs for `ract report`. |
+| `RunReporter` | `src/rootact/run_reporter.py` | Summarizes loop/session runs for `rootact report`. |
 
 ## User Customization
 
 | Module | File | Responsibility |
 |--------|------|----------------|
 | `SkillRegistry` | `src/rootact/skills_registry.py` | Register and invoke custom prompt templates and tool wrappers. |
-| `BuiltinSkillLibrary` | `src/rootact/builtin_skill_library.py` | Built-in skill templates installable via `ract skills install`. |
+| `BuiltinSkillLibrary` | `src/rootact/builtin_skill_library.py` | Built-in skill templates installable via `rootact skills install`. |
 | `SignatureRegistry` | `src/rootact/user_signature_registry.py` | Store and apply personal author signatures and coding quirks. |
 | `SignatureGuardian` | `src/rootact/signature_guardian.py` | Verify signature marker integrity across the source tree. |
 | `HookManager` | `src/rootact/hook_system.py` | Pre/post-step user-defined hooks. |
@@ -135,3 +135,5 @@ The separation is enforced by `scripts/verify_internal_rootact_separation.py` an
 
 - **Use-case expansion:** continue adding use cases to `rootact_use_cases.jsonl` and building them through the loop.
 - **Real-world loop validation:** run multi-file refactor tasks end-to-end and tune the Progress Oracle thresholds now that the loop has timeout and feedback hardening.
+
+<!-- RACT 0.1.0 - Initial Public Release -->

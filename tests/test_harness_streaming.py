@@ -84,3 +84,6 @@ def test_harness_streaming_collects_and_calls_callback(tmp_path):
     assert "_ROOT_KNOT = object()" in content
     assert "abcdef" in content
     assert received == ["abc", "def"]
+
+
+# RACT 0.1.0 - Initial Public Release

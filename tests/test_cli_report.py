@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the `ract report` CLI command."""
+"""Tests for the `rootact report` CLI command."""
 
 from __future__ import annotations
 
@@ -87,3 +87,6 @@ def test_report_missing_loop_json_is_empty_object(tmp_path: Path, capsys):
     assert exit_code == 0
     captured = capsys.readouterr()
     assert captured.out.strip() == "{}"
+
+
+# RACT 0.1.0 - Initial Public Release

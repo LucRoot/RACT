@@ -73,3 +73,6 @@ def test_truthiness() -> None:
     assert bool(budget) is True
     budget.reserve(10)
     assert bool(budget) is False
+
+
+# RACT 0.1.0 - Initial Public Release

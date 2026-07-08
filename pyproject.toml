@@ -23,6 +23,7 @@ dev = ["pytest>=8.0", "pytest-cov>=5.0", "respx>=0.21", "ruff>=0.5", "mypy>=1.11
 
 [project.scripts]
 rootact = "rootact.cli:main"
+ract = "rootact.cli:main"
 
 [tool.ruff.lint]
 # E402 is disabled project-wide because RootAct's authorship/sentinel markers
@@ -41,3 +42,4 @@ include = [
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "--cov=rootact --cov-report=term-missing"
+# RACT 0.1.0 - Initial Public Release

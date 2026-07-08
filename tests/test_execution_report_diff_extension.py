@@ -48,3 +48,6 @@ def test_attach_diff_summary_no_steps() -> None:
     assert enriched.artifacts["change_summary"] != ""
     assert enriched.artifacts["file_diff"] != ""
     assert enriched.artifacts["extra"] == "value"
+
+
+# RACT 0.1.0 - Initial Public Release

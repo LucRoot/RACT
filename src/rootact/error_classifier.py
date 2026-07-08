@@ -41,3 +41,6 @@ def classify_error(exc: Exception, default_category: str = "unknown") -> ErrorIn
 def get_error_category(exc: Exception) -> str:
     """Return only the category string for simple testing."""
     return classify_error(exc).category
+
+
+# RACT 0.1.0 - Initial Public Release

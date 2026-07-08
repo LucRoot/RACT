@@ -51,3 +51,6 @@ def test_invalid_json_file():
             assert False, "Should have raised an exception"
         except json.JSONDecodeError:
             pass  # Expected
+
+
+# RACT 0.1.0 - Initial Public Release

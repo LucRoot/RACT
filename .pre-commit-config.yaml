@@ -16,3 +16,4 @@ repos:
         types: [python]
         pass_filenames: false
         always_run: true
+# RACT 0.1.0 - Initial Public Release

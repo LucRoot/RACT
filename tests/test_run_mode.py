@@ -155,3 +155,6 @@ def test_root_knot_sentinel_used_in_orchestrate_signature() -> None:
     sig = inspect.signature(instance.orchestrate)
     param = sig.parameters["approval_queue"]
     assert param.default is _RUN_MODE_ROOT_KNOT
+
+
+# RACT 0.1.0 - Initial Public Release

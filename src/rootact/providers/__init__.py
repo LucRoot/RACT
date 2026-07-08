@@ -20,3 +20,4 @@ __all__ = [
     "ProviderRouter",
     "register_adapter",
 ]
+# RACT 0.1.0 - Initial Public Release

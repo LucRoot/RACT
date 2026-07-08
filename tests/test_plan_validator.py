@@ -105,3 +105,6 @@ def test_validate_valid_step_multiple():
     result = PlanValidator.validate(plan)
     assert result.is_valid is True
     assert "valid" in result.message.lower()
+
+
+# RACT 0.1.0 - Initial Public Release

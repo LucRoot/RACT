@@ -50,3 +50,6 @@ def test_scenarios_are_unique_and_relevant():
             kw in user_story.lower()
             for kw in ["daily limit", "network", "currency", "wrong"]
         )
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -61,3 +61,6 @@ def test_missing_command_reports_not_found(tmp_path: Path) -> None:
     results = manager.run_hooks("pre", {})
     assert len(results) == 1
     assert results[0]["returncode"] == 127
+
+
+# RACT 0.1.0 - Initial Public Release

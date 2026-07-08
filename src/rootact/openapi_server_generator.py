@@ -148,3 +148,6 @@ class OpenApiServerGenerator:
         raw_schema = param.get("schema")
         schema: dict[str, Any] = raw_schema if isinstance(raw_schema, dict) else {}
         return python_type(schema)
+
+
+# RACT 0.1.0 - Initial Public Release

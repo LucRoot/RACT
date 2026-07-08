@@ -65,3 +65,6 @@ def test_save_serializes_all_sections(tmp_path):
     assert data["custom"] == [
         {"action": "c", "provider_hint": "H", "expected_artifact": "C"}
     ]
+
+
+# RACT 0.1.0 - Initial Public Release

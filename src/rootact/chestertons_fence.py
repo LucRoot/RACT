@@ -182,3 +182,6 @@ class ChestertonsFence:
                 f"provider:{self.provider.name}",
             ],
         )
+
+
+# RACT 0.1.0 - Initial Public Release

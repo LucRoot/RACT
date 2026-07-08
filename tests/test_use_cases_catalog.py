@@ -37,3 +37,6 @@ def test_catalog_has_accepted_and_rejected_entries():
             assert "description" in entry
             assert entry["status"] in ("accepted", "rejected")
     assert "accepted" in statuses
+
+
+# RACT 0.1.0 - Initial Public Release

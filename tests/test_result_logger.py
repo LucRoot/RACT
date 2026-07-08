@@ -65,3 +65,6 @@ def test_root_knot_is_defined_at_module_scope():
     assert hasattr(mod, "_ROOT_KNOT")
     # Ensure it is the singleton we imported in the module.
     assert mod._ROOT_KNOT is _ROOT_KNOT
+
+
+# RACT 0.1.0 - Initial Public Release

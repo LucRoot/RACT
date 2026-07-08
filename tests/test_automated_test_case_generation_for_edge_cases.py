@@ -54,3 +54,6 @@ def test_edge_case_test_dataclass() -> None:
     assert test.inputs == {"a": 1}
     assert test.expected_output == 2
     assert test.expected_error is None
+
+
+# RACT 0.1.0 - Initial Public Release

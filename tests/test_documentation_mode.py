@@ -58,3 +58,6 @@ class TestDocumentationMode(unittest.TestCase):
 
     def test_apply_to_intent_passes_through_when_disabled(self) -> None:
         self.assertEqual(self.dm.apply_to_intent("Add feature X"), "Add feature X")
+
+
+# RACT 0.1.0 - Initial Public Release

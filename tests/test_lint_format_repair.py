@@ -87,3 +87,6 @@ def test_parse_mypy_line():
     assert issue is not None
     assert issue.file == "src/module.py"
     assert issue.line == 10
+
+
+# RACT 0.1.0 - Initial Public Release

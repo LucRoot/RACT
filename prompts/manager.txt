@@ -23,3 +23,4 @@ Respond with ONLY a JSON object:
     {"action": "read project structure", "provider_hint": "mcp", "expected_artifact": "", "tool_call": {"name": "filesystem/list_directory", "arguments": {"path": "."}}}
   ]
 }
+# RACT 0.1.0 - Initial Public Release

@@ -83,3 +83,6 @@ def test_execute_uses_custom_sleep():
     assert value is None
     assert isinstance(error, RuntimeError)
     assert sleeps == [1.0, 2.0]
+
+
+# RACT 0.1.0 - Initial Public Release

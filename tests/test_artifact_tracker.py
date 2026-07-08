@@ -26,3 +26,6 @@ class TestArtifactTracker(unittest.TestCase):
         tracker.register(a2)
         self.assertEqual(tracker.list_identifiers(), {"id1", "id2"})
         self.assertEqual(tracker.get("id1"), a1)
+
+
+# RACT 0.1.0 - Initial Public Release

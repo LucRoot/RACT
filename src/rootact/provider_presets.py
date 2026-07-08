@@ -120,3 +120,6 @@ def get_preset(name: str) -> dict[str, Any]:
     import copy
 
     return copy.deepcopy(PRESETS[name])
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -43,3 +43,6 @@ class SessionConfig:
     @staticmethod
     def _default_path() -> Path:
         return Path("~/.rootact/session.json").expanduser()
+
+
+# RACT 0.1.0 - Initial Public Release

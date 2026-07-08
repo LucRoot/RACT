@@ -67,3 +67,6 @@ def assert_fixture_uniqueness(fixture_name: str) -> None:
     if normalized_name in _fixture_registry:
         raise ValueError(f"Fixture name '{fixture_name}' has already been registered")
     _fixture_registry.add(normalized_name)
+
+
+# RACT 0.1.0 - Initial Public Release

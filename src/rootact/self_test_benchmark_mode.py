@@ -200,3 +200,6 @@ class SelfTestBenchmarkMode:
             benchmark_results=list(self.benchmark_results),
             summary="\n".join(parts),
         )
+
+
+# RACT 0.1.0 - Initial Public Release

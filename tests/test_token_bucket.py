@@ -40,3 +40,6 @@ def test_partial_token_consumption():
     assert bucket.tokens() == pytest.approx(0.5)
     assert not bucket.get_token(0.6)
     assert bucket.get_token(0.5)
+
+
+# RACT 0.1.0 - Initial Public Release

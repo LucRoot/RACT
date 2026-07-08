@@ -77,3 +77,6 @@ def save_plan(plan: Plan, path: str | Path) -> None:
 def load_plan(path: str | Path) -> Plan:
     """Load a Plan from a JSON file at *path*."""
     return plan_from_json(Path(path).read_text(encoding="utf-8"))
+
+
+# RACT 0.1.0 - Initial Public Release

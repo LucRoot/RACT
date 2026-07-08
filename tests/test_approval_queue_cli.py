@@ -86,3 +86,6 @@ def test_root_knot_sentinel_default():
     cli = ApprovalQueueCLI()
     assert cli.pending == []
     assert cli.decisions == {}
+
+
+# RACT 0.1.0 - Initial Public Release

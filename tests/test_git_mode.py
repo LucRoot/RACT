@@ -157,3 +157,6 @@ def test_commit_files_resets_on_commit_failure(tmp_path, monkeypatch):
         mode.commit_files([str(file)], message="Add foo")
 
     assert any(c[:3] == ["git", "reset", "HEAD"] for c in calls)
+
+
+# RACT 0.1.0 - Initial Public Release

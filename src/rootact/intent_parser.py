@@ -55,3 +55,4 @@ if __name__ == "__main__":
     parser = IntentParser()
     intent = parser.parse("List recent blog posts")
     print(intent.plan.steps[0].action)
+# RACT 0.1.0 - Initial Public Release

@@ -87,3 +87,6 @@ def execute_edge_case_tests(fixture_dict: Dict[str, Callable]) -> None:
         # The function itself does not return anything; the assertion side‑effect is what matters.
         # No external dependencies are required – everything is deterministic.
         func()
+
+
+# RACT 0.1.0 - Initial Public Release

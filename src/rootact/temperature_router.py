@@ -86,3 +86,6 @@ class TemperatureRouter:
         # Most loop intents ask for code changes; planning is still closer to
         # structured reasoning than pure generation, so use default/plan temp.
         return self.plan_temp
+
+
+# RACT 0.1.0 - Initial Public Release

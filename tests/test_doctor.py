@@ -258,3 +258,6 @@ def test_doctor_skill_missing(tmp_path):
     check = next(r for r in results if r.name == "skills")
     assert not check.passed
     assert "missing_skill" in check.message
+
+
+# RACT 0.1.0 - Initial Public Release

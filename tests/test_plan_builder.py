@@ -36,3 +36,6 @@ class TestPlanBuilder(unittest.TestCase):
         self.assertEqual(len(plan.steps), 0)
         self.assertEqual(plan.assumption, "Extracted from description")
         self.assertAlmostEqual(plan.confidence, 0.9)
+
+
+# RACT 0.1.0 - Initial Public Release

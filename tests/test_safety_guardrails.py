@@ -88,3 +88,6 @@ except Exception:
 """
     violations = guard.check("bad.py", content)
     assert not any(v["rule"] == "except-pass" for v in violations)
+
+
+# RACT 0.1.0 - Initial Public Release

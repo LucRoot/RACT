@@ -101,3 +101,6 @@ class SignatureGuardian:
                     if marker in line:
                         hasher.update(line.encode("utf-8"))
         return hasher.hexdigest()
+
+
+# RACT 0.1.0 - Initial Public Release

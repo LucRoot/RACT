@@ -304,3 +304,6 @@ class LegacyWhisperer:
             confidence=0.8,
             provenance=["legacy_whisperer.brief", f"provider:{self.provider.name}"],
         )
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -113,3 +113,6 @@ def test_dict_snapshot():
     assert snapshot["lines_refactored"] == 1
     assert snapshot["ratio"] == 1.0
     assert snapshot["breach"] is False
+
+
+# RACT 0.1.0 - Initial Public Release

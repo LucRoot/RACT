@@ -441,3 +441,6 @@ def run_rootact(
 
     _save_session(session_id, store, intent, result)
     return result
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -128,3 +128,6 @@ def test_rollback_streak_increments_and_saves():
     assert final_streak == 3
     loaded3 = cm.load(session_id)
     assert loaded3.recent_failures == 3
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -192,3 +192,6 @@ def test_save_raises_on_write_error(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "write_text", _raise)
     with pytest.raises(Exception):  # noqa: B017
         arena.save(path)
+
+
+# RACT 0.1.0 - Initial Public Release

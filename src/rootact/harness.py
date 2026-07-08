@@ -574,3 +574,6 @@ class Harness:
             )
 
         return report_rooted
+
+
+# RACT 0.1.0 - Initial Public Release

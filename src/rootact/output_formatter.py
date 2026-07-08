@@ -48,3 +48,6 @@ class OutputFormatter:
     def reset_indent(self) -> None:
         """Reset internal indentation to default."""
         self._indent = "  "
+
+
+# RACT 0.1.0 - Initial Public Release

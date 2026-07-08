@@ -65,3 +65,6 @@ class LocalHttpProvider(OpenAICompatibleProvider):
     def close(self) -> None:
         if hasattr(self, "client") and self.client is not None:
             self.client.close()
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -107,3 +107,6 @@ class TestCapabilityRegistry:
         result = registry.select("c")
         assert result.value is adapter
         assert result.provider == "default"
+
+
+# RACT 0.1.0 - Initial Public Release

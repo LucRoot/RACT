@@ -237,3 +237,6 @@ def test_keyword_search_short_query_returns_low_confidence_empty(tmp_path):
     # a below-floor confidence score.
     assert result.value == []
     assert result.confidence < 0.7
+
+
+# RACT 0.1.0 - Initial Public Release

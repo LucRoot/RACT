@@ -110,3 +110,6 @@ def test_cli_auction_list_json(capsys, tmp_path: Path):
     assert code == 0
     assert "dead.py" in out
     assert "250" in out
+
+
+# RACT 0.1.0 - Initial Public Release

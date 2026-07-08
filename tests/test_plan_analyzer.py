@@ -46,3 +46,6 @@ def test_analyze_plan_all_safe():
     assert result.risk_score == 0.0
     assert result.high_risk_steps == []
     assert result.suggestions == []
+
+
+# RACT 0.1.0 - Initial Public Release

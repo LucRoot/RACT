@@ -105,3 +105,6 @@ class ProjectDocument:
 
     def __repr__(self) -> str:
         return f"ProjectDocument(goal={self._sections.get('goal')}, sections={list(self._sections.keys())})"
+
+
+# RACT 0.1.0 - Initial Public Release

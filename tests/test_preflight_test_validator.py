@@ -92,3 +92,6 @@ def test_validate_report_tests_reports_test_issue():
     assert len(issues) == 1
     assert isinstance(issues[0], PreflightIssue)
     assert "re" in issues[0].message
+
+
+# RACT 0.1.0 - Initial Public Release

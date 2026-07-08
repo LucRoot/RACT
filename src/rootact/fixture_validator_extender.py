@@ -70,3 +70,6 @@ def extend_fixture_validation(
             raise AssertionError(
                 f"Expected '{expected_error_substring}' not found in output of fixture '{name}'. Captured: out={captured.out!r}, err={captured.err!r}"
             )
+
+
+# RACT 0.1.0 - Initial Public Release

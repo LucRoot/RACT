@@ -200,3 +200,6 @@ def validate_report_tests(report: Any) -> list[PreflightIssue]:
             )
 
     return issues
+
+
+# RACT 0.1.0 - Initial Public Release

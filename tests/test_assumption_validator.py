@@ -72,3 +72,6 @@ def test_author_marker_present_in_source():
     source = Path(__file__).parents[1] / "src" / "rootact" / "assumption_validator.py"
     assert '__root_author__ = "Dr. Lucas Root, Ph.D."' in source.read_text()
     assert '__ract_name__ = "RACT"' in source.read_text()
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -100,3 +100,6 @@ class GitMode:
                 f"Git commit failed: {commit_result.stderr or commit_result.stdout}"
             )
         return commit_result
+
+
+# RACT 0.1.0 - Initial Public Release

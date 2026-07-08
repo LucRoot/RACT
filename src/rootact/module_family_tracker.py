@@ -171,3 +171,6 @@ def build_diversity_prompt(
         lines.append("- (no catalog entries available; pick any new domain)")
 
     return "\n".join(lines)
+
+
+# RACT 0.1.0 - Initial Public Release

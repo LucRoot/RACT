@@ -65,3 +65,4 @@ if __name__ == "__main__":
     skeleton = PlanSkeleton.from_simple("Deploy application", 0.95)
     plan = skeleton.as_plan()
     print(f"Generated plan: {plan}")
+# RACT 0.1.0 - Initial Public Release

@@ -54,3 +54,6 @@ def test_supported_task_types():
     router = ModelRouter([fast, capable])
     assert "boilerplate" in router.supported_task_types()
     assert "diagnose" in router.supported_task_types()
+
+
+# RACT 0.1.0 - Initial Public Release

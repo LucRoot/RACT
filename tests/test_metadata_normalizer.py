@@ -64,3 +64,6 @@ def test_root_knot_sentinel_is_same():
     from rootact.metadata_normalizer import _ROOT_KNOT as source_knot
 
     assert source_knot is _ROOT_KNOT
+
+
+# RACT 0.1.0 - Initial Public Release

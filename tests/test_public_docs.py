@@ -62,3 +62,6 @@ def test_public_docs_do_not_reference_internal() -> None:
         text = (DOCS_DIR / filename).read_text(encoding="utf-8").lower()
         assert "internal" not in text, f"{filename} references Internal"
         assert "internal" not in text, f"{filename} references Internal"
+
+
+# RACT 0.1.0 - Initial Public Release

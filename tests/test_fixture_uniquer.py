@@ -70,3 +70,6 @@ def test_validates_input_structure():
     fixtures_not_dict = ["not a dict"]
     with pytest.raises(ValueError, match="Each fixture must be a dictionary"):
         ensure_global_fixture_uniqueness(fixtures_not_dict, "story")
+
+
+# RACT 0.1.0 - Initial Public Release

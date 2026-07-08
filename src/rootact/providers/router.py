@@ -179,3 +179,6 @@ class ProviderRouter:
             provenance=["router.health_check", slot_id],
             error=error,
         )
+
+
+# RACT 0.1.0 - Initial Public Release

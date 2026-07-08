@@ -236,3 +236,6 @@ class LintFormatRepair:
             confidence=1.0,
             provenance=["lint_format_repair.build_repair_prompt"],
         )
+
+
+# RACT 0.1.0 - Initial Public Release

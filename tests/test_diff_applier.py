@@ -80,3 +80,6 @@ def test_apply_diff_preserves_trailing_newline(tmp_path):
     assert results[0].applied is True
     content = target.read_bytes()
     assert content == b"line1\nline2_changed\n"
+
+
+# RACT 0.1.0 - Initial Public Release

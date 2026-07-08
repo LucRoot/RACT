@@ -41,3 +41,6 @@ def ensure_unique_fixtures(fixtures: List[Dict[str, Any]]) -> List[Dict[str, Any
         new_fixture["pytest_fixture"] = f"{base_name}_{suffix}"
         unique_fixtures.append(new_fixture)
     return unique_fixtures
+
+
+# RACT 0.1.0 - Initial Public Release

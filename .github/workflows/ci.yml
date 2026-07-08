@@ -53,3 +53,4 @@ jobs:
           rootact --help
         shell: bash
         if: runner.os != 'Windows'
+# RACT 0.1.0 - Initial Public Release

@@ -254,3 +254,6 @@ class McpToolRegistry:
                 error=f"No MCP server registered as '{server_name}'",
             )
         return adapter.call_tool(tool_name, arguments)
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -37,3 +37,6 @@ def test_deduplication_result_json_roundtrip(tmp_path: Path):
     loaded = json.loads(json_path.read_text())
     reloaded = DeduplicationResult(**loaded)
     assert reloaded == result
+
+
+# RACT 0.1.0 - Initial Public Release

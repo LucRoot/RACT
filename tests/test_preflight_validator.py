@@ -63,3 +63,6 @@ def test_default_config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     config.write_text("project:\n  name: default\n")
     validator = PreflightValidator()
     assert validator.is_valid() is True
+
+
+# RACT 0.1.0 - Initial Public Release

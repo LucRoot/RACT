@@ -27,3 +27,6 @@ def test_render_with_empty_outcomes():
     assert "Success rate: 0.0%" in output
     assert "Failures: 0" in output
     assert "Recent failure: none" in output
+
+
+# RACT 0.1.0 - Initial Public Release

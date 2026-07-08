@@ -81,3 +81,6 @@ def test_generator_respects_custom_output_dir(tmp_path):
     generator.generate()
     assert (custom / "mod.md").is_file()
     assert (custom / "index.md").is_file()
+
+
+# RACT 0.1.0 - Initial Public Release

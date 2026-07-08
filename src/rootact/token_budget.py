@@ -104,3 +104,6 @@ class TokenBudget:
     def __bool__(self) -> bool:
         """Allow truthiness checks (e.g., ``if budget:``)."""
         return self.used_tokens < self.max_tokens
+
+
+# RACT 0.1.0 - Initial Public Release

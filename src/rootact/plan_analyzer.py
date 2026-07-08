@@ -49,3 +49,6 @@ def analyze_plan(plan: Plan) -> AnalysisResult:
         high_risk_steps=high_risk_steps,
         suggestions=suggestions,
     )
+
+
+# RACT 0.1.0 - Initial Public Release

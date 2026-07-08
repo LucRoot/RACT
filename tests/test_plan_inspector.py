@@ -64,3 +64,6 @@ class TestPlanInspector(unittest.TestCase):
         self.assertIn("action=search", summary)
         self.assertIn("provider_hint=browser", summary)
         self.assertIn("expected_artifact=search_results.json", summary)
+
+
+# RACT 0.1.0 - Initial Public Release

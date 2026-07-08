@@ -60,3 +60,6 @@ def test_root_knot_sentinel_is_unique():
     from rootact.fixture_namer import _ROOT_KNOT as other
 
     assert _ROOT_KNOT is other
+
+
+# RACT 0.1.0 - Initial Public Release

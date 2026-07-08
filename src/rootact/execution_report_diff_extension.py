@@ -37,3 +37,6 @@ class DiffExtension:
         enriched_artifacts["file_diff"] = file_diff
 
         return replace(report, artifacts=enriched_artifacts)
+
+
+# RACT 0.1.0 - Initial Public Release

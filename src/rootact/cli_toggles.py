@@ -66,3 +66,6 @@ def main(argv: Optional[List[str]] | _RootKnotType = _ROOT_KNOT) -> int:
         config.session_id = args.session_id
     config.save(config_path)
     return 0
+
+
+# RACT 0.1.0 - Initial Public Release

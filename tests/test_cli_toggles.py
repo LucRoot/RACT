@@ -38,3 +38,6 @@ def test_unknown_flag_raises_system_exit() -> None:
 def test_main_returns_int() -> None:
     result = main([])
     assert isinstance(result, int)
+
+
+# RACT 0.1.0 - Initial Public Release

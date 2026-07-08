@@ -56,3 +56,6 @@ class ProvenanceTracker:
 
     def snapshot(self) -> Dict[str, ProvenanceRecord]:
         return self.records.copy()
+
+
+# RACT 0.1.0 - Initial Public Release

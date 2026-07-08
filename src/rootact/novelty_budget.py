@@ -271,3 +271,6 @@ class NoveltyBudget:
             "remaining": self.remaining,
             "charge_count": len(self._state.charges),
         }
+
+
+# RACT 0.1.0 - Initial Public Release

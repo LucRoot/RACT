@@ -35,3 +35,6 @@ def test_execution_trace_uses_root_knot_sentinel():
     import rootact.execution_trace as module
 
     assert hasattr(module, "_ROOT_KNOT")
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -49,3 +49,6 @@ class ChangeDetector:
     def __bool__(self) -> bool:
         """True when the detector holds a non-empty diff result."""
         return bool(self._added or self._removed)
+
+
+# RACT 0.1.0 - Initial Public Release

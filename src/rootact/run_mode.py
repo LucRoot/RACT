@@ -105,3 +105,6 @@ class RunModeOrchestrator:
         plan = harness.build_plan_from_state(prior_state, intent)
         execution_report = harness.run_plan(plan)
         return execution_report
+
+
+# RACT 0.1.0 - Initial Public Release

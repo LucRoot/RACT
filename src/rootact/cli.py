@@ -48,7 +48,7 @@ from rootact.symbol_renamer import SymbolRenamer
 
 
 def _handshakes_command(args: list[str]) -> int:
-    """Handle 'ract handshakes list/approve/reject <id>'."""
+    """Handle 'rootact handshakes list/approve/reject <id>'."""
     parser = argparse.ArgumentParser(prog="rootact handshakes")
     parser.add_argument(
         "action",
@@ -89,7 +89,7 @@ def _handshakes_command(args: list[str]) -> int:
 
 
 def _mcp_command(args: list[str]) -> int:
-    """Handle 'ract mcp list'.
+    """Handle 'rootact mcp list'.
 
     LR:: Lists tools exposed by configured MCP servers so users can see what
     external capabilities RACT can invoke before running a plan.
@@ -141,7 +141,7 @@ def _mcp_command(args: list[str]) -> int:
 
 
 def _retrieval_command(args: list[str]) -> int:
-    """Handle 'ract retrieval search <query>'.
+    """Handle 'rootact retrieval search <query>'.
 
     LR:: Lets operators preview what context RACT retrieves for a query before
     invoking the management model. Works with the keyword adapter by default and
@@ -220,7 +220,7 @@ def _retrieval_command(args: list[str]) -> int:
 
 
 def _report_command(args: list[str]) -> int:
-    """Handle 'ract report --last' and 'ract report --session <id>'.
+    """Handle 'rootact report --last' and 'rootact report --session <id>'.
 
     LR:: Supports both human-readable text and JSON output, with optional file
     export, so the run report can be consumed by humans, scripts, or CI.
@@ -273,7 +273,7 @@ def _report_command(args: list[str]) -> int:
 
 
 def _diff_command(args: list[str]) -> int:
-    """Handle 'ract diff apply --patch <path> [--dry-run]'.
+    """Handle 'rootact diff apply --patch <path> [--dry-run]'.
 
     LR:: Applies a unified-diff patch file to the project. In dry-run mode it
     previews which files would change and where, without writing anything.
@@ -335,7 +335,7 @@ def _diff_command(args: list[str]) -> int:
 
 
 def _explain_command(args: list[str]) -> int:
-    """Handle 'ract explain --intent <text> | --plan <path>'.
+    """Handle 'rootact explain --intent <text> | --plan <path>'.
 
     LR:: Generates a dry-run plan and narrates it in plain language so the
     operator understands what RACT intends to do before any files are written.
@@ -397,7 +397,7 @@ def _explain_command(args: list[str]) -> int:
 
 
 def _skills_command(args: list[str]) -> int:
-    """Handle 'ract skills list' and 'ract skills install <name>'."""
+    """Handle 'rootact skills list' and 'rootact skills install <name>'."""
     library = BuiltinSkillLibrary()
     if not args or args[0] == "list":
         skills = library.list_skills()
@@ -433,7 +433,7 @@ def _skills_command(args: list[str]) -> int:
 
 
 def _refactor_command(args: list[str]) -> int:
-    """Handle 'ract refactor --old <name> --new <name> [--module <module>]'."""
+    """Handle 'rootact refactor --old <name> --new <name> [--module <module>]'."""
     parser = argparse.ArgumentParser(prog="rootact refactor")
     parser.add_argument("--old", required=True, help="Current symbol name.")
     parser.add_argument("--new", required=True, help="New symbol name.")
@@ -486,7 +486,7 @@ def _refactor_command(args: list[str]) -> int:
 
 
 def _docs_command(args: list[str]) -> int:
-    """Handle 'ract docs generate [--output-dir <dir>] [--config <path>]'.
+    """Handle 'rootact docs generate [--output-dir <dir>] [--config <path>]'.
 
     LR:: A concrete documentation-generation command so Documentation Mode is
     not just an intent rewrite; it can produce Markdown from the source tree.
@@ -520,7 +520,7 @@ def _docs_command(args: list[str]) -> int:
 
 
 def _init_command(args: list[str]) -> int:
-    """Handle 'ract init --template <name> --provider <name> [--config <path>]'.
+    """Handle 'rootact init --template <name> --provider <name> [--config <path>]'.
 
     LR:: Scaffolds a brand-new project from a template and provider preset. This
     is the concrete implementation of the configuration-driven project-templates
@@ -568,7 +568,7 @@ def _init_command(args: list[str]) -> int:
 
 
 def _openapi_command(args: list[str]) -> int:
-    """Handle 'ract openapi generate-client|generate-server --spec <path> --output <path>'.
+    """Handle 'rootact openapi generate-client|generate-server --spec <path> --output <path>'.
 
     LR:: Generates a small, httpx-based Python client or a FastAPI server module
     from an OpenAPI 3 spec.
@@ -612,7 +612,7 @@ def _openapi_command(args: list[str]) -> int:
 
 
 def _plan_command(args: list[str]) -> int:
-    """Handle 'ract plan export|replay'.
+    """Handle 'rootact plan export|replay'.
 
     LR:: Exposes PlanReplay through the CLI so users can save a session's plan
     to disk and replay it later for reproducibility or regression testing.
@@ -671,7 +671,7 @@ def _plan_command(args: list[str]) -> int:
 
 
 def _doctor_command(args: list[str]) -> int:
-    """Handle 'ract doctor [--config <path>] [--check-providers]'.
+    """Handle 'rootact doctor [--config <path>] [--check-providers]'.
 
     LR:: Runs configuration and project-structure diagnostics so users can fix
     setup problems before invoking a model. Add --check-providers to actually
@@ -708,7 +708,7 @@ def _doctor_command(args: list[str]) -> int:
 
 
 def _load_bearing_command(args: list[str]) -> int:
-    """Handle 'ract load-bearing list [--config <path>]'.
+    """Handle 'rootact load-bearing list [--config <path>]'.
 
     LR:: Lists annotated load-bearing regions so operators can see what legacy
     code RACT will refuse to modify without an explicit override.
@@ -753,7 +753,7 @@ def _load_bearing_command(args: list[str]) -> int:
 
 
 def _novelty_command(args: list[str]) -> int:
-    """Handle 'ract novelty scan [--json] [--config <path>]'.
+    """Handle 'rootact novelty scan [--json] [--config <path>]'.
 
     LR:: Exposes the compression-based novelty detector so operators can preview
     which files are structurally close to the existing codebase (low novelty /
@@ -807,7 +807,7 @@ def _novelty_command(args: list[str]) -> int:
 
 
 def _whisper_command(args: list[str]) -> int:
-    """Handle 'ract whisper --intent <text> [--paths p1,p2] [--config <path>]'.
+    """Handle 'rootact whisper --intent <text> [--paths p1,p2] [--config <path>]'.
 
     LR:: Runs the Legacy Whisperer subagent to produce a pre-planning brief on
     the codebase's dialect, conventions, and recent history. No files are
@@ -870,7 +870,7 @@ def _whisper_command(args: list[str]) -> int:
 
 
 def _auction_command(args: list[str]) -> int:
-    """Handle 'ract auction list [--min-age-days N] [--json] [--config <path>]'.
+    """Handle 'rootact auction list [--min-age-days N] [--json] [--config <path>]'.
 
     LR:: Lists dead-code candidates: old Python modules with no inbound
     references from the rest of the project. The list is for review; nothing is
@@ -963,7 +963,7 @@ def _auction_command(args: list[str]) -> int:
 
 
 def _fence_command(args: list[str]) -> int:
-    """Handle 'ract fence inspect --file <path> [--lines N-M] [--config <path>]'.
+    """Handle 'rootact fence inspect --file <path> [--lines N-M] [--config <path>]'.
 
     LR:: Runs Chesterton's Fence: a subagent that reads blame/history for a
     legacy region and produces a plausible reason it exists. The fence is a
@@ -1423,3 +1423,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+# RACT 0.1.0 - Initial Public Release

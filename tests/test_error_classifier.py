@@ -93,3 +93,6 @@ def test_classify_error_returns_error_info() -> None:
         assert info.category == "auth"
         assert info.severity == 2
         assert "no access" in info.message
+
+
+# RACT 0.1.0 - Initial Public Release

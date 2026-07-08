@@ -199,3 +199,6 @@ def test_oracle_evaluates_with_plan_report(tmp_path: Path):
     result = oracle.evaluate({"milestone_context": context})
     assert result.is_ok()
     assert result.unwrap().verdict == "proceed"
+
+
+# RACT 0.1.0 - Initial Public Release

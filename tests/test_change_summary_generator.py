@@ -45,3 +45,6 @@ def test_multiple_change_types() -> None:
     assert "added 1 file(s)" in out
     assert "removed 1 file(s)" in out
     assert "modified 1 file(s)" in out
+
+
+# RACT 0.1.0 - Initial Public Release

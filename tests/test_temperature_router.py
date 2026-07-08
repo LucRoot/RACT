@@ -49,3 +49,6 @@ def test_custom_temperatures_respected():
     assert router.for_action("outline architecture") == 0.35
     assert router.for_action("explore ideas") == 0.7
     assert router.for_action("check status") == 0.2
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -106,3 +106,6 @@ class CoverageReporter:
         ]
 
         return "\n".join(report_lines)
+
+
+# RACT 0.1.0 - Initial Public Release

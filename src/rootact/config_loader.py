@@ -63,3 +63,6 @@ class ConfigLoader:
 
     def __iter__(self):
         return iter(self._entries)
+
+
+# RACT 0.1.0 - Initial Public Release

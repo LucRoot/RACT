@@ -57,3 +57,6 @@ class BuiltinSkillLibrary:
             self.install(data["name"], registry)
             installed.append(data["name"])
         return installed
+
+
+# RACT 0.1.0 - Initial Public Release

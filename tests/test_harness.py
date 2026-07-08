@@ -671,3 +671,6 @@ def test_harness_from_config_populates_tools_desc_with_mcp_tools(
     harness = harness_rooted.unwrap()
     assert "fs/read" in harness.manager.tools_description
     assert "Available MCP tools" in harness.manager._full_system_prompt()
+
+
+# RACT 0.1.0 - Initial Public Release

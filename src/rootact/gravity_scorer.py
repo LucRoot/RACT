@@ -251,3 +251,6 @@ def _attr_to_name(node: ast.Attribute) -> str | None:
     if isinstance(node.value, ast.Attribute):
         return _attr_to_name(node.value)
     return None
+
+
+# RACT 0.1.0 - Initial Public Release

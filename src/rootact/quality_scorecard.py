@@ -180,3 +180,6 @@ class QualityScorecard:
         """Load records from a JSON file, replacing current records."""
         with open(path, "r", encoding="utf-8") as f:
             self._records = json.load(f)
+
+
+# RACT 0.1.0 - Initial Public Release

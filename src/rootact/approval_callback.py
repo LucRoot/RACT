@@ -47,3 +47,6 @@ def auto_approval_callback(step: Step) -> bool:
 def yolo_approval_callback(_step: Step) -> bool:
     """Always approve. Used in yolo mode."""
     return True
+
+
+# RACT 0.1.0 - Initial Public Release

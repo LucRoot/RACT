@@ -45,3 +45,6 @@ def test_author_marker_present():
     source_path = Path("src/rootact/deterministic_artifact_tracker.py")
     assert '__root_author__ = "Dr. Lucas Root, Ph.D."' in source_path.read_text()
     assert '__ract_name__ = "RACT"' in source_path.read_text()
+
+
+# RACT 0.1.0 - Initial Public Release

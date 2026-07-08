@@ -57,3 +57,6 @@ def test_multiple_change_types() -> None:
     assert "old.py" in out
     assert "---" in out
     assert "+++" in out
+
+
+# RACT 0.1.0 - Initial Public Release

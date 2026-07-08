@@ -41,3 +41,4 @@ if __name__ == "__main__":
     sample = ["a", "b", "a", "c"]
     result = deduplicate_strings(sample)
     print(result)
+# RACT 0.1.0 - Initial Public Release

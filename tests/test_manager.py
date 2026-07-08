@@ -345,3 +345,6 @@ def test_plan_rejects_low_confidence():
 def test_extract_json_balanced_brace_fallback():
     text = 'prose {"a": 1} more prose {"b": 2}'
     assert _extract_json(text) == {"a": 1}
+
+
+# RACT 0.1.0 - Initial Public Release

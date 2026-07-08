@@ -204,3 +204,6 @@ class ErrorMemory:
         """Drop all recorded patterns. Useful after a strategic context reset."""
         if self.memory_path.is_file():
             self.memory_path.write_text("", encoding="utf-8")
+
+
+# RACT 0.1.0 - Initial Public Release

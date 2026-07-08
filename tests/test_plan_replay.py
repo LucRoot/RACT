@@ -89,3 +89,6 @@ def test_result_key_is_serializable() -> None:
     result = ReplayResult(step_index=0, action="a", success=True, output={"x": 1})
     key = PlanReplay._result_key(result)
     assert json.loads(json.dumps(key)) == key
+
+
+# RACT 0.1.0 - Initial Public Release

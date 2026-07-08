@@ -48,3 +48,6 @@ def test_empty_graph():
     assert graph.get_dependencies("nonexistent") == set()
     assert graph.get_dependents("nonexistent") == set()
     assert not graph.has_cycle()
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -78,3 +78,6 @@ def get_registered_fixtures() -> Set[str]:
     successfully registered during the current RootACT session.
     """
     return _fixture_registry.copy()
+
+
+# RACT 0.1.0 - Initial Public Release

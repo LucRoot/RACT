@@ -100,3 +100,6 @@ class SessionRollback:
     def list_snapshots(self) -> List[str]:
         """Return all session IDs that have a stored snapshot."""
         return [p.stem for p in self.snapshot_dir.glob("*.json") if p.is_file()]
+
+
+# RACT 0.1.0 - Initial Public Release

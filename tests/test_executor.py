@@ -1018,3 +1018,6 @@ def test_strip_artifact_path_line_matches_forward_slash_expected():
     executor = Executor(FakeRouter(FakeAdapter("mock")))
     noisy = "src/foo.py\n# code\n"
     assert executor._strip_artifact_path_line(noisy, "src\\foo.py") == "# code"
+
+
+# RACT 0.1.0 - Initial Public Release

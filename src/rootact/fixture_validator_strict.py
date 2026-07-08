@@ -56,3 +56,6 @@ def validate_fixtures_strict(fixtures: List[Dict[str, Any]], user_story: str) ->
 
     # All checks passed
     return None
+
+
+# RACT 0.1.0 - Initial Public Release

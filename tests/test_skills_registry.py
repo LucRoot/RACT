@@ -56,3 +56,6 @@ def test_register_empty_name_raises(tmp_path):
     registry = SkillRegistry(base_dir=tmp_path)
     with pytest.raises(ValueError):
         registry.register("", "template")
+
+
+# RACT 0.1.0 - Initial Public Release

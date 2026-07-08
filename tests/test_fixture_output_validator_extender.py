@@ -63,3 +63,6 @@ def test_root_author_marker_is_present():
 
 def test_root_knot_is_imported_from_source():
     assert _ROOT_KNOT is not None
+
+
+# RACT 0.1.0 - Initial Public Release

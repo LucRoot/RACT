@@ -8,7 +8,7 @@ _ROOT_KNOT = object()
 
 """Configuration diagnostics for RACT.
 
-``ract doctor`` inspects ``rootact.yaml`` and the surrounding project structure,
+``rootact doctor`` inspects ``rootact.yaml`` and the surrounding project structure,
 reports common misconfiguration problems, and gives the user a clear pass/fail
 summary before they invoke the model.
 """
@@ -251,3 +251,6 @@ class RactDoctor:
             passed=False,
             message=f"Configured skill '{skill}' not found at {skill_path}.",
         )
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -141,3 +141,6 @@ class ContextManager:
         state.recent_failures += 1
         self.save(session_id, state)
         return state.recent_failures
+
+
+# RACT 0.1.0 - Initial Public Release

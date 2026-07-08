@@ -29,7 +29,7 @@ pip install rootact
 
 ```bash
 git clone <repository>
-cd ract
+cd rootact
 ./scripts/install.sh --local --venv
 ```
 
@@ -231,3 +231,5 @@ rootact handshakes defer <milestone-id>
 - Read `ARCHITECTURE.md` to understand the runtime.
 - Read `PROVIDER_SETUP.md` to connect your preferred LLM.
 - Read `SKILL_AUTHORING.md` to create reusable skill templates.
+
+<!-- RACT 0.1.0 - Initial Public Release -->

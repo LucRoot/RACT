@@ -168,3 +168,6 @@ class DiffApplier:
             return False
         shutil.copy2(backup, target)
         return True
+
+
+# RACT 0.1.0 - Initial Public Release

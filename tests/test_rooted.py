@@ -68,3 +68,6 @@ def test_root_assert_passes():
 def test_root_assert_fails():
     result = root_assert(2 + 2 == 5, "Arithmetic works.", score=1.0)
     assert not result.is_ok()
+
+
+# RACT 0.1.0 - Initial Public Release

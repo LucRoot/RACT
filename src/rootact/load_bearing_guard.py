@@ -207,3 +207,6 @@ class LoadBearingGuard:
             ]
             for rel, regions in self.scan_project().items()
         }
+
+
+# RACT 0.1.0 - Initial Public Release

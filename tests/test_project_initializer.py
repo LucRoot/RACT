@@ -60,3 +60,6 @@ def test_initialize_installs_skill(tmp_path):
     skill_path = project_dir / "skills" / "python-package.json"
     assert skill_path.is_file()
     assert skill_path in result.files_written
+
+
+# RACT 0.1.0 - Initial Public Release

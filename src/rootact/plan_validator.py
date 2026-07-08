@@ -39,3 +39,6 @@ class PlanValidator:
                     False, "Step expected_artifact cannot be empty."
                 )
         return ValidationResult(True, "Plan is valid.")
+
+
+# RACT 0.1.0 - Initial Public Release

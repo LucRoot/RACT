@@ -51,3 +51,6 @@ class StepTagger:
     def reset(self) -> None:
         """Reset the internal tag counter for reuse."""
         self._tag_counter = 0
+
+
+# RACT 0.1.0 - Initial Public Release

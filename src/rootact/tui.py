@@ -148,12 +148,12 @@ class RactConsole:
             "and every generated file carries the Root Knot so unsigned work cannot compound.\n"
             "\n"
             "[italic]Quick commands:[/]\n"
-            "  [bold]ract --init-provider local[/]     · scaffold a project for a local model\n"
-            "  [bold]ract 'your intent' --loop[/]       · run a Root-Knot-anchored build loop\n"
-            "  [bold]ract report --last[/]              · see what changed and why\n"
-            "  [bold]ract whisper --intent '...'[/]     · get a codebase dialect brief\n"
-            "  [bold]ract auction list[/]               · review dead-code candidates\n"
-            "  [bold]ract fence inspect --file f.py[/]  · ask why legacy code exists\n"
+            "  [bold]rootact --init-provider local[/]     · scaffold a project for a local model\n"
+            "  [bold]rootact 'your intent' --loop[/]       · run a Root-Knot-anchored build loop\n"
+            "  [bold]rootact report --last[/]              · see what changed and why\n"
+            "  [bold]rootact whisper --intent '...'[/]     · get a codebase dialect brief\n"
+            "  [bold]rootact auction list[/]               · review dead-code candidates\n"
+            "  [bold]rootact fence inspect --file f.py[/]  · ask why legacy code exists\n"
             "\n"
             "[italic]Set NO_COLOR=1 to disable styling.[/]"
         )
@@ -165,3 +165,4 @@ class RactConsole:
 
 # Global branded console instance.
 console = RactConsole()
+# RACT 0.1.0 - Initial Public Release

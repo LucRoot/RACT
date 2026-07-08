@@ -32,3 +32,6 @@ def test_install_sh_syntax_is_valid():
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -60,3 +60,6 @@ def test_list_snapshots(tmp_path: Path) -> None:
     rollback.capture("a", [])
     rollback.capture("b", [])
     assert sorted(rollback.list_snapshots()) == ["a", "b"]
+
+
+# RACT 0.1.0 - Initial Public Release

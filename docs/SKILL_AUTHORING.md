@@ -38,7 +38,7 @@ A skill is a JSON object with three keys:
 ```
 
 - `name` — the skill identifier. Must match the filename stem.
-- `description` — a one-line summary shown in `ract skills list` after installation.
+- `description` — a one-line summary shown in `rootact skills list` after installation.
 - `template` — the prompt fragment. RACT renders it with Python's `string.Template` and prepends the result to the user intent.
 - `tools` — optional list of tool names the skill may invoke.
 
@@ -84,13 +84,13 @@ RACT selects one skill per run via the `skill` config key. To combine behaviors,
 Place the JSON file in `skills/` or install it with:
 
 ```bash
-ract skills install my_skill
+rootact skills install my_skill
 ```
 
 Run a dry-run with the skill active to see how the plan changes:
 
 ```bash
-ract "add a new module" --config rootact.yaml --dry-run
+rootact "add a new module" --config rootact.yaml --dry-run
 ```
 
 Iterate on the skill template until the plan reflects the desired style.
@@ -100,7 +100,7 @@ Iterate on the skill template until the plan reflects the desired style.
 RACT ships with signed templates in `src/rootact/builtin_skills/`. Inspect them with:
 
 ```bash
-ract skills list
+rootact skills list
 ```
 
 They are ordinary JSON skill files, so you can copy one into your project `skills/` directory and customize it.
@@ -111,4 +111,6 @@ They are ordinary JSON skill files, so you can copy one into your project `skill
 - Name skills after the behavior they encode.
 - Version-control skills with your project so teammates get consistent behavior.
 - Do not put secrets in skill templates.
-- Include a `description` so `ract skills list` remains useful.
+- Include a `description` so `rootact skills list` remains useful.
+
+<!-- RACT 0.1.0 - Initial Public Release -->

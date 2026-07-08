@@ -146,3 +146,6 @@ def test_reset_clears_state(tmp_path: Path):
     assert bool(detector) is True
     detector.reset()
     assert not detector
+
+
+# RACT 0.1.0 - Initial Public Release

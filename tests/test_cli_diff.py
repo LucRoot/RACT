@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the `ract diff` CLI command."""
+"""Tests for the `rootact diff` CLI command."""
 
 from __future__ import annotations
 
@@ -112,3 +112,6 @@ def test_diff_apply_failure(tmp_path: Path, capsys):
     captured = capsys.readouterr()
     assert "0 applied, 1 failed" in captured.out
     assert "FAILED" in captured.out
+
+
+# RACT 0.1.0 - Initial Public Release

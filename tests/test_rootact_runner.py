@@ -791,3 +791,6 @@ def test_run_rootact_project_doc_updates_after_execution(tmp_path: Path) -> None
     updated = json.loads(doc_path.read_text(encoding="utf-8"))
     assert len(updated["plan"]) == 1
     assert updated["plan"][0]["action"] == "write"
+
+
+# RACT 0.1.0 - Initial Public Release

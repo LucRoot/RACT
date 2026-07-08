@@ -59,3 +59,6 @@ class PlanInspector:
                 f"  {i}. action={step.action}, provider_hint={step.provider_hint}, expected_artifact={step.expected_artifact}"
             )
         return "\n".join(lines)
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -45,3 +45,6 @@ def test_stub_oracle_returns_verdict():
     result = oracle.evaluate({})
     assert result.is_ok()
     assert result.unwrap() == verdict
+
+
+# RACT 0.1.0 - Initial Public Release

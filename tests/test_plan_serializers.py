@@ -100,3 +100,6 @@ def test_plan_with_tool_call_round_trip():
     data = plan_to_dict(plan)
     restored = plan_from_dict(data)
     assert restored == plan
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -44,3 +44,6 @@ def test_root_author_marker_is_present_in_source_file():
     source_path = Path("src/rootact/fixture_validator_extender.py")
     content = source_path.read_text()
     assert '__root_author__ = "Dr. Lucas Root, Ph.D."' in content
+
+
+# RACT 0.1.0 - Initial Public Release

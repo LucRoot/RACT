@@ -96,3 +96,6 @@ def test_enrich_harness_run_no_steps() -> None:
     assert result.is_ok()
     assert result.unwrap().artifacts["change_summary"] != ""
     assert result.unwrap().artifacts["file_diff"] != ""
+
+
+# RACT 0.1.0 - Initial Public Release

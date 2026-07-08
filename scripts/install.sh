@@ -120,3 +120,4 @@ else
     warn "rootact command not found on PATH after install."
     warn "you may need to add your Python scripts directory to PATH."
 fi
+# RACT 0.1.0 - Initial Public Release

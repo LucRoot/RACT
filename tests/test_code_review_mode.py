@@ -112,3 +112,6 @@ def test_parse_diff_tracks_line_numbers() -> None:
     records = reviewer.parse_diff(diff)
     assert len(records) == 1
     assert records[0]["line"] == 12
+
+
+# RACT 0.1.0 - Initial Public Release

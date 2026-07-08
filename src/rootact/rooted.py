@@ -124,3 +124,6 @@ def root_assert(condition: bool, assumption: str, score: float = 1.0) -> Rooted[
         confidence=score,
         error=f"Assumption failed: {assumption}",
     )
+
+
+# RACT 0.1.0 - Initial Public Release

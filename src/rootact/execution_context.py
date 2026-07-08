@@ -44,3 +44,6 @@ class ExecutionContext:
 
     def __bool__(self) -> bool:
         return bool(self._store)
+
+
+# RACT 0.1.0 - Initial Public Release

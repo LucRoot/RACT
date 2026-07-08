@@ -145,3 +145,6 @@ def test_render_last_loop_json_includes_metrics(tmp_path: Path):
     assert payload is not None
     assert payload["metrics"]["total_tokens"] == 10
     assert payload["iterations"][0]["metrics"]["total_tokens"] == 10
+
+
+# RACT 0.1.0 - Initial Public Release

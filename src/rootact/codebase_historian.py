@@ -203,3 +203,4 @@ def _module_to_path(module: str) -> Path:
 
 
 _SPLIT_RE = re.compile(r"[^a-zA-Z0-9]+")
+# RACT 0.1.0 - Initial Public Release

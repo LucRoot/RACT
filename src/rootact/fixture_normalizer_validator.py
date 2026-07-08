@@ -76,3 +76,6 @@ def validate_and_normalize_fixtures(
         normalized_fixtures.append(normalized_fixture)
 
     return normalized_fixtures
+
+
+# RACT 0.1.0 - Initial Public Release

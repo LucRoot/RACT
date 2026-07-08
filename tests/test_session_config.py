@@ -69,3 +69,6 @@ def test_author_marker_present() -> None:
     assert hasattr(mod, "__root_author__")
 
     assert mod.__root_author__ == "Dr. Lucas Root, Ph.D."
+
+
+# RACT 0.1.0 - Initial Public Release

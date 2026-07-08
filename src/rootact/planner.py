@@ -45,3 +45,6 @@ class Planner:
             confidence=plan.confidence,
             provenance=["planner.validate"],
         )
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -256,3 +256,6 @@ def error_mask_violations(source: str) -> list[dict[str, Any]]:
         for match in matches
         if not match.permitted
     ]
+
+
+# RACT 0.1.0 - Initial Public Release

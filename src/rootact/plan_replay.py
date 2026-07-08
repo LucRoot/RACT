@@ -145,3 +145,6 @@ class PlanReplay:
         if report.success:
             return f"Replay succeeded: {passed}/{total} steps passed."
         return f"Replay failed: {passed}/{total} steps passed."
+
+
+# RACT 0.1.0 - Initial Public Release

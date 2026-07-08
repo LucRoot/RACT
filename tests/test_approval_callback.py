@@ -47,3 +47,6 @@ def test_console_approval_callback_rejects_eof(monkeypatch) -> None:
         "builtins.input", lambda _prompt: (_ for _ in ()).throw(EOFError)
     )
     assert console_approval_callback(step) is False
+
+
+# RACT 0.1.0 - Initial Public Release

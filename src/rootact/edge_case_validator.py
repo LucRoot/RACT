@@ -30,3 +30,6 @@ def validate_user_story(user_story: Any) -> bool:
     if not re.search(r"[A-Za-z0-9]", user_story):
         return False
     return True
+
+
+# RACT 0.1.0 - Initial Public Release

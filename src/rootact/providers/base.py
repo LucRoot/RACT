@@ -102,3 +102,6 @@ class ProviderAdapter(ABC):
     def output_cost_per_1k(self) -> float | None:
         """Optional output-token cost in currency units per 1K tokens."""
         return None
+
+
+# RACT 0.1.0 - Initial Public Release

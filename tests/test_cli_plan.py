@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the ract plan CLI commands."""
+"""Tests for the rootact plan CLI commands."""
 
 from __future__ import annotations
 
@@ -85,3 +85,6 @@ def test_plan_replay_dry_run(tmp_path, capsys):
     assert "2/2 steps passed" in out
     assert "step one" in out
     assert "step two" in out
+
+
+# RACT 0.1.0 - Initial Public Release

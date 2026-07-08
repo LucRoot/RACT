@@ -419,3 +419,6 @@ def test_cli_refactor_dry_run(tmp_path, capsys, monkeypatch):
     assert "Dry run" in out
     # Ensure files were not modified.
     assert "def process():" in (src / "core.py").read_text(encoding="utf-8")
+
+
+# RACT 0.1.0 - Initial Public Release

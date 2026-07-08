@@ -45,3 +45,6 @@ class TokenBucket:
         """Return the current number of available tokens."""
         self._refill()
         return self._tokens
+
+
+# RACT 0.1.0 - Initial Public Release

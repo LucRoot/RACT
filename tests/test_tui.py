@@ -104,3 +104,6 @@ def test_welcome_renders_logo_and_body(capsys) -> None:
     assert "Root Knot" in out
     assert "0.1.0" in out
     assert "Dr. Lucas Root" in out
+
+
+# RACT 0.1.0 - Initial Public Release

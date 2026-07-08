@@ -86,3 +86,6 @@ def test_uses_provided_historian(tmp_path):
     guard = DuplicationGuard(tmp_path, historian=historian)
     matches = guard.check("mod.py", "def helper(): pass\n")
     assert len(matches) == 1
+
+
+# RACT 0.1.0 - Initial Public Release

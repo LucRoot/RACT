@@ -78,3 +78,6 @@ def test_imports_root_knot_from_source() -> None:
     )
     assert '__root_author__ = "Dr. Lucas Root, Ph.D."' in src_path.read_text()
     assert '__ract_name__ = "RACT"' in src_path.read_text()
+
+
+# RACT 0.1.0 - Initial Public Release

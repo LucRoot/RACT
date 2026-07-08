@@ -83,3 +83,6 @@ def test_build_diversity_prompt_includes_alternative_cases(tmp_path):
     assert "CLI Toggles" in prompt
     assert "Documentation Mode" in prompt
     assert "Native GUI" not in prompt
+
+
+# RACT 0.1.0 - Initial Public Release

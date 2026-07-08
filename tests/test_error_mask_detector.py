@@ -150,3 +150,6 @@ except Exception:
     matches = ErrorMaskDetector.check(source_permitted)
     assert len(matches) == 1
     assert matches[0].permitted
+
+
+# RACT 0.1.0 - Initial Public Release

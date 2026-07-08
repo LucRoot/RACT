@@ -167,3 +167,6 @@ def test_neighbors_returns_empty_for_unknown_symbol(tmp_path):
 def test_references_returns_empty_for_unknown_symbol(tmp_path):
     graph = SymbolGraph(tmp_path).build()
     assert graph.references("not.real") == []
+
+
+# RACT 0.1.0 - Initial Public Release

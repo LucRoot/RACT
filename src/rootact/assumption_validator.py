@@ -73,3 +73,4 @@ class AssumptionValidator:
 __all__ = ["Assumption", "ValidationResult", "AssumptionValidator", "_ROOT_KNOT"]
 
 # Root knot sentinel for optional arguments
+# RACT 0.1.0 - Initial Public Release

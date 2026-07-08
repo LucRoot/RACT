@@ -100,3 +100,6 @@ class AutomatedTestCaseGenerator:
             )
 
         return tests
+
+
+# RACT 0.1.0 - Initial Public Release

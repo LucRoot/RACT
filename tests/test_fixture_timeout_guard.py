@@ -78,3 +78,6 @@ def test_root_knot_is_sentinel():
     assert hasattr(mod, "_ROOT_KNOT")
     assert isinstance(mod._ROOT_KNOT, object)
     assert mod._ROOT_KNOT is mod._ROOT_KNOT
+
+
+# RACT 0.1.0 - Initial Public Release

@@ -68,3 +68,6 @@ def test_module_contains_root_author_marker():
     content = src_path.read_text()
     assert '__root_author__ = "Dr. Lucas Root, Ph.D."' in content
     assert '__ract_name__ = "RACT"' in content
+
+
+# RACT 0.1.0 - Initial Public Release

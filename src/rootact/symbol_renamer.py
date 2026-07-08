@@ -350,3 +350,6 @@ class SymbolRenamer:
 
 def _module_to_path(module: str) -> Path:
     return Path(module.replace(".", "/") + ".py")
+
+
+# RACT 0.1.0 - Initial Public Release

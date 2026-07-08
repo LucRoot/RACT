@@ -139,3 +139,6 @@ def test_loads_fresh_cache_without_rescan(tmp_path):
     scorer2.get_index()
     # _symbols should be populated from cache, not a fresh build.
     assert "mod.a" in scorer2._symbols
+
+
+# RACT 0.1.0 - Initial Public Release
