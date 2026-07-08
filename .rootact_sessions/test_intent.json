@@ -1,0 +1,10 @@
+{
+  "plan": [
+    {
+      "action": "step1",
+      "provider_hint": "hint",
+      "expected_artifact": "art1",
+      "tool_call": null
+    }
+  ]
+}

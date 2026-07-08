@@ -1,0 +1,112 @@
+# Rooted by Dr. Lucas Root, Ph.D.
+"""Tests for the dead-code auction."""
+
+from __future__ import annotations
+
+__root_author__ = "Dr. Lucas Root, Ph.D."
+__ract_name__ = "RACT"
+
+_ROOT_KNOT = object()
+
+import os
+import time
+from pathlib import Path
+from unittest.mock import patch
+
+from rootact.cli import main
+from rootact.dead_code_auction import AuctionItem, DeadCodeAuction
+
+
+def _set_old_mtime(path: Path, days: int = 200) -> None:
+    old = time.time() - days * 86400
+    os.utime(path, (old, old))
+
+
+def test_auction_finds_unreferenced_old_file(tmp_path: Path):
+    target = tmp_path / "old_module.py"
+    target.write_text("def unused():\n    pass\n", encoding="utf-8")
+    _set_old_mtime(target)
+
+    items = DeadCodeAuction(tmp_path).scan()
+
+    assert len(items) == 1
+    assert items[0].relative_path == "old_module.py"
+    assert items[0].inbound_references == 0
+    assert items[0].last_modified_days >= 200
+
+
+def test_auction_ignores_recent_files(tmp_path: Path):
+    target = tmp_path / "recent.py"
+    target.write_text("def fresh():\n    pass\n", encoding="utf-8")
+
+    items = DeadCodeAuction(tmp_path).scan()
+
+    assert items == []
+
+
+def test_auction_ignores_referenced_files(tmp_path: Path):
+    old = tmp_path / "old_module.py"
+    old.write_text("def helper():\n    pass\n", encoding="utf-8")
+    _set_old_mtime(old)
+    user = tmp_path / "user.py"
+    user.write_text("from old_module import helper\n\nhelper()\n", encoding="utf-8")
+    _set_old_mtime(user, days=10)
+
+    items = DeadCodeAuction(tmp_path).scan()
+
+    assert all(item.relative_path != "old_module.py" for item in items)
+
+
+def test_auction_respects_min_age_days(tmp_path: Path):
+    target = tmp_path / "middle_aged.py"
+    target.write_text("def maybe():\n    pass\n", encoding="utf-8")
+    _set_old_mtime(target, days=100)
+
+    assert DeadCodeAuction(tmp_path, config={"min_age_days": 90}).scan()
+    assert not DeadCodeAuction(tmp_path, config={"min_age_days": 120}).scan()
+
+
+def test_auction_ignores_test_files_by_default(tmp_path: Path):
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    target = tests_dir / "test_x.py"
+    target.write_text("def test_x():\n    pass\n", encoding="utf-8")
+    _set_old_mtime(target)
+
+    assert DeadCodeAuction(tmp_path).scan() == []
+    items = DeadCodeAuction(tmp_path, config={"include_tests": True}).scan()
+    assert len(items) == 1
+    assert items[0].relative_path == str(Path("tests/test_x.py"))
+
+
+def test_auction_ignores_dependency_dirs(tmp_path: Path):
+    venv = tmp_path / ".venv" / "Lib" / "site-packages"
+    venv.mkdir(parents=True)
+    target = venv / "old_pkg.py"
+    target.write_text("x = 1\n", encoding="utf-8")
+    _set_old_mtime(target)
+
+    items = DeadCodeAuction(tmp_path).scan()
+    assert items == []
+
+
+def test_cli_auction_list_json(capsys, tmp_path: Path):
+    config = tmp_path / "rootact.yaml"
+    config.write_text("project:\n  name: test\n", encoding="utf-8")
+
+    fake_item = AuctionItem(
+        path=tmp_path / "dead.py",
+        relative_path="dead.py",
+        last_modified_days=250,
+        inbound_references=0,
+        reason="no inbound references",
+    )
+
+    with patch("rootact.cli.DeadCodeAuction") as MockAuction:
+        MockAuction.return_value.scan.return_value = [fake_item]
+        code = main(["auction", "list", "--json", "--config", str(config)])
+        out = capsys.readouterr().out
+
+    assert code == 0
+    assert "dead.py" in out
+    assert "250" in out

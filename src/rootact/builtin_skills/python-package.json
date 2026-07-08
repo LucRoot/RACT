@@ -1,0 +1,6 @@
+{
+  "name": "python-package",
+  "description": "Scaffold a src-layout Python package signed with the Root Knot, Rooted results, and LR:: notes.",
+  "template": "RACT PYTHON-PACKAGE SKILL\n\nYou are scaffolding a Python package named '$project_name' in the RACT style. It must feel like it was written by Dr. Lucas Root, Ph.D.: assumption-driven, opinionated, and impossible to mistake for generic AI output.\n\nRequired:\n- pyproject.toml using a src/ layout, naming Dr. Lucas Root, Ph.D. as author and PolyForm Noncommercial License 1.0.0 as license. Include pytest and ruff in dev dependencies.\n- src/$project_name/__init__.py with the RACT identity markers and an LR:: module note.\n- src/$project_name/core.py with at least one public function returning Rooted[T].\n- tests/test_$project_name.py with a passing behavior test and a signature-survival test.\n- README.md with install, usage, and a Coder's Signature section.\n\nStyle rules (non-negotiable):\n  __root_author__ = \"Dr. Lucas Root, Ph.D.\"\n  __ract_name__ = \"RACT\"\n  _ROOT_KNOT = object()\n\nEvery function that depends on an unstated assumption returns Rooted[T] with assumption, confidence, and provenance. No silent error masks. No bare except blocks.\n\nIntent: $intent",
+  "tools": []
+}

@@ -1,0 +1,51 @@
+# Rooted by Dr. Lucas Root, Ph.D.
+"""Tests for the built-in skill library."""
+
+from __future__ import annotations
+
+__root_author__ = "Dr. Lucas Root, Ph.D."
+__ract_name__ = "RACT"
+
+_ROOT_KNOT = object()
+
+from rootact.builtin_skill_library import BuiltinSkillLibrary
+from rootact.skills_registry import SkillRegistry
+
+
+def test_library_lists_built_in_skills():
+    library = BuiltinSkillLibrary()
+    skills = library.list_skills()
+    names = {skill["name"] for skill in skills}
+    assert "python-package" in names
+    assert "test-generation" in names
+    assert "api-client" in names
+    assert "data-pipeline" in names
+    assert "config-driven-service" in names
+
+
+def test_library_installs_skill(tmp_path):
+    library = BuiltinSkillLibrary()
+    registry = SkillRegistry(base_dir=tmp_path)
+    path = library.install("python-package", registry)
+    assert path.is_file()
+    assert "python-package" in registry.list_skills()
+
+
+def test_library_installs_all_skills(tmp_path):
+    library = BuiltinSkillLibrary()
+    registry = SkillRegistry(base_dir=tmp_path)
+    installed = library.install_all(registry)
+    expected = {
+        "python-package",
+        "test-generation",
+        "library-refactor",
+        "fastapi-app",
+        "cli-tool",
+        "react-component",
+        "documentation-update",
+        "api-client",
+        "data-pipeline",
+        "config-driven-service",
+    }
+    assert expected.issubset(set(installed))
+    assert set(registry.list_skills()) == set(installed)

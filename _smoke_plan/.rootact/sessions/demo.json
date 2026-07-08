@@ -1,0 +1,17 @@
+{
+  "intent": "test",
+  "plan": {
+    "assumption": "demo assumption",
+    "confidence": 0.9,
+    "steps": [
+      {
+        "action": "say hello",
+        "provider_hint": "chat",
+        "expected_artifact": "hello.txt",
+        "tool_call": null
+      }
+    ]
+  },
+  "artifacts": {},
+  "outcomes": []
+}
