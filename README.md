@@ -174,7 +174,8 @@ RACT is intentionally model-agnostic. The harness wires together:
 - `RunReporter` — structured summaries of every loop/session.
 - `SignatureGuardian` — verifies that signature markers remain intact across the codebase.
 
-See `docs/ARCHITECTURE.md`, `docs/PHILOSOPHY.md`, and the research artifacts in `_BUILD/`.
+See `docs/ARCHITECTURE.md`, `docs/PHILOSOPHY.md`, and the research artifacts in `_BUILD/`.  
+Try the live demo landing page on [Hugging Face](https://huggingface.co/spaces/LucRoot/RACT).
 
 ## Competitive Highlights
 

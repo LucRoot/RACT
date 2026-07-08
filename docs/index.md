@@ -43,6 +43,7 @@ rootact init --template python-package --provider local
 - [Architecture](ARCHITECTURE.md)
 - [Audit](AUDIT.md)
 - [Philosophy](PHILOSOPHY.md)
+- [Hugging Face Demo](https://huggingface.co/spaces/LucRoot/RACT)
 
 ## From the author
 
