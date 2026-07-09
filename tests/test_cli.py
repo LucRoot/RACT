@@ -414,7 +414,8 @@ def test_cli_refactor_dry_run(tmp_path, capsys, monkeypatch):
     )
     assert code == 0
     out = capsys.readouterr().out
-    assert "src\\core.py" in out
+    # Path separators differ across platforms; accept either form.
+    assert "src/core.py" in out or "src\\core.py" in out
     assert "handle" in out
     assert "Dry run" in out
     # Ensure files were not modified.
