@@ -132,6 +132,7 @@ def test_cli_consolidate_dry_run(tmp_path: Path) -> None:
             "-m",
             "rootact.cli",
             "consolidate",
+            "scan",
             "--project-dir",
             str(tmp_path),
             "--similarity-threshold",
@@ -157,6 +158,7 @@ def test_cli_consolidate_invalid_threshold(tmp_path: Path) -> None:
             "-m",
             "rootact.cli",
             "consolidate",
+            "scan",
             "--project-dir",
             str(tmp_path),
             "--similarity-threshold",
@@ -233,6 +235,88 @@ def test_applier_rollback_restores_sources(tmp_path: Path) -> None:
     assert rollback.error is None
     assert (tmp_path / "b.py").is_file()
     assert (tmp_path / "b.py").read_text(encoding="utf-8") == original_b
+
+
+def test_cli_consolidate_scan_subcommand(tmp_path: Path) -> None:
+    """The scan subcommand finds candidates."""
+    _write_module(tmp_path / "a.py", IDENTICAL_BODY)
+    _write_module(tmp_path / "b.py", IDENTICAL_BODY)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "rootact.cli",
+            "consolidate",
+            "scan",
+            "--project-dir",
+            str(tmp_path),
+            "--similarity-threshold",
+            "0.50",
+            "--merge-threshold",
+            "0.50",
+            "--dry-run",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "Found 1 consolidation proposal" in result.stdout
+
+
+def test_cli_consolidate_apply_and_rollback(tmp_path: Path) -> None:
+    """Apply and rollback through the CLI."""
+    from rootact.handshake_registry import HandshakeRegistry
+
+    _write_module(tmp_path / "a.py", IDENTICAL_BODY)
+    _write_module(tmp_path / "b.py", IDENTICAL_BODY)
+    registry = HandshakeRegistry(tmp_path)
+    registry.add(
+        "consolidate-0000",
+        "Proposal: merge into a.py\nSources: b.py",
+        "acceptance text",
+    )
+
+    apply_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "rootact.cli",
+            "consolidate",
+            "apply",
+            "--project-dir",
+            str(tmp_path),
+            "--id",
+            "consolidate-0000",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert apply_result.returncode == 0, apply_result.stderr
+    assert "Applied consolidate-0000" in apply_result.stdout
+    assert (tmp_path / "b.py").is_file()
+    assert "DEPRECATED" in (tmp_path / "b.py").read_text(encoding="utf-8")
+
+    rollback_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "rootact.cli",
+            "consolidate",
+            "rollback",
+            "--project-dir",
+            str(tmp_path),
+            "--id",
+            "consolidate-0000",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert rollback_result.returncode == 0, rollback_result.stderr
+    assert "Rolled back consolidate-0000" in rollback_result.stdout
+    assert IDENTICAL_BODY == (tmp_path / "b.py").read_text(encoding="utf-8")
 
 
 # RACT 0.1.0 - Initial Public Release

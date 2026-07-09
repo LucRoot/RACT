@@ -963,3 +963,29 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Commit and push applier implementation, then continue monitoring the mutation run.
+
+## 2026-07-09 — Loop pass: wire applier into CLI with scan/apply/rollback subcommands
+
+**What changed**
+- Refactored `rootact consolidate` into subcommands: `scan` (default), `apply`, `rollback`.
+- `scan`: existing behavior, previews and enqueues proposals.
+- `apply --id <proposal-id>`: reconstructs the proposal from the handshake registry, runs `ConsolidationApplier`, and marks the handshake approved.
+- `rollback --id <proposal-id>`: restores files from the proposal's backup directory.
+- Added CLI tests for `scan`, `apply`, and `rollback`.
+
+**Why**
+- A scanner + applier is only usable if the operator can invoke it from the CLI. Subcommands mirror the natural workflow: find, approve, apply, rollback.
+
+**Test/lint/type result**
+- `pytest -q`: 951 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/cli.py --lines 1177-1185`: coherent brief.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Commit and push CLI wiring, then continue monitoring the mutation run.
