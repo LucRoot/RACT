@@ -63,6 +63,19 @@ def test_inspect_returns_provider_response(tmp_path: Path):
     assert result.confidence == 0.8
 
 
+def test_inspect_relative_path_does_not_crash(tmp_path: Path):
+    target = tmp_path / "src" / "rootact" / "rooted.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("def rooted():\n    pass\n", encoding="utf-8")
+    fence = ChestertonsFence(tmp_path, FakeProvider("Works with relative path."))
+
+    with patch.object(fence, "_run_git", return_value="abc123 init\n"):
+        result = fence.inspect("src/rootact/rooted.py")
+
+    assert result.error is None
+    assert result.value == "Works with relative path."
+
+
 def test_inspect_low_confidence_when_no_reason(tmp_path: Path):
     target = tmp_path / "legacy.py"
     target.write_text("def old_way():\n    pass\n", encoding="utf-8")

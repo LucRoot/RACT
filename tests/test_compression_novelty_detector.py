@@ -124,11 +124,12 @@ def test_detector_scores_low_novelty_for_duplicative_content(tmp_path):
         "    def add(self, item):\n"
         "        self.items.append(item)\n"
     )
-    score = detector.score("src/new.py", duplicative)
+    score = detector.assess_new_artifact("src/new.py", duplicative)
 
     assert score is not None
     assert score.verdict == "low"
     assert score.ratio < 1.0
+    assert score.nearest is not None
 
 
 def test_detector_scores_high_novelty_for_unrelated_content(tmp_path):
@@ -150,14 +151,57 @@ def test_detector_scores_high_novelty_for_unrelated_content(tmp_path):
         "dozen liquor jugs. How vexingly quick daft zebras jump. "
         "Sphinx of black quartz, judge my vow.\n"
     )
-    score = detector.score("src/new.py", unrelated)
+    score = detector.assess_new_artifact("src/new.py", unrelated)
 
     assert score is not None
-    # The dictionary should not help compress unrelated prose. We allow
-    # "nominal" as well as "high" because exact ratios vary slightly across
-    # zstd builds, but the ratio must stay above 1.0 (dictionary did not help).
-    assert score.ratio > 1.0
-    assert score.verdict in {"high", "nominal"}
+    assert score.verdict == "high"
+
+
+def test_detector_scores_high_novelty_for_novel_python(tmp_path):
+    _seed_diverse_project(tmp_path)
+    detector = CompressionNoveltyDetector(tmp_path)
+
+    # Structurally unlike the seeded modules: new class name, new method
+    # names, new domain. It is long enough to be structurally distinct from
+    # every existing module, so it must score "high", not "nominal".
+    novel_python = (
+        "class RaftNode:\n"
+        "    def __init__(self, node_id, peers):\n"
+        "        self.node_id = node_id\n"
+        "        self.peers = peers\n"
+        "        self.current_term = 0\n"
+        "        self.voted_for = None\n"
+        "        self.log = []\n"
+        "        self.commit_index = 0\n"
+        "        self.last_applied = 0\n"
+        "        self.state = \"follower\"\n"
+        "\n"
+        "    def request_vote(self, candidate_id, term, last_log_index, last_log_term):\n"
+        "        if term > self.current_term:\n"
+        "            self.current_term = term\n"
+        "            self.state = \"follower\"\n"
+        "            self.voted_for = None\n"
+        "        if term < self.current_term:\n"
+        "            return False\n"
+        "        if self.voted_for in (None, candidate_id):\n"
+        "            return True\n"
+        "        return False\n"
+        "\n"
+        "    def append_entries(self, leader_id, term, prev_log_index, prev_log_term, entries, leader_commit):\n"
+        "        if term < self.current_term:\n"
+        "            return False\n"
+        "        if prev_log_index >= len(self.log):\n"
+        "            return False\n"
+        "        for entry in entries:\n"
+        "            self.log.append(entry)\n"
+        "        if leader_commit > self.commit_index:\n"
+        "            self.commit_index = min(leader_commit, len(self.log) - 1)\n"
+        "        return True\n"
+    )
+    score = detector.assess_new_artifact("src/new.py", novel_python)
+
+    assert score is not None
+    assert score.verdict == "high"
 
 
 def test_detector_returns_nominal_for_empty_project(tmp_path):

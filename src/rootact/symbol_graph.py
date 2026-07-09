@@ -16,6 +16,7 @@ portable.
 
 import ast
 import json
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,22 @@ class SymbolNode:
     incoming: set[str] = field(default_factory=set)
 
 
+@dataclass(frozen=True)
+class _ImportBinding:
+    """Mapping from a local name to its imported source.
+
+    *target_module* is the fully-qualified module the name comes from.
+    *target_name* is the symbol within that module for ``from ... import ...``
+    bindings; ``None`` for bare ``import module`` bindings.
+    *is_project* is True only when the imported module lives inside the project.
+    """
+
+    local_name: str
+    target_module: str
+    target_name: str | None = None
+    is_project: bool = False
+
+
 class SymbolGraph:
     """In-memory symbol graph built from Python source files.
 
@@ -45,6 +62,8 @@ class SymbolGraph:
     def __init__(self, project_dir: Path) -> None:
         self.project_dir = Path(project_dir)
         self.nodes: dict[str, SymbolNode] = {}
+        self._imports: dict[str, dict[str, _ImportBinding]] = {}
+        self._project_modules: set[str] = set()
 
     def build(self, include_tests: bool = True) -> "SymbolGraph":
         """Scan the project directory and build the symbol graph.
@@ -55,6 +74,7 @@ class SymbolGraph:
                 when measuring production-code reachability.
         """
         self.nodes = {}
+        self._imports = {}
         py_files = [
             p for p in self.project_dir.rglob("*.py") if "__pycache__" not in p.parts
         ]
@@ -65,9 +85,12 @@ class SymbolGraph:
                 if "tests" not in p.parts and not p.name.startswith("test_")
             ]
 
-        # Pass 1: create nodes.
+        self._project_modules = {self._relative_module(p) for p in py_files}
+
+        # Pass 1: create nodes and collect import bindings.
         for path in py_files:
             self._index_file(path)
+            self._parse_imports(path)
 
         # Pass 2: create edges.
         for path in py_files:
@@ -81,9 +104,8 @@ class SymbolGraph:
 
     def _index_file(self, path: Path) -> None:
         module = self._relative_module(path)
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError:
+        tree = self._parse(path)
+        if tree is None:
             return
 
         module_id = f"{module}:<module>"
@@ -118,14 +140,91 @@ class SymbolGraph:
                         line=node.lineno,
                     )
 
+    def _parse_imports(self, path: Path) -> None:
+        module = self._relative_module(path)
+        tree = self._parse(path)
+        if tree is None:
+            return
+
+        imports: dict[str, _ImportBinding] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.asname:
+                        local_name = alias.asname
+                        target_module = alias.name
+                    else:
+                        # ``import a.b.c`` binds the first component ``a``.
+                        local_name = alias.name.split(".")[0]
+                        target_module = local_name
+                    imports[local_name] = _ImportBinding(
+                        local_name=local_name,
+                        target_module=target_module,
+                        target_name=None,
+                        is_project=self._is_project_import(target_module),
+                    )
+            elif isinstance(node, ast.ImportFrom):
+                if any(alias.name == "*" for alias in node.names):
+                    continue
+                from_module = self._resolve_import_from(module, node)
+                if from_module is None:
+                    continue
+                for alias in node.names:
+                    local_name = alias.asname or alias.name
+                    imports[local_name] = _ImportBinding(
+                        local_name=local_name,
+                        target_module=from_module,
+                        target_name=alias.name,
+                        is_project=self._is_project_import(from_module),
+                    )
+
+        self._imports[module] = imports
+
+    def _resolve_import_from(
+        self, module: str, node: ast.ImportFrom
+    ) -> str | None:
+        """Return the fully-qualified module an ImportFrom refers to."""
+        level = node.level or 0
+        name = node.module
+        if level == 0:
+            return name
+
+        parts = module.split(".")
+        if level > len(parts):
+            return None
+        base = parts[:-level]
+        if name:
+            base = base + [name]
+        if not base:
+            return None
+        return ".".join(base)
+
+    def _is_project_import(self, target_module: str) -> bool:
+        """Return True when *target_module* resolves to a project source file.
+
+        Builtin and standard-library module names take precedence over project
+        files that happen to collide with them, so ``collections.Counter`` never
+        resolves to a project ``collections.py``.
+        """
+        top = target_module.split(".")[0]
+        if top in sys.stdlib_module_names or top in sys.builtin_module_names:
+            return False
+        return target_module in self._project_modules
+
+    def _parse(self, path: Path) -> ast.AST | None:
+        try:
+            return ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            return None
+
     def _link_file(self, path: Path) -> None:
         module = self._relative_module(path)
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-        except SyntaxError:
+        tree = self._parse(path)
+        if tree is None:
             return
 
         module_id = f"{module}:<module>"
+        imports = self._imports.get(module, {})
 
         def visit(node: ast.AST, scope: str) -> None:
             # Track scope changes for methods and nested functions.
@@ -133,35 +232,104 @@ class SymbolGraph:
                 scope = f"{module}.{node.name}"
 
             if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-                target = self._resolve_name(module, node.id)
+                target = self._resolve_name(module, node.id, imports)
                 if target and target != scope:
                     self._add_edge(scope, target)
             elif isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
-                name = _attr_leaf(node)
-                if name:
-                    target = self._resolve_name(module, name)
-                    if target and target != scope:
-                        self._add_edge(scope, target)
+                target = self._resolve_attribute(module, node, imports)
+                if target and target != scope:
+                    self._add_edge(scope, target)
 
             for child in ast.iter_child_nodes(node):
                 visit(child, scope)
 
         visit(tree, module_id)
 
-    def _resolve_name(self, module: str, name: str) -> str | None:
+    def _resolve_name(
+        self, module: str, name: str, imports: dict[str, _ImportBinding]
+    ) -> str | None:
         """Return the most likely symbol id for *name* in *module*."""
         # Prefer same-module symbol.
         local = f"{module}.{name}"
         if local in self.nodes:
             return local
-        # Fall back to any module-level symbol with the same name.
-        for node in self.nodes.values():
-            if node.name == name and node.symbol_type in {"function", "class"}:
-                return node.id
+
+        binding = imports.get(name)
+        if binding is None:
+            return None
+
+        if not binding.is_project:
+            return None
+
+        if binding.target_name:
+            return f"{binding.target_module}.{binding.target_name}"
+        module_id = f"{binding.target_module}:<module>"
+        if module_id in self.nodes:
+            return module_id
+        return None
+
+    def _resolve_attribute(
+        self,
+        module: str,
+        node: ast.Attribute,
+        imports: dict[str, _ImportBinding],
+    ) -> str | None:
+        """Resolve an attribute access to a symbol id if possible."""
+        parts: list[str] = []
+        current: ast.AST = node
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if not isinstance(current, ast.Name):
+            return None
+        parts.reverse()
+        root_name = current.id
+        attr_chain = parts
+
+        # Case 1: the root name is imported. Follow it into the imported module.
+        binding = imports.get(root_name)
+        if binding is not None:
+            if not binding.is_project:
+                return None
+            if binding.target_name:
+                base = f"{binding.target_module}.{binding.target_name}"
+            else:
+                base = binding.target_module
+            candidate = ".".join([base] + attr_chain)
+            if candidate in self.nodes:
+                return candidate
+            return None
+
+        # Case 2: the root name is a symbol defined in the current module.
+        local_root = f"{module}.{root_name}"
+        if local_root in self.nodes:
+            candidate = ".".join([module, root_name] + attr_chain)
+            if candidate in self.nodes:
+                return candidate
+            # Fall back to the leaf attribute in the current module. This keeps
+            # method calls like ``h.run()`` resolving to ``module.run`` when
+            # ``h`` is an untracked local variable.
+            leaf = attr_chain[-1]
+            local_leaf = f"{module}.{leaf}"
+            if local_leaf in self.nodes:
+                return local_leaf
+            return None
+
+        # Case 3: untracked root; fall back to the leaf attribute in module.
+        leaf = attr_chain[-1]
+        local_leaf = f"{module}.{leaf}"
+        if local_leaf in self.nodes:
+            return local_leaf
         return None
 
     def _add_edge(self, source: str, target: str) -> None:
         if source not in self.nodes or target not in self.nodes:
+            return
+        # Self-edges from a module node to its own top-level symbols do not
+        # count as inbound references.
+        if source.endswith(":<module>") and target.startswith(
+            source[: -len(":<module>")] + "."
+        ):
             return
         self.nodes[source].outgoing.add(target)
         self.nodes[target].incoming.add(source)

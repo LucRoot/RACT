@@ -144,13 +144,59 @@ def test_attr_leaf_returns_none_for_call_base() -> None:
     assert _attr_leaf(attr) is None
 
 
-def test_resolve_name_falls_back_to_any_module(tmp_path):
+def test_resolve_name_uses_import_bindings(tmp_path):
     (tmp_path / "core.py").write_text("def util(): pass\n", encoding="utf-8")
     (tmp_path / "main.py").write_text(
         "from core import util\ndef run():\n    util()\n", encoding="utf-8"
     )
     graph = SymbolGraph(tmp_path).build()
     assert "core.util" in graph.nodes["main.run"].outgoing
+
+
+def test_builtin_name_collision_stays_dead(tmp_path):
+    """A builtin call must not resolve to an unrelated project symbol."""
+    (tmp_path / "all.py").write_text("def all(items):\n    return True\n", encoding="utf-8")
+    (tmp_path / "main.py").write_text(
+        "def run():\n    return all([1, 2, 3])\n", encoding="utf-8"
+    )
+    graph = SymbolGraph(tmp_path).build()
+    assert not graph.nodes["all.all"].incoming
+    assert "all.all" not in graph.nodes["main.run"].outgoing
+
+
+def test_stdlib_name_collision_stays_dead(tmp_path):
+    """A stdlib import must not resolve to an unrelated project symbol."""
+    (tmp_path / "collections.py").write_text(
+        "class Counter:\n    pass\n", encoding="utf-8"
+    )
+    (tmp_path / "main.py").write_text(
+        "from collections import Counter\ndef run():\n    return Counter()\n",
+        encoding="utf-8",
+    )
+    graph = SymbolGraph(tmp_path).build()
+    assert not graph.nodes["collections.Counter"].incoming
+    assert "collections.Counter" not in graph.nodes["main.run"].outgoing
+
+
+def test_self_reference_does_not_create_inbound_edge(tmp_path):
+    """Top-level self-references in a module do not count as inbound refs."""
+    (tmp_path / "self_ref.py").write_text(
+        "def helper():\n    pass\nhelper()\n", encoding="utf-8"
+    )
+    graph = SymbolGraph(tmp_path).build()
+    assert not graph.nodes["self_ref.helper"].incoming
+    assert "self_ref.helper" not in graph.nodes["self_ref:<module>"].outgoing
+
+
+def test_genuine_use_marks_module_live(tmp_path):
+    """A cross-module reference still creates an inbound edge."""
+    (tmp_path / "used.py").write_text("def helper():\n    pass\n", encoding="utf-8")
+    (tmp_path / "main.py").write_text(
+        "from used import helper\ndef run():\n    helper()\n", encoding="utf-8"
+    )
+    graph = SymbolGraph(tmp_path).build()
+    assert "used.helper" in graph.nodes["main.run"].outgoing
+    assert "main.run" in graph.nodes["used.helper"].incoming
 
 
 def test_add_edge_ignores_missing_nodes(tmp_path):

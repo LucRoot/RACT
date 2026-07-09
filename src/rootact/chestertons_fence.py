@@ -55,15 +55,24 @@ class ChestertonsFence:
             return ""
         return proc.stdout
 
+    def _relative_path(self, path: Path) -> Path:
+        """Return *path* relative to the project directory.
+
+        Accepts both absolute and project-relative paths.
+        """
+        if not path.is_absolute():
+            path = self.project_dir / path
+        return path.relative_to(self.project_dir)
+
     def _recent_commits(self, path: Path) -> list[str]:
         """Return recent commit messages for *path*."""
-        rel = path.relative_to(self.project_dir)
+        rel = self._relative_path(path)
         output = self._run_git("log", "-n10", "--pretty=format:%h %s", "--", str(rel))
         return [line.strip() for line in output.splitlines() if line.strip()]
 
     def _blame(self, path: Path, lines: tuple[int, int] | None) -> list[str]:
         """Return blame lines for the requested range, or the whole file."""
-        rel = path.relative_to(self.project_dir)
+        rel = self._relative_path(path)
         args = ["blame", "--date=short", "-l"]
         if lines is not None:
             args.append(f"-L{lines[0]},{lines[1]}")
@@ -76,6 +85,8 @@ class ChestertonsFence:
     ) -> Rooted[str]:
         """Return a plausible reason the code at *path* exists."""
         target = Path(path)
+        if not target.is_absolute():
+            target = self.project_dir / target
         if not target.is_file():
             return Rooted(
                 value="",
