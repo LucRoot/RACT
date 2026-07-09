@@ -176,7 +176,7 @@ def run_mutation_tests(
     project_dir: Path | str,
     *,
     script_path: Path | str | None = None,
-    timeout: float = 900.0,
+    timeout: float = 7200.0,
     wsl_distro: str | None = None,
 ) -> Rooted[MutationReport]:
     """Run the mutation-testing script and return a parsed report.

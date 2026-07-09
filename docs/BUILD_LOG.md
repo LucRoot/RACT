@@ -690,3 +690,27 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Raise the mutation-runner timeout and re-run; consider narrowing the mutation target or using mutmut's built-in speed options if the run still exceeds practical limits.
+
+## 2026-07-09 — Loop pass: raise mutation runner timeout to 2 hours
+
+**What changed**
+- `src/rootact/mutation_runner.py`: default `timeout` raised from 900.0 to 7200.0 seconds.
+- `src/rootact/cli.py`: `--timeout` default for `rootact mutation run` raised from 900.0 to 7200.0 seconds.
+
+**Why**
+- The first real WSL mutation run timed out at 900 seconds before producing a score. The four core engine files generate a large mutant population, and each mutant runs the full test suite (~40-50s).
+
+**Test/lint/type result**
+- `pytest tests/test_mutation_runner.py tests/test_cli_mutation.py tests/test_harness_mutation_gate.py`: 29 passed.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/mutation_runner.py src/rootact/cli.py`: passed.
+
+**Background task**
+- Task ID: `bash-giojueh6`
+- Command: `.venv/Scripts/python -m rootact.cli mutation run --wsl-distro Ubuntu-24.04`
+- Log: `C:/Users/rootl/ract-work/mutation_run_ract.log`
+- Status: running, no timeout (2-hour internal timeout).
+
+**Next action**
+- Wait for `bash-giojueh6` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.

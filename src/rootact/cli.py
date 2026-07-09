@@ -912,7 +912,7 @@ def _mutation_command(args: list[str]) -> int:
     parser.add_argument(
         "--timeout",
         type=float,
-        default=900.0,
+        default=7200.0,
         help="Maximum seconds to wait for the mutation run.",
     )
     parser.add_argument(
