@@ -48,5 +48,50 @@ The `ract consolidate` subcommand transforms RACT's static duplication detection
 - The spec assumes that the existing RACT environment already has a populated SymbolGraph and that the novelty detector can be instantiated without additional dependencies.
 - Error handling should propagate failures from DiffApplier or SymbolRenamer back to the operator with clear messages.
 
+## Risk mitigations
+
+### 1. Merge safety validation
+Before any proposal is enqueued, the candidate group must pass a **merge-safety check**:
+- **Import reachability**: for every source module in the group, verify that all public symbols it exports are either (a) also present in the target module after merge, or (b) re-exported via an alias, so external callers remain resolvable.
+- **Circular-dependency check**: compute the strongly connected components (SCCs) of `SymbolGraph` before and after the simulated merge; if a new SCC is created or an existing one grows, flag the proposal for manual review.
+- **Test gate**: run the affected modules' tests (or the full suite if the affected surface is small) in **dry-run/validate mode** using `pytest --collect-only` plus a lightweight import check; only groups whose imports resolve cleanly are queued.
+- **Staged apply**: approved merges are applied to a temporary copy of the source tree first; `pytest -q` must pass on the copy before the changes are promoted to the working tree.
+
+### 2. Name collisions and module identity
+- **Canonical target selection**: the target module for a group is the module with the highest cumulative inbound reference count in `SymbolGraph`. Ties are broken by shortest absolute path, then lexicographically.
+- **Collision check**: before finalizing the target name, query `SymbolGraph` for any existing module with the same canonical id; if one exists outside the group, the proposal is rejected with a `NAME_COLLISION` reason.
+- **Identity preservation**: each merged source module is replaced by a shim that re-exports the target's public API for one release cycle, unless `--no-shims` is passed. The shim carries a deprecation marker and is added to the next dead-code auction.
+- **Import rewriting**: `SymbolRenamer` produces a deterministic rewrite plan; the plan is previewed in the diff and executed only on approval.
+
+### 3. Error propagation and rollback
+- **Atomic proposal**: each `MergeProposal` stores the original file contents (or git object ids) of every touched module before any write.
+- **Failure handling**: if `DiffApplier` or `SymbolRenamer` raises, the operation halts, the proposal status moves to `FAILED`, and all touched files are restored from the stored originals.
+- **Graph consistency**: `SymbolGraph` is rebuilt from disk after a successful merge; if rebuild fails, the file-system rollback is triggered automatically.
+- **Operator notification**: failures are emitted with the proposal id, the failing module, the exception type/message, and the path to the preserved backup directory.
+
+### 4. Clustering algorithm (concrete)
+Input: matrix `M` where `M[a][b]` is the compression similarity between modules `a` and `b`.
+1. Initialize each module as its own cluster.
+2. Repeat:
+   - For every pair of clusters `(C_i, C_j)`, compute average linkage: `avg(i,j) = (1 / |C_i||C_j|) * sum(M[a][b] for a in C_i for b in C_j)`.
+   - Find the pair with maximum `avg`. Ties are broken by (a) smaller total line count, (b) lexicographically earliest canonical target id.
+   - If `avg` < `--merge-threshold`, stop.
+   - Merge `C_i` and `C_j`.
+3. Discard any cluster of size 1.
+4. For each remaining cluster, generate one `MergeProposal`.
+Complexity is `O(n^2 log n)` for `n` candidates and is acceptable for repositories up to several hundred modules.
+
+### 5. CLI flags and defaults
+`ract consolidate [OPTIONS]`
+- `--similarity-threshold` (float, default `0.80`, range `[0.5, 1.0]`): minimum similarity for a pair to be considered a candidate.
+- `--merge-threshold` (float, default `0.75`, range `[0.5, 1.0]`): minimum average linkage required to merge two clusters.
+- `--max-modules` (int, default `50`, min `1`): cap the number of modules scanned, to bound runtime on large repos.
+- `--no-shims` (flag): skip the generation of backward-compatible re-export shims.
+- `--dry-run` (flag): compute proposals and print previews without enqueueing them.
+- `--auto-approve` (flag, dangerous): apply proposals immediately without handshake review. Requires `--yes`.
+- `--paths` (multiple, default `.`): restrict scanning to specific directories or modules.
+
+Validation: thresholds outside the allowed range raise `click.BadParameter`; `--auto-approve` without `--yes` raises a usage error.
+
 ---
 This specification is concrete enough to be implemented in the next development loop, providing a clear roadmap for code, tests, and CLI integration.
