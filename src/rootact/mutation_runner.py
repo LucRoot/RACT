@@ -141,15 +141,21 @@ def _to_wsl_path(path: Path) -> str:
     WSL bash cannot interpret backslash-separated Windows paths. This helper
     maps ``C:\\foo\\bar`` to ``/mnt/c/foo/bar`` so scripts can be invoked
     directly inside WSL.
+
+    It works even when ``pathlib`` is running on a POSIX host and therefore
+    does not parse Windows drive letters natively.
     """
-    drive = path.drive
-    if drive and len(drive) == 2 and drive[1] == ":":
-        drive_letter = drive[0].lower()
-        rest = path.as_posix().split("/", 1)[1] if "/" in path.as_posix() else ""
+    posix = path.as_posix()
+    if posix.startswith("/"):
+        return posix
+    # Drive-letter form: X:/... or X:\... (after as_posix backslashes are gone).
+    if len(posix) >= 2 and posix[1] == ":" and posix[0].isalpha():
+        drive_letter = posix[0].lower()
+        rest = posix[2:].lstrip("/")
         if rest:
             return f"/mnt/{drive_letter}/{rest}"
         return f"/mnt/{drive_letter}"
-    return path.as_posix()
+    return posix
 
 
 def _resolve_runner_command(

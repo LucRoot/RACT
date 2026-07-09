@@ -486,3 +486,26 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - When `bash-akvezkgm` completes, parse the mutation score, calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights, commit, push, and continue the loop.
+
+## 2026-07-09 — Loop pass: make `_to_wsl_path` platform-agnostic
+
+**What changed**
+- `src/rootact/mutation_runner.py`: rewrote `_to_wsl_path` to parse the drive letter from the normalized path string instead of relying on `pathlib.Path.drive`, which is empty when the code runs on a POSIX host (WSL/Linux). This fixes the four `test_mutation_runner.py` failures that occurred when mutmut ran the suite inside WSL.
+
+**Why**
+- The previous WSL mutation run failed because mutmut executes tests under Linux, where `Path("C:/tmp/script.sh").drive` returns `''`. The WSL-path tests expected `/mnt/c/...` conversion, so they failed, causing `mutmut run` to exit before `mutmut results` could print a score.
+
+**Test/lint/type result**
+- `pytest tests/test_mutation_runner.py`: 20 passed.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/mutation_runner.py`: passed.
+
+**Background task**
+- Task ID: `bash-k5aw805q`
+- Command: `.venv/Scripts/python -m rootact.cli mutation run --wsl-distro Ubuntu-24.04`
+- Log: `C:/Users/rootl/ract-work/mutation_run_ract.log`
+- Status: running, no timeout.
+
+**Next action**
+- Wait for `bash-k5aw805q` to complete, parse the mutation score, calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights, commit, push, and continue the loop.
