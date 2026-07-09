@@ -44,6 +44,7 @@ $ rootact --welcome
 │   rootact whisper --intent '...'     · get a codebase dialect brief          │
 │   rootact auction list               · review dead-code candidates           │
 │   rootact fence inspect --file f.py  · ask why legacy code exists            │
+│   rootact consolidate --dry-run      · preview near-duplicate module merges   │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -63,7 +64,7 @@ An embedded asciinema.org upload is queued for the public README player once the
 | **Provider lock-in** | Model-agnostic: local, OpenAI, Anthropic, Z.ai, Moonshot, OpenRouter | Mostly Anthropic / OpenAI | Anthropic only | Closed, hosted stack |
 | **Loop logic** | **Progress Oracle**: milestone-driven recursion | Time-based or user-prompted | User-prompted turns | Single-shot or chat turns |
 | **Continuity guard** | **Root Knot**: every file carries an identity sentinel; unsigned drift breaks the loop | None built-in | None built-in | None built-in |
-| **Anti-rot tooling** | `novelty scan`, `whisper`, `auction`, `fence` as first-class CLI verbs | Not a core feature | Not a core feature | Not a core feature |
+| **Anti-rot tooling** | `consolidate`, `novelty scan`, `whisper`, `auction`, `fence` as first-class CLI verbs | Not a core feature | Not a core feature | Not a core feature |
 | **Earned quality gates** | `coverage delta`, `mutation run`, and lint/format repair as CLI verbs | Editor lint only | Editor lint only | Editor lint only |
 | **Human oversight** | **Operator Handshake**: high-risk items queue for async review | Inline approval dialogs | Inline approval dialogs | Inline approval dialogs |
 | **Auditability** | Signed receipts for every run; quality comparable across models | Session history | Session history | Limited |
@@ -72,6 +73,15 @@ An embedded asciinema.org upload is queued for the public README player once the
 | **Local data** | Runs entirely locally if you choose | Cloud providers required | Cloud providers required | Cloud-hosted |
 
 RACT is for developers who already live in the terminal, want to mix cheap local and frontier models, and need reproducible, auditable agent runs. Cursor and Claude Code are smoother if you want an IDE-integrated experience; Lovable is faster if you want to generate a SaaS UI in one sentence. RACT wins on sovereignty and model economics.
+
+### Anti-rot workflow
+
+RACT exposes the rot-fighting loop as first-class CLI verbs:
+
+- `rootact consolidate --dry-run` — find near-duplicate modules and preview merges before enqueuing them for operator approval.
+- `rootact novelty scan` — measure how much a new artifact resembles existing code; blocks near-duplicates before they are written.
+- `rootact auction list` — identify dead code by reachability and queue it for removal.
+- `rootact fence inspect --file <path>` — ask why legacy code exists before changing it.
 
 See `docs/ARCHITECTURE.md` and `docs/PHILOSOPHY.md` for the design rationale.
 
