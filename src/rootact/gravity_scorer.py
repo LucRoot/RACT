@@ -188,9 +188,12 @@ class GravityScorer:
         }
         self._cache_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    def _current_mtimes(self) -> dict[str, float]:
+    def _current_mtimes(self) -> dict[str, list[float]]:
         return {
-            str(p.relative_to(self.project_dir)): p.stat().st_mtime
+            str(p.relative_to(self.project_dir)): [
+                float(p.stat().st_mtime),
+                float(p.stat().st_size),
+            ]
             for p in self.project_dir.rglob("*.py")
             if "__pycache__" not in p.parts
         }

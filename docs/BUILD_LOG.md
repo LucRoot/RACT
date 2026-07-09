@@ -556,3 +556,26 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for `bash-9f63dnsf` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
+
+## 2026-07-09 — Loop pass: fix gravity scorer cache freshness on coarse mtime filesystems
+
+**What changed**
+- `src/rootact/gravity_scorer.py`: `_current_mtimes` now records `[mtime, size]` for each Python file, and `_cache_fresh` compares both values. This prevents stale-cache reloads when the filesystem has coarse mtime resolution (e.g., WSL 9P mounts).
+
+**Why**
+- The WSL mutation run showed one baseline failure: `test_cache_rebuilds_when_file_changes`. On the Windows mount, consecutive writes within the same second produced identical mtimes, so the scorer treated the stale cache as fresh and missed the newly added `def b`.
+
+**Test/lint/type result**
+- `pytest tests/test_gravity_scorer.py`: 12 passed.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/gravity_scorer.py`: passed.
+
+**Background task**
+- Task ID: `bash-uv9lipj6`
+- Command: `.venv/Scripts/python -m rootact.cli mutation run --wsl-distro Ubuntu-24.04`
+- Log: `C:/Users/rootl/ract-work/mutation_run_ract.log`
+- Status: running, no timeout.
+
+**Next action**
+- Wait for `bash-uv9lipj6` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
