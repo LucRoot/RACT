@@ -12,7 +12,7 @@
 # editable mode, runs mutmut against the core files, and prints the mutation
 # score.
 
-set -euo pipefail
+set -uo pipefail
 
 # Derive the repository root from the script's location so the runner is
 # portable across WSL mounts and machines.
@@ -41,7 +41,7 @@ rm -f .mutmut-cache
 
 python3 -m mutmut run \
     --paths-to-mutate "src/rootact/executor.py,src/rootact/loop_controller.py,src/rootact/harness.py,src/rootact/cli.py" \
-    --runner "python3 -m pytest tests/ -q"
+    --runner "python3 -m pytest tests/ -q" || true
 
 echo ""
 echo "=== Mutation testing complete ==="

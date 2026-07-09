@@ -145,10 +145,11 @@ def _to_wsl_path(path: Path) -> str:
     It works even when ``pathlib`` is running on a POSIX host and therefore
     does not parse Windows drive letters natively.
     """
-    posix = path.as_posix()
+    # Normalize backslashes first; POSIX pathlib may treat them as literal chars.
+    posix = str(path).replace("\\", "/")
     if posix.startswith("/"):
         return posix
-    # Drive-letter form: X:/... or X:\... (after as_posix backslashes are gone).
+    # Drive-letter form: X:/... or X:\... (after normalization).
     if len(posix) >= 2 and posix[1] == ":" and posix[0].isalpha():
         drive_letter = posix[0].lower()
         rest = posix[2:].lstrip("/")
