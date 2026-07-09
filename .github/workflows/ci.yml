@@ -8,6 +8,15 @@ on:
     branches: [main, master]
 
 jobs:
+  shell-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell script syntax
+        run: |
+          bash -n scripts/install.sh
+          bash -n scripts/run_mutation_tests_wsl.sh
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:
