@@ -579,3 +579,25 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for `bash-uv9lipj6` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
+
+## 2026-07-09 — Loop pass: run mutmut on a clean WSL-native copy of the repo
+
+**What changed**
+- `scripts/run_mutation_tests_wsl.sh`: replaced the cache-symlink workaround with a `git archive HEAD | tar -x` export to `/tmp/ract-mutmut-src`. The script now installs and runs mutmut entirely inside WSL-native ext4.
+
+**Why**
+- Even with the cache on `/tmp`, `mutmut results` was clearing the cache because source mtimes on the `/mnt/c` mount were shifting between `mutmut run` and `mutmut results`. Running on a clean native copy removes the Windows mount from the equation.
+
+**Test/lint/type result**
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `pytest tests/test_mutation_runner.py`: passed (script change is at integration level).
+
+**Background task**
+- Task ID: `bash-bh0al1nz`
+- Command: `.venv/Scripts/python -m rootact.cli mutation run --wsl-distro Ubuntu-24.04`
+- Log: `C:/Users/rootl/ract-work/mutation_run_ract.log`
+- Status: running, no timeout.
+
+**Next action**
+- Wait for `bash-bh0al1nz` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.

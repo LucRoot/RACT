@@ -21,10 +21,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Keep the WSL venv outside the repository so it is never scanned by RACT's
 # own file walkers (symbol graph, novelty detector, dead-code auction).
 VENV_DIR="${HOME}/.cache/ract-mutmut-venv"
-# Keep the mutmut SQLite cache on a WSL-native filesystem. SQLite on the
-# Windows 9P mount can throw "disk I/O error" and corrupt the cache.
-MUTMUT_CACHE_NATIVE="/tmp/ract-mutmut-cache"
-MUTMUT_CACHE_LINK="${REPO_ROOT}/.mutmut-cache"
+# Work on a clean copy of the repo inside WSL-native /tmp. This avoids SQLite
+# cache corruption on the Windows 9P mount and prevents mutmut's source-mtime
+# checks from clearing the cache between "run" and "results".
+WORK_DIR="/tmp/ract-mutmut-src"
 
 cd "$REPO_ROOT"
 
@@ -32,19 +32,20 @@ if [[ ! -d "$VENV_DIR" ]]; then
     python3 -m venv "$VENV_DIR"
 fi
 
+# Export a clean, committed snapshot of the repo to the WSL work directory.
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR"
+git -C "$REPO_ROOT" archive HEAD | tar -x -C "$WORK_DIR"
+
+cd "$WORK_DIR"
+
 source "$VENV_DIR/bin/activate"
 pip install --quiet --upgrade pip
-pip install --quiet -e ".[dev]"
+pip install --quiet -e "$WORK_DIR[dev]"
 # Pin to mutmut 2.x because 3.x removed the --paths-to-mutate and --runner CLI
 # flags and requires pyproject.toml configuration. The 2.x CLI is easier to
 # drive from a standalone shell script.
 pip install --quiet "mutmut==2.4.5"
-
-# Clear previous run state and redirect the cache to native ext4.
-rm -rf "$MUTMUT_CACHE_NATIVE"
-rm -f "$MUTMUT_CACHE_LINK"
-ln -s "$MUTMUT_CACHE_NATIVE" "$MUTMUT_CACHE_LINK"
-trap 'rm -f "$MUTMUT_CACHE_LINK"' EXIT
 
 python3 -m mutmut run \
     --paths-to-mutate "src/rootact/executor.py,src/rootact/loop_controller.py,src/rootact/harness.py,src/rootact/cli.py" \
