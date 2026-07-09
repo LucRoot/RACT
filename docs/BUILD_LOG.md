@@ -442,3 +442,47 @@ This log records each loop pass through the RACT codebase. It exists because con
 - Run a real WSL mutation run against RACT again with the fixed script and capture the score.
 
 # RACT 0.1.0 - Initial Public Release
+
+## 2026-07-09 — Loop pass closure: commit/push and real WSL mutation run started
+
+**Commit**
+- `3853aae` pushed to `origin/main`.
+- Includes README badges, SymbolGraph directory-pruning fix, `.gitignore` update, and `run_mutation_tests_wsl.sh` fixes (mutmut 2.4.5 pin, venv moved to `$HOME/.cache`).
+
+**Background task**
+- Task ID: `bash-ql8pspyu`
+- Command: `.venv/Scripts/python -m rootact.cli mutation run --wsl-distro Ubuntu-24.04`
+- Log: `C:/Users/rootl/ract-work/mutation_run_ract.log`
+- Status: running, no timeout.
+
+**Internal health**
+- Nemotron on `127.0.0.1:8011`: running.
+- Internal proxy on `127.0.0.1:11434`: running and responsive.
+- Subservices bundle on `127.0.0.1:11503`: running.
+
+**Next action**
+- Wait for the mutation run to complete, parse the mutation score, and use it to calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights. Then push the calibration and continue the loop.
+
+## 2026-07-09 — Loop pass: fix mutation runner Unicode decoding and re-run
+
+**What changed**
+- `src/rootact/mutation_runner.py`: explicitly set `encoding="utf-8", errors="replace"` on the subprocess that invokes the WSL mutation script, so mutmut's emoji/status output does not crash the Windows reader thread with `cp1252` decoding errors.
+- Made the `combined` output string None-safe: `(result.stdout or "") + "\n" + (result.stderr or "")`.
+
+**Why**
+- The first WSL mutation run failed with `UnicodeDecodeError: 'charmap' codec can't decode byte 0x8f` inside Python's subprocess reader thread, which left `result.stdout` as `None` and then raised `TypeError` when concatenating.
+
+**Test/lint/type result**
+- `pytest tests/test_mutation_runner.py tests/test_cli_mutation.py tests/test_harness_mutation_gate.py`: 29 passed.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/mutation_runner.py`: passed.
+
+**Background task**
+- Task ID: `bash-akvezkgm`
+- Command: `.venv/Scripts/python -m rootact.cli mutation run --wsl-distro Ubuntu-24.04`
+- Log: `C:/Users/rootl/ract-work/mutation_run_ract.log`
+- Status: running, no timeout.
+
+**Next action**
+- When `bash-akvezkgm` completes, parse the mutation score, calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights, commit, push, and continue the loop.
