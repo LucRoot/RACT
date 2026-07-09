@@ -1374,3 +1374,39 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Poll the targeted `executor.py` mutation run; once it finishes, read the final score, update `docs/PUBLIC_LEADERBOARD.md`, and decide on per-file mutation floors.
+
+## 2026-07-09 — Loop pass: executor guard-path tests and 100% executor coverage
+
+**What changed**
+- Added five targeted tests to `tests/test_executor.py`:
+  - `test_write_artifact_rejects_absolute_path` — uses `Path(tmp_path.anchor) / "evil.txt"` so the test is portable to Windows.
+  - `test_check_load_bearing_returns_empty_when_no_project_dir` — covers the `project_dir is None` early-return branch.
+  - `test_check_load_bearing_truncates_long_modified_lines_list` — verifies the `,...` truncation when more than five lines are modified.
+  - `test_duplication_guard_blocks_write` — assigns a fake `DuplicationGuard` and asserts the executor returns a Rooted error instead of writing the artifact.
+  - `test_extract_json_artifact_wrapper_tolerant_missing_value_quote` — covers the `_extract_string` start-quote-missing path.
+- Updated `docs/PUBLIC_LEADERBOARD.md` with the measured executor mutation score.
+
+**Why**
+- Reaching 100% line coverage on `src/rootact/executor.py` removes a blind spot in the core execution path and makes future regression detection deterministic.
+- The guard-path tests (load-bearing, duplication, absolute-path rejection) are safety-critical: they prove the executor refuses dangerous writes even when the rest of the pipeline is mocked.
+
+**Test/lint/type result**
+- `pytest tests/test_executor.py -q`: 53 passed.
+- `pytest -q`: 996 passed, 1 skipped, 91% overall coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src`: clean.
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Coverage impact**
+- `src/rootact/executor.py`: 99% → 100%.
+
+**Mutation result**
+- Targeted `executor.py` run (`bash-mb5ph1bb`) final score: **39.1%** (239 killed / 611 non-suspicious = 39.1%; 710 total mutants, 99 suspicious, 372 survived).
+- Log preserved at `C:/Users/rootl/ract-work/mutation_run_executor_v2.log`.
+
+**Next action**
+- Implement per-file mutation floors in `src/rootact/harness.py` so `executor.py` can be held at 39.1% while other files keep independent floors.
+- Start a fresh targeted `executor.py` mutation run in the background to confirm score stability after the new tests.
