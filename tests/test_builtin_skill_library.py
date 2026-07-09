@@ -21,6 +21,7 @@ def test_library_lists_built_in_skills():
     assert "api-client" in names
     assert "data-pipeline" in names
     assert "config-driven-service" in names
+    assert "github-release" in names
 
 
 def test_library_installs_skill(tmp_path):
@@ -46,6 +47,7 @@ def test_library_installs_all_skills(tmp_path):
         "api-client",
         "data-pipeline",
         "config-driven-service",
+        "github-release",
     }
     assert expected.issubset(set(installed))
     assert set(registry.list_skills()) == set(installed)
