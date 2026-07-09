@@ -14,9 +14,13 @@ from rootact.duplication_guard import DuplicationBlockedError, DuplicationGuard
 
 
 def test_no_duplicates_for_new_symbol(tmp_path):
-    (tmp_path / "existing.py").write_text("def old(): pass\n", encoding="utf-8")
+    # Existing symbol has structure that does not collapse to the new symbol.
+    (tmp_path / "existing.py").write_text(
+        "def old(x):\n    return x * 2\n", encoding="utf-8"
+    )
     guard = DuplicationGuard(tmp_path)
-    matches = guard.check("new.py", "def new_thing(): pass\n")
+    # Structurally different: no parameter, different return shape.
+    matches = guard.check("new.py", "def new_thing():\n    return 'hello'\n")
     assert matches == []
 
 
@@ -88,4 +92,38 @@ def test_uses_provided_historian(tmp_path):
     assert len(matches) == 1
 
 
-# RACT 0.1.0 - Initial Public Release
+def test_detects_renamed_clone(tmp_path):
+    """AST normalization catches duplication even when every identifier is renamed."""
+    (tmp_path / "existing.py").write_text(
+        "def helper(a, b):\n    return a + b\n", encoding="utf-8"
+    )
+    guard = DuplicationGuard(tmp_path)
+    # Same structure but all identifiers renamed.
+    renamed_clone = "def compute(x, y):\n    return x + y\n"
+    matches = guard.check("mod.py", renamed_clone)
+    assert len(matches) == 1
+    assert matches[0].similarity >= 0.85
+
+
+def test_detects_renamed_clone_with_different_docstring(tmp_path):
+    """Stripping docstrings means a copy-paste with renamed identifiers is still caught."""
+    (tmp_path / "existing.py").write_text(
+        '"""A helper module."""\n'
+        "def helper(a, b):\n"
+        '    """Adds two things."""\n'
+        "    return a + b\n",
+        encoding="utf-8",
+    )
+    guard = DuplicationGuard(tmp_path)
+    renamed_clone = (
+        '"""A compute module."""\n'
+        "def compute(x, y):\n"
+        '    """Computes a sum."""\n'
+        "    return x + y\n"
+    )
+    matches = guard.check("mod.py", renamed_clone)
+    assert len(matches) == 1
+    assert matches[0].similarity >= 0.85
+
+
+# RACT 0.1.1 - Trust and tooling

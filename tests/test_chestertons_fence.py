@@ -138,4 +138,4 @@ def test_cli_fence_inspect(capsys, tmp_path: Path):
     assert "guard, not a veto" in out
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

@@ -232,4 +232,4 @@ rootact handshakes defer <milestone-id>
 - Read `PROVIDER_SETUP.md` to connect your preferred LLM.
 - Read `SKILL_AUTHORING.md` to create reusable skill templates.
 
-<!-- RACT 0.1.0 - Initial Public Release -->
+<!-- RACT 0.1.1 - Trust and tooling -->

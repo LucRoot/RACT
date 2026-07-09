@@ -94,4 +94,4 @@ def test_validate_report_tests_reports_test_issue():
     assert "re" in issues[0].message
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

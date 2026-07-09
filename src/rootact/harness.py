@@ -21,7 +21,11 @@ from typing import Any
 import yaml
 
 from rootact.codebase_historian import CodebaseHistorian
-from rootact.coverage_delta import gate as coverage_gate
+from rootact.coverage_delta import (
+    gate as coverage_gate,
+    save_baseline as save_coverage_baseline,
+    save_coverage_badge,
+)
 from rootact.dependency_graph import DependencyGraph
 from rootact.mutation_runner import run_mutation_tests
 from rootact.diff_applier import DiffApplier
@@ -288,14 +292,24 @@ class Harness:
         self.coverage_gate_timeout = float(cg_cfg.get("timeout", 300.0))
         cg_min = cg_cfg.get("min_percent")
         self.coverage_gate_min_percent = float(cg_min) if cg_min is not None else None
+        # Per-file floors let core modules have independent coverage targets while
+        # the global floor still applies to the aggregate run.
+        self.coverage_gate_per_file: dict[str, float] = {
+            str(k).replace("\\", "/"): float(v)
+            for k, v in (cg_cfg.get("per_file") or {}).items()
+        }
+        self.coverage_gate_update_baseline = bool(cg_cfg.get("update_baseline", False))
+        badge_path = cg_cfg.get("badge_path")
+        self.coverage_gate_badge_path = Path(badge_path) if badge_path else None
         mg_cfg = config.get("mutation_gate", {})
         self.mutation_gate_enabled = bool(mg_cfg.get("enabled", False))
         self.mutation_gate_hard_fail = bool(mg_cfg.get("hard_fail", False))
         self.mutation_gate_timeout = float(mg_cfg.get("timeout", 900.0))
         mg_min = mg_cfg.get("min_score")
-        # Baseline measured on src/rootact/rooted.py (19/50 mutants killed = 38.0%).
-        # The default floor will rise as loop integration tests improve.
-        self.mutation_gate_min_score = float(mg_min) if mg_min is not None else 37.5
+        # Baseline measured on src/rootact/executor.py (328/686 non-suspicious
+        # mutants killed = 47.81%). The default floor is enforced even when no
+        # per-file config is present.
+        self.mutation_gate_min_score = float(mg_min) if mg_min is not None else 47.81
         # Per-file floors allow core files to have independent targets while the
         # global floor still applies to aggregate runs. Paths are relative to
         # project_dir (e.g. {"src/rootact/executor.py": 39.0}).
@@ -734,6 +748,7 @@ class Harness:
                 self.project_dir,
                 timeout=self.coverage_gate_timeout,
                 min_percent=self.coverage_gate_min_percent,
+                per_file_min_percent=self.coverage_gate_per_file,
             )
             if not cg_result.is_ok():
                 cg_error = cg_result.error or "coverage gate failed"
@@ -747,6 +762,14 @@ class Harness:
                     )
             else:
                 delta = cg_result.unwrap()
+                if self.coverage_gate_update_baseline and delta.verdict in {
+                    "earn",
+                    "baseline",
+                }:
+                    save_coverage_baseline(self.project_dir, delta.after)
+                if self.coverage_gate_badge_path is not None:
+                    badge_target = self.project_dir / self.coverage_gate_badge_path
+                    save_coverage_badge(delta.after, badge_target)
                 verdict = delta.verdict
                 if verdict in {"regress", "stagnant"} or delta.floor_breached:
                     delta_msg = (
@@ -757,6 +780,8 @@ class Harness:
                     )
                     if delta.floor_breached:
                         delta_msg += " Floor breached."
+                    if delta.per_file_breaches:
+                        delta_msg += " Per-file floor(s) breached."
                     if self.coverage_gate_hard_fail:
                         return Rooted(
                             value=None,
@@ -772,6 +797,7 @@ class Harness:
                             "detail": delta.detail,
                             "floor_breached": delta.floor_breached,
                             "percent_delta": delta.percent_delta,
+                            "per_file_breaches": delta.per_file_breaches,
                             "before": {
                                 "percent_covered": delta.before.percent_covered,
                                 "covered_lines": delta.before.covered_lines,
@@ -832,4 +858,4 @@ class Harness:
         return report_rooted
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

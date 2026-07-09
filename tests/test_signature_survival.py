@@ -57,8 +57,8 @@ def test_golden_hash_matches_known_value():
     # The golden hash is computed from the current source tree. When signatures
     # change intentionally, update this value after verifying the change is
     # authored by Dr. Lucas Root, Ph.D.
-    expected = "4ed323d824a78c0c4942707858cfd69d5a7579c6511f378dda690d776819d1a1"
+    expected = "67923f6197574965e8443c6f33c4504023f0702a6d71dc73e00caeafc6c0ff05"
     assert guardian.golden_hash() == expected
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

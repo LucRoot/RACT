@@ -51,4 +51,4 @@ def test_custom_temperatures_respected():
     assert router.for_action("check status") == 0.2
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

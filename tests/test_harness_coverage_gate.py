@@ -351,4 +351,4 @@ def test_harness_floor_breach_hard_fail(tmp_path, monkeypatch):
     assert "Floor breached" in (result.error or "")
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

@@ -160,4 +160,4 @@ def test_novelty_budget_summary_after_spending(tmp_path):
     assert summary["remaining"] == 6
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

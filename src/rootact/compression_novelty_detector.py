@@ -30,6 +30,8 @@ import tokenize
 
 import zstandard
 
+from rootact.ast_normalizer import structural_hash
+
 
 @dataclass(frozen=True)
 class NoveltyScore:
@@ -52,6 +54,7 @@ class CompressionNoveltyDetector:
     HIGH_NOVELTY_THRESHOLD = 1.05
     LOW_NEIGHBOR_THRESHOLD = 0.15
     HIGH_NEIGHBOR_THRESHOLD = 0.75
+    STRUCTURAL_DUPLICATE_THRESHOLD = 0.85
     MIN_SAMPLE_BYTES = 128
     SAMPLE_CHUNK_SIZE = 1_024
     MAX_SAMPLES = 100
@@ -75,6 +78,28 @@ class CompressionNoveltyDetector:
         self._samples_by_path: dict[Path, list[bytes | bytearray]] = {}
         self._samples: Sequence[bytes | bytearray] = self._collect_samples()
         self._dictionary = self._train_dictionary()
+        self._structural_hashes: dict[str, str | None] = {}
+        self._structural_lengths: dict[str, int] = {}
+        self._preload_structural_hashes()
+
+    def _preload_structural_hashes(self) -> None:
+        """Precompute AST-normalized hashes for all project Python files.
+
+        Caching avoids re-parsing and re-normalizing the same files on every
+        novelty assessment. Invalid or unreadable files are cached as None.
+        """
+        if not self.project_dir.is_dir():
+            return
+        for path in self.project_dir.rglob("*.py"):
+            if self._should_skip(path):
+                continue
+            try:
+                rel = str(path.relative_to(self.project_dir))
+                content = path.read_text(encoding="utf-8")
+            except (OSError, ValueError):
+                continue
+            self._structural_hashes[rel] = structural_hash(content)
+            self._structural_lengths[rel] = len(content)
 
     def _should_skip(self, path: Path) -> bool:
         """Return True for paths inside dependency/build/cache directories."""
@@ -302,9 +327,10 @@ class CompressionNoveltyDetector:
         """Score a proposed new artifact and identify the nearest existing one.
 
         The final novelty ratio blends the dictionary ratio with the nearest-
-        neighbor conditional ratio. A verbatim copy of an existing module scores
-        very low on both, while genuinely novel Python shares little structure
-        with any existing file and scores high.
+        neighbor conditional ratio and AST-normalized structural similarity.
+        A verbatim copy of an existing module scores very low on all three,
+        while a copy whose identifiers have all been renamed still scores high
+        on structural similarity and is caught.
         """
         score = self._score_with_dict(artifact, content, dictionary)
         if score is None:
@@ -321,6 +347,23 @@ class CompressionNoveltyDetector:
         nearest, nn_ratio = self._nearest_similar_artifact_with_ratio(
             content, exclude=exclude, dictionary=dictionary
         )
+        struct_nearest, struct_sim = self._nearest_structural_similarity(
+            content, exclude=exclude
+        )
+
+        # AST-normalized structural similarity catches copy-and-rename clones
+        # that compression-based signals miss entirely.
+        if struct_sim is not None and struct_sim >= self.STRUCTURAL_DUPLICATE_THRESHOLD:
+            return NoveltyScore(
+                artifact=score.artifact,
+                raw_bytes=score.raw_bytes,
+                compressed_bytes=score.compressed_bytes,
+                dict_compressed_bytes=score.dict_compressed_bytes,
+                ratio=round(1.0 - struct_sim, 3),
+                verdict="low",
+                detail="structural duplicate of an existing module; possible copy-and-rename",
+                nearest=struct_nearest,
+            )
 
         # Without a nearest-neighbor signal there is nothing to blend; fall back
         # to the dictionary-only score.
@@ -474,6 +517,30 @@ class CompressionNoveltyDetector:
                 best_path = rel
         return best_path, best_ratio
 
+    def _nearest_structural_similarity(
+        self,
+        content: str,
+        exclude: set[str] | None = None,
+    ) -> tuple[str | None, float | None]:
+        """Return the existing artifact that is an exact structural duplicate.
+
+        Uses AST-normalized hashes so renamed clones with identical structure are
+        detected instantly. Exact matching keeps the novelty scan fast enough to
+        run on every write.
+        """
+        if not content or not self.project_dir.is_dir():
+            return None, None
+        exclude = exclude or set()
+        content_hash = structural_hash(content)
+        if content_hash is None:
+            return None, None
+        for rel, existing_hash in self._structural_hashes.items():
+            if rel in exclude:
+                continue
+            if existing_hash == content_hash:
+                return rel, 1.0
+        return None, None
+
     def nearest_similar_artifact(
         self, content: str, exclude: set[str] | None = None
     ) -> str | None:
@@ -518,4 +585,4 @@ class CompressionNoveltyDetector:
         return result
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

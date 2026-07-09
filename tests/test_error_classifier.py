@@ -95,4 +95,4 @@ def test_classify_error_returns_error_info() -> None:
         assert "no access" in info.message
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

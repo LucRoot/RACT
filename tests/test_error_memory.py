@@ -157,4 +157,4 @@ def test_max_stored_cap(tmp_path):
     assert entries[1]["iteration"] == 4
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

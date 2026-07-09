@@ -250,7 +250,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Re-run with a realistic floor (e.g., 90.0%) so the gate earns, then integrate the WSL mutation-testing script into the CI quality scorecard or add a signed-receipt quality hook.
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
 
 ## 2026-07-09 — Loop pass: mutation-testing wrapper, scorecard signal, and coverage baseline exit-code fix
 
@@ -289,7 +289,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Wire the mutation runner into the harness/loop controller as a post-execution quality gate, or execute a real WSL mutation run and calibrate the scorecard weight against actual RACT results.
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
 
 ## 2026-07-09 — Loop pass: mutation gate wired into Harness.run
 
@@ -334,7 +334,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Run a real WSL mutation test against RACT, capture the actual mutation score, and calibrate the default `min_score` and scorecard weight against empirical data.
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
 
 ## 2026-07-09 — Loop pass: WSL distro detection and `--wsl-distro` option for mutation runner
 
@@ -374,7 +374,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Execute a real WSL mutation run against RACT (`rootact mutation run --wsl-distro Ubuntu-24.04`) as a background task, then capture the score and calibrate the default `min_score` and scorecard weight.
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
 
 ## 2026-07-09 — Loop pass: fix WSL path conversion and script portability for real mutation run
 
@@ -405,7 +405,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Start a real WSL mutation run against RACT as a background task and capture the score.
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
 
 ## 2026-07-09 — Loop pass: README badges, SymbolGraph WSL-venv exclusion, and mutation-script fixes
 
@@ -441,7 +441,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Run a real WSL mutation run against RACT again with the fixed script and capture the score.
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
 
 ## 2026-07-09 — Loop pass closure: commit/push and real WSL mutation run started
 
@@ -1470,3 +1470,385 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Poll the background `executor.py` mutation run. When it finishes, set the per-file floor and update `docs/PUBLIC_LEADERBOARD.md`.
+
+## 2026-07-09 — Loop pass: AST-normalized similarity, marketplace fix, mutation CI cleanup
+
+**What changed**
+- Added `src/rootact/ast_normalizer.py` with AST-based structural normalization and hash/similarity functions. Identifiers are alpha-renamed to canonical placeholders, docstrings/comments/annotations stripped, so copy-and-rename clones become byte-identical.
+- Wired structural similarity into `duplication_guard.py` (removed the `existing.name != proposed["name"]` short-circuit), `consolidate.py` (`_pairwise_similarity`), and `compression_novelty_detector.py` (pre-write exact-hash check).
+- Added regression tests for renamed-clone detection in `tests/test_duplication_guard.py`, `tests/test_consolidate.py`, `tests/test_compression_novelty_detector.py`, and `tests/test_ast_normalizer.py`.
+- Fixed `rootact marketplace list` dispatch in `src/rootact/cli.py` and added CLI smoke tests for documented verbs.
+- Removed the mutation-testing claim from CI (`.github/workflows/ci.yml` no longer syntax-checks the mutation script as a gate) and clarified in `README.md` that mutation testing is a local diagnostic.
+- Scrubbed the local Windows path from `scripts/run_mutation_tests_wsl.sh`.
+- Updated `docs/PUBLIC_LEADERBOARD.md` with the measured prose `nominal` score and `src/rootact/executor.py` mutation score of 47.81%.
+- Set `mutation_gate.per_file` floor for `src/rootact/executor.py: 47.81` in `rootact.yaml` and updated the hard-coded default in `src/rootact/harness.py`.
+- Updated the signature golden hash in `tests/test_signature_survival.py` after intentional marker-preserving changes.
+
+**Why**
+- Claude's audit showed the anti-rot system could be defeated by renaming identifiers: a 3-rename clone of `rooted.py` scored `nominal` and passed the gate. Structural normalization closes that hole.
+- `rootact marketplace` was documented but dispatched through argparse and rejected its own subcommands.
+- `bash -n scripts/run_mutation_tests_wsl.sh` in CI created the impression mutation testing gated the build while never executing a single mutant.
+
+**Test/lint/type result**
+- `pytest -q --cov-fail-under=90`: 1033 passed, 1 skipped, 91.17% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7 checks passed.
+- `rootact auction list --json`: 0 dead-code candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: reached Chesterton's Fence provider cleanly.
+- `rootact novelty scan --json`: completed; existing files produced a mix of `low`, `nominal`, and `high` verdicts as expected for an internal scan.
+
+**Next action**
+- Continue the loop on remaining public-launch gaps: raise `src/rootact/cli.py` coverage above 70%, add a dynamic mutation-score badge, and audit the `consolidate` apply/rollback paths with real near-duplicate pairs.
+
+## 2026-07-09 — Loop pass: mutation-score badge
+
+**What changed**
+- Added `docs/mutation-badge.json` (Shields endpoint format) with the current `src/rootact/executor.py` mutation score of 47.81%.
+- Added a Shields endpoint badge to `README.md` next to the existing CI/coverage/lint/type/license/Python badges.
+
+**Why**
+- The public leaderboard lists mutation score but it was not visible on the first-screen README. A badge makes the metric discoverable and creates pressure to keep it honest.
+
+**Test/lint/type result**
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `python -m rootact.cli --version`: `RACT 0.1.0`.
+
+**Self-audit result**
+- No source changes; not applicable.
+
+**Next action**
+- Commit and push the accumulated changes, then audit `ract consolidate apply/rollback` against a real near-duplicate pair.
+
+## 2026-07-09 — Loop pass: consolidate apply/rollback audit
+
+**What changed**
+- Audited `ract consolidate` end-to-end in a temp project with a renamed-clone pair (`alpha.py` / `beta.py`).
+- Found a bug: `consolidate scan` enqueued handshake descriptions starting with `Merge N module(s) into ...`, but `consolidate apply` parsed for lines starting with `Proposal: merge into ...` and `Sources: ...`, causing every apply to fail with "malformed proposal description".
+- Fixed `ConsolidationScanner.enqueue_proposals` to emit the exact description format `_consolidate_apply` expects.
+- Added `test_cli_consolidate_scan_apply_rollback_round_trip` to prevent regression.
+
+**Why**
+- The cron-listed gap was `ract consolidate`. Without a real end-to-end run the description/parser mismatch was invisible to the unit tests, which manually constructed handshake entries using the parser's expected format.
+
+**Test/lint/type result**
+- `pytest tests/test_consolidate.py -q`: 16 passed.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Self-audit result**
+- Temp-project run: scan → enqueue → apply (writes deprecation shim) → rollback (restores original file) all succeeded.
+
+**Next action**
+- Commit and push the accumulated changes pending approval, then move to HF Space static page or earned-coverage gate.
+
+## 2026-07-09 — Loop pass: Hugging Face Space static landing page
+
+**What changed**
+- Created `assets/hf-space/index.html` with a dark, responsive static landing page covering RACT's positioning, anti-rot verifiers (`consolidate`, `novelty`, `auction`, `fence`), quick start, local-first/model-agnostic pitch, and links to GitHub/README/leaderboard.
+- Created `assets/hf-space/README.md` with deployment instructions for a Hugging Face Space static template.
+
+**Why**
+- The cron-listed public-launch gap was the HF Space static page. The existing test `tests/test_hf_space.py` asserted the page exists and contains required sections, but the `assets/hf-space/` directory was empty.
+
+**Test/lint/type result**
+- `pytest tests/test_hf_space.py -q`: 3 passed.
+- `ruff check src tests`: passed (no source changes).
+
+**Self-audit result**
+- Not applicable; this is a static asset.
+
+**Next action**
+- Commit and push the accumulated changes pending approval, then move to earned-coverage gate or demo asciicast.
+
+## 2026-07-09 — Loop pass: demo asciicast and earned-coverage gate integration
+
+**What changed**
+- Replaced `assets/demo.cast` with a fresh recording generated from actual `rootact` commands against a throw-away demo project. Added `scripts/generate_demo_cast.py` so the demo can be re-rendered on demand without a PTY.
+- Extended `coverage_delta.py` with per-file coverage floors, baseline persistence that includes per-file snapshots, and a Shields endpoint badge generator.
+- Extended `harness.py` to read `coverage_gate.per_file`, `update_baseline`, and `badge_path` from `rootact.yaml`, and to advance the baseline/write the badge after successful runs.
+- Added `rootact coverage baseline`, `rootact coverage status`, and `rootact coverage badge` CLI actions.
+- Generated `docs/coverage-badge.json` and switched the README coverage badge to the dynamic endpoint.
+- Added regression tests for per-file floor breaches, missing-file breaches, baseline round-trip, and badge output.
+
+**Why**
+- Public-launch gap list had "demo asciicast for README" and "deeper earned-coverage gate integration" as next items.
+- Per-file floors mirror the existing mutation-gate design and prevent regressions in core modules even when aggregate coverage looks healthy.
+- A dynamic badge makes the leaderboard honest without manual README edits.
+
+**Test/lint/type result**
+- `pytest tests/`: 1039 passed, 1 skipped, 90.86% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+- `rootact --init-provider internal`: produces a valid three-slot config.
+- `rootact coverage badge`: wrote `docs/coverage-badge.json` at 90.9%.
+
+**Next action**
+- Harden the native Internal provider, MCP adapter, skill marketplace install path, and run-report rendering.
+
+## 2026-07-09 — Loop pass: Internal slot-id routing and marketplace install UX
+
+**What changed**
+- `InternalProvider._slot_order` now treats a `model` value that matches a slot id as an exact match, so managers can request either the slot model name or the configured slot id.
+- Added regression tests for slot-id routing and capability-hint ordering in `tests/test_internal_provider.py`.
+- `rootact skills marketplace install` now accepts the skill name as a positional argument (`install hello-world`) while keeping `--name` for backward compatibility.
+- Added CLI tests for positional install and the missing-name error path.
+
+**Why**
+- The cron-listed next items included native Internal provider hardening and skill marketplace usability.
+- Requiring `--name` for a single obvious argument is friction that the README examples did not match.
+
+**Test/lint/type result**
+- `pytest tests/`: 1043 passed, 1 skipped, 90.96% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact skills marketplace install hello-world`: installs `skills/hello-world.json` cleanly.
+- `rootact --init-provider internal`: produces valid three-slot config.
+
+**Next action**
+- Add SSE transport to `McpAdapter` and improve run-report rendering for sessions without a loop report.
+
+## 2026-07-09 — Loop pass: run-report fallback to latest session
+
+**What changed**
+- `RunReporter._latest_session_id()` finds the most recently modified session under `.rootact/sessions/`.
+- `RunReporter.render_last_loop()` now falls back to that session report when no `.rootact/loop_report.json` exists, so `rootact report --last` is useful after ordinary `--session` runs.
+- Added regression tests for the fallback and for `_latest_session_id` mtime selection.
+
+**Why**
+- `rootact report --last` previously printed an unhelpful "Run 'rootact ... --loop' first" message even when a session had just been saved. The loop report and session report are both valid summaries of recent work.
+
+**Test/lint/type result**
+- `pytest tests/`: 1045 passed, 1 skipped, 90.97% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact report --last` in a project with only sessions now renders the latest session.
+
+**Next action**
+- Add SSE transport to `McpAdapter`.
+
+## 2026-07-09 — Loop pass: MCP adapter SSE transport
+
+**What changed**
+- Added `SseMcpClient` to `src/rootact/mcp_adapter.py`: POSTs JSON-RPC requests to a URL and reads `data:` lines from the SSE response stream.
+- Wired `transport: sse` into `McpToolRegistry.from_config()` with `url`, `headers`, and `timeout` options.
+- Added tests for SSE tool listing, tool calling, RPC error propagation, HTTP error handling, and registry construction from config.
+
+**Why**
+- The cron-listed next item was MCP adapter hardening. Many MCP servers (e.g., memory, fetch) expose an SSE endpoint; stdio-only support limited RACT's tool ecosystem.
+
+**Test/lint/type result**
+- `pytest tests/`: 1050 passed, 1 skipped, 90.96% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact mcp list` with a config containing an SSE server reaches the new adapter.
+
+**Next action**
+- Update the cron list and decide whether to commit this batch or continue with provider/manager prompt tuning.
+
+## 2026-07-09 — Loop pass: CLI coverage and smoke tests
+
+**What changed**
+- Added CLI smoke/regression tests for `rootact diff apply --patch --dry-run`, `rootact report --last`, `rootact report --session`, `rootact mcp list` with no servers, and `rootact mcp invoke` without `--tool`.
+- These tests exercise previously uncovered command handlers in `src/rootact/cli.py`.
+
+**Why**
+- PUBLIC_LEADERBOARD next target flagged raising `src/rootact/cli.py` coverage. More importantly, several documented verbs (`diff`, `report`, `mcp`) had no direct CLI tests, so regressions could ship silently.
+
+**Test/lint/type result**
+- `pytest tests/`: 1055 passed, 1 skipped, 90.97% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+- `rootact report --last` and `--session` render correctly in smoke tests.
+
+**Next action**
+- Continue raising coverage in under-tested core modules (`token_budget`, `safety_guardrails`, `session_store`) or return to provider/manager prompt tuning.
+
+## 2026-07-09 — Loop pass: SessionConfig tests
+
+**What changed**
+- Added `tests/test_session_config.py` covering defaults, round-trip save/load, `from_dict`, `to_dict`, and save-with-explicit-path.
+
+**Why**
+- `SessionConfig` had zero test coverage in the full suite. It is a small but load-bearing dataclass used by session management; a regression in serialization would break resume/rollback.
+
+**Test/lint/type result**
+- `pytest tests/`: 1053 passed, 1 skipped, 90.97% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Next action**
+- Continue filling coverage gaps in small core modules or move to provider/manager prompt tuning.
+
+## 2026-07-09 — Loop pass: `explain --plan` CLI smoke tests
+
+**What changed**
+- Added CLI tests for `rootact explain --plan <path>` (offline plan narration) and `rootact explain` without arguments (help/exit 1).
+
+**Why**
+- `explain` is a documented verb aimed at human oversight, but it had no direct CLI coverage. The `--plan` path is fully local and safe to test.
+
+**Test/lint/type result**
+- `pytest tests/`: 1055 passed, 1 skipped, 90.98% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Next action**
+- Continue with small-module coverage or provider/manager prompt tuning.
+
+## 2026-07-09 — Loop pass: CI self-audit job
+
+**What changed**
+- Added a `self-audit` job to `.github/workflows/ci.yml` that installs the package and runs `rootact doctor`, `rootact auction list`, and `rootact skills list`.
+
+**Why**
+- The CLI smoke test in the matrix only runs `rootact --help`. The self-audit job exercises real commands against RACT itself on every push/PR, catching parser/dispatch regressions that unit tests might miss.
+
+**Test/lint/type result**
+- `pytest tests/`: 1055 passed, 1 skipped, 90.98% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact skills list`: renders built-in skills.
+
+**Next action**
+- Continue with provider/manager prompt tuning or add a `rootact audit` meta-command that runs the self-audit suite locally.
+
+## 2026-07-09 — Loop pass: `rootact audit` meta-command
+
+**What changed**
+- Added `_audit_command` to `src/rootact/cli.py` immediately after `_doctor_command`.
+- Wired dispatch so `rootact audit` routes to it.
+- The command runs `RactDoctor(...).diagnose()` and `DeadCodeAuction(...).scan()`, prints a unified table, and exits 1 on any failure. With `--json` it emits JSON; with `--deep` it also runs `CompressionNoveltyDetector.scan_project()`.
+- Added two CLI tests in `tests/test_cli.py`: `test_cli_audit_passes_on_healthy_project` and `test_cli_audit_json_output`.
+
+**Why**
+- The CI self-audit job runs `doctor`, `auction list`, and `skills list`, but operators had no single local command to run the same suite. A meta-command makes the self-audit portable and discoverable.
+
+**Test/lint/type result**
+- `pytest tests/`: 1057 passed, 1 skipped, 90.89% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact audit`: 8/8 checks passed.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Next action**
+- Extend `audit --deep` to surface consolidation candidates and mutation-score drift, or raise `cli.py` coverage.
+
+## 2026-07-09 — Loop pass: raise `cli.py` coverage above 75%
+
+**What changed**
+- Added 18 CLI smoke/regression tests to `tests/test_cli.py` covering previously missed branches in `src/rootact/cli.py`:
+  - `handshakes list` with items and missing-milestone error.
+  - `explain --intent` success and planning-failure paths.
+  - `retrieval search` fallback to keyword search and results table.
+  - `report --last --format json`, `--output`, and no-args help path.
+  - `diff` no-action and missing `--patch` errors.
+  - `mcp list` bad YAML, `invoke` tool error, and non-text content rendering.
+  - `init --template python-package --provider local` success path.
+  - `novelty scan` on an empty project.
+  - `fence inspect --lines` malformed range.
+  - `audit --deep` including novelty scan.
+  - `coverage status` with no baseline.
+
+**Why**
+- `cli.py` was at 72% coverage and is the largest, most user-facing module. Raising it reduces the risk that argparse/dispatch refactors silently break documented verbs.
+
+**Test/lint/type result**
+- `pytest tests/`: 1076 passed, 1 skipped, 91.38% coverage.
+- `src/rootact/cli.py` coverage: 76%.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact audit`: 8/8 checks passed.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Next action**
+- Extend `audit --deep` to include `consolidate scan` and mutation-score drift, or continue raising `cli.py` coverage toward 80%.
+
+## 2026-07-09 — Loop pass: `audit --deep` runs consolidate scan
+
+**What changed**
+- Extended `_audit_command` in `src/rootact/cli.py` to run `ConsolidationScanner(...).scan()` when `--deep` is set, adding a `consolidate | merge_proposals` finding.
+- Removed the novelty scan from `audit --deep` because `CompressionNoveltyDetector.scan_project()` (leave-one-out) takes ~45s on RACT and made the combined command timeout.
+- Optimized `ConsolidationScanner` to make `audit --deep` practical:
+  - Added compression-similarity pre-filter before expensive structural comparison.
+  - Cached normalized sources per module and added `structural_similarity_normalized` in `ast_normalizer.py` to avoid redundant normalization.
+  - Added size-ratio and large-input Jaccard heuristics to `structural_similarity`/`structural_similarity_normalized`.
+- Consolidate scan on RACT dropped from ~37s to ~10s; `audit --deep` now completes in under 15s.
+- Updated `tests/test_cli.py` audit tests to expect consolidate output instead of novelty.
+- Added tests for `structural_similarity_normalized`.
+
+**Why**
+- The public-launch gap was a single `rootact audit` command that surfaces anti-rot signals. Dead-code detection and merge-proposal detection are the two most actionable signals; merging them into one command makes the tool usable.
+
+**Test/lint/type result**
+- `pytest tests/`: 1079 passed, 1 skipped, 91.30% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src`: passed.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact audit --deep`: 9/9 checks passed (doctor 7, auction 1, consolidate 1).
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Next action**
+- Either add mutation-score drift to `audit --deep` or continue raising `cli.py` coverage toward 80%.

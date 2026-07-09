@@ -237,6 +237,33 @@ def test_applier_rollback_restores_sources(tmp_path: Path) -> None:
     assert (tmp_path / "b.py").read_text(encoding="utf-8") == original_b
 
 
+RENAMED_CLONE_BODY = """\
+def support():
+    return 1
+
+
+def other():
+    items = [1, 2, 3, 4, 5]
+    return sum(items)
+
+
+class Object:
+    def __init__(self, val):
+        self.val = val
+"""
+
+
+def test_scan_finds_renamed_clone_modules(tmp_path: Path) -> None:
+    """Renamed clones must cluster even when byte-level similarity is low."""
+    _write_module(tmp_path / "alpha.py", IDENTICAL_BODY)
+    _write_module(tmp_path / "beta.py", RENAMED_CLONE_BODY)
+    scanner = ConsolidationScanner(tmp_path)
+    result = scanner.scan(similarity_threshold=0.80, merge_threshold=0.80)
+    assert len(result.proposals) == 1
+    proposal = result.proposals[0]
+    assert {proposal.target, *proposal.sources} == {"alpha.py", "beta.py"}
+
+
 def test_cli_consolidate_scan_subcommand(tmp_path: Path) -> None:
     """The scan subcommand finds candidates."""
     _write_module(tmp_path / "a.py", IDENTICAL_BODY)
@@ -319,4 +346,72 @@ def test_cli_consolidate_apply_and_rollback(tmp_path: Path) -> None:
     assert IDENTICAL_BODY == (tmp_path / "b.py").read_text(encoding="utf-8")
 
 
-# RACT 0.1.0 - Initial Public Release
+def test_cli_consolidate_scan_apply_rollback_round_trip(tmp_path: Path) -> None:
+    """Scan must enqueue a proposal that apply can parse and rollback can undo."""
+    original_b = IDENTICAL_BODY
+    _write_module(tmp_path / "a.py", IDENTICAL_BODY)
+    _write_module(tmp_path / "b.py", original_b)
+
+    scan_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "rootact.cli",
+            "consolidate",
+            "scan",
+            "--project-dir",
+            str(tmp_path),
+            "--similarity-threshold",
+            "0.50",
+            "--merge-threshold",
+            "0.50",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert scan_result.returncode == 0, scan_result.stderr
+    assert "Enqueued 1 proposal" in scan_result.stdout
+
+    apply_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "rootact.cli",
+            "consolidate",
+            "apply",
+            "--project-dir",
+            str(tmp_path),
+            "--id",
+            "consolidate-0000",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert apply_result.returncode == 0, apply_result.stderr
+    assert "Applied consolidate-0000" in apply_result.stdout
+    assert "DEPRECATED" in (tmp_path / "b.py").read_text(encoding="utf-8")
+
+    rollback_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "rootact.cli",
+            "consolidate",
+            "rollback",
+            "--project-dir",
+            str(tmp_path),
+            "--id",
+            "consolidate-0000",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert rollback_result.returncode == 0, rollback_result.stderr
+    assert "Rolled back consolidate-0000" in rollback_result.stdout
+    assert (tmp_path / "b.py").read_text(encoding="utf-8") == original_b
+
+
+# RACT 0.1.1 - Trust and tooling

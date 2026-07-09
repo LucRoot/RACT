@@ -126,4 +126,113 @@ def test_gate_floor_breach_on_baseline(monkeypatch, tmp_path):
     assert "baseline below 95.0%" in delta.detail
 
 
-# RACT 0.1.0 - Initial Public Release
+def test_gate_per_file_floor_breach_on_baseline(monkeypatch, tmp_path):
+    snapshot = CoverageSnapshot(
+        percent_covered=96.0,
+        covered_lines=96,
+        missing_lines=4,
+        total_lines=100,
+        per_file={
+            "src/rootact/core.py": CoverageSnapshot(
+                percent_covered=70.0,
+                covered_lines=70,
+                missing_lines=30,
+                total_lines=100,
+            )
+        },
+    )
+
+    def _fake_run_snapshot(_project_dir, **kwargs):
+        from rootact.rooted import Rooted
+
+        return Rooted(value=snapshot, assumption="mock", confidence=1.0)
+
+    monkeypatch.setattr(
+        "rootact.coverage_delta.run_snapshot",
+        _fake_run_snapshot,
+    )
+    rooted = gate(tmp_path, per_file_min_percent={"src/rootact/core.py": 80.0})
+    assert rooted.is_ok()
+    delta = rooted.unwrap()
+    assert delta.verdict == "regress"
+    assert delta.per_file_breaches
+    assert "core.py: 70.0% < 80.0%" in delta.per_file_breaches[0]
+
+
+def test_gate_per_file_missing_file_is_breach(monkeypatch, tmp_path):
+    snapshot = CoverageSnapshot(
+        percent_covered=96.0,
+        covered_lines=96,
+        missing_lines=4,
+        total_lines=100,
+        per_file={},
+    )
+
+    def _fake_run_snapshot(_project_dir, **kwargs):
+        from rootact.rooted import Rooted
+
+        return Rooted(value=snapshot, assumption="mock", confidence=1.0)
+
+    monkeypatch.setattr(
+        "rootact.coverage_delta.run_snapshot",
+        _fake_run_snapshot,
+    )
+    rooted = gate(tmp_path, per_file_min_percent={"src/rootact/core.py": 80.0})
+    assert rooted.is_ok()
+    delta = rooted.unwrap()
+    assert delta.verdict == "regress"
+    assert "missing" in delta.per_file_breaches[0]
+
+
+def test_save_and_load_baseline_round_trip_with_per_file(tmp_path):
+    from rootact.coverage_delta import load_baseline, save_baseline
+
+    snapshot = CoverageSnapshot(
+        percent_covered=91.0,
+        covered_lines=91,
+        missing_lines=9,
+        total_lines=100,
+        per_file={
+            "src/rootact/core.py": CoverageSnapshot(
+                percent_covered=95.0,
+                covered_lines=95,
+                missing_lines=5,
+                total_lines=100,
+            )
+        },
+    )
+    save_baseline(tmp_path, snapshot)
+    loaded = load_baseline(tmp_path)
+    assert loaded is not None
+    assert loaded.percent_covered == 91.0
+    assert loaded.per_file is not None
+    assert loaded.per_file["src/rootact/core.py"].percent_covered == 95.0
+
+
+def test_save_coverage_badge_writes_shields_json(tmp_path):
+    from rootact.coverage_delta import save_coverage_badge
+
+    snapshot = CoverageSnapshot(
+        percent_covered=91.2, covered_lines=912, missing_lines=88, total_lines=1000
+    )
+    badge_path = tmp_path / "coverage-badge.json"
+    save_coverage_badge(snapshot, badge_path)
+    data = json.loads(badge_path.read_text(encoding="utf-8"))
+    assert data["schemaVersion"] == 1
+    assert data["label"] == "coverage"
+    assert data["message"] == "91.2%"
+    assert data["color"] == "brightgreen"
+
+
+def test_coverage_color_thresholds():
+    from rootact.coverage_delta import _coverage_color
+
+    assert _coverage_color(95.0) == "brightgreen"
+    assert _coverage_color(85.0) == "green"
+    assert _coverage_color(75.0) == "yellowgreen"
+    assert _coverage_color(65.0) == "yellow"
+    assert _coverage_color(55.0) == "orange"
+    assert _coverage_color(45.0) == "red"
+
+
+# RACT 0.1.1 - Trust and tooling

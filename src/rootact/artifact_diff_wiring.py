@@ -38,4 +38,4 @@ def _files_from_report(report: ExecutionReport) -> dict[str, str]:
     return files
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

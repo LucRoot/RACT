@@ -255,4 +255,4 @@ def test_record_verdict_stores_breakdown():
     assert "total" in scores[0]
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

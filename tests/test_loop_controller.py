@@ -1443,4 +1443,4 @@ def test_attempt_repair_returns_false_when_diagnoser_fails(tmp_path):
         assert not controller._attempt_repair(iteration)
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
