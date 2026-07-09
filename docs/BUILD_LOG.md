@@ -1148,3 +1148,30 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Start a background WSL mutation run on the four core engine files (`executor.py`, `loop_controller.py`, `harness.py`, `cli.py`) to measure the real multi-file floor, and begin adding loop integration tests that kill the surviving `rooted.py` mutants.
+
+## 2026-07-09 — Loop pass: raise rooted.py mutation floor after test hardening
+
+**What changed**
+- Added boundary, error, provenance, and metadata-preservation tests to `tests/test_rooted.py`.
+- Fixed a real bug in `src/rootact/rooted.py`: `root_bind` was applying `with_step(step)` to a temporary copy of the input `Rooted` and then discarding that stepped provenance when it returned `fn(rooted.value)`. Changed it to merge `rooted.provenance` into the `fn` result so provenance propagates through bind chains.
+- Re-ran the targeted WSL mutation test on `src/rootact/rooted.py` with `tests/test_rooted.py` as the runner.
+- Raised the default `mutation_gate_min_score` in `src/rootact/harness.py` from `27.5` to `37.5`, matching the new measured baseline (19 of 50 mutants killed = 38.0%).
+
+**Why**
+- The previous rooted.py tests exercised success paths but left boundary behavior (bad inputs, coercion failures, metadata handling) and provenance propagation under-covered. The new tests kill additional mutants and, more importantly, caught a real provenance-loss bug.
+- Raising the calibrated floor keeps the mutation gate load-bearing: any regression that drops the score below 37.5% will now fail the gate.
+
+**Test/lint/type result**
+- `pytest -q`: 973 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src/rootact/harness.py`: clean.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file README.md --lines 1-30`: coherent brief.
+- Mutation score for `src/rootact/rooted.py`: 38.0% (19/50 killed, 31 survived). Improvement of +10.3pp over the prior baseline (27.7%, 13/47).
+
+**Next action**
+- Continue targeted single-file mutation runs (executor.py, loop_controller.py, cli.py) to measure per-module floors, or pick off the next launch gap identified in the Claude audit (symbol graph prefix mismatch is already fixed; remaining items include high-novelty discrimination and the two-sided auction gate).
