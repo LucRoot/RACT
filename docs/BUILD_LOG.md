@@ -625,3 +625,26 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for the current WSL mutation run (`bash-bh0al1nz`) to complete, then calibrate the mutation gate from the score.
+
+## 2026-07-09 — Loop pass: fix local provider URL key and wire manager provider
+
+**What changed**
+- `src/rootact/providers/openai_provider.py`: `__init__` now accepts `base_url` as a synonym for `url`, so configs that use the common `base_url` key (like `rootact.yaml`) route to the local llama-server instead of defaulting to `api.openai.com`.
+- `rootact.yaml`: added `manager_provider: local` so `rootact doctor` passes and `rootact fence` has a provider.
+
+**Why**
+- `rootact fence inspect --file src/rootact/executor.py` failed with HTTP 401 from OpenAI because `LocalHttpProvider` inherited the default `https://api.openai.com/v1` URL (it looked for `url`, but the config used `base_url`).
+
+**Test/lint/type result**
+- `pytest tests/test_providers.py tests/test_cli.py`: 62 passed.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/providers/openai_provider.py`: passed.
+
+**Audit result**
+- `rootact doctor`: 7/7 checks passed.
+- `rootact fence inspect --file src/rootact/executor.py`: returned a Chesterton's Fence brief with confidence 0.8.
+- `rootact auction list --json`: 0 dead-code candidates.
+
+**Next action**
+- Wait for the current WSL mutation run (`bash-bh0al1nz`) to complete, then calibrate the mutation gate from the score.
