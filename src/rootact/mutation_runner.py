@@ -195,6 +195,8 @@ def run_mutation_tests(
             cwd=project_dir,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             check=False,
         )
@@ -215,7 +217,7 @@ def run_mutation_tests(
             error=f"Mutation runner not found: {exc}",
         )
 
-    combined = result.stdout + "\n" + result.stderr
+    combined = (result.stdout or "") + "\n" + (result.stderr or "")
     report = _parse_mutmut_results(combined)
     if report is None:
         stdout_tail = result.stdout[-500:] if result.stdout else ""
