@@ -648,3 +648,25 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for the current WSL mutation run (`bash-bh0al1nz`) to complete, then calibrate the mutation gate from the score.
+
+## 2026-07-09 — Loop pass: add shell-syntax CI gate
+
+**What changed**
+- `.github/workflows/ci.yml`: added a `shell-check` job that runs `bash -n` on `scripts/install.sh` and `scripts/run_mutation_tests_wsl.sh` on `ubuntu-latest`.
+
+**Why**
+- `install.sh` previously shipped with CRLF line endings, which broke `bash -n` under WSL. A CI gate catches this before merge.
+
+**Test/lint/type result**
+- `bash -n scripts/install.sh`: passed.
+- `bash -n scripts/run_mutation_tests_wsl.sh`: passed.
+- `pytest tests/`: 922 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Audit result**
+- `rootact doctor`: 7/7 passed.
+- `rootact auction list --json`: 0 dead-code candidates.
+
+**Next action**
+- Wait for the current WSL mutation run (`bash-bh0al1nz`) to complete, then calibrate the mutation gate from the score.
