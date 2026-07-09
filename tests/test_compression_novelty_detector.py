@@ -352,6 +352,141 @@ def test_detector_scan_project_returns_scores(tmp_path):
     assert "b.py" in result["scores"]
 
 
+def _write_distinct_modules(project_dir: Path) -> None:
+    """Create a small set of structurally distinct Python modules."""
+    (project_dir / "raft.py").write_text(
+        "class RaftNode:\n"
+        "    def __init__(self, node_id, peers):\n"
+        "        self.node_id = node_id\n"
+        "        self.peers = peers\n"
+        "        self.current_term = 0\n"
+        "        self.voted_for = None\n"
+        "        self.log = []\n"
+        "        self.commit_index = 0\n"
+        "\n"
+        "    def request_vote(self, candidate_id, term, last_log_index, last_log_term):\n"
+        "        if term > self.current_term:\n"
+        "            self.current_term = term\n"
+        "            self.voted_for = None\n"
+        "        if term < self.current_term:\n"
+        "            return False\n"
+        "        if self.voted_for in (None, candidate_id):\n"
+        "            return True\n"
+        "        return False\n"
+        "\n"
+        "    def append_entries(self, leader_id, term, prev_log_index, prev_log_term, entries, leader_commit):\n"
+        "        if term < self.current_term:\n"
+        "            return False\n"
+        "        if prev_log_index >= len(self.log):\n"
+        "            return False\n"
+        "        for entry in entries:\n"
+        "            self.log.append(entry)\n"
+        "        if leader_commit > self.commit_index:\n"
+        "            self.commit_index = min(leader_commit, len(self.log) - 1)\n"
+        "        return True\n"
+        "\n" * 50,
+        encoding="utf-8",
+    )
+    (project_dir / "parser.py").write_text(
+        "class ExprParser:\n"
+        "    def __init__(self, tokens):\n"
+        "        self.tokens = tokens\n"
+        "        self.pos = 0\n"
+        "\n"
+        "    def peek(self):\n"
+        "        if self.pos < len(self.tokens):\n"
+        "            return self.tokens[self.pos]\n"
+        "        return None\n"
+        "\n"
+        "    def consume(self):\n"
+        "        token = self.peek()\n"
+        "        self.pos += 1\n"
+        "        return token\n"
+        "\n"
+        "    def parse_add(self):\n"
+        "        left = self.parse_mul()\n"
+        "        while self.peek() and self.peek().type == 'PLUS':\n"
+        "            self.consume()\n"
+        "            right = self.parse_mul()\n"
+        "            left = ('add', left, right)\n"
+        "        return left\n"
+        "\n"
+        "    def parse_mul(self):\n"
+        "        left = self.parse_atom()\n"
+        "        while self.peek() and self.peek().type == 'STAR':\n"
+        "            self.consume()\n"
+        "            right = self.parse_atom()\n"
+        "            left = ('mul', left, right)\n"
+        "        return left\n"
+        "\n"
+        "    def parse_atom(self):\n"
+        "        token = self.consume()\n"
+        "        if token and token.type == 'NUMBER':\n"
+        "            return ('num', token.value)\n"
+        "        raise ValueError('expected number')\n"
+        "\n" * 40,
+        encoding="utf-8",
+    )
+    (project_dir / "http.py").write_text(
+        "class HttpClient:\n"
+        "    def __init__(self, base_url, timeout=30):\n"
+        "        self.base_url = base_url\n"
+        "        self.timeout = timeout\n"
+        "        self.session = {}\n"
+        "\n"
+        "    def get(self, path, headers=None):\n"
+        "        url = self.base_url + path\n"
+        "        return self._request('GET', url, headers=headers)\n"
+        "\n"
+        "    def post(self, path, data, headers=None):\n"
+        "        url = self.base_url + path\n"
+        "        return self._request('POST', url, data=data, headers=headers)\n"
+        "\n"
+        "    def _request(self, method, url, data=None, headers=None):\n"
+        "        if not headers:\n"
+        "            headers = {}\n"
+        "        headers['Method'] = method\n"
+        "        return {'url': url, 'headers': headers, 'data': data}\n"
+        "\n"
+        "    def close(self):\n"
+        "        self.session.clear()\n"
+        "\n" * 50,
+        encoding="utf-8",
+    )
+
+
+def test_scan_project_uses_leave_one_out_for_existing_files(tmp_path):
+    """Distinct existing files should not all be flagged as low novelty.
+
+    Before the leave-one-out fix, scanning a codebase reported most files as
+    low because the dictionary contained the file being scored. After the fix,
+    structurally distinct files should escape the low bucket.
+    """
+    _write_distinct_modules(tmp_path)
+    detector = CompressionNoveltyDetector(tmp_path)
+    result = detector.scan_project()
+
+    low_count = sum(
+        1 for score in result["scores"].values() if score["verdict"] == "low"
+    )
+    assert low_count == 0, f"expected 0 low scores for distinct files, got {low_count}"
+
+
+def test_scan_project_still_flags_verbatim_duplicates(tmp_path):
+    """A file that is a verbatim copy of another file still scores low."""
+    _write_distinct_modules(tmp_path)
+    content = "def helper_function(x):\n    return x * 2\n\n" * 50
+    (tmp_path / "original.py").write_text(content, encoding="utf-8")
+    (tmp_path / "copy.py").write_text(content, encoding="utf-8")
+
+    detector = CompressionNoveltyDetector(tmp_path)
+    result = detector.scan_project()
+
+    assert "copy.py" in result["scores"]
+    assert result["scores"]["copy.py"]["verdict"] == "low"
+    assert result["scores"]["copy.py"]["nearest"] == "original.py"
+
+
 def _duplicative_content() -> str:
     """Return content that compresses well against the seeded project."""
     return (

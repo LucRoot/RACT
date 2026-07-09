@@ -103,4 +103,32 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Implement leave-one-out dictionary training for `compression_novelty_detector` to eliminate the `low` false positives on existing files.
 
+## 2026-07-09 — Loop pass: leave-one-out dictionary training for novelty scan
+
+**What changed**
+- Implemented leave-one-out dictionary training in `compression_novelty_detector.py`:
+  - `_collect_samples` now tracks which chunks came from which file.
+  - `_train_dictionary` accepts an optional `exclude_path` to omit a file's own chunks.
+  - `_score_with_dict`, `_assess_with_dict`, `_conditional_ratio`, and `_nearest_similar_artifact_with_ratio` accept a dictionary argument so the leave-one-out dictionary can be threaded through scoring.
+  - Added `score_artifact_leave_one_out` and updated `scan_project` to use it.
+- Changed the guard in `_assess_with_dict` from `dictionary is None or nn_ratio is None` to `nn_ratio is None` so a missing dictionary does not suppress the nearest-neighbor signal.
+- Added `test_scan_project_uses_leave_one_out_for_existing_files` and `test_scan_project_still_flags_verbatim_duplicates`.
+
+**Why**
+- `rootact novelty scan` reported 85 of 175 existing files as `low` because the dictionary was trained on the files it was scoring. Leave-one-out removes that self-bias.
+
+**Test/lint/type result**
+- `pytest tests/`: 878 passed, 1 skipped, 93% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/compression_novelty_detector.py tests/test_compression_novelty_detector.py`: passed.
+
+**Self-audit result**
+- `rootact --config rootact.yaml doctor`: failed with HTTP 401 from the local provider (Internal/llama-server auth issue, not a RACT bug).
+- `rootact auction list --config rootact.yaml`: 0 dead-code candidates.
+- `rootact novelty scan --config rootact.yaml`: 80 `low`, 35 `high`, 60 `nominal` out of 175 files. Leave-one-out eliminated self-bias (verified on synthetic data: a unique file went from ratio 0.212/`low` to 0.818/`high`), but RACT's own codebase retains a lot of genuine structural similarity across files, so many still compress well against the rest of the project.
+
+**Next action**
+- Set up cla-assistant.io for the repository so external PRs can land under the CLA.
+
 # RACT 0.1.0 - Initial Public Release
