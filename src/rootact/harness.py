@@ -23,6 +23,7 @@ import yaml
 from rootact.codebase_historian import CodebaseHistorian
 from rootact.coverage_delta import gate as coverage_gate
 from rootact.dependency_graph import DependencyGraph
+from rootact.mutation_runner import run_mutation_tests
 from rootact.diff_applier import DiffApplier
 from rootact.duplication_guard import DuplicationGuard
 from rootact.executor import ExecutionReport, Executor
@@ -287,6 +288,13 @@ class Harness:
         self.coverage_gate_timeout = float(cg_cfg.get("timeout", 300.0))
         cg_min = cg_cfg.get("min_percent")
         self.coverage_gate_min_percent = float(cg_min) if cg_min is not None else None
+        mg_cfg = config.get("mutation_gate", {})
+        self.mutation_gate_enabled = bool(mg_cfg.get("enabled", False))
+        self.mutation_gate_hard_fail = bool(mg_cfg.get("hard_fail", False))
+        self.mutation_gate_timeout = float(mg_cfg.get("timeout", 900.0))
+        mg_min = mg_cfg.get("min_score")
+        self.mutation_gate_min_score = float(mg_min) if mg_min is not None else 80.0
+        self.mutation_gate_script_path = mg_cfg.get("script_path")
         self.compression_novelty_detector = None
         if self.project_dir is not None:
             self.compression_novelty_detector = CompressionNoveltyDetector(
@@ -614,6 +622,61 @@ class Harness:
                             assumption=report_rooted.assumption,
                             confidence=report_rooted.confidence,
                             provenance=report_rooted.provenance,
+                        )
+
+        if self.mutation_gate_enabled and self.project_dir is not None:
+            mg_result = run_mutation_tests(
+                self.project_dir,
+                script_path=self.mutation_gate_script_path,
+                timeout=self.mutation_gate_timeout,
+            )
+            if not mg_result.is_ok():
+                mg_error = mg_result.error or "mutation gate failed"
+                if self.mutation_gate_hard_fail:
+                    return Rooted(
+                        value=None,
+                        assumption="Mutation gate runs and returns a report.",
+                        confidence=0.0,
+                        provenance=[
+                            "harness.run",
+                            "mutation_runner.run_mutation_tests",
+                        ],
+                        error=f"Mutation gate error: {mg_error}",
+                    )
+            else:
+                mutation_report = mg_result.unwrap()
+                if report_rooted.is_ok():
+                    execution_report = report_rooted.unwrap()
+                    execution_report.artifacts["mutation_score"] = {
+                        "score": mutation_report.mutation_score,
+                        "killed": mutation_report.killed,
+                        "survived": mutation_report.survived,
+                        "timeout": mutation_report.timeout,
+                        "error": mutation_report.error,
+                        "total": mutation_report.total,
+                        "min_score": self.mutation_gate_min_score,
+                    }
+                    report_rooted = Rooted(
+                        value=execution_report,
+                        assumption=report_rooted.assumption,
+                        confidence=report_rooted.confidence,
+                        provenance=report_rooted.provenance,
+                    )
+                if mutation_report.mutation_score < self.mutation_gate_min_score:
+                    mg_msg = (
+                        f"Mutation gate: score {mutation_report.mutation_score:.2f}% "
+                        f"is below minimum {self.mutation_gate_min_score:.2f}%."
+                    )
+                    if self.mutation_gate_hard_fail:
+                        return Rooted(
+                            value=None,
+                            assumption="Mutation score does not fall below the configured floor.",
+                            confidence=0.0,
+                            provenance=[
+                                "harness.run",
+                                "mutation_runner.run_mutation_tests",
+                            ],
+                            error=mg_msg,
                         )
 
         if memory_arena is not None:

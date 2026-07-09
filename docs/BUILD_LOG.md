@@ -290,3 +290,48 @@ This log records each loop pass through the RACT codebase. It exists because con
 - Wire the mutation runner into the harness/loop controller as a post-execution quality gate, or execute a real WSL mutation run and calibrate the scorecard weight against actual RACT results.
 
 # RACT 0.1.0 - Initial Public Release
+
+## 2026-07-09 — Loop pass: mutation gate wired into Harness.run
+
+**What changed**
+- Imported `run_mutation_tests` into `src/rootact/harness.py`.
+- Added `mutation_gate` config parsing in `Harness.__init__`:
+  - `enabled` (default `False`)
+  - `hard_fail` (default `False`)
+  - `min_score` (default `80.0`)
+  - `timeout` (default `900.0`)
+  - `script_path` (optional override)
+- Added a post-execution mutation gate block in `Harness.run()` that:
+  - Invokes `run_mutation_tests` after the coverage gate.
+  - On runner error, hard-fails if configured; otherwise continues.
+  - On low score (`mutation_score < min_score`), hard-fails if configured; otherwise records the score in `report.artifacts["mutation_score"]` and continues.
+  - On passing score, still records the artifact so downstream scorecards and receipts can use it.
+- Added `tests/test_harness_mutation_gate.py` with six tests covering:
+  - gate disabled by default,
+  - hard fail on low score,
+  - soft fail attaches artifact,
+  - pass attaches artifact,
+  - runner error hard fail,
+  - runner error soft fail ignores and continues.
+
+**Why**
+- The mutation runner is now a real quality gate inside the execution loop, not just a standalone CLI command. This closes the loop on Claude upgrade #3: test quality is measured, gated, and reported per execution.
+
+**Test/lint/type result**
+- `pytest tests/`: 913 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/harness.py src/rootact/mutation_runner.py tests/test_harness_mutation_gate.py`: passed.
+
+**Self-audit result**
+- `rootact auction list --json`: 0 dead-code candidates.
+- `rootact novelty scan --json`: 2 `low` test files (`tests/test_user_signature_registry.py`, `tests/test_use_cases_catalog.py`); expected given structural similarity.
+- `rootact coverage delta --run --min-percent 90.0`: baseline established at 92.4%.
+
+**Nemotron/Internal secondary review**
+- Delegated a diff review to Nemotron via Internal. The model hallucinated behavior not present in the code (claimed the gate reads a pre-generated `/tmp/harness_mutation_gate.diff` file rather than calling `run_mutation_tests`). Review discarded; the implementation was verified by the unit tests instead.
+
+**Next action**
+- Run a real WSL mutation test against RACT, capture the actual mutation score, and calibrate the default `min_score` and scorecard weight against empirical data.
+
+# RACT 0.1.0 - Initial Public Release
