@@ -335,3 +335,43 @@ This log records each loop pass through the RACT codebase. It exists because con
 - Run a real WSL mutation test against RACT, capture the actual mutation score, and calibrate the default `min_score` and scorecard weight against empirical data.
 
 # RACT 0.1.0 - Initial Public Release
+
+## 2026-07-09 — Loop pass: WSL distro detection and `--wsl-distro` option for mutation runner
+
+**What changed**
+- Fixed `src/rootact/mutation_runner.py` so Windows no longer assumes the default WSL distro is a Linux distro. Added `_detect_wsl_distro()` which:
+  - Prefers `RACT_WSL_DISTRO` environment variable.
+  - Parses `wsl -l --running` to find a Linux distro, skipping `docker-desktop` and `docker-desktop-data`.
+  - Falls back to the bare `wsl -e bash` command if no distro is detected.
+- Added `wsl_distro` parameter to `run_mutation_tests()` and threaded it through `_resolve_runner_command()`.
+- Added `wsl_distro` config field to `Harness` mutation gate parsing and pass-through.
+- Added `--wsl-distro` CLI option to `rootact mutation run`.
+- Added tests:
+  - `test_resolve_runner_command_uses_provided_distro`
+  - `test_detect_wsl_distro_prefers_env`
+  - `test_detect_wsl_distro_parses_running_list`
+  - `test_detect_wsl_distro_skips_docker`
+  - `test_detect_wsl_distro_returns_none_on_failure`
+  - `test_mutation_run_command_passes_wsl_distro`
+
+**Why**
+- On this host the default WSL distro is `docker-desktop`, which has no `bash`. The original `wsl -e bash` command failed immediately. The runner now selects `Ubuntu-24.04` automatically, making a real mutation run possible.
+
+**Test/lint/type result**
+- `pytest tests/`: 919 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/mutation_runner.py src/rootact/cli.py src/rootact/harness.py tests/test_mutation_runner.py tests/test_cli_mutation.py tests/test_harness_mutation_gate.py`: passed.
+
+**Self-audit result**
+- `rootact auction list --json`: 0 dead-code candidates.
+- `rootact novelty scan --json`: 2 `low` test files (`tests/test_user_signature_registry.py`, `tests/test_use_cases_catalog.py`); expected.
+- `rootact coverage delta --run --min-percent 90.0`: baseline established at 92.4%.
+
+**Nemotron/Internal secondary review**
+- Not delegated; this was a platform-detection bug fix with deterministic tests.
+
+**Next action**
+- Execute a real WSL mutation run against RACT (`rootact mutation run --wsl-distro Ubuntu-24.04`) as a background task, then capture the score and calibrate the default `min_score` and scorecard weight.
+
+# RACT 0.1.0 - Initial Public Release

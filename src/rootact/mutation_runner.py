@@ -13,6 +13,7 @@ script. This module wraps that script (or any mutmut-compatible runner),
 executes it, and parses ``mutmut results`` output into a structured report.
 """
 
+import os
 import re
 import subprocess
 import sys
@@ -96,9 +97,52 @@ def _default_script_path(project_dir: Path) -> Path:
     return project_dir / "scripts" / "run_mutation_tests_wsl.sh"
 
 
-def _resolve_runner_command(script_path: Path) -> list[str]:
+def _detect_wsl_distro() -> str | None:
+    """Return a running Linux distro name, or None if detection fails.
+
+    The default WSL distro may be Docker Desktop or another non-Linux
+    appliance. This function prefers an explicitly configured distro via the
+    ``RACT_WSL_DISTRO`` environment variable, then scans ``wsl -l --running``
+    for a Linux distro, and finally returns None so the caller can fall back
+    to ``wsl -e bash``.
+    """
+    env_distro = os.environ.get("RACT_WSL_DISTRO")
+    if env_distro:
+        return env_distro
+    try:
+        result = subprocess.run(
+            ["wsl", "-l", "--running"],
+            capture_output=True,
+            text=True,
+            timeout=10.0,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+    # wsl -l output uses OEM code page and may contain trailing nulls/whitespace.
+    for line in result.stdout.splitlines():
+        line = line.strip().rstrip("\x00")
+        if not line or line.startswith("NAME"):
+            continue
+        # Default marker is an asterisk prefix, e.g. "* Ubuntu-24.04".
+        distro = (
+            line.lstrip("* ").split()[0]
+            if line.lstrip().startswith("*")
+            else line.split()[0]
+        )
+        if distro and distro not in {"docker-desktop", "docker-desktop-data"}:
+            return distro
+    return None
+
+
+def _resolve_runner_command(
+    script_path: Path, *, wsl_distro: str | None = None
+) -> list[str]:
     """Return the command to execute the mutation script on this platform."""
     if sys.platform == "win32":
+        distro = wsl_distro or _detect_wsl_distro()
+        if distro:
+            return ["wsl", "-d", distro, "-e", "bash", str(script_path)]
         return ["wsl", "-e", "bash", str(script_path)]
     return ["bash", str(script_path)]
 
@@ -108,6 +152,7 @@ def run_mutation_tests(
     *,
     script_path: Path | str | None = None,
     timeout: float = 900.0,
+    wsl_distro: str | None = None,
 ) -> Rooted[MutationReport]:
     """Run the mutation-testing script and return a parsed report.
 
@@ -125,7 +170,7 @@ def run_mutation_tests(
             error=f"Mutation script not found: {script}",
         )
 
-    cmd = _resolve_runner_command(script)
+    cmd = _resolve_runner_command(script, wsl_distro=wsl_distro)
     try:
         result = subprocess.run(
             cmd,

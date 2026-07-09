@@ -295,6 +295,7 @@ class Harness:
         mg_min = mg_cfg.get("min_score")
         self.mutation_gate_min_score = float(mg_min) if mg_min is not None else 80.0
         self.mutation_gate_script_path = mg_cfg.get("script_path")
+        self.mutation_gate_wsl_distro = mg_cfg.get("wsl_distro")
         self.compression_novelty_detector = None
         if self.project_dir is not None:
             self.compression_novelty_detector = CompressionNoveltyDetector(
@@ -629,6 +630,7 @@ class Harness:
                 self.project_dir,
                 script_path=self.mutation_gate_script_path,
                 timeout=self.mutation_gate_timeout,
+                wsl_distro=self.mutation_gate_wsl_distro,
             )
             if not mg_result.is_ok():
                 mg_error = mg_result.error or "mutation gate failed"

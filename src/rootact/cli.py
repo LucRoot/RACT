@@ -890,7 +890,7 @@ def _coverage_command(args: list[str]) -> int:
 
 
 def _mutation_command(args: list[str]) -> int:
-    """Handle 'rootact mutation run [--script <path>] [--timeout <sec>] [--config <path>]'.
+    """Handle 'rootact mutation run [--script <path>] [--timeout <sec>] [--wsl-distro <name>] [--config <path>]'.
 
     LR:: Wraps the WSL mutation-testing script and prints a structured mutation
     score. This makes mutation testing accessible from the main CLI instead of
@@ -915,6 +915,13 @@ def _mutation_command(args: list[str]) -> int:
         default=900.0,
         help="Maximum seconds to wait for the mutation run.",
     )
+    parser.add_argument(
+        "--wsl-distro",
+        dest="wsl_distro",
+        type=str,
+        default=None,
+        help="WSL distro to use (defaults to a running Linux distro).",
+    )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
 
@@ -923,6 +930,7 @@ def _mutation_command(args: list[str]) -> int:
         project_dir,
         script_path=parsed.script_path,
         timeout=parsed.timeout,
+        wsl_distro=parsed.wsl_distro,
     )
     if not report_rooted.is_ok():
         print(
