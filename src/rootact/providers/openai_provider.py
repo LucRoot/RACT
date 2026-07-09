@@ -30,7 +30,11 @@ class OpenAICompatibleProvider(ProviderAdapter):
 
     def __init__(self, config: dict[str, Any]) -> None:
         self.url = config.get(
-            "url", os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            "url",
+            config.get(
+                "base_url",
+                os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            ),
         ).rstrip("/")
         self.api_key = config.get("api_key", os.environ.get("OPENAI_API_KEY", "no-key"))
         self.model = config.get("model", "gpt-4o-mini")
