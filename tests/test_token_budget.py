@@ -76,3 +76,9 @@ def test_truthiness() -> None:
 
 
 # RACT 0.1.0 - Initial Public Release
+
+
+def test_omitted_before_select_triggers_finalize() -> None:
+    budget = TokenBudget(max_tokens=5)
+    budget.add_file("big.py", "one two three four five six", relevance=1.0)
+    assert budget.omitted() == ["big.py"]
