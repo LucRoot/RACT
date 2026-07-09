@@ -18,7 +18,7 @@ from rootact.builtin_skill_library import BuiltinSkillLibrary
 from rootact.chestertons_fence import ChestertonsFence
 from rootact.code_review_mode import CodeReviewMode
 from rootact.compression_novelty_detector import CompressionNoveltyDetector
-from rootact.consolidate import ConsolidationScanner
+from rootact.consolidate import ConsolidationScanner, MergeProposal
 from rootact.dead_code_auction import DeadCodeAuction
 from rootact.doc_generator import DocGenerator
 from rootact.diff_applier import DiffApplier
@@ -1175,44 +1175,77 @@ def _fence_command(args: list[str]) -> int:
 
 
 def _consolidate_command(args: list[str]) -> int:
-    """Handle 'rootact consolidate [--paths PATH ...] [--dry-run]'.
+    """Handle 'rootact consolidate [scan|apply|rollback] ...'.
 
     LR:: Identifies near-duplicate modules, previews merges as unified diffs,
-    and queues approved proposals in the handshake registry.
+    queues proposals, and applies/rolls back approved merges.
     """
     parser = argparse.ArgumentParser(prog="rootact consolidate")
-    parser.add_argument(
+    parser.add_argument("--project-dir", type=Path, default=Path("."))
+    subparsers = parser.add_subparsers(
+        dest="action", help="Consolidation action", required=False
+    )
+
+    scan_parser = subparsers.add_parser("scan", help="Find and queue merge proposals")
+    scan_parser.add_argument("--project-dir", type=Path, default=Path("."))
+    scan_parser.add_argument(
         "--similarity-threshold",
         type=float,
         default=ConsolidationScanner.DEFAULT_SIMILARITY,
         help="Minimum pair similarity to form a candidate (0.0-1.0).",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--merge-threshold",
         type=float,
         default=ConsolidationScanner.DEFAULT_MERGE,
         help="Minimum average linkage to merge clusters (0.0-1.0).",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--max-modules",
         type=int,
         default=ConsolidationScanner.DEFAULT_MAX_MODULES,
         help="Maximum modules to scan.",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--paths",
         nargs="+",
         default=None,
         help="Restrict scan to specific directories or files.",
     )
-    parser.add_argument(
+    scan_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show proposals without enqueueing them.",
     )
-    parser.add_argument("--project-dir", type=Path, default=Path("."))
+
+    apply_parser = subparsers.add_parser("apply", help="Apply an approved proposal")
+    apply_parser.add_argument("--project-dir", type=Path, default=Path("."))
+    apply_parser.add_argument("--id", required=True, help="Handshake/proposal id")
+    apply_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would happen without making changes.",
+    )
+
+    rollback_parser = subparsers.add_parser(
+        "rollback", help="Rollback an applied proposal"
+    )
+    rollback_parser.add_argument("--project-dir", type=Path, default=Path("."))
+    rollback_parser.add_argument("--id", required=True, help="Proposal id to rollback")
+
     parsed = parser.parse_args(args)
 
+    if parsed.action in {None, "scan"}:
+        return _consolidate_scan(parsed)
+    if parsed.action == "apply":
+        return _consolidate_apply(parsed)
+    if parsed.action == "rollback":
+        return _consolidate_rollback(parsed)
+    return 1
+
+
+def _consolidate_scan(parsed: argparse.Namespace) -> int:
+    """Run the consolidate scan subcommand."""
     if not (0.0 <= parsed.similarity_threshold <= 1.0):
         print(
             "[rootact] --similarity-threshold must be between 0.0 and 1.0",
@@ -1262,6 +1295,66 @@ def _consolidate_command(args: list[str]) -> int:
     ids = scanner.enqueue_proposals(result)
     print(f"\nEnqueued {len(ids)} proposal(s) for operator review.")
     print("Use 'rootact handshakes' to inspect and approve.")
+    return 0
+
+
+def _consolidate_apply(parsed: argparse.Namespace) -> int:
+    """Apply a single approved consolidation proposal."""
+    from rootact.consolidate import ConsolidationApplier
+
+    registry = HandshakeRegistry(parsed.project_dir)
+    try:
+        item = registry.update_status(parsed.id, "approved")
+    except KeyError:
+        print(f"[rootact] proposal not found: {parsed.id}", file=sys.stderr)
+        return 1
+
+    # Reconstruct the proposal from the handshake description. This is a v0
+    # simplification; a later version should store structured proposal data.
+    lines = item.description.splitlines()
+    target_line = [ln for ln in lines if ln.startswith("Proposal: merge into ")]
+    sources_line = [ln for ln in lines if ln.startswith("Sources: ")]
+    if not target_line or not sources_line:
+        print("[rootact] malformed proposal description", file=sys.stderr)
+        return 1
+    target = target_line[0].replace("Proposal: merge into ", "").strip()
+    sources = tuple(
+        s.strip() for s in sources_line[0].replace("Sources: ", "").split(",")
+    )
+    proposal = MergeProposal(
+        target=target,
+        sources=sources,
+        diff="",
+        reason="applied from handshake",
+        safe=True,
+    )
+
+    applier = ConsolidationApplier(parsed.project_dir)
+    result = applier.apply(
+        proposal, parsed.id, registry=registry, dry_run=parsed.dry_run
+    )
+    if result.error:
+        print(f"[rootact] apply failed: {result.error}", file=sys.stderr)
+        return 1
+
+    print(f"Applied {parsed.id}.")
+    print(f"Deleted sources: {', '.join(result.deleted)}")
+    print(f"Shims written: {', '.join(result.shims)}")
+    print(f"Backup directory: {result.backup_dir}")
+    return 0
+
+
+def _consolidate_rollback(parsed: argparse.Namespace) -> int:
+    """Rollback a previously applied consolidation proposal."""
+    from rootact.consolidate import ConsolidationApplier
+
+    applier = ConsolidationApplier(parsed.project_dir)
+    result = applier.rollback(parsed.id)
+    if result.error:
+        print(f"[rootact] rollback failed: {result.error}", file=sys.stderr)
+        return 1
+
+    print(f"Rolled back {parsed.id}. Files restored from {result.backup_dir}.")
     return 0
 
 
