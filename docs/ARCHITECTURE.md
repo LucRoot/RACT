@@ -132,4 +132,4 @@ The separation is enforced by `scripts/verify_internal_rootact_separation.py` an
 - **Use-case expansion:** continue adding use cases to `rootact_use_cases.jsonl` and building them through the loop.
 - **Real-world loop validation:** run multi-file refactor tasks end-to-end and tune the Progress Oracle thresholds now that the loop has timeout and feedback hardening.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.1.1 - Trust and Tooling -->

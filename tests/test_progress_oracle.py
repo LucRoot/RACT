@@ -47,4 +47,4 @@ def test_stub_oracle_returns_verdict():
     assert result.unwrap() == verdict
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

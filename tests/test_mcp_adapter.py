@@ -234,4 +234,4 @@ def test_registry_from_config_builds_sse_clients():
     assert isinstance(registry._servers["memory"], SseMcpClient)
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

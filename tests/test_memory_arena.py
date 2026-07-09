@@ -194,4 +194,4 @@ def test_save_raises_on_write_error(tmp_path, monkeypatch):
         arena.save(path)
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

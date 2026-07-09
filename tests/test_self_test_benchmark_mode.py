@@ -152,4 +152,4 @@ def test_report_without_benchmarks() -> None:
     assert "No benchmarks recorded." in report.summary
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

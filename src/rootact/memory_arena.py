@@ -224,4 +224,4 @@ class MemoryArena:
         return bool(self._records)
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

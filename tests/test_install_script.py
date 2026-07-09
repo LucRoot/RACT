@@ -34,4 +34,4 @@ def test_install_sh_syntax_is_valid():
     assert result.returncode == 0, result.stderr
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

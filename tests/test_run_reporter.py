@@ -180,4 +180,4 @@ def test_latest_session_id_picks_most_recent(tmp_path: Path):
     assert reporter._latest_session_id() == "newer"
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

@@ -102,4 +102,4 @@ def test_plan_with_tool_call_round_trip():
     assert restored == plan
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

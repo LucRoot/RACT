@@ -43,4 +43,4 @@ def get_error_category(exc: Exception) -> str:
     return classify_error(exc).category
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

@@ -90,4 +90,4 @@ except Exception:
     assert not any(v["rule"] == "except-pass" for v in violations)
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

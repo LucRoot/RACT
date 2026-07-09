@@ -234,4 +234,4 @@ def test_to_wsl_path_leaves_unix_path_unchanged():
     )
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

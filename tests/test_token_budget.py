@@ -75,7 +75,7 @@ def test_truthiness() -> None:
     assert bool(budget) is False
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 
 def test_omitted_before_select_triggers_finalize() -> None:

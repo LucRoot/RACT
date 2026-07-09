@@ -47,4 +47,4 @@ class ArtifactTracker:
         return set(self._registry.keys())
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

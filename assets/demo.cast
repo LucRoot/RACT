@@ -102,3 +102,4 @@
 [4.59, "o", "\r\n"]
 [4.79, "o", "Found 1 consolidation proposal(s)\nMetrics: {'candidates': 2, 'pairs_considered': 1, 'clusters_found': 1, 'similarity_threshold': 0.8, 'merge_threshold': 0.75}\n\nProposal: merge into src/myapp/util.py\nSources: src/myapp/helpers.py\nSafe: True\n--- src/myapp/helpers.py\n+++ src/myapp/util.py\n@@ -1,7 +1,7 @@\n-def normalize_values(values):\n-    \"\"\"Normalize input values.\"\"\"\n-    return [v.lower().strip() for v in values if v]\n+def normalize(data):\n+    \"\"\"Normalize input data.\"\"\"\n+    return [x.lower().strip() for x in data if x]\n \n \n-def split_tokens(txt):\n-    return txt.split()\n+def tokenize(text):\n+    return text.split()\n\nEnqueued 1 proposal(s) for operator review.\nUse 'rootact handshakes' to inspect and approve.\r\n"]
 [4.84, "o", "\r\nDone. Run `rootact handshakes` to approve the merge.\r\n"]
+

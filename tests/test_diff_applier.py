@@ -82,4 +82,4 @@ def test_apply_diff_preserves_trailing_newline(tmp_path):
     assert content == b"line1\nline2_changed\n"
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

@@ -113,4 +113,4 @@ They are ordinary JSON skill files, so you can copy one into your project `skill
 - Do not put secrets in skill templates.
 - Include a `description` so `rootact skills list` remains useful.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.1.1 - Trust and Tooling -->

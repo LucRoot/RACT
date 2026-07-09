@@ -12,4 +12,4 @@ RACT is a model-agnostic, local-first agentic coding tool with signed receipts a
 
 PolyForm Noncommercial License 1.0.0. Commercial licensing is available — see `COMMERCIAL.md` in the GitHub repository.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.1.1 - Trust and Tooling -->

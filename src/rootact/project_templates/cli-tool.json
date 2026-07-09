@@ -10,3 +10,4 @@
     "pyproject.toml": "[build-system]\nrequires = [\"hatchling\"]\nbuild-backend = \"hatchling.build\"\n\n[project]\nname = \"$project_name\"\nversion = \"0.1.0\"\ndescription = \"A CLI tool built with RACT.\"\nrequires-python = \">=3.11\"\n\n[project.scripts]\n$project_name = \"$project_name.main:main\"\n"
   }
 }
+

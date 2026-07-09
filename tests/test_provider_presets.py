@@ -43,4 +43,4 @@ def test_preset_has_required_keys():
     assert "context_budget_tokens" in preset
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

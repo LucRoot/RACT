@@ -102,4 +102,4 @@ def test_rejects_invalid_spec(tmp_path):
         OpenApiServerGenerator(spec_path).generate(tmp_path / "server.py")
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

@@ -107,4 +107,4 @@ def test_validate_valid_step_multiple():
     assert "valid" in result.message.lower()
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

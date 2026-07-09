@@ -50,4 +50,4 @@ def test_empty_graph():
     assert not graph.has_cycle()
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

@@ -504,7 +504,7 @@ def test_cli_retrieval_search_no_query(capsys):
     assert exc_info.value.code == 2
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 
 def test_cli_doctor_passes(tmp_path, monkeypatch, capsys):
@@ -726,7 +726,7 @@ def test_cli_mcp_invoke_requires_tool(tmp_path, monkeypatch, capsys):
     assert "requires --tool" in capsys.readouterr().err
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 
 def test_cli_explain_plan(tmp_path, monkeypatch, capsys):
@@ -765,7 +765,7 @@ def test_cli_explain_requires_intent_or_plan(capsys):
     assert "intent" in combined or "plan" in combined
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 
 def _write_healthy_config(path: Path) -> None:
@@ -812,7 +812,7 @@ def test_cli_audit_json_output(tmp_path, monkeypatch, capsys):
     assert any(f["tool"] == "doctor" for f in data["findings"])
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 
 def test_cli_handshakes_list_with_items(tmp_path, monkeypatch, capsys):

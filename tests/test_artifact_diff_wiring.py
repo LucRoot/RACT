@@ -66,4 +66,4 @@ def test_render_file_diff_reports_no_changes_when_equal():
     assert diff == "No changes detected."
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

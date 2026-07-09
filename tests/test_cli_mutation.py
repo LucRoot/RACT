@@ -94,4 +94,4 @@ def test_mutation_run_command_reports_failure(tmp_path, monkeypatch, capsys):
     assert "mutation testing failed" in captured.err
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

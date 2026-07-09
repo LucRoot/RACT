@@ -47,4 +47,4 @@ def test_multiple_change_types() -> None:
     assert "modified 1 file(s)" in out
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

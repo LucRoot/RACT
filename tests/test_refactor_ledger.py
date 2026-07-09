@@ -115,4 +115,4 @@ def test_dict_snapshot():
     assert snapshot["breach"] is False
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

@@ -41,4 +41,4 @@ class PlanValidator:
         return ValidationResult(True, "Plan is valid.")
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

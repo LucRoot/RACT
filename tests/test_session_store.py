@@ -87,4 +87,4 @@ def test_load_corrupted_session_raises_session_corrupted_error() -> None:
             assert "corrupted" in str(exc).lower()
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

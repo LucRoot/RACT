@@ -622,4 +622,4 @@ def test_router_fallback_chain_fallback_to_first_when_registry_empty():
     assert not chain[0].is_ok()
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

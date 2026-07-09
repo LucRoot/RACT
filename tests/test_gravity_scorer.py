@@ -141,4 +141,4 @@ def test_loads_fresh_cache_without_rescan(tmp_path):
     assert "mod.a" in scorer2._symbols
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

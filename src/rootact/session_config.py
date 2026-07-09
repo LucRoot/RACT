@@ -45,4 +45,4 @@ class SessionConfig:
         return Path("~/.rootact/session.json").expanduser()
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

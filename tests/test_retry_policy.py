@@ -85,4 +85,4 @@ def test_execute_uses_custom_sleep():
     assert sleeps == [1.0, 2.0]
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

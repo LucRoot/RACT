@@ -11,3 +11,4 @@ This directory contains a static HTML landing page for RACT's Hugging Face Space
 ## Keeping the page in sync
 
 The page mirrors the README's headline, quick start, and feature list. When those change, update `assets/hf-space/index.html` and re-copy to the Space repository. A future loop pass may generate this page from a canonical project manifest instead of maintaining it by hand.
+<!-- RACT 0.1.1 - Trust and Tooling -->

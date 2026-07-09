@@ -79,4 +79,4 @@ class SkillMarketplace:
         raise KeyError(f"Skill '{name}' not found in marketplace catalog")
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

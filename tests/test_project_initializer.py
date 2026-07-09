@@ -62,4 +62,4 @@ def test_initialize_installs_skill(tmp_path):
     assert skill_path in result.files_written
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

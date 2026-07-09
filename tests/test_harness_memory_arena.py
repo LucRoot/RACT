@@ -111,4 +111,4 @@ def test_harness_records_outcomes_in_arena(tmp_path):
     assert "write tests -> tests/test_x.py" in replay
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

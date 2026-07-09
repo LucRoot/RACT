@@ -344,4 +344,4 @@ def structural_similarity_normalized(norm_a: str, norm_b: str) -> float:
     return SequenceMatcher(None, norm_a, norm_b).ratio()
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
