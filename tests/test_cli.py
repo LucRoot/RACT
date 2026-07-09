@@ -11,6 +11,7 @@ _ROOT_KNOT = object()
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 import rootact
 from rootact.cli import main
 from rootact.executor import ExecutionReport, StepResult
@@ -423,3 +424,72 @@ def test_cli_refactor_dry_run(tmp_path, capsys, monkeypatch):
 
 
 # RACT 0.1.0 - Initial Public Release
+
+
+def test_cli_doctor_passes(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "rootact.yaml"
+    prompts = tmp_path / "prompts"
+    prompts.mkdir()
+    (prompts / "manager.txt").write_text("manager prompt\n", encoding="utf-8")
+    config_path.write_text(
+        "project:\n  name: test\nmanager_provider: local\nproviders:\n  local:\n    adapter: local_http\n    url: http://127.0.0.1:11434/v1/chat/completions\n    model: local-model\n",
+        encoding="utf-8",
+    )
+    code = main(["doctor", "--config", str(config_path)])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "Doctor:" in out
+
+
+def test_cli_load_bearing_empty(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "rootact.yaml"
+    config_path.write_text("project:\n  name: test\n", encoding="utf-8")
+    code = main(["load-bearing", "list", "--config", str(config_path)])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "No load-bearing annotations found" in out
+
+
+def test_cli_load_bearing_finds_annotation(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "rootact.yaml"
+    config_path.write_text("project:\n  name: test\n", encoding="utf-8")
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "core.py").write_text(
+        "# load-bearing: legacy contract\ndef process():\n    pass\n",
+        encoding="utf-8",
+    )
+    code = main(["load-bearing", "list", "--config", str(config_path)])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "legacy contract" in out
+    assert "process" in out or "1-3" in out
+
+
+def test_cli_auction_missing_config(capsys):
+    code = main(["auction", "list", "--config", "missing.yaml"])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "config not found" in err.lower()
+
+
+def test_cli_auction_json_output(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "rootact.yaml"
+    config_path.write_text("project:\n  name: test\n", encoding="utf-8")
+    code = main(["auction", "list", "--json", "--config", str(config_path)])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert '"project"' in out
+    assert '"items"' in out
+
+
+def test_cli_handshakes_missing_id(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        main(["handshakes", "approve"])
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "milestone_id" in err.lower()

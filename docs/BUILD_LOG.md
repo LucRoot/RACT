@@ -1276,3 +1276,35 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Await the targeted `executor.py` mutation run (`bash-mb5ph1bb`) and use its score to calibrate a per-file mutation floor.
+
+## 2026-07-09 — Loop pass: CLI command tests for doctor, load-bearing, auction, handshakes
+
+**What changed**
+- Added six tests to `tests/test_cli.py` covering previously untested command paths:
+  - `test_cli_doctor_passes` — `rootact doctor` returns 0 with a complete config.
+  - `test_cli_load_bearing_empty` — `rootact load-bearing list` reports no annotations.
+  - `test_cli_load_bearing_finds_annotation` — `rootact load-bearing list` surfaces a `# load-bearing:` annotation.
+  - `test_cli_auction_missing_config` — `rootact auction list` returns 1 when config is missing.
+  - `test_cli_auction_json_output` — `rootact auction list --json` emits machine-readable JSON.
+  - `test_cli_handshakes_missing_id` — `rootact handshakes approve` without an id exits with code 2.
+
+**Why**
+- `cli.py` is the largest core file with the most uncovered surface area. These commands are small, isolated, and user-facing, so tests here have high regression-prevention value.
+
+**Test/lint/type result**
+- `pytest tests/test_cli.py -q`: 31 passed.
+- `pytest -q`: 990 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src`: clean.
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Coverage impact**
+- `src/rootact/cli.py`: 64% → 67%.
+- `src/rootact/doctor.py`: 94% → 99%.
+- `src/rootact/load_bearing_guard.py`: 88% (unchanged).
+
+**Next action**
+- Continue awaiting the targeted `executor.py` mutation run. Once it finishes, use the score to set a per-file mutation floor.
