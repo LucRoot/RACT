@@ -38,7 +38,7 @@ jobs:
 
       - name: Build package and smoke-test CLI
         run: |
-          pip install build
+          pip install build hatchling
           python -m build --wheel --no-isolation
           pip install (Get-ChildItem dist/rootact-*.whl).FullName
           rootact --help
@@ -47,7 +47,7 @@ jobs:
 
       - name: Build package and smoke-test CLI
         run: |
-          pip install build
+          pip install build hatchling
           python -m build --wheel --no-isolation
           pip install dist/rootact-*.whl
           rootact --help
