@@ -64,6 +64,8 @@ class SymbolGraph:
         self.nodes: dict[str, SymbolNode] = {}
         self._imports: dict[str, dict[str, _ImportBinding]] = {}
         self._project_modules: set[str] = set()
+        # Package name for absolute imports, e.g. project_dir "src/rootact" -> "rootact".
+        self._package_name = self.project_dir.name
 
     def build(self, include_tests: bool = True) -> "SymbolGraph":
         """Scan the project directory and build the symbol graph.
@@ -204,12 +206,22 @@ class SymbolGraph:
 
         Builtin and standard-library module names take precedence over project
         files that happen to collide with them, so ``collections.Counter`` never
-        resolves to a project ``collections.py``.
+        resolves to a project ``collections.py``. Absolute imports that start
+        with the project package name are normalized to the relative module path
+        used internally.
         """
         top = target_module.split(".")[0]
         if top in sys.stdlib_module_names or top in sys.builtin_module_names:
             return False
-        return target_module in self._project_modules
+        relative = self._relative_module_from_import(target_module)
+        return relative in self._project_modules
+
+    def _relative_module_from_import(self, target_module: str) -> str:
+        """Normalize a possibly package-prefixed module name to internal form."""
+        prefix = f"{self._package_name}."
+        if target_module.startswith(prefix):
+            return target_module[len(prefix) :]
+        return target_module
 
     def _parse(self, path: Path) -> ast.AST | None:
         try:
@@ -261,9 +273,10 @@ class SymbolGraph:
         if not binding.is_project:
             return None
 
+        target_module = self._relative_module_from_import(binding.target_module)
         if binding.target_name:
-            return f"{binding.target_module}.{binding.target_name}"
-        module_id = f"{binding.target_module}:<module>"
+            return f"{target_module}.{binding.target_name}"
+        module_id = f"{target_module}:<module>"
         if module_id in self.nodes:
             return module_id
         return None
@@ -291,10 +304,11 @@ class SymbolGraph:
         if binding is not None:
             if not binding.is_project:
                 return None
+            target_module = self._relative_module_from_import(binding.target_module)
             if binding.target_name:
-                base = f"{binding.target_module}.{binding.target_name}"
+                base = f"{target_module}.{binding.target_name}"
             else:
-                base = binding.target_module
+                base = target_module
             candidate = ".".join([base] + attr_chain)
             if candidate in self.nodes:
                 return candidate

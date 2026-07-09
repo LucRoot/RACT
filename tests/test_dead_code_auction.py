@@ -133,4 +133,17 @@ def test_cli_auction_list_json(capsys, tmp_path: Path):
     assert "250" in out
 
 
+def test_ract_auction_reports_zero_dead_modules():
+    """Release gate: the RACT source tree must not accumulate dead modules.
+
+    This test runs the auction against RACT itself. If it fails, the offending
+    module(s) must either be wired back into production code or removed.
+    """
+    project_root = Path(__file__).parent.parent / "src" / "rootact"
+    items = DeadCodeAuction(
+        project_root, config={"min_age_days": 0}
+    ).scan()
+    assert items == [], f"dead-code auction found: {[i.relative_path for i in items]}"
+
+
 # RACT 0.1.0 - Initial Public Release

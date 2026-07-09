@@ -161,8 +161,6 @@ All previously unwired modules are now integrated or removed. The harness path u
 | `memory_arena.py` | 99% | integrated into `Harness.run` and `run_rootact` for session-scoped replay and persistence | Memory Arena for Long-Horizon Context | Medium |
 | `symbol_graph.py` | 80% | pure-Python symbol graph; foundation for Historian and duplication guard | Anti-Rot Phase C | High |
 | `symbol_renamer.py` | 100% | AST-guided multi-file symbol rename; invoked by `rootact refactor` | Multi-File Refactor | High |
-| `run_mode.py` | 98% | run-mode orchestrator (yolo/auto/dry-run/resume) with default approval queue | Run Modes | High |
-| `version_utils.py` | 100% | dotted-version comparison helpers | Version Handling | Low |
 | `doc_generator.py` | high | AST-driven Markdown API doc generator; invoked by `rootact docs generate` | Documentation Generation from Code | High |
 | `project_initializer.py` | high | scaffolds new projects from templates + provider presets | Configuration-Driven Project Templates | High |
 | `openapi_client_generator.py` | high | generates httpx Python clients from OpenAPI 3 specs | OpenAPI Client/Server Generation | High |
