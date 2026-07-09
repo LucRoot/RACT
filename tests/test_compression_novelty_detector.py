@@ -487,6 +487,94 @@ def test_scan_project_still_flags_verbatim_duplicates(tmp_path):
     assert result["scores"]["copy.py"]["nearest"] == "original.py"
 
 
+def _write_docstring_heavy_project(project_dir: Path) -> None:
+    """Create modules where most bytes are prose inside docstrings/comments."""
+    prose = (
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do "
+        "eiusmod tempor incididunt ut labore et dolore magna aliqua. "
+        "Ut enim ad minim veniam, quis nostrud exercitation ullamco.\n"
+    )
+    for i in range(6):
+        (project_dir / f"module_{i}.py").write_text(
+            f'"""Module {i} - {prose}'
+            f'"""\n\n'
+            f"# Overview: {prose}"
+            f"def compute_value_{i}(x):\n"
+            f"    # Multiply by {i + 1}\n"
+            f"    return x * {i + 1}\n\n"
+            f"class DataStore{i}:\n"
+            f'    """A data store. {prose}'
+            f'    """\n'
+            f"    def __init__(self):\n"
+            f"        self.items = []\n"
+            f"        self._dirty = True\n\n"
+            f"    def add(self, item):\n"
+            f"        # Add an item to the store. {prose}"
+            f"        self.items.append(item)\n"
+            f"        self._dirty = True\n\n"
+            f"    def get(self, index):\n"
+            f"        # Retrieve an item. {prose}"
+            f"        return self.items[index]\n\n" + "\n" * 20,
+            encoding="utf-8",
+        )
+
+
+def test_detector_discriminates_novel_python_from_prose_in_docstring_heavy_project(
+    tmp_path,
+):
+    """Prose must not look like familiar code just because comments look like prose.
+
+    When the dictionary is trained on docstring-heavy modules, raw compression
+    can make prose and novel Python look equally familiar. Stripping prose from
+    training samples should keep the gap wide: prose is structurally unlike code
+    and should score at least as high as genuinely novel Python.
+    """
+    _write_docstring_heavy_project(tmp_path)
+    detector = CompressionNoveltyDetector(tmp_path)
+
+    novel_python = (
+        "class RaftNode:\n"
+        "    def __init__(self, node_id, peers):\n"
+        "        self.node_id = node_id\n"
+        "        self.peers = peers\n"
+        "        self.current_term = 0\n"
+        "        self.voted_for = None\n"
+        "        self.log = []\n"
+        "        self.commit_index = 0\n"
+        "\n"
+        "    def request_vote(self, candidate_id, term, last_log_index, last_log_term):\n"
+        "        if term > self.current_term:\n"
+        "            self.current_term = term\n"
+        "            self.voted_for = None\n"
+        "        if term < self.current_term:\n"
+        "            return False\n"
+        "        if self.voted_for in (None, candidate_id):\n"
+        "            return True\n"
+        "        return False\n"
+    )
+    prose = (
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do "
+        "eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim "
+        "ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut "
+        "aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit "
+        "in voluptate velit esse cillum dolore eu fugiat nulla pariatur. "
+        "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui "
+        "officia deserunt mollit anim id est laborum.\n"
+    )
+
+    python_score = detector.assess_new_artifact("src/raft.py", novel_python)
+    prose_score = detector.assess_new_artifact("src/prose.txt", prose)
+
+    assert python_score is not None
+    assert prose_score is not None
+    # Prose should compress worse than novel Python once prose is stripped from
+    # the training dictionary, so its ratio must be at least as high.
+    assert prose_score.ratio >= python_score.ratio, (
+        f"prose ratio {prose_score.ratio} should be >= "
+        f"novel python ratio {python_score.ratio}"
+    )
+
+
 def _duplicative_content() -> str:
     """Return content that compresses well against the seeded project."""
     return (

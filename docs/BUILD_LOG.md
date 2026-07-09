@@ -1175,3 +1175,28 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Continue targeted single-file mutation runs (executor.py, loop_controller.py, cli.py) to measure per-module floors, or pick off the next launch gap identified in the Claude audit (symbol graph prefix mismatch is already fixed; remaining items include high-novelty discrimination and the two-sided auction gate).
+
+## 2026-07-09 — Loop pass: strip prose from novelty dictionary training
+
+**What changed**
+- Added `_strip_prose` to `src/rootact/compression_novelty_detector.py`. It removes `tokenize.COMMENT` and `tokenize.STRING` ranges from Python source before the source is used to train the zstd dictionary.
+- Updated `_collect_samples` to strip prose and fall back to raw source only when stripping leaves too little content.
+- Added `test_detector_discriminates_novel_python_from_prose_in_docstring_heavy_project` to verify that prose does not become "familiar" just because the codebase contains docstrings and comments.
+
+**Why**
+- Claude's audit found that novel Python (0.808) and Lorem ipsum prose (0.839) were both scoring `nominal` and were too close together on the real RACT codebase. The root cause was that the dictionary was trained on whole `.py` files, including docstrings and comments, so it learned prose patterns.
+- Stripping comments and string literals focuses the dictionary on Python syntax and structure, widening the gap between genuinely novel Python and non-Python content.
+
+**Test/lint/type result**
+- `pytest tests/test_compression_novelty_detector.py -q`: 14 passed.
+- `pytest -q`: 974 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src/rootact/compression_novelty_detector.py`: clean.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+
+**Next action**
+- Await the targeted executor.py mutation run (`bash-4ajg0yec`) and use its score to either raise the floor or add executor tests. Alternatively, pick off the next launch gap.
