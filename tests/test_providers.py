@@ -132,6 +132,14 @@ def test_register_custom_adapter(isolated_registry):
     assert result.unwrap().name == "dummy"
 
 
+def test_local_http_provider_accepts_base_url_alias():
+    """Configs that use 'base_url' instead of 'url' must route to the local server."""
+    provider = LocalHttpProvider(
+        {"base_url": "http://127.0.0.1:11434/v1", "model": "nemotron"}
+    )
+    assert provider.url == "http://127.0.0.1:11434/v1"
+
+
 def test_local_http_provider_omits_auth_header():
     """Local servers should not receive an Authorization header."""
     provider = LocalHttpProvider(

@@ -730,3 +730,20 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for the current WSL mutation run (`bash-giojueh6`) to complete, then calibrate the mutation gate from the score.
+
+## 2026-07-09 — Loop pass: regression test for `base_url` provider alias
+
+**What changed**
+- `tests/test_providers.py`: added `test_local_http_provider_accepts_base_url_alias` to verify that a config using `base_url` instead of `url` routes to the local server and does not fall back to `api.openai.com`.
+
+**Why**
+- The `base_url` alias fix in `openai_provider.py` is load-bearing for offline operation. A regression would silently send local-tool calls to OpenAI again.
+
+**Test/lint/type result**
+- `pytest tests/test_providers.py`: 38 passed.
+- `pytest tests/ -q --cov-fail-under=90`: 923 passed, 1 skipped, 92.38% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Next action**
+- Wait for the current WSL mutation run (`bash-giojueh6`) to complete, then calibrate the mutation gate from the score.
