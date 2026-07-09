@@ -10,7 +10,38 @@ A 2024 analysis of **623 million commits** by GitClear and GitKraken found that 
 
 RACT keeps the human in the loop while a small management LM routes work to the right provider. Every plan and every result is `Rooted[T]` — it carries the assumption, confidence, and provenance that justify it. Every generated file carries the **Root Knot** (`_ROOT_KNOT = object()`), so unsigned drift breaks the loop instead of compounding.
 
-[![RACT session](https://asciinema.org/a/placeholder.svg)](https://asciinema.org/a/placeholder)
+## Demo
+
+```bash
+$ rootact --welcome
+        ╭──────────────────────────────────╮
+        │  Root Knot  · Agentic Coding Tool      │
+        ╰──────────────────┬───────────────╯
+                           │
+        ╭──────────────────┴───────────────╮
+        │         ✦  The Root Knot  ✦          │
+        ╰──────────────────────────────────╯
+        Every plan Rooted. Every file carries the Knot.
+
+╭─ Welcome to RACT ────────────────────────────────────────────────────────────╮
+│ Version: 0.1.0                                                               │
+│ Author: Dr. Lucas Root, Ph.D.                                                │
+│ License: PolyForm Noncommercial License 1.0.0                                │
+│                                                                              │
+│ RACT keeps the human in the loop while a small management LM routes work to  │
+│ the right provider.                                                          │
+│                                                                              │
+│ Quick commands:                                                              │
+│   rootact --init-provider local     · scaffold a project for a local model   │
+│   rootact 'your intent' --loop       · run a Root-Knot-anchored build loop   │
+│   rootact report --last              · see what changed and why              │
+│   rootact whisper --intent '...'     · get a codebase dialect brief          │
+│   rootact auction list               · review dead-code candidates           │
+│   rootact fence inspect --file f.py  · ask why legacy code exists            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+An animated asciicast is queued; terminal recording tools do not yet have prebuilt binaries for Windows ARM64.
 
 ## Why RACT instead of Cursor, Claude Code, or Lovable?
 
