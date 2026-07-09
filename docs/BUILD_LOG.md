@@ -800,3 +800,26 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Start the Pipeline Skill ritual for the native Internal provider spec (my track) while waiting for the mutation score.
+
+## 2026-07-09 — Loop pass: create native Internal provider spec and Pipeline scaffold
+
+**What changed**
+- Wrote `docs/native_internal_provider_spec.md` with concrete acceptance criteria, configuration shape, routing logic, and file list.
+- Ran the Pipeline Bootstrap ritual in `C:/RootClaw/frontline-poc/_BUILD/ract_native_internal_provider/`: created `build_state.md`, four modules (`module_01.md` through `module_04.md`), five PowerShell watchdog scripts, and `.pulse_state`.
+- Each module includes a mandatory Lateral Chain pass, Depth Chain pass, and a verifiable Definition of Done.
+- Nemotron attempt to draft the same spec failed with malformed JSON; I self-executed the spec authorship and documented the failure mode.
+
+**Why**
+- The native Internal provider is the highest-complexity remaining item. Pipeline scaffolding prevents drift across the multi-file implementation.
+- The failed Nemotron dispatch surfaced a prompt-shape issue: the review-questions-plus-JSON format is unreliable for prose/spec tasks; future dispatches for prose should use a simpler "write file X with content" contract or bypass the review gate.
+
+**Test/lint/type result**
+- No code changes in this pass; existing suite remains green.
+
+**Self-audit result**
+- `rootact auction list`: 0 dead-code candidates.
+- `rootact doctor`: all checks passed.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Execute `module_01.md` (implement `InternalProvider`) after the mutation run completes and score calibration is done, or earlier if the mutation run remains the only blocker and CPU is available.
