@@ -509,3 +509,28 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for `bash-k5aw805q` to complete, parse the mutation score, calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights, commit, push, and continue the loop.
+
+## 2026-07-09 — Loop pass: WSL baseline test failures and mutation-script tolerance
+
+**What changed**
+- `src/rootact/mutation_runner.py`: `_to_wsl_path` now normalizes backslashes in the input string before parsing the drive letter, so Windows backslash paths convert correctly even when the code runs on a POSIX host.
+- `scripts/install.sh`: converted line endings from CRLF to LF so `bash -n` passes under WSL/Linux.
+- `scripts/run_mutation_tests_wsl.sh`: removed `set -e` and added `|| true` to the `mutmut run` invocation so the script always reaches `mutmut results`, even when mutants survive or the runner reports failures.
+
+**Why**
+- The previous WSL mutation run could not produce a score because `mutmut run` returned a non-zero exit code when tests failed (either baseline failures or killed mutants), and `set -e` aborted the script before `mutmut results`.
+
+**Test/lint/type result**
+- `pytest tests/test_mutation_runner.py tests/test_gravity_scorer.py`: 32 passed.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/mutation_runner.py`: passed.
+
+**Background task**
+- Task ID: `bash-er46h5hx`
+- Command: `.venv/Scripts/python -m rootact.cli mutation run --wsl-distro Ubuntu-24.04`
+- Log: `C:/Users/rootl/ract-work/mutation_run_ract.log`
+- Status: running, no timeout.
+
+**Next action**
+- Wait for `bash-er46h5hx` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
