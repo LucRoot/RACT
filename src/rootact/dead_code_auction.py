@@ -41,6 +41,10 @@ class DeadCodeAuction:
 
     DEFAULT_MIN_AGE_DAYS = 180
     DEFAULT_INCLUDE_TESTS = False
+    # Modules that are entry points, loaded dynamically, or kept as tested
+    # utilities. They legitimately have no production inbound references but must
+    # not be reported as dead code.
+    DEFAULT_ALLOWLIST = {"cli.py", "cli_toggles.py", "signature_guardian.py"}
     IGNORE_DIRS = {
         "__pycache__",
         ".git",
@@ -69,6 +73,9 @@ class DeadCodeAuction:
             self.config.get("include_tests", self.DEFAULT_INCLUDE_TESTS)
         )
         self.ignore_dirs = set(self.config.get("ignore_dirs", self.IGNORE_DIRS))
+        self.allowlist = set(
+            self.config.get("allowlist", self.DEFAULT_ALLOWLIST)
+        )
 
     def _should_skip_dir(self, path: Path) -> bool:
         return any(part in self.ignore_dirs for part in path.parts)
@@ -97,11 +104,20 @@ class DeadCodeAuction:
         return (time.time() - mtime) / 86400.0
 
     def _inbound_refs(self, module: str, graph: SymbolGraph) -> int:
-        """Count inbound references to any symbol in *module*."""
+        """Count inbound references to any symbol in *module* from other modules.
+
+        Self-edges inside a module (e.g. ``config_loader.load_from_file`` calling
+        ``config_loader.ConfigEntry``) do not keep a module alive; only external
+        references do.
+        """
         count = 0
         for node in graph.nodes.values():
-            if node.module == module:
-                count += len(node.incoming)
+            if node.module != module:
+                continue
+            for src in node.incoming:
+                src_module = src.rsplit(":", 1)[0] if ":" in src else src.rsplit(".", 1)[0]
+                if src_module != module:
+                    count += 1
         return count
 
     def scan(self) -> list[AuctionItem]:
@@ -122,6 +138,11 @@ class DeadCodeAuction:
                 continue
             age_days = (now - path.stat().st_mtime) / 86400.0
             if age_days < self.min_age_days:
+                continue
+
+            if path.name == "__init__.py":
+                continue
+            if path.name in self.allowlist:
                 continue
 
             module = self._module_for_file(path)

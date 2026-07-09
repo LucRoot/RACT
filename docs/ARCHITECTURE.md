@@ -62,7 +62,7 @@ RootAct is a standalone, model-agnostic Agentic Coding Tool. It turns user inten
 | `SignatureGuardian` | `src/rootact/signature_guardian.py` | Verify signature marker integrity across the source tree. |
 | `HookManager` | `src/rootact/hook_system.py` | Pre/post-step user-defined hooks. |
 | `GitMode` | `src/rootact/git_mode.py` | Git-aware execution mode; stages/commits artifacts after success. |
-| `CliToggles` / `RunMode` | `src/rootact/cli_toggles.py`, `run_mode.py` | CLI/IDE parity toggles (`yolo`, `auto`, `reload`, sessions). |
+| `CliToggles` | `src/rootact/cli_toggles.py` | CLI/IDE parity toggles (`yolo`, `auto`, `reload`, sessions). |
 | `RootActRunner` mode dispatch | `src/rootact/rootact_runner.py` | Validates `--mode` and forwards it to the harness. |
 | `HandshakeRegistry` | `src/rootact/handshake_registry.py` | Persist and manage operator handshakes for high-risk milestones. |
 
@@ -71,9 +71,7 @@ RootAct is a standalone, model-agnostic Agentic Coding Tool. It turns user inten
 | Module | File | Responsibility |
 |--------|------|----------------|
 | `PlanValidator` | `src/rootact/plan_validator.py` | Structural and semantic plan checks. |
-| `PlanAnalyzer` | `src/rootact/plan_analyzer.py` | Plan introspection and risk assessment. |
 | `DependencyGraph` | `src/rootact/dependency_graph.py` | Dependency-aware ordering. |
-| `Edge-case builders` | `src/rootact/edge_case_*.py`, `automated_test_case_generation_for_edge_cases.py` | Fixture generation, validation, and execution helpers. |
 
 ## Tooling Adapters
 
