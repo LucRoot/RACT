@@ -16,6 +16,7 @@ portable.
 
 import ast
 import json
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -79,9 +80,27 @@ class SymbolGraph:
         """
         self.nodes = {}
         self._imports = {}
-        py_files = [
-            p for p in self.project_dir.rglob("*.py") if "__pycache__" not in p.parts
-        ]
+        ignored_dirs = {
+            "__pycache__",
+            ".git",
+            ".venv",
+            ".venv-wsl-mutmut",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+            "node_modules",
+            "_BUILD",
+            "htmlcov",
+            "dist",
+            "build",
+        }
+        # Use os.walk so we can prune ignored directories before descending into
+        # them. This avoids WSL filesystem junctions (e.g. .venv-wsl-mutmut/lib64)
+        # that Windows pathlib cannot stat.
+        py_files: list[Path] = []
+        for root, dirs, files in os.walk(self.project_dir):
+            dirs[:] = [d for d in dirs if d not in ignored_dirs]
+            py_files.extend(Path(root) / f for f in files if f.endswith(".py"))
         if not include_tests:
             py_files = [
                 p

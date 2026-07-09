@@ -18,7 +18,9 @@ set -euo pipefail
 # portable across WSL mounts and machines.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-VENV_DIR="$REPO_ROOT/.venv-wsl-mutmut"
+# Keep the WSL venv outside the repository so it is never scanned by RACT's
+# own file walkers (symbol graph, novelty detector, dead-code auction).
+VENV_DIR="${HOME}/.cache/ract-mutmut-venv"
 
 cd "$REPO_ROOT"
 
@@ -29,7 +31,10 @@ fi
 source "$VENV_DIR/bin/activate"
 pip install --quiet --upgrade pip
 pip install --quiet -e ".[dev]"
-pip install --quiet mutmut
+# Pin to mutmut 2.x because 3.x removed the --paths-to-mutate and --runner CLI
+# flags and requires pyproject.toml configuration. The 2.x CLI is easier to
+# drive from a standalone shell script.
+pip install --quiet "mutmut==2.4.5"
 
 # Clear previous run state so the report is fresh.
 rm -f .mutmut-cache
