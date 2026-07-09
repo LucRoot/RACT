@@ -1437,3 +1437,36 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Poll the background `executor.py` mutation run (`bash-gf0sue2z`). When it finishes, set `executor.py`'s measured score as the per-file floor in `rootact.yaml` and update `docs/PUBLIC_LEADERBOARD.md`.
+
+## 2026-07-09 — Loop pass: raise cli.py coverage above 70%
+
+**What changed**
+- Added ten focused CLI tests to `tests/test_cli.py` covering small, isolated error and flag paths:
+  - `test_cli_welcome_flag` — `--welcome` prints the welcome letter.
+  - `test_cli_coverage_delta_missing_files` — `coverage delta` without `--before`/`--after` or `--run` errors cleanly.
+  - `test_cli_coverage_delta_unreadable_before` — unreadable `--before` snapshot returns a clear error.
+  - `test_cli_whisper_missing_config` and `test_cli_whisper_bad_yaml` — missing/bad config in `whisper`.
+  - `test_cli_fence_missing_config` and `test_cli_fence_bad_yaml` — missing/bad config in `fence`.
+  - `test_cli_mcp_list_missing_config` — missing config in `mcp list`.
+  - `test_cli_mcp_invoke_invalid_json` — `mcp invoke` rejects non-JSON `--input`.
+  - `test_cli_retrieval_search_no_query` — `retrieval search` without a query exits with code 2.
+
+**Why**
+- `cli.py` is the largest source file and the primary user surface. Raising its coverage from 67% to 71% removes blind spots in config-validation paths that every subcommand shares.
+
+**Test/lint/type result**
+- `pytest tests/test_cli.py -q`: 41 passed.
+- `pytest -q`: 1009 passed, 1 skipped, 92% overall coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src`: clean.
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Coverage impact**
+- `src/rootact/cli.py`: 67% → 71%.
+- Overall coverage: 91% → 92%.
+
+**Next action**
+- Poll the background `executor.py` mutation run. When it finishes, set the per-file floor and update `docs/PUBLIC_LEADERBOARD.md`.
