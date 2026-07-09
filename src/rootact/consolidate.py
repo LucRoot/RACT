@@ -380,4 +380,175 @@ class ConsolidationScanner:
         return ids
 
 
+@dataclass(frozen=True)
+class ApplyResult:
+    """Result of applying a merge proposal."""
+
+    proposal_id: str
+    applied: bool
+    deleted: tuple[str, ...]
+    shims: tuple[str, ...]
+    backup_dir: str | None
+    error: str | None = None
+
+
+class ConsolidationApplier:
+    """Apply approved merge proposals with backup and rollback support."""
+
+    def __init__(self, project_dir: Path | str) -> None:
+        self.project_dir = Path(project_dir)
+        self.backup_root = self.project_dir / ".rootact" / "consolidate_backups"
+
+    def _backup_dir(self, proposal_id: str) -> Path:
+        return self.backup_root / proposal_id
+
+    def _backup_path(self, proposal_id: str, rel: str) -> Path:
+        return self._backup_dir(proposal_id) / rel.replace("/", "__")
+
+    def apply(
+        self,
+        proposal: MergeProposal,
+        proposal_id: str,
+        registry: HandshakeRegistry | None = None,
+        dry_run: bool = False,
+    ) -> ApplyResult:
+        """Apply *proposal* and return an ``ApplyResult``.
+
+        Backs up the target and all source files before making changes. On
+        failure, restores everything from the backup directory.
+        """
+        if not proposal.safe:
+            return ApplyResult(
+                proposal_id=proposal_id,
+                applied=False,
+                deleted=(),
+                shims=(),
+                backup_dir=None,
+                error="proposal failed safety checks",
+            )
+
+        backup_dir = self._backup_dir(proposal_id)
+        files_to_backup = [proposal.target, *proposal.sources]
+        backed_up: dict[str, Path] = {}
+
+        try:
+            if not dry_run:
+                backup_dir.mkdir(parents=True, exist_ok=True)
+                for rel in files_to_backup:
+                    src = self.project_dir / rel
+                    if src.is_file():
+                        dst = self._backup_path(proposal_id, rel)
+                        dst.write_bytes(src.read_bytes())
+                        backed_up[rel] = dst
+
+            deleted: list[str] = []
+            shims: list[str] = []
+            for source in proposal.sources:
+                # Overwrite the source file with a deprecation shim. The original
+                # content is already in the backup directory, so rollback can
+                # restore it if the shim write fails.
+                if not dry_run:
+                    self._write_shim(source, proposal.target)
+                deleted.append(source)
+                shims.append(source)
+
+            if not dry_run and registry is not None:
+                try:
+                    registry.update_status(proposal_id, "approved")
+                except KeyError:
+                    pass
+
+            return ApplyResult(
+                proposal_id=proposal_id,
+                applied=not dry_run,
+                deleted=tuple(deleted),
+                shims=tuple(shims),
+                backup_dir=str(backup_dir.relative_to(self.project_dir)).replace(
+                    "\\", "/"
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001
+            self._restore_from_backup(backed_up)
+            return ApplyResult(
+                proposal_id=proposal_id,
+                applied=False,
+                deleted=tuple(deleted),
+                shims=tuple(shims),
+                backup_dir=str(backup_dir.relative_to(self.project_dir)).replace(
+                    "\\", "/"
+                ),
+                error=f"apply failed: {exc}",
+            )
+
+    def _write_shim(self, source_rel: str, target_rel: str) -> Path:
+        """Write a backward-compatible shim over the source file.
+
+        LR:: Shims keep external callers working while the canonical module
+        absorbs the source. They are intentionally marked deprecated so the
+        next dead-code auction can remove them. The original source content
+        must already be backed up before calling this method.
+        """
+        source_path = self.project_dir / source_rel
+        target_module = self._module_id_from_rel(target_rel)
+        shim_text = (
+            "# Rooted by Dr. Lucas Root, Ph.D.\n"
+            "# DEPRECATED: This module has been consolidated into "
+            f"{target_module}.\n"
+            "from __future__ import annotations\n\n"
+            f"from {target_module} import *  # noqa: F401,F403\n"
+        )
+        source_path.write_text(shim_text, encoding="utf-8")
+        return source_path
+
+    def _module_id_from_rel(self, rel: str) -> str:
+        """Return a best-effort importable module name for a relative path."""
+        path = self.project_dir / rel
+        if not path.suffix == ".py":
+            raise ValueError(f"not a Python file: {rel}")
+        # If a SymbolGraph is cheap to build, use it; otherwise fall back to path.
+        try:
+            graph = SymbolGraph(self.project_dir).build()
+            return graph.module_id_for_path(path)
+        except Exception:  # noqa: BLE001
+            parts = Path(rel).with_suffix("").parts
+            return ".".join(parts)
+
+    def _restore_from_backup(self, backed_up: dict[str, Path]) -> None:
+        """Restore files from their backup paths."""
+        for rel, backup_path in backed_up.items():
+            target = self.project_dir / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(backup_path.read_bytes())
+
+    def rollback(self, proposal_id: str) -> ApplyResult:
+        """Restore all files from a previous apply's backup directory."""
+        backup_dir = self._backup_dir(proposal_id)
+        if not backup_dir.is_dir():
+            return ApplyResult(
+                proposal_id=proposal_id,
+                applied=False,
+                deleted=(),
+                shims=(),
+                backup_dir=str(backup_dir.relative_to(self.project_dir)).replace(
+                    "\\", "/"
+                ),
+                error="backup directory not found",
+            )
+
+        restored: list[str] = []
+        for backup_path in backup_dir.iterdir():
+            rel = backup_path.name.replace("__", "/")
+            target = self.project_dir / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(backup_path.read_bytes())
+            restored.append(rel)
+        return ApplyResult(
+            proposal_id=proposal_id,
+            applied=False,
+            deleted=(),
+            shims=(),
+            backup_dir=str(backup_dir.relative_to(self.project_dir)).replace("\\", "/"),
+        )
+
+
 # RACT 0.1.0 - Initial Public Release

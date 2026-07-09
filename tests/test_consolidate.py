@@ -170,4 +170,69 @@ def test_cli_consolidate_invalid_threshold(tmp_path: Path) -> None:
     assert "must be between 0.0 and 1.0" in result.stderr
 
 
+def test_applier_deletes_sources_and_creates_shim(tmp_path: Path) -> None:
+    """Applying a proposal removes sources and writes deprecation shims."""
+    from rootact.consolidate import ConsolidationApplier
+
+    _write_module(tmp_path / "a.py", IDENTICAL_BODY)
+    _write_module(tmp_path / "b.py", IDENTICAL_BODY)
+    proposal = MergeProposal(
+        target="a.py",
+        sources=("b.py",),
+        diff="",
+        reason="test",
+        safe=True,
+    )
+    applier = ConsolidationApplier(tmp_path)
+    result = applier.apply(proposal, "test-0001")
+    assert result.applied is True
+    assert result.deleted == ("b.py",)
+    assert (tmp_path / "a.py").is_file()
+    assert (tmp_path / "b.py").is_file()
+    assert "DEPRECATED" in (tmp_path / "b.py").read_text(encoding="utf-8")
+    assert any("b.py" in s for s in result.shims)
+
+
+def test_applier_dry_run_does_not_modify(tmp_path: Path) -> None:
+    """Dry-run apply returns metadata without changing files."""
+    from rootact.consolidate import ConsolidationApplier
+
+    _write_module(tmp_path / "a.py", IDENTICAL_BODY)
+    _write_module(tmp_path / "b.py", IDENTICAL_BODY)
+    proposal = MergeProposal(
+        target="a.py",
+        sources=("b.py",),
+        diff="",
+        reason="test",
+        safe=True,
+    )
+    applier = ConsolidationApplier(tmp_path)
+    result = applier.apply(proposal, "test-0002", dry_run=True)
+    assert result.applied is False
+    assert (tmp_path / "b.py").is_file()
+
+
+def test_applier_rollback_restores_sources(tmp_path: Path) -> None:
+    """Rollback restores files deleted by apply."""
+    from rootact.consolidate import ConsolidationApplier
+
+    original_b = IDENTICAL_BODY
+    _write_module(tmp_path / "a.py", IDENTICAL_BODY)
+    _write_module(tmp_path / "b.py", original_b)
+    proposal = MergeProposal(
+        target="a.py",
+        sources=("b.py",),
+        diff="",
+        reason="test",
+        safe=True,
+    )
+    applier = ConsolidationApplier(tmp_path)
+    applier.apply(proposal, "test-0003")
+    assert (tmp_path / "b.py").is_file()
+    rollback = applier.rollback("test-0003")
+    assert rollback.error is None
+    assert (tmp_path / "b.py").is_file()
+    assert (tmp_path / "b.py").read_text(encoding="utf-8") == original_b
+
+
 # RACT 0.1.0 - Initial Public Release

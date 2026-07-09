@@ -935,3 +935,31 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Commit and push README update, then continue monitoring the mutation run.
+
+## 2026-07-09 — Loop pass: implement `ConsolidationApplier` with backup/rollback
+
+**What changed**
+- Added `ConsolidationApplier` to `src/rootact/consolidate.py`.
+- Backs up target and source files to `.rootact/consolidate_backups/<proposal_id>/` before any write.
+- Replaces source files with deprecation shims that re-export the target module, keeping external callers working.
+- Supports `dry_run` and `rollback(proposal_id)` for recovery.
+- Refactored apply order to write shims before removing original content, eliminating the delete-then-write gap Nemotron flagged.
+- Added 3 tests for apply, dry-run, and rollback.
+
+**Why**
+- A scanner without an applier is only a preview tool. Backup + rollback makes `ract consolidate` safe enough to run on real code.
+- Nemotron's safety review correctly identified that deleting sources before writing shims could cause irreversible data loss; the two-phase backup-overwrite pattern fixes it.
+
+**Test/lint/type result**
+- `pytest -q`: 949 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/consolidate.py --lines 1-30`: coherent brief.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Commit and push applier implementation, then continue monitoring the mutation run.
