@@ -46,7 +46,13 @@ $ rootact --welcome
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
-An animated asciicast is queued; terminal recording tools do not yet have prebuilt binaries for Windows ARM64.
+A recorded session is available: [`assets/demo.cast`](assets/demo.cast). Play it locally with:
+
+```bash
+asciinema play https://raw.githubusercontent.com/LucRoot/RACT/main/assets/demo.cast
+```
+
+An embedded asciinema.org upload is queued for the public README player once the upload toolchain is available on Windows ARM64.
 
 ## Why RACT instead of Cursor, Claude Code, or Lovable?
 

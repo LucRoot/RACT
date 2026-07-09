@@ -131,4 +131,30 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Set up cla-assistant.io for the repository so external PRs can land under the CLA.
 
+## 2026-07-09 — Loop pass: demo asciicast for README
+
+**What changed**
+- Generated `assets/demo.cast`: a ~50-second asciinema recording showing `pip install rootact`, `rootact --version`, `ract --version`, `rootact auction list`, `rootact novelty scan`, and `rootact --help`. Output text is based on real command output from the current tree.
+- Updated README Demo section to link to the cast and provide the local play command. Added a note that an embedded asciinema.org upload is queued pending a Windows-ARM64-compatible upload toolchain.
+- Attempted `agg` GIF conversion; build failed on `aws-lc-sys` linking on Windows ARM64, so the cast remains the authoritative artifact this pass.
+
+**Why**
+- Public-launch priority #3 is a 45-second asciicast under the hero. The cast file is now in the repo and playable; embedding is gated by toolchain availability.
+
+**Test/lint/type result**
+- `pytest tests/`: 878 passed, 1 skipped, 93% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Self-audit result**
+- `rootact auction list --config rootact.yaml`: 0 dead-code candidates.
+- `rootact novelty scan --config rootact.yaml`: 80 `low`, 35 `high`, 60 `nominal` out of 175 (unchanged after README-only change).
+- `rootact doctor`: not run this pass; still blocked by local provider HTTP 401.
+
+**Nemotron/Internal secondary review**
+- Delegated a lightweight review of the Demo section. Nemotron returned **Pass** with a note about alias clarity; `ract` alias is confirmed by `pyproject.toml`, so no change needed.
+
+**Next action**
+- Set up cla-assistant.io (manual web step) or move to the next launch-gap item: earned-coverage / mutation-testing gate.
+
 # RACT 0.1.0 - Initial Public Release
