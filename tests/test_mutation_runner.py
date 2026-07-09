@@ -144,4 +144,69 @@ def test_resolve_runner_command_on_windows(monkeypatch):
     assert cmd[0] == "wsl"
 
 
+def test_resolve_runner_command_uses_provided_distro(monkeypatch):
+    monkeypatch.setattr("sys.platform", "win32")
+    from rootact.mutation_runner import _resolve_runner_command
+
+    script = Path("/tmp/script.sh")
+    cmd = _resolve_runner_command(script, wsl_distro="Ubuntu-24.04")
+    assert cmd[:5] == ["wsl", "-d", "Ubuntu-24.04", "-e", "bash"]
+    assert cmd[5] == str(script)
+
+
+def test_detect_wsl_distro_prefers_env(monkeypatch):
+    monkeypatch.setenv("RACT_WSL_DISTRO", "Custom-Distro")
+    from rootact.mutation_runner import _detect_wsl_distro
+
+    assert _detect_wsl_distro() == "Custom-Distro"
+
+
+def test_detect_wsl_distro_parses_running_list(monkeypatch):
+    monkeypatch.delenv("RACT_WSL_DISTRO", raising=False)
+
+    def _fake_run(cmd, **kwargs):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            returncode=0,
+            stdout="NAME\n* Ubuntu-24.04\n  docker-desktop\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr("subprocess.run", _fake_run)
+    from rootact.mutation_runner import _detect_wsl_distro
+
+    assert _detect_wsl_distro() == "Ubuntu-24.04"
+
+
+def test_detect_wsl_distro_skips_docker(monkeypatch):
+    monkeypatch.delenv("RACT_WSL_DISTRO", raising=False)
+
+    def _fake_run(cmd, **kwargs):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            returncode=0,
+            stdout="NAME\n  docker-desktop\n  docker-desktop-data\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr("subprocess.run", _fake_run)
+    from rootact.mutation_runner import _detect_wsl_distro
+
+    assert _detect_wsl_distro() is None
+
+
+def test_detect_wsl_distro_returns_none_on_failure(monkeypatch):
+    monkeypatch.delenv("RACT_WSL_DISTRO", raising=False)
+
+    def _fake_run(cmd, **kwargs):
+        raise FileNotFoundError("wsl")
+
+    monkeypatch.setattr("subprocess.run", _fake_run)
+    from rootact.mutation_runner import _detect_wsl_distro
+
+    assert _detect_wsl_distro() is None
+
+
 # RACT 0.1.0 - Initial Public Release

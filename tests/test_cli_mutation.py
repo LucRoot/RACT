@@ -16,7 +16,7 @@ def test_mutation_run_command_prints_report(tmp_path, monkeypatch, capsys):
     script = tmp_path / "mutmut.sh"
     script.write_text("#!/bin/bash\n", encoding="utf-8")
 
-    def _fake_run(_project_dir, *, script_path=None, timeout=None):
+    def _fake_run(_project_dir, *, script_path=None, timeout=None, wsl_distro=None):
         from rootact.rooted import Rooted
 
         return Rooted(
@@ -35,11 +35,46 @@ def test_mutation_run_command_prints_report(tmp_path, monkeypatch, capsys):
     assert "90.0%" in captured.out
 
 
+def test_mutation_run_command_passes_wsl_distro(tmp_path, monkeypatch, capsys):
+    script = tmp_path / "mutmut.sh"
+    script.write_text("#!/bin/bash\n", encoding="utf-8")
+    captured_distro = []
+
+    def _fake_run(_project_dir, *, script_path=None, timeout=None, wsl_distro=None):
+        from rootact.rooted import Rooted
+
+        captured_distro.append(wsl_distro)
+        return Rooted(
+            value=MutationReport(killed=90, survived=10, timeout=0, error=0),
+            assumption="ok",
+            confidence=1.0,
+        )
+
+    monkeypatch.setattr("rootact.cli.run_mutation_tests", _fake_run)
+    config = tmp_path / "rootact.yaml"
+    config.write_text("", encoding="utf-8")
+
+    rc = main(
+        [
+            "mutation",
+            "run",
+            "--script",
+            str(script),
+            "--wsl-distro",
+            "Ubuntu-24.04",
+            "--config",
+            str(config),
+        ]
+    )
+    assert rc == 0
+    assert captured_distro == ["Ubuntu-24.04"]
+
+
 def test_mutation_run_command_reports_failure(tmp_path, monkeypatch, capsys):
     script = tmp_path / "mutmut.sh"
     script.write_text("#!/bin/bash\n", encoding="utf-8")
 
-    def _fake_run(_project_dir, *, script_path=None, timeout=None):
+    def _fake_run(_project_dir, *, script_path=None, timeout=None, wsl_distro=None):
         from rootact.rooted import Rooted
 
         return Rooted(
