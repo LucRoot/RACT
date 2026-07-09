@@ -169,4 +169,4 @@ The router scores providers by how well they match a step's hint. A provider nam
 - Use environment variables or a secrets manager.
 - RootAct's safety guardrails block `eval()`, `exec()`, `subprocess...shell=True`, and bare `except:` in generated content.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.1.1 - Trust and Tooling -->

@@ -63,3 +63,4 @@ ract doctor
 ract audit --deep
 ract auction list
 ```
+<!-- RACT 0.1.1 - Trust and Tooling -->

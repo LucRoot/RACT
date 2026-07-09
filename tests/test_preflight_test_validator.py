@@ -94,4 +94,4 @@ def test_validate_report_tests_reports_test_issue():
     assert "re" in issues[0].message
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

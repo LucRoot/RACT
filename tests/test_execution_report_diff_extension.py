@@ -50,4 +50,4 @@ def test_attach_diff_summary_no_steps() -> None:
     assert enriched.artifacts["extra"] == "value"
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

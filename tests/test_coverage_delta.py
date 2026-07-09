@@ -235,4 +235,4 @@ def test_coverage_color_thresholds():
     assert _coverage_color(45.0) == "red"
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

@@ -1123,7 +1123,7 @@ def test_extract_json_artifact_wrapper_tolerant_missing_end_quote():
     assert executor._extract_json_artifact_wrapper(wrapped, "src/foo.py") is None
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 
 def test_write_artifact_rejects_absolute_path(tmp_path):

@@ -192,4 +192,4 @@ class QualityScorecard:
             self._records = json.load(f)
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

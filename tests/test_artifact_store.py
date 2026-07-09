@@ -45,4 +45,4 @@ class TestArtifactStore(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

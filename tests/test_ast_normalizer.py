@@ -105,3 +105,6 @@ def test_structural_similarity_normalized_returns_zero_for_dissimilar_sizes():
     small = normalize_python("def f(): pass")
     large = normalize_python("\n".join([f"def f{i}(): pass" for i in range(100)]))
     assert structural_similarity_normalized(small, large) == 0.0
+
+
+# RACT 0.1.1 - Trust and Tooling

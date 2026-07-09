@@ -212,4 +212,4 @@ def test_harness_mutation_gate_run_error_soft_fail(tmp_path, monkeypatch):
     assert "mutation_score" not in report.artifacts
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

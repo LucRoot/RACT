@@ -126,4 +126,4 @@ def test_detects_renamed_clone_with_different_docstring(tmp_path):
     assert matches[0].similarity >= 0.85
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

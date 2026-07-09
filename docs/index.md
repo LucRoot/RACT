@@ -55,4 +55,4 @@ RACT is licensed under the **PolyForm Noncommercial License 1.0.0** — free for
 
 Commercial use requires a separate agreement. See [`COMMERCIAL.md`](../COMMERCIAL.md) for details, or email info@lucasroot.com.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.1.1 - Trust and Tooling -->

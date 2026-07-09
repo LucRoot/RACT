@@ -250,7 +250,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Re-run with a realistic floor (e.g., 90.0%) so the gate earns, then integrate the WSL mutation-testing script into the CI quality scorecard or add a signed-receipt quality hook.
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 ## 2026-07-09 — Loop pass: mutation-testing wrapper, scorecard signal, and coverage baseline exit-code fix
 
@@ -289,7 +289,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Wire the mutation runner into the harness/loop controller as a post-execution quality gate, or execute a real WSL mutation run and calibrate the scorecard weight against actual RACT results.
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 ## 2026-07-09 — Loop pass: mutation gate wired into Harness.run
 
@@ -334,7 +334,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Run a real WSL mutation test against RACT, capture the actual mutation score, and calibrate the default `min_score` and scorecard weight against empirical data.
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 ## 2026-07-09 — Loop pass: WSL distro detection and `--wsl-distro` option for mutation runner
 
@@ -374,7 +374,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Execute a real WSL mutation run against RACT (`rootact mutation run --wsl-distro Ubuntu-24.04`) as a background task, then capture the score and calibrate the default `min_score` and scorecard weight.
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 ## 2026-07-09 — Loop pass: fix WSL path conversion and script portability for real mutation run
 
@@ -405,7 +405,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Start a real WSL mutation run against RACT as a background task and capture the score.
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 ## 2026-07-09 — Loop pass: README badges, SymbolGraph WSL-venv exclusion, and mutation-script fixes
 
@@ -441,7 +441,7 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Run a real WSL mutation run against RACT again with the fixed script and capture the score.
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
 
 ## 2026-07-09 — Loop pass closure: commit/push and real WSL mutation run started
 

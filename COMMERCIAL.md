@@ -25,4 +25,4 @@ To discuss a commercial license, reach out directly:
 - **Website:** https://lucasroot.pro
 
 Please include a brief description of how you plan to use RACT, the size of your organization, and any support or customization needs. We'll respond with terms tailored to your situation.
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

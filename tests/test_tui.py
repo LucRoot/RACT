@@ -106,4 +106,4 @@ def test_welcome_renders_logo_and_body(capsys) -> None:
     assert "Dr. Lucas Root" in out
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

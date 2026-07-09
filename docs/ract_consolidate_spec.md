@@ -95,3 +95,4 @@ Validation: thresholds outside the allowed range raise `click.BadParameter`; `--
 
 ---
 This specification is concrete enough to be implemented in the next development loop, providing a clear roadmap for code, tests, and CLI integration.
+<!-- RACT 0.1.1 - Trust and Tooling -->

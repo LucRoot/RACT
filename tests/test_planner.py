@@ -81,4 +81,4 @@ def test_planner_propagates_manager_failure():
     assert result.error == "provider unreachable"
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

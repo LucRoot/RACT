@@ -114,4 +114,4 @@ def test_parse_diff_tracks_line_numbers() -> None:
     assert records[0]["line"] == 12
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

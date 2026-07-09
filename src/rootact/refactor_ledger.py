@@ -145,4 +145,4 @@ def _count_lines(content: str) -> int:
     return sum(1 for line in content.splitlines() if line.strip())
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

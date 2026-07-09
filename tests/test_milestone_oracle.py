@@ -201,4 +201,4 @@ def test_oracle_evaluates_with_plan_report(tmp_path: Path):
     assert result.unwrap().verdict == "proceed"
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

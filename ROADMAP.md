@@ -59,3 +59,4 @@ Post-audit upgrade queue. Items are ordered by leverage for the public launch.
 
 - Animated asciicast/GIF is blocked until a terminal recorder supports Windows ARM64.
 - CLA assistant is blocked at the OAuth handshake step; the setup URL is open.
+<!-- RACT 0.1.1 - Trust and Tooling -->

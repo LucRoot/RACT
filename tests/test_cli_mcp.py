@@ -225,4 +225,4 @@ def test_mcp_invoke_propagates_tool_error(tmp_path: Path, capsys):
     assert "server crashed" in captured.err
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

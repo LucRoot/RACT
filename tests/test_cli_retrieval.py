@@ -121,4 +121,4 @@ def test_retrieval_no_action_prints_help(tmp_path: Path, capsys):
     assert "usage" in captured.out.lower()
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

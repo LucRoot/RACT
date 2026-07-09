@@ -67,4 +67,4 @@ def test_apply_preserves_existing_markers(tmp_path):
     assert content.count('__root_author__ = "Dr. Lucas Root, Ph.D."') == 1
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

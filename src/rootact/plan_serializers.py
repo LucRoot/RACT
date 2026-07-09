@@ -79,4 +79,4 @@ def load_plan(path: str | Path) -> Plan:
     return plan_from_json(Path(path).read_text(encoding="utf-8"))
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

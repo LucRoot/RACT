@@ -83,4 +83,4 @@ def test_generator_respects_custom_output_dir(tmp_path):
     assert (custom / "index.md").is_file()
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

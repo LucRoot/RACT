@@ -51,4 +51,4 @@ def test_library_installs_all_skills(tmp_path):
     assert set(registry.list_skills()) == set(installed)
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

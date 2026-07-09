@@ -62,4 +62,4 @@ def test_list_snapshots(tmp_path: Path) -> None:
     assert sorted(rollback.list_snapshots()) == ["a", "b"]
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

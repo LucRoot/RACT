@@ -42,4 +42,4 @@ By submitting a pull request or other Contribution to the Project, You agree to 
 
 ---
 
-*RACT 0.1.1 - Trust and tooling*
+*RACT 0.1.1 - Trust and Tooling*

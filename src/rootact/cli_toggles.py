@@ -68,4 +68,4 @@ def main(argv: Optional[List[str]] | _RootKnotType = _ROOT_KNOT) -> int:
     return 0
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

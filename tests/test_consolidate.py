@@ -414,4 +414,4 @@ def test_cli_consolidate_scan_apply_rollback_round_trip(tmp_path: Path) -> None:
     assert (tmp_path / "b.py").read_text(encoding="utf-8") == original_b
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

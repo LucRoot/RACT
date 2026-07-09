@@ -152,4 +152,4 @@ except Exception:
     assert matches[0].permitted
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

@@ -38,4 +38,4 @@ No pressure. Use RACT however it helps you build better software. The philosophy
 
 — Dr. Lucas Root, Ph.D.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.1.1 - Trust and Tooling -->

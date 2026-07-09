@@ -39,4 +39,4 @@ def test_catalog_has_accepted_and_rejected_entries():
     assert "accepted" in statuses
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

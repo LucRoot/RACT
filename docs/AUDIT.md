@@ -284,4 +284,4 @@ All previously unwired modules are now integrated or removed. The harness path u
 
 *This audit supersedes the 2026-07-05 MVP-era audit and the 2026-07-07 pipeline refresh. The previous snapshots are no longer representative of the codebase.*
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.1.1 - Trust and Tooling -->

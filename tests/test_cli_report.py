@@ -89,4 +89,4 @@ def test_report_missing_loop_json_is_empty_object(tmp_path: Path, capsys):
     assert captured.out.strip() == "{}"
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

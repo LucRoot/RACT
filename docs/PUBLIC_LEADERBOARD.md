@@ -42,3 +42,4 @@ This page tracks RACT's own quality metrics over time. The goal is to make the l
 - Record a real terminal asciicast once asciinema is available on Windows ARM64.
 - Extend `rootact audit --deep` to include mutation-score drift checks.
 - Optimize `rootact novelty scan` so it can rejoin `audit --deep` without timing out.
+<!-- RACT 0.1.1 - Trust and Tooling -->

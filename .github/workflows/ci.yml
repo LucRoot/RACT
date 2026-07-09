@@ -101,4 +101,4 @@ jobs:
           rootact --help
         shell: bash
         if: runner.os != 'Windows'
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

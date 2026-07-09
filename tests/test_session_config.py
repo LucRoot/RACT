@@ -53,4 +53,4 @@ def test_session_config_to_dict():
     }
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
