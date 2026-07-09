@@ -158,6 +158,10 @@ RACT is terminal-first. Run `rootact --welcome` to see the Root-Knot logo and a 
 - `rootact --stream` — Stream provider responses to stdout.
 - `rootact --init-provider {local,openai,anthropic,zai,moonshot,openrouter}` — Write a starter `rootact.yaml`.
 - `rootact skills list/install/install-all` — Manage built-in skill templates.
+- `rootact skills marketplace list` — Browse the public skill marketplace.
+- `rootact skills marketplace install --name <skill>` — Install a marketplace skill into the project.
+- `rootact consolidate --dry-run` — Preview near-duplicate module merges.
+- `rootact consolidate scan|apply|rollback` — Find, apply, and rollback module consolidations.
 - `rootact report --last` / `--session ID` — View a structured summary of the last run or session.
 - `rootact report --last --format json --output report.json` — Export a structured run report for scripts or CI.
 - `rootact handshakes list/approve/reject/defer` — Review high-risk milestones that the loop deferred.
@@ -205,6 +209,27 @@ Install all:
 ```bash
 rootact skills install-all
 ```
+
+## Skill marketplace
+
+Beyond the built-ins, RACT can install skills from a marketplace catalog. The default catalog is hosted in this repository:
+
+```bash
+rootact skills marketplace list
+rootact skills marketplace install --name hello-world
+```
+
+A marketplace skill is a JSON file containing a string template and optional tool references. You can publish your own catalog by passing `--catalog <url-or-path>`.
+
+## MCP tools
+
+RACT can invoke tools exposed by MCP servers. Add an `mcp_servers:` section to `rootact.yaml`, then inspect what is available:
+
+```bash
+rootact mcp list
+```
+
+Each listed tool can be called from plan steps, letting RACT use filesystem, browser, database, or documentation servers that you already run locally.
 
 ## The Root Knot
 

@@ -1069,3 +1069,27 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Commit and push the hygiene fix, then continue monitoring the mutation run.
+
+## 2026-07-09 — Loop pass: document consolidate and marketplace in README
+
+**What changed**
+- Added `rootact consolidate scan|apply|rollback` and `rootact skills marketplace list|install` to the CLI highlights list in `README.md`.
+- Added a "Skill marketplace" section with list/install examples and a note about custom catalogs.
+- Added an "MCP tools" section explaining how to configure and inspect MCP servers.
+
+**Why**
+- Features that are not in the README do not exist for visitors. Consolidate and marketplace are new launch-gap closers and need to be discoverable.
+
+**Test/lint/type result**
+- `pytest -q`: 959 passed, 1 skipped.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file README.md --lines 1-30`: coherent brief.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Commit and push README update, then continue monitoring the mutation run.
