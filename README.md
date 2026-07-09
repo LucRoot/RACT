@@ -64,6 +64,7 @@ An embedded asciinema.org upload is queued for the public README player once the
 | **Loop logic** | **Progress Oracle**: milestone-driven recursion | Time-based or user-prompted | User-prompted turns | Single-shot or chat turns |
 | **Continuity guard** | **Root Knot**: every file carries an identity sentinel; unsigned drift breaks the loop | None built-in | None built-in | None built-in |
 | **Anti-rot tooling** | `novelty scan`, `whisper`, `auction`, `fence` as first-class CLI verbs | Not a core feature | Not a core feature | Not a core feature |
+| **Earned quality gates** | `coverage delta`, `mutation run`, and lint/format repair as CLI verbs | Editor lint only | Editor lint only | Editor lint only |
 | **Human oversight** | **Operator Handshake**: high-risk items queue for async review | Inline approval dialogs | Inline approval dialogs | Inline approval dialogs |
 | **Auditability** | Signed receipts for every run; quality comparable across models | Session history | Session history | Limited |
 | **Execution model** | CLI-first, own your pipeline | IDE-integrated | Terminal inside IDE | Web-hosted |

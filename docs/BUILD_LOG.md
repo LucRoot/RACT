@@ -670,3 +670,23 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for the current WSL mutation run (`bash-bh0al1nz`) to complete, then calibrate the mutation gate from the score.
+
+## 2026-07-09 — Loop pass: README comparison table highlights earned quality gates
+
+**What changed**
+- `README.md`: added an **Earned quality gates** row to the "Why RACT?" comparison table, calling out `coverage delta`, `mutation run`, and lint/format repair as first-class CLI verbs.
+
+**Test/lint/type result**
+- `pytest tests/`: 922 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Audit result**
+- `rootact doctor`: 7/7 passed.
+- `rootact auction list --json`: 0 dead-code candidates.
+
+**Background task**
+- Task ID `bash-bh0al1nz` completed but timed out before producing a mutation score. The four core files generate too many mutants to finish within the current 900-second Windows-side timeout.
+
+**Next action**
+- Raise the mutation-runner timeout and re-run; consider narrowing the mutation target or using mutmut's built-in speed options if the run still exceeds practical limits.
