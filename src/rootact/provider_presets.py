@@ -103,6 +103,35 @@ PRESETS: dict[str, dict[str, Any]] = {
         "prompts_dir": "prompts",
         "context_budget_tokens": 8192,
     },
+    "internal": {
+        "project": {"name": "my-ract-project"},
+        "manager_provider": "internal",
+        "providers": {
+            "internal": {
+                "adapter": "internal",
+                "proxy_url": "http://127.0.0.1:11434/v1",
+                "slots": {
+                    "nemotron": {
+                        "model": "nemotron",
+                        "base_url": "http://127.0.0.1:8011/v1",
+                        "capabilities": ["chat", "code", "reasoning"],
+                    },
+                    "qwen36": {
+                        "model": "qwen3.6",
+                        "base_url": "http://127.0.0.1:8012/v1",
+                        "capabilities": ["chat", "code"],
+                    },
+                    "qwen35": {
+                        "model": "qwen3.5",
+                        "base_url": "http://127.0.0.1:8013/v1",
+                        "capabilities": ["chat", "fast"],
+                    },
+                },
+            }
+        },
+        "prompts_dir": "prompts",
+        "context_budget_tokens": 8192,
+    },
 }
 
 
