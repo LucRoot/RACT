@@ -1161,7 +1161,7 @@ def _fence_command(args: list[str]) -> int:
         config=config.get("chestertons_fence", {}),
     )
     brief_rooted = fence.inspect(parsed.file, lines=lines)
-    if not brief_rooted.is_ok():
+    if brief_rooted.value is None:
         print(f"[rootact] fence failed: {brief_rooted.error}", file=sys.stderr)
         return 1
 
@@ -1170,6 +1170,8 @@ def _fence_command(args: list[str]) -> int:
     print(brief_rooted.unwrap())
     print()
     print(f"Confidence: {brief_rooted.confidence}")
+    if not brief_rooted.is_ok():
+        print("Warning: confidence is below the default floor.")
     print("The fence is a guard, not a veto. Review before changing legacy code.")
     return 0
 
