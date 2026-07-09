@@ -1410,3 +1410,30 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Implement per-file mutation floors in `src/rootact/harness.py` so `executor.py` can be held at 39.1% while other files keep independent floors.
 - Start a fresh targeted `executor.py` mutation run in the background to confirm score stability after the new tests.
+
+## 2026-07-09 — Loop pass: per-file mutation floors
+
+**What changed**
+- Added `mutation_gate.per_file` config parsing in `src/rootact/harness.py`: a dict mapping source paths (relative to `project_dir`) to minimum mutation scores.
+- Extended `src/rootact/mutation_runner.py` with optional `targets` and `test_runner` parameters so a single file can be mutated with its matching test file.
+- Added `_run_mutation_gate`, `_run_mutation_gate_global`, and `_run_mutation_gate_per_file` helper methods to `Harness`. Per-file mode mutates each configured target independently via `python3 -m pytest tests/test_<stem>.py -q` and compares the score to the target's own floor.
+- Added three tests to `tests/test_harness.py`:
+  - `test_per_file_mutation_gate_records_scores` — verifies the per-file artifact is recorded and the correct target/test-runner are passed.
+  - `test_per_file_mutation_gate_hard_fail_when_below_floor` — verifies hard failure when a per-file score is below its floor.
+  - `test_per_file_mutation_gate_missing_target_hard_fails` — verifies a missing target file fails the gate.
+
+**Why**
+- The global mutation floor forced every file onto the same bar. Core files like `executor.py` now have a measured 39.1% floor while smaller files can be held independently, preventing regressions where one file's score drags down or hides another's.
+
+**Test/lint/type result**
+- `pytest tests/test_harness.py -q`: 36 passed.
+- `pytest -q`: 999 passed, 1 skipped, 91% overall coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src`: clean.
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Next action**
+- Poll the background `executor.py` mutation run (`bash-gf0sue2z`). When it finishes, set `executor.py`'s measured score as the per-file floor in `rootact.yaml` and update `docs/PUBLIC_LEADERBOARD.md`.

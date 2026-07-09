@@ -178,11 +178,18 @@ def run_mutation_tests(
     script_path: Path | str | None = None,
     timeout: float = 7200.0,
     wsl_distro: str | None = None,
+    targets: list[str] | None = None,
+    test_runner: str | None = None,
 ) -> Rooted[MutationReport]:
     """Run the mutation-testing script and return a parsed report.
 
     On Windows the script is invoked through WSL; elsewhere it runs under
     ``bash``. Callers who want a different runner can pass a custom script.
+
+    ``targets`` restricts mutation to a specific list of source paths and is
+    passed to the script via ``RACT_MUTATION_TARGETS``. ``test_runner``
+    overrides the test command via ``RACT_TEST_RUNNER``. These are used by
+    per-file mutation floors in the harness.
     """
     project_dir = Path(project_dir)
     script = Path(script_path) if script_path else _default_script_path(project_dir)
@@ -196,6 +203,11 @@ def run_mutation_tests(
         )
 
     cmd = _resolve_runner_command(script, wsl_distro=wsl_distro)
+    env = os.environ.copy()
+    if targets:
+        env["RACT_MUTATION_TARGETS"] = ",".join(targets)
+    if test_runner:
+        env["RACT_TEST_RUNNER"] = test_runner
     try:
         result = subprocess.run(
             cmd,
@@ -206,6 +218,7 @@ def run_mutation_tests(
             errors="replace",
             timeout=timeout,
             check=False,
+            env=env,
         )
     except subprocess.TimeoutExpired:
         return Rooted(
