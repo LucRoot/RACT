@@ -296,6 +296,12 @@ class Harness:
         # Baseline measured on src/rootact/rooted.py (19/50 mutants killed = 38.0%).
         # The default floor will rise as loop integration tests improve.
         self.mutation_gate_min_score = float(mg_min) if mg_min is not None else 37.5
+        # Per-file floors allow core files to have independent targets while the
+        # global floor still applies to aggregate runs. Paths are relative to
+        # project_dir (e.g. {"src/rootact/executor.py": 39.0}).
+        self.mutation_gate_per_file: dict[str, float] = {
+            str(k): float(v) for k, v in (mg_cfg.get("per_file") or {}).items()
+        }
         self.mutation_gate_script_path = mg_cfg.get("script_path")
         self.mutation_gate_wsl_distro = mg_cfg.get("wsl_distro")
         self.compression_novelty_detector = None
@@ -322,6 +328,165 @@ class Harness:
             compression_novelty_detector=self.compression_novelty_detector,
             handshake_registry=self.handshake_registry,
         )
+
+    def _run_mutation_gate(
+        self, report_rooted: Rooted[ExecutionReport]
+    ) -> Rooted[ExecutionReport]:
+        """Execute the configured mutation gate and attach scores to the report.
+
+        If ``mutation_gate.per_file`` is configured, each target is mutated
+        independently with its matching test file and compared against its own
+        floor. Otherwise the global ``mutation_gate.min_score`` floor is applied
+        to an aggregate run over the default targets.
+        """
+        if self.mutation_gate_per_file:
+            return self._run_mutation_gate_per_file(report_rooted)
+        return self._run_mutation_gate_global(report_rooted)
+
+    def _run_mutation_gate_global(
+        self, report_rooted: Rooted[ExecutionReport]
+    ) -> Rooted[ExecutionReport]:
+        mg_result = run_mutation_tests(
+            self.project_dir,
+            script_path=self.mutation_gate_script_path,
+            timeout=self.mutation_gate_timeout,
+            wsl_distro=self.mutation_gate_wsl_distro,
+        )
+        if not mg_result.is_ok():
+            mg_error = mg_result.error or "mutation gate failed"
+            if self.mutation_gate_hard_fail:
+                return Rooted(
+                    value=None,
+                    assumption="Mutation gate runs and returns a report.",
+                    confidence=0.0,
+                    provenance=[
+                        "harness.run",
+                        "mutation_runner.run_mutation_tests",
+                    ],
+                    error=f"Mutation gate error: {mg_error}",
+                )
+            return report_rooted
+
+        mutation_report = mg_result.unwrap()
+        if report_rooted.is_ok():
+            execution_report = report_rooted.unwrap()
+            execution_report.artifacts["mutation_score"] = {
+                "score": mutation_report.mutation_score,
+                "killed": mutation_report.killed,
+                "survived": mutation_report.survived,
+                "timeout": mutation_report.timeout,
+                "error": mutation_report.error,
+                "total": mutation_report.total,
+                "min_score": self.mutation_gate_min_score,
+            }
+            report_rooted = Rooted(
+                value=execution_report,
+                assumption=report_rooted.assumption,
+                confidence=report_rooted.confidence,
+                provenance=report_rooted.provenance,
+            )
+        if mutation_report.mutation_score < self.mutation_gate_min_score:
+            mg_msg = (
+                f"Mutation gate: score {mutation_report.mutation_score:.2f}% "
+                f"is below minimum {self.mutation_gate_min_score:.2f}%."
+            )
+            if self.mutation_gate_hard_fail:
+                return Rooted(
+                    value=None,
+                    assumption="Mutation score does not fall below the configured floor.",
+                    confidence=0.0,
+                    provenance=[
+                        "harness.run",
+                        "mutation_runner.run_mutation_tests",
+                    ],
+                    error=mg_msg,
+                )
+        return report_rooted
+
+    def _run_mutation_gate_per_file(
+        self, report_rooted: Rooted[ExecutionReport]
+    ) -> Rooted[ExecutionReport]:
+        failures: list[str] = []
+        per_file_scores: dict[str, dict[str, Any]] = {}
+
+        for target, floor in self.mutation_gate_per_file.items():
+            target_path = self.project_dir / target
+            if not target_path.is_file():
+                msg = f"Mutation gate target not found: {target}"
+                if self.mutation_gate_hard_fail:
+                    return Rooted(
+                        value=None,
+                        assumption="Mutation gate target file exists.",
+                        confidence=0.0,
+                        provenance=["harness.run"],
+                        error=msg,
+                    )
+                failures.append(msg)
+                continue
+
+            test_file = f"tests/test_{target_path.stem}.py"
+            mg_result = run_mutation_tests(
+                self.project_dir,
+                script_path=self.mutation_gate_script_path,
+                timeout=self.mutation_gate_timeout,
+                wsl_distro=self.mutation_gate_wsl_distro,
+                targets=[target],
+                test_runner=f"python3 -m pytest {test_file} -q",
+            )
+            if not mg_result.is_ok():
+                mg_error = mg_result.error or f"mutation gate failed for {target}"
+                if self.mutation_gate_hard_fail:
+                    return Rooted(
+                        value=None,
+                        assumption="Per-file mutation gate runs and returns a report.",
+                        confidence=0.0,
+                        provenance=[
+                            "harness.run",
+                            "mutation_runner.run_mutation_tests",
+                        ],
+                        error=f"Mutation gate error for {target}: {mg_error}",
+                    )
+                failures.append(f"{target}: {mg_error}")
+                continue
+
+            mutation_report = mg_result.unwrap()
+            per_file_scores[target] = {
+                "score": mutation_report.mutation_score,
+                "killed": mutation_report.killed,
+                "survived": mutation_report.survived,
+                "timeout": mutation_report.timeout,
+                "error": mutation_report.error,
+                "total": mutation_report.total,
+                "min_score": floor,
+            }
+            if mutation_report.mutation_score < floor:
+                failures.append(
+                    f"{target}: score {mutation_report.mutation_score:.2f}% "
+                    f"is below minimum {floor:.2f}%."
+                )
+
+        if report_rooted.is_ok():
+            execution_report = report_rooted.unwrap()
+            execution_report.artifacts["mutation_score_per_file"] = per_file_scores
+            report_rooted = Rooted(
+                value=execution_report,
+                assumption=report_rooted.assumption,
+                confidence=report_rooted.confidence,
+                provenance=report_rooted.provenance,
+            )
+
+        if failures and self.mutation_gate_hard_fail:
+            return Rooted(
+                value=None,
+                assumption="Per-file mutation scores do not fall below configured floors.",
+                confidence=0.0,
+                provenance=[
+                    "harness.run",
+                    "mutation_runner.run_mutation_tests",
+                ],
+                error="Per-file mutation gate failed:\n" + "\n".join(failures),
+            )
+        return report_rooted
 
     @classmethod
     def from_config_path(
@@ -628,60 +793,9 @@ class Harness:
                         )
 
         if self.mutation_gate_enabled and self.project_dir is not None:
-            mg_result = run_mutation_tests(
-                self.project_dir,
-                script_path=self.mutation_gate_script_path,
-                timeout=self.mutation_gate_timeout,
-                wsl_distro=self.mutation_gate_wsl_distro,
-            )
-            if not mg_result.is_ok():
-                mg_error = mg_result.error or "mutation gate failed"
-                if self.mutation_gate_hard_fail:
-                    return Rooted(
-                        value=None,
-                        assumption="Mutation gate runs and returns a report.",
-                        confidence=0.0,
-                        provenance=[
-                            "harness.run",
-                            "mutation_runner.run_mutation_tests",
-                        ],
-                        error=f"Mutation gate error: {mg_error}",
-                    )
-            else:
-                mutation_report = mg_result.unwrap()
-                if report_rooted.is_ok():
-                    execution_report = report_rooted.unwrap()
-                    execution_report.artifacts["mutation_score"] = {
-                        "score": mutation_report.mutation_score,
-                        "killed": mutation_report.killed,
-                        "survived": mutation_report.survived,
-                        "timeout": mutation_report.timeout,
-                        "error": mutation_report.error,
-                        "total": mutation_report.total,
-                        "min_score": self.mutation_gate_min_score,
-                    }
-                    report_rooted = Rooted(
-                        value=execution_report,
-                        assumption=report_rooted.assumption,
-                        confidence=report_rooted.confidence,
-                        provenance=report_rooted.provenance,
-                    )
-                if mutation_report.mutation_score < self.mutation_gate_min_score:
-                    mg_msg = (
-                        f"Mutation gate: score {mutation_report.mutation_score:.2f}% "
-                        f"is below minimum {self.mutation_gate_min_score:.2f}%."
-                    )
-                    if self.mutation_gate_hard_fail:
-                        return Rooted(
-                            value=None,
-                            assumption="Mutation score does not fall below the configured floor.",
-                            confidence=0.0,
-                            provenance=[
-                                "harness.run",
-                                "mutation_runner.run_mutation_tests",
-                            ],
-                            error=mg_msg,
-                        )
+            report_rooted = self._run_mutation_gate(report_rooted)
+            if not report_rooted.is_ok():
+                return report_rooted
 
         if memory_arena is not None:
             memory_arena.record(

@@ -854,4 +854,120 @@ def test_mutation_gate_hard_fail_when_below_floor(tmp_project, monkeypatch):
     assert "Mutation gate" in (report_rooted.error or "")
 
 
+def test_per_file_mutation_gate_records_scores(tmp_project, monkeypatch):
+    harness = _build_harness(
+        tmp_project,
+        {
+            "mutation_gate": {
+                "enabled": True,
+                "hard_fail": True,
+                "per_file": {"src/rootact/widget.py": 30.0},
+            }
+        },
+    )
+    _fake_plan_and_step(harness)
+    src_dir = tmp_project / "src" / "rootact"
+    src_dir.mkdir(parents=True)
+    (src_dir / "widget.py").write_text("def widget(): pass\n", encoding="utf-8")
+
+    class FakeMutationReport:
+        mutation_score = 42.0
+        killed = 21
+        survived = 29
+        timeout = 0
+        error = 0
+        total = 50
+
+    calls: list[tuple[str, str | None]] = []
+
+    def fake_run(
+        project_dir,
+        *,
+        script_path=None,
+        timeout=None,
+        wsl_distro=None,
+        targets=None,
+        test_runner=None,
+    ):
+        calls.append((targets[0] if targets else None, test_runner))
+        return Rooted(
+            value=FakeMutationReport(),
+            assumption="mutation gate ok",
+            confidence=1.0,
+            provenance=["fake_runner"],
+        )
+
+    monkeypatch.setattr("rootact.harness.run_mutation_tests", fake_run)
+
+    report_rooted = harness.run("write tests")
+    assert report_rooted.is_ok(), report_rooted.error
+    report = report_rooted.unwrap()
+    assert "mutation_score_per_file" in report.artifacts
+    per_file = report.artifacts["mutation_score_per_file"]
+    assert "src/rootact/widget.py" in per_file
+    assert per_file["src/rootact/widget.py"]["score"] == 42.0
+    assert per_file["src/rootact/widget.py"]["min_score"] == 30.0
+    assert calls == [
+        ("src/rootact/widget.py", "python3 -m pytest tests/test_widget.py -q")
+    ]
+
+
+def test_per_file_mutation_gate_hard_fail_when_below_floor(tmp_project, monkeypatch):
+    harness = _build_harness(
+        tmp_project,
+        {
+            "mutation_gate": {
+                "enabled": True,
+                "hard_fail": True,
+                "per_file": {"src/rootact/widget.py": 50.0},
+            }
+        },
+    )
+    _fake_plan_and_step(harness)
+    src_dir = tmp_project / "src" / "rootact"
+    src_dir.mkdir(parents=True)
+    (src_dir / "widget.py").write_text("def widget(): pass\n", encoding="utf-8")
+
+    class FakeMutationReport:
+        mutation_score = 42.0
+        killed = 21
+        survived = 29
+        timeout = 0
+        error = 0
+        total = 50
+
+    monkeypatch.setattr(
+        "rootact.harness.run_mutation_tests",
+        lambda *_args, **_kwargs: Rooted(
+            value=FakeMutationReport(),
+            assumption="mutation gate ok",
+            confidence=1.0,
+            provenance=["fake_runner"],
+        ),
+    )
+
+    report_rooted = harness.run("write tests")
+    assert not report_rooted.is_ok()
+    assert "src/rootact/widget.py" in (report_rooted.error or "")
+    assert "42.00%" in (report_rooted.error or "")
+
+
+def test_per_file_mutation_gate_missing_target_hard_fails(tmp_project, monkeypatch):
+    harness = _build_harness(
+        tmp_project,
+        {
+            "mutation_gate": {
+                "enabled": True,
+                "hard_fail": True,
+                "per_file": {"src/rootact/missing.py": 30.0},
+            }
+        },
+    )
+    _fake_plan_and_step(harness)
+
+    report_rooted = harness.run("write tests")
+    assert not report_rooted.is_ok()
+    assert "src/rootact/missing.py" in (report_rooted.error or "")
+
+
 # RACT 0.1.0 - Initial Public Release
