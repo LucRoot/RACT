@@ -21,6 +21,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Keep the WSL venv outside the repository so it is never scanned by RACT's
 # own file walkers (symbol graph, novelty detector, dead-code auction).
 VENV_DIR="${HOME}/.cache/ract-mutmut-venv"
+# Keep the mutmut SQLite cache on a WSL-native filesystem. SQLite on the
+# Windows 9P mount can throw "disk I/O error" and corrupt the cache.
+MUTMUT_CACHE_NATIVE="/tmp/ract-mutmut-cache"
+MUTMUT_CACHE_LINK="${REPO_ROOT}/.mutmut-cache"
 
 cd "$REPO_ROOT"
 
@@ -36,8 +40,11 @@ pip install --quiet -e ".[dev]"
 # drive from a standalone shell script.
 pip install --quiet "mutmut==2.4.5"
 
-# Clear previous run state so the report is fresh.
-rm -f .mutmut-cache
+# Clear previous run state and redirect the cache to native ext4.
+rm -rf "$MUTMUT_CACHE_NATIVE"
+rm -f "$MUTMUT_CACHE_LINK"
+ln -s "$MUTMUT_CACHE_NATIVE" "$MUTMUT_CACHE_LINK"
+trap 'rm -f "$MUTMUT_CACHE_LINK"' EXIT
 
 python3 -m mutmut run \
     --paths-to-mutate "src/rootact/executor.py,src/rootact/loop_controller.py,src/rootact/harness.py,src/rootact/cli.py" \

@@ -534,3 +534,25 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for `bash-er46h5hx` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
+
+## 2026-07-09 — Loop pass: move mutmut SQLite cache to WSL-native filesystem
+
+**What changed**
+- `scripts/run_mutation_tests_wsl.sh`: before invoking mutmut, create a symlink `${REPO_ROOT}/.mutmut-cache -> /tmp/ract-mutmut-cache` and clean it on exit. This keeps the SQLite cache on WSL-native ext4 instead of the Windows 9P mount.
+
+**Why**
+- The previous run completed but emitted a `pony.orm.dbapiprovider.OperationalError: disk I/O error` from mutmut's SQLite cache on `/mnt/c`. The cache was then marked out-of-date and cleared, so `mutmut results` printed only help text instead of counts.
+
+**Test/lint/type result**
+- `pytest tests/test_mutation_runner.py tests/test_gravity_scorer.py`: 32 passed.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Background task**
+- Task ID: `bash-9f63dnsf`
+- Command: `.venv/Scripts/python -m rootact.cli mutation run --wsl-distro Ubuntu-24.04`
+- Log: `C:/Users/rootl/ract-work/mutation_run_ract.log`
+- Status: running, no timeout.
+
+**Next action**
+- Wait for `bash-9f63dnsf` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
