@@ -1329,3 +1329,23 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Continue awaiting the targeted `executor.py` mutation run. Once it completes, calibrate the per-file mutation floor and commit the change.
+
+## 2026-07-09 — Add public quality leaderboard
+
+**What changed**
+- Created `docs/PUBLIC_LEADERBOARD.md` with the current RACT quality snapshot: test count, coverage, lint/type status, dead-code auction result, doctor score, novelty detector discrimination results, and pending mutation scores.
+
+**Why**
+- The DeepSeek audit identified the missing public leaderboard as a launch gap. Making the baseline visible locks in the current state and gives future loop passes a measurable target to beat.
+
+**Test/lint/type result**
+- `pytest -q`: 990 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src`: clean.
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Next action**
+- Continue awaiting the targeted `executor.py` mutation run. Once it completes, update the leaderboard with the score and then calibrate the per-file mutation floor.
