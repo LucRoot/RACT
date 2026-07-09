@@ -86,7 +86,16 @@ def root_bind(
             error=rooted.error or f"confidence {rooted.confidence} below floor",
         )
     assert rooted.value is not None
-    return fn(rooted.value)
+    result = fn(rooted.value)
+    return Rooted(
+        value=result.value,
+        assumption=result.assumption,
+        confidence=result.confidence,
+        provenance=[*rooted.provenance, *result.provenance],
+        error=result.error,
+        hint=result.hint,
+        provider=result.provider,
+    )
 
 
 def root_map(rooted: Rooted[T], fn: Callable[[T], U], *, step: str = "") -> Rooted[U]:
