@@ -854,3 +854,31 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Commit and push the Internal provider implementation, then continue waiting for the mutation score to calibrate the quality gate.
+
+## 2026-07-09 — Loop pass: audit novelty/fence and Nemotron review of consolidate spec
+
+**What changed**
+- Ran `rootact novelty scan`: existing files still produce many `low` scores because the codebase is highly self-similar; this is the expected behavior after the leave-one-out calibration fix.
+- Ran `rootact fence inspect --file src/rootact/providers/internal_provider.py --lines 1-50`: produced a coherent Chesterton's Fence brief with no crash.
+- Delegated a focused review of `docs/ract_consolidate_spec.md` to Nemotron via the Internal proxy. Nemotron returned 5 concrete implementation risks:
+  1. Missing validation of merge safety (imports, circular deps, runtime behavior).
+  2. No handling of name collisions or module identity during merges.
+  3. Insufficient rollback/error-propagation strategy.
+  4. Clustering algorithm details underspecified.
+  5. Missing CLI flags, defaults, and validation ranges.
+- Saved the review as `docs/ract_consolidate_risks.md`.
+
+**Why**
+- Auditing RACT with its own tools is a release gate; documenting the known false-positive pattern for `novelty scan` prevents future panic.
+- The Nemotron review surfaced gaps in the consolidate spec before implementation started, reducing the chance of a partial or broken first pass.
+
+**Test/lint/type result**
+- No code changes in this pass; existing suite remains green.
+
+**Self-audit result**
+- `rootact doctor`: 7/7 checks passed.
+- `rootact auction list`: 0 dead-code candidates.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Update the `ract consolidate` spec to address the 5 risks, then begin implementation of the core scanner/proposer while the mutation run completes.
