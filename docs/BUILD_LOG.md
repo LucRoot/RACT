@@ -189,4 +189,37 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Integrate the coverage-delta gate into `Harness.run()` as an optional post-execution check controlled by config, so the loop can fail a step that drops coverage.
 
+## 2026-07-09 — Loop pass: wire coverage-delta gate into `Harness.run()`
+
+**What changed**
+- Added baseline persistence to `src/rootact/coverage_delta.py`:
+  - `save_baseline()` and `load_baseline()` persist a `CoverageSnapshot` to `.rootact/coverage_baseline.json`.
+  - `gate()` now compares the current snapshot against the stored baseline. On the first call it stores the baseline and returns a `baseline` verdict.
+- Wired the gate into `src/rootact/harness.py`:
+  - Reads `coverage_gate` config (`enabled`, `hard_fail`, `timeout`).
+  - Runs the gate after `executor.execute` returns and before git-mode commit.
+  - `hard_fail: true` turns `regress` or `stagnant` into a `Rooted` error.
+  - Soft mode attaches the delta dict to `ExecutionReport.artifacts`.
+- Added `tests/test_harness_coverage_gate.py` with tests for baseline establishment, regress detection, earn detection, and harness hard/soft fail wiring.
+- Updated `tests/test_signature_survival.py` golden hash to reflect the modified `coverage_delta.py`.
+
+**Why**
+- Complete Claude upgrade #3: a loop step that adds code without covering it should fail before the rot compounds.
+
+**Test/lint/type result**
+- `pytest tests/`: 888 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Self-audit result**
+- `rootact auction list --config rootact.yaml`: 0 dead-code candidates.
+- `rootact novelty scan --config rootact.yaml`: works; existing files still show structural similarity.
+- `rootact coverage delta --run --config rootact.yaml`: baseline established at 92.3%.
+
+**Nemotron/Internal secondary review**
+- Not delegated; this was a straight wiring pass on top of the already-reviewed `coverage_delta.py`.
+
+**Next action**
+- Add a configurable minimum coverage threshold to the gate, then move to mutation-testing integration or the next launch-gap item.
+
 # RACT 0.1.0 - Initial Public Release

@@ -21,6 +21,7 @@ from typing import Any
 import yaml
 
 from rootact.codebase_historian import CodebaseHistorian
+from rootact.coverage_delta import gate as coverage_gate
 from rootact.dependency_graph import DependencyGraph
 from rootact.diff_applier import DiffApplier
 from rootact.duplication_guard import DuplicationGuard
@@ -280,6 +281,10 @@ class Harness:
                 budget=int(nb_cfg.get("budget", NoveltyBudget.DEFAULT_BUDGET)),
                 gravity_top_k=int(nb_cfg.get("gravity_top_k", 10)),
             )
+        cg_cfg = config.get("coverage_gate", {})
+        self.coverage_gate_enabled = bool(cg_cfg.get("enabled", False))
+        self.coverage_gate_hard_fail = bool(cg_cfg.get("hard_fail", False))
+        self.coverage_gate_timeout = float(cg_cfg.get("timeout", 300.0))
         self.compression_novelty_detector = None
         if self.project_dir is not None:
             self.compression_novelty_detector = CompressionNoveltyDetector(
@@ -545,6 +550,65 @@ class Harness:
             stream=stream,
             stream_callback=stream_callback,
         ).with_step("harness.run")
+
+        if self.coverage_gate_enabled and self.project_dir is not None:
+            cg_result = coverage_gate(
+                self.project_dir,
+                timeout=self.coverage_gate_timeout,
+            )
+            if not cg_result.is_ok():
+                cg_error = cg_result.error or "coverage gate failed"
+                if self.coverage_gate_hard_fail:
+                    return Rooted(
+                        value=None,
+                        assumption="Coverage gate runs and returns a verdict.",
+                        confidence=0.0,
+                        provenance=["harness.run", "coverage_delta.gate"],
+                        error=f"Coverage gate error: {cg_error}",
+                    )
+            else:
+                delta = cg_result.unwrap()
+                verdict = delta.verdict
+                if verdict in {"regress", "stagnant"}:
+                    delta_msg = (
+                        f"Coverage gate: {verdict} "
+                        f"(current {delta.after.percent_covered:.2f}%, "
+                        f"baseline {delta.before.percent_covered:.2f}%, "
+                        f"delta {delta.percent_delta:.2f}pp)."
+                    )
+                    if self.coverage_gate_hard_fail:
+                        return Rooted(
+                            value=None,
+                            assumption="Coverage does not regress or stagnate after execution.",
+                            confidence=0.0,
+                            provenance=["harness.run", "coverage_delta.gate"],
+                            error=delta_msg,
+                        )
+                    if report_rooted.is_ok():
+                        report = report_rooted.unwrap()
+                        report.artifacts["coverage_delta"] = {
+                            "verdict": delta.verdict,
+                            "detail": delta.detail,
+                            "percent_delta": delta.percent_delta,
+                            "before": {
+                                "percent_covered": delta.before.percent_covered,
+                                "covered_lines": delta.before.covered_lines,
+                                "missing_lines": delta.before.missing_lines,
+                                "total_lines": delta.before.total_lines,
+                            },
+                            "after": {
+                                "percent_covered": delta.after.percent_covered,
+                                "covered_lines": delta.after.covered_lines,
+                                "missing_lines": delta.after.missing_lines,
+                                "total_lines": delta.after.total_lines,
+                            },
+                        }
+                        report_rooted = Rooted(
+                            value=report,
+                            assumption=report_rooted.assumption,
+                            confidence=report_rooted.confidence,
+                            provenance=report_rooted.provenance,
+                        )
 
         if memory_arena is not None:
             memory_arena.record(

@@ -211,25 +211,91 @@ def compute_delta(before: CoverageSnapshot, after: CoverageSnapshot) -> Coverage
     )
 
 
+BASELINE_FILE = ".rootact/coverage_baseline.json"
+
+
+def _baseline_path(project_dir: Path) -> Path:
+    return project_dir / BASELINE_FILE
+
+
+def save_baseline(project_dir: Path | str, snapshot: CoverageSnapshot) -> Path:
+    """Persist *snapshot* as the coverage baseline for the project."""
+    project_dir = Path(project_dir)
+    path = _baseline_path(project_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "percent_covered": snapshot.percent_covered,
+        "covered_lines": snapshot.covered_lines,
+        "missing_lines": snapshot.missing_lines,
+        "total_lines": snapshot.total_lines,
+    }
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def load_baseline(project_dir: Path | str) -> CoverageSnapshot | None:
+    """Load the persisted baseline, or None if it has not been established."""
+    path = _baseline_path(Path(project_dir))
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        return CoverageSnapshot(
+            percent_covered=float(data["percent_covered"]),
+            covered_lines=int(data["covered_lines"]),
+            missing_lines=int(data["missing_lines"]),
+            total_lines=int(data["total_lines"]),
+        )
+    except (KeyError, ValueError, TypeError):
+        return None
+
+
 def gate(
     project_dir: Path | str,
     *,
     pytest_args: list[str] | None = None,
     timeout: float = 300.0,
+    update_baseline: bool = False,
 ) -> Rooted[CoverageDelta]:
-    """Run before/after snapshots and return the earned-coverage verdict."""
-    before_rooted = run_snapshot(project_dir, pytest_args=pytest_args, timeout=timeout)
-    if not before_rooted.is_ok():
-        return before_rooted.with_step("coverage_delta.gate.before")
+    """Run a coverage snapshot and compare it to the stored baseline.
 
+    On the first call for a project, no baseline exists, so the current
+    snapshot is stored and the verdict is ``"baseline"``. Subsequent calls
+    compare against that stored value.
+    """
+    project_dir = Path(project_dir)
     after_rooted = run_snapshot(project_dir, pytest_args=pytest_args, timeout=timeout)
     if not after_rooted.is_ok():
-        return after_rooted.with_step("coverage_delta.gate.after")
+        return after_rooted.with_step("coverage_delta.gate")
 
-    delta = compute_delta(before_rooted.unwrap(), after_rooted.unwrap())
+    after = after_rooted.unwrap()
+    before = load_baseline(project_dir)
+    if before is None:
+        save_baseline(project_dir, after)
+        delta = CoverageDelta(
+            before=after,
+            after=after,
+            percent_delta=0.0,
+            verdict="baseline",
+            detail="baseline established; no prior snapshot found",
+        )
+        return Rooted(
+            value=delta,
+            assumption="No coverage baseline found; stored current snapshot as baseline.",
+            confidence=1.0,
+            provenance=["coverage_delta.gate"],
+        )
+
+    delta = compute_delta(before, after)
+    if update_baseline:
+        save_baseline(project_dir, after)
+
     return Rooted(
         value=delta,
-        assumption="Coverage snapshots captured before and after execution.",
+        assumption="Coverage snapshot compared against stored baseline.",
         confidence=1.0,
         provenance=["coverage_delta.gate"],
     )
