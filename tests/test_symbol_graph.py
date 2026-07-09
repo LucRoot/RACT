@@ -248,4 +248,4 @@ def test_ract_repo_has_cross_module_edges(tmp_path):
     assert cross_module > 100, f"expected many cross-module edges, got {cross_module}"
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

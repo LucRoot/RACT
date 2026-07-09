@@ -181,4 +181,4 @@ def test_load_commit_context_attaches_blame(tmp_path, monkeypatch):
     assert historian.commit_context["mod.helper"]["commit_hash"] == "def456"
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

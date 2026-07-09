@@ -242,4 +242,4 @@ def test_relative_path_handles_os_error(tmp_path):
     assert diagnoser._relative_path("\x00invalid") is None
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

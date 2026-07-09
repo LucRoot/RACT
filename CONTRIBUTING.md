@@ -44,4 +44,4 @@ By contributing, you agree that your contributions will be licensed under the Po
 
 *Dr. Lucas Root, Ph.D.*
 
-<!-- RACT 0.1.0 - Initial Public Release -->
+<!-- RACT 0.1.1 - Trust and tooling -->

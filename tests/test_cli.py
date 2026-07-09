@@ -502,7 +502,7 @@ def test_cli_retrieval_search_no_query(capsys):
     assert exc_info.value.code == 2
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
 
 
 def test_cli_doctor_passes(tmp_path, monkeypatch, capsys):

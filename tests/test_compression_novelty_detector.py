@@ -652,4 +652,4 @@ def test_executor_routes_low_novelty_to_handshake_queue(tmp_path):
     assert scores[0]["artifact"] == "src/new.py"
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

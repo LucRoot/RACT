@@ -115,4 +115,4 @@ def test_explain_missing_plan_file(tmp_path: Path, capsys):
     assert "failed to load plan" in captured.err
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

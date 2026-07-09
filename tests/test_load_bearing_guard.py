@@ -233,4 +233,4 @@ def test_executor_allows_new_file_even_with_annotation(tmp_path):
     assert result.is_ok()
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

@@ -174,4 +174,4 @@ def test_safe_name_prefixes_leading_digit() -> None:
     assert gen._safe_name("123abc") == "_123abc"
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

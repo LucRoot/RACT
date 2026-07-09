@@ -253,4 +253,4 @@ class MilestoneOracle(ProgressOracle):
         return any(word in combined for word in risky)
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

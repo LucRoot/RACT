@@ -61,4 +61,4 @@ def test_golden_hash_matches_known_value():
     assert guardian.golden_hash() == expected
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

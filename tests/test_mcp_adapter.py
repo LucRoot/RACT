@@ -147,4 +147,4 @@ def test_registry_from_config_builds_stdio_clients():
     assert isinstance(registry._servers["fs"], StdioMcpClient)
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
