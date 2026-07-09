@@ -50,16 +50,20 @@ An animated asciicast is queued; terminal recording tools do not yet have prebui
 
 ## Why RACT instead of Cursor, Claude Code, or Lovable?
 
-1. **Progress Oracle** — milestone-driven recursion instead of time-based looping.
-2. **Root Knot invariant** — the author's identity marker doubles as a loop safety check. Unsigned work cannot compound.
-3. **Provider presets** — one-command setup for local, OpenAI, Anthropic, Z.ai, Moonshot, and OpenRouter. Own your pipeline, own your model economics.
-4. **Anti-rot verifier arsenal** — `rootact novelty scan`, `rootact whisper`, `rootact auction list`, and `rootact fence inspect` are first-class CLI verbs, not afterthoughts.
-5. **Built-in skill library** — 7 signed templates installable from the CLI.
-6. **Operator Handshake** — high-risk milestones queue for review instead of blocking the loop.
-7. **Signed receipts** — every completed run produces a structured report. Quality becomes measurable and comparable across models. A public leaderboard is coming.
-8. **MCP Integration** — call external tools (filesystem, database, browser, docs) from plan steps.
-9. **Surgical diffs** — apply unified diffs to existing files instead of rewriting them whole.
-10. **Retrieval** — keyword and web-search adapters surface relevant context before planning.
+| Dimension | RACT | Cursor | Claude Code | Lovable |
+|---|---|---|---|---|
+| **Pricing model** | Free to run locally; pay only for tokens you route | $20/mo subscription + token costs | $20/mo subscription + token costs | Subscription tiers + token costs |
+| **Provider lock-in** | Model-agnostic: local, OpenAI, Anthropic, Z.ai, Moonshot, OpenRouter | Mostly Anthropic / OpenAI | Anthropic only | Closed, hosted stack |
+| **Loop logic** | **Progress Oracle**: milestone-driven recursion | Time-based or user-prompted | User-prompted turns | Single-shot or chat turns |
+| **Continuity guard** | **Root Knot**: every file carries an identity sentinel; unsigned drift breaks the loop | None built-in | None built-in | None built-in |
+| **Anti-rot tooling** | `novelty scan`, `whisper`, `auction`, `fence` as first-class CLI verbs | Not a core feature | Not a core feature | Not a core feature |
+| **Human oversight** | **Operator Handshake**: high-risk items queue for async review | Inline approval dialogs | Inline approval dialogs | Inline approval dialogs |
+| **Auditability** | Signed receipts for every run; quality comparable across models | Session history | Session history | Limited |
+| **Execution model** | CLI-first, own your pipeline | IDE-integrated | Terminal inside IDE | Web-hosted |
+| **Diff strategy** | Surgical unified-diff application | Inline diff widget | Inline diff widget | Full-file rewrites |
+| **Local data** | Runs entirely locally if you choose | Cloud providers required | Cloud providers required | Cloud-hosted |
+
+RACT is for developers who already live in the terminal, want to mix cheap local and frontier models, and need reproducible, auditable agent runs. Cursor and Claude Code are smoother if you want an IDE-integrated experience; Lovable is faster if you want to generate a SaaS UI in one sentence. RACT wins on sovereignty and model economics.
 
 See `docs/ARCHITECTURE.md` and `docs/PHILOSOPHY.md` for the design rationale.
 
