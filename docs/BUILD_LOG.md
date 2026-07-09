@@ -1249,3 +1249,30 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Restart the targeted executor.py mutation run because `executor.py` changed mid-run. Use the new score to calibrate a per-file floor or add more tests.
+
+## 2026-07-09 — Loop pass: harness quality-gate tests
+
+**What changed**
+- Added four tests to `tests/test_harness.py` exercising the coverage and mutation gates introduced in `src/rootact/harness.py`:
+  - `test_coverage_gate_records_delta_in_report` — a step that adds covered code records a positive coverage delta in the report.
+  - `test_coverage_gate_hard_fail_returns_error` — a step that adds uncovered code returns a `Rooted` error when `coverage_gate_hard_fail` is enabled.
+  - `test_mutation_gate_records_score_in_report` — a successful mutation run records its score in the report.
+  - `test_mutation_gate_hard_fail_when_below_floor` — a mutation score below the configured floor returns a `Rooted` error.
+
+**Why**
+- The harness gates are load-bearing quality infrastructure: they enforce that every loop step earns its keep in test coverage and mutation resistance. They previously had no direct test coverage, so regressions could slip in silently.
+
+**Test/lint/type result**
+- `pytest -q`: 984 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean after reformatting `tests/test_harness.py`.
+- `mypy src`: clean.
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Coverage impact**
+- `src/rootact/harness.py`: 94% (unchanged; the new tests exercise existing gate code paths).
+
+**Next action**
+- Await the targeted `executor.py` mutation run (`bash-mb5ph1bb`) and use its score to calibrate a per-file mutation floor.
