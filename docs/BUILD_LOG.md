@@ -777,3 +777,26 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for the WSL mutation run to return a real mutation score, then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
+
+## 2026-07-09 — Loop pass: delegate `ract consolidate` spec to Nemotron via Internal
+
+**What changed**
+- Verified Internal/Nemotron health with a lightweight `chat/completions` ping to `http://127.0.0.1:11434`; proxy responded successfully.
+- Dispatched a design-spec proposal to Nemotron through `internal/internal_executor_nemotron.py`.
+- Nemotron produced `docs/ract_consolidate_spec.md`: a concrete design for a `ract consolidate` subcommand that uses SymbolGraph and CompressionNoveltyDetector to find near-duplicate modules, groups them, renders a unified-diff preview, queues merge proposals in HandshakeRegistry, and applies approved merges via DiffApplier/SymbolRenamer.
+- The Internal executor's verification gate passed: the spec file exists, contains sections, and the full project quality gate (pytest, ruff, format, mypy) remained green.
+
+**Why**
+- `ract consolidate` was flagged as a high-leverage feature: it turns the audit capability into a product feature and provides a compelling launch demo (collapse duplicate modules live).
+- Delegating the spec draft to Nemotron keeps the loop moving while the long-running WSL mutation test occupies the local machine.
+
+**Test/lint/type result**
+- Full quality gate after Nemotron write: pytest passed, ruff passed, ruff-format passed, mypy passed.
+
+**Self-audit result**
+- `rootact auction list`: 0 dead-code candidates.
+- `rootact doctor`: all checks passed.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Start the Pipeline Skill ritual for the native Internal provider spec (my track) while waiting for the mutation score.
