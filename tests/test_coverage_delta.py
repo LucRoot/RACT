@@ -13,6 +13,7 @@ import json
 from rootact.coverage_delta import (
     CoverageSnapshot,
     compute_delta,
+    gate,
     read_snapshot,
 )
 
@@ -76,6 +77,53 @@ def test_read_snapshot_fails_on_missing_file(tmp_path):
     rooted = read_snapshot(tmp_path / "missing.json")
     assert not rooted.is_ok()
     assert "not found" in (rooted.error or "").lower()
+
+
+def test_compute_delta_floor_breach_forces_regress():
+    before = CoverageSnapshot(
+        percent_covered=92.0, covered_lines=92, missing_lines=8, total_lines=100
+    )
+    after = CoverageSnapshot(
+        percent_covered=94.0, covered_lines=94, missing_lines=6, total_lines=100
+    )
+    delta = compute_delta(before, after, min_percent=95.0)
+    assert delta.verdict == "regress"
+    assert delta.floor_breached is True
+    assert "95.0%" in delta.detail
+
+
+def test_compute_delta_floor_no_breach_when_above():
+    before = CoverageSnapshot(
+        percent_covered=92.0, covered_lines=92, missing_lines=8, total_lines=100
+    )
+    after = CoverageSnapshot(
+        percent_covered=96.0, covered_lines=96, missing_lines=4, total_lines=100
+    )
+    delta = compute_delta(before, after, min_percent=95.0)
+    assert delta.verdict == "earn"
+    assert delta.floor_breached is False
+
+
+def test_gate_floor_breach_on_baseline(monkeypatch, tmp_path):
+    low = CoverageSnapshot(
+        percent_covered=92.0, covered_lines=92, missing_lines=8, total_lines=100
+    )
+
+    def _fake_run_snapshot(_project_dir, **kwargs):
+        from rootact.rooted import Rooted
+
+        return Rooted(value=low, assumption="mock", confidence=1.0)
+
+    monkeypatch.setattr(
+        "rootact.coverage_delta.run_snapshot",
+        _fake_run_snapshot,
+    )
+    rooted = gate(tmp_path, min_percent=95.0)
+    assert rooted.is_ok()
+    delta = rooted.unwrap()
+    assert delta.verdict == "regress"
+    assert delta.floor_breached is True
+    assert "baseline below 95.0%" in delta.detail
 
 
 # RACT 0.1.0 - Initial Public Release

@@ -285,6 +285,8 @@ class Harness:
         self.coverage_gate_enabled = bool(cg_cfg.get("enabled", False))
         self.coverage_gate_hard_fail = bool(cg_cfg.get("hard_fail", False))
         self.coverage_gate_timeout = float(cg_cfg.get("timeout", 300.0))
+        cg_min = cg_cfg.get("min_percent")
+        self.coverage_gate_min_percent = float(cg_min) if cg_min is not None else None
         self.compression_novelty_detector = None
         if self.project_dir is not None:
             self.compression_novelty_detector = CompressionNoveltyDetector(
@@ -555,6 +557,7 @@ class Harness:
             cg_result = coverage_gate(
                 self.project_dir,
                 timeout=self.coverage_gate_timeout,
+                min_percent=self.coverage_gate_min_percent,
             )
             if not cg_result.is_ok():
                 cg_error = cg_result.error or "coverage gate failed"
@@ -569,17 +572,19 @@ class Harness:
             else:
                 delta = cg_result.unwrap()
                 verdict = delta.verdict
-                if verdict in {"regress", "stagnant"}:
+                if verdict in {"regress", "stagnant"} or delta.floor_breached:
                     delta_msg = (
                         f"Coverage gate: {verdict} "
                         f"(current {delta.after.percent_covered:.2f}%, "
                         f"baseline {delta.before.percent_covered:.2f}%, "
                         f"delta {delta.percent_delta:.2f}pp)."
                     )
+                    if delta.floor_breached:
+                        delta_msg += " Floor breached."
                     if self.coverage_gate_hard_fail:
                         return Rooted(
                             value=None,
-                            assumption="Coverage does not regress or stagnate after execution.",
+                            assumption="Coverage does not regress, stagnate, or breach floor after execution.",
                             confidence=0.0,
                             provenance=["harness.run", "coverage_delta.gate"],
                             error=delta_msg,
@@ -589,6 +594,7 @@ class Harness:
                         report.artifacts["coverage_delta"] = {
                             "verdict": delta.verdict,
                             "detail": delta.detail,
+                            "floor_breached": delta.floor_breached,
                             "percent_delta": delta.percent_delta,
                             "before": {
                                 "percent_covered": delta.before.percent_covered,

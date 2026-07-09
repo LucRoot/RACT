@@ -222,4 +222,32 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Add a configurable minimum coverage threshold to the gate, then move to mutation-testing integration or the next launch-gap item.
 
+## 2026-07-09 — Loop pass: configurable minimum-coverage floor
+
+**What changed**
+- Added `min_percent` parameter to `coverage_delta.compute_delta()`: when the after snapshot is below the floor, the verdict becomes `regress` with `floor_breached=True`.
+- Added `min_percent` parameter to `coverage_delta.gate()`: on first call, if the baseline snapshot is below the floor, the verdict is `regress` with `floor_breached=True` instead of `baseline`.
+- Added `floor_breached` field to `CoverageDelta` and surfaced it in string output.
+- Added `--min-percent` flag to `rootact coverage delta` for both `--run` and `--before/--after` modes.
+- Wired `coverage_gate.min_percent` through `Harness.__init__` and into the post-execution gate call.
+- Updated harness hard-fail and soft-fail paths to recognize `floor_breached` and include it in the attached artifact.
+- Added unit tests for floor breach in `tests/test_coverage_delta.py` and `tests/test_harness_coverage_gate.py`.
+
+**Why**
+- A delta-only gate can still pass a step that holds coverage underwater. The floor makes the gate absolute as well as relative, which is what Nemotron's secondary review requested.
+
+**Test/lint/type result**
+- `pytest tests/`: 892 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/coverage_delta.py src/rootact/harness.py src/rootact/cli.py tests/test_coverage_delta.py tests/test_harness_coverage_gate.py`: passed.
+
+**Self-audit result**
+- `rootact auction list --json`: 0 dead-code candidates.
+- `rootact novelty scan --json`: 2 `low` out of 175 files (`scripts/mock_local_llm.py`, `scripts/verify_internal_rootact_separation.py`); expected given shared patterns with tests.
+- `rootact coverage delta --run --min-percent 95.0`: correctly returns `regress (floor breached)` because the baseline is 92.3%, below the 95% floor.
+
+**Next action**
+- Re-run with a realistic floor (e.g., 90.0%) so the gate earns, then integrate the WSL mutation-testing script into the CI quality scorecard or add a signed-receipt quality hook.
+
 # RACT 0.1.0 - Initial Public Release
