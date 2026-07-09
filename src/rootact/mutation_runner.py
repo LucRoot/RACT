@@ -135,15 +135,33 @@ def _detect_wsl_distro() -> str | None:
     return None
 
 
+def _to_wsl_path(path: Path) -> str:
+    """Convert a Windows path to a WSL ``/mnt/<drive>/...`` path.
+
+    WSL bash cannot interpret backslash-separated Windows paths. This helper
+    maps ``C:\\foo\\bar`` to ``/mnt/c/foo/bar`` so scripts can be invoked
+    directly inside WSL.
+    """
+    drive = path.drive
+    if drive and len(drive) == 2 and drive[1] == ":":
+        drive_letter = drive[0].lower()
+        rest = path.as_posix().split("/", 1)[1] if "/" in path.as_posix() else ""
+        if rest:
+            return f"/mnt/{drive_letter}/{rest}"
+        return f"/mnt/{drive_letter}"
+    return path.as_posix()
+
+
 def _resolve_runner_command(
     script_path: Path, *, wsl_distro: str | None = None
 ) -> list[str]:
     """Return the command to execute the mutation script on this platform."""
     if sys.platform == "win32":
         distro = wsl_distro or _detect_wsl_distro()
+        wsl_script = _to_wsl_path(script_path)
         if distro:
-            return ["wsl", "-d", distro, "-e", "bash", str(script_path)]
-        return ["wsl", "-e", "bash", str(script_path)]
+            return ["wsl", "-d", distro, "-e", "bash", wsl_script]
+        return ["wsl", "-e", "bash", wsl_script]
     return ["bash", str(script_path)]
 
 

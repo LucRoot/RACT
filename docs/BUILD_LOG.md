@@ -375,3 +375,34 @@ This log records each loop pass through the RACT codebase. It exists because con
 - Execute a real WSL mutation run against RACT (`rootact mutation run --wsl-distro Ubuntu-24.04`) as a background task, then capture the score and calibrate the default `min_score` and scorecard weight.
 
 # RACT 0.1.0 - Initial Public Release
+
+## 2026-07-09 — Loop pass: fix WSL path conversion and script portability for real mutation run
+
+**What changed**
+- Added `_to_wsl_path()` in `src/rootact/mutation_runner.py` to convert Windows paths (`C:\Users\rootl\ract-work\scripts\run.sh`) to WSL paths (`/mnt/c/Users/rootl/ract-work/scripts/run.sh`) before invoking WSL bash.
+- Updated `_resolve_runner_command()` to apply `_to_wsl_path()` to the script path on Windows.
+- Updated `scripts/run_mutation_tests_wsl.sh` to derive `REPO_ROOT` from `$(dirname "${BASH_SOURCE[0]}")/..` instead of the hardcoded `/mnt/c/Users/rootl/ract-work` path.
+- Added tests for `_to_wsl_path()` covering Windows absolute, Windows backslash, and Unix inputs.
+- Updated `test_resolve_runner_command_uses_provided_distro` to assert the converted WSL path.
+
+**Why**
+- The first real WSL mutation run failed because WSL bash received a Windows backslash path and reported `No such file or directory`. The runner now converts paths, and the script is portable across WSL mounts.
+
+**Test/lint/type result**
+- `pytest tests/`: 922 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/mutation_runner.py src/rootact/cli.py src/rootact/harness.py tests/test_mutation_runner.py tests/test_cli_mutation.py tests/test_harness_mutation_gate.py`: passed.
+
+**Self-audit result**
+- `rootact auction list --json`: 0 dead-code candidates.
+- `rootact novelty scan --json`: 2 `low` test files; expected.
+- `rootact coverage delta --run --min-percent 90.0`: baseline established at 92.4%.
+
+**Nemotron/Internal secondary review**
+- Not delegated; deterministic path-conversion fix with mocked subprocess boundaries.
+
+**Next action**
+- Start a real WSL mutation run against RACT as a background task and capture the score.
+
+# RACT 0.1.0 - Initial Public Release
