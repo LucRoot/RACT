@@ -911,3 +911,27 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Commit and push the consolidate implementation.
 - Continue waiting for the WSL mutation score; once it arrives, calibrate `mutation_gate.min_score` and the scorecard weight.
+
+## 2026-07-09 — Loop pass: document `ract consolidate` in README
+
+**What changed**
+- Added `consolidate` to the anti-rot tooling row in the Why RACT comparison table.
+- Added `rootact consolidate --dry-run` to the welcome-screen quick commands.
+- Added an "Anti-rot workflow" subsection explaining `consolidate`, `novelty scan`, `auction`, and `fence` in one sentence each.
+- Delegated a lightweight README review to Nemotron via Internal; it flagged that `consolidate` needed explanation, which the new subsection addresses.
+
+**Why**
+- A shipped feature that is not documented in the README does not exist for visitors. The comparison table and workflow section are the public-launch surfaces.
+- Nemotron review of docs is a fast secondary check that catches jargon-before-definition issues.
+
+**Test/lint/type result**
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `rootact doctor`: 7/7 checks passed.
+
+**Self-audit result**
+- `rootact auction list`: 0 dead-code candidates.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Commit and push README update, then continue monitoring the mutation run.
