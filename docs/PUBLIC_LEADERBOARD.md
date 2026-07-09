@@ -6,8 +6,8 @@ This page tracks RACT's own quality metrics over time. The goal is to make the l
 
 | Metric | Value | Date | Commit |
 |---|---|---|---|
-| Test suite | 1009 passed, 1 skipped | 2026-07-09 | `TBD` |
-| Line coverage | 92% | 2026-07-09 | `TBD` |
+| Test suite | 1009 passed, 1 skipped | 2026-07-09 | `3d67f04` |
+| Line coverage | 92% | 2026-07-09 | `3d67f04` |
 | Lint (`ruff`) | clean | 2026-07-09 | `0243d80` |
 | Type check (`mypy`) | clean | 2026-07-09 | `0243d80` |
 | Dead-code auction on RACT | 0 candidates | 2026-07-09 | `0243d80` |
