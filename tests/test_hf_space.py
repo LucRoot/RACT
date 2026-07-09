@@ -38,4 +38,4 @@ def test_hf_space_readme_exists():
     assert (_hf_space_dir() / "README.md").is_file()
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

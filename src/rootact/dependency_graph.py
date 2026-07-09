@@ -123,4 +123,4 @@ class DependencyGraph:
         return {node: deps for node, deps in self._graph.items()}
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

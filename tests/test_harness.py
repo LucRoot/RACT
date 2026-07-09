@@ -970,4 +970,4 @@ def test_per_file_mutation_gate_missing_target_hard_fails(tmp_project, monkeypat
     assert "src/rootact/missing.py" in (report_rooted.error or "")
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

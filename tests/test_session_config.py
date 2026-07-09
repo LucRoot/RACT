@@ -71,4 +71,4 @@ def test_author_marker_present() -> None:
     assert mod.__root_author__ == "Dr. Lucas Root, Ph.D."
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

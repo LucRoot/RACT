@@ -49,4 +49,4 @@ def test_console_approval_callback_rejects_eof(monkeypatch) -> None:
     assert console_approval_callback(step) is False
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

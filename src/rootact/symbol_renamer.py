@@ -352,4 +352,4 @@ def _module_to_path(module: str) -> Path:
     return Path(module.replace(".", "/") + ".py")
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

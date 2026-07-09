@@ -75,7 +75,7 @@ def test_truthiness() -> None:
     assert bool(budget) is False
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
 
 
 def test_omitted_before_select_triggers_finalize() -> None:

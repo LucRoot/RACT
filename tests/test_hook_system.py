@@ -63,4 +63,4 @@ def test_missing_command_reports_not_found(tmp_path: Path) -> None:
     assert results[0]["returncode"] == 127
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

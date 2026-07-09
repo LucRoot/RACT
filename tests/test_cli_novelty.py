@@ -58,4 +58,4 @@ def test_cli_novelty_scan_json_output(capsys, tmp_path):
     assert "outlier.py" in payload["scores"]
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

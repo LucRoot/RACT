@@ -175,4 +175,4 @@ def test_auction_discriminates_dead_from_live_in_src_layout(tmp_path: Path):
     assert "src/pkg/main.py" not in paths, paths
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

@@ -239,4 +239,4 @@ def test_keyword_search_short_query_returns_low_confidence_empty(tmp_path):
     assert result.confidence < 0.7
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

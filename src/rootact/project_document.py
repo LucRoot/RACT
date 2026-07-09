@@ -107,4 +107,4 @@ class ProjectDocument:
         return f"ProjectDocument(goal={self._sections.get('goal')}, sections={list(self._sections.keys())})"
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

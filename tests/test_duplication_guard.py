@@ -88,4 +88,4 @@ def test_uses_provided_historian(tmp_path):
     assert len(matches) == 1
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

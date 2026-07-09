@@ -91,4 +91,4 @@ def test_result_key_is_serializable() -> None:
     assert json.loads(json.dumps(key)) == key
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

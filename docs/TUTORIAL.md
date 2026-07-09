@@ -129,4 +129,4 @@ This keeps the loop moving while keeping you in control of dangerous actions.
 - Read `SKILL_AUTHORING.md` to build reusable prompt templates for your own
   workflows.
 
-<!-- RACT 0.1.0 - Initial Public Release -->
+<!-- RACT 0.1.1 - Trust and tooling -->

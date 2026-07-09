@@ -87,4 +87,4 @@ def test_plan_replay_dry_run(tmp_path, capsys):
     assert "step two" in out
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

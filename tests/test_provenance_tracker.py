@@ -27,4 +27,4 @@ class TestProvenanceTracker(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

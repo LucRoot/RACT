@@ -58,4 +58,4 @@ def test_register_empty_name_raises(tmp_path):
         registry.register("", "template")
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

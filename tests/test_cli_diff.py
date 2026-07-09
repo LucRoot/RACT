@@ -114,4 +114,4 @@ def test_diff_apply_failure(tmp_path: Path, capsys):
     assert "FAILED" in captured.out
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

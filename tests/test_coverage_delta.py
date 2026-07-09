@@ -126,4 +126,4 @@ def test_gate_floor_breach_on_baseline(monkeypatch, tmp_path):
     assert "baseline below 95.0%" in delta.detail
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

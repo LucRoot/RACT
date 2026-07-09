@@ -28,4 +28,4 @@ class TestArtifactTracker(unittest.TestCase):
         self.assertEqual(tracker.get("id1"), a1)
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling
