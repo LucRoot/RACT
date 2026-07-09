@@ -86,11 +86,14 @@ class DeadCodeAuction:
                 return True
         return False
 
-    def _module_for_file(self, path: Path) -> str | None:
-        """Return the dotted module name for a project Python file."""
+    def _module_for_file(self, path: Path, graph: SymbolGraph) -> str | None:
+        """Return the dotted module id for a project Python file.
+
+        Uses the same namespace as the symbol graph so inbound references can
+        be matched against the correct module.
+        """
         try:
-            rel = path.relative_to(self.project_dir).with_suffix("")
-            return ".".join(rel.parts)
+            return graph.module_id_for_path(path)
         except ValueError:
             return None
 
@@ -145,7 +148,7 @@ class DeadCodeAuction:
             if path.name in self.allowlist:
                 continue
 
-            module = self._module_for_file(path)
+            module = self._module_for_file(path, graph)
             if module is None:
                 continue
 

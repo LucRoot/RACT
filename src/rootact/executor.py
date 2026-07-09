@@ -905,8 +905,9 @@ class Executor:
                         return Rooted(
                             value=None,
                             assumption=(
-                                f"Step {index} artifact is structurally novel "
-                                f"relative to the existing codebase."
+                                f"Step {index} artifact is not structurally novel "
+                                f"relative to the existing codebase; it is a near-"
+                                f"duplicate of existing code."
                             ),
                             confidence=0.0,
                             provenance=[f"executor.step:{index}"],

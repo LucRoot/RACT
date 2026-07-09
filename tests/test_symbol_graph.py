@@ -217,4 +217,35 @@ def test_references_returns_empty_for_unknown_symbol(tmp_path):
     assert graph.references("not.real") == []
 
 
+def test_src_layout_cross_module_reference(tmp_path):
+    """Imports in a src/pkg layout resolve across the package boundary."""
+    src = tmp_path / "src" / "pkg"
+    src.mkdir(parents=True)
+    (src / "__init__.py").write_text("", encoding="utf-8")
+    (src / "core.py").write_text("def util(): pass\n", encoding="utf-8")
+    (src / "main.py").write_text(
+        "from pkg.core import util\ndef run():\n    util()\n",
+        encoding="utf-8",
+    )
+    graph = SymbolGraph(tmp_path).build()
+    assert "pkg.core.util" in graph.nodes
+    assert "pkg.main.run" in graph.nodes
+    assert "pkg.core.util" in graph.nodes["pkg.main.run"].outgoing
+
+
+def test_ract_repo_has_cross_module_edges(tmp_path):
+    """The symbol graph must resolve real internal imports in RACT itself."""
+    from pathlib import Path
+
+    project_root = Path(__file__).parent.parent
+    graph = SymbolGraph(project_root).build(include_tests=False)
+    cross_module = 0
+    for node in graph.nodes.values():
+        for out_id in node.outgoing:
+            dst = graph.nodes[out_id]
+            if node.module != dst.module:
+                cross_module += 1
+    assert cross_module > 100, f"expected many cross-module edges, got {cross_module}"
+
+
 # RACT 0.1.0 - Initial Public Release

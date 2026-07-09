@@ -64,8 +64,10 @@ class SymbolGraph:
         self.nodes: dict[str, SymbolNode] = {}
         self._imports: dict[str, dict[str, _ImportBinding]] = {}
         self._project_modules: set[str] = set()
-        # Package name for absolute imports, e.g. project_dir "src/rootact" -> "rootact".
-        self._package_name = self.project_dir.name
+        # Detect the package root so module ids use the same namespace as imports.
+        # e.g. project_dir "ract-work" with "src/rootact/__init__.py" ->
+        # package_root "src/rootact", package_name "rootact".
+        self._package_root, self._package_name = self._detect_package_root()
 
     def build(self, include_tests: bool = True) -> "SymbolGraph":
         """Scan the project directory and build the symbol graph.
@@ -100,7 +102,48 @@ class SymbolGraph:
 
         return self
 
+    def _detect_package_root(self) -> tuple[Path | None, str | None]:
+        """Return the package root directory and package name, if detectable.
+
+        Handles three common layouts:
+        - ``src/<pkg>/__init__.py`` with project_dir at the repo root.
+        - ``src/<pkg>/__init__.py`` with project_dir already at ``src/<pkg>``.
+        - Flat ``<pkg>/__init__.py`` at the repo root.
+
+        If no package init is found, fall back to the project directory.
+        """
+        # Case 1: project_dir is the repo root and contains src/<pkg>/__init__.py.
+        src = self.project_dir / "src"
+        if src.is_dir():
+            for child in sorted(src.iterdir()):
+                if child.is_dir() and (child / "__init__.py").is_file():
+                    return child, child.name
+
+        # Case 2: project_dir is already inside src/<pkg> (or a flat <pkg>).
+        if (self.project_dir / "__init__.py").is_file():
+            return self.project_dir, self.project_dir.name
+
+        # Case 3: flat layout at repo root.
+        for child in sorted(self.project_dir.iterdir()):
+            if (
+                child.is_dir()
+                and child.name != "src"
+                and (child / "__init__.py").is_file()
+            ):
+                return child, child.name
+        return None, None
+
+    def module_id_for_path(self, path: Path) -> str:
+        """Return the dotted module id used internally for *path*."""
+        return self._relative_module(path)
+
     def _relative_module(self, path: Path) -> str:
+        if self._package_root is not None:
+            try:
+                rel = path.relative_to(self._package_root).with_suffix("")
+                return f"{self._package_name}.{'.'.join(rel.parts)}"
+            except ValueError:
+                pass
         rel = path.relative_to(self.project_dir).with_suffix("")
         return ".".join(rel.parts)
 
@@ -204,21 +247,34 @@ class SymbolGraph:
 
         Builtin and standard-library module names take precedence over project
         files that happen to collide with them, so ``collections.Counter`` never
-        resolves to a project ``collections.py``. Absolute imports that start
-        with the project package name are normalized to the relative module path
-        used internally.
+        resolves to a project ``collections.py``. Both package-prefixed absolute
+        imports (``rootact.providers.router``) and relative imports
+        (``providers.router`` from inside ``rootact``) are accepted.
         """
         top = target_module.split(".")[0]
         if top in sys.stdlib_module_names or top in sys.builtin_module_names:
             return False
-        relative = self._relative_module_from_import(target_module)
-        return relative in self._project_modules
+        if target_module in self._project_modules:
+            return True
+        if self._package_name is not None:
+            candidate = f"{self._package_name}.{target_module}"
+            if candidate in self._project_modules:
+                return True
+        return False
 
-    def _relative_module_from_import(self, target_module: str) -> str:
-        """Normalize a possibly package-prefixed module name to internal form."""
-        prefix = f"{self._package_name}."
-        if target_module.startswith(prefix):
-            return target_module[len(prefix) :]
+    def _resolve_imported_module(self, target_module: str) -> str:
+        """Return the internal module id for an imported module name.
+
+        If the import is already package-prefixed, use it directly. If it is a
+        relative import, prepend the package name. Non-project imports pass
+        through unchanged.
+        """
+        if target_module in self._project_modules:
+            return target_module
+        if self._package_name is not None:
+            candidate = f"{self._package_name}.{target_module}"
+            if candidate in self._project_modules:
+                return candidate
         return target_module
 
     def _parse(self, path: Path) -> ast.AST | None:
@@ -271,7 +327,7 @@ class SymbolGraph:
         if not binding.is_project:
             return None
 
-        target_module = self._relative_module_from_import(binding.target_module)
+        target_module = self._resolve_imported_module(binding.target_module)
         if binding.target_name:
             return f"{target_module}.{binding.target_name}"
         module_id = f"{target_module}:<module>"
@@ -302,7 +358,7 @@ class SymbolGraph:
         if binding is not None:
             if not binding.is_project:
                 return None
-            target_module = self._relative_module_from_import(binding.target_module)
+            target_module = self._resolve_imported_module(binding.target_module)
             if binding.target_name:
                 base = f"{target_module}.{binding.target_name}"
             else:
