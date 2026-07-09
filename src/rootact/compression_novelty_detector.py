@@ -69,6 +69,7 @@ class CompressionNoveltyDetector:
 
     def __init__(self, project_dir: Path | str) -> None:
         self.project_dir = Path(project_dir)
+        self._samples_by_path: dict[Path, list[bytes | bytearray]] = {}
         self._samples: Sequence[bytes | bytearray] = self._collect_samples()
         self._dictionary = self._train_dictionary()
 
@@ -85,6 +86,7 @@ class CompressionNoveltyDetector:
         look more familiar than it is.
         """
         samples: list[bytes | bytearray] = []
+        self._samples_by_path = {}
         if not self.project_dir.is_dir():
             return samples
         # Sort paths for deterministic dictionary training across filesystems.
@@ -100,23 +102,45 @@ class CompressionNoveltyDetector:
             encoded = text.encode("utf-8")
             if len(encoded) < self.MIN_SAMPLE_BYTES:
                 continue
+            file_samples: list[bytes | bytearray] = []
             # Split large files into chunks so the dictionary sees more variety.
             for start in range(0, len(encoded), self.SAMPLE_CHUNK_SIZE):
                 chunk = encoded[start : start + self.SAMPLE_CHUNK_SIZE]
                 if len(chunk) >= self.MIN_SAMPLE_BYTES:
                     samples.append(chunk)
+                    file_samples.append(chunk)
                 if len(samples) >= self.MAX_SAMPLES:
+                    self._samples_by_path[path] = file_samples
                     return samples
+            self._samples_by_path[path] = file_samples
         return samples
 
-    def _train_dictionary(self) -> Any | None:
-        """Train a zstd dictionary on the collected samples, if there are enough."""
-        if len(self._samples) < 3:
+    def _train_dictionary(self, exclude_path: Path | None = None) -> Any | None:
+        """Train a zstd dictionary on the collected samples.
+
+        If *exclude_path* is given, omit any chunks collected from that file so
+        scoring the file itself does not benefit from its own content. This is
+        the leave-one-out correction for ``scan_project``.
+        """
+        if exclude_path is None:
+            samples = self._samples
+        else:
+            excluded = set()
+            try:
+                excluded = {
+                    id(chunk) for chunk in self._samples_by_path.get(exclude_path, [])
+                }
+            except TypeError:
+                pass
+            samples = [chunk for chunk in self._samples if id(chunk) not in excluded]
+        if len(samples) < 3:
             return None
         try:
             # Avoid invariant list typing noise from the zstandard stub.
-            samples: Any = self._samples
-            return zstandard.train_dictionary(self.DICT_SIZE, samples, k=self.DICT_SIZE)
+            samples_any: Any = samples
+            return zstandard.train_dictionary(
+                self.DICT_SIZE, samples_any, k=self.DICT_SIZE
+            )
         except Exception:  # noqa: BLE001
             return None
 
@@ -128,11 +152,14 @@ class CompressionNoveltyDetector:
         compressor = zstandard.ZstdCompressor(level=3)
         return len(compressor.compress(data))
 
-    def _compress_with_dict(self, data: bytes) -> int:
-        """Return the size of *data* compressed with the trained dictionary."""
-        if not data or self._dictionary is None:
+    def _compress_with_dict(self, data: bytes, dictionary: Any | None = None) -> int:
+        """Return the size of *data* compressed with the given dictionary."""
+        if not data:
             return self._compress_without_dict(data)
-        compressor = zstandard.ZstdCompressor(level=3, dict_data=self._dictionary)
+        dictionary = dictionary if dictionary is not None else self._dictionary
+        if dictionary is None:
+            return self._compress_without_dict(data)
+        compressor = zstandard.ZstdCompressor(level=3, dict_data=dictionary)
         return len(compressor.compress(data))
 
     def score(self, artifact: str, content: str) -> NoveltyScore | None:
@@ -179,15 +206,62 @@ class CompressionNoveltyDetector:
             detail=detail,
         )
 
+    def _score_with_dict(
+        self, artifact: str, content: str, dictionary: Any | None
+    ) -> NoveltyScore | None:
+        """Return a novelty score using *dictionary* instead of the default."""
+        if not content:
+            return None
+        raw = content.encode("utf-8")
+        if not raw:
+            return None
+        baseline = self._compress_without_dict(raw)
+        if baseline == 0:
+            return None
+        with_dict = self._compress_with_dict(raw, dictionary=dictionary)
+        ratio = with_dict / baseline
+
+        if ratio <= self.LOW_NOVELTY_THRESHOLD:
+            verdict = "low"
+            detail = "compresses well with codebase dictionary; possible duplication"
+        elif ratio >= self.HIGH_NOVELTY_THRESHOLD:
+            verdict = "high"
+            detail = (
+                "compresses poorly with codebase dictionary; genuinely novel or "
+                "genuinely wrong"
+            )
+        else:
+            verdict = "nominal"
+            detail = "nominal compression ratio"
+
+        return NoveltyScore(
+            artifact=artifact,
+            raw_bytes=len(raw),
+            compressed_bytes=baseline,
+            dict_compressed_bytes=with_dict,
+            ratio=round(ratio, 3),
+            verdict=verdict,
+            detail=detail,
+        )
+
     def assess_new_artifact(self, artifact: str, content: str) -> NoveltyScore | None:
         """Score a proposed new artifact and identify the nearest existing one.
 
-        The final novelty ratio blends the global dictionary ratio with the
-        nearest-neighbor conditional ratio. A verbatim copy of an existing
-        module scores very low on both, while genuinely novel Python shares
-        little structure with any existing file and scores high.
+        Uses the project-wide dictionary trained on the whole codebase.
         """
-        score = self.score(artifact, content)
+        return self._assess_with_dict(artifact, content, self._dictionary)
+
+    def _assess_with_dict(
+        self, artifact: str, content: str, dictionary: Any | None
+    ) -> NoveltyScore | None:
+        """Score a proposed new artifact and identify the nearest existing one.
+
+        The final novelty ratio blends the dictionary ratio with the nearest-
+        neighbor conditional ratio. A verbatim copy of an existing module scores
+        very low on both, while genuinely novel Python shares little structure
+        with any existing file and scores high.
+        """
+        score = self._score_with_dict(artifact, content, dictionary)
         if score is None:
             return None
 
@@ -200,12 +274,12 @@ class CompressionNoveltyDetector:
             pass
 
         nearest, nn_ratio = self._nearest_similar_artifact_with_ratio(
-            content, exclude=exclude
+            content, exclude=exclude, dictionary=dictionary
         )
 
-        # Without a dictionary the conditional ratio is not meaningful; fall
-        # back to the base score.
-        if self._dictionary is None or nn_ratio is None:
+        # Without a nearest-neighbor signal there is nothing to blend; fall back
+        # to the dictionary-only score.
+        if nn_ratio is None:
             return NoveltyScore(
                 artifact=score.artifact,
                 raw_bytes=score.raw_bytes,
@@ -221,8 +295,8 @@ class CompressionNoveltyDetector:
         # signal: it measures how cheaply the new content encodes when appended
         # to the most similar existing file. A verbatim copy approaches zero;
         # genuinely novel Python is structurally unlike every existing file.
-        # We use it as the primary signal and fall back to the global dictionary
-        # ratio only when the nearest-neighbor signal is ambiguous.
+        # We use it as the primary signal and fall back to the dictionary ratio
+        # only when the nearest-neighbor signal is ambiguous.
         if nn_ratio is not None and nn_ratio <= self.LOW_NEIGHBOR_THRESHOLD:
             verdict = "low"
             detail = (
@@ -270,7 +344,28 @@ class CompressionNoveltyDetector:
             return None
         return self.score(relative_path, content)
 
-    def _conditional_ratio(self, content: str, existing_path: Path) -> float | None:
+    def score_artifact_leave_one_out(self, relative_path: str) -> NoveltyScore | None:
+        """Score an existing artifact with a dictionary trained on the rest of the code.
+
+        This prevents a file from being flagged as a near-duplicate of itself
+        simply because the global dictionary was trained on its own content.
+        """
+        target = self.project_dir / relative_path
+        if not target.is_file():
+            return None
+        try:
+            content = target.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        loo_dict = self._train_dictionary(exclude_path=target)
+        return self._assess_with_dict(relative_path, content, loo_dict)
+
+    def _conditional_ratio(
+        self,
+        content: str,
+        existing_path: Path,
+        dictionary: Any | None = None,
+    ) -> float | None:
         """Return the incremental cost of encoding *content* after *existing_path*.
 
         The ratio is ``(compress(Y + X with dict) - compress(Y with dict))
@@ -287,9 +382,9 @@ class CompressionNoveltyDetector:
         content_bytes = content.encode("utf-8")
         if not content_bytes:
             return None
-        existing_with_dict = self._compress_with_dict(existing_bytes)
+        existing_with_dict = self._compress_with_dict(existing_bytes, dictionary)
         combined_with_dict = self._compress_with_dict(
-            existing_bytes + b"\n" + content_bytes
+            existing_bytes + b"\n" + content_bytes, dictionary
         )
         content_without_dict = self._compress_without_dict(content_bytes)
         if content_without_dict == 0:
@@ -300,7 +395,10 @@ class CompressionNoveltyDetector:
         return incremental / content_without_dict
 
     def _nearest_similar_artifact_with_ratio(
-        self, content: str, exclude: set[str] | None = None
+        self,
+        content: str,
+        exclude: set[str] | None = None,
+        dictionary: Any | None = None,
     ) -> tuple[str | None, float | None]:
         """Return the existing artifact most similar to *content* and its ratio.
 
@@ -323,7 +421,7 @@ class CompressionNoveltyDetector:
                 continue
             if rel in exclude:
                 continue
-            ratio = self._conditional_ratio(content, path)
+            ratio = self._conditional_ratio(content, path, dictionary=dictionary)
             if ratio is None:
                 continue
             if best_ratio is None or ratio < best_ratio:
@@ -361,7 +459,7 @@ class CompressionNoveltyDetector:
                 rel = str(path.relative_to(self.project_dir))
             except ValueError:
                 continue
-            score = self.score_artifact(rel)
+            score = self.score_artifact_leave_one_out(rel)
             if score is not None:
                 result["scores"][rel] = {
                     "raw_bytes": score.raw_bytes,
@@ -370,6 +468,7 @@ class CompressionNoveltyDetector:
                     "ratio": score.ratio,
                     "verdict": score.verdict,
                     "detail": score.detail,
+                    "nearest": score.nearest,
                 }
         return result
 
