@@ -39,6 +39,7 @@ class NoveltyScore:
     ratio: float
     verdict: str
     detail: str
+    nearest: str | None = None
 
 
 class CompressionNoveltyDetector:
@@ -169,6 +170,23 @@ class CompressionNoveltyDetector:
             detail=detail,
         )
 
+    def assess_new_artifact(self, artifact: str, content: str) -> NoveltyScore | None:
+        """Score a proposed new artifact and identify the nearest existing one."""
+        score = self.score(artifact, content)
+        if score is None:
+            return None
+        nearest = self.nearest_similar_artifact(content, exclude={artifact})
+        return NoveltyScore(
+            artifact=score.artifact,
+            raw_bytes=score.raw_bytes,
+            compressed_bytes=score.compressed_bytes,
+            dict_compressed_bytes=score.dict_compressed_bytes,
+            ratio=score.ratio,
+            verdict=score.verdict,
+            detail=score.detail,
+            nearest=nearest,
+        )
+
     def score_artifact(self, relative_path: str) -> NoveltyScore | None:
         """Score an existing artifact on disk."""
         target = self.project_dir / relative_path
@@ -179,6 +197,39 @@ class CompressionNoveltyDetector:
         except OSError:
             return None
         return self.score(relative_path, content)
+
+    def nearest_similar_artifact(self, content: str, exclude: set[str] | None = None) -> str | None:
+        """Return the existing artifact that compresses most like *content*.
+
+        The lowest ratio (with_dict / without_dict) indicates the most lexical/
+        structural overlap with existing code. This is used to tell the model
+        which existing file to extend instead of creating a near-duplicate.
+        """
+        if not content or not self.project_dir.is_dir():
+            return None
+        exclude = exclude or set()
+        best_path: str | None = None
+        best_ratio: float | None = None
+        for path in self.project_dir.rglob("*.py"):
+            if self._should_skip(path):
+                continue
+            try:
+                rel = str(path.relative_to(self.project_dir))
+            except ValueError:
+                continue
+            if rel in exclude:
+                continue
+            try:
+                existing = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            score = self.score(rel, existing)
+            if score is None:
+                continue
+            if best_ratio is None or score.ratio < best_ratio:
+                best_ratio = score.ratio
+                best_path = rel
+        return best_path
 
     def scan_project(self) -> dict[str, Any]:
         """Return novelty scores for all Python files in the project."""

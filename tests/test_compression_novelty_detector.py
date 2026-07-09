@@ -183,7 +183,13 @@ def test_executor_includes_novelty_scores_in_report(tmp_path):
         encoding="utf-8",
     )
     detector = CompressionNoveltyDetector(tmp_path)
-    adapter = FakeAdapter("mock", response_content="def helper_function(x): pass\n")
+    # Use structurally distinct content so the enforcing gate does not reject it.
+    response_content = (
+        "class QuantumFlux:\n"
+        "    def calibrate(self, warp):\n"
+        "        return warp * 1.21\n"
+    )
+    adapter = FakeAdapter("mock", response_content=response_content)
     executor = Executor(
         FakeRouter(adapter), project_dir=tmp_path, compression_novelty_detector=detector
     )
@@ -205,6 +211,68 @@ def test_executor_includes_novelty_scores_in_report(tmp_path):
     assert len(scores) == 1
     assert scores[0]["artifact"] == "src/new.py"
     assert "verdict" in scores[0]
+
+
+def _duplicative_helper_content() -> str:
+    return "def helper_function(x):\n    return x * 2\n\n" * 50
+
+
+def test_executor_rejects_low_novelty_write(tmp_path):
+    _seed_diverse_project(tmp_path)
+    sample = tmp_path / "existing.py"
+    sample.write_text(_duplicative_helper_content(), encoding="utf-8")
+    detector = CompressionNoveltyDetector(tmp_path)
+    adapter = FakeAdapter("mock", response_content=_duplicative_helper_content())
+    executor = Executor(
+        FakeRouter(adapter), project_dir=tmp_path, compression_novelty_detector=detector
+    )
+    plan = _make_plan(
+        [
+            Step(
+                action="add helper",
+                provider_hint="mock",
+                expected_artifact="src/new.py",
+            )
+        ]
+    )
+
+    result = executor.execute(intent="test intent", plan=plan)
+
+    assert not result.is_ok()
+    assert result.hint == "novelty"
+    assert "Compression novelty gate blocked" in result.error
+    assert "Extend" in result.error
+
+
+def test_executor_allows_low_novelty_write_with_overrun(tmp_path):
+    _seed_diverse_project(tmp_path)
+    sample = tmp_path / "existing.py"
+    sample.write_text(_duplicative_helper_content(), encoding="utf-8")
+    detector = CompressionNoveltyDetector(tmp_path)
+    adapter = FakeAdapter("mock", response_content=_duplicative_helper_content())
+    executor = Executor(
+        FakeRouter(adapter),
+        project_dir=tmp_path,
+        compression_novelty_detector=detector,
+        allow_novelty_overrun=True,
+    )
+    plan = _make_plan(
+        [
+            Step(
+                action="add helper",
+                provider_hint="mock",
+                expected_artifact="src/new.py",
+            )
+        ]
+    )
+
+    result = executor.execute(intent="test intent", plan=plan)
+
+    assert result.is_ok()
+    report = result.unwrap()
+    scores = report.artifacts.get("novelty_scores", [])
+    assert len(scores) == 1
+    assert scores[0]["verdict"] == "low"
 
 
 def test_detector_scan_project_returns_scores(tmp_path):
