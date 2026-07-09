@@ -447,12 +447,14 @@ def _skills_marketplace_command(args: list[str]) -> int:
     subparsers = parser.add_subparsers(dest="action", required=True)
 
     list_parser = subparsers.add_parser("list", help="List skills in the marketplace")
+    list_parser.add_argument("--project-dir", type=Path, default=Path("."))
     list_parser.add_argument(
         "--catalog",
         default=None,
         help="URL or path to a marketplace catalog JSON file.",
     )
     install_parser = subparsers.add_parser("install", help="Install a skill")
+    install_parser.add_argument("--project-dir", type=Path, default=Path("."))
     install_parser.add_argument(
         "--catalog",
         default=None,
@@ -486,7 +488,7 @@ def _skills_marketplace_command(args: list[str]) -> int:
         return 0
 
     if parsed.action == "install":
-        registry = SkillRegistry()
+        registry = SkillRegistry(parsed.project_dir)
         try:
             path = marketplace.install(parsed.name, registry)
         except (KeyError, ValueError, httpx.HTTPError, OSError) as exc:

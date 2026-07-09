@@ -120,7 +120,7 @@ def test_cli_skills_marketplace_list(tmp_path: Path) -> None:
 
 
 def test_cli_skills_marketplace_install(tmp_path: Path) -> None:
-    """CLI installs a marketplace skill."""
+    """CLI installs a marketplace skill into a project directory."""
     skill = {"name": "demo", "description": "demo", "template": "hello", "tools": []}
     skill_path = tmp_path / "demo.json"
     skill_path.write_text(json.dumps(skill), encoding="utf-8")
@@ -142,6 +142,7 @@ def test_cli_skills_marketplace_install(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
+    project_dir = tmp_path / "project"
     result = subprocess.run(
         [
             sys.executable,
@@ -150,6 +151,8 @@ def test_cli_skills_marketplace_install(tmp_path: Path) -> None:
             "skills",
             "marketplace",
             "install",
+            "--project-dir",
+            str(project_dir),
             "--name",
             "demo",
             "--catalog",
@@ -162,6 +165,7 @@ def test_cli_skills_marketplace_install(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "installed marketplace skill 'demo'" in result.stdout
+    assert (project_dir / "skills" / "demo.json").is_file()
 
 
 # RACT 0.1.0 - Initial Public Release

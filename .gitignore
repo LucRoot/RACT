@@ -20,6 +20,7 @@ rootact.yaml
 .rootact/
 .rootact_sessions/
 *.session
+skills/
 
 # Smoke-test / development artifacts
 _smoke_*/

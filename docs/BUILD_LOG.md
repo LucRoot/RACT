@@ -1043,3 +1043,29 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Commit and push the marketplace implementation, then continue monitoring the mutation run.
+
+## 2026-07-09 — Loop pass: fix marketplace test hygiene
+
+**What changed**
+- Removed `skills/demo.json` that the marketplace CLI test accidentally created in the repo root because it used the default `SkillRegistry()` (cwd).
+- Added `--project-dir` to `ract skills marketplace install` so installs target a specific project directory.
+- Updated `tests/test_skill_marketplace.py` to install into a temporary `project/` subdirectory.
+- Added `skills/` to `.gitignore` so future test runs cannot dirty the working tree.
+
+**Why**
+- Tests that write to the current working directory leak artifacts into the repository and risk being committed. Every CLI command that persists files must accept an explicit project directory.
+
+**Test/lint/type result**
+- `pytest -q`: 959 passed, 1 skipped.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `git status`: no untracked `skills/` directory.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact skills marketplace list --catalog assets/marketplace/catalog.json`: lists `hello-world`.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Commit and push the hygiene fix, then continue monitoring the mutation run.
