@@ -157,4 +157,36 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Set up cla-assistant.io (manual web step) or move to the next launch-gap item: earned-coverage / mutation-testing gate.
 
+## 2026-07-09 — Loop pass: earned-coverage gate and mutation-testing script
+
+**What changed**
+- Added `src/rootact/coverage_delta.py`: parses pytest-cov `coverage.json`, captures before/after snapshots by invoking pytest, and computes an earned-coverage verdict (`earn`, `regress`, `stagnant`).
+- Added `rootact coverage delta` CLI command with two modes:
+  - `--run`: captures two snapshots and prints the delta.
+  - `--before <path> --after <path>`: compares existing pytest-cov JSON reports.
+- Added `tests/test_coverage_delta.py` with unit tests for snapshot parsing and verdict logic.
+- Added `scripts/run_mutation_tests_wsl.sh`: WSL-only mutation-testing runner for the four core engine files (`executor.py`, `loop_controller.py`, `harness.py`, `cli.py`) because `mutmut` does not support native Windows.
+- Updated `tests/test_signature_survival.py` golden hash to reflect the new `coverage_delta.py` module.
+
+**Why**
+- Claude upgrade #3: replace raw test-count vanity with earned quality. The coverage-delta gate is the first half; mutation testing is scripted for WSL as the second half.
+
+**Test/lint/type result**
+- `pytest tests/`: 883 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/coverage_delta.py`: passed.
+
+**Self-audit result**
+- `rootact auction list --config rootact.yaml`: 0 dead-code candidates.
+- `rootact novelty scan --config rootact.yaml`: 82 `low` out of 177 files. The two new files (`coverage_delta.py`, `test_coverage_delta.py`) compress well against existing code, which is expected.
+- `rootact coverage delta --run --config rootact.yaml`: `earn`, coverage held at 92.2%.
+- `rootact doctor`: not run; still blocked by local provider HTTP 401.
+
+**Nemotron/Internal secondary review**
+- Reviewed `coverage_delta.py`: **Pass**. Suggested adding a configurable minimum coverage threshold; deferred to a future pass.
+
+**Next action**
+- Integrate the coverage-delta gate into `Harness.run()` as an optional post-execution check controlled by config, so the loop can fail a step that drops coverage.
+
 # RACT 0.1.0 - Initial Public Release
