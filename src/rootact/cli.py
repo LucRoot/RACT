@@ -94,18 +94,31 @@ def _handshakes_command(args: list[str]) -> int:
 
 
 def _mcp_command(args: list[str]) -> int:
-    """Handle 'rootact mcp list'.
+    """Handle 'rootact mcp list' and 'rootact mcp invoke'.
 
     LR:: Lists tools exposed by configured MCP servers so users can see what
-    external capabilities RACT can invoke before running a plan.
+    external capabilities RACT can invoke before running a plan. The invoke
+    action lets operators call a configured tool directly from the terminal
+    for quick verification or one-off tasks.
     """
     parser = argparse.ArgumentParser(prog="rootact mcp")
     parser.add_argument(
         "action",
-        choices=["list"],
+        choices=["list", "invoke"],
         help="MCP action to perform.",
     )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    parser.add_argument(
+        "--tool",
+        dest="tool",
+        help="Qualified tool name (server_name/tool_name) for invoke.",
+    )
+    parser.add_argument(
+        "--input",
+        dest="input_json",
+        default="{}",
+        help="JSON arguments for invoke (default: '{}').",
+    )
     parsed = parser.parse_args(args)
 
     if not parsed.config.is_file():
@@ -121,6 +134,10 @@ def _mcp_command(args: list[str]) -> int:
         return 1
 
     registry = McpToolRegistry.from_config(config)
+
+    if parsed.action == "invoke":
+        return _mcp_invoke(registry, parsed.tool, parsed.input_json)
+
     tools_rooted = registry.list_all_tools()
     if tools_rooted.error is not None:
         print(
@@ -142,6 +159,39 @@ def _mcp_command(args: list[str]) -> int:
             [tool.get("name", "unknown"), tool.get("description", "")] for tool in tools
         ],
     )
+    return 0
+
+
+def _mcp_invoke(registry: McpToolRegistry, tool: str | None, input_json: str) -> int:
+    """Call a qualified MCP tool and render the result."""
+    if not tool:
+        print(
+            "[rootact] invoke requires --tool <server_name/tool_name>", file=sys.stderr
+        )
+        return 1
+    try:
+        arguments: dict[str, Any] = json.loads(input_json)
+    except json.JSONDecodeError as exc:
+        print(f"[rootact] invalid --input JSON: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(arguments, dict):
+        print("[rootact] --input must be a JSON object.", file=sys.stderr)
+        return 1
+
+    result = registry.call_tool(tool, arguments)
+    if result.error is not None:
+        print(f"[rootact] MCP tool failed: {result.error}", file=sys.stderr)
+        return 1
+
+    tool_result = result.unwrap()
+    if tool_result.is_error:
+        print("[rootact] tool reported an error.", file=sys.stderr)
+    for item in tool_result.content or []:
+        text = item.get("text") if isinstance(item, dict) else None
+        if text:
+            console.direct(text)
+        else:
+            console.direct(json.dumps(item))
     return 0
 
 

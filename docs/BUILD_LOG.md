@@ -1093,3 +1093,27 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Commit and push README update, then continue monitoring the mutation run.
+
+## 2026-07-09 — Loop pass: `rootact mcp invoke` command
+
+**What changed**
+- Extended `rootact mcp` CLI to support `invoke` action: `rootact mcp invoke --tool <server>/<tool> --input '{"key":"val"}'`.
+- Added `_mcp_invoke` helper in `src/rootact/cli.py` that parses JSON input, calls `McpToolRegistry.call_tool`, and renders text content or errors.
+- Added five CLI tests covering missing `--tool`, invalid JSON, non-object JSON, successful invocation, and propagated tool errors.
+
+**Why**
+- MCP was listed and configured but not callable from the terminal. An `invoke` command lets operators verify a configured MCP server before the loop depends on it, and supports one-off tool calls without writing a plan.
+
+**Test/lint/type result**
+- `pytest -q`: 964 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file README.md --lines 1-30`: coherent brief (completed with extended timeout; provider call dominates latency).
+- Mutation run: previous 2-hour WSL run timed out. Next pass will diagnose and re-run a smaller target.
+
+**Next action**
+- Commit and push the invoke command, then investigate mutation test timeout.
