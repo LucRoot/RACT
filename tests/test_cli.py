@@ -423,6 +423,85 @@ def test_cli_refactor_dry_run(tmp_path, capsys, monkeypatch):
     assert "def process():" in (src / "core.py").read_text(encoding="utf-8")
 
 
+def test_cli_welcome_flag(capsys):
+    code = main(["--welcome"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "RACT" in out
+
+
+def test_cli_coverage_delta_missing_files(capsys):
+    code = main(["coverage", "delta"])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "requires --before and --after" in err.lower()
+
+
+def test_cli_coverage_delta_unreadable_before(tmp_path, capsys):
+    before = tmp_path / "before.json"
+    before.write_text("not json", encoding="utf-8")
+    after = tmp_path / "after.json"
+    after.write_text("{}", encoding="utf-8")
+    code = main(["coverage", "delta", "--before", str(before), "--after", str(after)])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "failed to read before snapshot" in err.lower()
+
+
+def test_cli_whisper_missing_config(capsys):
+    code = main(["whisper", "--intent", "test", "--config", "missing.yaml"])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "config not found" in err.lower()
+
+
+def test_cli_whisper_bad_yaml(tmp_path, capsys):
+    config = tmp_path / "rootact.yaml"
+    config.write_text("not: valid: yaml:::", encoding="utf-8")
+    code = main(["whisper", "--intent", "test", "--config", str(config)])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "failed to parse config" in err.lower()
+
+
+def test_cli_fence_missing_config(capsys):
+    code = main(
+        ["fence", "inspect", "--file", "src/foo.py", "--config", "missing.yaml"]
+    )
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "config not found" in err.lower()
+
+
+def test_cli_fence_bad_yaml(tmp_path, capsys):
+    config = tmp_path / "rootact.yaml"
+    config.write_text("not: valid: yaml:::", encoding="utf-8")
+    code = main(["fence", "inspect", "--file", "src/foo.py", "--config", str(config)])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "failed to parse config" in err.lower()
+
+
+def test_cli_mcp_list_missing_config(capsys):
+    code = main(["mcp", "list", "--config", "missing.yaml"])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "config not found" in err.lower()
+
+
+def test_cli_mcp_invoke_invalid_json(capsys):
+    code = main(["mcp", "invoke", "--tool", "srv/tool", "--input", "not-json"])
+    assert code == 1
+    err = capsys.readouterr().err
+    assert "invalid" in err.lower() or "json" in err.lower()
+
+
+def test_cli_retrieval_search_no_query(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        main(["retrieval", "search"])
+    assert exc_info.value.code == 2
+
+
 # RACT 0.1.0 - Initial Public Release
 
 
