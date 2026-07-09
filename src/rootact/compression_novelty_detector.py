@@ -25,6 +25,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import io
+import tokenize
+
 import zstandard
 
 
@@ -77,6 +80,43 @@ class CompressionNoveltyDetector:
         """Return True for paths inside dependency/build/cache directories."""
         return any(part in self.IGNORE_DIRS for part in path.parts)
 
+    @staticmethod
+    def _strip_prose(source: str) -> str:
+        """Remove comments and string literals from Python source.
+
+        LR:: Docstrings, inline comments, and string literals carry prose-like
+        patterns. If they are included in dictionary training, the dictionary
+        learns generic text sequences and starts to classify prose and data as
+        familiar code. Stripping them focuses the dictionary on Python syntax
+        and structure, widening the gap between genuinely novel Python and
+        non-Python content.
+
+        The stripped source does not need to remain syntactically valid; it
+        only needs to expose the lexical and structural patterns that help
+        zstd distinguish Python from prose.
+        """
+        try:
+            ranges: list[tuple[int, int]] = []
+            readline = io.StringIO(source).readline
+            for tok in tokenize.generate_tokens(readline):
+                if tok.type in {tokenize.COMMENT, tokenize.STRING}:
+                    ranges.append((tok.start[0], tok.end[0]))
+            if not ranges:
+                return source
+            drop_lines: set[int] = set()
+            for start_line, end_line in ranges:
+                for ln in range(start_line, end_line + 1):
+                    drop_lines.add(ln)
+            # Preserve line count by replacing dropped lines with blank lines.
+            return "".join(
+                "\n" if (i + 1) in drop_lines else line
+                for i, line in enumerate(source.splitlines(keepends=True))
+            )
+        except (SyntaxError, tokenize.TokenError):
+            # If tokenization fails, fall back to the raw source. This keeps
+            # the detector robust against unusual or partial Python files.
+            return source
+
     def _collect_samples(self) -> Sequence[bytes | bytearray]:
         """Return Python source chunks from the project for dictionary training.
 
@@ -99,9 +139,14 @@ class CompressionNoveltyDetector:
                 text = path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
                 continue
-            encoded = text.encode("utf-8")
+            stripped = self._strip_prose(text)
+            encoded = stripped.encode("utf-8")
             if len(encoded) < self.MIN_SAMPLE_BYTES:
-                continue
+                # Fall back to the raw source so small files still contribute
+                # samples when stripping removes too much content.
+                encoded = text.encode("utf-8")
+                if len(encoded) < self.MIN_SAMPLE_BYTES:
+                    continue
             file_samples: list[bytes | bytearray] = []
             # Split large files into chunks so the dictionary sees more variety.
             for start in range(0, len(encoded), self.SAMPLE_CHUNK_SIZE):
