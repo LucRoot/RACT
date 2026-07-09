@@ -1308,3 +1308,24 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Continue awaiting the targeted `executor.py` mutation run. Once it finishes, use the score to set a per-file mutation floor.
+
+## 2026-07-09 — README badge accuracy pass
+
+**What changed**
+- Updated the static coverage badge from `92%` to `91%` to match the current measured coverage.
+- Added a `types-mypy` badge next to the existing lint badge.
+
+**Why**
+- Public README badges are trust signals. A stale coverage number undermines confidence in the other metrics. Adding the mypy badge makes the type-checking commitment visible.
+
+**Test/lint/type result**
+- `pytest -q`: 990 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src`: clean.
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Next action**
+- Continue awaiting the targeted `executor.py` mutation run. Once it completes, calibrate the per-file mutation floor and commit the change.

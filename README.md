@@ -7,8 +7,9 @@
 **Model-agnostic, local-first agentic coding with signed receipts and an anti-rot verifier arsenal.**
 
 ![RootAct CI](https://github.com/LucRoot/RACT/actions/workflows/ci.yml/badge.svg)
-![Coverage](https://img.shields.io/badge/coverage-92%25-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen)
 ![Lint](https://img.shields.io/badge/lint-ruff-261230)
+![Types](https://img.shields.io/badge/types-mypy-blue)
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 
