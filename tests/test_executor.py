@@ -1124,3 +1124,84 @@ def test_extract_json_artifact_wrapper_tolerant_missing_end_quote():
 
 
 # RACT 0.1.0 - Initial Public Release
+
+
+def test_write_artifact_rejects_absolute_path(tmp_path):
+    router = FakeRouter(FakeAdapter("mock"))
+    executor = Executor(router, project_dir=tmp_path)
+    absolute_path = str(Path(tmp_path.anchor) / "evil.txt")
+    executor._write_artifact(absolute_path, "evil")
+    assert not (tmp_path / "evil.txt").exists()
+
+
+def test_check_load_bearing_returns_empty_when_no_project_dir():
+    from unittest.mock import MagicMock
+
+    router = FakeRouter(FakeAdapter("mock"))
+    executor = Executor(router)
+    executor.load_bearing_guard = MagicMock()
+    assert executor._check_load_bearing("src/foo.py", "content") == []
+
+
+def test_check_load_bearing_truncates_long_modified_lines_list(tmp_path):
+    from rootact.load_bearing_guard import LoadBearingGuard, LoadBearingRegion
+    from unittest.mock import MagicMock
+
+    router = FakeRouter(FakeAdapter("mock"))
+    executor = Executor(router, project_dir=tmp_path, allow_load_bearing_override=False)
+    target = tmp_path / "src" / "foo.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("old content", encoding="utf-8")
+
+    region = LoadBearingRegion(
+        path="src/foo.py",
+        annotation_line=1,
+        reason="legacy quirk",
+        start_line=1,
+        end_line=2,
+    )
+    violation = MagicMock()
+    violation.region = region
+    violation.modified_lines = list(range(1, 10))
+
+    fake_guard = MagicMock(spec=LoadBearingGuard)
+    fake_guard.check_modification.return_value = [violation]
+    executor.load_bearing_guard = fake_guard
+
+    messages = executor._check_load_bearing("src/foo.py", "new content")
+    assert len(messages) == 1
+    assert "1,2,3,4,5,..." in messages[0]
+
+
+def test_duplication_guard_blocks_write(tmp_path):
+    from rootact.duplication_guard import DuplicationMatch
+    from unittest.mock import MagicMock
+
+    router = FakeRouter(FakeAdapter("mock", response_content="def dup(): pass"))
+    executor = Executor(router, project_dir=tmp_path)
+    match = DuplicationMatch(
+        symbol_id="src.existing.dup",
+        name="dup",
+        module="src.existing",
+        symbol_type="function",
+        similarity=0.95,
+    )
+    fake_guard = MagicMock()
+    fake_guard.check.return_value = [match]
+    executor.duplication_guard = fake_guard
+
+    plan = _make_plan(
+        [Step(action="emit", provider_hint="mock", expected_artifact="src/new.py")]
+    )
+    result = executor.execute(intent="test intent", plan=plan)
+
+    assert not result.is_ok()
+    assert "Duplication guard blocked write" in (result.error or "")
+    assert "dup" in (result.error or "")
+
+
+def test_extract_json_artifact_wrapper_tolerant_missing_value_quote():
+    """No opening quote after the colon -> _extract_string returns None at start."""
+    executor = Executor(FakeRouter(FakeAdapter("mock")))
+    wrapped = '{"artifact": no_quotes}'
+    assert executor._extract_json_artifact_wrapper(wrapped, "src/foo.py") is None

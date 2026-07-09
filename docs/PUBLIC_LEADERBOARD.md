@@ -6,8 +6,8 @@ This page tracks RACT's own quality metrics over time. The goal is to make the l
 
 | Metric | Value | Date | Commit |
 |---|---|---|---|
-| Test suite | 990 passed, 1 skipped | 2026-07-09 | `0243d80` |
-| Line coverage | 91% | 2026-07-09 | `0243d80` |
+| Test suite | 996 passed, 1 skipped | 2026-07-09 | `TBD` |
+| Line coverage | 91% | 2026-07-09 | `TBD` |
 | Lint (`ruff`) | clean | 2026-07-09 | `0243d80` |
 | Type check (`mypy`) | clean | 2026-07-09 | `0243d80` |
 | Dead-code auction on RACT | 0 candidates | 2026-07-09 | `0243d80` |
@@ -16,7 +16,7 @@ This page tracks RACT's own quality metrics over time. The goal is to make the l
 | Novelty detector — novel Python | `nominal` (ratio ~0.81) | 2026-07-09 | `0243d80` |
 | Novelty detector — prose | `high` (ratio ~0.87) | 2026-07-09 | `0243d80` |
 | Mutation score — `src/rootact/rooted.py` | 38.0% (18/47 mutants killed) | 2026-07-09 | prior |
-| Mutation score — `src/rootact/executor.py` | pending (`bash-mb5ph1bb`) | — | — |
+| Mutation score — `src/rootact/executor.py` | 39.1% (239/611 non-suspicious killed) | 2026-07-09 | `TBD` |
 
 ## Methodology
 
@@ -33,6 +33,6 @@ This page tracks RACT's own quality metrics over time. The goal is to make the l
 
 ## Next targets
 
-- Complete the targeted `executor.py` mutation run and record its score.
+- Decide whether to set a per-file mutation floor for `executor.py` at the measured 39.1% or first add tests to raise it.
 - Raise `src/rootact/cli.py` coverage above 70%.
 - Add a dynamic mutation-score badge to the README once per-file floors are stable.
