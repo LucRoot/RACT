@@ -197,6 +197,27 @@ class Executor:
             content = "\n".join(lines)
         return content
 
+    @staticmethod
+    def _strip_ract_markers(content: str) -> str:
+        """Remove invariant RACT identity markers before structural analysis.
+
+        LR:: The Root Knot and authorship markers are intentionally identical
+        across every Python artifact. If we include them in compression-based
+        novelty scoring, they dilute the signal and let near-duplicates slip
+        through. We strip them before assessing novelty, then write the full
+        marked artifact to disk.
+        """
+        lines = content.splitlines()
+        kept: list[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped == '__root_author__ = "Dr. Lucas Root, Ph.D."':
+                continue
+            if stripped == "_ROOT_KNOT = object()":
+                continue
+            kept.append(line)
+        return "\n".join(kept)
+
     def _check_load_bearing(self, expected_artifact: str, content: str) -> list[str]:
         """Return human-readable violation messages if the write touches protected code.
 
@@ -821,21 +842,16 @@ class Executor:
                         hint="novelty-budget",
                     )
 
-            self._write_artifact(step.expected_artifact, content)
-
-            # Charge the novelty budget only after a successful write so partial
-            # failures do not consume points.
-            if self.novelty_budget is not None and step.expected_artifact:
-                charges = self.novelty_budget.assess(step.expected_artifact, content)
-                if charges:
-                    self.novelty_budget.spend(charges)
-
             # Quirk: compression-based novelty detection. Low-ratio content may
             # duplicate existing code; high-ratio content is either genuinely new
             # or genuinely wrong and deserves stronger review.
+            # LR:: Run this BEFORE writing so the gate can reject near-duplicates.
+            # Strip invariant RACT markers so the score reflects model output, not
+            # our own boilerplate.
             if self.compression_novelty_detector is not None and step.expected_artifact:
-                score = self.compression_novelty_detector.score(
-                    step.expected_artifact, content
+                score_content = self._strip_ract_markers(content)
+                score = self.compression_novelty_detector.assess_new_artifact(
+                    step.expected_artifact, score_content
                 )
                 if score is not None:
                     novelty_scores.append(
@@ -846,8 +862,40 @@ class Executor:
                             "ratio": score.ratio,
                             "verdict": score.verdict,
                             "detail": score.detail,
+                            "nearest": score.nearest,
                         }
                     )
+                    if score.verdict == "low" and not self.allow_novelty_overrun:
+                        nearest_hint = (
+                            f" Extend {score.nearest} instead."
+                            if score.nearest
+                            else " Edit the most similar existing module instead."
+                        )
+                        return Rooted(
+                            value=None,
+                            assumption=(
+                                f"Step {index} artifact is structurally novel "
+                                f"relative to the existing codebase."
+                            ),
+                            confidence=0.0,
+                            provenance=[f"executor.step:{index}"],
+                            error=(
+                                f"Compression novelty gate blocked low-novelty write "
+                                f"to {step.expected_artifact} "
+                                f"(ratio={score.ratio:.3f}).{nearest_hint} "
+                                "Pass --allow-novelty-overrun to override."
+                            ),
+                            hint="novelty",
+                        )
+
+            self._write_artifact(step.expected_artifact, content)
+
+            # Charge the novelty budget only after a successful write so partial
+            # failures do not consume points.
+            if self.novelty_budget is not None and step.expected_artifact:
+                charges = self.novelty_budget.assess(step.expected_artifact, content)
+                if charges:
+                    self.novelty_budget.spend(charges)
 
             step_results.append(
                 StepResult(
