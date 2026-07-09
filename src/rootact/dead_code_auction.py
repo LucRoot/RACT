@@ -108,7 +108,8 @@ class DeadCodeAuction:
         """Return a sorted list of dead-code candidates (oldest first)."""
         graph = SymbolGraph(self.project_dir)
         try:
-            graph.build()
+            # Test imports should not keep production modules alive.
+            graph.build(include_tests=False)
         except Exception:  # noqa: BLE001
             graph.nodes = {}
 

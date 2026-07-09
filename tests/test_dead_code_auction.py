@@ -90,6 +90,27 @@ def test_auction_ignores_dependency_dirs(tmp_path: Path):
     assert items == []
 
 
+def test_auction_flags_module_imported_only_by_its_test(tmp_path: Path):
+    """A production module referenced only by its paired test is still dead."""
+    prod = tmp_path / "prod_module.py"
+    prod.write_text("def helper():\n    pass\n", encoding="utf-8")
+    _set_old_mtime(prod)
+
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    test_file = tests_dir / "test_prod_module.py"
+    test_file.write_text(
+        "from prod_module import helper\n\ndef test_helper():\n    helper()\n",
+        encoding="utf-8",
+    )
+    _set_old_mtime(test_file)
+
+    items = DeadCodeAuction(tmp_path).scan()
+    paths = [item.relative_path for item in items]
+    assert "prod_module.py" in paths
+    assert all("test_" not in p for p in paths)
+
+
 def test_cli_auction_list_json(capsys, tmp_path: Path):
     config = tmp_path / "rootact.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")

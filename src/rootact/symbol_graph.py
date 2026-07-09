@@ -46,12 +46,24 @@ class SymbolGraph:
         self.project_dir = Path(project_dir)
         self.nodes: dict[str, SymbolNode] = {}
 
-    def build(self) -> "SymbolGraph":
-        """Scan the project directory and build the symbol graph."""
+    def build(self, include_tests: bool = True) -> "SymbolGraph":
+        """Scan the project directory and build the symbol graph.
+
+        Args:
+            include_tests: If False, exclude ``tests/`` directories and files
+                whose names start with ``test_`` from the graph. This is useful
+                when measuring production-code reachability.
+        """
         self.nodes = {}
         py_files = [
             p for p in self.project_dir.rglob("*.py") if "__pycache__" not in p.parts
         ]
+        if not include_tests:
+            py_files = [
+                p
+                for p in py_files
+                if "tests" not in p.parts and not p.name.startswith("test_")
+            ]
 
         # Pass 1: create nodes.
         for path in py_files:
