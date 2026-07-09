@@ -187,14 +187,14 @@ class Executor:
         if author_marker not in content:
             content = f"{author_marker}\n{content}"
         if knot_marker not in content:
-            lines = content.splitlines()
+            lines = content.splitlines(keepends=True)
             insert_idx = 0
             for i, line in enumerate(lines):
                 if line.strip() == "from __future__ import annotations":
                     insert_idx = i + 1
                     break
-            lines.insert(insert_idx, knot_marker)
-            content = "\n".join(lines)
+            lines.insert(insert_idx, f"{knot_marker}\n")
+            content = "".join(lines)
         return content
 
     @staticmethod
@@ -207,7 +207,7 @@ class Executor:
         through. We strip them before assessing novelty, then write the full
         marked artifact to disk.
         """
-        lines = content.splitlines()
+        lines = content.splitlines(keepends=True)
         kept: list[str] = []
         for line in lines:
             stripped = line.strip()
@@ -216,7 +216,7 @@ class Executor:
             if stripped == "_ROOT_KNOT = object()":
                 continue
             kept.append(line)
-        return "\n".join(kept)
+        return "".join(kept)
 
     def _check_load_bearing(self, expected_artifact: str, content: str) -> list[str]:
         """Return human-readable violation messages if the write touches protected code.
@@ -257,9 +257,14 @@ class Executor:
 
         LR:: Local models often wrap code blocks in ```python ... ``` fences.
         Writing those fences to disk produces syntax errors. We strip the
-        outermost fence only, preserving any nested code inside.
+        outermost fence only, preserving any nested code inside. When no fences
+        are present the content is returned unchanged so trailing newlines and
+        indentation are not accidentally mutated before novelty scoring.
         """
         stripped = content.strip()
+        has_fence = stripped.startswith("```") or stripped.endswith("```")
+        if not has_fence:
+            return content
         if stripped.startswith("```"):
             first_newline = stripped.find("\n")
             if first_newline != -1:

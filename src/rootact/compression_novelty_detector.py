@@ -45,8 +45,10 @@ class NoveltyScore:
 class CompressionNoveltyDetector:
     """Detect novelty by comparing zstd compression with and without a dictionary."""
 
-    LOW_NOVELTY_THRESHOLD = 0.65
+    LOW_NOVELTY_THRESHOLD = 0.75
     HIGH_NOVELTY_THRESHOLD = 1.05
+    LOW_NEIGHBOR_THRESHOLD = 0.15
+    HIGH_NEIGHBOR_THRESHOLD = 0.75
     MIN_SAMPLE_BYTES = 128
     SAMPLE_CHUNK_SIZE = 1_024
     MAX_SAMPLES = 100
@@ -75,11 +77,18 @@ class CompressionNoveltyDetector:
         return any(part in self.IGNORE_DIRS for part in path.parts)
 
     def _collect_samples(self) -> Sequence[bytes | bytearray]:
-        """Return content chunks from the project for dictionary training."""
+        """Return Python source chunks from the project for dictionary training.
+
+        LR:: Training only on ``*.py`` keeps the dictionary focused on the
+        project's lexical and structural patterns. Non-Python files (docs,
+        data, fences) would dilute the signal and make genuinely novel Python
+        look more familiar than it is.
+        """
         samples: list[bytes | bytearray] = []
         if not self.project_dir.is_dir():
             return samples
-        for path in self.project_dir.rglob("*"):
+        # Sort paths for deterministic dictionary training across filesystems.
+        for path in sorted(self.project_dir.rglob("*.py")):
             if self._should_skip(path):
                 continue
             if not path.is_file():
@@ -171,19 +180,87 @@ class CompressionNoveltyDetector:
         )
 
     def assess_new_artifact(self, artifact: str, content: str) -> NoveltyScore | None:
-        """Score a proposed new artifact and identify the nearest existing one."""
+        """Score a proposed new artifact and identify the nearest existing one.
+
+        The final novelty ratio blends the global dictionary ratio with the
+        nearest-neighbor conditional ratio. A verbatim copy of an existing
+        module scores very low on both, while genuinely novel Python shares
+        little structure with any existing file and scores high.
+        """
         score = self.score(artifact, content)
         if score is None:
             return None
-        nearest = self.nearest_similar_artifact(content, exclude={artifact})
+
+        exclude: set[str] = {artifact}
+        target = self.project_dir / artifact
+        try:
+            if target.is_file():
+                exclude.add(str(target.relative_to(self.project_dir)))
+        except ValueError:
+            pass
+
+        nearest, nn_ratio = self._nearest_similar_artifact_with_ratio(
+            content, exclude=exclude
+        )
+
+        # Without a dictionary the conditional ratio is not meaningful; fall
+        # back to the base score.
+        if self._dictionary is None or nn_ratio is None:
+            return NoveltyScore(
+                artifact=score.artifact,
+                raw_bytes=score.raw_bytes,
+                compressed_bytes=score.compressed_bytes,
+                dict_compressed_bytes=score.dict_compressed_bytes,
+                ratio=score.ratio,
+                verdict=score.verdict,
+                detail=score.detail,
+                nearest=nearest,
+            )
+
+        # Nearest-neighbor conditional ratio is the strongest duplication
+        # signal: it measures how cheaply the new content encodes when appended
+        # to the most similar existing file. A verbatim copy approaches zero;
+        # genuinely novel Python is structurally unlike every existing file.
+        # We use it as the primary signal and fall back to the global dictionary
+        # ratio only when the nearest-neighbor signal is ambiguous.
+        if nn_ratio is not None and nn_ratio <= self.LOW_NEIGHBOR_THRESHOLD:
+            verdict = "low"
+            detail = (
+                "matches an existing module's structure closely; "
+                "possible duplication"
+            )
+            final_ratio = nn_ratio
+        elif nn_ratio is not None and nn_ratio >= self.HIGH_NEIGHBOR_THRESHOLD:
+            verdict = "high"
+            detail = (
+                "structurally unlike any existing module; "
+                "genuinely novel or wrong"
+            )
+            final_ratio = nn_ratio
+        elif score.ratio <= self.LOW_NOVELTY_THRESHOLD:
+            verdict = "low"
+            detail = "compresses well with codebase dictionary; possible duplication"
+            final_ratio = score.ratio
+        elif score.ratio >= self.HIGH_NOVELTY_THRESHOLD:
+            verdict = "high"
+            detail = (
+                "compresses poorly with codebase dictionary; "
+                "genuinely novel or wrong"
+            )
+            final_ratio = score.ratio
+        else:
+            verdict = "nominal"
+            detail = "nominal compression ratio"
+            final_ratio = score.ratio
+
         return NoveltyScore(
             artifact=score.artifact,
             raw_bytes=score.raw_bytes,
             compressed_bytes=score.compressed_bytes,
             dict_compressed_bytes=score.dict_compressed_bytes,
-            ratio=score.ratio,
-            verdict=score.verdict,
-            detail=score.detail,
+            ratio=round(final_ratio, 3),
+            verdict=verdict,
+            detail=detail,
             nearest=nearest,
         )
 
@@ -198,15 +275,45 @@ class CompressionNoveltyDetector:
             return None
         return self.score(relative_path, content)
 
-    def nearest_similar_artifact(self, content: str, exclude: set[str] | None = None) -> str | None:
-        """Return the existing artifact that compresses most like *content*.
+    def _conditional_ratio(self, content: str, existing_path: Path) -> float | None:
+        """Return the incremental cost of encoding *content* after *existing_path*.
 
-        The lowest ratio (with_dict / without_dict) indicates the most lexical/
-        structural overlap with existing code. This is used to tell the model
-        which existing file to extend instead of creating a near-duplicate.
+        The ratio is ``(compress(Y + X with dict) - compress(Y with dict))
+        / compress(X without dict)``. When X is a verbatim or near-verbatim
+        continuation of Y, the incremental cost approaches zero. When X is
+        structurally unlike Y, the cost approaches (or exceeds) the cost of
+        compressing X from scratch.
+        """
+        try:
+            existing = existing_path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        existing_bytes = existing.encode("utf-8")
+        content_bytes = content.encode("utf-8")
+        if not content_bytes:
+            return None
+        existing_with_dict = self._compress_with_dict(existing_bytes)
+        combined_with_dict = self._compress_with_dict(existing_bytes + b"\n" + content_bytes)
+        content_without_dict = self._compress_without_dict(content_bytes)
+        if content_without_dict == 0:
+            return None
+        incremental = combined_with_dict - existing_with_dict
+        if incremental < 0:
+            incremental = 0
+        return incremental / content_without_dict
+
+    def _nearest_similar_artifact_with_ratio(
+        self, content: str, exclude: set[str] | None = None
+    ) -> tuple[str | None, float | None]:
+        """Return the existing artifact most similar to *content* and its ratio.
+
+        Similarity is measured by the conditional compression ratio: how
+        cheaply the new content encodes when appended to each existing file.
+        A low value means the new content is a natural continuation of that
+        file (possible duplication).
         """
         if not content or not self.project_dir.is_dir():
-            return None
+            return None, None
         exclude = exclude or set()
         best_path: str | None = None
         best_ratio: float | None = None
@@ -219,17 +326,23 @@ class CompressionNoveltyDetector:
                 continue
             if rel in exclude:
                 continue
-            try:
-                existing = path.read_text(encoding="utf-8")
-            except OSError:
+            ratio = self._conditional_ratio(content, path)
+            if ratio is None:
                 continue
-            score = self.score(rel, existing)
-            if score is None:
-                continue
-            if best_ratio is None or score.ratio < best_ratio:
-                best_ratio = score.ratio
+            if best_ratio is None or ratio < best_ratio:
+                best_ratio = ratio
                 best_path = rel
-        return best_path
+        return best_path, best_ratio
+
+    def nearest_similar_artifact(self, content: str, exclude: set[str] | None = None) -> str | None:
+        """Return the existing artifact that compresses most like *content*.
+
+        The lowest conditional compression ratio indicates the most lexical/
+        structural overlap with existing code. This is used to tell the model
+        which existing file to extend instead of creating a near-duplicate.
+        """
+        path, _ratio = self._nearest_similar_artifact_with_ratio(content, exclude=exclude)
+        return path
 
     def scan_project(self) -> dict[str, Any]:
         """Return novelty scores for all Python files in the project."""
