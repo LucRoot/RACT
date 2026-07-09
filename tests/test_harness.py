@@ -20,6 +20,7 @@ from rootact.harness import (
 )
 from rootact.rooted import Rooted
 from rootact.skills_registry import SkillRegistry
+from rootact.coverage_delta import CoverageSnapshot
 
 
 @pytest.fixture
@@ -671,6 +672,186 @@ def test_harness_from_config_populates_tools_desc_with_mcp_tools(
     harness = harness_rooted.unwrap()
     assert "fs/read" in harness.manager.tools_description
     assert "Available MCP tools" in harness.manager._full_system_prompt()
+
+
+def _build_harness(tmp_project, config_extra=None):
+    config = {
+        "manager_provider": "local",
+        "providers": {
+            "local": {
+                "adapter": "local_http",
+                "url": "http://127.0.0.1:11434/v1",
+                "model": "nemotron",
+            },
+        },
+        "prompts_dir": "prompts",
+    }
+    if config_extra:
+        config.update(config_extra)
+    import yaml
+
+    config_path = tmp_project / "rootact.yaml"
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    harness_rooted = Harness.from_config_path(config_path)
+    assert harness_rooted.is_ok(), harness_rooted.error
+    return harness_rooted.unwrap()
+
+
+def _fake_plan_and_step(harness):
+    fake_plan_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": (
+                        '{"assumption": "test assumption", "confidence": 0.95, '
+                        '"steps": [{"action": "write tests", "provider_hint": "chat", "expected_artifact": "tests/test_x.py"}]}'
+                    )
+                }
+            }
+        ]
+    }
+    fake_step_response = {"choices": [{"message": {"content": "def test_x(): pass"}}]}
+    harness.manager.provider.complete = MagicMock(
+        side_effect=[
+            Rooted(value=fake_plan_response, assumption="ok", confidence=1.0),
+            Rooted(value=fake_step_response, assumption="ok", confidence=1.0),
+        ]
+    )
+
+
+def test_coverage_gate_records_delta_in_report(tmp_project, monkeypatch):
+    harness = _build_harness(
+        tmp_project, {"coverage_gate": {"enabled": True, "hard_fail": False}}
+    )
+    _fake_plan_and_step(harness)
+
+    class FakeDelta:
+        verdict = "stagnant"
+        detail = "coverage stagnant"
+        floor_breached = False
+        percent_delta = 0.0
+        before = CoverageSnapshot(
+            percent_covered=50.0, covered_lines=50, missing_lines=50, total_lines=100
+        )
+        after = CoverageSnapshot(
+            percent_covered=50.0, covered_lines=50, missing_lines=50, total_lines=100
+        )
+
+    monkeypatch.setattr(
+        "rootact.harness.coverage_gate",
+        lambda *_args, **_kwargs: Rooted(
+            value=FakeDelta(),
+            assumption="coverage gate ok",
+            confidence=1.0,
+            provenance=["fake_gate"],
+        ),
+    )
+
+    report_rooted = harness.run("write tests")
+    assert report_rooted.is_ok(), report_rooted.error
+    report = report_rooted.unwrap()
+    assert "coverage_delta" in report.artifacts
+    assert report.artifacts["coverage_delta"]["verdict"] == "stagnant"
+
+
+def test_coverage_gate_hard_fail_returns_error(tmp_project, monkeypatch):
+    harness = _build_harness(
+        tmp_project, {"coverage_gate": {"enabled": True, "hard_fail": True}}
+    )
+    _fake_plan_and_step(harness)
+
+    class FakeDelta:
+        verdict = "regress"
+        detail = "coverage regressed"
+        floor_breached = False
+        percent_delta = -5.0
+        before = CoverageSnapshot(
+            percent_covered=55.0, covered_lines=55, missing_lines=45, total_lines=100
+        )
+        after = CoverageSnapshot(
+            percent_covered=50.0, covered_lines=50, missing_lines=50, total_lines=100
+        )
+
+    monkeypatch.setattr(
+        "rootact.harness.coverage_gate",
+        lambda *_args, **_kwargs: Rooted(
+            value=FakeDelta(),
+            assumption="coverage gate ok",
+            confidence=1.0,
+            provenance=["fake_gate"],
+        ),
+    )
+
+    report_rooted = harness.run("write tests")
+    assert not report_rooted.is_ok()
+    assert "Coverage gate" in (report_rooted.error or "")
+
+
+def test_mutation_gate_records_score_in_report(tmp_project, monkeypatch):
+    harness = _build_harness(
+        tmp_project, {"mutation_gate": {"enabled": True, "hard_fail": False}}
+    )
+    _fake_plan_and_step(harness)
+
+    class FakeMutationReport:
+        mutation_score = 42.0
+        killed = 21
+        survived = 29
+        timeout = 0
+        error = None
+        total = 50
+
+    monkeypatch.setattr(
+        "rootact.harness.run_mutation_tests",
+        lambda *_args, **_kwargs: Rooted(
+            value=FakeMutationReport(),
+            assumption="mutation gate ok",
+            confidence=1.0,
+            provenance=["fake_runner"],
+        ),
+    )
+
+    report_rooted = harness.run("write tests")
+    assert report_rooted.is_ok(), report_rooted.error
+    report = report_rooted.unwrap()
+    assert "mutation_score" in report.artifacts
+    assert report.artifacts["mutation_score"]["score"] == 42.0
+
+
+def test_mutation_gate_hard_fail_when_below_floor(tmp_project, monkeypatch):
+    harness = _build_harness(
+        tmp_project,
+        {
+            "mutation_gate": {
+                "enabled": True,
+                "hard_fail": True,
+                "min_score": 50.0,
+            }
+        },
+    )
+    _fake_plan_and_step(harness)
+
+    class FakeMutationReport:
+        mutation_score = 42.0
+        killed = 21
+        survived = 29
+        timeout = 0
+        error = None
+        total = 50
+
+    monkeypatch.setattr(
+        "rootact.harness.run_mutation_tests",
+        lambda *_args, **_kwargs: Rooted(
+            value=FakeMutationReport(),
+            assumption="mutation gate ok",
+            confidence=1.0,
+            provenance=["fake_runner"],
+        ),
+    )
+
+    report_rooted = harness.run("write tests")
+    assert not report_rooted.is_ok()
+    assert "Mutation gate" in (report_rooted.error or "")
 
 
 # RACT 0.1.0 - Initial Public Release
