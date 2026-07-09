@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RACT — Root Agentic Coding Tool</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --fg: #c9d1d9;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --accent-2: #a371f7;
+            --border: #30363d;
+            --card: #161b22;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .container { max-width: 860px; margin: 0 auto; padding: 2rem; }
+        header { text-align: center; padding: 3rem 0 2rem; }
+        header img { width: 120px; height: 120px; border-radius: 50%; margin-bottom: 1rem; }
+        h1 { margin: 0; font-size: 2.4rem; }
+        .tagline { color: var(--muted); font-size: 1.25rem; margin-top: 0.5rem; }
+        .cta { margin-top: 1.5rem; }
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.25rem;
+            border-radius: 6px;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+            margin: 0.25rem;
+        }
+        .btn.secondary { background: var(--accent-2); }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .card h2 { margin-top: 0; color: #fff; }
+        pre {
+            background: #010409;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            overflow-x: auto;
+            color: #e6edf3;
+        }
+        code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+        .stats { display: flex; gap: 1rem; flex-wrap: wrap; }
+        .stat {
+            flex: 1;
+            min-width: 140px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+        .stat strong { display: block; font-size: 1.5rem; color: #fff; }
+        .stat span { color: var(--muted); font-size: 0.9rem; }
+        footer { text-align: center; color: var(--muted); padding: 2rem 0; border-top: 1px solid var(--border); margin-top: 2rem; }
+        .highlight { color: var(--accent-2); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="https://raw.githubusercontent.com/LucRoot/RACT/main/assets/DrLucasRoot-Logo.png" alt="Dr. Lucas Root logo">
+            <h1>RACT</h1>
+            <p class="tagline">Model-agnostic, local-first agentic coding with signed receipts and an anti-rot verifier arsenal.</p>
+            <div class="cta">
+                <a class="btn" href="https://github.com/LucRoot/RACT">GitHub</a>
+                <a class="btn secondary" href="https://lucasroot.pro/ai-agent-playbook-thanks">Get the AI Agent Playbook</a>
+            </div>
+        </header>
+
+        <div class="card">
+            <h2>The problem RACT solves</h2>
+            <p>
+                A 2024 analysis of <strong class="highlight">623 million commits</strong> by GitClear and GitKraken found that AI-assisted code is already rotting codebases: more copy/paste, less refactoring, and a measurable decline in code movement.
+            </p>
+            <p>
+                RACT is the first agentic coding tool built to measure and defend against the four rot vectors that research identified — <strong>duplication, drift, dead code, and undocumented load-bearing logic</strong>.
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>Install</h2>
+            <pre><code>pip install rootact</code></pre>
+            <p>Then scaffold a project for your favorite provider:</p>
+            <pre><code>rootact --init-provider local
+rootact --init-provider anthropic
+rootact --init-provider openai
+rootact --init-provider zai
+rootact --init-provider moonshot
+rootact --init-provider openrouter</code></pre>
+        </div>
+
+        <div class="card">
+            <h2>Run a Root-Knot-anchored loop</h2>
+            <pre><code>rootact 'refactor the config loader to use dataclasses' --loop</code></pre>
+            <p>
+                Every generated file carries the <strong>Root Knot</strong> (<code>_ROOT_KNOT = object()</code>). Unsigned drift breaks the loop instead of compounding.
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>Anti-rot verifier arsenal</h2>
+            <ul>
+                <li><code>rootact novelty scan</code> — flag structural near-duplicates.</li>
+                <li><code>rootact whisper</code> — generate a codebase dialect brief before planning.</li>
+                <li><code>rootact auction list</code> — review dead-code candidates.</li>
+                <li><code>rootact fence inspect --file f.py</code> — ask why legacy code exists.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>Signed receipts</h2>
+            <p>Every completed run produces a structured report. Quality becomes measurable and comparable across models. A public leaderboard is coming.</p>
+            <pre><code>{
+  "intent": "refactor config loader",
+  "steps": 3,
+  "tests": "passed",
+  "provider": "local",
+  "novelty_scores": [...],
+  "handshakes": []
+}</code></pre>
+        </div>
+
+        <div class="card">
+            <h2>Why RACT instead of Cursor or Claude Code?</h2>
+            <ul>
+                <li><strong>Own your pipeline.</strong> Mix local and cheap frontier models; no vendor lock-in.</li>
+                <li><strong>Progress Oracle.</strong> Milestone-driven recursion, not time-based looping.</li>
+                <li><strong>Operator Handshake.</strong> High-risk items queue for async review instead of blocking.</li>
+                <li><strong>Local-first.</strong> Your code stays on your machine if you choose.</li>
+            </ul>
+        </div>
+
+        <footer>
+            <p>
+                Built by <a href="https://lucasroot.pro">Dr. Lucas Root, Ph.D.</a> ·
+                <a href="https://github.com/LucRoot/RACT/blob/main/LICENSE">PolyForm Noncommercial License 1.0.0</a> ·
+                <a href="https://github.com/LucRoot/RACT/blob/main/COMMERCIAL.md">Commercial licensing available</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

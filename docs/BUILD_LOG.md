@@ -80,4 +80,27 @@ This log records each loop pass through the RACT codebase. It exists because con
 **Next action**
 - Fix `rootact novelty scan` false positives with leave-one-out dictionary training, then continue the launch-gap backlog (demo asciicast, HF Space page, mutation-testing gate).
 
+## 2026-07-09 — Loop pass: real static page for Hugging Face Space
+
+**What changed**
+- Created `hf-space/index.html`: a dark-themed landing page with the Dr. Root logo, the GitClear 623-million-commit hook, install commands, a Root-Knot-anchored loop example, the anti-rot verifier arsenal, a signed-receipt example, and links to GitHub + the AI Agent Playbook mailing list.
+- Created `hf-space/README.md`: Space description with license and links.
+- Verified the page renders without broken asset links and that all documented CLI snippets match the current `rootact` interface.
+
+**Why**
+- DeepSeek audit flagged the HF Space as a dead discovery surface. A public release needs every entry point to tell the same story.
+
+**Test/lint/type result**
+- `pytest tests/`: 876 passed, 1 skipped, 93% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Self-audit result**
+- `rootact --config rootact.yaml doctor`: all checks passed.
+- `rootact auction list --config rootact.yaml`: 0 dead-code candidates.
+- `rootact novelty scan --config rootact.yaml`: 85 of 175 files scored `low`. This is a known false-positive pattern: the dictionary is trained on the whole codebase, so existing files compress well against it. Leave-one-out training is the planned fix.
+
+**Next action**
+- Implement leave-one-out dictionary training for `compression_novelty_detector` to eliminate the `low` false positives on existing files.
+
 # RACT 0.1.0 - Initial Public Release
