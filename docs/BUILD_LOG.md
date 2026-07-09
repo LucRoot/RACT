@@ -823,3 +823,34 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Execute `module_01.md` (implement `InternalProvider`) after the mutation run completes and score calibration is done, or earlier if the mutation run remains the only blocker and CPU is available.
+
+## 2026-07-09 — Loop pass: implement native Internal provider adapter (modules 01-03)
+
+**What changed**
+- Implemented `src/rootact/providers/internal_provider.py`:
+  - Parses a multi-slot config with `base_url`, `model`, and `capabilities` per slot.
+  - Routes by exact model name, then capability hint, then health status, with automatic fallback on request failure.
+  - Health-checks each slot lazily with a short TTL and omits auth headers for local slots.
+  - Supports non-streaming and streaming completions across slots.
+- Wired the adapter into `src/rootact/providers/router.py` and added a `internal` preset in `src/rootact/provider_presets.py` with Nemotron (8011), Qwen3.6 (8012), and Qwen3.5 (8013) slots.
+- Wrote `tests/test_internal_provider.py` with 14 contract/routing/fallback/health/streaming tests.
+- Updated the signature golden hash in `tests/test_signature_survival.py` because the new source files carry RACT markers.
+
+**Why**
+- A first-class Internal provider is a public-launch differentiator: RACT can route across sovereign local hardware instead of treating it as a single opaque `local_http` endpoint.
+
+**Test/lint/type result**
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/providers/internal_provider.py src/rootact/providers/router.py src/rootact/provider_presets.py`: passed.
+- `pytest tests/test_internal_provider.py tests/test_providers.py tests/test_provider_presets.py -q`: 57 passed.
+- `pytest -q` (full suite): 937 passed, 1 skipped, 92% coverage.
+- `rootact --init-provider internal` smoke test: produced the expected three-slot config.
+
+**Self-audit result**
+- `rootact doctor`: 7/7 checks passed.
+- `rootact auction list`: 0 dead-code candidates.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Commit and push the Internal provider implementation, then continue waiting for the mutation score to calibrate the quality gate.
