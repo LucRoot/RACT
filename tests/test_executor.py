@@ -8,6 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
+from pathlib import Path
 from typing import Any
 
 from rootact.executor import Executor, ExecutionReport
@@ -15,6 +16,25 @@ from rootact.hook_system import HookManager
 from rootact.manager import Plan, Step
 from rootact.rooted import Rooted
 from rootact.user_signature_registry import SignatureRegistry
+
+
+class FakeDiffApplier:
+    """DiffApplier that always reports a failure."""
+
+    def __init__(self, message: str = "hunk failed") -> None:
+        self.message = message
+
+    def apply_diff(self, _diff_text: str):
+        from rootact.diff_applier import DiffApplyResult
+
+        return [
+            DiffApplyResult(
+                path=Path("foo.py"),
+                applied=False,
+                backup=None,
+                message=self.message,
+            )
+        ]
 
 
 class FakeAdapter:
@@ -1018,6 +1038,89 @@ def test_strip_artifact_path_line_matches_forward_slash_expected():
     executor = Executor(FakeRouter(FakeAdapter("mock")))
     noisy = "src/foo.py\n# code\n"
     assert executor._strip_artifact_path_line(noisy, "src\\foo.py") == "# code"
+
+
+def test_executor_surfaces_diff_apply_failure(tmp_path):
+    target = tmp_path / "foo.py"
+    target.write_text("line1\nline2\nline3\n", encoding="utf-8")
+    diff = (
+        "diff --git a/foo.py b/foo.py\n"
+        "@@ -1,3 +1,3 @@\n"
+        " line1\n"
+        "-line2\n"
+        "+line2_changed\n"
+        " line3\n"
+    )
+    adapter = FakeAdapter("mock", response_content=diff)
+    router = FakeRouter(adapter)
+    executor = Executor(
+        router, project_dir=tmp_path, diff_applier=FakeDiffApplier("bad hunk")
+    )
+    plan = _make_plan(
+        [Step(action="update foo", provider_hint="mock", expected_artifact="foo.py")]
+    )
+
+    result = executor.execute(intent="edit foo", plan=plan)
+
+    assert not result.is_ok()
+    assert "bad hunk" in (result.error or "")
+    assert "Diff apply failed" in (result.error or "")
+
+
+def test_executor_surfaces_mcp_tool_call_failure():
+    class FailingMcpAdapter(FakeMcpAdapter):
+        def call_tool(self, name: str, arguments: dict[str, Any]) -> Rooted:
+            return Rooted(
+                value=None,
+                assumption="tool succeeds",
+                confidence=0.0,
+                provenance=["fake_mcp_adapter.call_tool"],
+                error="tool refused",
+            )
+
+    router = FakeRouter(FakeAdapter("mock"))
+    registry = McpToolRegistry()
+    registry.register("fs", FailingMcpAdapter())
+    executor = Executor(router, mcp_registry=registry)
+    plan = _make_plan(
+        [
+            Step(
+                action="read config",
+                provider_hint="mcp",
+                expected_artifact="",
+                tool_call={"name": "fs/read", "arguments": {"path": "config.yaml"}},
+            )
+        ]
+    )
+
+    result = executor.execute(intent="inspect project", plan=plan)
+
+    assert not result.is_ok()
+    assert "tool refused" in (result.error or "")
+
+
+def test_extract_json_artifact_wrapper_tolerant_missing_colon():
+    executor = Executor(FakeRouter(FakeAdapter("mock")))
+    wrapped = '{"artifact" "src/foo.py" "content" "x = 1"}'
+    assert executor._extract_json_artifact_wrapper(wrapped, "src/foo.py") is None
+
+
+def test_extract_json_artifact_wrapper_tolerant_missing_start_quote():
+    executor = Executor(FakeRouter(FakeAdapter("mock")))
+    wrapped = '{"artifact": src/foo.py", "content": "x = 1"}'
+    assert executor._extract_json_artifact_wrapper(wrapped, "src/foo.py") is None
+
+
+def test_extract_json_artifact_wrapper_tolerant_missing_end_brace():
+    executor = Executor(FakeRouter(FakeAdapter("mock")))
+    wrapped = '{"artifact": "src/foo.py", "content": "x = 1"'
+    assert executor._extract_json_artifact_wrapper(wrapped, "src/foo.py") is None
+
+
+def test_extract_json_artifact_wrapper_tolerant_missing_end_quote():
+    executor = Executor(FakeRouter(FakeAdapter("mock")))
+    wrapped = '{"artifact": "src/foo.py", "content": "x = 1}'
+    assert executor._extract_json_artifact_wrapper(wrapped, "src/foo.py") is None
 
 
 # RACT 0.1.0 - Initial Public Release

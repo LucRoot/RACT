@@ -1216,3 +1216,36 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Continue targeted mutation runs and per-module floor calibration. The executor.py run is in progress (`bash-4ajg0yec`).
+
+## 2026-07-09 — Loop pass: executor.py tests + JSON wrapper edge-case fix
+
+**What changed**
+- Added tests to `tests/test_executor.py` covering previously uncovered paths:
+  - `test_executor_surfaces_diff_apply_failure` — diff applier returns a failure result.
+  - `test_executor_surfaces_mcp_tool_call_failure` — MCP tool call returns a Rooted error.
+  - `test_extract_json_artifact_wrapper_tolerant_missing_colon` — malformed JSON-ish wrapper.
+  - `test_extract_json_artifact_wrapper_tolerant_missing_start_quote` — malformed JSON-ish wrapper.
+  - `test_extract_json_artifact_wrapper_tolerant_missing_end_brace` — malformed JSON-ish wrapper.
+  - `test_extract_json_artifact_wrapper_tolerant_missing_end_quote` — malformed JSON-ish wrapper.
+- Fixed a real bug in `_extract_json_artifact_wrapper`: the tolerant content extractor used `text.rfind('"', start, end_brace)`, which included the opening quote and caused a missing closing quote to return an empty string instead of `None`. Changed to `text.rfind('"', start + 1, end_brace)`.
+
+**Why**
+- Executor.py had strong coverage but several error paths and the JSON tolerant extractor's edge cases were untested. The new tests both raise coverage and guard against regressions in model-output normalization.
+- The rfind bug would have caused malformed model output to be silently rewritten as an empty file rather than falling through to the raw content path.
+
+**Test/lint/type result**
+- `pytest tests/test_executor.py -q`: 50 passed.
+- `pytest -q`: 980 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src/rootact/executor.py`: clean.
+
+**Coverage impact**
+- `src/rootact/executor.py`: 97% → 99% (11 missing lines → 6 missing lines).
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+
+**Next action**
+- Restart the targeted executor.py mutation run because `executor.py` changed mid-run. Use the new score to calibrate a per-file floor or add more tests.
