@@ -26,3 +26,4 @@
 {"status": "rejected", "title": "Native Graphical User Interface", "description": "RootAct would ship a built-in desktop GUI.", "actor": "Casual User", "reason": "CLI-first keeps the tool portable and scriptable; web/desktop front ends can be built as separate consumers of the API/harness."}
 {"status": "accepted", "title": "Configuration-Driven Project Templates", "description": "Users scaffold a new project with rootact init --template <name> --provider <name>, producing rootact.yaml, prompts, starter source/tests/README, and an installed skill.", "actor": "New User", "value": "First-time users go from install to a working project in one command."}
 {"status": "accepted", "title": "OpenAPI Client Generation", "description": "RootAct reads an OpenAPI 3 JSON/YAML specification and emits an httpx-based Python client class with typed methods for each operation.", "actor": "API Developer", "value": "Turns an API contract into working client code in one command."}
+
