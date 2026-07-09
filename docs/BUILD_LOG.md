@@ -882,3 +882,32 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Update the `ract consolidate` spec to address the 5 risks, then begin implementation of the core scanner/proposer while the mutation run completes.
+
+## 2026-07-09 — Loop pass: implement `ract consolidate` scanner, CLI, and tests
+
+**What changed**
+- Added `src/rootact/consolidate.py` with `ConsolidationScanner`, `MergeProposal`, and `ConsolidationResult`.
+- Implemented pairwise similarity via `CompressionNoveltyDetector._conditional_ratio`, average-linkage clustering, canonical target selection by inbound reference count, and unified-diff preview.
+- Added safety checks for name collisions, parseability, and circular dependencies using both symbol-graph edges and import bindings.
+- Wired `rootact consolidate` into `src/rootact/cli.py` with `--similarity-threshold`, `--merge-threshold`, `--max-modules`, `--paths`, and `--dry-run` flags.
+- Added `tests/test_consolidate.py` with 9 tests covering clustering, target selection, cycle rejection, handshake enqueueing, and CLI behavior.
+- Updated golden hash in `tests/test_signature_survival.py` after adding the signed `consolidate.py` module.
+
+**Why**
+- The `ract consolidate` subcommand is the headline feature from Claude's audit recommendations: turn static duplication detection into an interactive cleanup workflow with operator handshakes.
+- Addressing the 5 spec risks in code (safety validation, name collisions, rollback strategy, clustering precision, CLI defaults) before merging prevents a half-working first pass.
+
+**Test/lint/type result**
+- `pytest -q`: 946 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+
+**Self-audit result**
+- `rootact doctor`: 7/7 checks passed.
+- `rootact auction list`: 0 dead-code candidates.
+- `rootact consolidate --dry-run --max-modules 10`: produced a coherent proposal and diff preview without enqueueing.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Commit and push the consolidate implementation.
+- Continue waiting for the WSL mutation score; once it arrives, calibrate `mutation_gate.min_score` and the scorecard weight.

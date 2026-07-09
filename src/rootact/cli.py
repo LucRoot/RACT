@@ -18,6 +18,7 @@ from rootact.builtin_skill_library import BuiltinSkillLibrary
 from rootact.chestertons_fence import ChestertonsFence
 from rootact.code_review_mode import CodeReviewMode
 from rootact.compression_novelty_detector import CompressionNoveltyDetector
+from rootact.consolidate import ConsolidationScanner
 from rootact.dead_code_auction import DeadCodeAuction
 from rootact.doc_generator import DocGenerator
 from rootact.diff_applier import DiffApplier
@@ -1173,6 +1174,97 @@ def _fence_command(args: list[str]) -> int:
     return 0
 
 
+def _consolidate_command(args: list[str]) -> int:
+    """Handle 'rootact consolidate [--paths PATH ...] [--dry-run]'.
+
+    LR:: Identifies near-duplicate modules, previews merges as unified diffs,
+    and queues approved proposals in the handshake registry.
+    """
+    parser = argparse.ArgumentParser(prog="rootact consolidate")
+    parser.add_argument(
+        "--similarity-threshold",
+        type=float,
+        default=ConsolidationScanner.DEFAULT_SIMILARITY,
+        help="Minimum pair similarity to form a candidate (0.0-1.0).",
+    )
+    parser.add_argument(
+        "--merge-threshold",
+        type=float,
+        default=ConsolidationScanner.DEFAULT_MERGE,
+        help="Minimum average linkage to merge clusters (0.0-1.0).",
+    )
+    parser.add_argument(
+        "--max-modules",
+        type=int,
+        default=ConsolidationScanner.DEFAULT_MAX_MODULES,
+        help="Maximum modules to scan.",
+    )
+    parser.add_argument(
+        "--paths",
+        nargs="+",
+        default=None,
+        help="Restrict scan to specific directories or files.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show proposals without enqueueing them.",
+    )
+    parser.add_argument("--project-dir", type=Path, default=Path("."))
+    parsed = parser.parse_args(args)
+
+    if not (0.0 <= parsed.similarity_threshold <= 1.0):
+        print(
+            "[rootact] --similarity-threshold must be between 0.0 and 1.0",
+            file=sys.stderr,
+        )
+        return 1
+    if not (0.0 <= parsed.merge_threshold <= 1.0):
+        print(
+            "[rootact] --merge-threshold must be between 0.0 and 1.0",
+            file=sys.stderr,
+        )
+        return 1
+    if parsed.max_modules < 1:
+        print("[rootact] --max-modules must be >= 1", file=sys.stderr)
+        return 1
+
+    scanner = ConsolidationScanner(parsed.project_dir)
+    result = scanner.scan(
+        similarity_threshold=parsed.similarity_threshold,
+        merge_threshold=parsed.merge_threshold,
+        max_modules=parsed.max_modules,
+        paths=parsed.paths,
+    )
+
+    if not result.proposals:
+        print("No consolidation candidates found.")
+        print(f"Metrics: {result.metrics}")
+        return 0
+
+    print(f"Found {len(result.proposals)} consolidation proposal(s)")
+    print(f"Metrics: {result.metrics}")
+    for proposal in result.proposals:
+        print()
+        print(f"Proposal: merge into {proposal.target}")
+        print(f"Sources: {', '.join(proposal.sources)}")
+        print(f"Safe: {proposal.safe}")
+        if proposal.safety_notes:
+            print("Safety notes:")
+            for note in proposal.safety_notes:
+                print(f"  - {note}")
+        print(proposal.diff)
+
+    if parsed.dry_run:
+        print("\nDry run: no proposals enqueued.")
+        return 0
+
+    ids = scanner.enqueue_proposals(result)
+    print(f"\nEnqueued {len(ids)} proposal(s) for operator review.")
+    print("Use 'rootact handshakes' to inspect and approve.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """RootAct CLI entry point."""
     if argv is None:
@@ -1217,6 +1309,8 @@ def main(argv: list[str] | None = None) -> int:
         return _auction_command(argv[1:])
     if argv and argv[0] == "fence":
         return _fence_command(argv[1:])
+    if argv and argv[0] == "consolidate":
+        return _consolidate_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="rootact",
         description=(
