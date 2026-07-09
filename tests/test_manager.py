@@ -347,4 +347,4 @@ def test_extract_json_balanced_brace_fallback():
     assert _extract_json(text) == {"a": 1}
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

@@ -106,4 +106,4 @@ class TokenBudget:
         return self.used_tokens < self.max_tokens
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

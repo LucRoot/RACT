@@ -487,6 +487,47 @@ def test_scan_project_still_flags_verbatim_duplicates(tmp_path):
     assert result["scores"]["copy.py"]["nearest"] == "original.py"
 
 
+def test_detector_flags_renamed_clone_as_low_novelty(tmp_path):
+    """A module whose identifiers are all renamed but structure is identical scores low."""
+    existing = (
+        "class Rooted:\n"
+        "    def __init__(self, assumption, confidence, provenance):\n"
+        "        self.assumption = assumption\n"
+        "        self.confidence = confidence\n"
+        "        self.provenance = provenance\n"
+        "        self.value = None\n"
+        "\n"
+        "    def bind(self, value):\n"
+        "        self.value = value\n"
+        "        return self\n"
+        "\n"
+        "    def is_ok(self):\n"
+        "        return self.value is not None\n"
+    )
+    renamed_clone = (
+        "class Outcome:\n"
+        "    def __init__(self, claim, certainty, lineage):\n"
+        "        self.claim = claim\n"
+        "        self.certainty = certainty\n"
+        "        self.lineage = lineage\n"
+        "        self.payload = None\n"
+        "\n"
+        "    def set(self, payload):\n"
+        "        self.payload = payload\n"
+        "        return self\n"
+        "\n"
+        "    def success(self):\n"
+        "        return self.payload is not None\n"
+    )
+    (tmp_path / "existing.py").write_text(existing, encoding="utf-8")
+    detector = CompressionNoveltyDetector(tmp_path)
+    score = detector.assess_new_artifact("src/new.py", renamed_clone)
+
+    assert score is not None
+    assert score.verdict == "low"
+    assert score.nearest == "existing.py"
+
+
 def _write_docstring_heavy_project(project_dir: Path) -> None:
     """Create modules where most bytes are prose inside docstrings/comments."""
     prose = (
@@ -652,4 +693,4 @@ def test_executor_routes_low_novelty_to_handshake_queue(tmp_path):
     assert scores[0]["artifact"] == "src/new.py"
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

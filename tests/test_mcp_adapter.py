@@ -12,7 +12,9 @@ import json
 from typing import Any
 from unittest.mock import patch
 
-from rootact.mcp_adapter import McpToolResult, StdioMcpClient
+import httpx
+
+from rootact.mcp_adapter import McpToolResult, SseMcpClient, StdioMcpClient
 from rootact.rooted import Rooted
 
 
@@ -147,4 +149,89 @@ def test_registry_from_config_builds_stdio_clients():
     assert isinstance(registry._servers["fs"], StdioMcpClient)
 
 
-# RACT 0.1.0 - Initial Public Release
+class _FakeSseStream:
+    def __init__(self, lines: list[str]) -> None:
+        self._lines = lines
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def iter_lines(self):
+        return iter(self._lines)
+
+    def raise_for_status(self) -> None:
+        pass
+
+
+def _sse_result(result: dict[str, Any]) -> str:
+    return f"data: {json.dumps({'jsonrpc': '2.0', 'id': 1, 'result': result})}"
+
+
+def test_sse_client_list_tools():
+    client = SseMcpClient("http://localhost:8080/sse")
+    stream = _FakeSseStream(
+        [_sse_result({"tools": [{"name": "read", "description": "x"}]})]
+    )
+    with patch.object(client.client, "stream", return_value=stream):
+        result = client.list_tools()
+    assert result.is_ok()
+    assert result.unwrap() == [{"name": "read", "description": "x"}]
+
+
+def test_sse_client_call_tool():
+    client = SseMcpClient("http://localhost:8080/sse")
+    stream = _FakeSseStream(
+        [_sse_result({"content": [{"type": "text", "text": "ok"}], "isError": False})]
+    )
+    with patch.object(client.client, "stream", return_value=stream):
+        result = client.call_tool("read", {"path": "x.txt"})
+    assert result.is_ok()
+    tool_result = result.unwrap()
+    assert tool_result.tool == "read"
+    assert tool_result.content == [{"type": "text", "text": "ok"}]
+
+
+def test_sse_client_propagates_rpc_error():
+    client = SseMcpClient("http://localhost:8080/sse")
+    stream = _FakeSseStream(
+        [
+            f"data: {json.dumps({'jsonrpc': '2.0', 'id': 1, 'error': {'message': 'boom'}})}"
+        ]
+    )
+    with patch.object(client.client, "stream", return_value=stream):
+        result = client.list_tools()
+    assert not result.is_ok()
+    assert "boom" in (result.error or "")
+
+
+def test_sse_client_http_error():
+    client = SseMcpClient("http://localhost:8080/sse")
+
+    def raise_on_stream(*_args, **_kwargs):
+        raise httpx.ConnectError("down")
+
+    with patch.object(client.client, "stream", side_effect=raise_on_stream):
+        result = client.list_tools()
+    assert not result.is_ok()
+    assert "down" in (result.error or "")
+
+
+def test_registry_from_config_builds_sse_clients():
+    config = {
+        "mcp_servers": {
+            "memory": {
+                "transport": "sse",
+                "url": "http://localhost:8081/sse",
+                "headers": {"Authorization": "Bearer token"},
+            }
+        }
+    }
+    registry = McpToolRegistry.from_config(config)
+    assert "memory" in registry._servers
+    assert isinstance(registry._servers["memory"], SseMcpClient)
+
+
+# RACT 0.1.1 - Trust and tooling

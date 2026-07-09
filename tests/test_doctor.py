@@ -260,4 +260,4 @@ def test_doctor_skill_missing(tmp_path):
     assert "missing_skill" in check.message
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

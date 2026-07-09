@@ -5,8 +5,8 @@
 # https://github.com/boxed/mutmut/issues/397). This script is the fallback for
 # Windows ARM64/x64 hosts that have WSL2 with a Python 3 venv available.
 #
-# Usage from PowerShell or CMD:
-#   wsl -d Ubuntu-24.04 -e bash /mnt/c/Users/rootl/ract-work/scripts/run_mutation_tests_wsl.sh
+# Usage from PowerShell or CMD (replace <distro> and /path/to/repo as needed):
+#   wsl -d <distro> -e bash /path/to/repo/scripts/run_mutation_tests_wsl.sh
 #
 # The script creates a temporary venv inside WSL, installs the project in
 # editable mode, runs mutmut against the core files, and prints the mutation

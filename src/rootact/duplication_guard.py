@@ -14,11 +14,11 @@ the write is blocked and the operator must justify the duplication.
 """
 
 import ast
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from rootact.ast_normalizer import structural_similarity
 from rootact.codebase_historian import CodebaseHistorian
 
 
@@ -85,8 +85,6 @@ class DuplicationGuard:
             # cross-module duplication, not editing an existing file in place.
             for existing in self.historian.symbol_graph.nodes.values():
                 if existing.symbol_type == "module":
-                    continue
-                if existing.name != proposed["name"]:
                     continue
                 if existing.module == module:
                     continue
@@ -160,25 +158,16 @@ class DuplicationGuard:
         return ""
 
     def _source_similarity(self, a: str, b: str) -> float:
-        """Jaccard similarity over lowercase alphanumeric tokens."""
-        tokens_a = set(_tokenize(a))
-        tokens_b = set(_tokenize(b))
-        if not tokens_a and not tokens_b:
-            return 1.0
-        if not tokens_a or not tokens_b:
-            return 0.0
-        intersection = tokens_a & tokens_b
-        union = tokens_a | tokens_b
-        return len(intersection) / len(union)
+        """AST-normalized structural similarity.
 
-
-def _tokenize(text: str) -> list[str]:
-    return [t.lower() for t in _SPLIT_RE.split(text) if t]
+        Identifies duplicates even when all identifiers have been renamed,
+        which token-based similarity cannot do.
+        """
+        return structural_similarity(a, b)
 
 
 def _module_to_path(module: str) -> Path:
     return Path(module.replace(".", "/") + ".py")
 
 
-_SPLIT_RE = re.compile(r"[^a-zA-Z0-9]+")
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

@@ -149,4 +149,4 @@ def test_root_assert_uses_default_score():
     assert result.confidence == 1.0
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

@@ -35,4 +35,4 @@ def test_update_status_unknown_raises(tmp_path):
         registry.update_status("missing", "approved")
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

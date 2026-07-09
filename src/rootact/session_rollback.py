@@ -102,4 +102,4 @@ class SessionRollback:
         return [p.stem for p in self.snapshot_dir.glob("*.json") if p.is_file()]
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

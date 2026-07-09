@@ -86,4 +86,4 @@ def test_harness_streaming_collects_and_calls_callback(tmp_path):
     assert received == ["abc", "def"]
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

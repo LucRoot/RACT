@@ -212,4 +212,4 @@ def test_rename_symbol_skips_missing_reference_node(tmp_path):
     assert any(e.new_text == "assist" for e in edits)
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

@@ -168,4 +168,4 @@ def test_cli_skills_marketplace_install(tmp_path: Path) -> None:
     assert (project_dir / "skills" / "demo.json").is_file()
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

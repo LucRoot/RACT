@@ -65,4 +65,4 @@ def test_default_config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert validator.is_valid() is True
 
 
-# RACT 0.1.0 - Initial Public Release
+# RACT 0.1.1 - Trust and tooling

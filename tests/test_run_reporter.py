@@ -147,4 +147,37 @@ def test_render_last_loop_json_includes_metrics(tmp_path: Path):
     assert payload["iterations"][0]["metrics"]["total_tokens"] == 10
 
 
-# RACT 0.1.0 - Initial Public Release
+def test_render_last_loop_falls_back_to_latest_session(tmp_path: Path):
+    sessions_dir = tmp_path / ".rootact" / "sessions"
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+    report = {
+        "intent": "fallback session",
+        "plan": {"assumption": "ok", "confidence": 0.9},
+        "outcomes": ["write src/bar.py -> src/bar.py"],
+    }
+    (sessions_dir / "latest.json").write_text(json.dumps(report), encoding="utf-8")
+    text = RunReporter(tmp_path).render_last_loop()
+    assert "No loop report found" in text
+    assert "fallback session" in text
+    assert "write src/bar.py" in text
+
+
+def test_latest_session_id_picks_most_recent(tmp_path: Path):
+    sessions_dir = tmp_path / ".rootact" / "sessions"
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+    (sessions_dir / "older.json").write_text(
+        json.dumps({"intent": "old"}), encoding="utf-8"
+    )
+    (sessions_dir / "newer.json").write_text(
+        json.dumps({"intent": "new"}), encoding="utf-8"
+    )
+    # Ensure distinct mtimes on filesystems that cache quickly.
+    import time
+
+    time.sleep(0.01)
+    (sessions_dir / "newer.json").touch()
+    reporter = RunReporter(tmp_path)
+    assert reporter._latest_session_id() == "newer"
+
+
+# RACT 0.1.1 - Trust and tooling
