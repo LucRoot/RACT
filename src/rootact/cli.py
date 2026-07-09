@@ -806,6 +806,77 @@ def _novelty_command(args: list[str]) -> int:
     return 0
 
 
+def _coverage_command(args: list[str]) -> int:
+    """Handle 'rootact coverage delta [--run] [--before <path>] [--after <path>] [--config <path>]'.
+
+    LR:: Exposes the earned-coverage gate. Without arguments it compares two
+    existing pytest-cov JSON reports. With --run it captures before/after
+    snapshots by invoking pytest directly.
+    """
+    parser = argparse.ArgumentParser(prog="rootact coverage")
+    parser.add_argument(
+        "action",
+        choices=["delta"],
+        help="Coverage action to perform.",
+    )
+    parser.add_argument(
+        "--run",
+        dest="run_snapshot",
+        action="store_true",
+        help="Run pytest twice and compute the delta directly.",
+    )
+    parser.add_argument(
+        "--before", type=Path, help="Path to a pytest-cov coverage.json (before)."
+    )
+    parser.add_argument(
+        "--after", type=Path, help="Path to a pytest-cov coverage.json (after)."
+    )
+    parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    parsed = parser.parse_args(args)
+
+    from rootact.coverage_delta import (
+        compute_delta,
+        gate,
+        read_snapshot,
+    )
+
+    project_dir = parsed.config.parent.resolve()
+
+    if parsed.run_snapshot:
+        delta_rooted = gate(project_dir)
+        if not delta_rooted.is_ok():
+            print(
+                f"[rootact] coverage gate failed: {delta_rooted.error}", file=sys.stderr
+            )
+            return 1
+        delta = delta_rooted.unwrap()
+    else:
+        if parsed.before is None or parsed.after is None:
+            print(
+                "[rootact] coverage delta requires --before and --after, or --run.",
+                file=sys.stderr,
+            )
+            return 1
+        before_rooted = read_snapshot(parsed.before)
+        if not before_rooted.is_ok():
+            print(
+                f"[rootact] failed to read before snapshot: {before_rooted.error}",
+                file=sys.stderr,
+            )
+            return 1
+        after_rooted = read_snapshot(parsed.after)
+        if not after_rooted.is_ok():
+            print(
+                f"[rootact] failed to read after snapshot: {after_rooted.error}",
+                file=sys.stderr,
+            )
+            return 1
+        delta = compute_delta(before_rooted.unwrap(), after_rooted.unwrap())
+
+    print(delta)
+    return 0 if delta.verdict == "earn" else 1
+
+
 def _whisper_command(args: list[str]) -> int:
     """Handle 'rootact whisper --intent <text> [--paths p1,p2] [--config <path>]'.
 
@@ -1070,6 +1141,8 @@ def main(argv: list[str] | None = None) -> int:
         return _load_bearing_command(argv[1:])
     if argv and argv[0] == "novelty":
         return _novelty_command(argv[1:])
+    if argv and argv[0] == "coverage":
+        return _coverage_command(argv[1:])
     if argv and argv[0] == "whisper":
         return _whisper_command(argv[1:])
     if argv and argv[0] == "auction":
