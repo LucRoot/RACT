@@ -191,12 +191,12 @@ def test_detector_scores_high_novelty_for_novel_python(tmp_path):
         "        self.log = []\n"
         "        self.commit_index = 0\n"
         "        self.last_applied = 0\n"
-        "        self.state = \"follower\"\n"
+        '        self.state = "follower"\n'
         "\n"
         "    def request_vote(self, candidate_id, term, last_log_index, last_log_term):\n"
         "        if term > self.current_term:\n"
         "            self.current_term = term\n"
-        "            self.state = \"follower\"\n"
+        '            self.state = "follower"\n'
         "            self.voted_for = None\n"
         "        if term < self.current_term:\n"
         "            return False\n"

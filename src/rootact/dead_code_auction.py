@@ -73,9 +73,7 @@ class DeadCodeAuction:
             self.config.get("include_tests", self.DEFAULT_INCLUDE_TESTS)
         )
         self.ignore_dirs = set(self.config.get("ignore_dirs", self.IGNORE_DIRS))
-        self.allowlist = set(
-            self.config.get("allowlist", self.DEFAULT_ALLOWLIST)
-        )
+        self.allowlist = set(self.config.get("allowlist", self.DEFAULT_ALLOWLIST))
 
     def _should_skip_dir(self, path: Path) -> bool:
         return any(part in self.ignore_dirs for part in path.parts)
@@ -115,7 +113,9 @@ class DeadCodeAuction:
             if node.module != module:
                 continue
             for src in node.incoming:
-                src_module = src.rsplit(":", 1)[0] if ":" in src else src.rsplit(".", 1)[0]
+                src_module = (
+                    src.rsplit(":", 1)[0] if ":" in src else src.rsplit(".", 1)[0]
+                )
                 if src_module != module:
                     count += 1
         return count

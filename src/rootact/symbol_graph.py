@@ -182,9 +182,7 @@ class SymbolGraph:
 
         self._imports[module] = imports
 
-    def _resolve_import_from(
-        self, module: str, node: ast.ImportFrom
-    ) -> str | None:
+    def _resolve_import_from(self, module: str, node: ast.ImportFrom) -> str | None:
         """Return the fully-qualified module an ImportFrom refers to."""
         level = node.level or 0
         name = node.module
