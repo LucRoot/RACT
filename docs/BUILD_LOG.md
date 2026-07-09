@@ -1349,3 +1349,28 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Continue awaiting the targeted `executor.py` mutation run. Once it completes, update the leaderboard with the score and then calibrate the per-file mutation floor.
+
+## 2026-07-09 — Loop pass: 100% coverage for token_budget.py
+
+**What changed**
+- Added `test_omitted_before_select_triggers_finalize` to `tests/test_token_budget.py` to cover the `finalize()` path on line 93 of `src/rootact/token_budget.py`.
+- Ran `ruff format tests/test_token_budget.py`.
+
+**Why**
+- `token_budget.py` had one uncovered line left; closing it makes the file a clean 100% and proves the budget finalization edge case behaves correctly when `before_select` is omitted.
+
+**Test/lint/type result**
+- `pytest tests/test_token_budget.py -q`: 9 passed, 100% file coverage.
+- `pytest -q`: 991 passed, 1 skipped, 91% overall coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+- `mypy src`: clean.
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file src/rootact/rooted.py`: clean.
+
+**Coverage impact**
+- `src/rootact/token_budget.py`: 98% → 100%.
+
+**Next action**
+- Poll the targeted `executor.py` mutation run; once it finishes, read the final score, update `docs/PUBLIC_LEADERBOARD.md`, and decide on per-file mutation floors.
