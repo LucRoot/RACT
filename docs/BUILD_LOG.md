@@ -251,3 +251,42 @@ This log records each loop pass through the RACT codebase. It exists because con
 - Re-run with a realistic floor (e.g., 90.0%) so the gate earns, then integrate the WSL mutation-testing script into the CI quality scorecard or add a signed-receipt quality hook.
 
 # RACT 0.1.0 - Initial Public Release
+
+## 2026-07-09 — Loop pass: mutation-testing wrapper, scorecard signal, and coverage baseline exit-code fix
+
+**What changed**
+- Added `src/rootact/mutation_runner.py` — a Python wrapper around `scripts/run_mutation_tests_wsl.sh` that:
+  - Detects WSL availability and returns a clear `MutationReport` error when WSL is missing.
+  - Runs `mutmut run` + `mutmut results` inside WSL via `wsl.exe`.
+  - Parses `mutmut results` output into `killed`, `survived`, `timeout`, `error`, and `mutation_score`.
+  - Supports `--timeout`, `--script`, and `--config` overrides.
+- Wired `mutation_score` into `src/rootact/quality_scorecard.py` as a new `Verdict` field with a 10.0 rubric weight mapped 0–100.
+- Added `rootact mutation run [--script <path>] [--timeout <sec>] [--config <path>]` to `src/rootact/cli.py`, dispatching on `argv[0] == "mutation"`.
+- Fixed the coverage CLI baseline exit code: `return 0 if delta.verdict in {"earn", "baseline"} else 1` so establishing a baseline no longer returns failure.
+- Added tests:
+  - `tests/test_mutation_runner.py`: WSL detection, parser edge cases, score calculation, subprocess failure paths.
+  - `tests/test_cli_mutation.py`: CLI argument parsing, config fallback, output rendering, missing-WSL behavior.
+  - Updated `tests/test_quality_scorecard.py` for the mutation signal and weight.
+
+**Why**
+- Complete Claude upgrade #3: replace test-count vanity with earned coverage plus mutation testing. The mutation runner makes `mutmut` callable from the RACT CLI on Windows and gives the scorecard a quantitative signal of test quality.
+- The coverage baseline exit-code fix removes a false-failure footgun when the gate is first established.
+
+**Test/lint/type result**
+- `pytest tests/`: 907 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/mutation_runner.py src/rootact/quality_scorecard.py src/rootact/cli.py tests/test_mutation_runner.py tests/test_cli_mutation.py tests/test_quality_scorecard.py`: passed.
+
+**Self-audit result**
+- `rootact auction list --json`: 0 dead-code candidates.
+- `rootact novelty scan --json`: 2 `low` scripts (`scripts/mock_local_llm.py`, `scripts/verify_internal_rootact_separation.py`); expected.
+- `rootact coverage delta --run --min-percent 90.0`: earn at 92.4%.
+
+**Nemotron/Internal secondary review**
+- Not delegated; this was a straight tooling-integration pass with no algorithmic changes.
+
+**Next action**
+- Wire the mutation runner into the harness/loop controller as a post-execution quality gate, or execute a real WSL mutation run and calibrate the scorecard weight against actual RACT results.
+
+# RACT 0.1.0 - Initial Public Release

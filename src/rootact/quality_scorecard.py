@@ -33,12 +33,13 @@ class Verdict:
     error_mask_count: int = 0
     duplication_similarity: float = 0.0
     gravity_adherence: float = 1.0
+    mutation_score: float = 0.0
 
 
 class QualityScorecard:
     """Deterministic scorecard for plan quality and anti-rot verifier scoring."""
 
-    # Anti-rot verifier rubric v0.3 weights.
+    # Anti-rot verifier rubric v0.4 weights.
     RUBRIC_WEIGHTS: dict[str, float] = {
         "build_passes": 20.0,
         "tests_pass": 20.0,
@@ -50,6 +51,7 @@ class QualityScorecard:
         "error_mask_patterns": -30.0,
         "duplication_guard": -20.0,
         "codebase_gravity": 5.0,
+        "mutation_score": 10.0,
     }
     DEFAULT_THRESHOLD: float = 85.0
 
@@ -123,6 +125,13 @@ class QualityScorecard:
             2,
         )
 
+        # Mutation score: 0-100 scale mapped to the rubric weight.
+        signals["mutation_score"] = round(
+            weights["mutation_score"]
+            * max(0.0, min(1.0, verdict.mutation_score / 100.0)),
+            2,
+        )
+
         total = round(sum(signals.values()), 2)
         passed = total >= self.threshold
 
@@ -142,6 +151,7 @@ class QualityScorecard:
                 "error_mask_count": verdict.error_mask_count,
                 "duplication_similarity": verdict.duplication_similarity,
                 "gravity_adherence": verdict.gravity_adherence,
+                "mutation_score": verdict.mutation_score,
             },
         }
 

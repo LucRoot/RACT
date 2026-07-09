@@ -146,10 +146,30 @@ def test_verdict_all_passes_reaches_threshold():
         error_mask_count=0,
         duplication_similarity=0.0,
         gravity_adherence=1.0,
+        mutation_score=100.0,
     )
     result = scorecard.score_verdict(verdict)
     assert result["passed"] is True
-    assert result["total"] == 90.0
+    assert result["total"] == 100.0
+
+
+def test_mutation_score_scaled_to_weight():
+    scorecard = QualityScorecard()
+    verdict = Verdict(
+        build_passes=True,
+        tests_pass=True,
+        lint_clean=True,
+        imports_resolve=True,
+        diff_minimal=True,
+        no_secrets=True,
+        net_entropy_change=0.0,
+        error_mask_count=0,
+        duplication_similarity=0.0,
+        gravity_adherence=1.0,
+        mutation_score=50.0,
+    )
+    result = scorecard.score_verdict(verdict)
+    assert result["signals"]["mutation_score"] == 5.0
 
 
 def test_verdict_failing_tests_fails():
