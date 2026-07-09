@@ -28,9 +28,13 @@ Thank you for considering a contribution to RACT.
 
 Before we can merge your pull request, you must sign the Contributor License Agreement (CLA). The CLA ensures that contributions can be distributed under RACT's license.
 
+- **Read the CLA:** [`CLA.md`](CLA.md)
 - **Sign the CLA:** https://cla-assistant.io/LucRoot/RACT
 
 If you have questions about the CLA, email info@lucasroot.com.
+
+When configuring cla-assistant.io, use the raw URL of `CLA.md`:
+`https://raw.githubusercontent.com/LucRoot/RACT/main/CLA.md`
 
 ## License
 
