@@ -11,6 +11,15 @@
 # The script creates a temporary venv inside WSL, installs the project in
 # editable mode, runs mutmut against the core files, and prints the mutation
 # score.
+#
+# Environment variables:
+#   RACT_MUTATION_TARGETS  comma-separated paths to mutate (default: four core files)
+#   RACT_TEST_RUNNER       command used by mutmut to check each mutant (default: auto)
+#
+# When RACT_TEST_RUNNER is not set, the script tries to run only the test file
+# that matches a single mutation target (src/rootact/foo.py -> tests/test_foo.py)
+# to keep mutant checking fast. For multiple targets it falls back to the full
+# suite, which is slow but safe.
 
 set -uo pipefail
 
@@ -25,6 +34,27 @@ VENV_DIR="${HOME}/.cache/ract-mutmut-venv"
 # cache corruption on the Windows 9P mount and prevents mutmut's source-mtime
 # checks from clearing the cache between "run" and "results".
 WORK_DIR="/tmp/ract-mutmut-src"
+
+MUTATION_TARGETS="${RACT_MUTATION_TARGETS:-src/rootact/executor.py,src/rootact/loop_controller.py,src/rootact/harness.py,src/rootact/cli.py}"
+
+# Determine the test runner. Prefer a user override, then a single matching
+# test file, then fall back to the full suite.
+if [[ -n "${RACT_TEST_RUNNER:-}" ]]; then
+    TEST_RUNNER="$RACT_TEST_RUNNER"
+else
+    # Count targets by checking for commas.
+    if [[ "$MUTATION_TARGETS" != *,* ]]; then
+        target_basename="$(basename "$MUTATION_TARGETS" .py)"
+        matching_test="tests/test_${target_basename}.py"
+        if [[ -f "$matching_test" ]]; then
+            TEST_RUNNER="python3 -m pytest ${matching_test} -q"
+        else
+            TEST_RUNNER="python3 -m pytest tests/ -q"
+        fi
+    else
+        TEST_RUNNER="python3 -m pytest tests/ -q"
+    fi
+fi
 
 cd "$REPO_ROOT"
 
@@ -41,15 +71,25 @@ cd "$WORK_DIR"
 
 source "$VENV_DIR/bin/activate"
 pip install --quiet --upgrade pip
-pip install --quiet -e "$WORK_DIR[dev]"
+# Remove any stale editable install so the fresh install cannot inherit old
+# metadata or source paths from previous runs.
+pip uninstall -y rootact >/dev/null 2>&1 || true
+pip install --quiet --force-reinstall --no-deps -e "$WORK_DIR[dev]"
 # Pin to mutmut 2.x because 3.x removed the --paths-to-mutate and --runner CLI
 # flags and requires pyproject.toml configuration. The 2.x CLI is easier to
 # drive from a standalone shell script.
 pip install --quiet "mutmut==2.4.5"
 
+export PYTHONUNBUFFERED=1
+
+echo ""
+echo "=== Running mutation tests on: $MUTATION_TARGETS ==="
+echo "=== Test runner: $TEST_RUNNER ==="
+echo ""
+
 python3 -m mutmut run \
-    --paths-to-mutate "src/rootact/executor.py,src/rootact/loop_controller.py,src/rootact/harness.py,src/rootact/cli.py" \
-    --runner "python3 -m pytest tests/ -q" || true
+    --paths-to-mutate "$MUTATION_TARGETS" \
+    --runner "$TEST_RUNNER" || true
 
 echo ""
 echo "=== Mutation testing complete ==="
