@@ -50,7 +50,6 @@ RootAct is a standalone, model-agnostic Agentic Coding Tool. It turns user inten
 | `HarnessReportEnricher` | `src/rootact/harness_report_enricher.py` | Wraps `Harness.run` to enrich successful reports with diff/summary. |
 | `ArtifactStore` / `ArtifactTracker` | `src/rootact/artifact_store.py`, `artifact_tracker.py` | Artifact persistence and change tracking. |
 | `ProvenanceTracker` | `src/rootact/provenance_tracker.py` | Tracks where decisions and artifacts came from. |
-| `ObservabilitySink` | `src/rootact/observability_sink.py` | Structured event logging. |
 | `RunReporter` | `src/rootact/run_reporter.py` | Summarizes loop/session runs for `rootact report`. |
 
 ## User Customization
@@ -62,7 +61,6 @@ RootAct is a standalone, model-agnostic Agentic Coding Tool. It turns user inten
 | `SignatureRegistry` | `src/rootact/user_signature_registry.py` | Store and apply personal author signatures and coding quirks. |
 | `SignatureGuardian` | `src/rootact/signature_guardian.py` | Verify signature marker integrity across the source tree. |
 | `HookManager` | `src/rootact/hook_system.py` | Pre/post-step user-defined hooks. |
-| `DocumentationMode` | `src/rootact/documentation_mode.py` | Documentation-first execution mode; rewrites intent when enabled. |
 | `GitMode` | `src/rootact/git_mode.py` | Git-aware execution mode; stages/commits artifacts after success. |
 | `CliToggles` / `RunMode` | `src/rootact/cli_toggles.py`, `run_mode.py` | CLI/IDE parity toggles (`yolo`, `auto`, `reload`, sessions). |
 | `RootActRunner` mode dispatch | `src/rootact/rootact_runner.py` | Validates `--mode` and forwards it to the harness. |
@@ -73,7 +71,7 @@ RootAct is a standalone, model-agnostic Agentic Coding Tool. It turns user inten
 | Module | File | Responsibility |
 |--------|------|----------------|
 | `PlanValidator` | `src/rootact/plan_validator.py` | Structural and semantic plan checks. |
-| `PlanAnalyzer` / `PlanInspector` | `src/rootact/plan_analyzer.py`, `plan_inspector.py` | Plan introspection and risk assessment. |
+| `PlanAnalyzer` | `src/rootact/plan_analyzer.py` | Plan introspection and risk assessment. |
 | `DependencyGraph` | `src/rootact/dependency_graph.py` | Dependency-aware ordering. |
 | `Edge-case builders` | `src/rootact/edge_case_*.py`, `automated_test_case_generation_for_edge_cases.py` | Fixture generation, validation, and execution helpers. |
 
