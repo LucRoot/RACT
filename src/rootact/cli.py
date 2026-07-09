@@ -29,6 +29,7 @@ from rootact.load_bearing_guard import LoadBearingGuard
 from rootact.loop_controller import LoopController
 from rootact.loop_planner import LoopPlanner
 from rootact.mcp_adapter import McpToolRegistry
+from rootact.mutation_runner import run_mutation_tests
 from rootact.providers.router import ProviderRouter
 from rootact.openapi_client_generator import OpenApiClientGenerator
 from rootact.doctor import RactDoctor
@@ -885,7 +886,53 @@ def _coverage_command(args: list[str]) -> int:
         )
 
     print(delta)
-    return 0 if delta.verdict == "earn" else 1
+    return 0 if delta.verdict in {"earn", "baseline"} else 1
+
+
+def _mutation_command(args: list[str]) -> int:
+    """Handle 'rootact mutation run [--script <path>] [--timeout <sec>] [--config <path>]'.
+
+    LR:: Wraps the WSL mutation-testing script and prints a structured mutation
+    score. This makes mutation testing accessible from the main CLI instead of
+    requiring a manual WSL invocation.
+    """
+    parser = argparse.ArgumentParser(prog="rootact mutation")
+    parser.add_argument(
+        "action",
+        choices=["run"],
+        help="Mutation action to perform.",
+    )
+    parser.add_argument(
+        "--script",
+        dest="script_path",
+        type=Path,
+        default=None,
+        help="Path to a mutmut-compatible runner script.",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=900.0,
+        help="Maximum seconds to wait for the mutation run.",
+    )
+    parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    parsed = parser.parse_args(args)
+
+    project_dir = parsed.config.parent.resolve()
+    report_rooted = run_mutation_tests(
+        project_dir,
+        script_path=parsed.script_path,
+        timeout=parsed.timeout,
+    )
+    if not report_rooted.is_ok():
+        print(
+            f"[rootact] mutation testing failed: {report_rooted.error}",
+            file=sys.stderr,
+        )
+        return 1
+    report = report_rooted.unwrap()
+    print(report)
+    return 0
 
 
 def _whisper_command(args: list[str]) -> int:
@@ -1154,6 +1201,8 @@ def main(argv: list[str] | None = None) -> int:
         return _novelty_command(argv[1:])
     if argv and argv[0] == "coverage":
         return _coverage_command(argv[1:])
+    if argv and argv[0] == "mutation":
+        return _mutation_command(argv[1:])
     if argv and argv[0] == "whisper":
         return _whisper_command(argv[1:])
     if argv and argv[0] == "auction":
