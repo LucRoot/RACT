@@ -1,0 +1,32 @@
+# Enforce LF line endings for source, config, and shell scripts so the project
+# behaves identically on Windows (Git Bash), WSL, macOS, and Linux.
+*.sh text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+
+# Treat common build/test artifacts as binary so Git never tries to convert them.
+*.exe -text
+*.dll -text
+*.so -text
+*.dylib -text
+*.db -text
+*.sqlite -text
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.ico -text
+*.pdf -text
+*.zip -text
+*.tar -text
+*.gz -text
+*.whl -text
+*.pyc -text
+*.pyo -text

@@ -601,3 +601,27 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for `bash-bh0al1nz` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
+
+## 2026-07-09 — Loop pass: add `.gitattributes` for cross-platform line endings
+
+**What changed**
+- Added `.gitattributes` with explicit `text eol=lf` rules for shell scripts, Python, Markdown, JSON, YAML, TOML, and config files.
+- Added `-text` rules for common binary artifacts (executables, shared libraries, images, archives, wheels, bytecode).
+
+**Why**
+- `install.sh` failed `bash -n` under WSL because it had CRLF line endings. A `.gitattributes` rule prevents the problem from recurring on checkout and makes the repo behave identically across Windows, WSL, macOS, and Linux.
+
+**Test/lint/type result**
+- `pytest tests/`: 922 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Audit result**
+- `rootact auction list --json`: 0 dead-code candidates.
+- `rootact fence inspect --file src/rootact/executor.py`: failed with HTTP 401 because no API key is configured for the fence provider. This is a configuration gap, not a code bug; the next loop pass should wire a local provider or skip the fence audit until credentials are available.
+
+**Nemotron secondary review**
+- Nemotron reviewed the `.gitattributes` draft and flagged the need for explicit binary patterns, which were added.
+
+**Next action**
+- Wait for the current WSL mutation run (`bash-bh0al1nz`) to complete, then calibrate the mutation gate from the score.
