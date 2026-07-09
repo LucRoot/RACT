@@ -148,10 +148,9 @@ def test_resolve_runner_command_uses_provided_distro(monkeypatch):
     monkeypatch.setattr("sys.platform", "win32")
     from rootact.mutation_runner import _resolve_runner_command
 
-    script = Path("/tmp/script.sh")
+    script = Path("C:/tmp/script.sh")
     cmd = _resolve_runner_command(script, wsl_distro="Ubuntu-24.04")
-    assert cmd[:5] == ["wsl", "-d", "Ubuntu-24.04", "-e", "bash"]
-    assert cmd[5] == str(script)
+    assert cmd == ["wsl", "-d", "Ubuntu-24.04", "-e", "bash", "/mnt/c/tmp/script.sh"]
 
 
 def test_detect_wsl_distro_prefers_env(monkeypatch):
@@ -207,6 +206,32 @@ def test_detect_wsl_distro_returns_none_on_failure(monkeypatch):
     from rootact.mutation_runner import _detect_wsl_distro
 
     assert _detect_wsl_distro() is None
+
+
+def test_to_wsl_path_converts_windows_absolute():
+    from rootact.mutation_runner import _to_wsl_path
+
+    assert (
+        _to_wsl_path(Path("C:/Users/rootl/ract-work/scripts/run.sh"))
+        == "/mnt/c/Users/rootl/ract-work/scripts/run.sh"
+    )
+
+
+def test_to_wsl_path_converts_windows_backslash():
+    from rootact.mutation_runner import _to_wsl_path
+
+    assert (
+        _to_wsl_path(Path("C:\\Users\\rootl\\ract-work\\scripts\\run.sh"))
+        == "/mnt/c/Users/rootl/ract-work/scripts/run.sh"
+    )
+
+
+def test_to_wsl_path_leaves_unix_path_unchanged():
+    from rootact.mutation_runner import _to_wsl_path
+
+    assert (
+        _to_wsl_path(Path("/home/user/project/run.sh")) == "/home/user/project/run.sh"
+    )
 
 
 # RACT 0.1.0 - Initial Public Release
