@@ -26,6 +26,7 @@ from rootact.diff_applier import DiffApplier
 from rootact.duplication_guard import DuplicationGuard
 from rootact.executor import ExecutionReport, Executor
 from rootact.git_mode import GitMode
+from rootact.handshake_registry import HandshakeRegistry
 from rootact.hook_system import HookManager
 from rootact.legacy_whisperer import LegacyWhisperer
 from rootact.manager import Manager, Plan, Step
@@ -284,6 +285,9 @@ class Harness:
             self.compression_novelty_detector = CompressionNoveltyDetector(
                 self.project_dir
             )
+        self.handshake_registry = None
+        if self.project_dir is not None:
+            self.handshake_registry = HandshakeRegistry(self.project_dir)
         self.executor = Executor(
             self.router,
             hook_manager=self.hook_manager,
@@ -298,6 +302,7 @@ class Harness:
             novelty_budget=self.novelty_budget,
             allow_novelty_overrun=allow_novelty_overrun,
             compression_novelty_detector=self.compression_novelty_detector,
+            handshake_registry=self.handshake_registry,
         )
 
     @classmethod
