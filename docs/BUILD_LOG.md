@@ -714,3 +714,19 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for `bash-giojueh6` to complete and capture the mutation score. Then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
+
+## 2026-07-09 — Loop pass: add CI coverage gate at 90%
+
+**What changed**
+- `.github/workflows/ci.yml`: added a `coverage-gate` job on `ubuntu-latest` / Python 3.12 that runs `pytest -q --cov-fail-under=90`.
+
+**Why**
+- The project already sits at 92% coverage, but CI did not enforce a floor. A coverage gate prevents coverage regression and makes the badge meaningful.
+
+**Test/lint/type result**
+- `pytest -q --cov-fail-under=90`: 922 passed, 1 skipped, 92.38% coverage, gate passed.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Next action**
+- Wait for the current WSL mutation run (`bash-giojueh6`) to complete, then calibrate the mutation gate from the score.
