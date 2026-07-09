@@ -144,4 +144,35 @@ def test_ract_auction_reports_zero_dead_modules():
     assert items == [], f"dead-code auction found: {[i.relative_path for i in items]}"
 
 
+def test_auction_discriminates_dead_from_live_in_src_layout(tmp_path: Path):
+    """Two-sided gate: auction flags only the unreferenced module."""
+    src = tmp_path / "src" / "pkg"
+    src.mkdir(parents=True)
+    (src / "__init__.py").write_text("", encoding="utf-8")
+
+    live = src / "live.py"
+    live.write_text("def helper():\n    pass\n", encoding="utf-8")
+    _set_old_mtime(live)
+
+    dead = src / "dead.py"
+    dead.write_text("def unused():\n    pass\n", encoding="utf-8")
+    _set_old_mtime(dead)
+
+    user = src / "main.py"
+    user.write_text(
+        "from pkg.live import helper\ndef run():\n    helper()\n",
+        encoding="utf-8",
+    )
+    _set_old_mtime(user, days=10)
+
+    items = DeadCodeAuction(
+        tmp_path,
+        config={"min_age_days": 0, "allowlist": {"main.py"}},
+    ).scan()
+    paths = [item.relative_path.replace("\\", "/") for item in items]
+    assert "src/pkg/dead.py" in paths, paths
+    assert "src/pkg/live.py" not in paths, paths
+    assert "src/pkg/main.py" not in paths, paths
+
+
 # RACT 0.1.0 - Initial Public Release

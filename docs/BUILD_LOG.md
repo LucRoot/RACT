@@ -50,6 +50,34 @@ This log records each loop pass through the RACT codebase. It exists because con
 - `rootact fence inspect`: still blocked by local provider HTTP 401.
 
 **Next action**
-- Fix `rootact novelty scan` to use leave-one-out dictionary training (or otherwise distinguish existing files from proposed duplicates). Then diagnose Internal/local auth so fence/whisper can complete end-to-end.
+- Fix the symbol graph prefix mismatch that caused the dead-code auction to flag 76 of 77 modules as dead.
+
+## 2026-07-09 — Loop pass: fix symbol graph prefix mismatch and auction calibration
+
+**What changed**
+- Fixed `SymbolGraph._detect_package_root` so it recognizes when `project_dir` is already inside `src/<pkg>` (or a flat `<pkg>` layout), not only when `project_dir` is the repo root containing `src/<pkg>`.
+- Added `SymbolGraph.module_id_for_path()` and updated `DeadCodeAuction._module_for_file()` to use the graph's own module namespace. This keeps file paths and graph module ids consistent.
+- Replaced the package-stripping `_relative_module_from_import` with `_resolve_imported_module` and `_is_project_import` that accept both package-prefixed absolute imports and relative imports inside the package.
+- Added `test_src_layout_cross_module_reference`, `test_ract_repo_has_cross_module_edges`, and `test_auction_discriminates_dead_from_live_in_src_layout` to prevent regression.
+- Fixed the contradictory novelty assumption string in `executor.py`: it now says the artifact is "not structurally novel" and a "near-duplicate" instead of "structurally novel."
+- Ran `ruff format` to clean the format regression.
+
+**Why**
+- Claude's re-audit found the symbol graph produced only **3 cross-module edges** in RACT instead of hundreds. Node keys were `src.rootact.X` while import resolution returned `rootact.X` or `providers.X`, so `_is_project_import` returned False for every real internal import. The auction then flagged 76 of 77 source modules as dead code, including `executor.py` and `providers/router.py`.
+
+**Test/lint/type result**
+- `pytest tests/`: 876 passed, 1 skipped, 93% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy`: passed on changed files.
+
+**Self-audit result**
+- `rootact doctor`: all checks passed.
+- `rootact novelty scan`: 85 of 175 files still scored `low` because existing files compress well against the codebase dictionary. This remains a known limitation; leave-one-out training is the proper fix.
+- `rootact auction list`: **0 dead-code candidates** on RACT itself.
+- Injected-dead-module probe (via new unit test): flags only the dead module, not the live one.
+
+**Next action**
+- Fix `rootact novelty scan` false positives with leave-one-out dictionary training, then continue the launch-gap backlog (demo asciicast, HF Space page, mutation-testing gate).
 
 # RACT 0.1.0 - Initial Public Release
