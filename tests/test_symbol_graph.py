@@ -155,7 +155,9 @@ def test_resolve_name_uses_import_bindings(tmp_path):
 
 def test_builtin_name_collision_stays_dead(tmp_path):
     """A builtin call must not resolve to an unrelated project symbol."""
-    (tmp_path / "all.py").write_text("def all(items):\n    return True\n", encoding="utf-8")
+    (tmp_path / "all.py").write_text(
+        "def all(items):\n    return True\n", encoding="utf-8"
+    )
     (tmp_path / "main.py").write_text(
         "def run():\n    return all([1, 2, 3])\n", encoding="utf-8"
     )

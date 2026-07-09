@@ -6,6 +6,11 @@
 
 **Model-agnostic, local-first agentic coding with signed receipts and an anti-rot verifier arsenal.**
 
+![RootAct CI](https://github.com/LucRoot/RACT/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)
+![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
+![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
+
 A 2024 analysis of **623 million commits** by GitClear and GitKraken found that AI-assisted code is already rotting codebases: more copy/paste, less refactoring, and a measurable decline in code movement. RACT is the first agentic coding tool built to measure and defend against the four rot vectors that research identified — duplication, drift, dead code, and undocumented load-bearing logic.
 
 RACT keeps the human in the loop while a small management LM routes work to the right provider. Every plan and every result is `Rooted[T]` — it carries the assumption, confidence, and provenance that justify it. Every generated file carries the **Root Knot** (`_ROOT_KNOT = object()`), so unsigned drift breaks the loop instead of compounding.

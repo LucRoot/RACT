@@ -226,16 +226,12 @@ class CompressionNoveltyDetector:
         if nn_ratio is not None and nn_ratio <= self.LOW_NEIGHBOR_THRESHOLD:
             verdict = "low"
             detail = (
-                "matches an existing module's structure closely; "
-                "possible duplication"
+                "matches an existing module's structure closely; possible duplication"
             )
             final_ratio = nn_ratio
         elif nn_ratio is not None and nn_ratio >= self.HIGH_NEIGHBOR_THRESHOLD:
             verdict = "high"
-            detail = (
-                "structurally unlike any existing module; "
-                "genuinely novel or wrong"
-            )
+            detail = "structurally unlike any existing module; genuinely novel or wrong"
             final_ratio = nn_ratio
         elif score.ratio <= self.LOW_NOVELTY_THRESHOLD:
             verdict = "low"
@@ -244,8 +240,7 @@ class CompressionNoveltyDetector:
         elif score.ratio >= self.HIGH_NOVELTY_THRESHOLD:
             verdict = "high"
             detail = (
-                "compresses poorly with codebase dictionary; "
-                "genuinely novel or wrong"
+                "compresses poorly with codebase dictionary; genuinely novel or wrong"
             )
             final_ratio = score.ratio
         else:
@@ -293,7 +288,9 @@ class CompressionNoveltyDetector:
         if not content_bytes:
             return None
         existing_with_dict = self._compress_with_dict(existing_bytes)
-        combined_with_dict = self._compress_with_dict(existing_bytes + b"\n" + content_bytes)
+        combined_with_dict = self._compress_with_dict(
+            existing_bytes + b"\n" + content_bytes
+        )
         content_without_dict = self._compress_without_dict(content_bytes)
         if content_without_dict == 0:
             return None
@@ -334,14 +331,18 @@ class CompressionNoveltyDetector:
                 best_path = rel
         return best_path, best_ratio
 
-    def nearest_similar_artifact(self, content: str, exclude: set[str] | None = None) -> str | None:
+    def nearest_similar_artifact(
+        self, content: str, exclude: set[str] | None = None
+    ) -> str | None:
         """Return the existing artifact that compresses most like *content*.
 
         The lowest conditional compression ratio indicates the most lexical/
         structural overlap with existing code. This is used to tell the model
         which existing file to extend instead of creating a near-duplicate.
         """
-        path, _ratio = self._nearest_similar_artifact_with_ratio(content, exclude=exclude)
+        path, _ratio = self._nearest_similar_artifact_with_ratio(
+            content, exclude=exclude
+        )
         return path
 
     def scan_project(self) -> dict[str, Any]:

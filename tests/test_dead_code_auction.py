@@ -140,9 +140,7 @@ def test_ract_auction_reports_zero_dead_modules():
     module(s) must either be wired back into production code or removed.
     """
     project_root = Path(__file__).parent.parent / "src" / "rootact"
-    items = DeadCodeAuction(
-        project_root, config={"min_age_days": 0}
-    ).scan()
+    items = DeadCodeAuction(project_root, config={"min_age_days": 0}).scan()
     assert items == [], f"dead-code auction found: {[i.relative_path for i in items]}"
 
 
