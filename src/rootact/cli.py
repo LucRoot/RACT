@@ -831,6 +831,13 @@ def _coverage_command(args: list[str]) -> int:
     parser.add_argument(
         "--after", type=Path, help="Path to a pytest-cov coverage.json (after)."
     )
+    parser.add_argument(
+        "--min-percent",
+        dest="min_percent",
+        type=float,
+        default=None,
+        help="Minimum required coverage percent for the after snapshot.",
+    )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
 
@@ -843,7 +850,7 @@ def _coverage_command(args: list[str]) -> int:
     project_dir = parsed.config.parent.resolve()
 
     if parsed.run_snapshot:
-        delta_rooted = gate(project_dir)
+        delta_rooted = gate(project_dir, min_percent=parsed.min_percent)
         if not delta_rooted.is_ok():
             print(
                 f"[rootact] coverage gate failed: {delta_rooted.error}", file=sys.stderr
@@ -871,7 +878,11 @@ def _coverage_command(args: list[str]) -> int:
                 file=sys.stderr,
             )
             return 1
-        delta = compute_delta(before_rooted.unwrap(), after_rooted.unwrap())
+        delta = compute_delta(
+            before_rooted.unwrap(),
+            after_rooted.unwrap(),
+            min_percent=parsed.min_percent,
+        )
 
     print(delta)
     return 0 if delta.verdict == "earn" else 1

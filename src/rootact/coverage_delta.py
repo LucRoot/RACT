@@ -50,14 +50,16 @@ class CoverageDelta:
     percent_delta: float
     verdict: str
     detail: str
+    floor_breached: bool = False
 
     def __str__(self) -> str:
         direction = "+" if self.percent_delta >= 0 else ""
+        floor = " (floor breached)" if self.floor_breached else ""
         return (
             f"coverage delta: {direction}{self.percent_delta:.1f}%\n"
             f"  before: {self.before}\n"
             f"  after:  {self.after}\n"
-            f"  verdict: {self.verdict}\n"
+            f"  verdict: {self.verdict}{floor}\n"
             f"  detail: {self.detail}"
         )
 
@@ -181,18 +183,32 @@ def run_snapshot(
     return read_snapshot(coverage_path)
 
 
-def compute_delta(before: CoverageSnapshot, after: CoverageSnapshot) -> CoverageDelta:
+def compute_delta(
+    before: CoverageSnapshot,
+    after: CoverageSnapshot,
+    *,
+    min_percent: float | None = None,
+) -> CoverageDelta:
     """Return the delta and a verdict.
 
     Verdict rules:
-    - ``regress``: coverage percent dropped.
+    - ``regress``: coverage percent dropped, or the after snapshot falls below
+      an optional ``min_percent`` floor.
     - ``stagnant``: coverage unchanged and new missing lines exist.
-    - ``earn``: coverage improved or held steady with no new missing lines.
+    - ``earn``: coverage improved or held steady with no new missing lines and
+      the after snapshot meets the optional floor.
     """
     percent_delta = after.percent_covered - before.percent_covered
     raw_line_delta = after.missing_lines - before.missing_lines
+    floor_breached = False
 
-    if percent_delta < -0.01:
+    if min_percent is not None and after.percent_covered < min_percent:
+        floor_breached = True
+        verdict = "regress"
+        detail = (
+            f"coverage below {min_percent:.1f}% floor ({after.percent_covered:.1f}%)"
+        )
+    elif percent_delta < -0.01:
         verdict = "regress"
         detail = "coverage dropped; new code is uncovered"
     elif abs(percent_delta) <= 0.01 and raw_line_delta > 0:
@@ -208,6 +224,7 @@ def compute_delta(before: CoverageSnapshot, after: CoverageSnapshot) -> Coverage
         percent_delta=percent_delta,
         verdict=verdict,
         detail=detail,
+        floor_breached=floor_breached,
     )
 
 
@@ -259,29 +276,48 @@ def gate(
     pytest_args: list[str] | None = None,
     timeout: float = 300.0,
     update_baseline: bool = False,
+    min_percent: float | None = None,
 ) -> Rooted[CoverageDelta]:
     """Run a coverage snapshot and compare it to the stored baseline.
 
     On the first call for a project, no baseline exists, so the current
-    snapshot is stored and the verdict is ``"baseline"``. Subsequent calls
-    compare against that stored value.
+    snapshot is stored and the verdict is ``"baseline"`` unless it sits below
+    the optional ``min_percent`` floor, in which case the verdict is
+    ``"regress"`` with ``floor_breached=True``. Subsequent calls compare
+    against the stored baseline.
     """
     project_dir = Path(project_dir)
     after_rooted = run_snapshot(project_dir, pytest_args=pytest_args, timeout=timeout)
     if not after_rooted.is_ok():
-        return after_rooted.with_step("coverage_delta.gate")
+        return Rooted(
+            value=None,
+            assumption=after_rooted.assumption,
+            confidence=after_rooted.confidence,
+            provenance=[*(after_rooted.provenance or []), "coverage_delta.gate"],
+            error=after_rooted.error,
+        )
 
     after = after_rooted.unwrap()
     before = load_baseline(project_dir)
     if before is None:
         save_baseline(project_dir, after)
-        delta = CoverageDelta(
-            before=after,
-            after=after,
-            percent_delta=0.0,
-            verdict="baseline",
-            detail="baseline established; no prior snapshot found",
-        )
+        if min_percent is not None and after.percent_covered < min_percent:
+            delta = CoverageDelta(
+                before=after,
+                after=after,
+                percent_delta=0.0,
+                verdict="regress",
+                detail=f"baseline below {min_percent:.1f}% floor ({after.percent_covered:.1f}%)",
+                floor_breached=True,
+            )
+        else:
+            delta = CoverageDelta(
+                before=after,
+                after=after,
+                percent_delta=0.0,
+                verdict="baseline",
+                detail="baseline established; no prior snapshot found",
+            )
         return Rooted(
             value=delta,
             assumption="No coverage baseline found; stored current snapshot as baseline.",
@@ -289,7 +325,7 @@ def gate(
             provenance=["coverage_delta.gate"],
         )
 
-    delta = compute_delta(before, after)
+    delta = compute_delta(before, after, min_percent=min_percent)
     if update_baseline:
         save_baseline(project_dir, after)
 

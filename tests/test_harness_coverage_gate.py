@@ -268,4 +268,87 @@ def test_harness_soft_fail_attaches_delta(tmp_path, monkeypatch):
     assert report.artifacts["coverage_delta"]["verdict"] == "stagnant"
 
 
+def test_harness_floor_breach_hard_fail(tmp_path, monkeypatch):
+    """Coverage gate hard_fail returns a Rooted error when the floor is breached."""
+    config = {
+        "manager_provider": "local",
+        "providers": {
+            "local": {
+                "adapter": "local_http",
+                "url": "http://127.0.0.1:11434/v1",
+                "model": "nemotron",
+            },
+        },
+        "prompts_dir": "prompts",
+        "coverage_gate": {
+            "enabled": True,
+            "hard_fail": True,
+            "timeout": 60.0,
+            "min_percent": 95.0,
+        },
+    }
+    (tmp_path / "prompts").mkdir()
+    (tmp_path / "prompts" / "manager.txt").write_text(
+        "You are the manager.", encoding="utf-8"
+    )
+    config_path = tmp_path / "rootact.yaml"
+    import yaml
+
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    harness_rooted = Harness.from_config_path(config_path)
+    assert harness_rooted.is_ok(), harness_rooted.error
+    harness = harness_rooted.unwrap()
+
+    fake_plan = Plan(
+        assumption="test plan",
+        confidence=1.0,
+        steps=[Step(action="noop", provider_hint="chat", expected_artifact="out.txt")],
+    )
+    harness.planner.plan = MagicMock(
+        return_value=Rooted(value=fake_plan, assumption="ok", confidence=1.0)
+    )
+    fake_report = ExecutionReport(
+        intent="noop",
+        step_results=[
+            StepResult(
+                step=fake_plan.steps[0],
+                raw_response={},
+                content="",
+            )
+        ],
+        assumptions=[],
+    )
+    harness.executor.execute = MagicMock(
+        return_value=Rooted(value=fake_report, assumption="ok", confidence=1.0)
+    )
+
+    before = coverage_delta.CoverageSnapshot(
+        percent_covered=96.0,
+        covered_lines=96,
+        missing_lines=4,
+        total_lines=100,
+    )
+    after = coverage_delta.CoverageSnapshot(
+        percent_covered=92.0,
+        covered_lines=92,
+        missing_lines=8,
+        total_lines=100,
+    )
+
+    def _fake_gate(_project_dir, *, min_percent=None, **kwargs):
+        return Rooted(
+            value=coverage_delta.compute_delta(before, after, min_percent=min_percent),
+            assumption="ok",
+            confidence=1.0,
+        )
+
+    monkeypatch.setattr("rootact.harness.coverage_gate", _fake_gate)
+
+    result = harness.run("noop")
+    assert not result.is_ok()
+    assert "Coverage gate" in (result.error or "")
+    assert "Floor breached" in (result.error or "")
+
+
 # RACT 0.1.0 - Initial Public Release
