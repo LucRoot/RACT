@@ -1200,3 +1200,19 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Await the targeted executor.py mutation run (`bash-4ajg0yec`) and use its score to either raise the floor or add executor tests. Alternatively, pick off the next launch gap.
+
+## 2026-07-09 — Validation: novelty detector discriminates Python from prose on real RACT
+
+**What changed**
+- Ran `CompressionNoveltyDetector` directly against `src/rootact` with two probes: a novel Python `RaftNode` class and Lorem ipsum prose.
+
+**Result**
+- Novel Python: ratio=0.807, verdict=`nominal`, nearest=`symbol_renamer.py`
+- Prose: ratio=0.866, verdict=`high`, nearest=`token_budget.py`
+- Gap (prose - Python): +0.059
+
+**Why this matters**
+- Before stripping prose from training, Claude measured both at ~0.84 and both `nominal`. After the change, prose is clearly flagged as high-novelty/wrong-format while novel Python stays nominal. The detector now discriminates the two cases.
+
+**Next action**
+- Continue targeted mutation runs and per-module floor calibration. The executor.py run is in progress (`bash-4ajg0yec`).
