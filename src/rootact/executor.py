@@ -324,7 +324,9 @@ class Executor:
                 return None
             if key == "content":
                 # Content is the last large string before the closing brace.
-                end = text.rfind('"', start, end_brace)
+                # Exclude the opening quote itself so a missing closing quote
+                # returns None instead of an empty string.
+                end = text.rfind('"', start + 1, end_brace)
             else:
                 end = text.find('"', start + 1)
             if end == -1:
