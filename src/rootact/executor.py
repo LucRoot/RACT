@@ -26,6 +26,7 @@ from rootact.artifact_tracker import ArtifactTracker, TrackedArtifact
 from rootact.diff_applier import DiffApplier
 from rootact.duplication_guard import DuplicationGuard
 from rootact.error_classifier import classify_error
+from rootact.handshake_registry import HandshakeRegistry
 from rootact.hook_system import HookManager
 from rootact.load_bearing_guard import LoadBearingGuard
 from rootact.manager import Plan, Step
@@ -82,6 +83,7 @@ class Executor:
         novelty_budget: NoveltyBudget | None = None,
         allow_novelty_overrun: bool = False,
         compression_novelty_detector: CompressionNoveltyDetector | None = None,
+        handshake_registry: HandshakeRegistry | None = None,
     ) -> None:
         self.router = router
         self.hook_manager = hook_manager
@@ -99,6 +101,7 @@ class Executor:
         self.novelty_budget = novelty_budget
         self.allow_novelty_overrun = allow_novelty_overrun
         self.compression_novelty_detector = compression_novelty_detector
+        self.handshake_registry = handshake_registry
         self.provenance = ProvenanceTracker()
         self.artifact_store = ArtifactStore()
         self.artifact_tracker = ArtifactTracker()
@@ -852,30 +855,53 @@ class Executor:
             # or genuinely wrong and deserves stronger review.
             # LR:: Run this BEFORE writing so the gate can reject near-duplicates.
             # Strip invariant RACT markers so the score reflects model output, not
-            # our own boilerplate.
+            # our own boilerplate. Route low-novelty rejections into the operator
+            # handshake queue so the loop continues instead of halting.
             if self.compression_novelty_detector is not None and step.expected_artifact:
                 score_content = self._strip_ract_markers(content)
                 score = self.compression_novelty_detector.assess_new_artifact(
                     step.expected_artifact, score_content
                 )
                 if score is not None:
-                    novelty_scores.append(
-                        {
-                            "artifact": score.artifact,
-                            "raw_bytes": score.raw_bytes,
-                            "compressed_bytes": score.compressed_bytes,
-                            "ratio": score.ratio,
-                            "verdict": score.verdict,
-                            "detail": score.detail,
-                            "nearest": score.nearest,
-                        }
-                    )
+                    score_payload = {
+                        "artifact": score.artifact,
+                        "raw_bytes": score.raw_bytes,
+                        "compressed_bytes": score.compressed_bytes,
+                        "dict_compressed_bytes": score.dict_compressed_bytes,
+                        "ratio": score.ratio,
+                        "verdict": score.verdict,
+                        "detail": score.detail,
+                        "nearest": score.nearest,
+                    }
+                    novelty_scores.append(score_payload)
                     if score.verdict == "low" and not self.allow_novelty_overrun:
                         nearest_hint = (
                             f" Extend {score.nearest} instead."
                             if score.nearest
                             else " Edit the most similar existing module instead."
                         )
+                        description = (
+                            f"Step {index} proposed {step.expected_artifact} with "
+                            f"compression ratio {score.ratio}: {score.detail}."
+                            f"{nearest_hint}"
+                        )
+                        acceptance = (
+                            "Approve to allow this near-duplicate artifact, or "
+                            "reject and require the planner to extend existing "
+                            "code instead."
+                        )
+                        if self.handshake_registry is not None:
+                            self.handshake_registry.add(
+                                f"novelty:{step.expected_artifact}:{index}",
+                                description,
+                                acceptance,
+                            )
+                            assumptions.append(
+                                f"Step {index} ({step.action}) queued a novelty "
+                                f"handshake for {step.expected_artifact} "
+                                f"(ratio {score.ratio})"
+                            )
+                            continue
                         return Rooted(
                             value=None,
                             assumption=(

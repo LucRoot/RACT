@@ -10,9 +10,26 @@ _ROOT_KNOT = object()
 
 from rootact.compression_novelty_detector import CompressionNoveltyDetector
 from rootact.executor import Executor
+from rootact.handshake_registry import HandshakeItem, HandshakeRegistry
 from rootact.manager import Plan, Step
 from rootact.rooted import Rooted
 from pathlib import Path
+
+
+class FakeHandshakeRegistry(HandshakeRegistry):
+    """In-memory handshake registry that never touches disk."""
+
+    def __init__(self) -> None:
+        self._items: list[HandshakeItem] = []
+
+    def _load(self) -> list[dict]:
+        return []
+
+    def _save(self, items: list[HandshakeItem]) -> None:
+        self._items = list(items)
+
+    def entries(self) -> list[HandshakeItem]:
+        return list(self._items)
 
 
 class FakeAdapter:
@@ -333,6 +350,83 @@ def test_detector_scan_project_returns_scores(tmp_path):
     assert "scores" in result
     assert "a.py" in result["scores"]
     assert "b.py" in result["scores"]
+
+
+def _duplicative_content() -> str:
+    """Return content that compresses well against the seeded project."""
+    return (
+        "def compute_value_3(x):\n"
+        "    return x * 4\n"
+        "\n"
+        "class DataStore3:\n"
+        "    def __init__(self):\n"
+        "        self.items = []\n"
+        "\n"
+        "    def add(self, item):\n"
+        "        self.items.append(item)\n"
+    )
+
+
+def test_executor_blocks_low_novelty_without_handshake(tmp_path):
+    _seed_diverse_project(tmp_path)
+    detector = CompressionNoveltyDetector(tmp_path)
+    adapter = FakeAdapter("mock", response_content=_duplicative_content())
+    executor = Executor(
+        FakeRouter(adapter), project_dir=tmp_path, compression_novelty_detector=detector
+    )
+    plan = _make_plan(
+        [
+            Step(
+                action="add helper",
+                provider_hint="mock",
+                expected_artifact="src/new.py",
+            )
+        ]
+    )
+
+    result = executor.execute(intent="test intent", plan=plan)
+
+    assert not result.is_ok()
+    assert result.hint == "novelty"
+    assert "Compression novelty gate blocked" in (result.error or "")
+    assert not (tmp_path / "src" / "new.py").exists()
+
+
+def test_executor_routes_low_novelty_to_handshake_queue(tmp_path):
+    _seed_diverse_project(tmp_path)
+    detector = CompressionNoveltyDetector(tmp_path)
+    adapter = FakeAdapter("mock", response_content=_duplicative_content())
+    registry = FakeHandshakeRegistry()
+    executor = Executor(
+        FakeRouter(adapter),
+        project_dir=tmp_path,
+        compression_novelty_detector=detector,
+        handshake_registry=registry,
+    )
+    plan = _make_plan(
+        [
+            Step(
+                action="add helper",
+                provider_hint="mock",
+                expected_artifact="src/new.py",
+            )
+        ]
+    )
+
+    result = executor.execute(intent="test intent", plan=plan)
+
+    assert result.is_ok()
+    report = result.unwrap()
+    # The low-novelty step is skipped and no artifact is written.
+    assert not (tmp_path / "src" / "new.py").exists()
+    assert len(report.step_results) == 0
+    assert len(registry.pending()) == 1
+    pending = registry.pending()[0]
+    assert pending.id == "novelty:src/new.py:1"
+    assert "compression ratio" in pending.description
+    scores = report.artifacts.get("novelty_scores", [])
+    assert len(scores) == 1
+    assert scores[0]["artifact"] == "src/new.py"
 
 
 # RACT 0.1.0 - Initial Public Release
