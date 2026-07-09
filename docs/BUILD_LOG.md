@@ -989,3 +989,31 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Commit and push CLI wiring, then continue monitoring the mutation run.
+
+## 2026-07-09 — Loop pass: HF Space static page + `ract fence` low-confidence UX fix
+
+**What changed**
+- Added `assets/hf-space/index.html`: a dark-themed static landing page for a Hugging Face Space deployment, including hero, anti-rot workflow, quick start, and comparison table.
+- Added `assets/hf-space/README.md` with deployment instructions.
+- Added `tests/test_hf_space.py` to sanity-check the landing page content.
+- Fixed `ChestertonsFence.inspect` so that a "no plausible reason found" response carries the message in `error` instead of `None`.
+- Fixed `rootact fence inspect` to print the brief even when confidence is below the default floor, with a warning, instead of failing with a cryptic `None` error.
+- Updated `tests/test_chestertons_fence.py` to expect the error field on low-confidence results.
+
+**Why**
+- Public launch needs a shareable landing page that can live on HF Spaces.
+- Running `ract fence` on a new/untracked file returned `[rootact] fence failed: None`, which is broken UX. The tool should report what it found and let the operator decide.
+
+**Test/lint/type result**
+- `pytest -q`: 954 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact fence inspect --file assets/hf-space/index.html --lines 1-30`: now prints "no plausible reason found" with confidence 0.3 and exits 0.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Commit and push HF Space assets and fence fix, then continue monitoring the mutation run.

@@ -192,6 +192,7 @@ class ChestertonsFence:
                 "chestertons_fence.inspect",
                 f"provider:{self.provider.name}",
             ],
+            error=(content_response if low_confidence else None),
         )
 
 

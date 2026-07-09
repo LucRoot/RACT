@@ -84,10 +84,10 @@ def test_inspect_low_confidence_when_no_reason(tmp_path: Path):
     with patch.object(fence, "_run_git", return_value="abc123 fix race\n"):
         result = fence.inspect(target)
 
-    assert result.error is None
     assert result.value == "No plausible reason found."
     assert result.confidence == 0.3
     assert not result.is_ok()
+    assert "No plausible reason found" in (result.error or "")
 
 
 def test_inspect_fails_for_missing_file(tmp_path: Path):
