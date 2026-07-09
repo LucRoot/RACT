@@ -1017,3 +1017,29 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Commit and push HF Space assets and fence fix, then continue monitoring the mutation run.
+
+## 2026-07-09 — Loop pass: minimal skill marketplace
+
+**What changed**
+- Added `src/rootact/skill_marketplace.py` with `SkillMarketplace` class supporting remote (HTTP/HTTPS) and local catalog files.
+- Added `assets/marketplace/catalog.json` and `assets/marketplace/skills/hello-world.json` as the default public catalog.
+- Added `ract skills marketplace list` and `ract skills marketplace install --name <skill>` CLI subcommands.
+- Added `tests/test_skill_marketplace.py` with 5 tests covering catalog listing, local install, missing skill, and CLI paths.
+- Updated signature golden hash after adding the signed `skill_marketplace.py` module.
+
+**Why**
+- A skill marketplace is a public-launch differentiator: users can share RACT skills beyond the built-in set without waiting for a release.
+
+**Test/lint/type result**
+- `pytest -q`: 959 passed, 1 skipped, 91% coverage.
+- `ruff check src tests`: clean.
+- `ruff format --check src tests`: clean.
+
+**Self-audit result**
+- `rootact doctor`: 7/7.
+- `rootact auction list`: 0 candidates.
+- `rootact skills marketplace list --catalog assets/marketplace/catalog.json`: lists the `hello-world` skill correctly.
+- Mutation run: still in progress inside WSL.
+
+**Next action**
+- Commit and push the marketplace implementation, then continue monitoring the mutation run.

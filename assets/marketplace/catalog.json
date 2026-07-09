@@ -1,0 +1,10 @@
+{
+  "skills": [
+    {
+      "name": "hello-world",
+      "description": "A minimal skill that demonstrates the Root Knot and a Rooted result.",
+      "url": "https://raw.githubusercontent.com/LucRoot/RACT/main/assets/marketplace/skills/hello-world.json",
+      "author": "Dr. Lucas Root, Ph.D."
+    }
+  ]
+}

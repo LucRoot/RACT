@@ -14,12 +14,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from rootact.builtin_skill_library import BuiltinSkillLibrary
 from rootact.chestertons_fence import ChestertonsFence
 from rootact.code_review_mode import CodeReviewMode
 from rootact.compression_novelty_detector import CompressionNoveltyDetector
 from rootact.consolidate import ConsolidationScanner, MergeProposal
 from rootact.dead_code_auction import DeadCodeAuction
+from rootact.skill_marketplace import SkillMarketplace
 from rootact.doc_generator import DocGenerator
 from rootact.diff_applier import DiffApplier
 from rootact.handshake_registry import HandshakeRegistry
@@ -399,7 +402,10 @@ def _explain_command(args: list[str]) -> int:
 
 
 def _skills_command(args: list[str]) -> int:
-    """Handle 'rootact skills list' and 'rootact skills install <name>'."""
+    """Handle 'rootact skills list|install|install-all|marketplace ...'."""
+    if args and args[0] == "marketplace":
+        return _skills_marketplace_command(args[1:])
+
     library = BuiltinSkillLibrary()
     if not args or args[0] == "list":
         skills = library.list_skills()
@@ -428,9 +434,67 @@ def _skills_command(args: list[str]) -> int:
         )
         return 0
     print(
-        "[rootact] usage: rootact skills list | rootact skills install <name> | rootact skills install-all",
+        "[rootact] usage: rootact skills list | rootact skills install <name> | "
+        "rootact skills install-all | rootact skills marketplace list|install",
         file=sys.stderr,
     )
+    return 1
+
+
+def _skills_marketplace_command(args: list[str]) -> int:
+    """Handle 'rootact skills marketplace list' and 'install --name <name>'."""
+    parser = argparse.ArgumentParser(prog="rootact skills marketplace")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    list_parser = subparsers.add_parser("list", help="List skills in the marketplace")
+    list_parser.add_argument(
+        "--catalog",
+        default=None,
+        help="URL or path to a marketplace catalog JSON file.",
+    )
+    install_parser = subparsers.add_parser("install", help="Install a skill")
+    install_parser.add_argument(
+        "--catalog",
+        default=None,
+        help="URL or path to a marketplace catalog JSON file.",
+    )
+    install_parser.add_argument("--name", required=True, help="Skill name to install")
+
+    parsed = parser.parse_args(args)
+    marketplace = SkillMarketplace(parsed.catalog)
+
+    if parsed.action == "list":
+        try:
+            skills = marketplace.list_skills()
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"[rootact] failed to load marketplace catalog: {exc}", file=sys.stderr
+            )
+            return 1
+        if not skills:
+            print("No skills available in marketplace.")
+            return 0
+        console.rule("Marketplace skills")
+        console.table(
+            title="",
+            columns=["Skill", "Description", "Author"],
+            rows=[
+                [s.get("name", ""), s.get("description", ""), s.get("author", "")]
+                for s in skills
+            ],
+        )
+        return 0
+
+    if parsed.action == "install":
+        registry = SkillRegistry()
+        try:
+            path = marketplace.install(parsed.name, registry)
+        except (KeyError, ValueError, httpx.HTTPError, OSError) as exc:
+            print(f"[rootact] failed to install skill: {exc}", file=sys.stderr)
+            return 1
+        print(f"[rootact] installed marketplace skill '{parsed.name}' to {path}")
+        return 0
+
     return 1
 
 
