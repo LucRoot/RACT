@@ -1852,3 +1852,43 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Either add mutation-score drift to `audit --deep` or continue raising `cli.py` coverage toward 80%.
+
+## 2026-07-09 — Loop pacer cron documented and paused
+
+**What changed**
+- Documented the Kimi session cron `d4ff41e7` that was firing every 5 minutes to pace the RACT/Internal build-audit-learn loop.
+- Deleted the active cron job so the loop no longer auto-advances.
+
+**Cron definition (for restart)**
+- Schedule: `*/5 * * * *` (every 5 minutes)
+- Job ID: `d4ff41e7`
+- Purpose: closed build-audit-learn loop advancing one concrete step per fire.
+- Full prompt (verbatim, so it can be recreated exactly):
+
+  ```text
+  You are the RACT/Internal progress pacer. This is a closed build-audit-learn loop. Every 5 minutes, advance the loop by exactly one concrete step and document everything.
+
+  THE LOOP:
+  1. BUILD RACT: Pick the next highest-leverage RACT task and implement it. Prefer tasks that close the public-launch gaps: README/CI badges, demo asciicast, Why RACT comparison table, HF Space static page, earned-coverage/mutation gate, `ract consolidate`, native Internal provider, MCP adapter, skill marketplace, run report. Use the Pipeline Skill for complex specs.
+  2. RECURSE: Run the test suite, ruff, mypy, and any relevant smoke checks. Fix regressions immediately.
+  3. AUDIT: Run RACT's own tools against RACT (`ract auction`, `ract novelty scan`, `ract doctor`, `ract fence`). Treat any failure as a bug to fix.
+  4. DOCUMENT OBSESSIVELY: After every meaningful change, write or update a concise log entry in `docs/BUILD_LOG.md` or the relevant doc. Context compacts; the written record is the remedy. Include: what changed, why, test result, next action.
+  5. NEMOTRON SUPPORT: If Internal/Nemotron is healthy (test `http://127.0.0.1:11434/v1/chat/completions` with a lightweight call), delegate secondary tasks to Nemotron: run tests, review diffs, generate feedback/pass-fail notes, draft docs, sanity-check claims. If Internal is unhealthy, diagnose and restart the failed component (llama-server 8011, Internal proxy 11434, subservices bundle 11503) before delegating.
+  6. EXTRACT LEARNINGS FOR INTERNAL: Every loop pass, note one concrete Internal upgrade inspired by the RACT build (e.g., timeout handling, retry policy, model routing, provider fallback, context curation, error classification). Append it to `docs/INTERNAL_LEARNINGS.md`.
+
+  NEVER wait for user input. NEVER declare the project "done." Keep the loop moving. At the end of each pass, state the next concrete action and why.
+  ```
+
+**Why**
+- The cron was useful for sustained autonomous progress, but it conflicted with operator-directed stop/plan boundaries. Pausing it lets us choose when to resume the loop rather than having it fire into idle moments.
+
+**Test/lint/type result**
+- No code changes; documentation only.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+
+**Self-audit result**
+- Not applicable; this was a process-control change.
+
+**Next action**
+- Wait for operator direction before restarting the loop.
