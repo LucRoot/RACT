@@ -747,3 +747,33 @@ This log records each loop pass through the RACT codebase. It exists because con
 
 **Next action**
 - Wait for the current WSL mutation run (`bash-giojueh6`) to complete, then calibrate the mutation gate from the score.
+
+## 2026-07-09 — Loop pass: verify Claude audit P0 fixes, raise mutation timeout, push cleanup
+
+**What changed**
+- Verified the five P0 items from Claude's latest audit are already landed and green on `main`:
+  - Symbol graph resolves real internal imports (351 cross-module edges on RACT itself).
+  - Dead-code auction reports zero candidates.
+  - `ruff check src tests` and `ruff format --check src tests` both pass.
+  - Full pytest run: 923 passed, 1 skipped, 92% coverage.
+  - Novelty gate assumption string correctly describes a near-duplicate block.
+- Raised the default mutation-run timeout to 7200 seconds and started a real WSL mutation run against the four core engine files.
+- Added `coverage.xml` to `.gitignore` and pushed the cleanup commit.
+
+**Why**
+- The audit showed the repo had fixed the headline detectors but needed independent confirmation that the fixes held across lint, tests, and self-audit.
+- Mutation testing is the next release-quality gate; the first attempt timed out at 15 minutes, so the timeout was increased to match the actual WSL runtime.
+
+**Test/lint/type result**
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `pytest -q --cov-report=term`: 923 passed, 1 skipped, 92% coverage.
+- `rootact auction list`: 0 dead-code candidates.
+- `rootact doctor`: all checks passed.
+
+**Self-audit result**
+- `rootact novelty scan`: existing files still produce `low` scores because the codebase is highly self-similar; the synthetic ground-truth probe (verbatim duplicate vs. novel Python) confirms the detector is calibrated.
+- `rootact fence inspect --file src/rootact/executor.py`: relative-path crash remains fixed; completion still blocked by local provider HTTP 401 (Internal auth passthrough issue, not a RACT bug).
+
+**Next action**
+- Wait for the WSL mutation run to return a real mutation score, then calibrate `mutation_gate.min_score` and `quality_scorecard.py` weights.
