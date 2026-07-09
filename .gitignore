@@ -13,8 +13,10 @@ build/
 *.log
 .env
 rootact.yaml
+.mutmut-cache
 
 # Session/runtime artifacts
+.rootact/
 .rootact_sessions/
 *.session
 
