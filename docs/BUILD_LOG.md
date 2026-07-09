@@ -406,3 +406,39 @@ This log records each loop pass through the RACT codebase. It exists because con
 - Start a real WSL mutation run against RACT as a background task and capture the score.
 
 # RACT 0.1.0 - Initial Public Release
+
+## 2026-07-09 — Loop pass: README badges, SymbolGraph WSL-venv exclusion, and mutation-script fixes
+
+**What changed**
+- Updated README.md badges:
+  - Coverage badge: 93% → 92% (matches current actual).
+  - Added ruff lint badge.
+- Added `rootact coverage delta` and `rootact mutation run` to the CLI highlights section.
+- Fixed `src/rootact/symbol_graph.py` to use `os.walk` with directory pruning instead of `pathlib.rglob`, excluding common build/venv directories (`.venv`, `.venv-wsl-mutmut`, `__pycache__`, `.git`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `node_modules`, `_BUILD`, `htmlcov`, `dist`, `build`). This prevents `OSError` when WSL filesystem junctions (e.g. `.venv-wsl-mutmut/lib64`) are present.
+- Added `.venv-wsl-mutmut/` to `.gitignore`.
+- Fixed `scripts/run_mutation_tests_wsl.sh`:
+  - Pinned `mutmut==2.4.5` because mutmut 3.x removed `--paths-to-mutate` and `--runner` CLI flags.
+  - Moved the WSL venv from `$REPO_ROOT/.venv-wsl-mutmut` to `$HOME/.cache/ract-mutmut-venv` so it is never scanned by RACT's file walkers.
+  - Kept the dynamic `REPO_ROOT` derivation from the script location.
+
+**Why**
+- The real WSL mutation run surfaced two integration bugs: mutmut 3.x CLI incompatibility and WSL venv junctions breaking RACT's own scanners. Fixing both unblocks the empirical mutation-score run.
+
+**Test/lint/type result**
+- `pytest tests/`: 922 passed, 1 skipped, 92% coverage.
+- `ruff check src tests`: passed.
+- `ruff format --check src tests`: passed.
+- `mypy src/rootact/symbol_graph.py`: passed.
+
+**Self-audit result**
+- `rootact auction list --json`: 0 dead-code candidates.
+- `rootact novelty scan --json`: 2 `low` test files; expected.
+- `rootact coverage delta --run --min-percent 90.0`: earn at 92.4%.
+
+**Nemotron/Internal secondary review**
+- Not delegated; this was a defensive/compat pass with deterministic fixes.
+
+**Next action**
+- Run a real WSL mutation run against RACT again with the fixed script and capture the score.
+
+# RACT 0.1.0 - Initial Public Release

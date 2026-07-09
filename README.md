@@ -7,7 +7,8 @@
 **Model-agnostic, local-first agentic coding with signed receipts and an anti-rot verifier arsenal.**
 
 ![RootAct CI](https://github.com/LucRoot/RACT/actions/workflows/ci.yml/badge.svg)
-![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-92%25-brightgreen)
+![Lint](https://img.shields.io/badge/lint-ruff-261230)
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 
@@ -157,6 +158,8 @@ RACT is terminal-first. Run `rootact --welcome` to see the Root-Knot logo and a 
 - `rootact whisper --intent "..."` — Ask the Legacy Whisperer for a pre-planning dialect/history brief.
 - `rootact auction list [--min-age-days N] [--json]` — Review old, unreferenced modules proposed for deletion.
 - `rootact fence inspect --file <path> [--lines N-M]` — Ask Chesterton's Fence for a plausible reason legacy code exists before changing it.
+- `rootact coverage delta --run --min-percent 90.0` — Run tests and fail if coverage regresses or drops below a floor.
+- `rootact mutation run [--wsl-distro <name>]` — Run mutation tests against the four core engine files (WSL2 on Windows; native bash elsewhere).
 - `rootact --about` — Show authorship, license, and Root Knot statement.
 - `rootact --welcome` — Print the branded Root-Knot welcome letter.
 - `rootact init --template <name> --provider <name>` — Scaffold a new project from a template.
