@@ -236,7 +236,8 @@ class TestFailureDiagnoser:
 
     def _infer_source_from_test(self, test_file: str) -> str | None:
         """Read a test file and map its imports back to source files."""
-        local_path = test_file.replace("/", "\\")
+        # Normalize separators so the same logic works on Windows and Unix.
+        local_path = Path(test_file.replace("\\", "/"))
         path = self.project_dir / local_path
         if not path.is_file():
             return None
