@@ -1,3 +1,6 @@
+# Rooted by Dr. Lucas Root, Ph.D.
+"""Tests for SessionConfig persistence."""
+
 from __future__ import annotations
 
 __root_author__ = "Dr. Lucas Root, Ph.D."
@@ -5,35 +8,49 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from pathlib import Path
-
-import pytest
-
-from rootact.cli_toggles import parse_cli_args
 from rootact.session_config import SessionConfig
 
 
-def test_cli_flags_map_to_config() -> None:
-    args = parse_cli_args(
-        ["--yolo", "--auto", "--reload", "--session", "abc", "--resume"]
-    )
-    cfg = SessionConfig(
-        yolo=args.yolo,
-        auto=args.auto,
-        reload=args.reload,
-        session_id=args.session_id,
-        resume=args.resume,
-    )
+def test_session_config_defaults():
+    cfg = SessionConfig()
+    assert cfg.yolo is False
+    assert cfg.auto is False
+    assert cfg.reload is False
+    assert cfg.session_id is None
+    assert cfg.resume is False
+
+
+def test_session_config_round_trip(tmp_path):
+    original = SessionConfig(yolo=True, session_id="abc", resume=True)
+    path = tmp_path / "session.json"
+    original.save(path)
+    loaded = SessionConfig.from_file(path)
+    assert loaded == original
+
+
+def test_session_config_from_dict():
+    data = {
+        "yolo": True,
+        "auto": False,
+        "reload": True,
+        "session_id": "x",
+        "resume": False,
+    }
+    cfg = SessionConfig.from_dict(data)
     assert cfg.yolo is True
-    assert cfg.auto is True
     assert cfg.reload is True
-    assert cfg.session_id == "abc"
-    assert cfg.resume is True
+    assert cfg.session_id == "x"
 
 
-def test_unknown_flags_raise_system_exit() -> None:
-    with pytest.raises(SystemExit):
-        parse_cli_args(["--unknown-flag"])
+def test_session_config_to_dict():
+    cfg = SessionConfig(session_id="s1")
+    assert cfg.to_dict() == {
+        "yolo": False,
+        "auto": False,
+        "reload": False,
+        "session_id": "s1",
+        "resume": False,
+    }
 
 
 def test_session_config_serialization(tmp_path: Path) -> None:

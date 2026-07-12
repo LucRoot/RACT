@@ -7,11 +7,12 @@
 **Model-agnostic, local-first agentic coding with signed receipts and an anti-rot verifier arsenal.**
 
 ![RootAct CI](https://github.com/LucRoot/RACT/actions/workflows/ci.yml/badge.svg)
-![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen)
+![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LucRoot/RACT/main/docs/coverage-badge.json)
 ![Lint](https://img.shields.io/badge/lint-ruff-261230)
 ![Types](https://img.shields.io/badge/types-mypy-blue)
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
+![Mutation](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LucRoot/RACT/main/docs/mutation-badge.json)
 
 A 2024 analysis of **623 million commits** by GitClear and GitKraken found that AI-assisted code is already rotting codebases: more copy/paste, less refactoring, and a measurable decline in code movement. RACT is the first agentic coding tool built to measure and defend against the four rot vectors that research identified — duplication, drift, dead code, and undocumented load-bearing logic.
 
@@ -175,7 +176,7 @@ RACT is terminal-first. Run `rootact --welcome` to see the Root-Knot logo and a 
 - `rootact auction list [--min-age-days N] [--json]` — Review old, unreferenced modules proposed for deletion.
 - `rootact fence inspect --file <path> [--lines N-M]` — Ask Chesterton's Fence for a plausible reason legacy code exists before changing it.
 - `rootact coverage delta --run --min-percent 90.0` — Run tests and fail if coverage regresses or drops below a floor.
-- `rootact mutation run [--wsl-distro <name>]` — Run mutation tests against the four core engine files (WSL2 on Windows; native bash elsewhere).
+- `rootact mutation run [--wsl-distro <name>]` — Run mutation tests against the four core engine files locally (WSL2 on Windows; native bash elsewhere). Mutation testing is a heavyweight local diagnostic, not a CI gate.
 - `rootact --about` — Show authorship, license, and Root Knot statement.
 - `rootact --welcome` — Print the branded Root-Knot welcome letter.
 - `rootact init --template <name> --provider <name>` — Scaffold a new project from a template.
@@ -270,9 +271,9 @@ RACT is intentionally model-agnostic. The harness wires together:
 See `docs/ARCHITECTURE.md` and `docs/PHILOSOPHY.md` for the design rationale.  
 Try the live demo landing page on [Hugging Face](https://huggingface.co/spaces/LucRoot/RACT).
 
-## Independence from Internal
+## Independence
 
-RACT is built from scratch against a public research specification for agentic coding tools. It is intentionally independent of the proprietary Internal system: no Internal code, design, or internal ideas are included. See `docs/SEPARATION.md`.
+RACT is built from scratch against a public research specification for agentic coding tools. It is intentionally independent of the author's proprietary internal tooling: no proprietary code, design, or internal ideas are included. See `docs/SEPARATION.md`.
 
 ## From the author
 

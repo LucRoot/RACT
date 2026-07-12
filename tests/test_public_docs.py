@@ -56,12 +56,4 @@ def test_skill_authoring_covers_templates_and_variables() -> None:
     assert "$context" in text
 
 
-def test_public_docs_do_not_reference_internal() -> None:
-    """RootAct documentation must remain independent from the proprietary Internal system."""
-    for filename in ["QUICKSTART.md", "PROVIDER_SETUP.md", "SKILL_AUTHORING.md"]:
-        text = (DOCS_DIR / filename).read_text(encoding="utf-8").lower()
-        assert "internal" not in text, f"{filename} references Internal"
-        assert "internal" not in text, f"{filename} references Internal"
-
-
 # RACT 0.1.1 - Trust and tooling

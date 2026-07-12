@@ -6,17 +6,21 @@ This page tracks RACT's own quality metrics over time. The goal is to make the l
 
 | Metric | Value | Date | Commit |
 |---|---|---|---|
-| Test suite | 1009 passed, 1 skipped | 2026-07-09 | `3d67f04` |
-| Line coverage | 92% | 2026-07-09 | `3d67f04` |
-| Lint (`ruff`) | clean | 2026-07-09 | `0243d80` |
-| Type check (`mypy`) | clean | 2026-07-09 | `0243d80` |
-| Dead-code auction on RACT | 0 candidates | 2026-07-09 | `0243d80` |
-| Doctor self-check | 7/7 | 2026-07-09 | `0243d80` |
-| Novelty detector — verbatim duplicate | `low` (ratio ~0.66) | 2026-07-09 | `0243d80` |
-| Novelty detector — novel Python | `nominal` (ratio ~0.81) | 2026-07-09 | `0243d80` |
-| Novelty detector — prose | `high` (ratio ~0.87) | 2026-07-09 | `0243d80` |
+| Test suite | 1079 passed, 1 skipped | 2026-07-09 | `41854c0`+WIP |
+| Line coverage | 91.30% | 2026-07-09 | `41854c0`+WIP |
+| `src/rootact/cli.py` coverage | 76% | 2026-07-09 | `41854c0`+WIP |
+| Lint (`ruff`) | clean | 2026-07-09 | `41854c0`+WIP |
+| Type check (`mypy`) | clean | 2026-07-09 | `41854c0`+WIP |
+| Dead-code auction on RACT | 0 candidates | 2026-07-09 | `41854c0`+WIP |
+| Doctor self-check | 7/7 | 2026-07-09 | `41854c0`+WIP |
+| Audit meta-command | 9/9 checks passed | 2026-07-09 | `41854c0`+WIP |
+| Audit `--deep` | consolidate scan included | 2026-07-09 | `41854c0`+WIP |
+| Novelty detector — verbatim duplicate | `low` (ratio ~0.66) | 2026-07-09 | `41854c0` |
+| Novelty detector — novel Python | `nominal` (ratio ~0.81) | 2026-07-09 | `41854c0` |
+| Novelty detector — prose | `nominal` (ratio ~1.03) | 2026-07-09 | current |
 | Mutation score — `src/rootact/rooted.py` | 38.0% (18/47 mutants killed) | 2026-07-09 | prior |
-| Mutation score — `src/rootact/executor.py` | 39.1% (239/611 non-suspicious killed) | 2026-07-09 | `eae16f4` |
+| Mutation score — `src/rootact/executor.py` | 47.81% (328/686 non-suspicious killed) | 2026-07-09 | current |
+| Coverage badge | dynamic endpoint (`docs/coverage-badge.json`) | 2026-07-09 | current |
 
 ## Methodology
 
@@ -29,10 +33,13 @@ This page tracks RACT's own quality metrics over time. The goal is to make the l
 
 | Date | Coverage | Auction candidates | Notes |
 |---|---|---|---|
-| 2026-07-09 | 91% | 0 | Post-pruning, symbol-graph fix, novelty detector calibration |
+| 2026-07-09 | 91.30% | 0 | `audit --deep` now runs consolidate scan; 1079 tests; 10s scan time |
 
 ## Next targets
 
-- Decide whether to set a per-file mutation floor for `executor.py` at the measured 39.1% or first add tests to raise it.
-- Raise `src/rootact/cli.py` coverage above 70%.
-- Add a dynamic mutation-score badge to the README once per-file floors are stable.
+- Keep per-file mutation floor for `executor.py` at the measured 47.81% and add dynamic badges.
+- Raise `src/rootact/cli.py` coverage above 80%.
+- Record a real terminal asciicast once asciinema is available on Windows ARM64.
+- Extend `rootact audit --deep` to include mutation-score drift checks.
+- Optimize `rootact novelty scan` so it can rejoin `audit --deep` without timing out.
+<!-- RACT 0.1.1 - Trust and Tooling -->

@@ -17,7 +17,6 @@ from typing import Any
 
 from rootact.capability_registry import CapabilityRegistry
 from rootact.providers.base import ProviderAdapter
-from rootact.providers.internal_provider import InternalProvider
 from rootact.providers.local_http_provider import LocalHttpProvider
 from rootact.providers.openai_provider import OpenAICompatibleProvider
 from rootact.rooted import Rooted
@@ -28,7 +27,6 @@ _ADAPTER_CLASSES: dict[str, type[ProviderAdapter]] = {
     "openai_compatible": OpenAICompatibleProvider,
     "local_http": LocalHttpProvider,
     "local": LocalHttpProvider,
-    "internal": InternalProvider,
 }
 
 # Default capability tags inferred from adapter type when the user does not
@@ -38,7 +36,6 @@ _DEFAULT_CAPABILITIES: dict[str, set[str]] = {
     "openai_compatible": {"chat", "code"},
     "local_http": {"chat", "code", "fast", "local"},
     "local": {"chat", "code", "fast", "local"},
-    "internal": {"chat", "code", "local", "routing"},
 }
 
 
