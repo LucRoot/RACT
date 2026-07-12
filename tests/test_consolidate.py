@@ -319,4 +319,41 @@ def test_cli_consolidate_apply_and_rollback(tmp_path: Path) -> None:
     assert IDENTICAL_BODY == (tmp_path / "b.py").read_text(encoding="utf-8")
 
 
+STRICT_ENHANCED_BODY = """\
+def strict_enhanced(value):
+    if value is None:
+        raise ValueError("value required")
+    normalized = value.strip().lower()
+    if not normalized:
+        raise ValueError("value empty")
+    return normalized
+"""
+
+
+STRICT_PLUS_BODY = """\
+def strict_plus(input_text):
+    if input_text is None:
+        raise ValueError("value required")
+    cleaned = input_text.strip().lower()
+    if not cleaned:
+        raise ValueError("value empty")
+    return cleaned
+"""
+
+
+def test_scan_finds_renamed_clone(tmp_path: Path) -> None:
+    """Copy-and-rename clones cluster once identifiers are canonicalized."""
+    _write_module(tmp_path / "src" / "pkg" / "strict_enhanced.py", STRICT_ENHANCED_BODY)
+    _write_module(tmp_path / "src" / "pkg" / "strict_plus.py", STRICT_PLUS_BODY)
+    _write_module(tmp_path / "src" / "pkg" / "__init__.py", "")
+    scanner = ConsolidationScanner(tmp_path)
+    result = scanner.scan(similarity_threshold=0.50, merge_threshold=0.50)
+    assert len(result.proposals) == 1
+    proposal = result.proposals[0]
+    assert {proposal.target, *proposal.sources} == {
+        "src/pkg/strict_enhanced.py",
+        "src/pkg/strict_plus.py",
+    }
+
+
 # RACT 0.1.1 - Trust and tooling

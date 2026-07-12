@@ -14,9 +14,15 @@ from rootact.duplication_guard import DuplicationBlockedError, DuplicationGuard
 
 
 def test_no_duplicates_for_new_symbol(tmp_path):
-    (tmp_path / "existing.py").write_text("def old(): pass\n", encoding="utf-8")
+    (tmp_path / "existing.py").write_text(
+        "def old(value):\n    total = value + 10\n    return total * 2\n",
+        encoding="utf-8",
+    )
     guard = DuplicationGuard(tmp_path)
-    matches = guard.check("new.py", "def new_thing(): pass\n")
+    matches = guard.check(
+        "new.py",
+        "def new_thing(name):\n    cleaned = name.strip()\n    return cleaned.lower()\n",
+    )
     assert matches == []
 
 
@@ -29,45 +35,53 @@ def test_allows_rewrite_of_same_module_symbol(tmp_path):
     assert matches == []
 
 
+REALISTIC = (
+    "def helper(value, scale):\n"
+    "    total = value + scale\n"
+    "    adjusted = total * 2\n"
+    "    return adjusted\n"
+)
+
+REALISTIC_DIFFERENT = (
+    "def helper(value, scale):\n"
+    "    message = f'{value}:{scale}'\n"
+    "    return message.upper()\n"
+)
+
+
 def test_detects_cross_module_duplicate_function(tmp_path):
-    (tmp_path / "existing.py").write_text(
-        "def helper():\n    return 42\n", encoding="utf-8"
-    )
+    (tmp_path / "existing.py").write_text(REALISTIC, encoding="utf-8")
     guard = DuplicationGuard(tmp_path)
-    duplicate = "def helper():\n    return 42\n"
-    matches = guard.check("mod.py", duplicate)
+    matches = guard.check("mod.py", REALISTIC)
     assert len(matches) == 1
     assert matches[0].name == "helper"
     assert matches[0].similarity >= 0.85
 
 
 def test_allows_similar_but_not_duplicate_function(tmp_path):
-    (tmp_path / "existing.py").write_text(
-        "def helper():\n    return 42\n", encoding="utf-8"
-    )
+    (tmp_path / "existing.py").write_text(REALISTIC, encoding="utf-8")
     guard = DuplicationGuard(tmp_path)
-    different = "def helper():\n    return 'hello world'\n"
-    matches = guard.check("mod.py", different)
+    matches = guard.check("mod.py", REALISTIC_DIFFERENT)
     assert matches == []
 
 
 def test_check_and_block_raises_for_cross_module_duplicate(tmp_path):
-    (tmp_path / "existing.py").write_text(
-        "def helper():\n    return 42\n", encoding="utf-8"
-    )
+    (tmp_path / "existing.py").write_text(REALISTIC, encoding="utf-8")
     guard = DuplicationGuard(tmp_path)
-    duplicate = "def helper():\n    return 42\n"
     with pytest.raises(DuplicationBlockedError):
-        guard.check_and_block("mod.py", duplicate)
+        guard.check_and_block("mod.py", REALISTIC)
 
 
 def test_respects_custom_threshold(tmp_path):
-    (tmp_path / "existing.py").write_text(
-        "def helper():\n    return 42\n", encoding="utf-8"
-    )
+    (tmp_path / "existing.py").write_text(REALISTIC, encoding="utf-8")
     # With threshold 1.0, only exact duplicates match.
     guard = DuplicationGuard(tmp_path, threshold=1.0)
-    almost_same = "def helper():\n    return 43\n"
+    almost_same = (
+        "def helper(value, scale):\n"
+        "    total = value + scale\n"
+        "    adjusted = total * 3\n"
+        "    return adjusted\n"
+    )
     matches = guard.check("mod.py", almost_same)
     assert matches == []
 
@@ -81,10 +95,10 @@ def test_handles_invalid_python_gracefully(tmp_path):
 def test_uses_provided_historian(tmp_path):
     from rootact.codebase_historian import CodebaseHistorian
 
-    (tmp_path / "existing.py").write_text("def helper(): pass\n", encoding="utf-8")
+    (tmp_path / "existing.py").write_text(REALISTIC, encoding="utf-8")
     historian = CodebaseHistorian(tmp_path).build()
     guard = DuplicationGuard(tmp_path, historian=historian)
-    matches = guard.check("mod.py", "def helper(): pass\n")
+    matches = guard.check("mod.py", REALISTIC)
     assert len(matches) == 1
 
 

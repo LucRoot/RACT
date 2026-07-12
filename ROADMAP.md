@@ -14,8 +14,8 @@ Post-audit upgrade queue. Items are ordered by leverage for the public launch.
    - Make `load_bearing_guard.py`, `duplication_guard.py`, and `dead_code_auction.py` inherit the accurate reference graph.
 
 3. **Coverage floor + mutation testing**
-   - Add a per-step coverage-delta gate in `harness.py`.
-   - Run `mutmut` or `cosmic-ray` against `executor.py`, `loop_controller.py`, `harness.py`, and `cli.py`.
+   - DONE: 90% coverage floor enforced in CI (`coverage-gate` job).
+   - Mutation testing (`mutmut` against `executor.py`, `loop_controller.py`, `harness.py`, `cli.py`) is a local/WSL-only manual operation via `rootact mutation run` and `scripts/run_mutation_tests_wsl.sh`. It is not a CI gate: `mutmut` does not run on GitHub-hosted Windows runners and the run is too slow for per-PR enforcement.
 
 4. **CI/CD pipeline**
    - GitHub Actions workflow running `ruff check`, `ruff format --check`, `mypy`, and `pytest`.
