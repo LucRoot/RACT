@@ -11,11 +11,11 @@
 
 ## Executive Summary
 
-RootAct (public name: **RACT**) is a standalone, model-agnostic Agentic Coding Tool built around the `Rooted[T]` assumption-driven programming quirk. The codebase is lint-clean, fully formatted, type-clean, and the test suite is green. It is **not** the same system as Internal: RootAct contains no Internal/Internal code, training artifacts, or proprietary management-layer concepts. This audit reflects the current public-release candidate after the competitive-feature build wave.
+RootAct (public name: **RACT**) is a standalone, model-agnostic Agentic Coding Tool built around the `Rooted[T]` assumption-driven programming quirk. The codebase is lint-clean, fully formatted, type-clean, and the test suite is green. It is independent of the author's proprietary internal tooling: RootAct contains no proprietary code, training artifacts, or management-layer concepts. This audit reflects the current public-release candidate after the competitive-feature build wave.
 
 **Current test status:** 1155 passed, 0 failed, 1 skipped (Windows-specific).  
 **Overall coverage:** 94% (575 uncovered statements out of 9120).  
-**Overall risk:** Low. Core loops, provider routing, harness integration, provider resilience (capability-based fallback chains + health checks), run modes, session/rollback, project documents, CLI toggles, self-test, code-review diff, memory arena, quality scorecard, artifact provenance, built-in skills, provider presets, operator handshakes, run reports (with JSON export), MCP integration (including `rootact mcp list`), DiffApplier (including `rootact diff apply`), retrieval adapter (including `rootact retrieval search`), error-mask detection, symbol graph, codebase historian, duplication guard, historian-aware milestone planning, lint/format repair loop, branded terminal UI (`rootact --welcome`, colorized input/output, rich tables for listing commands), and the Root-Knot-anchored self-recursing build loop are wired and exercised. The loop itself is hardened with per-iteration timeouts, configurable test commands, intent-oscillation detection, and richer failure feedback; the `--loop` CLI path is covered by integration tests. Public docs (README, QUICKSTART, PROVIDER_SETUP, SKILL_AUTHORING, PHILOSOPHY) cover installation, first run, loop mode, all 10 built-in skills, provider presets (including Z.ai, Moonshot, OpenRouter, Ollama, and local Internal proxy), reports, handshakes, MCP tools, retrieval, diff application, novelty scan, whisper, auction, fence, load-bearing, refactor, openapi, plan replay, doctor, the welcome screen, and a subtle author bridge to the AI Agent Playbook mailing list. README and docs/index.md include low-pressure CTAs linking to `https://lucasroot.pro/ai-agent-playbook-thanks`; the HF Space landing page mirrors the link. Fresh projects created via `--init-provider` now receive a default `prompts/manager.txt`, and the harness falls back to a bundled prompt if the project prompt is missing.
+**Overall risk:** Low. Core loops, provider routing, harness integration, provider resilience (capability-based fallback chains + health checks), run modes, session/rollback, project documents, CLI toggles, self-test, code-review diff, memory arena, quality scorecard, artifact provenance, built-in skills, provider presets, operator handshakes, run reports (with JSON export), MCP integration (including `rootact mcp list`), DiffApplier (including `rootact diff apply`), retrieval adapter (including `rootact retrieval search`), error-mask detection, symbol graph, codebase historian, duplication guard, historian-aware milestone planning, lint/format repair loop, branded terminal UI (`rootact --welcome`, colorized input/output, rich tables for listing commands), and the Root-Knot-anchored self-recursing build loop are wired and exercised. The loop itself is hardened with per-iteration timeouts, configurable test commands, intent-oscillation detection, and richer failure feedback; the `--loop` CLI path is covered by integration tests. Public docs (README, QUICKSTART, PROVIDER_SETUP, SKILL_AUTHORING, PHILOSOPHY) cover installation, first run, loop mode, all 10 built-in skills, provider presets (including Z.ai, Moonshot, OpenRouter, Ollama, and local OpenAI-compatible endpoints), reports, handshakes, MCP tools, retrieval, diff application, novelty scan, whisper, auction, fence, load-bearing, refactor, openapi, plan replay, doctor, the welcome screen, and a subtle author bridge to the AI Agent Playbook mailing list. README and docs/index.md include low-pressure CTAs linking to `https://lucasroot.pro/ai-agent-playbook-thanks`; the HF Space landing page mirrors the link. Fresh projects created via `--init-provider` now receive a default `prompts/manager.txt`, and the harness falls back to a bundled prompt if the project prompt is missing.
 
 **Latest burn-in driven fixes:** The Executor now strips markdown code fences (e.g. ` ```python ... ``` `), extracts JSON artifact wrappers (e.g. `{"artifact": "src/foo.py", "content": "..."}`), and strips leading artifact-path lines (e.g. `tests/test_greeter.py\r\n```python`) from generated artifacts before writing them. The artifact-path strip is separator-agnostic so Windows backslash expectations match forward-slash model output. `DuplicationGuard` now allows rewrites of symbols within their own module/file and only flags cross-module duplication, preventing false-positive blocks when a model edits an existing file in place. End-to-end loop burn-in against a fast mock local LLM completed successfully: the greeter-refactor intent produced `_fmt` → `format_message` rename, removed duplicated capitalization in `surprise`, preserved the Root Knot, and passed tests across three loop iterations; stagnation was correctly detected when the deterministic mock returned identical content. The Manager rejects `tool_call` plan steps when no MCP servers are configured, and the Executor treats an empty MCP registry as if no registry were provided, eliminating silent stub failures in no-MCP projects. Local HTTP streaming no longer sends an `Authorization` header, and OpenAI-compatible streaming errors are surfaced as Rooted failures rather than uncaught exceptions. `TestFailureDiagnoser._infer_source_from_test()` now catches `UnicodeDecodeError` when reading malformed test files. `SymbolGraph._link_file()` was rewritten to use recursive traversal with proper scope tracking; the previous `ast.walk`-based implementation assigned edges to the wrong scope because `ast.walk` yields nodes in breadth-first order. `LoopController._check_root_knot()` now only inspects `.py` artifacts and deduplicates checked paths, so runtime reports such as `test_results.txt` no longer trigger false "regression" decisions. `LoopController` also detects intent oscillation (A->B->A state regressions) and treats them as continuity failures. `RactDoctor._check_provider_reachability()` now filters out non-dict provider configs before instantiating `ProviderRouter`, avoiding an `AttributeError` when a provider entry is malformed. `RunModeOrchestrator._resume_session()` now catches `KeyError` raised by `SessionStore.load()` in addition to `FileNotFoundError`, surfacing a clear `FileNotFoundError` when no prior session exists.
 
@@ -52,16 +52,14 @@ The test suite exercises the harness, provider router, manager/planner/executor,
 
 ---
 
-## 3. Boundary Statement: RootAct ≠ Internal
+## 3. Boundary Statement
 
-RootAct is intentionally separate from Internal and the `frontline-poc` Internal work:
+RootAct is intentionally independent of the author's proprietary internal
+tooling:
 
-- No Internal proxy, reasoner, decisioner, or reflector code is imported or referenced.
-- No Internal model training artifacts or dual-head orchestration logic is present.
-- The `Rooted[T]` quirk is a public-facing design choice, not Internal-specific IP.
-- Any learnings from RootAct may flow **one way** into Internal upgrades, but Internal concepts never flow into RootAct.
-
-The separation is enforced by `scripts/verify_internal_rootact_separation.py` (scans `src/rootact` for Internal/Internal imports and references) and documented in `docs/SEPARATION.md`.
+- No proprietary code is imported or referenced.
+- The `Rooted[T]` quirk is a public-facing design choice.
+- The separation is documented in `docs/SEPARATION.md`.
 
 ---
 
@@ -232,7 +230,7 @@ All previously unwired modules are now integrated or removed. The harness path u
 | `ruff` lint and format clean | ✅ |
 | Signature markers in every `.py` file | ✅ |
 | License declared (`PolyForm Noncommercial License 1.0.0`) | ✅ |
-| Internal separation verified | ✅ |
+| Proprietary-IP separation verified | ✅ |
 | `mypy` clean | ✅ |
 | 0% coverage modules resolved | ✅ |
 | Use-case catalog expanded (29 accepted, 1 rejected) | ✅ |

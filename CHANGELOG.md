@@ -33,7 +33,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `ract consolidate` — scans for near-duplicate modules and proposes safe merges.
 - `ract audit` meta-command with deep self-audit mode.
 - Per-file mutation-test floors and coverage-delta gate (`rootact coverage delta`).
-- Native Internal provider with multi-slot routing and fallback.
 - MCP adapter with SSE transport.
 - Skill marketplace install path.
 - Session config persistence and `rootact report --last` fallback.
@@ -44,7 +43,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - README now includes status badges and a "Why RACT" comparison table.
-- Documentation expanded: `AUDIT.md`, `PROVIDER_SETUP.md`, `HARNESS.md`, `SKILL_AUTHORING.md`, `SEPARATION.md`, `PHILOSOPHY.md`, `BUILD_LOG.md`, `INTERNAL_LEARNINGS.md`.
+- Documentation expanded: `AUDIT.md`, `PROVIDER_SETUP.md`, `HARNESS.md`, `SKILL_AUTHORING.md`, `SEPARATION.md`, `PHILOSOPHY.md`.
 
 ## [0.1.0] - 2026-07-08
 

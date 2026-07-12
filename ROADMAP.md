@@ -40,10 +40,7 @@ Post-audit upgrade queue. Items are ordered by leverage for the public launch.
 
 ## P2 — Ecosystem and scale
 
-9. **Native Internal provider**
-   - First-class provider that routes across local Strix Halo slots.
-
-10. **Public leaderboard backend**
+9. **Public leaderboard backend**
     - Accept and compare signed receipts from users who opt in.
 
 11. **VS Code extension**
@@ -59,3 +56,4 @@ Post-audit upgrade queue. Items are ordered by leverage for the public launch.
 
 - Animated asciicast/GIF is blocked until a terminal recorder supports Windows ARM64.
 - CLA assistant is blocked at the OAuth handshake step; the setup URL is open.
+<!-- RACT 0.1.1 - Trust and Tooling -->

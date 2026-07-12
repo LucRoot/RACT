@@ -105,14 +105,12 @@ Every source file is signed with `__root_author__ = "Dr. Lucas Root, Ph.D."` and
 
 ## Boundary Statement
 
-RootAct is intentionally separate from Internal and the `frontline-poc` Internal work:
+RootAct is intentionally independent of the author's proprietary internal
+tooling:
 
-- No Internal proxy, reasoner, decisioner, or reflector code is imported or referenced.
-- No Internal model training artifacts or dual-head orchestration logic is present.
-- The `Rooted[T]` quirk and Root Knot signature are public design choices, not Internal-specific IP.
-- Learnings from RootAct may flow **one way** into Internal upgrades, but Internal concepts never flow into RootAct.
-
-The separation is enforced by `scripts/verify_internal_rootact_separation.py` and documented in `docs/SEPARATION.md`.
+- No proprietary code is imported or referenced.
+- The `Rooted[T]` quirk and Root Knot signature are public design choices.
+- The separation is documented in `docs/SEPARATION.md`.
 
 ## Current Status
 

@@ -130,7 +130,7 @@ def test_harness_includes_curated_context(tmp_project):
         ]
     }
     fake_step_response = {
-        "choices": [{"message": {"content": "def test_widget(): pass"}}]
+        "choices": [{"message": {"content": "def test_widget():\n    return 42\n"}}]
     }
     harness.manager.provider.complete = MagicMock(
         side_effect=[
@@ -455,7 +455,9 @@ def test_harness_includes_retrieval_block(tmp_project):
             }
         ]
     }
-    fake_step_response = {"choices": [{"message": {"content": "def test_x(): pass"}}]}
+    fake_step_response = {
+        "choices": [{"message": {"content": "def test_x():\n    return 42\n"}}]
+    }
     harness.manager.provider.complete = MagicMock(
         side_effect=[
             Rooted(value=fake_plan_response, assumption="ok", confidence=1.0),
@@ -730,6 +732,7 @@ def test_coverage_gate_records_delta_in_report(tmp_project, monkeypatch):
         detail = "coverage stagnant"
         floor_breached = False
         percent_delta = 0.0
+        per_file_breaches: list[str] = []
         before = CoverageSnapshot(
             percent_covered=50.0, covered_lines=50, missing_lines=50, total_lines=100
         )
@@ -765,6 +768,7 @@ def test_coverage_gate_hard_fail_returns_error(tmp_project, monkeypatch):
         detail = "coverage regressed"
         floor_breached = False
         percent_delta = -5.0
+        per_file_breaches: list[str] = []
         before = CoverageSnapshot(
             percent_covered=55.0, covered_lines=55, missing_lines=45, total_lines=100
         )

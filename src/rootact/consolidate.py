@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from rootact.ast_normalizer import canonical_similarity
+from rootact.ast_normalizer import normalize_python, structural_similarity_normalized
 from rootact.compression_novelty_detector import CompressionNoveltyDetector
 from rootact.handshake_registry import HandshakeRegistry
 from rootact.symbol_graph import SymbolGraph
@@ -100,6 +100,18 @@ class ConsolidationScanner:
             rels = [modules[i][0] for i in cluster]
             target = self._pick_target(rels)
             sources = tuple(sorted(s for s in rels if s != target))
+
+            # Package __init__.py is not a sensible merge target: it carries
+            # package-level exports and would absorb unrelated modules.
+            if target.endswith("__init__.py"):
+                continue
+
+            # Scripts live outside the package and should not be folded into src/.
+            if any(s.startswith("scripts/") for s in sources) and target.startswith(
+                "src/"
+            ):
+                continue
+
             safe, notes = self._safety_check(target, sources)
             diff = self._diff_preview(target, sources)
             reason = (
@@ -157,16 +169,23 @@ class ConsolidationScanner:
     ) -> dict[tuple[int, int], float]:
         """Return similarity scores in (0,1) for each unordered pair of modules.
 
-        LR:: The primary signal is AST-normalized canonical similarity, which
-        collapses copy-and-rename clones (identifiers differ but structure is
-        identical) to a high score. The legacy compression-ratio signal is kept
-        as a secondary signal for non-Python or unparseable content; the higher
-        of the two wins so a strong match on either axis surfaces.
+        Combines compression-based similarity with AST-normalized structural
+        similarity so that renamed clones are caught even when byte-level
+        compression fails to see them.
         """
+        # Normalize each module once; structural normalization is expensive on
+        # large files and this cache avoids redundant work across pairs.
+        normalized: dict[int, str] = {}
+        for i, (_rel, _path, content) in enumerate(modules):
+            try:
+                normalized[i] = normalize_python(content)
+            except ValueError:
+                normalized[i] = ""
+
         sim: dict[tuple[int, int], float] = {}
         for i in range(len(modules)):
             for j in range(i + 1, len(modules)):
-                canonical = canonical_similarity(modules[i][2], modules[j][2])
+                # Compression signal: lower ratio -> more similar. Fast first filter.
                 ratio_ij = self.detector._conditional_ratio(
                     modules[i][2], modules[j][1]
                 )
@@ -174,11 +193,29 @@ class ConsolidationScanner:
                     modules[j][2], modules[i][1]
                 )
                 ratios = [r for r in (ratio_ij, ratio_ji) if r is not None]
-                compression = 0.0
-                if ratios:
-                    best = min(ratios)
-                    compression = max(0.0, min(1.0, 1.0 - best))
-                sim[(i, j)] = max(canonical, compression)
+                compression_sim = (
+                    max(0.0, min(1.0, 1.0 - min(ratios))) if ratios else 0.0
+                )
+
+                # Structural signal is expensive: only run it when compression suggests
+                # the pair might be a renamed clone. Very low compression similarity
+                # means the modules differ too much in size or content to be copies.
+                structural_sim = 0.0
+                if compression_sim >= 0.3:
+                    norm_a = normalized.get(i, "")
+                    norm_b = normalized.get(j, "")
+                    if norm_a and norm_b:
+                        # Use the cached normalization; the helper itself still
+                        # applies the large-input and size-ratio heuristics.
+                        try:
+                            structural_sim = structural_similarity_normalized(
+                                norm_a, norm_b
+                            )
+                        except Exception:  # noqa: BLE001
+                            structural_sim = 0.0
+
+                # Either signal can push a pair over the threshold.
+                sim[(i, j)] = max(compression_sim, structural_sim)
         return sim
 
     def _cluster(
@@ -375,9 +412,9 @@ class ConsolidationScanner:
                 continue
             milestone_id = f"consolidate-{idx:04d}"
             description = (
-                f"Merge {len(proposal.sources)} module(s) into {proposal.target}\n"
-                f"Reason: {proposal.reason}\n"
-                f"Sources: {', '.join(proposal.sources)}"
+                f"Proposal: merge into {proposal.target}\n"
+                f"Sources: {', '.join(proposal.sources)}\n"
+                f"Reason: {proposal.reason}"
             )
             acceptance = (
                 f"Run tests after applying. Source modules should be removed or "
@@ -559,4 +596,4 @@ class ConsolidationApplier:
         )
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling

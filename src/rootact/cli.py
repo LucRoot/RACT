@@ -512,7 +512,10 @@ def _skills_marketplace_command(args: list[str]) -> int:
         default=None,
         help="URL or path to a marketplace catalog JSON file.",
     )
-    install_parser.add_argument("--name", required=True, help="Skill name to install")
+    install_parser.add_argument(
+        "name_positional", nargs="?", default=None, help="Skill name to install"
+    )
+    install_parser.add_argument("--name", default=None, help="Skill name to install")
 
     parsed = parser.parse_args(args)
     marketplace = SkillMarketplace(parsed.catalog)
@@ -540,13 +543,21 @@ def _skills_marketplace_command(args: list[str]) -> int:
         return 0
 
     if parsed.action == "install":
+        skill_name = parsed.name_positional or parsed.name
+        if not skill_name:
+            print(
+                "[rootact] marketplace install requires a skill name. "
+                "Use `rootact skills marketplace install <name>` or `--name <name>`.",
+                file=sys.stderr,
+            )
+            return 1
         registry = SkillRegistry(parsed.project_dir)
         try:
-            path = marketplace.install(parsed.name, registry)
+            path = marketplace.install(skill_name, registry)
         except (KeyError, ValueError, httpx.HTTPError, OSError) as exc:
             print(f"[rootact] failed to install skill: {exc}", file=sys.stderr)
             return 1
-        print(f"[rootact] installed marketplace skill '{parsed.name}' to {path}")
+        print(f"[rootact] installed marketplace skill '{skill_name}' to {path}")
         return 0
 
     return 1
@@ -827,6 +838,187 @@ def _doctor_command(args: list[str]) -> int:
     return 0 if passed == total else 1
 
 
+def _audit_command(args: list[str]) -> int:
+    """Handle 'rootact audit [--config <path>] [--json]'.
+
+    LR:: Runs RACT's own diagnostic tools against the project and prints a
+    unified pass/fail report. This is the single command an operator can run
+    before a release to confirm the codebase is healthy and the tool is
+    calibrated.
+    """
+    parser = argparse.ArgumentParser(prog="rootact audit")
+    parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON instead of a text table.",
+    )
+    parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="Run slower checks (consolidate scan, mutation-score drift).",
+    )
+    parsed = parser.parse_args(args)
+
+    project_dir = parsed.config.parent.resolve()
+    config: dict[str, Any] | None = None
+    if parsed.config.is_file():
+        import yaml
+
+        try:
+            config = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError:
+            config = None
+
+    findings: list[dict[str, Any]] = []
+
+    doctor_results = RactDoctor(parsed.config).diagnose()
+    for result in doctor_results:
+        findings.append(
+            {
+                "tool": "doctor",
+                "name": result.name,
+                "passed": result.passed,
+                "message": result.message,
+            }
+        )
+
+    auction = DeadCodeAuction(
+        project_dir,
+        config.get("dead_code_auction", {}) if config else {},
+    )
+    try:
+        candidates = auction.scan()
+    except Exception as exc:  # noqa: BLE001
+        candidates = []
+        findings.append(
+            {
+                "tool": "auction",
+                "name": "dead_code_scan",
+                "passed": False,
+                "message": f"dead-code auction failed: {exc}",
+            }
+        )
+    if candidates:
+        findings.append(
+            {
+                "tool": "auction",
+                "name": "dead_code_candidates",
+                "passed": False,
+                "message": f"{len(candidates)} dead-code candidate(s) found",
+            }
+        )
+    else:
+        findings.append(
+            {
+                "tool": "auction",
+                "name": "dead_code_candidates",
+                "passed": True,
+                "message": "no dead-code candidates found",
+            }
+        )
+
+    if parsed.deep and config is not None:
+        scanner = ConsolidationScanner(project_dir)
+        try:
+            consolidation = scanner.scan()
+            proposals = consolidation.proposals
+            findings.append(
+                {
+                    "tool": "consolidate",
+                    "name": "merge_proposals",
+                    "passed": len(proposals) == 0,
+                    "message": (
+                        f"{len(proposals)} merge proposal(s) found"
+                        if proposals
+                        else "no merge proposals found"
+                    ),
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            findings.append(
+                {
+                    "tool": "consolidate",
+                    "name": "merge_proposals",
+                    "passed": False,
+                    "message": f"consolidate scan failed: {exc}",
+                }
+            )
+
+        mutation_cfg = config.get("mutation_gate", {})
+        badge_path = project_dir / "docs" / "mutation-badge.json"
+        if not badge_path.is_file():
+            findings.append(
+                {
+                    "tool": "mutation",
+                    "name": "mutation_score_drift",
+                    "passed": False,
+                    "message": "no mutation badge found; run `rootact mutation run`",
+                }
+            )
+        else:
+            try:
+                badge = json.loads(badge_path.read_text(encoding="utf-8"))
+                current_text = badge.get("message", "")
+                current_score = float(current_text.rstrip("%"))
+                floor = float(mutation_cfg.get("min_score", 0.0))
+                if current_score < floor:
+                    findings.append(
+                        {
+                            "tool": "mutation",
+                            "name": "mutation_score_drift",
+                            "passed": False,
+                            "message": (
+                                f"mutation score {current_score:.2f}% is below "
+                                f"floor {floor:.2f}%"
+                            ),
+                        }
+                    )
+                else:
+                    findings.append(
+                        {
+                            "tool": "mutation",
+                            "name": "mutation_score_drift",
+                            "passed": True,
+                            "message": (
+                                f"mutation score {current_score:.2f}% meets "
+                                f"floor {floor:.2f}%"
+                            ),
+                        }
+                    )
+            except (json.JSONDecodeError, ValueError) as exc:
+                findings.append(
+                    {
+                        "tool": "mutation",
+                        "name": "mutation_score_drift",
+                        "passed": False,
+                        "message": f"could not parse mutation badge: {exc}",
+                    }
+                )
+
+    passed = sum(1 for f in findings if f["passed"])
+    total = len(findings)
+
+    if parsed.json:
+        print(
+            json.dumps(
+                {"passed": passed, "total": total, "findings": findings}, indent=2
+            )
+        )
+    else:
+        console.rule(f"RACT Audit: {passed}/{total} checks passed")
+        console.table(
+            title="",
+            columns=["Tool", "Check", "Status", "Message"],
+            rows=[
+                [f["tool"], f["name"], "PASS" if f["passed"] else "FAIL", f["message"]]
+                for f in findings
+            ],
+        )
+
+    return 0 if passed == total else 1
+
+
 def _load_bearing_command(args: list[str]) -> int:
     """Handle 'rootact load-bearing list [--config <path>]'.
 
@@ -927,23 +1119,24 @@ def _novelty_command(args: list[str]) -> int:
 
 
 def _coverage_command(args: list[str]) -> int:
-    """Handle 'rootact coverage delta [--run] [--before <path>] [--after <path>] [--config <path>]'.
+    """Handle 'rootact coverage <delta|baseline|status|badge>'.
 
-    LR:: Exposes the earned-coverage gate. Without arguments it compares two
-    existing pytest-cov JSON reports. With --run it captures before/after
-    snapshots by invoking pytest directly.
+    LR:: Exposes the earned-coverage gate. ``delta`` compares two existing
+    pytest-cov JSON reports or runs pytest directly. ``baseline`` establishes
+    the stored baseline. ``status`` prints the stored baseline. ``badge`` writes
+    a Shields endpoint JSON file from the current run.
     """
     parser = argparse.ArgumentParser(prog="rootact coverage")
     parser.add_argument(
         "action",
-        choices=["delta"],
+        choices=["delta", "baseline", "status", "badge"],
         help="Coverage action to perform.",
     )
     parser.add_argument(
         "--run",
         dest="run_snapshot",
         action="store_true",
-        help="Run pytest twice and compute the delta directly.",
+        help="Run pytest and compute the delta directly (delta action only).",
     )
     parser.add_argument(
         "--before", type=Path, help="Path to a pytest-cov coverage.json (before)."
@@ -958,19 +1151,95 @@ def _coverage_command(args: list[str]) -> int:
         default=None,
         help="Minimum required coverage percent for the after snapshot.",
     )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Path for the generated badge JSON (badge action only).",
+    )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
 
     from rootact.coverage_delta import (
         compute_delta,
         gate,
+        load_baseline,
         read_snapshot,
+        run_snapshot,
+        save_baseline,
+        save_coverage_badge,
     )
 
-    project_dir = parsed.config.parent.resolve()
+    import yaml
 
+    project_dir = parsed.config.parent.resolve()
+    config = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
+    cg_cfg = config.get("coverage_gate", {})
+    per_file_min_percent = {
+        str(k).replace("\\", "/"): float(v)
+        for k, v in (cg_cfg.get("per_file") or {}).items()
+    }
+    badge_path = parsed.output
+    if parsed.action == "badge" and badge_path is None:
+        cfg_badge = cg_cfg.get("badge_path")
+        badge_path = (
+            Path(cfg_badge)
+            if cfg_badge
+            else project_dir / "docs" / "coverage-badge.json"
+        )
+
+    if parsed.action == "status":
+        baseline = load_baseline(project_dir)
+        if baseline is None:
+            print(
+                "[rootact] no coverage baseline found. Run `rootact coverage baseline`."
+            )
+            return 1
+        print(f"Coverage baseline: {baseline}")
+        return 0
+
+    if parsed.action == "baseline":
+        snapshot_rooted = run_snapshot(
+            project_dir, timeout=float(cg_cfg.get("timeout", 300.0))
+        )
+        if not snapshot_rooted.is_ok():
+            print(
+                f"[rootact] coverage baseline failed: {snapshot_rooted.error}",
+                file=sys.stderr,
+            )
+            return 1
+        snapshot = snapshot_rooted.unwrap()
+        path = save_baseline(project_dir, snapshot)
+        print(f"[rootact] coverage baseline established at {path}")
+        print(snapshot)
+        return 0
+
+    if parsed.action == "badge":
+        snapshot_rooted = run_snapshot(
+            project_dir, timeout=float(cg_cfg.get("timeout", 300.0))
+        )
+        if not snapshot_rooted.is_ok():
+            print(
+                f"[rootact] coverage badge failed: {snapshot_rooted.error}",
+                file=sys.stderr,
+            )
+            return 1
+        snapshot = snapshot_rooted.unwrap()
+        badge_target = (
+            badge_path if badge_path.is_absolute() else project_dir / badge_path
+        )
+        save_coverage_badge(snapshot, badge_target)
+        print(f"[rootact] coverage badge written to {badge_target}")
+        print(snapshot)
+        return 0
+
+    # delta action
     if parsed.run_snapshot:
-        delta_rooted = gate(project_dir, min_percent=parsed.min_percent)
+        delta_rooted = gate(
+            project_dir,
+            min_percent=parsed.min_percent,
+            per_file_min_percent=per_file_min_percent,
+        )
         if not delta_rooted.is_ok():
             print(
                 f"[rootact] coverage gate failed: {delta_rooted.error}", file=sys.stderr
@@ -1605,6 +1874,8 @@ def main(argv: list[str] | None = None) -> int:
         return _plan_command(argv[1:])
     if argv and argv[0] == "doctor":
         return _doctor_command(argv[1:])
+    if argv and argv[0] == "audit":
+        return _audit_command(argv[1:])
     if argv and argv[0] == "load-bearing":
         return _load_bearing_command(argv[1:])
     if argv and argv[0] == "novelty":
@@ -1625,6 +1896,8 @@ def main(argv: list[str] | None = None) -> int:
         return _consolidate_command(argv[1:])
     if argv and argv[0] == "release":
         return _release_command(argv[1:])
+    if argv and argv[0] == "marketplace":
+        return _skills_marketplace_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="rootact",
         description=(

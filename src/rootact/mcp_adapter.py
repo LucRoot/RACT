@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from rootact.rooted import Rooted
 
 
@@ -166,6 +168,140 @@ class StdioMcpClient(McpAdapter):
         )
 
 
+class SseMcpClient(McpAdapter):
+    """Connect to an MCP server over Server-Sent Events.
+
+    This implementation targets the simple SSE variant where JSON-RPC requests
+    are POSTed to a single URL and responses arrive as `data:` lines on the
+    same stream. It does not yet implement the full MCP session-handshake
+    pattern (GET /sse + POST /message); that is queued for a future pass.
+    """
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        timeout: float = 60.0,
+    ) -> None:
+        self.url = url
+        self.headers = headers or {}
+        self.timeout = timeout
+        self._request_id = 0
+        self._client: httpx.Client | None = None
+
+    def _next_id(self) -> int:
+        self._request_id += 1
+        return self._request_id
+
+    @property
+    def client(self) -> httpx.Client:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.Client(timeout=self.timeout)
+        return self._client
+
+    def close(self) -> None:
+        if self._client is not None and not self._client.is_closed:
+            self._client.close()
+
+    def _rpc(
+        self, method: str, params: dict[str, Any] | None = None
+    ) -> Rooted[dict[str, Any]]:
+        payload = {
+            "jsonrpc": "2.0",
+            "id": self._next_id(),
+            "method": method,
+        }
+        if params is not None:
+            payload["params"] = params
+        request_headers = {"Content-Type": "application/json", **self.headers}
+        try:
+            with self.client.stream(
+                "POST",
+                self.url,
+                headers=request_headers,
+                json=payload,
+            ) as response:
+                response.raise_for_status()
+                last_result: dict[str, Any] | None = None
+                for line in response.iter_lines():
+                    line = line.strip()
+                    if not line or line.startswith(":"):
+                        continue
+                    if line.startswith("data: "):
+                        data_str = line[len("data: ") :]
+                        try:
+                            message = json.loads(data_str)
+                        except json.JSONDecodeError:
+                            continue
+                        if "error" in message:
+                            return Rooted(
+                                value=None,
+                                assumption="MCP method succeeds.",
+                                confidence=0.0,
+                                provenance=["mcp_adapter.sse"],
+                                error=message["error"].get(
+                                    "message", "unknown MCP error"
+                                ),
+                            )
+                        if "result" in message:
+                            last_result = message.get("result", {})
+                return Rooted(
+                    value=last_result or {},
+                    assumption="MCP SSE stream returned a result.",
+                    confidence=1.0 if last_result is not None else 0.0,
+                    provenance=["mcp_adapter.sse"],
+                )
+        except (httpx.HTTPError, OSError) as exc:
+            return Rooted(
+                value=None,
+                assumption="MCP SSE endpoint is reachable.",
+                confidence=0.0,
+                provenance=["mcp_adapter.sse"],
+                error=str(exc),
+            )
+
+    def list_tools(self) -> Rooted[list[dict[str, Any]]]:
+        result = self._rpc("tools/list")
+        if not result.is_ok():
+            return Rooted(
+                value=None,
+                assumption=result.assumption,
+                confidence=result.confidence,
+                provenance=result.provenance,
+                error=result.error,
+            )
+        tools = result.unwrap().get("tools", [])
+        return Rooted(
+            value=tools,
+            assumption="MCP server exposes a tools/list method over SSE.",
+            confidence=1.0,
+            provenance=[*result.provenance, "mcp_adapter.list_tools"],
+        )
+
+    def call_tool(self, name: str, arguments: dict[str, Any]) -> Rooted[McpToolResult]:
+        result = self._rpc("tools/call", {"name": name, "arguments": arguments})
+        if not result.is_ok():
+            return Rooted(
+                value=None,
+                assumption=result.assumption,
+                confidence=result.confidence,
+                provenance=result.provenance,
+                error=result.error,
+            )
+        data = result.unwrap()
+        return Rooted(
+            value=McpToolResult(
+                tool=name,
+                content=data.get("content", []),
+                is_error=bool(data.get("isError")),
+            ),
+            assumption="MCP tool call returns content.",
+            confidence=1.0,
+            provenance=[*result.provenance, "mcp_adapter.call_tool"],
+        )
+
+
 class McpToolRegistry:
     """Collect and dispatch calls across configured MCP servers.
 
@@ -209,7 +345,15 @@ class McpToolRegistry:
                         cwd=spec.get("cwd"),
                     ),
                 )
-            # SSE transport is left as a future extension.
+            elif transport == "sse":
+                registry.register(
+                    name,
+                    SseMcpClient(
+                        url=spec["url"],
+                        headers=spec.get("headers"),
+                        timeout=float(spec.get("timeout", 60.0)),
+                    ),
+                )
         return registry
 
     def list_all_tools(self) -> Rooted[list[dict[str, Any]]]:

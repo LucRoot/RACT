@@ -42,6 +42,21 @@ class RunReporter:
         except (json.JSONDecodeError, OSError):
             return None
 
+    def _latest_session_id(self) -> str | None:
+        """Return the most recently modified session id, or None if none exist."""
+        sessions_dir = self.project_dir / ".rootact" / "sessions"
+        if not sessions_dir.is_dir():
+            return None
+        candidates = [
+            (path.stat().st_mtime, path.stem)
+            for path in sessions_dir.glob("*.json")
+            if path.is_file()
+        ]
+        if not candidates:
+            return None
+        candidates.sort(reverse=True)
+        return candidates[0][1]
+
     @staticmethod
     def _format_metrics_line(metrics: dict[str, Any] | None) -> str:
         """Render a metrics dict as a concise human-readable line."""
@@ -64,11 +79,26 @@ class RunReporter:
         return " ".join(parts)
 
     def render_last_loop(self) -> str:
-        """Return a human-readable summary of the last loop report."""
-        report = self._load_loop_report()
-        if report is None:
-            return "No loop report found. Run 'rootact ... --loop' first."
+        """Return a human-readable summary of the last loop report.
 
+        If no loop report exists but a session was saved more recently, fall back
+        to the latest session report so `rootact report --last` is useful even
+        when the loop controller has not written a loop report.
+        """
+        report = self._load_loop_report()
+        if report is not None:
+            return self._render_loop_report(report)
+
+        session_id = self._latest_session_id()
+        if session_id is not None:
+            session_output = self.render_session(session_id)
+            return (
+                "No loop report found. Showing the most recent session instead.\n\n"
+                + session_output
+            )
+        return "No loop report found. Run 'rootact ... --loop' first."
+
+    def _render_loop_report(self, report: dict[str, Any]) -> str:
         lines: list[str] = []
         lines.append("RACT Loop Report")
         lines.append("================")

@@ -487,6 +487,47 @@ def test_scan_project_still_flags_verbatim_duplicates(tmp_path):
     assert result["scores"]["copy.py"]["nearest"] == "original.py"
 
 
+def test_detector_flags_renamed_clone_as_low_novelty(tmp_path):
+    """A module whose identifiers are all renamed but structure is identical scores low."""
+    existing = (
+        "class Rooted:\n"
+        "    def __init__(self, assumption, confidence, provenance):\n"
+        "        self.assumption = assumption\n"
+        "        self.confidence = confidence\n"
+        "        self.provenance = provenance\n"
+        "        self.value = None\n"
+        "\n"
+        "    def bind(self, value):\n"
+        "        self.value = value\n"
+        "        return self\n"
+        "\n"
+        "    def is_ok(self):\n"
+        "        return self.value is not None\n"
+    )
+    renamed_clone = (
+        "class Outcome:\n"
+        "    def __init__(self, claim, certainty, lineage):\n"
+        "        self.claim = claim\n"
+        "        self.certainty = certainty\n"
+        "        self.lineage = lineage\n"
+        "        self.payload = None\n"
+        "\n"
+        "    def set(self, payload):\n"
+        "        self.payload = payload\n"
+        "        return self\n"
+        "\n"
+        "    def success(self):\n"
+        "        return self.payload is not None\n"
+    )
+    (tmp_path / "existing.py").write_text(existing, encoding="utf-8")
+    detector = CompressionNoveltyDetector(tmp_path)
+    score = detector.assess_new_artifact("src/new.py", renamed_clone)
+
+    assert score is not None
+    assert score.verdict == "low"
+    assert score.nearest == "existing.py"
+
+
 def _write_docstring_heavy_project(project_dir: Path) -> None:
     """Create modules where most bytes are prose inside docstrings/comments."""
     prose = (
@@ -652,58 +693,4 @@ def test_executor_routes_low_novelty_to_handshake_queue(tmp_path):
     assert scores[0]["artifact"] == "src/new.py"
 
 
-def test_ast_borderline_forces_low_for_renamed_clone(tmp_path: Path) -> None:
-    """A renamed clone landing in the borderline ratio band is forced to low."""
-    src = tmp_path / "src" / "pkg"
-    src.mkdir(parents=True)
-    original = (
-        "def rooted_logic(value, context, result):\n"
-        "    bound = bind(value, context)\n"
-        "    verified = verify(bound, result)\n"
-        "    stamped = stamp(verified, context)\n"
-        "    payload = prepare(stamped)\n"
-        "    encoded = encode(payload)\n"
-        "    return ship(encoded)\n"
-    )
-    (src / "rooted.py").write_text(original, encoding="utf-8")
-    # Additional distinct modules so the compression dictionary trains and a
-    # nearest-neighbor lookup is produced. Each module is large enough to exceed
-    # the minimum sample byte threshold.
-    (src / "auth.py").write_text(
-        "def authenticate(token, secret, audience):\n"
-        "    digest = hash_token(token, secret)\n"
-        "    verified = verify_digest(digest)\n"
-        "    session = build_session(verified, audience)\n"
-        "    return finalize(session)\n",
-        encoding="utf-8",
-    )
-    (src / "cache.py").write_text(
-        "def lookup(key, store, fallback):\n"
-        "    entry = store.get(key)\n"
-        "    hydrated = hydrate(entry)\n"
-        "    validated = validate(hydrated)\n"
-        "    return fallback(validated)\n",
-        encoding="utf-8",
-    )
-    (src / "__init__.py").write_text("", encoding="utf-8")
-
-    renamed_clone = (
-        "def alpha_thing(one, two, three):\n"
-        "    four = bind(one, two)\n"
-        "    five = verify(four, three)\n"
-        "    six = stamp(five, two)\n"
-        "    seven = prepare(six)\n"
-        "    eight = encode(seven)\n"
-        "    return ship(eight)\n"
-    )
-
-    detector = CompressionNoveltyDetector(tmp_path)
-    score = detector.assess_new_artifact("src/pkg/rooted_clone.py", renamed_clone)
-    assert score is not None
-    assert score.verdict == "low"
-    assert score.nearest is not None
-    assert "rooted.py" in score.nearest
-    assert "AST-normalized" in score.detail
-
-
-# RACT 0.1.1 - Trust and tooling
+# RACT 0.1.1 - Trust and Tooling
