@@ -30,6 +30,8 @@ import tokenize
 
 import zstandard
 
+from rootact.ast_normalizer import canonical_similarity
+
 
 @dataclass(frozen=True)
 class NoveltyScore:
@@ -336,6 +338,31 @@ class CompressionNoveltyDetector:
                 nearest=nearest,
             )
 
+        # Lexical compression misses copy-and-rename clones: every renamed
+        # identifier is a fresh byte sequence, so the clone can score as *more
+        # novel* than genuinely new code. Canonicalize both artifacts and
+        # compare structure; if the normalized similarity is high, treat it as a
+        # duplicate regardless of the lexical ratio band it landed in.
+        if nearest is not None:
+            nearest_content = self._read_artifact_content(nearest)
+            if nearest_content:
+                normalized = canonical_similarity(content, nearest_content)
+                if normalized >= 0.85:
+                    override_ratio = nn_ratio if nn_ratio is not None else score.ratio
+                    return NoveltyScore(
+                        artifact=score.artifact,
+                        raw_bytes=score.raw_bytes,
+                        compressed_bytes=score.compressed_bytes,
+                        dict_compressed_bytes=score.dict_compressed_bytes,
+                        ratio=round(min(override_ratio, 0.14), 3),
+                        verdict="low",
+                        detail=(
+                            "AST-normalized duplicate detection: structure matches "
+                            f"{nearest} after identifier rename (similarity={normalized:.3f})"
+                        ),
+                        nearest=nearest,
+                    )
+
         # Nearest-neighbor conditional ratio is the strongest duplication
         # signal: it measures how cheaply the new content encodes when appended
         # to the most similar existing file. A verbatim copy approaches zero;
@@ -487,6 +514,16 @@ class CompressionNoveltyDetector:
             content, exclude=exclude
         )
         return path
+
+    def _read_artifact_content(self, relative_path: str) -> str:
+        """Read an artifact's source from disk, returning '' on failure."""
+        target = self.project_dir / relative_path
+        try:
+            if target.is_file():
+                return target.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
+        return ""
 
     def scan_project(self) -> dict[str, Any]:
         """Return novelty scores for all Python files in the project."""

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from rootact.ast_normalizer import canonical_similarity
 from rootact.compression_novelty_detector import CompressionNoveltyDetector
 from rootact.handshake_registry import HandshakeRegistry
 from rootact.symbol_graph import SymbolGraph
@@ -154,10 +155,18 @@ class ConsolidationScanner:
     def _pairwise_similarity(
         self, modules: list[tuple[str, Path, str]]
     ) -> dict[tuple[int, int], float]:
-        """Return similarity scores in (0,1) for each unordered pair of modules."""
+        """Return similarity scores in (0,1) for each unordered pair of modules.
+
+        LR:: The primary signal is AST-normalized canonical similarity, which
+        collapses copy-and-rename clones (identifiers differ but structure is
+        identical) to a high score. The legacy compression-ratio signal is kept
+        as a secondary signal for non-Python or unparseable content; the higher
+        of the two wins so a strong match on either axis surfaces.
+        """
         sim: dict[tuple[int, int], float] = {}
         for i in range(len(modules)):
             for j in range(i + 1, len(modules)):
+                canonical = canonical_similarity(modules[i][2], modules[j][2])
                 ratio_ij = self.detector._conditional_ratio(
                     modules[i][2], modules[j][1]
                 )
@@ -165,12 +174,11 @@ class ConsolidationScanner:
                     modules[j][2], modules[i][1]
                 )
                 ratios = [r for r in (ratio_ij, ratio_ji) if r is not None]
-                if not ratios:
-                    sim[(i, j)] = 0.0
-                    continue
-                best = min(ratios)
-                # Clamp and invert so 1.0 means identical, 0.0 means unrelated.
-                sim[(i, j)] = max(0.0, min(1.0, 1.0 - best))
+                compression = 0.0
+                if ratios:
+                    best = min(ratios)
+                    compression = max(0.0, min(1.0, 1.0 - best))
+                sim[(i, j)] = max(canonical, compression)
         return sim
 
     def _cluster(

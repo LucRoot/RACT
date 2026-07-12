@@ -7,6 +7,6 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 
 _ROOT_KNOT = object()
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Dr. Lucas Root, Ph.D."
 # RACT 0.1.1 - Trust and tooling

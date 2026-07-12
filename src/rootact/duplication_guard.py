@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from rootact.ast_normalizer import canonical_similarity, canonicalize
 from rootact.codebase_historian import CodebaseHistorian
 
 
@@ -59,6 +60,12 @@ class DuplicationGuard:
     default 0.85 is tuned for function-level duplication.
     """
 
+    # Trivial symbols (e.g. ``def f(): pass``) collapse to the same canonical
+    # skeleton and would false-positive against every other trivial symbol. Only
+    # flag a match when both sides carry enough canonical structure to be
+    # meaningfully duplicated.
+    MIN_CANONICAL_TOKENS = 10
+
     def __init__(
         self,
         project_dir: Path,
@@ -83,15 +90,17 @@ class DuplicationGuard:
         for symbol_id, proposed in proposed_symbols.items():
             # Allow rewrites of a symbol in its own module. The guard targets
             # cross-module duplication, not editing an existing file in place.
+            # Comparison is AST-normalized so copy-and-rename clones (the actual
+            # rot mode) are detected even when identifiers differ.
             for existing in self.historian.symbol_graph.nodes.values():
                 if existing.symbol_type == "module":
-                    continue
-                if existing.name != proposed["name"]:
                     continue
                 if existing.module == module:
                     continue
                 existing_src = self._existing_source(existing)
-                similarity = self._source_similarity(proposed["source"], existing_src)
+                if not self._has_enough_structure(proposed["source"], existing_src):
+                    continue
+                similarity = canonical_similarity(proposed["source"], existing_src)
                 if similarity >= self.threshold:
                     matches.append(
                         DuplicationMatch(
@@ -111,6 +120,15 @@ class DuplicationGuard:
         matches = self.check(artifact_path, content)
         if matches:
             raise DuplicationBlockedError(matches)
+
+    def _has_enough_structure(self, proposed: str, existing: str) -> bool:
+        """Return True when both symbols carry enough canonical structure."""
+        proposed_tokens = len(canonicalize(proposed).split())
+        existing_tokens = len(canonicalize(existing).split())
+        return (
+            proposed_tokens >= self.MIN_CANONICAL_TOKENS
+            and existing_tokens >= self.MIN_CANONICAL_TOKENS
+        )
 
     def _path_to_module(self, artifact_path: str) -> str:
         rel = Path(artifact_path)

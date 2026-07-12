@@ -10,6 +10,7 @@ _ROOT_KNOT = object()
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,7 @@ from rootact.dead_code_auction import DeadCodeAuction
 from rootact.skill_marketplace import SkillMarketplace
 from rootact.doc_generator import DocGenerator
 from rootact.diff_applier import DiffApplier
+from rootact.github_release import GitHubReleaseClient, GitHubReleaseError
 from rootact.handshake_registry import HandshakeRegistry
 from rootact.harness import _build_retrieval_adapter
 from rootact.legacy_whisperer import LegacyWhisperer
@@ -1476,6 +1478,103 @@ def _consolidate_rollback(parsed: argparse.Namespace) -> int:
     return 0
 
 
+def _release_command(args: list[str]) -> int:
+    """Handle 'rootact release list' and 'rootact release create ...'.
+
+    LR:: Lists or creates GitHub releases for the project configured in
+    rootact.yaml (github.owner / github.repo). Requires GITHUB_TOKEN.
+    """
+    parser = argparse.ArgumentParser(prog="rootact release")
+    subparsers = parser.add_subparsers(dest="action", help="Release action")
+
+    list_parser = subparsers.add_parser("list", help="List existing releases")
+    list_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+
+    create_parser = subparsers.add_parser("create", help="Create a new release")
+    create_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    create_parser.add_argument("--tag", required=True, help="Git tag for the release")
+    create_parser.add_argument("--name", required=True, help="Release title")
+    create_parser.add_argument("--body", default="", help="Release notes body")
+    create_parser.add_argument(
+        "--asset", action="append", default=[], help="Path to asset file (repeatable)"
+    )
+    create_parser.add_argument("--draft", action="store_true", help="Create as draft")
+    create_parser.add_argument(
+        "--prerelease", action="store_true", help="Mark as prerelease"
+    )
+
+    parsed = parser.parse_args(args)
+    if not parsed.action:
+        parser.error("action is required: list|create")
+
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        print(
+            "[rootact] GITHUB_TOKEN environment variable is required", file=sys.stderr
+        )
+        return 1
+
+    if not parsed.config.is_file():
+        print(f"[rootact] config not found: {parsed.config}", file=sys.stderr)
+        return 1
+
+    import yaml
+
+    try:
+        config = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        print(f"[rootact] failed to parse config: {exc}", file=sys.stderr)
+        return 1
+
+    github_config = config.get("github", {})
+    owner = github_config.get("owner")
+    repo = github_config.get("repo")
+    if not owner or not repo:
+        print(
+            "[rootact] github.owner and github.repo must be set in rootact.yaml",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        client = GitHubReleaseClient(token, owner, repo)
+        if parsed.action == "list":
+            releases = client.list_releases()
+            if not releases:
+                console.info("No releases found.")
+                return 0
+            console.rule("GitHub releases")
+            rows = []
+            for release in releases:
+                rows.append(
+                    [
+                        release.get("tag_name", "-"),
+                        release.get("name", "-"),
+                        "draft" if release.get("draft") else "published",
+                    ]
+                )
+            console.table(title="", columns=["Tag", "Name", "Status"], rows=rows)
+            return 0
+
+        release = client.create_release(
+            parsed.tag,
+            parsed.name,
+            body=parsed.body,
+            draft=parsed.draft,
+            prerelease=parsed.prerelease,
+        )
+        print(f"[rootact] created release {release['tag_name']}: {release['html_url']}")
+        for asset_path in parsed.asset:
+            asset = client.upload_asset(release["id"], asset_path)
+            print(
+                f"[rootact] uploaded asset {asset['name']}: {asset['browser_download_url']}"
+            )
+        return 0
+    except GitHubReleaseError as exc:
+        print(f"[rootact] release failed: {exc.message}", file=sys.stderr)
+        return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     """RootAct CLI entry point."""
     if argv is None:
@@ -1520,8 +1619,12 @@ def main(argv: list[str] | None = None) -> int:
         return _auction_command(argv[1:])
     if argv and argv[0] == "fence":
         return _fence_command(argv[1:])
+    if argv and argv[0] == "marketplace":
+        return _skills_marketplace_command(argv[1:])
     if argv and argv[0] == "consolidate":
         return _consolidate_command(argv[1:])
+    if argv and argv[0] == "release":
+        return _release_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="rootact",
         description=(

@@ -652,4 +652,58 @@ def test_executor_routes_low_novelty_to_handshake_queue(tmp_path):
     assert scores[0]["artifact"] == "src/new.py"
 
 
+def test_ast_borderline_forces_low_for_renamed_clone(tmp_path: Path) -> None:
+    """A renamed clone landing in the borderline ratio band is forced to low."""
+    src = tmp_path / "src" / "pkg"
+    src.mkdir(parents=True)
+    original = (
+        "def rooted_logic(value, context, result):\n"
+        "    bound = bind(value, context)\n"
+        "    verified = verify(bound, result)\n"
+        "    stamped = stamp(verified, context)\n"
+        "    payload = prepare(stamped)\n"
+        "    encoded = encode(payload)\n"
+        "    return ship(encoded)\n"
+    )
+    (src / "rooted.py").write_text(original, encoding="utf-8")
+    # Additional distinct modules so the compression dictionary trains and a
+    # nearest-neighbor lookup is produced. Each module is large enough to exceed
+    # the minimum sample byte threshold.
+    (src / "auth.py").write_text(
+        "def authenticate(token, secret, audience):\n"
+        "    digest = hash_token(token, secret)\n"
+        "    verified = verify_digest(digest)\n"
+        "    session = build_session(verified, audience)\n"
+        "    return finalize(session)\n",
+        encoding="utf-8",
+    )
+    (src / "cache.py").write_text(
+        "def lookup(key, store, fallback):\n"
+        "    entry = store.get(key)\n"
+        "    hydrated = hydrate(entry)\n"
+        "    validated = validate(hydrated)\n"
+        "    return fallback(validated)\n",
+        encoding="utf-8",
+    )
+    (src / "__init__.py").write_text("", encoding="utf-8")
+
+    renamed_clone = (
+        "def alpha_thing(one, two, three):\n"
+        "    four = bind(one, two)\n"
+        "    five = verify(four, three)\n"
+        "    six = stamp(five, two)\n"
+        "    seven = prepare(six)\n"
+        "    eight = encode(seven)\n"
+        "    return ship(eight)\n"
+    )
+
+    detector = CompressionNoveltyDetector(tmp_path)
+    score = detector.assess_new_artifact("src/pkg/rooted_clone.py", renamed_clone)
+    assert score is not None
+    assert score.verdict == "low"
+    assert score.nearest is not None
+    assert "rooted.py" in score.nearest
+    assert "AST-normalized" in score.detail
+
+
 # RACT 0.1.1 - Trust and tooling
