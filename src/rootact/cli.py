@@ -35,6 +35,7 @@ from rootact.load_bearing_guard import LoadBearingGuard
 from rootact.loop_controller import LoopController
 from rootact.loop_planner import LoopPlanner
 from rootact.mcp_adapter import McpToolRegistry
+from rootact.mutation_merge_gate import MergePolicy, MutationMergeGateEngine
 from rootact.mutation_runner import run_mutation_tests
 from rootact.providers.router import ProviderRouter
 from rootact.openapi_client_generator import OpenApiClientGenerator
@@ -1844,6 +1845,59 @@ def _release_command(args: list[str]) -> int:
         return 1
 
 
+def _merge_gate_command(args: list[str]) -> int:
+    """Handle 'rootact merge-gate --policy <json> --files ... [metrics]'.
+
+    Evaluates natural-language merge policies against coverage/mutation
+    metrics for a set of changed files. Policies are JSON objects with
+    keys: id, description, trigger_pattern, condition, threshold, action.
+    Exit code 1 if any blocking gate fails.
+    """
+    parser = argparse.ArgumentParser(prog="rootact merge-gate")
+    parser.add_argument("--policy", required=True, type=Path,
+                        help="JSON file with a policy object or list.")
+    parser.add_argument("--files", nargs="*", default=[],
+                        help="Changed file paths to match policy triggers.")
+    parser.add_argument("--coverage-current", type=float, default=0.0)
+    parser.add_argument("--coverage-previous", type=float, default=0.0)
+    parser.add_argument("--mutation-current", type=float, default=0.0)
+    parser.add_argument("--mutation-previous", type=float, default=0.0)
+    parsed = parser.parse_args(args)
+
+    if not parsed.policy.is_file():
+        print(f"[rootact] policy file not found: {parsed.policy}",
+              file=sys.stderr)
+        return 1
+    try:
+        raw = json.loads(parsed.policy.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"[rootact] invalid policy JSON: {exc}", file=sys.stderr)
+        return 1
+    if isinstance(raw, dict):
+        raw = [raw]
+    try:
+        policies = [MergePolicy(**entry) for entry in raw]
+    except TypeError as exc:
+        print(f"[rootact] invalid policy entry: {exc}", file=sys.stderr)
+        return 1
+
+    engine = MutationMergeGateEngine(policies)
+    results = engine.evaluate_all(
+        parsed.files,
+        parsed.coverage_current, parsed.coverage_previous,
+        parsed.mutation_current, parsed.mutation_previous,
+    )
+    blocked = False
+    for result in results:
+        status = "PASS" if result.passed else "FAIL"
+        print(f"[{status}] {result.policy_id}: {result.reason}")
+        if not result.passed:
+            policy = engine.policies.get(result.policy_id)
+            if policy and policy.action == "block":
+                blocked = True
+    return 1 if blocked else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """RootAct CLI entry point."""
     if argv is None:
@@ -1896,6 +1950,8 @@ def main(argv: list[str] | None = None) -> int:
         return _consolidate_command(argv[1:])
     if argv and argv[0] == "release":
         return _release_command(argv[1:])
+    if argv and argv[0] == "merge-gate":
+        return _merge_gate_command(argv[1:])
     if argv and argv[0] == "marketplace":
         return _skills_marketplace_command(argv[1:])
     parser = argparse.ArgumentParser(
