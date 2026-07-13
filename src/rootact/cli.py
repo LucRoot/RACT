@@ -59,6 +59,7 @@ from rootact.handshake import raise_request as op_raise_request
 from rootact.receipt import load_receipt, verify_receipt
 from rootact.receipt_export import export_receipts
 from rootact.rot_report import find_duplicate_blocks
+from rootact.policy_gate import evaluate_policy
 
 
 def _handshakes_command(args: list[str]) -> int:
@@ -1979,6 +1980,19 @@ def _receipt_command(args: list[str]) -> int:
     return 0 if ok else 1
 
 
+def _policy_gate_command(args: list[str]) -> int:
+    """Handle 'rootact policy-gate --policy <json> --evidence <json>'."""
+    parser = argparse.ArgumentParser(prog="rootact policy-gate")
+    parser.add_argument("--policy", required=True, help="Policy JSON file.")
+    parser.add_argument("--evidence", required=True, help="Evidence JSON file.")
+    parsed = parser.parse_args(args)
+    policy = json.loads(Path(parsed.policy).read_text())
+    evidence = json.loads(Path(parsed.evidence).read_text())
+    result = evaluate_policy(policy, evidence)
+    print(json.dumps(result, indent=2))
+    return 0 if result.get("passed") else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     """RootAct CLI entry point."""
     if argv is None:
@@ -2043,6 +2057,8 @@ def main(argv: list[str] | None = None) -> int:
         return _operator_queue_command(argv[1:])
     if argv and argv[0] == "receipt":
         return _receipt_command(argv[1:])
+    if argv and argv[0] == "policy-gate":
+        return _policy_gate_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="rootact",
         description=(
