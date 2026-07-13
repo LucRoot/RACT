@@ -53,6 +53,12 @@ from rootact.self_test_benchmark_mode import SelfTestBenchmarkMode
 from rootact.session_store import SessionStore
 from rootact.skills_registry import SkillRegistry
 from rootact.symbol_renamer import SymbolRenamer
+from rootact.handshake import answer as op_answer
+from rootact.handshake import list_pending as op_list_pending
+from rootact.handshake import raise_request as op_raise_request
+from rootact.receipt import load_receipt, verify_receipt
+from rootact.receipt_export import export_receipts
+from rootact.rot_report import find_duplicate_blocks
 
 
 def _handshakes_command(args: list[str]) -> int:
@@ -1898,6 +1904,81 @@ def _merge_gate_command(args: list[str]) -> int:
     return 1 if blocked else 0
 
 
+def _rot_report_command(args: list[str]) -> int:
+    """Handle 'rootact rot-report <file> [file...]' -- near-duplicate scan."""
+    parser = argparse.ArgumentParser(prog="rootact rot-report")
+    parser.add_argument("paths", nargs="+",
+                        help="Python files to scan for near-duplicate blocks.")
+    parser.add_argument("--json", action="store_true", help="Emit JSON output.")
+    parsed = parser.parse_args(args)
+    pairs = find_duplicate_blocks([str(p) for p in parsed.paths])
+    if parsed.json:
+        print(json.dumps([{"block_a": a, "block_b": b} for a, b in pairs], indent=2))
+    elif not pairs:
+        console.info("No near-duplicate blocks found.")
+    else:
+        for a, b in pairs:
+            print(f"[rootact] near-duplicate: {a} <-> {b}")
+    print(f"[rootact] {len(pairs)} near-duplicate block pair(s)")
+    return 1 if pairs else 0
+
+
+def _receipt_export_command(args: list[str]) -> int:
+    """Handle 'rootact receipt-export <dir>' -- export signed receipts."""
+    parser = argparse.ArgumentParser(prog="rootact receipt-export")
+    parser.add_argument("directory", help="Directory of signed receipt JSON files.")
+    parser.add_argument("--no-anonymize", action="store_true",
+                        help="Include identifying fields in the export.")
+    parsed = parser.parse_args(args)
+    rows = export_receipts(parsed.directory, anonymize=not parsed.no_anonymize)
+    print(json.dumps(rows, indent=2, default=str))
+    return 0
+
+
+def _operator_queue_command(args: list[str]) -> int:
+    """Handle 'rootact operator-queue raise|list|answer'."""
+    parser = argparse.ArgumentParser(prog="rootact operator-queue")
+    parser.add_argument("action", choices=["raise", "list", "answer"])
+    parser.add_argument("--question", help="Question to raise to the operator.")
+    parser.add_argument("--id", help="Request id to answer.")
+    parser.add_argument("--response", help="Operator response text.")
+    parser.add_argument("--signer", default="operator", help="Signer of the answer.")
+    parsed = parser.parse_args(args)
+    if parsed.action == "raise":
+        if not parsed.question:
+            parser.error("--question is required for raise")
+        request_id = op_raise_request(parsed.question, {})
+        print(f"[rootact] operator request raised: {request_id}")
+        return 0
+    if parsed.action == "list":
+        print(json.dumps(op_list_pending(), indent=2, default=str))
+        return 0
+    if not parsed.id or not parsed.response:
+        parser.error("--id and --response are required for answer")
+    ok = op_answer(parsed.id, parsed.response, parsed.signer)
+    print(f"[rootact] operator answer recorded: {ok}")
+    return 0 if ok else 1
+
+
+def _receipt_command(args: list[str]) -> int:
+    """Handle 'rootact receipt show|verify <file>'."""
+    parser = argparse.ArgumentParser(prog="rootact receipt")
+    parser.add_argument("action", choices=["show", "verify"])
+    parser.add_argument("path", help="Receipt JSON file.")
+    parser.add_argument("--pubkey", help="Public key PEM path (for verify).")
+    parsed = parser.parse_args(args)
+    receipt = load_receipt(parsed.path)
+    if parsed.action == "show":
+        print(json.dumps(getattr(receipt, "__dict__", str(receipt)),
+                         indent=2, default=str))
+        return 0
+    if not parsed.pubkey:
+        parser.error("--pubkey is required for verify")
+    ok = verify_receipt(receipt, Path(parsed.pubkey).read_bytes())
+    print(f"[rootact] receipt signature valid: {ok}")
+    return 0 if ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     """RootAct CLI entry point."""
     if argv is None:
@@ -1954,6 +2035,14 @@ def main(argv: list[str] | None = None) -> int:
         return _merge_gate_command(argv[1:])
     if argv and argv[0] == "marketplace":
         return _skills_marketplace_command(argv[1:])
+    if argv and argv[0] == "rot-report":
+        return _rot_report_command(argv[1:])
+    if argv and argv[0] == "receipt-export":
+        return _receipt_export_command(argv[1:])
+    if argv and argv[0] == "operator-queue":
+        return _operator_queue_command(argv[1:])
+    if argv and argv[0] == "receipt":
+        return _receipt_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="rootact",
         description=(
