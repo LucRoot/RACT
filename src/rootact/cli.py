@@ -60,6 +60,8 @@ from rootact.receipt import load_receipt, verify_receipt
 from rootact.receipt_export import export_receipts
 from rootact.rot_report import find_duplicate_blocks
 from rootact.policy_gate import evaluate_policy
+from rootact.run_fingerprint import fingerprint_run, diff_fingerprints
+from rootact.ai_sbom import build_ai_manifest
 
 
 def _handshakes_command(args: list[str]) -> int:
@@ -1993,6 +1995,32 @@ def _policy_gate_command(args: list[str]) -> int:
     return 0 if result.get("passed") else 1
 
 
+def _run_fingerprint_command(args: list[str]) -> int:
+    """Handle 'rootact run-fingerprint <receipt.json> [--diff <other.json>]'."""
+    parser = argparse.ArgumentParser(prog="rootact run-fingerprint")
+    parser.add_argument("receipt", help="Receipt JSON file.")
+    parser.add_argument("--diff", help="Second receipt JSON to diff against.")
+    parsed = parser.parse_args(args)
+    receipt = json.loads(Path(parsed.receipt).read_text())
+    if parsed.diff:
+        other = json.loads(Path(parsed.diff).read_text())
+        print(json.dumps(diff_fingerprints(receipt, other), indent=2))
+        return 0
+    print(fingerprint_run(receipt))
+    return 0
+
+
+def _ai_sbom_command(args: list[str]) -> int:
+    """Handle 'rootact ai-sbom <receipts.json> [--project <name>]'."""
+    parser = argparse.ArgumentParser(prog="rootact ai-sbom")
+    parser.add_argument("receipts", help="JSON file holding a list of receipt dicts.")
+    parser.add_argument("--project", default="ract-project", help="Project name.")
+    parsed = parser.parse_args(args)
+    receipts = json.loads(Path(parsed.receipts).read_text())
+    print(json.dumps(build_ai_manifest(receipts, parsed.project), indent=2))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """RootAct CLI entry point."""
     if argv is None:
@@ -2059,6 +2087,10 @@ def main(argv: list[str] | None = None) -> int:
         return _receipt_command(argv[1:])
     if argv and argv[0] == "policy-gate":
         return _policy_gate_command(argv[1:])
+    if argv and argv[0] == "run-fingerprint":
+        return _run_fingerprint_command(argv[1:])
+    if argv and argv[0] == "ai-sbom":
+        return _ai_sbom_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="rootact",
         description=(
