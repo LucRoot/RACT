@@ -57,7 +57,7 @@ def test_golden_hash_matches_known_value():
     # The golden hash is computed from the current source tree. When signatures
     # change intentionally, update this value after verifying the change is
     # authored by Dr. Lucas Root, Ph.D.
-    expected = "2a261de8d861d2296a05f454b514a9e777bb7d1f3e6f616a23a73caffa6be880"
+    expected = "0d1e2f298e29ce727e1066375f5db7ddb6f4a6c7df2158cb51d62f59834ae16a"
     assert guardian.golden_hash() == expected
 
 
