@@ -29,3 +29,17 @@ The pacer advances the loop without racing the council workers. Rework triage ha
 
 **Applies to**
 Any autonomous pacer that monitors a long-running builder loop.
+
+## 2026-07-16 — Stuck rework items should be split, not just retried
+
+**Observation**
+After two full council cycles, `Public Receipt Leaderboard` and `Tamper-Evident Receipt Chain` remained in `rework`. The model kept generating similar file blocks and failing the same tests, suggesting the use-case scope was too large or the acceptance criteria were unclear.
+
+**Upgrade**
+The pacer will reset a rework item once after it idles, then edit the use case/backlog to split the task into smaller input-sized slices if it fails again. Smaller tasks reduce output-budget pressure and make test failures easier to diagnose.
+
+**Result**
+The council spends fewer cycles on the same failing prompt and more cycles landing complete, tested slices.
+
+**Applies to**
+Any model-driven build loop that reaches a rework plateau.

@@ -40,3 +40,21 @@ This log records each pacer pass through the RACT codebase. It exists because co
 
 **Next action**
 - Wait for the current 3-cycle run to finish. If `Public Receipt Leaderboard` is still `rework`, reset it or split the use case smaller before the next council run.
+
+## 2026-07-16 — Council pacer pass 2: cycle 21 started, both items still rework, thermal 87.85 °C
+
+**What changed**
+- Council pacer cron fired (job `4fea8255`).
+- Council loop finished cycle 20 with no items applied; both `Public Receipt Leaderboard` and `Tamper-Evident Receipt Chain` are now `rework`.
+- Cycle 21 began immediately after; lock is still active.
+- Thermal read **87.85 °C**; no new council run was started (existing run continues).
+
+**Test/lint/type result**
+- Skipped: council is actively modifying files.
+
+**Self-audit result**
+- Thermal status: **87.85 °C** — above the 80 °C pacer start threshold.
+- Both rework items have failed across cycles 19 and 20. They are likely under-specified or have brittle seed tests.
+
+**Next action**
+- Let cycle 21 finish. Once the loop is idle, reset both rework items and, if they fail again, split their use cases into smaller input-sized slices before the next run.
