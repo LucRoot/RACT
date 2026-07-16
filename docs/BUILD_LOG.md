@@ -133,14 +133,14 @@ This log records each pacer pass through the RACT codebase. It exists because co
 # Council Pacer Cron (current)
 
 **Date:** 2026-07-16
-**Job ID:** `c430002b`
+**Job ID:** `6dc1ad02`
 **Schedule:** `*/15 * * * *` (every 15 minutes)
 **Purpose:** Closed build-audit-learn loop that drives the [REDACTED] council instead of doing direct implementation.
 
 **Model roles in the council**
 - **Qwen 3.6 35B A3B UD-IQ3_XXS** (`http://127.0.0.1:8106`) — high-complexity builder, plan ratifier, and review ratifier.
 - **Ternary Bonsai 8B Q2_0** (`http://127.0.0.1:8101`) — low-complexity builder; currently handles most input-sized backlog slices.
-- **LFM 2.5 8B Q4_0** (`http://127.0.0.1:8107`) — council coordinator: plans, splits, audits.
+- **LFM 2.5 8B Q4_0** (`http://127.0.0.1:8107`) — council coordinator ONLY: plans, splits, audits. LFM is a reasoning/prose model and is never used for code generation.
 
 So Qwen is the senior/primary ratifier and high-complexity worker, but Bonsai is the primary implementation worker for the low-complexity slices that make up the current backlog.
 
@@ -155,6 +155,11 @@ COUNCIL STATE
 - Start command: /c/RootClaw/rootact/.venv/Scripts/python C:/RootClaw/[REDACTED]/council/council_loop.py run --cycles 3
 - Reset item command: /c/RootClaw/rootact/.venv/Scripts/python C:/RootClaw/[REDACTED]/council/council_loop.py --reset-item "<TITLE>"
 - Backlog titles are defined in BACKLOG_TITLES inside council_loop.py and use cases come from C:/RootClaw/rootact/_BUILD/rootact_use_cases.jsonl.
+
+COUNCIL MODEL ROLES
+- Qwen 3.6 35B A3B UD-IQ3_XXS (http://127.0.0.1:8106) - high-complexity builder, plan ratifier, and review ratifier.
+- Ternary Bonsai 8B Q2_0 (http://127.0.0.1:8101) - low-complexity builder; primary implementation worker for input-sized slices.
+- LFM 2.5 8B Q4_0 (http://127.0.0.1:8107) - council coordinator ONLY: plans, splits, audits. LFM is a reasoning/prose model and is never used for code generation.
 
 THE LOOP
 1. CHECK COUNCIL STATUS: run the status command and use TaskList/TaskOutput to see if the council loop background task is running.
