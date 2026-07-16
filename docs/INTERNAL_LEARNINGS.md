@@ -85,3 +85,18 @@ The council stops burning cycles on prompts that have proven unresolvable in the
 
 **Applies to**
 Any autonomous builder loop with a rework state.
+
+## 2026-07-16 — Applied split: Public Receipt Leaderboard and Tamper-Evident Receipt Chain
+
+**Applied**
+After `Public Receipt Leaderboard` failed three consecutive council cycles and `Tamper-Evident Receipt Chain` failed twice, both use cases were split into smaller input-sized slices:
+- `Public Receipt Leaderboard` → `Public Receipt Leaderboard - HTML Headers` + `Public Receipt Leaderboard - JSON Loader`
+- `Tamper-Evident Receipt Chain` → `Tamper-Evident Receipt Chain - Append Hash` + `Tamper-Evident Receipt Chain - Verify Hash`
+
+The `BACKLOG_TITLES` list in `[REDACTED]/council/council_loop.py` was updated to the new titles, and four focused use cases were appended to `_BUILD/rootact_use_cases.jsonl`. Each new slice is scoped to fit within a single model call and has explicit import/header constraints.
+
+**Result**
+The council can now retry with narrower deliverables instead of repeatedly failing the same monolithic prompt.
+
+**Applies to**
+The RACT backlog and any future council task that hits a rework plateau.
