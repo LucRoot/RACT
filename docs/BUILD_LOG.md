@@ -109,3 +109,21 @@ This log records each pacer pass through the RACT codebase. It exists because co
 
 **Next action**
 - Let cycle 21 finish. Once idle, reset `Public Receipt Leaderboard` and split its use case into smaller slices before the next council run.
+
+## 2026-07-16 — Council pacer pass 6 (15-min interval): resumed loop running, BONSAI on HTML Headers, thermal 90.85 °C
+
+**What changed**
+- Pacer interval changed to every 15 minutes; cron job `fa640475` fired for the first time.
+- Council loop `bash-8312078h` is running cycle 21 with the new split backlog.
+- Plan: 0 high (QWEN), 4 low (BONSAI); `Public Receipt Leaderboard - HTML Headers` is `in_progress`.
+- Thermal read **90.85 °C**.
+
+**Test/lint/type result**
+- Skipped: council is actively modifying files.
+
+**Self-audit result**
+- Thermal status: **90.85 °C** — above start threshold; existing run continues.
+- 15-minute cadence avoids the status-only fires seen under the 5-minute schedule.
+
+**Next action**
+- Wait for the council run to progress. If `Public Receipt Leaderboard - HTML Headers` lands, the JSON Loader slice will be next.

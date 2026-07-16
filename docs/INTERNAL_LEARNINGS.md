@@ -100,3 +100,17 @@ The council can now retry with narrower deliverables instead of repeatedly faili
 
 **Applies to**
 The RACT backlog and any future council task that hits a rework plateau.
+
+## 2026-07-16 — 15-minute pacer interval aligns with council item duration
+
+**Observation**
+Under a 5-minute pacer, most fires occurred while a single BONSAI/Qwen call was still in progress, producing repetitive status-only log entries. The shortest successful council item took ~10 minutes.
+
+**Upgrade**
+Switched the pacer cron from `*/5 * * * *` to `*/15 * * * *`.
+
+**Result**
+Each pacer fire now lands near a natural cycle boundary, giving the pacer a chance to start, reset, or stop the council instead of just noting "still running."
+
+**Applies to**
+Any autonomous loop whose model-call duration is longer than the pacer interval.
