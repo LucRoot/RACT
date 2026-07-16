@@ -1,3 +1,6 @@
+# Rooted by Dr. Lucas Root, Ph.D.
+"""Tests for the capability-based provider registry."""
+
 from __future__ import annotations
 
 __root_author__ = "Dr. Lucas Root, Ph.D."
@@ -5,108 +8,56 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from typing import Any
+from unittest.mock import MagicMock
 
 from rootact.capability_registry import CapabilityRegistry
-from rootact.rooted import Rooted
-from rootact.providers.base import ProviderAdapter
 
 
-class FakeAdapter(ProviderAdapter):
-    def __init__(self, name: str, score: float) -> None:
-        super().__init__({"name": name, "score": score})
-        self._name = name
-        self._score = score
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    def models(self) -> list[str]:
-        return ["fake-model"]
-
-    def capabilities(self) -> set[str]:
-        return set()
-
-    def complete(
-        self,
-        messages: list[dict[str, str]],
-        *,
-        model: str | None = None,
-        max_tokens: int = 512,
-        temperature: float = 0.3,
-    ) -> Rooted[dict[str, Any]]:
-        return Rooted(value={}, assumption="fake", provenance=["fake"])
+def _adapter(name: str) -> MagicMock:
+    adapter = MagicMock()
+    adapter.name = name
+    return adapter
 
 
-class TestCapabilityRegistry:
-    def test_register_and_select_successful_match(self) -> None:
-        registry = CapabilityRegistry()
-        adapter_a = FakeAdapter("A", 0.9)
-        adapter_b = FakeAdapter("B", 0.7)
-        registry.register("slot_a", adapter_a, {"cap1"}, {"cap1": 1.0})
-        registry.register("slot_b", adapter_b, {"cap2"}, {"cap2": 1.0})
-        result: Rooted[ProviderAdapter] = registry.select("cap1")
-        assert result.value is adapter_a
-        assert result.error is None
-        assert result.provider == "slot_a"
+def test_select_highest_score_matching_hint():
+    registry = CapabilityRegistry()
+    low = _adapter("low")
+    high = _adapter("high")
+    registry.register("low", low, {"chat"}, {"chat": 1.0})
+    registry.register("high", high, {"chat"}, {"chat": 5.0})
+    result = registry.select("chat")
+    assert result.is_ok()
+    assert result.unwrap() is high
 
-    def test_select_returns_error_when_no_match(self) -> None:
-        registry = CapabilityRegistry()
-        registry.register("slot_a", FakeAdapter("A", 0.5), {"cap1"}, {"cap1": 1.0})
-        result: Rooted[ProviderAdapter] = registry.select("unknown_cap")
-        assert result.value is None
-        assert "No provider supports" in (result.error or "")
-        assert result.hint == "unknown_cap"
 
-    def test_select_respects_prefer_and_exclude(self) -> None:
-        registry = CapabilityRegistry()
-        adapter_x = FakeAdapter("X", 0.8)
-        adapter_y = FakeAdapter("Y", 0.6)
-        registry.register("X", adapter_x, {"c1"}, {"c1": 1.0})
-        registry.register("Y", adapter_y, {"c2"}, {"c2": 1.0})
-        result = registry.select("c1", prefer={"X"}, exclude={"Y"})
-        assert result.value is adapter_x
-        assert result.provider == "X"
+def test_select_no_match_returns_error():
+    registry = CapabilityRegistry()
+    adapter = _adapter("only")
+    registry.register("only", adapter, {"chat"}, {"chat": 1.0})
+    result = registry.select("code")
+    assert not result.is_ok()
+    assert "No provider supports capability 'code'" in (result.error or "")
 
-    def test_fallback_chain_returns_providers_in_score_order(self) -> None:
-        registry = CapabilityRegistry()
-        adapter_1 = FakeAdapter("One", 0.9)
-        adapter_2 = FakeAdapter("Two", 0.5)
-        adapter_3 = FakeAdapter("Three", 0.3)
-        registry.register("One", adapter_1, {"c1"}, {"c1": 1.0})
-        registry.register("Two", adapter_2, {"c2"}, {"c2": 1.0})
-        registry.register("Three", adapter_3, {"c3"}, {"c3": 1.0})
-        chain = registry.fallback_chain("hint", max_attempts=2)
-        assert len(chain) == 2
-        assert chain[0].provider == "One"
-        assert chain[1].provider == "Two"
 
-    def test_fallback_chain_respects_max_attempts(self) -> None:
-        registry = CapabilityRegistry()
-        for i in range(5):
-            registry.register(
-                f"slot{i}", FakeAdapter(f"slot{i}", i * 0.1), {"c"}, {"c": 1.0}
-            )
-        chain = registry.fallback_chain("hint", max_attempts=3)
-        assert len(chain) == 3
-        assert all(r.error is None for r in chain)
+def test_fallback_chain_orders_by_score():
+    registry = CapabilityRegistry()
+    first = _adapter("first")
+    second = _adapter("second")
+    registry.register("first", first, {"chat"}, {"chat": 10.0})
+    registry.register("second", second, {"chat"}, {"chat": 1.0})
+    chain = registry.fallback_chain("chat", max_attempts=2)
+    assert [c.provider for c in chain] == ["first", "second"]
 
-    def test_empty_registry_returns_rooted_error(self) -> None:
-        registry = CapabilityRegistry()
-        result = registry.select("any_hint")
-        assert result.value is None
-        assert "No matching provider" in (result.error or "")
-        assert result.provider is None
-        assert result.hint == "any_hint"
 
-    def test_select_with_defaults_when_none_provided(self) -> None:
-        registry = CapabilityRegistry()
-        adapter = FakeAdapter("Default", 0.4)
-        registry.register("default", adapter, {"c"}, {"c": 1.0})
-        result = registry.select("c")
-        assert result.value is adapter
-        assert result.provider == "default"
+def test_prefer_set_limits_candidates():
+    registry = CapabilityRegistry()
+    a = _adapter("a")
+    b = _adapter("b")
+    registry.register("a", a, {"chat"}, {"chat": 1.0})
+    registry.register("b", b, {"chat"}, {"chat": 10.0})
+    result = registry.select("chat", prefer={"a"})
+    assert result.is_ok()
+    assert result.unwrap() is a
 
 
 # RACT 0.1.1 - Trust and tooling

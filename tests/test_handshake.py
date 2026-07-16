@@ -26,7 +26,9 @@ def handshake_queue_path():
 @pytest.fixture
 def mock_queue_path(handshake_queue_path):
     """Mock the environment variable to point to the temporary file."""
-    with mock.patch.dict(os.environ, {"RACT_HANDSHAKE_QUEUE": str(handshake_queue_path)}):
+    with mock.patch.dict(
+        os.environ, {"RACT_HANDSHAKE_QUEUE": str(handshake_queue_path)}
+    ):
         yield handshake_queue_path
 
 
@@ -34,18 +36,18 @@ def test_raise_request(mock_queue_path):
     """Test raising a request and verifying it's in the queue."""
     question = "What is the meaning of life?"
     context = {"user": "test_user"}
-    
+
     request_id = raise_request(question, context)
-    
+
     assert request_id is not None
-    
+
     # Verify the entry exists in the file
     with open(mock_queue_path, "r") as f:
         lines = f.readlines()
-    
+
     assert len(lines) == 1
     entry = json.loads(lines[0])
-    
+
     assert entry["id"] == request_id
     assert entry["question"] == question
     assert entry["context"] == context
@@ -60,9 +62,9 @@ def test_list_pending(mock_queue_path):
     # Raise two requests
     id1 = raise_request("Question 1", {"key": "val1"})
     id2 = raise_request("Question 2", {"key": "val2"})
-    
+
     pending = list_pending()
-    
+
     assert len(pending) == 2
     ids = {e["id"] for e in pending}
     assert ids == {id1, id2}
@@ -73,30 +75,30 @@ def test_answer_request(mock_queue_path):
     question = "What is 2+2?"
     context = {"math": True}
     request_id = raise_request(question, context)
-    
+
     # Verify it's pending
     pending = list_pending()
     assert len(pending) == 1
     assert pending[0]["id"] == request_id
-    
+
     # Answer the request
     response = "4"
     signer = "test_signer"
     result = answer(request_id, response, signer)
-    
+
     assert result is True
-    
+
     # Verify it's no longer pending
     pending = list_pending()
     assert len(pending) == 0
-    
+
     # Verify the entry in the file is updated
     with open(mock_queue_path, "r") as f:
         lines = f.readlines()
-    
+
     assert len(lines) == 1
     entry = json.loads(lines[0])
-    
+
     assert entry["id"] == request_id
     assert entry["status"] == "answered"
     assert entry["answer"] == response
@@ -116,18 +118,18 @@ def test_answer_already_answered_request(mock_queue_path):
     question = "Question"
     context = {}
     request_id = raise_request(question, context)
-    
+
     # Answer it once
     answer(request_id, "Response 1", "Signer 1")
-    
+
     # Try to answer it again
     result = answer(request_id, "Response 2", "Signer 2")
     assert result is False
-    
+
     # Verify the first answer is still there
     with open(mock_queue_path, "r") as f:
         lines = f.readlines()
-    
+
     entry = json.loads(lines[0])
     assert entry["answer"] == "Response 1"
     assert entry["signer"] == "Signer 1"
@@ -137,9 +139,9 @@ def test_list_pending_after_answer(mock_queue_path):
     """Test that answered requests are not returned by list_pending."""
     id1 = raise_request("Question 1", {})
     id2 = raise_request("Question 2", {})
-    
+
     answer(id1, "Answer 1", "Signer 1")
-    
+
     pending = list_pending()
     assert len(pending) == 1
     assert pending[0]["id"] == id2

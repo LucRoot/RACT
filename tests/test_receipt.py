@@ -2,12 +2,17 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
-import pytest
 import tempfile
 import os
 import secrets
 
-from rootact.receipt import Receipt, sign_receipt, verify_receipt, save_receipt, load_receipt
+from rootact.receipt import (
+    Receipt,
+    sign_receipt,
+    verify_receipt,
+    save_receipt,
+    load_receipt,
+)
 
 
 def _generate_keypair():
@@ -23,7 +28,7 @@ def test_sign_and_verify():
         plan_hash="plan-1",
         diff_hash="diff-1",
         test_results="pass",
-        signer_id="user-1"
+        signer_id="user-1",
     )
     signed_receipt = sign_receipt(receipt, private_pem)
     assert signed_receipt.signature != ""
@@ -37,11 +42,11 @@ def test_tampering_fails_verification():
         plan_hash="plan-1",
         diff_hash="diff-1",
         test_results="pass",
-        signer_id="user-1"
+        signer_id="user-1",
     )
     signed_receipt = sign_receipt(receipt, private_pem)
     assert verify_receipt(signed_receipt, public_pem)
-    
+
     # Tamper with run_id
     signed_receipt.run_id = "tampered"
     assert not verify_receipt(signed_receipt, public_pem)
@@ -54,10 +59,10 @@ def test_save_and_load():
         plan_hash="plan-1",
         diff_hash="diff-1",
         test_results="pass",
-        signer_id="user-1"
+        signer_id="user-1",
     )
     signed_receipt = sign_receipt(receipt, private_pem)
-    
+
     with tempfile.TemporaryDirectory() as tmpdir:
         path = os.path.join(tmpdir, "receipt.json")
         save_receipt(signed_receipt, path)
@@ -69,4 +74,3 @@ def test_save_and_load():
         assert loaded_receipt.signer_id == signed_receipt.signer_id
         assert loaded_receipt.signature == signed_receipt.signature
         assert verify_receipt(loaded_receipt, public_pem)
-

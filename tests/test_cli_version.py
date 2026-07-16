@@ -24,7 +24,7 @@ def test_version(name: str) -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert "0.1.1" in result.stdout, result.stdout
+    assert "0.1.2" in result.stdout, result.stdout
 
 
 def test_version_via_module() -> None:
@@ -35,4 +35,4 @@ def test_version_via_module() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert "0.1.1" in result.stdout, result.stdout
+    assert "0.1.2" in result.stdout, result.stdout

@@ -49,4 +49,15 @@ def test_console_approval_callback_rejects_eof(monkeypatch) -> None:
     assert console_approval_callback(step) is False
 
 
+def test_console_approval_callback_accepts_uppercase_y(monkeypatch) -> None:
+    step = Step(action="write", provider_hint="code", expected_artifact="x")
+    monkeypatch.setattr("builtins.input", lambda _prompt: "Y")
+    assert console_approval_callback(step) is True
+
+
+def test_auto_approval_callback_is_case_insensitive_for_risk() -> None:
+    step = Step(action="DELETE file", provider_hint="code", expected_artifact="x")
+    assert auto_approval_callback(step) is False
+
+
 # RACT 0.1.1 - Trust and tooling

@@ -6,8 +6,7 @@ import json
 import hashlib
 import base64
 import hmac
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict
+from dataclasses import dataclass, asdict
 
 
 @dataclass
@@ -57,4 +56,3 @@ def load_receipt(path: str) -> Receipt:
     with open(path, "r") as f:
         data = json.load(f)
     return Receipt(**data)
-

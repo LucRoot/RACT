@@ -3,7 +3,6 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
 import json
-import os
 import tempfile
 from pathlib import Path
 from rootact.receipt_export import export_receipts, main
@@ -18,13 +17,13 @@ def test_export_receipts_anonymize():
             "signer_id": "user-abc",
             "signature": "sig-xyz",
             "metric_a": 10,
-            "metric_b": 20
+            "metric_b": 20,
         }
         receipt2 = {
             "run_id": "run-456",
             "signer_id": "user-def",
             "signature": "sig-uvw",
-            "metric_c": 30
+            "metric_c": 30,
         }
 
         path1 = Path(tmpdir) / "r1.receipt.json"
@@ -40,7 +39,7 @@ def test_export_receipts_anonymize():
 
         # Assertions
         assert len(result) == 2
-        
+
         # Check first receipt
         r1_out = result[0]
         assert r1_out["run_id"] == "run-123"
@@ -64,7 +63,7 @@ def test_export_receipts_no_anonymize():
             "run_id": "run-789",
             "signer_id": "user-ghi",
             "signature": "sig-jkl",
-            "metric_x": 100
+            "metric_x": 100,
         }
         path = Path(tmpdir) / "r3.receipt.json"
         with open(path, "w") as f:
@@ -85,7 +84,7 @@ def test_cli_receipt_export():
             "run_id": "cli-test",
             "signer_id": "cli-user",
             "signature": "cli-sig",
-            "metric": 1
+            "metric": 1,
         }
         path = Path(tmpdir) / "cli.receipt.json"
         with open(path, "w") as f:
@@ -98,10 +97,10 @@ def test_cli_receipt_export():
         f = io.StringIO()
         with redirect_stdout(f):
             main(["rootact", "receipt", "export", "--anonymize", "--directory", tmpdir])
-        
+
         output = f.getvalue()
         data = json.loads(output)
-        
+
         assert len(data) == 1
         assert data[0]["run_id"] == "cli-test"
         assert "signer_id" not in data[0]

@@ -1,9 +1,14 @@
+# Rooted by Dr. Lucas Root, Ph.D.
+from __future__ import annotations
+
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
 import random
+
+import pytest
 
 from rootact.retry_policy import RetryConfig, RetryPolicy
 
@@ -83,6 +88,21 @@ def test_execute_uses_custom_sleep():
     assert value is None
     assert isinstance(error, RuntimeError)
     assert sleeps == [1.0, 2.0]
+
+
+def test_retry_config_rejects_negative_values():
+    with pytest.raises(ValueError):
+        RetryConfig(max_retries=-1, base_delay=0.1, max_delay=0.5, jitter=False)
+    with pytest.raises(ValueError):
+        RetryConfig(max_retries=1, base_delay=-0.1, max_delay=0.5, jitter=False)
+    with pytest.raises(ValueError):
+        RetryConfig(max_retries=1, base_delay=0.1, max_delay=-0.5, jitter=False)
+
+
+def test_calculate_delay_zero_for_first_attempt():
+    config = RetryConfig(max_retries=3, base_delay=0.1, max_delay=1.0, jitter=False)
+    policy = RetryPolicy(config=config)
+    assert policy.calculate_delay(0) == 0.0
 
 
 # RACT 0.1.1 - Trust and tooling

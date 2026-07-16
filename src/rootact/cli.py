@@ -1708,25 +1708,40 @@ def _consolidate_apply(parsed: argparse.Namespace) -> int:
         print(f"[rootact] proposal not found: {parsed.id}", file=sys.stderr)
         return 1
 
-    # Reconstruct the proposal from the handshake description. This is a v0
-    # simplification; a later version should store structured proposal data.
-    lines = item.description.splitlines()
-    target_line = [ln for ln in lines if ln.startswith("Proposal: merge into ")]
-    sources_line = [ln for ln in lines if ln.startswith("Sources: ")]
-    if not target_line or not sources_line:
-        print("[rootact] malformed proposal description", file=sys.stderr)
-        return 1
-    target = target_line[0].replace("Proposal: merge into ", "").strip()
-    sources = tuple(
-        s.strip() for s in sources_line[0].replace("Sources: ", "").split(",")
-    )
-    proposal = MergeProposal(
-        target=target,
-        sources=sources,
-        diff="",
-        reason="applied from handshake",
-        safe=True,
-    )
+    # Reconstruct the proposal from structured metadata when available; fall back
+    # to parsing the human-readable description for legacy handshakes.
+    proposal: MergeProposal | None = None
+    if item.metadata:
+        try:
+            meta = item.metadata
+            proposal = MergeProposal(
+                target=meta["target"],
+                sources=tuple(meta["sources"]),
+                diff=meta.get("diff", ""),
+                reason=meta.get("reason", "applied from handshake metadata"),
+                safe=meta.get("safe", True),
+                safety_notes=tuple(meta.get("safety_notes", [])),
+            )
+        except Exception:  # noqa: BLE001
+            proposal = None
+    if proposal is None:
+        lines = item.description.splitlines()
+        target_line = [ln for ln in lines if ln.startswith("Proposal: merge into ")]
+        sources_line = [ln for ln in lines if ln.startswith("Sources: ")]
+        if not target_line or not sources_line:
+            print("[rootact] malformed proposal description", file=sys.stderr)
+            return 1
+        target = target_line[0].replace("Proposal: merge into ", "").strip()
+        sources = tuple(
+            s.strip() for s in sources_line[0].replace("Sources: ", "").split(",")
+        )
+        proposal = MergeProposal(
+            target=target,
+            sources=sources,
+            diff="",
+            reason="applied from handshake description",
+            safe=True,
+        )
 
     applier = ConsolidationApplier(parsed.project_dir)
     result = applier.apply(
@@ -1863,10 +1878,18 @@ def _merge_gate_command(args: list[str]) -> int:
     Exit code 1 if any blocking gate fails.
     """
     parser = argparse.ArgumentParser(prog="rootact merge-gate")
-    parser.add_argument("--policy", required=True, type=Path,
-                        help="JSON file with a policy object or list.")
-    parser.add_argument("--files", nargs="*", default=[],
-                        help="Changed file paths to match policy triggers.")
+    parser.add_argument(
+        "--policy",
+        required=True,
+        type=Path,
+        help="JSON file with a policy object or list.",
+    )
+    parser.add_argument(
+        "--files",
+        nargs="*",
+        default=[],
+        help="Changed file paths to match policy triggers.",
+    )
     parser.add_argument("--coverage-current", type=float, default=0.0)
     parser.add_argument("--coverage-previous", type=float, default=0.0)
     parser.add_argument("--mutation-current", type=float, default=0.0)
@@ -1874,8 +1897,7 @@ def _merge_gate_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     if not parsed.policy.is_file():
-        print(f"[rootact] policy file not found: {parsed.policy}",
-              file=sys.stderr)
+        print(f"[rootact] policy file not found: {parsed.policy}", file=sys.stderr)
         return 1
     try:
         raw = json.loads(parsed.policy.read_text(encoding="utf-8"))
@@ -1893,8 +1915,10 @@ def _merge_gate_command(args: list[str]) -> int:
     engine = MutationMergeGateEngine(policies)
     results = engine.evaluate_all(
         parsed.files,
-        parsed.coverage_current, parsed.coverage_previous,
-        parsed.mutation_current, parsed.mutation_previous,
+        parsed.coverage_current,
+        parsed.coverage_previous,
+        parsed.mutation_current,
+        parsed.mutation_previous,
     )
     blocked = False
     for result in results:
@@ -1910,8 +1934,9 @@ def _merge_gate_command(args: list[str]) -> int:
 def _rot_report_command(args: list[str]) -> int:
     """Handle 'rootact rot-report <file> [file...]' -- near-duplicate scan."""
     parser = argparse.ArgumentParser(prog="rootact rot-report")
-    parser.add_argument("paths", nargs="+",
-                        help="Python files to scan for near-duplicate blocks.")
+    parser.add_argument(
+        "paths", nargs="+", help="Python files to scan for near-duplicate blocks."
+    )
     parser.add_argument("--json", action="store_true", help="Emit JSON output.")
     parsed = parser.parse_args(args)
     pairs = find_duplicate_blocks([str(p) for p in parsed.paths])
@@ -1930,8 +1955,11 @@ def _receipt_export_command(args: list[str]) -> int:
     """Handle 'rootact receipt-export <dir>' -- export signed receipts."""
     parser = argparse.ArgumentParser(prog="rootact receipt-export")
     parser.add_argument("directory", help="Directory of signed receipt JSON files.")
-    parser.add_argument("--no-anonymize", action="store_true",
-                        help="Include identifying fields in the export.")
+    parser.add_argument(
+        "--no-anonymize",
+        action="store_true",
+        help="Include identifying fields in the export.",
+    )
     parsed = parser.parse_args(args)
     rows = export_receipts(parsed.directory, anonymize=not parsed.no_anonymize)
     print(json.dumps(rows, indent=2, default=str))
@@ -1972,8 +2000,11 @@ def _receipt_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
     receipt = load_receipt(parsed.path)
     if parsed.action == "show":
-        print(json.dumps(getattr(receipt, "__dict__", str(receipt)),
-                         indent=2, default=str))
+        print(
+            json.dumps(
+                getattr(receipt, "__dict__", str(receipt)), indent=2, default=str
+            )
+        )
         return 0
     if not parsed.pubkey:
         parser.error("--pubkey is required for verify")

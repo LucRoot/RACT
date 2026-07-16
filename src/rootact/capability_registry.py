@@ -6,15 +6,17 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from typing import TYPE_CHECKING, Dict, List, Set
 
 from rootact.rooted import Rooted
-from rootact.providers.base import ProviderAdapter
+
+if TYPE_CHECKING:
+    from rootact.providers.base import ProviderAdapter
 
 
 @dataclass
 class _ProviderEntry:
-    adapter: ProviderAdapter
+    adapter: "ProviderAdapter"
     capabilities: Set[str]
     score: float
 

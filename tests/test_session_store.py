@@ -87,4 +87,17 @@ def test_load_corrupted_session_raises_session_corrupted_error() -> None:
             assert "corrupted" in str(exc).lower()
 
 
+def test_default_base_dir_is_created(tmp_path: Path) -> None:
+    import os
+
+    original = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+        store = SessionStore()
+        assert store.base_dir.name == ".rootact_sessions"
+        assert store.base_dir.exists()
+    finally:
+        os.chdir(original)
+
+
 # RACT 0.1.1 - Trust and tooling

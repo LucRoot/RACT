@@ -239,4 +239,76 @@ def test_keyword_search_short_query_returns_low_confidence_empty(tmp_path):
     assert result.confidence < 0.7
 
 
+def test_index_builds_inverted_index(tmp_path):
+    (tmp_path / "alpha.py").write_text("def alpha(): pass\n", encoding="utf-8")
+    (tmp_path / "beta.py").write_text("def beta(): pass\n", encoding="utf-8")
+    adapter = KeywordRetrievalAdapter(tmp_path)
+    adapter.index()
+    assert adapter._indexed is True
+    assert "alpha" in adapter._inverted_index
+    assert "beta" in adapter._inverted_index
+
+
+def test_keyword_search_scores_by_term_frequency(tmp_path):
+    (tmp_path / "a.py").write_text("alpha alpha beta\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("alpha beta beta beta\n", encoding="utf-8")
+    adapter = KeywordRetrievalAdapter(tmp_path)
+    results = adapter.keyword_search("alpha beta", k=2)
+    assert len(results) == 2
+    # b.py has more total matches (1 alpha + 3 beta = 4) than a.py (2 + 1 = 3).
+    assert results[0]["path"] == "b.py"
+    assert results[0]["score"] == 4.0
+    assert results[1]["path"] == "a.py"
+    assert results[1]["score"] == 3.0
+
+
+def test_keyword_search_empty_query_returns_empty(tmp_path):
+    (tmp_path / "a.py").write_text("alpha beta\n", encoding="utf-8")
+    adapter = KeywordRetrievalAdapter(tmp_path)
+    assert adapter.keyword_search("", k=5) == []
+    assert adapter.keyword_search("   ", k=5) == []
+
+
+def test_keyword_search_excludes_skip_dirs(tmp_path):
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir(parents=True, exist_ok=True)
+    (tests_dir / "t.py").write_text("alpha alpha alpha\n", encoding="utf-8")
+    src_dir = tmp_path / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (src_dir / "a.py").write_text("alpha\n", encoding="utf-8")
+    adapter = KeywordRetrievalAdapter(tmp_path)
+    results = adapter.keyword_search("alpha", k=5)
+    assert len(results) == 1
+    assert results[0]["path"] == "src/a.py"
+
+
+def test_web_search_adapter_parse_results_directly():
+    """Unit-test response normalization without touching the network."""
+    adapter = WebSearchAdapter(api_key="test-key")
+
+    serper = {"organic": [{"title": "T", "link": "https://x", "snippet": "S"}]}
+    results = adapter._parse_results(serper)
+    assert len(results) == 1
+    assert results[0].source == "https://x"
+    assert "T" in results[0].content and "S" in results[0].content
+
+    brave = {
+        "web": {"results": [{"title": "B", "url": "https://b", "description": "D"}]}
+    }
+    results = adapter._parse_results(brave)
+    assert len(results) == 1
+    assert results[0].source == "https://b"
+
+    generic = {"items": [{"headline": "H", "href": "https://h", "body": "Body"}]}
+    results = adapter._parse_results(generic)
+    assert len(results) == 1
+    assert results[0].source == "https://h"
+
+    empty = {"organic": []}
+    assert adapter._parse_results(empty) == []
+
+    malformed = {"organic": ["not-a-dict", {"link": "https://x"}]}
+    assert adapter._parse_results(malformed) == []
+
+
 # RACT 0.1.1 - Trust and tooling

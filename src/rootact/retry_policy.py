@@ -16,6 +16,15 @@ T = TypeVar("T")
 
 @dataclass
 class RetryConfig:
+    """Parameters that control backoff timing.
+
+    Example::
+
+        config = RetryConfig(
+            max_retries=3, base_delay=0.1, max_delay=1.0, jitter=False
+        )
+    """
+
     max_retries: int
     base_delay: float
     max_delay: float
@@ -32,6 +41,22 @@ class RetryConfig:
 
 @dataclass
 class RetryPolicy:
+    """Execute a callable with configurable retry/backoff.
+
+    Example::
+
+        from rootact.retry_policy import RetryConfig, RetryPolicy
+
+        config = RetryConfig(max_retries=2, base_delay=0.1, max_delay=1.0, jitter=False)
+        policy = RetryPolicy(config=config)
+        value, error = policy.execute(
+            fn=lambda: "success",
+            is_retryable=lambda _exc: True,
+        )
+        assert value == "success"
+        assert error is None
+    """
+
     config: RetryConfig
 
     def should_retry(self, attempt: int) -> bool:
