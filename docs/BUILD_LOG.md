@@ -92,3 +92,20 @@ This log records each pacer pass through the RACT codebase. It exists because co
 
 **Next action**
 - Wait for the next fire. If the item is still in progress and thermal stays high, consider whether the BONSAI timeout/backstop needs to be shorter for pacer-paced work.
+
+## 2026-07-16 — Council pacer pass 5: Public Receipt Leaderboard fails for third consecutive cycle; Tamper-Evident Receipt Chain now in progress
+
+**What changed**
+- Council pacer cron fired (job `4fea8255`).
+- Cycle 21: `Public Receipt Leaderboard` failed again (third cycle in rework). `Tamper-Evident Receipt Chain` is now `in_progress` on BONSAI.
+- Thermal read **85.0 °C**.
+
+**Test/lint/type result**
+- Skipped: council is actively modifying files.
+
+**Self-audit result**
+- Thermal status: **85.0 °C** — run continues.
+- `Public Receipt Leaderboard` has failed in cycles 19, 20, and 21. It needs manual triage or a smaller split after the run finishes.
+
+**Next action**
+- Let cycle 21 finish. Once idle, reset `Public Receipt Leaderboard` and split its use case into smaller slices before the next council run.

@@ -71,3 +71,17 @@ The pacer can respond to thermal trends and stuck items on every fire instead of
 
 **Applies to**
 Any autonomous loop that fires more frequently than its longest model call.
+
+## 2026-07-16 — Three rework cycles is the triage threshold
+
+**Observation**
+`Public Receipt Leaderboard` failed in council cycles 19, 20, and 21. The model kept producing near-identical outputs and failing the same tests, indicating the use case was either too large or the acceptance criteria were not encoded in the prompt.
+
+**Upgrade**
+The pacer will treat three consecutive rework cycles as a hard triage signal: reset the item, then rewrite the use case/backlog entry into smaller, input-sized slices with explicit acceptance criteria before allowing another build attempt.
+
+**Result**
+The council stops burning cycles on prompts that have proven unresolvable in their current form.
+
+**Applies to**
+Any autonomous builder loop with a rework state.
