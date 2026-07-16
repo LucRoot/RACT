@@ -22,3 +22,21 @@ This log records each pacer pass through the RACT codebase. It exists because co
 
 **Next action**
 - Let the council loop finish its 3-cycle run; if the two rework items still fail, triage the failure logs and either split the tasks smaller or fix the seed tests manually.
+
+## 2026-07-16 — Council pacer pass 1: loop still running, thermal at 85 °C, no intervention
+
+**What changed**
+- Council pacer cron fired (job `4fea8255`).
+- Council loop `bash-bemf9d0n` is still running cycle 20; `Tamper-Evident Receipt Chain` is in progress on BONSAI.
+- `Public Receipt Leaderboard` has landed in `rework` for two consecutive cycles (19 and 20).
+- Thermal read 85 °C, so no new model work was started.
+
+**Test/lint/type result**
+- Skipped: council is actively modifying files; recuse/audit deferred until idle.
+
+**Self-audit result**
+- Thermal status: **85.0 °C** — above the 80 °C pacer start threshold.
+- Council lock active; no reset performed because an item is `in_progress`.
+
+**Next action**
+- Wait for the current 3-cycle run to finish. If `Public Receipt Leaderboard` is still `rework`, reset it or split the use case smaller before the next council run.
