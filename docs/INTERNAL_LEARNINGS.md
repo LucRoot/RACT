@@ -57,3 +57,17 @@ The council loop stays safe even when a long sequential item runs during a warmi
 
 **Applies to**
 Any background model worker that may outlast a single pacer interval.
+
+## 2026-07-16 — Pacer interval should match the longest expected model call
+
+**Observation**
+A single BONSAI build call for `Public Receipt Leaderboard` spanned multiple 5-minute pacer fires with no output, leaving the pacer with nothing to do but document status. The 1200 s Bonsai backstop is longer than the pacer interval.
+
+**Upgrade**
+For pacer-paced work, cap per-item model timeouts at or below the pacer interval (e.g., 300 s) and split tasks so each call finishes within one interval. This gives the pacer a chance to intervene, reset, or stop between calls.
+
+**Result**
+The pacer can respond to thermal trends and stuck items on every fire instead of being blocked by one long-running call.
+
+**Applies to**
+Any autonomous loop that fires more frequently than its longest model call.
