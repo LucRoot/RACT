@@ -58,3 +58,20 @@ This log records each pacer pass through the RACT codebase. It exists because co
 
 **Next action**
 - Let cycle 21 finish. Once the loop is idle, reset both rework items and, if they fail again, split their use cases into smaller input-sized slices before the next run.
+
+## 2026-07-16 — Council pacer pass 3: cycle 21 BONSAI in progress, thermal climbing to 90.85 °C
+
+**What changed**
+- Council pacer cron fired (job `4fea8255`).
+- Cycle 21 plan: 0 high, 2 low; `Public Receipt Leaderboard` is `in_progress` on BONSAI.
+- Thermal read **90.85 °C** and rising.
+
+**Test/lint/type result**
+- Skipped: council is actively modifying files.
+
+**Self-audit result**
+- Thermal status: **90.85 °C** — above the 80 °C pacer start threshold.
+- Council lock active; no reset performed.
+
+**Next action**
+- Continue monitoring. If thermal exceeds 95 °C, stop the current council run to protect hardware; otherwise let cycle 21 finish and then triage the rework items.

@@ -43,3 +43,17 @@ The council spends fewer cycles on the same failing prompt and more cycles landi
 
 **Applies to**
 Any model-driven build loop that reaches a rework plateau.
+
+## 2026-07-16 — Existing runs need an emergency thermal ceiling too
+
+**Observation**
+The pacer correctly refused to start new council runs above 80 °C, but an existing sequential run kept going while the SoC climbed past 90 °C. Without an upper bound, the machine could reach thermal throttle levels before the next fire.
+
+**Upgrade**
+Add an emergency stop rule: if thermal exceeds 95 °C during a council run, the pacer stops the active council background task and documents the pause. The run can resume once the machine cools below 80 °C.
+
+**Result**
+The council loop stays safe even when a long sequential item runs during a warming trend.
+
+**Applies to**
+Any background model worker that may outlast a single pacer interval.
