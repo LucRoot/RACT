@@ -75,3 +75,20 @@ This log records each pacer pass through the RACT codebase. It exists because co
 
 **Next action**
 - Continue monitoring. If thermal exceeds 95 °C, stop the current council run to protect hardware; otherwise let cycle 21 finish and then triage the rework items.
+
+## 2026-07-16 — Council pacer pass 4: BONSAI still on Public Receipt Leaderboard, thermal 89.85 °C
+
+**What changed**
+- Council pacer cron fired (job `4fea8255`).
+- Cycle 21 BONSAI call for `Public Receipt Leaderboard` has been in progress since the last fire; no new output yet.
+- Thermal read **89.85 °C** (slightly down but still high).
+
+**Test/lint/type result**
+- Skipped: council is actively modifying files.
+
+**Self-audit result**
+- Thermal status: **89.85 °C** — below the 95 °C emergency ceiling, so the run continues.
+- The BONSAI timeout is 1200 s; the item may still be generating.
+
+**Next action**
+- Wait for the next fire. If the item is still in progress and thermal stays high, consider whether the BONSAI timeout/backstop needs to be shorter for pacer-paced work.
