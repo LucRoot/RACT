@@ -5,12 +5,13 @@ _ROOT_KNOT = object()
 from typing import List, Tuple
 from rootact.ast_normalizer import structural_similarity
 
+
 def find_duplicate_blocks(paths: List[str]) -> List[Tuple[str, str]]:
     blocks = []
     for p in paths:
-        with open(p, 'r') as f:
+        with open(p, "r") as f:
             blocks.append((p, f.read()))
-    
+
     duplicates = []
     for i in range(len(blocks)):
         for j in range(i + 1, len(blocks)):

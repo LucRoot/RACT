@@ -20,7 +20,12 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Git Bash is the only bash we can reliably spawn from native Windows Python.
-BASH_EXE = Path(os.environ.get("PROGRAMFILES", "C:\\Program Files")) / "Git" / "bin" / "bash.exe"
+BASH_EXE = (
+    Path(os.environ.get("PROGRAMFILES", "C:\\Program Files"))
+    / "Git"
+    / "bin"
+    / "bash.exe"
+)
 if not BASH_EXE.exists():
     BASH_EXE = Path("C:/Program Files/Git/bin/bash.exe")
 WIDTH = 100
@@ -134,7 +139,10 @@ def main() -> int:
 
         # Clear screen and show a welcome banner
         add_output("\033[2J\033[H", dt=0.0)
-        add_output("RACT demo: init a project, check health, find duplication\r\n\r\n", dt=line_delay)
+        add_output(
+            "RACT demo: init a project, check health, find duplication\r\n\r\n",
+            dt=line_delay,
+        )
 
         cwd_name = "~"
         for command, _ in COMMANDS:
@@ -156,7 +164,10 @@ def main() -> int:
                 output = f"(exit {rc})\r\n{output}"
             add_output(output.rstrip("\n") + "\r\n", dt=output_delay)
 
-        add_output("\r\nDone. Run `rootact handshakes` to approve the merge.\r\n", dt=line_delay)
+        add_output(
+            "\r\nDone. Run `rootact handshakes` to approve the merge.\r\n",
+            dt=line_delay,
+        )
 
         emit_cast(out_path, events)
         print(f"Wrote {out_path} ({len(events)} events)")

@@ -12,6 +12,16 @@ Frontier agentic tools can search the web or a codebase before planning. RACT's
 retrieval adapter interface makes that portable: one interface, multiple backends
 (web search, local embedding index, keyword search).
 
+Example::
+
+    from pathlib import Path
+    from rootact.retrieval_adapter import KeywordRetrievalAdapter
+
+    adapter = KeywordRetrievalAdapter(Path("."))
+    adapter.index()
+    hits = adapter.keyword_search("retrieval", k=3)
+    # hits == [{"path": "src/rootact/retrieval_adapter.py", "score": 42.0}, ...]
+
 LR:: The default local adapter ranks files by keyword density and Root Knot
 presence. Files signed with the Root Knot get a small relevance bonus because
 they are likely primary project artifacts rather than generated noise.
@@ -50,15 +60,86 @@ class KeywordRetrievalAdapter(RetrievalAdapter):
     This is the fallback adapter: no external API, no heavy model. It is useful
     for finding relevant files when the project is small or when the user has not
     configured an embedding index.
+
+    In addition to the abstract ``search`` interface, this adapter exposes a
+    low-friction inverted-index API: call ``index()`` once, then ``keyword_search()``
+    repeatedly. The index is kept in memory and can be rebuilt with ``index()``.
+
+    Example::
+
+        from rootact.retrieval_adapter import KeywordRetrievalAdapter
+
+        adapter = KeywordRetrievalAdapter("src")
+        adapter.index()
+        results = adapter.keyword_search("router", k=5)
+        for result in results:
+            print(result["path"], result["score"])
     """
 
     def __init__(
         self,
         project_dir: Path | str,
         extensions: tuple[str, ...] = (".py", ".md", ".txt", ".json", ".yaml", ".yml"),
+        exclude_dirs: set[str] | None = None,
     ) -> None:
         self.project_dir = Path(project_dir)
         self.extensions = extensions
+        self.exclude_dirs: set[str] = exclude_dirs or {"__pycache__", ".git", "tests"}
+        self._inverted_index: dict[str, list[tuple[str, int]]] = {}
+        self._indexed = False
+
+    @staticmethod
+    def _tokenize(text: str) -> list[str]:
+        """Split text into lowercase alphanumeric tokens."""
+        return [t.lower() for t in re.findall(r"[A-Za-z0-9]+", text)]
+
+    def _py_files(self) -> list[Path]:
+        """Return ``*.py`` files under the project directory, excluding skips."""
+        files: list[Path] = []
+        for path in self.project_dir.rglob("*.py"):
+            if any(part in self.exclude_dirs for part in path.parts):
+                continue
+            files.append(path)
+        return files
+
+    def index(self) -> None:
+        """Build an in-memory inverted index over ``*.py`` files.
+
+        The index maps each token to a list of ``(relative_path, count)`` pairs.
+        Call ``keyword_search()`` to query it.
+        """
+        counts: dict[str, dict[str, int]] = {}
+        for path in self._py_files():
+            try:
+                content = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            rel = str(path.relative_to(self.project_dir)).replace("\\", "/")
+            for token in self._tokenize(content):
+                counts.setdefault(token, {}).setdefault(rel, 0)
+                counts[token][rel] += 1
+        self._inverted_index = {
+            token: sorted(paths.items()) for token, paths in counts.items()
+        }
+        self._indexed = True
+
+    def keyword_search(self, query: str, k: int = 5) -> list[dict[str, Any]]:
+        """Return the top-k Python files by summed term frequency.
+
+        Result items are ``{"path": str, "score": float}`` sorted descending by
+        score. An empty query returns an empty list.
+        """
+        if not query.strip():
+            return []
+        if not self._indexed:
+            self.index()
+        query_tokens = self._tokenize(query)
+        scores: dict[str, float] = {}
+        for token in query_tokens:
+            for rel, count in self._inverted_index.get(token, []):
+                scores[rel] = scores.get(rel, 0.0) + float(count)
+        ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        return [{"path": rel, "score": score} for rel, score in ranked[:k]]
 
     def _files(self) -> list[Path]:
         """Return candidate files under the project directory."""
@@ -123,6 +204,16 @@ class WebSearchAdapter(RetrievalAdapter):
     `RetrievalResult` objects. Works out of the box with Serper, Brave, Bing,
     and any API that returns a JSON list of results with title/link/snippet
     fields.
+
+    Example::
+
+        from rootact.retrieval_adapter import WebSearchAdapter
+
+        adapter = WebSearchAdapter(api_key="$SERPER_KEY")
+        rooted = adapter.search("latest FastAPI patterns", top_k=5)
+        if rooted.is_ok():
+            for result in rooted.unwrap():
+                print(result.source, result.content[:200])
 
     LR:: The adapter is intentionally provider-agnostic. RACT users bring their
     own search API key; the tool does not ship with bundled credentials.

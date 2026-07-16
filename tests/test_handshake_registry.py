@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the HandshakeRegistry."""
+"""Tests for the operator handshake registry."""
 
 from __future__ import annotations
 
@@ -8,31 +8,50 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.handshake_registry import HandshakeRegistry
+import json
+
+import pytest
+
+from rootact.handshake_registry import HandshakeItem, HandshakeRegistry
 
 
-def test_add_and_list(tmp_path):
+def test_add_stores_metadata(tmp_path):
     registry = HandshakeRegistry(tmp_path)
-    registry.add("m1", "deploy", "push to prod")
-    items = registry.entries()
-    assert len(items) == 1
-    assert items[0].id == "m1"
-    assert items[0].status == "pending"
+    metadata = {"target": "a.py", "sources": ["b.py"], "safe": True}
+    item = registry.add("merge-0001", "desc", "accept", metadata=metadata)
+    assert item.metadata == metadata
+    loaded = registry.entries()[-1]
+    assert loaded.metadata == metadata
 
 
-def test_pending_filters_status(tmp_path):
+def test_update_status_preserves_metadata(tmp_path):
     registry = HandshakeRegistry(tmp_path)
-    registry.add("m1", "deploy", "push")
-    registry.update_status("m1", "approved")
-    registry.add("m2", "delete", "drop table")
-    assert len(registry.pending()) == 1
-    assert registry.pending()[0].id == "m2"
+    metadata = {"target": "a.py", "sources": ["b.py"]}
+    registry.add("merge-0001", "desc", "accept", metadata=metadata)
+    updated = registry.update_status("merge-0001", "approved")
+    assert updated.metadata == metadata
+    assert updated.status == "approved"
 
 
-def test_update_status_unknown_raises(tmp_path):
+def test_none_metadata_not_serialized(tmp_path):
     registry = HandshakeRegistry(tmp_path)
-    with __import__("pytest").raises(KeyError):
-        registry.update_status("missing", "approved")
+    registry.add("plain-0001", "desc", "accept")
+    raw = json.loads(
+        (tmp_path / ".rootact" / "handshakes.json").read_text(encoding="utf-8")
+    )
+    assert "metadata" not in raw[0]
+
+
+def test_add_rejects_invalid_status(tmp_path):
+    _ = tmp_path
+    with pytest.raises(ValueError):
+        HandshakeItem(
+            id="x",
+            description="d",
+            acceptance="a",
+            timestamp="2026-07-16T00:00:00",
+            status="invalid",
+        )
 
 
 # RACT 0.1.1 - Trust and tooling

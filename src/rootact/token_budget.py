@@ -19,6 +19,17 @@ class TokenBudget:
     context files by relevance, returning the whole files that fit within the
     remaining budget. Files are always included whole; low-relevance files are
     dropped when the budget is exhausted.
+
+    Example::
+
+        from rootact.token_budget import TokenBudget
+
+        budget = TokenBudget(max_tokens=20)
+        budget.reserve(5)  # hold tokens for the system prompt
+        budget.add_file("high.py", "important code", relevance=1.0)
+        budget.add_file("low.py", "less relevant code", relevance=0.1)
+        selected = budget.select()
+        omitted = budget.omitted()
     """
 
     max_tokens: int

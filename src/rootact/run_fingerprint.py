@@ -6,14 +6,19 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
+
 def fingerprint_run(receipt: Dict) -> str:
-    canonical = json.dumps({
-        'intent': receipt['intent'],
-        'plan_steps': receipt['plan_steps'],
-        'provider_model': receipt['provider_model'],
-        'artifact_hashes': sorted(receipt['artifact_hashes'])
-    }, sort_keys=True)
+    canonical = json.dumps(
+        {
+            "intent": receipt["intent"],
+            "plan_steps": receipt["plan_steps"],
+            "provider_model": receipt["provider_model"],
+            "artifact_hashes": sorted(receipt["artifact_hashes"]),
+        },
+        sort_keys=True,
+    )
     return hashlib.sha256(canonical.encode()).hexdigest()
+
 
 def diff_fingerprints(a: Dict, b: Dict) -> List:
     diff = []

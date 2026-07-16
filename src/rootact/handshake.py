@@ -7,7 +7,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def _get_queue_path() -> Path:
@@ -38,7 +38,7 @@ def list_pending() -> List[Dict[str, Any]]:
     queue_path = _get_queue_path()
     if not queue_path.exists():
         return []
-    
+
     pending_entries = []
     with open(queue_path, "r") as f:
         for line in f:
@@ -80,7 +80,7 @@ def answer(id: str, response: str, signer: str) -> bool:
                     found = True
                 entries.append(entry)
             except json.JSONDecodeError:
-                entries.append(None) # Keep invalid lines as is or handle appropriately
+                entries.append(None)  # Keep invalid lines as is or handle appropriately
 
     if not found:
         return False
@@ -90,5 +90,5 @@ def answer(id: str, response: str, signer: str) -> bool:
         for entry in entries:
             if entry is not None:
                 f.write(json.dumps(entry) + "\n")
-    
+
     return True

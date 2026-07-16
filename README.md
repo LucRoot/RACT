@@ -299,4 +299,4 @@ Commercial use requires a separate license agreement. See [`COMMERCIAL.md`](COMM
 
 Copyright 2026 Dr. Lucas Root, Ph.D.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.1.2 - Trust and tooling -->

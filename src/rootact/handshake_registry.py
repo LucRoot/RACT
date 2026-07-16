@@ -30,6 +30,7 @@ class HandshakeItem:
     acceptance: str
     timestamp: str
     status: str = "pending"
+    metadata: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.status not in {"pending", "approved", "rejected", "deferred"}:
@@ -56,7 +57,14 @@ class HandshakeRegistry:
 
     def _save(self, items: list[HandshakeItem]) -> None:
         self.registry_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = [asdict(item) for item in items]
+        payload = []
+        for item in items:
+            raw = asdict(item)
+            # asdict turns None metadata into {"metadata": None}; strip it to keep
+            # the on-disk format clean and backward-compatible.
+            if raw.get("metadata") is None:
+                raw.pop("metadata", None)
+            payload.append(raw)
         self.registry_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def entries(self) -> list[HandshakeItem]:
@@ -68,7 +76,11 @@ class HandshakeRegistry:
         return [item for item in self.entries() if item.status == "pending"]
 
     def add(
-        self, milestone_id: str, description: str, acceptance: str
+        self,
+        milestone_id: str,
+        description: str,
+        acceptance: str,
+        metadata: dict[str, Any] | None = None,
     ) -> HandshakeItem:
         """Record a new pending handshake."""
         items = self.entries()
@@ -78,6 +90,7 @@ class HandshakeRegistry:
             acceptance=acceptance,
             timestamp=datetime.now(timezone.utc).isoformat(),
             status="pending",
+            metadata=metadata,
         )
         items.append(item)
         self._save(items)
@@ -96,6 +109,7 @@ class HandshakeRegistry:
                     acceptance=item.acceptance,
                     timestamp=item.timestamp,
                     status=status,
+                    metadata=item.metadata,
                 )
                 self._save(items)
                 return items[i]

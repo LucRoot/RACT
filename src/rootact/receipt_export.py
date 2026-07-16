@@ -3,7 +3,6 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
 import json
-import os
 import sys
 from pathlib import Path
 from typing import List, Dict, Any
@@ -20,7 +19,7 @@ def export_receipts(directory: str, anonymize: bool = True) -> List[Dict[str, An
         try:
             with open(file_path, "r") as f:
                 data = json.load(f)
-            
+
             if isinstance(data, list):
                 receipts.extend(data)
             elif isinstance(data, dict):
@@ -36,7 +35,9 @@ def export_receipts(directory: str, anonymize: bool = True) -> List[Dict[str, An
 
 def _anonymize(receipt: Dict[str, Any]) -> Dict[str, Any]:
     """Remove signer_id and signature, keep run_id and metrics."""
-    sanitized = {k: v for k, v in receipt.items() if k not in ("signer_id", "signature")}
+    sanitized = {
+        k: v for k, v in receipt.items() if k not in ("signer_id", "signature")
+    }
     return sanitized
 
 

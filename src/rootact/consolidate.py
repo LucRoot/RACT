@@ -420,7 +420,15 @@ class ConsolidationScanner:
                 f"Run tests after applying. Source modules should be removed or "
                 f"replaced with re-export shims pointing to {proposal.target}."
             )
-            reg.add(milestone_id, description, acceptance)
+            metadata = {
+                "target": proposal.target,
+                "sources": list(proposal.sources),
+                "diff": proposal.diff,
+                "reason": proposal.reason,
+                "safe": proposal.safe,
+                "safety_notes": list(proposal.safety_notes),
+            }
+            reg.add(milestone_id, description, acceptance, metadata=metadata)
             ids.append(milestone_id)
         return ids
 

@@ -414,4 +414,25 @@ def test_cli_consolidate_scan_apply_rollback_round_trip(tmp_path: Path) -> None:
     assert (tmp_path / "b.py").read_text(encoding="utf-8") == original_b
 
 
+def test_enqueue_proposals_stores_metadata(tmp_path: Path) -> None:
+    """Scan must store structured proposal metadata on the handshake item."""
+    _write_module(tmp_path / "a.py", IDENTICAL_BODY)
+    _write_module(tmp_path / "b.py", IDENTICAL_BODY)
+    scanner = ConsolidationScanner(tmp_path)
+    result = scanner.scan(similarity_threshold=0.50, merge_threshold=0.50)
+    assert len(result.proposals) == 1
+    proposal = result.proposals[0]
+
+    registry = HandshakeRegistry(tmp_path)
+    ids = scanner.enqueue_proposals(result, registry)
+    assert ids == ["consolidate-0000"]
+
+    item = registry.entries()[0]
+    assert item.metadata is not None
+    assert item.metadata["target"] == proposal.target
+    assert item.metadata["sources"] == list(proposal.sources)
+    assert item.metadata["safe"] is proposal.safe
+    assert item.metadata["reason"] == proposal.reason
+
+
 # RACT 0.1.1 - Trust and Tooling

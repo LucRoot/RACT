@@ -2,9 +2,9 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
-import pytest
 import json
-from src.rootact.mutation_merge_gate import MutationMergeGateEngine, MergePolicy, GateResult
+from rootact.mutation_merge_gate import MutationMergeGateEngine, MergePolicy
+
 
 class TestMutationMergeGateEngine:
     def setup_method(self):
@@ -15,7 +15,7 @@ class TestMutationMergeGateEngine:
                 trigger_pattern=r".*auth.*",
                 condition="mutation_delta >= 5",
                 threshold=5.0,
-                action="block"
+                action="block",
             ),
             MergePolicy(
                 id="core_policy",
@@ -23,25 +23,21 @@ class TestMutationMergeGateEngine:
                 trigger_pattern=r".*core.*",
                 condition="mutation_score >= 90",
                 threshold=90.0,
-                action="warn"
-            )
+                action="warn",
+            ),
         ]
         self.engine = MutationMergeGateEngine(self.policies)
 
     def test_policy_not_triggered(self):
         result = self.engine.evaluate(
-            "auth_policy", 
-            ["src/utils/helper.py"], 
-            80.0, 80.0, 90.0, 90.0
+            "auth_policy", ["src/utils/helper.py"], 80.0, 80.0, 90.0, 90.0
         )
         assert result.passed is True
         assert "not triggered" in result.reason
 
     def test_policy_triggered_and_passed(self):
         result = self.engine.evaluate(
-            "auth_policy", 
-            ["src/auth/login.py"], 
-            85.0, 80.0, 95.0, 90.0
+            "auth_policy", ["src/auth/login.py"], 85.0, 80.0, 95.0, 90.0
         )
         assert result.passed is True
         assert "Condition met" in result.reason
@@ -49,9 +45,7 @@ class TestMutationMergeGateEngine:
 
     def test_policy_triggered_and_blocked(self):
         result = self.engine.evaluate(
-            "auth_policy", 
-            ["src/auth/login.py"], 
-            80.0, 80.0, 90.0, 90.0
+            "auth_policy", ["src/auth/login.py"], 80.0, 80.0, 90.0, 90.0
         )
         assert result.passed is False
         assert "Condition failed" in result.reason
@@ -60,9 +54,7 @@ class TestMutationMergeGateEngine:
 
     def test_policy_triggered_and_warned(self):
         result = self.engine.evaluate(
-            "core_policy", 
-            ["src/core/engine.py"], 
-            80.0, 80.0, 85.0, 90.0
+            "core_policy", ["src/core/engine.py"], 80.0, 80.0, 85.0, 90.0
         )
         assert result.passed is False
         assert "Condition failed" in result.reason
@@ -70,9 +62,7 @@ class TestMutationMergeGateEngine:
 
     def test_invalid_policy_id(self):
         result = self.engine.evaluate(
-            "nonexistent_policy", 
-            ["src/auth/login.py"], 
-            80.0, 80.0, 90.0, 90.0
+            "nonexistent_policy", ["src/auth/login.py"], 80.0, 80.0, 90.0, 90.0
         )
         assert result.passed is False
         assert "not found" in result.reason
@@ -84,21 +74,16 @@ class TestMutationMergeGateEngine:
             trigger_pattern=r".*",
             condition="invalid syntax",
             threshold=0.0,
-            action="block"
+            action="block",
         )
         engine = MutationMergeGateEngine([bad_policy])
-        result = engine.evaluate(
-            "bad_policy", 
-            ["src/file.py"], 
-            80.0, 80.0, 90.0, 90.0
-        )
+        result = engine.evaluate("bad_policy", ["src/file.py"], 80.0, 80.0, 90.0, 90.0)
         assert result.passed is False
         assert "Invalid condition syntax" in result.reason
 
     def test_evaluate_all(self):
         results = self.engine.evaluate_all(
-            ["src/auth/login.py", "src/core/engine.py"], 
-            80.0, 80.0, 90.0, 90.0
+            ["src/auth/login.py", "src/core/engine.py"], 80.0, 80.0, 90.0, 90.0
         )
         assert len(results) == 2
         auth_result = next(r for r in results if r.policy_id == "auth_policy")
@@ -108,9 +93,7 @@ class TestMutationMergeGateEngine:
 
     def test_receipt_structure(self):
         result = self.engine.evaluate(
-            "auth_policy", 
-            ["src/auth/login.py"], 
-            80.0, 80.0, 90.0, 90.0
+            "auth_policy", ["src/auth/login.py"], 80.0, 80.0, 90.0, 90.0
         )
         assert result.receipt is not None
         receipt_data = json.loads(result.receipt)
@@ -123,44 +106,79 @@ class TestMergeGateCli:
     """CLI wiring: 'ract merge-gate' must dispatch and gate correctly."""
 
     def _policy_file(self, tmp_path, action="block"):
-        policy = [{
-            "id": "cov_guard",
-            "description": "coverage must not drop",
-            "trigger_pattern": r".*\.py$",
-            "condition": "coverage_delta >= 0",
-            "threshold": 0.0,
-            "action": action,
-        }]
+        policy = [
+            {
+                "id": "cov_guard",
+                "description": "coverage must not drop",
+                "trigger_pattern": r".*\.py$",
+                "condition": "coverage_delta >= 0",
+                "threshold": 0.0,
+                "action": action,
+            }
+        ]
         path = tmp_path / "policies.json"
         path.write_text(json.dumps(policy), encoding="utf-8")
         return path
 
     def test_cli_pass_returns_zero(self, tmp_path, capsys):
-        from src.rootact.cli import main
-        code = main(["merge-gate", "--policy", str(self._policy_file(tmp_path)),
-                     "--files", "src/foo.py",
-                     "--coverage-current", "90", "--coverage-previous", "88"])
+        from rootact.cli import main
+
+        code = main(
+            [
+                "merge-gate",
+                "--policy",
+                str(self._policy_file(tmp_path)),
+                "--files",
+                "src/foo.py",
+                "--coverage-current",
+                "90",
+                "--coverage-previous",
+                "88",
+            ]
+        )
         assert code == 0
         assert "PASS" in capsys.readouterr().out
 
     def test_cli_blocking_failure_returns_one(self, tmp_path, capsys):
-        from src.rootact.cli import main
-        code = main(["merge-gate", "--policy", str(self._policy_file(tmp_path)),
-                     "--files", "src/foo.py",
-                     "--coverage-current", "85", "--coverage-previous", "88"])
+        from rootact.cli import main
+
+        code = main(
+            [
+                "merge-gate",
+                "--policy",
+                str(self._policy_file(tmp_path)),
+                "--files",
+                "src/foo.py",
+                "--coverage-current",
+                "85",
+                "--coverage-previous",
+                "88",
+            ]
+        )
         assert code == 1
         assert "FAIL" in capsys.readouterr().out
 
     def test_cli_warn_action_does_not_block(self, tmp_path):
-        from src.rootact.cli import main
-        code = main(["merge-gate",
-                     "--policy", str(self._policy_file(tmp_path, action="warn")),
-                     "--files", "src/foo.py",
-                     "--coverage-current", "85", "--coverage-previous", "88"])
+        from rootact.cli import main
+
+        code = main(
+            [
+                "merge-gate",
+                "--policy",
+                str(self._policy_file(tmp_path, action="warn")),
+                "--files",
+                "src/foo.py",
+                "--coverage-current",
+                "85",
+                "--coverage-previous",
+                "88",
+            ]
+        )
         assert code == 0
 
     def test_cli_missing_policy_file_returns_one(self, tmp_path, capsys):
-        from src.rootact.cli import main
+        from rootact.cli import main
+
         code = main(["merge-gate", "--policy", str(tmp_path / "nope.json")])
         assert code == 1
         assert "not found" in capsys.readouterr().err

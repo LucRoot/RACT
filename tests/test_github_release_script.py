@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from github_release import (
+from github_release import (  # type: ignore[import-not-found]
     _bump_version,
     _read_version,
     _update_changelog,
