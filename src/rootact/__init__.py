@@ -7,7 +7,7 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 
 _ROOT_KNOT = object()
 
-__version__ = "0.1.2"
+__version__ = "0.2.0rc1"
 __author__ = "Dr. Lucas Root, Ph.D."
 
 # Expose the routing/reproducibility modules so they are wired into the
