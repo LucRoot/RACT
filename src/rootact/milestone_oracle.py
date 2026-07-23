@@ -15,15 +15,41 @@ marked done when there is evidence that its acceptance criteria are satisfied.
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum, auto
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from rootact.core.loop import WorkspaceSnapshot
+from rootact.core.provenance import ProvenanceIndex
 from rootact.executor import ExecutionReport
 from rootact.loop_planner import Milestone
 from rootact.manager import Plan
 from rootact.progress_oracle import ROOT_KNOT, ProgressOracle, ProgressVerdict
 from rootact.rooted import Rooted
+
+
+class VerifierCategory(Enum):
+    """How a milestone's completion should be verified."""
+
+    HEURISTIC = auto()  # Legacy text/heuristic detection.
+    TEST = auto()  # A pytest selector must pass.
+    ASSERTION = auto()  # A callable over WorkspaceSnapshot returns True.
+    ARTIFACT = auto()  # Expected file exists with a valid Rootknot sidecar.
+    PROVIDER = auto()  # Structured judge prompt with a fixed rubric.
+
+
+# Fixed rubric tokens for provider-based milestones. Keeps evals deterministic.
+_RUBRIC_TOKENS = {
+    "implemented",
+    "tested",
+    "documented",
+    "reviewed",
+    "verified",
+    "validated",
+    "complete",
+    "passing",
+}
 
 
 def _lr_signature_seed() -> float:
@@ -37,6 +63,16 @@ def _lr_signature_seed() -> float:
 
 
 @dataclass(frozen=True)
+class MilestoneVerifier:
+    """Verifier configuration for a milestone."""
+
+    category: VerifierCategory = VerifierCategory.HEURISTIC
+    config: dict[str, Any] = field(default_factory=dict)
+    assertion: Callable[[WorkspaceSnapshot], bool] | None = None
+    judge: Callable[[Milestone, "MilestoneContext"], ProgressVerdict] | None = None
+
+
+@dataclass(frozen=True)
 class MilestoneContext:
     """Inputs supplied to the MilestoneOracle."""
 
@@ -44,6 +80,8 @@ class MilestoneContext:
     report: ExecutionReport | Plan | None
     test_returncode: int | None
     project_dir: Path
+    verifier: MilestoneVerifier | None = None
+    workspace: WorkspaceSnapshot | None = None
 
 
 class MilestoneOracle(ProgressOracle):
@@ -91,6 +129,16 @@ class MilestoneOracle(ProgressOracle):
                 confidence=1.0,
                 provenance=["milestone_oracle.evaluate"],
             )
+
+        verifier = milestone_context.verifier or MilestoneVerifier()
+        if verifier.category == VerifierCategory.TEST:
+            return self._verify_test(milestone_context, verifier)
+        if verifier.category == VerifierCategory.ASSERTION:
+            return self._verify_assertion(milestone_context, verifier)
+        if verifier.category == VerifierCategory.ARTIFACT:
+            return self._verify_artifact(milestone_context, verifier)
+        if verifier.category == VerifierCategory.PROVIDER:
+            return self._verify_provider(milestone_context, verifier)
 
         acceptance = milestone.acceptance.lower()
         description = milestone.description.lower()
@@ -173,6 +221,206 @@ class MilestoneOracle(ProgressOracle):
             assumption="Milestone acceptance criteria are satisfied.",
             confidence=signed_confidence,
             provenance=["milestone_oracle.evaluate"],
+        )
+
+    @staticmethod
+    def _verify_test(
+        context: MilestoneContext, verifier: MilestoneVerifier
+    ) -> Rooted[ProgressVerdict]:
+        """Test-based verifier: pytest selector must pass."""
+        selector = verifier.config.get("selector", "")
+        tr = context.test_returncode
+        if tr is not None and tr != 0:
+            return Rooted(
+                value=ProgressVerdict(
+                    verdict="retry",
+                    reason=f"Test selector '{selector}' failed.",
+                    confidence=1.0,
+                ),
+                assumption="Test-based milestones require passing tests.",
+                confidence=1.0,
+                provenance=["milestone_oracle.verify_test"],
+            )
+        return Rooted(
+            value=ProgressVerdict(
+                verdict="proceed",
+                reason=f"Test selector '{selector}' passed.",
+                confidence=1.0,
+                knot=ROOT_KNOT,
+            ),
+            assumption="Test-based milestones require passing tests.",
+            confidence=1.0,
+            provenance=["milestone_oracle.verify_test"],
+        )
+
+    @staticmethod
+    def _verify_assertion(
+        context: MilestoneContext, verifier: MilestoneVerifier
+    ) -> Rooted[ProgressVerdict]:
+        """Assertion-based verifier: callable over WorkspaceSnapshot returns True."""
+        assertion = verifier.assertion
+        if assertion is None:
+            return Rooted(
+                value=ProgressVerdict(
+                    verdict="retry",
+                    reason="Assertion-based milestone has no assertion callable.",
+                    confidence=1.0,
+                ),
+                assumption="Assertion-based milestones supply a callable.",
+                confidence=1.0,
+                provenance=["milestone_oracle.verify_assertion"],
+            )
+        snapshot = context.workspace or WorkspaceSnapshot()
+        if assertion(snapshot):
+            return Rooted(
+                value=ProgressVerdict(
+                    verdict="proceed",
+                    reason="Assertion over workspace snapshot returned True.",
+                    confidence=1.0,
+                    knot=ROOT_KNOT,
+                ),
+                assumption="Assertion-based milestones evaluate the workspace.",
+                confidence=1.0,
+                provenance=["milestone_oracle.verify_assertion"],
+            )
+        return Rooted(
+            value=ProgressVerdict(
+                verdict="retry",
+                reason="Assertion over workspace snapshot returned False.",
+                confidence=1.0,
+            ),
+            assumption="Assertion-based milestones evaluate the workspace.",
+            confidence=1.0,
+            provenance=["milestone_oracle.verify_assertion"],
+        )
+
+    @staticmethod
+    def _verify_artifact(
+        context: MilestoneContext, verifier: MilestoneVerifier
+    ) -> Rooted[ProgressVerdict]:
+        """Artifact-based verifier: expected file exists with a valid Rootknot."""
+        expected_file = verifier.config.get("file", "")
+        if not expected_file:
+            return Rooted(
+                value=ProgressVerdict(
+                    verdict="retry",
+                    reason="Artifact-based milestone has no expected file.",
+                    confidence=1.0,
+                ),
+                assumption="Artifact-based milestones name an expected file.",
+                confidence=1.0,
+                provenance=["milestone_oracle.verify_artifact"],
+            )
+        artifact_path = context.project_dir / expected_file
+        if not artifact_path.is_file():
+            return Rooted(
+                value=ProgressVerdict(
+                    verdict="retry",
+                    reason=f"Expected artifact '{expected_file}' is missing.",
+                    confidence=1.0,
+                ),
+                assumption="Artifact-based milestones require the file to exist.",
+                confidence=1.0,
+                provenance=["milestone_oracle.verify_artifact"],
+            )
+        sidecar = artifact_path.parent / f".{artifact_path.name}.rootknot.json"
+        if not sidecar.is_file():
+            return Rooted(
+                value=ProgressVerdict(
+                    verdict="retry",
+                    reason=f"Rootknot sidecar for '{expected_file}' is missing.",
+                    confidence=1.0,
+                ),
+                assumption="Artifact-based milestones require a signed Rootknot.",
+                confidence=1.0,
+                provenance=["milestone_oracle.verify_artifact"],
+            )
+        try:
+            index = ProvenanceIndex(context.project_dir)
+            knot = index.load(artifact_path)
+            if knot is None:
+                raise ValueError("no rootknot in index")
+            public_key_hex = verifier.config.get("public_key")
+            if public_key_hex is None:
+                key_path = verifier.config.get("key_path")
+                if key_path is not None:
+                    public_key_hex = Path(key_path).read_text(encoding="utf-8").strip()
+            if public_key_hex is not None:
+                pubkey = bytes.fromhex(public_key_hex)
+                if not knot.verify(pubkey):
+                    return Rooted(
+                        value=ProgressVerdict(
+                            verdict="retry",
+                            reason=f"Rootknot signature for '{expected_file}' does not verify.",
+                            confidence=1.0,
+                        ),
+                        assumption="Artifact-based milestones require a valid signature.",
+                        confidence=1.0,
+                        provenance=["milestone_oracle.verify_artifact"],
+                    )
+        except Exception as exc:  # noqa: BLE001
+            return Rooted(
+                value=ProgressVerdict(
+                    verdict="retry",
+                    reason=f"Could not validate Rootknot for '{expected_file}': {exc}.",
+                    confidence=1.0,
+                ),
+                assumption="Artifact-based milestones require a readable Rootknot.",
+                confidence=1.0,
+                provenance=["milestone_oracle.verify_artifact"],
+            )
+        return Rooted(
+            value=ProgressVerdict(
+                verdict="proceed",
+                reason=f"Artifact '{expected_file}' has a valid Rootknot.",
+                confidence=1.0,
+                knot=ROOT_KNOT,
+            ),
+            assumption="Artifact-based milestones require a signed artifact.",
+            confidence=1.0,
+            provenance=["milestone_oracle.verify_artifact"],
+        )
+
+    @staticmethod
+    def _verify_provider(
+        context: MilestoneContext, verifier: MilestoneVerifier
+    ) -> Rooted[ProgressVerdict]:
+        """Provider-based verifier: structured judge prompt with fixed rubric."""
+        judge = verifier.judge
+        if judge is not None:
+            verdict = judge(context.milestone, context)
+            return Rooted(
+                value=verdict,
+                assumption="Provider-based milestones use a deterministic judge.",
+                confidence=verdict.confidence,
+                provenance=["milestone_oracle.verify_provider"],
+            )
+        # Deterministic fallback rubric when no judge is supplied.
+        acceptance = context.milestone.acceptance.lower()
+        description = context.milestone.description.lower()
+        combined = f"{description} {acceptance}"
+        rubric_hits = sum(1 for token in _RUBRIC_TOKENS if token in combined)
+        if rubric_hits >= 2:
+            return Rooted(
+                value=ProgressVerdict(
+                    verdict="proceed",
+                    reason=f"Provider rubric matched {rubric_hits} criteria.",
+                    confidence=min(1.0, 0.7 + 0.1 * rubric_hits),
+                    knot=ROOT_KNOT,
+                ),
+                assumption="Provider-based milestones match a fixed rubric.",
+                confidence=min(1.0, 0.7 + 0.1 * rubric_hits),
+                provenance=["milestone_oracle.verify_provider"],
+            )
+        return Rooted(
+            value=ProgressVerdict(
+                verdict="retry",
+                reason="Provider rubric did not match enough criteria.",
+                confidence=1.0,
+            ),
+            assumption="Provider-based milestones match a fixed rubric.",
+            confidence=1.0,
+            provenance=["milestone_oracle.verify_provider"],
         )
 
     @staticmethod
