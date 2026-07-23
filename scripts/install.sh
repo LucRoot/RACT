@@ -89,6 +89,13 @@ EOF
     esac
 done
 
+PWD_BASENAME=$(basename "$PWD")
+if [[ "$PWD_BASENAME" != "$RACT_NAME" ]]; then
+    warn "current directory basename is '$PWD_BASENAME'; expected '$RACT_NAME' (case-sensitive)."
+    warn "clone with: git clone $REPO_URL $RACT_NAME && cd $RACT_NAME"
+    exit 1
+fi
+
 if [[ -n "$VENV_DIR" ]]; then
     log "creating virtual environment at $VENV_DIR"
     "$PYTHON_CMD" -m venv "$VENV_DIR"
