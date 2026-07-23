@@ -92,7 +92,7 @@ returns clean, and the full test suite is still green.
 
 1. Write `docs/PROVENANCE.md` with four short sections:
    - **What a Rootknot attests:** plan step, assumption, generator, parent artifacts, artifact digest, signature.
-   - **How RACT stays independent of [REDACTED] and other private systems:** no proprietary code, no private endpoints, no shared state.
+   - **How RACT stays independent of private systems:** no proprietary code, no private endpoints, no shared state.
    - **How to verify a Rootknot without the tool:** CLI command (see Module 5), sidecar format, public-key location.
    - **What happens if a Rootknot is missing or invalid:** loop halts with `TerminationCause.PROVENANCE_VIOLATION`.
 2. Update `docs/ARCHITECTURE.md` to reference `docs/PROVENANCE.md` in the provenance contract bullet.
@@ -266,7 +266,7 @@ After the rebuild, the senior architect scanning the repo should find:
 The two critiques converge on one message: the repo needs to read like the product of someone who has paid for their scars. The v0.2.0 rebuild removed the obvious tells. The v0.3.0 rebuild adds the depth signals:
 
 - **No vanity in source.** Author identity is metadata.
-- **Public separation statement.** [REDACTED] never appears, and the independence claim is documented.
+- **Public separation statement.** Internal project names never appear in public artifacts, and the independence claim is documented.
 - **Failure-mode architecture.** The system is described by what it refuses to do.
 - **Benchmarked superiority.** The loop is not just claimed to be better; it is measured against a baseline.
 - **Auditable rootknots.** The sacred concept now has a persistence layer and a CLI.

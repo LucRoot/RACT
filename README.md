@@ -78,4 +78,22 @@ RACT is licensed under the **PolyForm Noncommercial License 1.0.0** — free for
 
 See [`AUTHOR.md`](AUTHOR.md) for project authorship and background.
 
+## Environment
+
+RACT is developed and tested on Python 3.11 and 3.12, on Windows and Linux. The default `local` provider runs entirely on your machine; other providers are optional.
+
+## Known limitations
+
+- Windows file-watcher tests can be flaky under heavy I/O load.
+- MCP tool execution is serialized within a single plan step.
+- Benchmark numbers are machine-specific; re-run the scripts on your hardware.
+
+---
+
+License: PolyForm Noncommercial 1.0.0. Measurements: take them as one data point from one machine on one day, and re-run the scripts on yours.
+
+---
+
+**Author:** Dr. Lucas Root, Ph.D. — [info@lucasroot.com](mailto:info@lucasroot.com)
+
 <!-- RACT 0.2.0 -->
