@@ -645,7 +645,7 @@ def test_loop_handshakes_high_risk_milestone(tmp_path):
     config_path.write_text("project:\n  name: test\n", encoding="utf-8")
     from ract.loop_planner import Milestone
     from ract.milestone_oracle import MilestoneOracle
-    from ract.progress_oracle import ProgressVerdict, ROOT_KNOT
+    from ract.progress_oracle import ProgressVerdict, MILESTONE_KNOT
 
     milestone = Milestone(
         id="m1", description="deploy the service", acceptance="service is live"
@@ -658,7 +658,7 @@ def test_loop_handshakes_high_risk_milestone(tmp_path):
     oracle = MagicMock(spec=MilestoneOracle)
     oracle.evaluate.return_value = Rooted(
         value=ProgressVerdict(
-            verdict="handshake", reason="high risk", confidence=1.0, knot=ROOT_KNOT
+            verdict="handshake", reason="high risk", confidence=1.0, knot=MILESTONE_KNOT
         ),
         assumption="ok",
         confidence=1.0,
@@ -817,7 +817,7 @@ def test_milestone_verdict_wrong_knot_returns_regression(tmp_path):
         with patch.object(controller, "_run_tests", return_value=(0, "1 passed", "")):
             result = controller.run("add feature")
     assert result.final_decision == "regression"
-    assert "missing canonical Root Knot" in result.summary
+    assert "missing canonical milestone sentinel" in result.summary
 
 
 def test_handshake_registry_persists_high_risk_milestone(tmp_path):
@@ -826,7 +826,7 @@ def test_handshake_registry_persists_high_risk_milestone(tmp_path):
     from ract.handshake_registry import HandshakeRegistry
     from ract.loop_planner import Milestone
     from ract.milestone_oracle import MilestoneOracle
-    from ract.progress_oracle import ProgressVerdict, ROOT_KNOT
+    from ract.progress_oracle import ProgressVerdict, MILESTONE_KNOT
 
     milestone = Milestone(
         id="m1", description="deploy the service", acceptance="service is live"
@@ -839,7 +839,7 @@ def test_handshake_registry_persists_high_risk_milestone(tmp_path):
     oracle = MagicMock(spec=MilestoneOracle)
     oracle.evaluate.return_value = Rooted(
         value=ProgressVerdict(
-            verdict="handshake", reason="high risk", confidence=1.0, knot=ROOT_KNOT
+            verdict="handshake", reason="high risk", confidence=1.0, knot=MILESTONE_KNOT
         ),
         assumption="ok",
         confidence=1.0,
@@ -998,10 +998,10 @@ def test_milestone_oracle_stop_verdict_ends_loop(tmp_path):
         Milestone(id="m1", description="stop now", acceptance="never", status="open")
     ]
     report = _make_report({"src/foo.py": "# code\n# existing\n"}, project_dir=tmp_path)
-    from ract.progress_oracle import ProgressVerdict, ROOT_KNOT
+    from ract.progress_oracle import ProgressVerdict, MILESTONE_KNOT
 
     stop_verdict = ProgressVerdict(
-        verdict="stop", reason="oracle says stop", confidence=1.0, knot=ROOT_KNOT
+        verdict="stop", reason="oracle says stop", confidence=1.0, knot=MILESTONE_KNOT
     )
     with patch(
         "ract.loop_controller.run_ract",

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-ROOT_KNOT = object()
+MILESTONE_KNOT = object()
 
 """Progress Oracle base for RACT.
 
@@ -25,15 +25,15 @@ class ProgressVerdict:
     verdict: str
     reason: str
     confidence: float
-    knot: object = ROOT_KNOT
+    knot: object = MILESTONE_KNOT
 
     def __post_init__(self) -> None:
         if self.verdict not in {"proceed", "retry", "stop", "handshake"}:
             raise ValueError(f"Invalid verdict: {self.verdict}")
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError(f"Confidence out of range: {self.confidence}")
-        if self.knot is not ROOT_KNOT:
-            raise ValueError("ProgressVerdict must carry the Root Knot sentinel.")
+        if self.knot is not MILESTONE_KNOT:
+            raise ValueError("ProgressVerdict must carry the milestone sentinel sentinel.")
 
 
 @dataclass(frozen=True)
