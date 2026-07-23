@@ -34,7 +34,7 @@ See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
 ```bash
 ract init --template python-package --provider local
 ract doctor                          # verify workspace and dependencies
-ract fence                           # check safety guardrails and threat-model boundaries
+ract fence inspect --file src/hello.py  # check safety guardrails and threat-model boundaries
 ract run "add a test for the hello-world script" --config rootact.yaml --dry-run
 ract run "add a test for the hello-world script" --config rootact.yaml
 ract run "refactor the greeting module" --config rootact.yaml --loop --max-iterations 5
@@ -50,7 +50,7 @@ ract run "refactor the greeting module" --config rootact.yaml --loop --max-itera
 - `ract session list` — list persisted run sessions.
 - `ract plan diff` — show the diff a plan would apply.
 - `ract run` — execute an intent against the workspace.
-- `ract fence` — inspect threat-model guardrails.
+- `ract fence inspect --file <path>` — inspect threat-model guardrails.
 
 ## What makes RACT different
 
