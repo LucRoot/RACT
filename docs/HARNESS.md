@@ -33,11 +33,11 @@ The `project.name` field is required. `PreflightValidator` checks for it before 
 ## Lifecycle
 
 1. `PreflightValidator(config_path).is_valid()` confirms the config exists and contains required fields.
-2. `Harness.from_config_path(path)` loads YAML, instantiates the router, and returns a `Rooted[Harness]`.
+2. `Harness.from_config_path(path)` loads YAML, instantiates the router, and returns an `Assumed[Harness]`.
 3. `Harness.run(intent)` plans and executes in one call.
 4. Before execution, the plan is validated structurally by `PlanValidator` and checked for dependency cycles by `DependencyGraph`.
 5. `Executor` runs each step through the provider `Router`, applies `SafetyGuardrail` checks, and records provenance and artifacts.
-6. Every step returns a `Rooted` result; failures short-circuit with a clear assumption.
+6. Every step returns an `Assumed` result; failures short-circuit with a clear assumption.
 7. Callers can wrap `Harness.run` with `HarnessReportEnricher.enrich_harness_run` to attach a diff summary and file-level diff to successful reports.
 
 ## Local Provider Note
