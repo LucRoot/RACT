@@ -10,3 +10,5 @@ src/ract/core/ @LucRoot
 
 # Eval changes should keep reproducibility intact.
 evals/ @LucRoot
+
+# RACT v0.2.0 - Provenance and Invariants

@@ -45,4 +45,4 @@ RACT is licensed under the PolyForm Noncommercial License 1.0.0.
 
 *Dr. Lucas Root, Ph.D.*
 
-<!-- RACT 0.2.0 -->
+<!-- RACT v0.2.0 - Provenance and Invariants -->
