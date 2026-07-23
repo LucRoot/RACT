@@ -3,7 +3,6 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 import subprocess
 import sys
-from pathlib import Path
 
 def test_dead_code_auction_csv_export(tmp_path):
     config = tmp_path / "rootact.yaml"

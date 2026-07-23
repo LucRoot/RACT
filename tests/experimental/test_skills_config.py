@@ -1,7 +1,6 @@
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
-import pytest
 from rootact.experimental.skills import register_skill
 
 def test_register_skill_config():

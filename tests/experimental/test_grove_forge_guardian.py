@@ -9,7 +9,6 @@ _ROOT_KNOT = object()
 import json
 from pathlib import Path
 
-import pytest
 
 from rootact.experimental.grove_forge_guardian import (
     append_to_learning_feed,
@@ -122,6 +121,6 @@ def test_append_to_learning_feed_writes_entry(tmp_path: Path):
     lines = feed_path.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 1
     entry = json.loads(lines[0])
-    assert entry["type"] == "[REDACTED]_training"
+    assert entry["type"] == "ract_training"
     assert entry["source"] == "grove-forge-rootknot-guardian"
     assert "RootKnot Guardian" in entry["finding"]

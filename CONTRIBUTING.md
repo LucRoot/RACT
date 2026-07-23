@@ -22,7 +22,7 @@ Thank you for considering a contribution to RACT.
    pytest -q -o addopts="" --cov=src/rootact
    ```
 5. **Update tests and docs** for any new behavior.
-6. **No proprietary IP.** RACT must remain independent of the author's proprietary internal tooling. See `docs/SEPARATION.md`.
+6. **No proprietary IP.** RACT must remain independent of the author's proprietary internal tooling. See `docs/internal/PROVENANCE.md`.
 
 ## Contributor License Agreement
 

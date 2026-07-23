@@ -1,9 +1,7 @@
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
-import pytest
 from rootact.experimental.cli_tool_creator import create_cli_tool
-from pathlib import Path
 
 def test_create_cli_tool():
     tool_description = {

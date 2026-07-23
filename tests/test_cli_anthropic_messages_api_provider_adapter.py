@@ -3,7 +3,6 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 import subprocess
 import sys
-from pathlib import Path
 
 def test_anthropic_messages_api_provider_adapter(tmp_path):
     config = tmp_path / "rootact.yaml"

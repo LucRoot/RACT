@@ -55,16 +55,16 @@ providers:
     model: my-local-model
 ```
 
-### [REDACTED], KoboldCpp, and llama.cpp
+### KoboldCpp and llama.cpp
 
-Any OpenAI-compatible local endpoint works with the `local_http` adapter. For example, a [REDACTED] front-end or KoboldCpp instance on port `11435`:
+Any OpenAI-compatible local endpoint works with the `local_http` adapter. For example, a KoboldCpp or llama.cpp server instance on port `11435`:
 
 ```yaml
 providers:
-  [REDACTED]:
+  local_llm:
     adapter: local_http
     url: http://127.0.0.1:11435/v1
-    model: qwen3.6-35b-a3b
+    model: my-local-model
 ```
 
 The `model` string is forwarded to the server. Some local servers ignore it and serve whichever model is currently loaded; others use it for routing. Match it to the loaded model name when possible.

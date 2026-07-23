@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 ``ract grove-forge eval --results-dir <dir> [--learning-feed] [--json]``
 scans Grove Forge benchmark result JSON files, summarizes pass rates and
-latencies, and optionally appends structured learnings to the [REDACTED] learning
+latencies, and optionally appends structured learnings to the learning
 feed.
 """
 
@@ -63,7 +63,7 @@ def _grove_forge_eval_command(args: list[str]) -> int:
     parser.add_argument(
         "--learning-feed",
         action="store_true",
-        help="Append a learning entry to the [REDACTED] learning feed.",
+        help="Append a learning entry to the learning feed.",
     )
     parser.add_argument(
         "--no-recursive",
@@ -126,7 +126,7 @@ def _grove_forge_eval_command(args: list[str]) -> int:
             )
 
     if parsed.learning_feed and report.result_files:
-        print("\nAppended learning entry to [REDACTED] feed.")
+        print("\nAppended learning entry to learning feed.")
     if parsed.output:
         print(f"\nWrote report to {parsed.output}")
     return 0
@@ -144,7 +144,7 @@ def _grove_forge_guardian_command(args: list[str]) -> int:
     parser.add_argument(
         "--learning-feed",
         action="store_true",
-        help="Append a learning entry to the [REDACTED] learning feed.",
+        help="Append a learning entry to the learning feed.",
     )
     parser.add_argument(
         "--json",
@@ -203,7 +203,7 @@ def _grove_forge_guardian_command(args: list[str]) -> int:
                 print(f"    missing: {marker}")
 
     if parsed.learning_feed:
-        print("\nAppended learning entry to [REDACTED] feed.")
+        print("\nAppended learning entry to learning feed.")
     if parsed.output:
         print(f"\nWrote report to {parsed.output}")
     return 0 if report.clean else 2

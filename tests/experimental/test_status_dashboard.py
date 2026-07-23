@@ -2,7 +2,6 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
-from pathlib import Path
 
 from rootact.experimental.status_dashboard import run_status
 

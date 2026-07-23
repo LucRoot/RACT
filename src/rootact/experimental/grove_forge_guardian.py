@@ -118,7 +118,7 @@ def append_to_learning_feed(
     paths = feed_paths or DEFAULT_LEARNING_FEED_PATHS
     entry = {
         "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "type": "[REDACTED]_training",
+        "type": "ract_training",
         "source": "grove-forge-rootknot-guardian",
         "finding": (
             f"RootKnot Guardian scanned {report.files_scanned} file(s) in "

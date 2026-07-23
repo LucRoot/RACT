@@ -42,7 +42,7 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 ### Changed
 
-- Thermal governance in the [REDACTED] council loop now uses a hard ceiling and a separate concurrency-fallback threshold.
+- Thermal governance in the build loop now uses a hard ceiling and a separate concurrency-fallback threshold.
 - Provider router now registers the `internal` adapter by default.
 
 ## 0.1.1
