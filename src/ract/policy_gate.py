@@ -1,7 +1,3 @@
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
-
 from typing import Dict, List, Any
 
 
@@ -39,11 +35,11 @@ def evaluate_policy(policy: Dict[str, Any], evidence: Dict[str, Any]) -> Dict[st
                     f"Unreceipted ratio {ratio:.2f} exceeds threshold {max_ratio}"
                 )
 
-    # Check require_knot
-    if policy.get("require_knot", False):
+    # Check require_receipt_signature
+    if policy.get("require_receipt_signature", False):
         receipts = evidence.get("receipts", [])
-        has_knot = any(r.get("has_knot", False) for r in receipts)
-        if not has_knot:
-            failures.append("Required Root Knot marker missing in receipts")
+        has_signature = any(r.get("signature", False) for r in receipts)
+        if not has_signature:
+            failures.append("Required receipt signature missing")
 
     return {"passed": len(failures) == 0, "failures": failures}

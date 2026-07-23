@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import difflib
 from dataclasses import dataclass
 from typing import Dict, List
 
 from ract.manager import Plan, Step
-
-_ROOT_KNOT = object()
 
 
 @dataclass

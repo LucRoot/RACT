@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """Command-line interface for RACT."""
 
@@ -82,11 +77,6 @@ def _handshake_item_to_dict(item: Any) -> dict[str, Any]:
     from dataclasses import asdict
 
     return asdict(item)
-
-
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
 
 
 def _handshakes_command(args: list[str]) -> int:
@@ -1902,9 +1892,7 @@ def _whisper_command(args: list[str]) -> int:
     print("======================")
     print(brief)
     print()
-    print(
-        "Root Knot dialect note: this brief is advisory; the loop still verifies every artifact."
-    )
+    print("Note: this brief is advisory; the loop still verifies every artifact.")
     return 0
 
 
@@ -3745,10 +3733,6 @@ def main(argv: list[str] | None = None) -> int:
             "right provider. Every plan and result is Rooted to the assumption "
             "that justifies it."
         )
-        print()
-        print("The Root Knot (_ROOT_KNOT = object()) is both a coder signature and a")
-        print("loop invariant: if a generated file is missing the knot, the loop")
-        print("stops rather than compounding unsigned work.")
         print()
         print("License: PolyForm Noncommercial License 1.0.0")
         print(

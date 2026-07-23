@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import sys
 from pathlib import Path
 from typing import cast
 
 from ract.hook_system import HookManager
-
-_ROOT_KNOT = object()
 
 
 def test_register_persists_hook(tmp_path: Path) -> None:

@@ -2,10 +2,6 @@ import hashlib
 import json
 from typing import Dict, List
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
-
 
 def fingerprint_run(receipt: Dict) -> str:
     canonical = json.dumps(

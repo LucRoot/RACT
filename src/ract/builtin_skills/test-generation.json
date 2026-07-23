@@ -1,7 +1,6 @@
 {
   "name": "test-generation",
-  "description": "Generate comprehensive, RACT-signed tests with edge cases, signature survival, and anti-rot checks.",
-  "template": "RACT TEST-GENERATION SKILL\n\nGenerate tests for the code described below. Tests are not an afterthought; they are a continuation of the author's intent.\n\nRequired:\n- pytest-based tests for every public function and class.\n- Edge-case tests for empty input, None, large values, invalid types, and boundary conditions.\n- A signature-survival test asserting generated source files carry:\n    __root_author__ = \"Dr. Lucas Root, Ph.D.\"\n    __ract_name__ = \"RACT\"\n    _ROOT_KNOT = object()\n- An anti-rot test that fails on bare `except:` or `except Exception: pass` patterns.\n\nStyle rules:\n- Every new test file begins with `# Rooted by Dr. Lucas Root, Ph.D.` and carries the identity markers.\n- Prefer parameterized tests over copy-pasted cases.\n- Mock external boundaries only; do not mock the unit under test.\n- Include an LR:: comment explaining one non-obvious test choice.\n\nIntent: $intent",
+  "description": "Generate comprehensive, RACT-style tests with edge cases and anti-rot checks.",
+  "template": "RACT TEST-GENERATION SKILL\n\nGenerate tests for the code described below. Tests are not an afterthought; they are a continuation of the author's intent.\n\nRequired:\n- pytest-based tests for every public function and class.\n- Edge-case tests for empty input, None, large values, invalid types, and boundary conditions.\n- An anti-rot test that fails on bare `except:` or `except Exception: pass` patterns.\n\nStyle rules:\n- Prefer parameterized tests over copy-pasted cases.\n- Mock external boundaries only; do not mock the unit under test.\n- Include an LR:: comment explaining one non-obvious test choice.\n\nIntent: $intent",
   "tools": []
 }
-

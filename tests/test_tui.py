@@ -1,12 +1,7 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests for the RACT terminal UI helpers."""
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 import os
 from unittest.mock import MagicMock, patch
@@ -101,7 +96,7 @@ def test_welcome_renders_logo_and_body(capsys) -> None:
     rc = RactConsole()
     rc.welcome("0.1.0")
     out = capsys.readouterr().out
-    assert "Root Knot" in out
+    assert "RACT" in out
     assert "0.1.0" in out
     assert "Dr. Lucas Root" in out
 

@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import pytest
 
 from ract.safety_guardrails import SafetyGuardrail
-
-_ROOT_KNOT = object()
 
 
 def test_no_violations_for_safe_content() -> None:

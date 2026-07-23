@@ -3,11 +3,10 @@
   "description": "A small Python CLI tool with a main entry point and tests.",
   "skill": "cli-tool",
   "files": {
-    "src/$project_name/__init__.py": "# Rooted by Dr. Lucas Root, Ph.D.\nfrom __future__ import annotations\n\n__root_author__ = \"Dr. Lucas Root, Ph.D.\"\n__ract_name__ = \"RACT\"\n\n_ROOT_KNOT = object()\n\n\"\"\"$project_name CLI package.\"\"\"\n\n__version__ = \"0.1.0\"\n",
-    "src/$project_name/main.py": "# Rooted by Dr. Lucas Root, Ph.D.\nfrom __future__ import annotations\n\n__root_author__ = \"Dr. Lucas Root, Ph.D.\"\n__ract_name__ = \"RACT\"\n\n_ROOT_KNOT = object()\n\n\"\"\"CLI entry point for $project_name.\"\"\"\n\nimport argparse\n\n\ndef main(argv=None):\n    parser = argparse.ArgumentParser(prog=\"$project_name\")\n    parser.add_argument(\"name\", default=\"world\")\n    args = parser.parse_args(argv)\n    print(f\"Hello, {args.name}!\")\n    return 0\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n",
-    "tests/test_main.py": "# Rooted by Dr. Lucas Root, Ph.D.\nfrom __future__ import annotations\n\n__root_author__ = \"Dr. Lucas Root, Ph.D.\"\n__ract_name__ = \"RACT\"\n\n_ROOT_KNOT = object()\n\nfrom $project_name.main import main\n\n\ndef test_main(capsys):\n    assert main([\"RACT\"]) == 0\n    assert \"Hello, RACT!\" in capsys.readouterr().out\n",
+    "src/$project_name/__init__.py": "from __future__ import annotations\n\n\n\n\"\"\"$project_name CLI package.\"\"\"\n\n__version__ = \"0.1.0\"\n",
+    "src/$project_name/main.py": "from __future__ import annotations\n\n\n\n\"\"\"CLI entry point for $project_name.\"\"\"\n\nimport argparse\n\n\ndef main(argv=None):\n    parser = argparse.ArgumentParser(prog=\"$project_name\")\n    parser.add_argument(\"name\", default=\"world\")\n    args = parser.parse_args(argv)\n    print(f\"Hello, {args.name}!\")\n    return 0\n\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n",
+    "tests/test_main.py": "from __future__ import annotations\n\n\n\nfrom $project_name.main import main\n\n\ndef test_main(capsys):\n    assert main([\"RACT\"]) == 0\n    assert \"Hello, RACT!\" in capsys.readouterr().out\n",
     "README.md": "# $project_name\n\nA CLI tool scaffolded by RACT.\n\n## Usage\n\n```bash\npython -m $project_name.main\n```\n",
     "pyproject.toml": "[build-system]\nrequires = [\"hatchling\"]\nbuild-backend = \"hatchling.build\"\n\n[project]\nname = \"$project_name\"\nversion = \"0.1.0\"\ndescription = \"A CLI tool built with RACT.\"\nrequires-python = \">=3.11\"\n\n[project.scripts]\n$project_name = \"$project_name.main:main\"\n"
   }
 }
-

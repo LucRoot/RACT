@@ -1,17 +1,13 @@
-# Rooted by Dr. Lucas Root, Ph.D.
-
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 
-class _RootKnotType:
-    """Sentinel for Root Knot default arguments."""
+class _SentinelType:
+    """Sentinel for default arguments."""
 
 
-_ROOT_KNOT_DEFAULT: _RootKnotType = _RootKnotType()
+_SENTINEL_DEFAULT: _SentinelType = _SentinelType()
 
 import argparse
 from pathlib import Path
@@ -21,7 +17,7 @@ from ract.session_config import SessionConfig
 
 
 def parse_cli_args(
-    argv: Optional[List[str]] | _RootKnotType = _ROOT_KNOT_DEFAULT,
+    argv: Optional[List[str]] | _SentinelType = _SENTINEL_DEFAULT,
 ) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="RACT CLI toggles")
     parser.add_argument(
@@ -37,7 +33,7 @@ def parse_cli_args(
     parser.add_argument(
         "--resume", action="store_true", help="Resume an existing session"
     )
-    if isinstance(argv, _RootKnotType):
+    if isinstance(argv, _SentinelType):
         resolved: Optional[List[str]] = []
     else:
         resolved = argv
@@ -47,7 +43,7 @@ def parse_cli_args(
     return args
 
 
-def main(argv: Optional[List[str]] | _RootKnotType = _ROOT_KNOT_DEFAULT) -> int:
+def main(argv: Optional[List[str]] | _SentinelType = _SENTINEL_DEFAULT) -> int:
     args = parse_cli_args(argv)
     config_path = Path("~/.ract/session.json").expanduser()
     if args.resume:

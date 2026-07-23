@@ -1,12 +1,7 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests for the `ract retrieval` CLI command."""
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch

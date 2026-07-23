@@ -1,7 +1,3 @@
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
-
 from ract.in_toto_attestation import build_statement
 
 

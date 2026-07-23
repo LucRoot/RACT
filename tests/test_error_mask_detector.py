@@ -1,12 +1,7 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests for the error-mask detector."""
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 from ract.error_mask_detector import ErrorMaskDetector, error_mask_violations
 

@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
 from ract.manager import Plan, Step
-
-_ROOT_KNOT = object()
 
 
 @dataclass

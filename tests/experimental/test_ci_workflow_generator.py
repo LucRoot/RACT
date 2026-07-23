@@ -1,7 +1,3 @@
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
-
 from ract.experimental.ci_workflow_generator import generate_policy_gate_workflow
 
 

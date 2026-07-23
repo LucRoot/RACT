@@ -1,12 +1,7 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests that README.md carries badges and a Quickstart section."""
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 import re
 from pathlib import Path

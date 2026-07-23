@@ -1,8 +1,3 @@
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
-
 from ract.run_fingerprint import diff_fingerprints, fingerprint_run
 
 

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 from pathlib import Path
 
-from ract.quality_scorecard import QualityScorecard, Verdict, _ROOT_KNOT
+from ract.quality_scorecard import QualityScorecard, Verdict, _SENTINEL
 
 
 def test_compute_score_nonempty_plan():
@@ -129,8 +127,8 @@ def test_write_and_read_json_file(tmp_path: Path):
 def test_root_knot_is_defined_at_module_scope():
     import ract.quality_scorecard as mod
 
-    assert hasattr(mod, "_ROOT_KNOT")
-    assert mod._ROOT_KNOT is _ROOT_KNOT
+    assert hasattr(mod, "_SENTINEL")
+    assert mod._SENTINEL is _SENTINEL
 
 
 def test_verdict_all_passes_reaches_threshold():

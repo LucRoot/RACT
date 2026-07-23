@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 from ract.change_summary_generator import ChangeSummary
-
-_ROOT_KNOT = object()
 
 
 def test_empty_changes() -> None:

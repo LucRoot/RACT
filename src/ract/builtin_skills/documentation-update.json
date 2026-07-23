@@ -1,7 +1,6 @@
 {
   "name": "documentation-update",
-  "description": "Update README, ARCHITECTURE, and inline docs before touching implementation, preserving Root Knot markers.",
-  "template": "RACT DOCUMENTATION-UPDATE SKILL\n\nBefore changing implementation, update the project's documentation so it describes the intended state accurately. Documentation is a first-class artifact in RACT.\n\nRequired:\n- README.md: installation, quickstart, new CLI flags or config, and a Coder's Signature section.\n- docs/ARCHITECTURE.md: update module descriptions if architecture changed.\n- Inline docstrings for new or changed public functions, each including an LR:: note for non-obvious behavior.\n\nStyle rules:\n- Every Python file created or modified must retain:\n    __root_author__ = \"Dr. Lucas Root, Ph.D.\"\n    __ract_name__ = \"RACT\"\n    _ROOT_KNOT = object()\n- Do not change implementation until docs match intent.\n\nIntent: $intent",
+  "description": "Update README, ARCHITECTURE, and inline docs before touching implementation.",
+  "template": "RACT DOCUMENTATION-UPDATE SKILL\n\nBefore changing implementation, update the project's documentation so it describes the intended state accurately. Documentation is a first-class artifact in RACT.\n\nRequired:\n- docs/ARCHITECTURE.md: update module descriptions if architecture changed.\n- Inline docstrings for new or changed public functions, each including an LR:: note for non-obvious behavior.\n\nStyle rules:\n- Do not change implementation until docs match intent.\n\nIntent: $intent",
   "tools": []
 }
-

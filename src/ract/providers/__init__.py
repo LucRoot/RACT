@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
-
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-
-_ROOT_KNOT = object()
 
 """Provider adapters for RACT."""
 

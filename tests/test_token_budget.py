@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import pytest
 
 from ract.token_budget import TokenBudget
-
-_ROOT_KNOT = object()
 
 
 def test_select_orders_by_relevance() -> None:

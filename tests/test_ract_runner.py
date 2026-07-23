@@ -1,8 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import json
 from pathlib import Path
@@ -15,8 +12,6 @@ from ract.harness import Harness
 from ract.manager import Plan, Step
 from ract.ract_runner import run_ract
 from ract.rooted import Rooted
-
-_ROOT_KNOT = object()
 
 
 def _write_config(tmp_path: Path) -> Path:

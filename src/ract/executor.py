@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """Executor for RACT.
 
@@ -33,7 +28,6 @@ from ract.manager import Plan, Step
 from ract.compression_novelty_detector import CompressionNoveltyDetector
 from ract.mcp_adapter import McpToolRegistry
 from ract.novelty_budget import NoveltyBudget
-from ract.user_signature_registry import SignatureRegistry
 from ract.provenance_tracker import Artifact as ProvenanceArtifact, ProvenanceTracker
 from ract.providers.base import ProviderAdapter
 from ract.providers.router import ProviderRouter
@@ -74,8 +68,6 @@ class Executor:
         self,
         router: ProviderRouter,
         hook_manager: HookManager | None = None,
-        signature_registry: SignatureRegistry | None = None,
-        signature_profile: str | None = None,
         project_dir: Path | None = None,
         mcp_registry: McpToolRegistry | None = None,
         diff_applier: DiffApplier | None = None,
@@ -89,8 +81,6 @@ class Executor:
     ) -> None:
         self.router = router
         self.hook_manager = hook_manager
-        self.signature_registry = signature_registry
-        self.signature_profile = signature_profile
         self.project_dir = project_dir
         self.mcp_registry = mcp_registry
         self.diff_applier = diff_applier
@@ -167,68 +157,11 @@ class Executor:
         merged = target.read_text(encoding="utf-8")
         return True, merged, "Diff applied successfully."
 
-    @staticmethod
-    def _is_python_artifact(expected_artifact: str | None, content: str) -> bool:
-        """Return True if the artifact should carry Python signature markers."""
-        if expected_artifact and expected_artifact.endswith(".py"):
-            return True
-        # Heuristic: content looks like Python source.
-        return (
-            "def " in content
-            or "class " in content
-            or "from __future__ import annotations" in content
-            or "import " in content
-        )
-
-    def _ensure_root_knot(self, content: str) -> str:
-        """Inject the canonical RACT identity markers if the model omitted them.
-
-        LR:: The Root Knot is both a coder signature and a loop invariant. Every
-        file RACT writes must carry it. If the model forgets, the Executor
-        restores the markers before the artifact reaches disk.
-        """
-        author_marker = '__root_author__ = "Dr. Lucas Root, Ph.D."'
-        knot_marker = "_ROOT_KNOT = object()"
-        if author_marker not in content:
-            content = f"{author_marker}\n{content}"
-        if knot_marker not in content:
-            lines = content.splitlines(keepends=True)
-            insert_idx = 0
-            for i, line in enumerate(lines):
-                if line.strip() == "from __future__ import annotations":
-                    insert_idx = i + 1
-                    break
-            lines.insert(insert_idx, f"{knot_marker}\n")
-            content = "".join(lines)
-        return content
-
-    @staticmethod
-    def _strip_ract_markers(content: str) -> str:
-        """Remove invariant RACT identity markers before structural analysis.
-
-        LR:: The Root Knot and authorship markers are intentionally identical
-        across every Python artifact. If we include them in compression-based
-        novelty scoring, they dilute the signal and let near-duplicates slip
-        through. We strip them before assessing novelty, then write the full
-        marked artifact to disk.
-        """
-        lines = content.splitlines(keepends=True)
-        kept: list[str] = []
-        for line in lines:
-            stripped = line.strip()
-            if stripped == '__root_author__ = "Dr. Lucas Root, Ph.D."':
-                continue
-            if stripped == "_ROOT_KNOT = object()":
-                continue
-            kept.append(line)
-        return "".join(kept)
-
     def _check_load_bearing(self, expected_artifact: str, content: str) -> list[str]:
         """Return human-readable violation messages if the write touches protected code.
 
         LR:: Load-bearing annotations are institutional memory. Modifying them
-        without an explicit override is a continuity failure on par with losing
-        the Root Knot.
+        without an explicit override is a continuity failure.
         """
         if self.load_bearing_guard is None or not expected_artifact:
             return []
@@ -769,25 +702,6 @@ class Executor:
                     hint="diff",
                 )
 
-            if (
-                self.signature_registry is not None
-                and self.signature_profile is not None
-            ):
-                try:
-                    content = self.signature_registry.apply_to_content(
-                        content, self.signature_profile
-                    )
-                except Exception:  # noqa: BLE001
-                    # Signature injection must never block execution.
-                    pass
-
-            # LR:: Every Python artifact RACT produces must carry the Root Knot.
-            # This is non-optional: the LoopController treats unsigned artifacts
-            # as a continuity failure. An agent that strips the knot creates a
-            # broken fork that cannot recurse.
-            if self._is_python_artifact(step.expected_artifact, content):
-                content = self._ensure_root_knot(content)
-
             # Safety guardrails: block forbidden patterns before the artifact is
             # recorded or returned. The harness can decide whether to escalate.
             violations = self.guardrail.check(step.expected_artifact, content)
@@ -882,13 +796,11 @@ class Executor:
             # duplicate existing code; high-ratio content is either genuinely new
             # or genuinely wrong and deserves stronger review.
             # LR:: Run this BEFORE writing so the gate can reject near-duplicates.
-            # Strip invariant RACT markers so the score reflects model output, not
-            # our own boilerplate. Route low-novelty rejections into the operator
-            # handshake queue so the loop continues instead of halting.
+            # Route low-novelty rejections into the operator handshake queue so
+            # the loop continues instead of halting.
             if self.compression_novelty_detector is not None and step.expected_artifact:
-                score_content = self._strip_ract_markers(content)
                 score = self.compression_novelty_detector.assess_new_artifact(
-                    step.expected_artifact, score_content
+                    step.expected_artifact, content
                 )
                 if score is not None:
                     score_payload = {

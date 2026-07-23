@@ -1,8 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 from unittest.mock import MagicMock
 
@@ -11,8 +8,6 @@ from ract.harness import Harness
 from ract.harness_report_enricher import enrich_harness_run
 from ract.manager import Step
 from ract.rooted import Rooted
-
-_ROOT_KNOT = object()
 
 
 def _make_harness(

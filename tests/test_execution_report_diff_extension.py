@@ -1,14 +1,9 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 from ract.execution_report_diff_extension import DiffExtension
 from ract.executor import ExecutionReport, StepResult
 from ract.manager import Step
-
-_ROOT_KNOT = object()
 
 
 def _make_report(step_results: list[StepResult]) -> ExecutionReport:

@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 from pathlib import Path
 
 import pytest
 
-from ract.memory_arena import MemoryArena, _ROOT_KNOT
+from ract.memory_arena import MemoryArena, _SENTINEL
 
 
 def test_store_and_retrieve():
@@ -92,8 +90,8 @@ def test_clear_resets_state():
 def test_root_knot_is_module_singleton():
     import ract.memory_arena as mod
 
-    assert hasattr(mod, "_ROOT_KNOT")
-    assert mod._ROOT_KNOT is _ROOT_KNOT
+    assert hasattr(mod, "_SENTINEL")
+    assert mod._SENTINEL is _SENTINEL
 
 
 def test_record_and_replay():

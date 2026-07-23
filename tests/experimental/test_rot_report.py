@@ -1,7 +1,3 @@
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
-
 from ract.experimental.rot_report import (
     find_duplicate_blocks,
     record_rot_trend_snapshot,

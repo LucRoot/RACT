@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 import tempfile
 from pathlib import Path
 from typing import Dict
 
 from ract.manager import Plan, Step
-from ract.session_store import SessionStore, _ROOT_KNOT
+from ract.session_store import SessionStore, _SENTINEL
 
 
 def test_save_and_load_roundtrip() -> None:
@@ -55,11 +53,10 @@ def test_load_missing_session_raises_keyerror() -> None:
             pass
 
 
-def test_session_store_includes_root_author_and_root_knot() -> None:
-    from ract.session_store import __root_author__ as author, _ROOT_KNOT as knot
+def test_session_store_includes_sentinel() -> None:
+    from ract.session_store import _SENTINEL as knot
 
-    assert author == "Dr. Lucas Root, Ph.D."
-    assert knot is _ROOT_KNOT
+    assert knot is _SENTINEL
 
 
 def test_exists_returns_true_for_saved_session() -> None:

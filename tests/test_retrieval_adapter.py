@@ -1,12 +1,7 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests for retrieval adapters."""
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 import httpx
 import respx
@@ -24,15 +19,15 @@ def test_keyword_search_finds_relevant_file(tmp_path):
     assert any("alpha.py" in r.source for r in results)
 
 
-def test_keyword_search_root_knot_bonus(tmp_path):
-    (tmp_path / "knotted.py").write_text(
-        "_ROOT_KNOT = object()\ndef search(): pass\n", encoding="utf-8"
+def test_keyword_search_ranks_by_density(tmp_path):
+    (tmp_path / "dense.py").write_text(
+        "def search(): pass\ndef search(): pass\n", encoding="utf-8"
     )
-    (tmp_path / "plain.py").write_text("def search(): pass\n", encoding="utf-8")
+    (tmp_path / "plain.py").write_text("def other(): pass\n", encoding="utf-8")
     adapter = KeywordRetrievalAdapter(tmp_path)
     result = adapter.search("search")
     results = result.unwrap()
-    assert results[0].source == "knotted.py"
+    assert results[0].source == "dense.py"
 
 
 def test_web_search_adapter_returns_placeholder():

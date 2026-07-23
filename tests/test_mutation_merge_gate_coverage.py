@@ -1,12 +1,7 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests for earned-coverage mutation gate integration."""
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 from ract.coverage_delta import CoverageDelta, CoverageSnapshot
 from ract.mutation_merge_gate import MergePolicy, evaluate_coverage_policy

@@ -1,12 +1,7 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests for the Executor module."""
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 from pathlib import Path
 from typing import Any
@@ -15,7 +10,6 @@ from ract.executor import Executor, ExecutionReport
 from ract.hook_system import HookManager
 from ract.manager import Plan, Step
 from ract.rooted import Rooted
-from ract.user_signature_registry import SignatureRegistry
 
 
 class FakeDiffApplier:
@@ -440,47 +434,6 @@ def test_executor_without_hook_manager_omits_hook_results():
     assert result.is_ok()
     report = result.unwrap()
     assert "hook_results" not in report.artifacts
-
-
-def test_executor_applies_signature_profile(tmp_path):
-    adapter = FakeAdapter(
-        "mock", response_content="from __future__ import annotations\n\nx = 1\n"
-    )
-    router = FakeRouter(adapter)
-    registry = SignatureRegistry(tmp_path)
-    registry.save_profile(
-        "custom",
-        {"author_marker": "__author__ = 'A'", "knot_marker": "_KNOT = object()"},
-    )
-    executor = Executor(router, signature_registry=registry, signature_profile="custom")
-    plan = _make_plan(
-        [Step(action="step one", provider_hint="mock", expected_artifact="one.txt")]
-    )
-
-    result = executor.execute(intent="test intent", plan=plan)
-
-    assert result.is_ok()
-    report = result.unwrap()
-    assert "__author__ = 'A'" in report.step_results[0].content
-    assert "_KNOT = object()" in report.step_results[0].content
-
-
-def test_executor_ignores_signature_failure(tmp_path):
-    adapter = FakeAdapter("mock", response_content="step output")
-    router = FakeRouter(adapter)
-    registry = SignatureRegistry(tmp_path)
-    executor = Executor(
-        router, signature_registry=registry, signature_profile="missing"
-    )
-    plan = _make_plan(
-        [Step(action="step one", provider_hint="mock", expected_artifact="one.txt")]
-    )
-
-    result = executor.execute(intent="test intent", plan=plan)
-
-    assert result.is_ok()
-    report = result.unwrap()
-    assert report.step_results[0].content == "step output"
 
 
 class FakeStreamingAdapter(FakeAdapter):
@@ -957,7 +910,7 @@ def test_executor_metrics_empty_when_adapter_has_no_usage():
 def test_write_artifact_strips_markdown_fences(tmp_path):
     router = FakeRouter(FakeAdapter("mock"))
     executor = Executor(router, project_dir=tmp_path)
-    fenced = "```python\n# Rooted by Dr. Lucas Root, Ph.D.\nx = 1\n```\n"
+    fenced = "```python\n# existing\nx = 1\n```\n"
     executor._write_artifact("src/fenced.py", fenced)
     written = (tmp_path / "src" / "fenced.py").read_text(encoding="utf-8")
     assert "```python" not in written

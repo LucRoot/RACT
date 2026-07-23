@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 
 from dataclasses import dataclass
@@ -14,11 +12,11 @@ import yaml
 from ract.manager import Plan, Step
 
 
-class _RootKnotType:
-    """Sentinel for Root Knot default arguments."""
+class _SentinelType:
+    """Sentinel for default arguments."""
 
 
-_ROOT_KNOT_DEFAULT: _RootKnotType = _RootKnotType()
+_SENTINEL_DEFAULT: _SentinelType = _SentinelType()
 
 
 @dataclass
@@ -30,9 +28,9 @@ class PreflightValidator:
     config_path: Path
 
     def __init__(
-        self, config_path: Path | str | _RootKnotType = _ROOT_KNOT_DEFAULT
+        self, config_path: Path | str | _SentinelType = _SENTINEL_DEFAULT
     ) -> None:
-        if isinstance(config_path, _RootKnotType):
+        if isinstance(config_path, _SentinelType):
             resolved: Path | str = "ract.yaml"
         else:
             resolved = config_path

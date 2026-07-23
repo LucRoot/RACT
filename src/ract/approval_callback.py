@@ -1,14 +1,9 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 from collections.abc import Callable
 
 from ract.manager import Step
-
-_ROOT_KNOT = object()
 
 
 ConsoleApprovalCallback = Callable[[Step], bool]
