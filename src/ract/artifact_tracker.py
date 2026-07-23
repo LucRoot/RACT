@@ -23,7 +23,7 @@ class TrackedArtifact:
 class ArtifactTracker:
     """Simple in-memory registry for artifact checksums and paths.
 
-    This utility allows RootACT to record newly generated artifacts and later
+    This utility allows RACT to record newly generated artifacts and later
     verify their presence or absence without persisting to disk.
     """
 

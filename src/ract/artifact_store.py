@@ -24,7 +24,7 @@ class Artifact:
 
 @dataclass
 class ArtifactStore:
-    """Simple in-memory artifact store for RootACT.
+    """Simple in-memory artifact store for RACT.
 
     This utility tracks artifacts generated during a session by name and
     provides basic lookup capabilities. It is deliberately lightweight
@@ -55,7 +55,7 @@ class TemporaryFileManager:
     """Context manager for temporary files.
 
     Provides a simple way to create temporary files that are automatically
-    cleaned up when closed. Used internally by RootACT components.
+    cleaned up when closed. Used internally by RACT components.
     """
 
     def __init__(self, suffix: str = "") -> None:
@@ -98,7 +98,7 @@ def simple_checksum(data: bytes) -> str:
 def serialize_artifact(artifact: Artifact) -> str:
     """Serialize an artifact to a JSON string.
 
-    This is used for logging and debugging purposes within RootACT.
+    This is used for logging and debugging purposes within RACT.
     """
     return json.dumps(
         {
