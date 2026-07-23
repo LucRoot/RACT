@@ -21,6 +21,14 @@ cd RACT
 ./scripts/install.sh --local --venv
 ```
 
+For the pre-release:
+
+```bash
+pip install rootact==0.2.0rc1
+```
+
+See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
+
 ## Quickstart
 
 ```bash

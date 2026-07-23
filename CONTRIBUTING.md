@@ -20,9 +20,14 @@ Thank you for considering a contribution to RACT.
    ruff format --check src tests scripts
    mypy src tests
    pytest -q -o addopts="" --cov=src/rootact
+   python -m rootact.eval.runner evals/tasks/refactor-function --provider mock
+   python -m rootact.eval.runner evals/tasks/fastapi-validation --provider mock
+   python -m rootact.eval.runner evals/tasks/file-watcher --provider mock
    ```
 5. **Update tests and docs** for any new behavior.
-6. **No proprietary IP.** RACT must remain independent of the author's proprietary internal tooling. See `docs/internal/PROVENANCE.md`.
+6. **Write an ADR** for any architectural decision. ADRs live in `docs/ADRs/` and follow the standard shape: Context, Decision, Consequences, Alternatives Considered, Status.
+7. **Add property tests** for every load-bearing invariant. See `tests/property/` for examples.
+8. **No proprietary IP.** RACT must remain independent of the author's proprietary internal tooling. See `docs/internal/PROVENANCE.md`.
 
 ## Contributor License Agreement
 

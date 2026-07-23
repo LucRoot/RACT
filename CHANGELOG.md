@@ -1,6 +1,33 @@
+:warning: This file is project documentation, not part of the source code.
+
 # Changelog
 
 All notable changes to RACT (Root Agentic Coding Tool) are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [0.2.0] - 2026-07-23
+
+### Added
+
+- **Signed Rootknot provenance** — every artifact carries an ed25519-signed `Rootknot` binding it to its plan step, assumption, generator, and parent artifacts. See [ADR-0001](docs/ADRs/ADR-0001-provenance-anchored-artifacts.md).
+- **Provenance workspace verifier** — `verify_workspace` checks invariants RK-1 and RK-2 before every recursion step. See `src/rootact/core/provenance.py`.
+- **Assumption registry** — four-state lifecycle (`proposed`, `active`, `discharged`, `violated`) with transitive violation propagation. See [ADR-0002](docs/ADRs/ADR-0002-assumption-registry.md).
+- **Formal loop termination** — recursion halts on T1–T7 with a distinct `TerminationCause`. See [ADR-0003](docs/ADRs/ADR-0003-milestone-driven-recursion.md).
+- **Threat model** — capability tiers T0–T3, sandbox gating, and a published refuse-list. See [ADR-0004](docs/ADRs/ADR-0004-tool-execution-threat-model.md) and [ADR-0007](docs/ADRs/ADR-0007-what-ract-refuses.md).
+- **Capability-based provider routing** — router selects providers by capability hint and health. See [ADR-0005](docs/ADRs/ADR-0005-provider-capability-routing.md).
+- **Deferred-approval handshakes** — high-risk actions queue for async operator review. See [ADR-0006](docs/ADRs/ADR-0006-deferred-approval-handshakes.md).
+- **Versioned plan schema** — `src/rootact/core/schemas/plan-v1.json` with migration support.
+- **Eval harness** — three reproducible tasks under `evals/tasks/` with committed run reports in `evals/runs/`.
+
+### Changed
+
+- README rewritten to a concise, technical pitch; author content moved to `AUTHOR.md`.
+- CI badge and coverage badge added to README.
+
+### Deprecated
+
+- The `_ROOT_KNOT = object()` sentinel is retained as a legacy fallback through v0.2.0 and will be removed in v0.3.0.
 
 ## 0.1.2
 
