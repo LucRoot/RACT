@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 
 import json
@@ -13,11 +11,11 @@ from typing import Any, Dict, List, Optional, Union
 from ract.manager import Plan, Step
 
 
-class _RootKnotType:
-    """Sentinel for Root Knot default arguments."""
+class _SentinelType:
+    """Sentinel for default arguments."""
 
 
-_ROOT_KNOT_DEFAULT: _RootKnotType = _RootKnotType()
+_SENTINEL_DEFAULT: _SentinelType = _SentinelType()
 
 _SKILLS_DIR_NAME = "skills"
 
@@ -29,9 +27,9 @@ class SkillRegistry:
     """
 
     def __init__(
-        self, base_dir: Union[str, Path, _RootKnotType] = _ROOT_KNOT_DEFAULT
+        self, base_dir: Union[str, Path, _SentinelType] = _SENTINEL_DEFAULT
     ) -> None:
-        if isinstance(base_dir, _RootKnotType):
+        if isinstance(base_dir, _SentinelType):
             resolved: Union[str, Path] = Path.cwd()
         else:
             resolved = base_dir
@@ -43,7 +41,7 @@ class SkillRegistry:
         self,
         name: str,
         template: str,
-        tools: List[str] | None | _RootKnotType = _ROOT_KNOT_DEFAULT,
+        tools: List[str] | None | _SentinelType = _SENTINEL_DEFAULT,
     ) -> None:
         """
         Register a new skill by writing its metadata to a JSON file.
@@ -59,7 +57,7 @@ class SkillRegistry:
         """
         if not name:
             raise ValueError("Skill name must be a non‑empty string")
-        if isinstance(tools, _RootKnotType):
+        if isinstance(tools, _SentinelType):
             resolved_tools: Optional[List[str]] = None
         else:
             resolved_tools = tools

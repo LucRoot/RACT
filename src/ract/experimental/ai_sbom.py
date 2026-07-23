@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
-
 
 def build_ai_manifest(receipts: list[dict[str, Any]], project: str) -> dict[str, Any]:
     manifest: dict[str, Any] = {

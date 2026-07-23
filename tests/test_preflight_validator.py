@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 from pathlib import Path
 
 import pytest
 
 from ract.preflight_validator import PreflightValidator
-
-_ROOT_KNOT = object()
 
 
 def test_missing_config_file(tmp_path: Path) -> None:

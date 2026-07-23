@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import json
 from dataclasses import dataclass, field
@@ -11,7 +9,7 @@ from typing import Any, Callable
 from ract.manager import Plan
 from ract.plan_serializers import plan_from_dict, plan_to_dict
 
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 
 @dataclass
@@ -45,7 +43,7 @@ class PlanReplay:
     that a saved plan can be reconstructed and driven to the same outcomes.
     """
 
-    _ROOT_KNOT = _ROOT_KNOT
+    _SENTINEL = _SENTINEL
 
     def save(self, plan: Plan, path: Path | str) -> None:
         """Serialize ``plan`` to ``path`` as JSON."""

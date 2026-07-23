@@ -1,9 +1,3 @@
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
-
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests for the RACT harness."""
 
 from pathlib import Path
@@ -85,8 +79,6 @@ def test_harness_runs_intent_end_to_end(tmp_project):
     report = report_rooted.unwrap()
     assert report.intent == "write tests for the harness"
     assert len(report.step_results) == 1
-    assert '__root_author__ = "Dr. Lucas Root, Ph.D."' in report.step_results[0].content
-    assert "_ROOT_KNOT = object()" in report.step_results[0].content
     assert "def test_x(): pass" in report.step_results[0].content
 
 

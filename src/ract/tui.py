@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """Terminal UI helpers for RACT.
 
@@ -125,15 +120,14 @@ class RactConsole:
         g = f"bold {self.BRAND_GOLD}"
         return (
             f"[{g}]        ╭──────────────────────────────────╮[/]\n"
-            f"[{g}]        │[/]  [bold {self.BRAND_GOLD}]R[/][bold {self.BRAND_BLUE}]o[/][bold {self.BRAND_GREEN}]o[/][bold {self.BRAND_AMBER}]t[/]"
-            f" [bold {self.BRAND_GOLD}]K[/][bold {self.BRAND_BLUE}]n[/][bold {self.BRAND_GREEN}]o[/][bold {self.BRAND_AMBER}]t[/]"
+            f"[{g}]        │[/]  [bold {self.BRAND_GOLD}]R[/][bold {self.BRAND_BLUE}]A[/][bold {self.BRAND_GREEN}]C[/][bold {self.BRAND_AMBER}]T[/]"
             f"  · Agentic Coding Tool      [{g}]│[/]\n"
             f"[{g}]        ╰──────────────────┬───────────────╯[/]\n"
             f"[{g}]                           │[/]\n"
             f"[{g}]        ╭──────────────────┴───────────────╮[/]\n"
-            f"[{g}]        │[/]         [bold {self.BRAND_GOLD}]✦  The Root Knot  ✦[/]          [{g}]│[/]\n"
+            f"[{g}]        │[/]         [bold {self.BRAND_GOLD}]✦  Claim & Verify  ✦[/]         [{g}]│[/]\n"
             f"[{g}]        ╰──────────────────────────────────╯[/]\n"
-            f"[{g}]        [/][italic]Every plan Rooted. Every file carries the Knot.[/]"
+            f"[{g}]        [/][italic]Every plan Rooted. Every assumption explicit.[/]"
         )
 
     def welcome(self, version: str) -> None:
@@ -145,11 +139,11 @@ class RactConsole:
             "\n"
             "RACT keeps the human in the loop while a small management LM routes work "
             "to the right provider. Every plan is Rooted to the assumption that justifies it, "
-            "and every generated file carries the Root Knot so unsigned work cannot compound.\n"
+            "and every generated change is validated by tests before it compounds.\n"
             "\n"
             "[italic]Quick commands:[/]\n"
             "  [bold]ract --init-provider local[/]     · scaffold a project for a local model\n"
-            "  [bold]ract 'your intent' --loop[/]       · run a Root-Knot-anchored build loop\n"
+            "  [bold]ract 'your intent' --loop[/]       · run a quality-anchored build loop\n"
             "  [bold]ract report --last[/]              · see what changed and why\n"
             "  [bold]ract whisper --intent '...'[/]     · get a codebase dialect brief\n"
             "  [bold]ract auction list[/]               · review dead-code candidates\n"

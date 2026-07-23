@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -80,8 +76,6 @@ def test_harness_streaming_collects_and_calls_callback(tmp_path):
     )
     assert report_rooted.is_ok()
     content = report_rooted.unwrap().step_results[0].content
-    assert '__root_author__ = "Dr. Lucas Root, Ph.D."' in content
-    assert "_ROOT_KNOT = object()" in content
     assert "abcdef" in content
     assert received == ["abc", "def"]
 

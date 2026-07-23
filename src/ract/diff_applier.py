@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """DiffApplier — applies unified-diff hunks to existing files.
 
@@ -12,8 +7,8 @@ Whole-file rewrite is fine for scaffolding, but iterating on large files needs
 surgical edits. DiffApplier takes model-generated unified diff hunks and applies
 them to existing files, with a rollback snapshot before each apply.
 
-LR:: The Root Knot is preserved by reading the original file, applying the diff,
-and re-injecting the markers if they were present before.
+LR:: Existing content is preserved by reading the original file and applying the
+diff; only the requested hunks change.
 """
 
 import re

@@ -1,8 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import logging
 
@@ -15,7 +12,6 @@ from ract.manager import Plan, Step
 from ract.memory_arena import MemoryArena
 from ract.rooted import Rooted, root_map
 
-_ROOT_KNOT = object()
 
 logger = logging.getLogger(__name__)
 

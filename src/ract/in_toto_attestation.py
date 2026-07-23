@@ -1,8 +1,3 @@
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
-
-
 def build_statement(ai_manifest: dict) -> dict:
     return {
         "_type": "https://in-toto.io/Statement/v0.1",

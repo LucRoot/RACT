@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """Harness for RACT.
 
@@ -45,7 +40,6 @@ from ract.retrieval_adapter import (
     RetrievalAdapter,
     WebSearchAdapter,
 )
-from ract.user_signature_registry import SignatureRegistry
 from ract.plan_validator import PlanValidator
 from ract.skills_registry import SkillRegistry
 from ract.temperature_router import TemperatureRouter
@@ -256,9 +250,6 @@ class Harness:
         self.planner = Planner(self.manager)
         hooks_dir = project_dir / ".ract" / "hooks"
         self.hook_manager = HookManager(hooks_dir)
-        signatures_dir = project_dir / ".ract"
-        self.signature_registry = SignatureRegistry(signatures_dir)
-        signature_profile = config.get("signature_profile")
         self.skills_registry = SkillRegistry(project_dir / ".ract")
         self.git_mode = GitMode()
         if config.get("git_mode"):
@@ -329,8 +320,6 @@ class Harness:
         self.executor = Executor(
             self.router,
             hook_manager=self.hook_manager,
-            signature_registry=self.signature_registry,
-            signature_profile=signature_profile,
             project_dir=self.project_dir,
             mcp_registry=self.mcp_registry,
             diff_applier=self.diff_applier,

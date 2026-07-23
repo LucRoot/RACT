@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 from dataclasses import dataclass, replace
 
@@ -12,8 +10,6 @@ from ract.artifact_diff_wiring import (
     render_change_summary,
     render_file_diff,
 )
-
-_ROOT_KNOT = object()
 
 
 @dataclass

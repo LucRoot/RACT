@@ -1,18 +1,12 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """Failure-pattern memory for the RACT self-recursing loop.
 
 Raw pytest output is too noisy to replay into the model context every iteration.
 ErrorMemory distills repeated failures into compact patterns ("generated tests
-keep missing import re", "Root Knot omitted from new files", "provider timeouts
-after ~60s") and surfaces them as loop memory so the management model can avoid
-the same trap twice.
+keep missing import re", "provider timeouts after ~60s") and surfaces them as
+loop memory so the management model can avoid the same trap twice.
 """
 
 import json
@@ -73,20 +67,7 @@ class ErrorMemory:
         test_output = getattr(iteration, "test_output", "") or ""
         error = getattr(iteration, "error", "") or ""
         reflection = getattr(iteration, "reflection", "") or ""
-        knot_status = getattr(iteration, "knot_status", {}) or {}
         timestamp = datetime.now(timezone.utc).isoformat()
-
-        # Missing Root Knot sentinel.
-        missing_knot = knot_status.get("missing_knot", [])
-        if missing_knot:
-            patterns.append(
-                FailurePattern(
-                    category="signature",
-                    pattern="Root Knot sentinel missing from generated artifact(s)",
-                    iteration=index,
-                    timestamp=timestamp,
-                )
-            )
 
         # Provider/iteration timeout.
         if "timed out" in error.lower() or "timed out" in reflection.lower():

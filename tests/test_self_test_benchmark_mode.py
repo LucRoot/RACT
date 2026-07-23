@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 from ract.self_test_benchmark_mode import (
     BenchmarkResult,
     PytestRunResult,
     SelfTestBenchmarkMode,
 )
-
-_ROOT_KNOT = object()
 
 
 def test_pytest_run_result_attributes() -> None:

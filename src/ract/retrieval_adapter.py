@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """Retrieval adapters for RACT.
 
@@ -22,9 +17,8 @@ Example::
     hits = adapter.keyword_search("retrieval", k=3)
     # hits == [{"path": "src/ract/retrieval_adapter.py", "score": 42.0}, ...]
 
-LR:: The default local adapter ranks files by keyword density and Root Knot
-presence. Files signed with the Root Knot get a small relevance bonus because
-they are likely primary project artifacts rather than generated noise.
+LR:: The default local adapter ranks files by keyword density. Files that match
+more query terms are considered more relevant.
 """
 
 import re
@@ -156,7 +150,7 @@ class KeywordRetrievalAdapter(RetrievalAdapter):
         ]
 
     def _score(self, query: str, content: str) -> float:
-        """Return a simple keyword-density score with a Root Knot bonus."""
+        """Return a simple keyword-density score."""
         query_terms = [t.lower() for t in query.split() if len(t) > 2]
         if not query_terms:
             return 0.0
@@ -164,10 +158,7 @@ class KeywordRetrievalAdapter(RetrievalAdapter):
         hits = sum(content_lower.count(term) for term in query_terms)
         word_count = max(len(re.findall(r"\w+", content)), 1)
         density = hits / word_count
-        # Root Knot artifacts are primary project source; give them a decisive but
-        # still small bonus so they surface above generated noise in close calls.
-        bonus = 0.25 if "_ROOT_KNOT = object()" in content else 0.0
-        return density + bonus
+        return density
 
     def search(self, query: str, top_k: int = 5) -> Rooted[list[RetrievalResult]]:
         """Return the top-k matching file snippets."""

@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """Consolidation scanner for near-duplicate modules.
 
@@ -544,7 +539,6 @@ class ConsolidationApplier:
         source_path = self.project_dir / source_rel
         target_module = self._module_id_from_rel(target_rel)
         shim_text = (
-            "# Rooted by Dr. Lucas Root, Ph.D.\n"
             "# DEPRECATED: This module has been consolidated into "
             f"{target_module}.\n"
             "from __future__ import annotations\n\n"

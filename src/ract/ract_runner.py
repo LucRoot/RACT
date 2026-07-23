@@ -1,8 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 from collections.abc import Callable
 from dataclasses import asdict
@@ -27,8 +24,6 @@ from ract.session_store import SessionCorruptedError, SessionState, SessionStore
 # LR:: Supported run modes. These are intentionally simple: the harness does the
 # heavy lifting; the runner just forwards the selection.
 VALID_MODES = {"default", "documentation", "git"}
-
-_ROOT_KNOT = object()
 
 
 def _normalize_mode(mode: str | None) -> str:

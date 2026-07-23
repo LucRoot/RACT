@@ -1,4 +1,3 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """End-to-end anti-rot regression suite.
 
 LR:: The anti-rot system exists to stop the exact rot RACT historically
@@ -10,10 +9,6 @@ the same renamed clone.
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 from pathlib import Path
 

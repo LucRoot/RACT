@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import json
 from pathlib import Path
 
 from ract.manager import Plan, Step
 from ract.plan_replay import PlanReplay, ReplayResult
-
-_ROOT_KNOT = object()
 
 
 def _sample_plan() -> Plan:

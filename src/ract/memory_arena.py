@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 import json
 from dataclasses import dataclass, field

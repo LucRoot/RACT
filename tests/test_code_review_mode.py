@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 from ract.code_review_mode import CodeReviewMode
-
-_ROOT_KNOT = object()
 
 
 def test_empty_diff() -> None:

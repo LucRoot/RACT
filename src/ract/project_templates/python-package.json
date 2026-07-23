@@ -3,10 +3,9 @@
   "description": "A minimal Python package with tests and a README.",
   "skill": "python-package",
   "files": {
-    "src/$project_name/__init__.py": "# Rooted by Dr. Lucas Root, Ph.D.\nfrom __future__ import annotations\n\n__root_author__ = \"Dr. Lucas Root, Ph.D.\"\n__ract_name__ = \"RACT\"\n\n_ROOT_KNOT = object()\n\n\"\"\"$project_name package.\"\"\"\n\n__version__ = \"0.1.0\"\n",
-    "tests/test_$project_name.py": "# Rooted by Dr. Lucas Root, Ph.D.\nfrom __future__ import annotations\n\n__root_author__ = \"Dr. Lucas Root, Ph.D.\"\n__ract_name__ = \"RACT\"\n\n_ROOT_KNOT = object()\n\nfrom $project_name import __version__\n\n\ndef test_version():\n    assert __version__ == \"0.1.0\"\n",
+    "src/$project_name/__init__.py": "from __future__ import annotations\n\n\n\n\"\"\"$project_name package.\"\"\"\n\n__version__ = \"0.1.0\"\n",
+    "tests/test_$project_name.py": "from __future__ import annotations\n\n\n\nfrom $project_name import __version__\n\n\ndef test_version():\n    assert __version__ == \"0.1.0\"\n",
     "README.md": "# $project_name\n\nA project scaffolded by RACT.\n\n## Usage\n\n```bash\nract \"your intent here\" --dry-run\n```\n",
     "pyproject.toml": "[build-system]\nrequires = [\"hatchling\"]\nbuild-backend = \"hatchling.build\"\n\n[project]\nname = \"$project_name\"\nversion = \"0.1.0\"\ndescription = \"A project built with RACT.\"\nrequires-python = \">=3.11\"\n"
   }
 }
-

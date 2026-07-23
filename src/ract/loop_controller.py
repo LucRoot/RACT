@@ -1,24 +1,13 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """RACT self-recursing build loop.
 
 The LoopController runs a RACT intent repeatedly, verifying each iteration
-against three invariants before allowing the next one:
+against two invariants before allowing the next one:
 
 1. Tests pass.
-2. The Root Knot identity sentinel is preserved on every generated file.
-3. The quality score does not regress.
-
-This is the Root Knot Anchored Loop: the same quirky identity marker that
-signs the code also acts as a continuity check across iterations. If a model
-forgets the knot, the loop stops and reports the drift instead of silently
-continuing with unsigned artifacts.
+2. The quality score does not regress.
 """
 
 import json
@@ -61,7 +50,6 @@ class LoopIteration:
     test_returncode: int | None
     test_summary: str
     test_output: str
-    knot_status: dict[str, Any]
     quality_score: float
     reflection: str
     decision: str
@@ -83,15 +71,14 @@ class LoopResult:
 
 
 class LoopController:
-    """Run a RACT intent in a Root-Knot-anchored loop.
+    """Run a RACT intent in a quality-anchored loop.
 
     The controller delegates each execution to ``run_ract`` and then runs a
     deterministic verification phase. It stops when:
 
     - ``max_iterations`` is reached,
     - the optional ``done_callback`` returns ``True``,
-    - a regression is detected (tests fail, quality drops, or the Root Knot is
-      missing from generated files), or
+    - a regression is detected (tests fail or quality drops), or
     - no meaningful change occurs for ``stagnation_limit`` iterations.
     """
 
@@ -286,13 +273,11 @@ class LoopController:
                         test_returncode=None,
                         test_summary="preflight validation failed",
                         test_output=self._format_preflight_issues(preflight_issues),
-                        knot_status=self._check_root_knot(report),
                         quality_score=self._compute_quality_score(report),
                         reflection=self._reflect(
                             index,
                             error,
                             None,
-                            self._check_root_knot(report),
                             self._compute_quality_score(report),
                             previous_score,
                         ),
@@ -317,7 +302,6 @@ class LoopController:
                 )
 
             test_returncode, test_summary, test_output = self._run_tests()
-            knot_status = self._check_root_knot(report)
             quality_score = self._compute_quality_score(report)
             self._update_refactor_ledger()
             ledger_message = self._ledger_breach_message()
@@ -327,7 +311,6 @@ class LoopController:
                 index,
                 error,
                 test_returncode,
-                knot_status,
                 quality_score,
                 previous_score,
                 ledger_message,
@@ -342,7 +325,6 @@ class LoopController:
                 test_returncode=test_returncode,
                 test_summary=test_summary,
                 test_output=test_output,
-                knot_status=knot_status,
                 quality_score=quality_score,
                 reflection=reflection,
                 decision="pending",
@@ -370,7 +352,6 @@ class LoopController:
                 test_returncode=iteration.test_returncode,
                 test_summary=iteration.test_summary,
                 test_output=iteration.test_output,
-                knot_status=iteration.knot_status,
                 quality_score=iteration.quality_score,
                 reflection=iteration.reflection,
                 decision=decision,
@@ -619,8 +600,7 @@ class LoopController:
             memory = (
                 f"[Loop memory: iteration {last.index} ended with decision="
                 f"'{last.decision}', quality_score={last.quality_score}, "
-                f"tests_passed={last.test_returncode == 0}, "
-                f"knots_intact={last.knot_status.get('all_knotted', False)}. "
+                f"tests_passed={last.test_returncode == 0}. "
                 f"Reflection: {last.reflection}]"
             )
             parts.append(memory)
@@ -630,11 +610,6 @@ class LoopController:
                 feedback_parts.append(f"execution error: {last.error}")
             if last.test_summary:
                 feedback_parts.append(f"test summary: {last.test_summary}")
-            missing_knot = last.knot_status.get("missing_knot", [])
-            if missing_knot:
-                feedback_parts.append(
-                    f"Root Knot missing from: {', '.join(missing_knot)}"
-                )
             if feedback_parts:
                 parts.append(
                     "[Previous iteration feedback]\n"
@@ -671,42 +646,6 @@ class LoopController:
         summary = full_output.strip().splitlines()[-1] if full_output else ""
         return proc.returncode, summary, full_output
 
-    def _check_root_knot(self, report: ExecutionReport | Plan | None) -> dict[str, Any]:
-        """Verify the Root Knot sentinel on every generated artifact.
-
-        LR:: The Root Knot is both a coder signature and a loop invariant. If a
-        generated file is missing the knot, the loop treats it as a continuity
-        failure and stops rather than compounding unsigned work.
-        """
-        if report is None or isinstance(report, Plan):
-            return {"checked_files": [], "missing_knot": [], "all_knotted": True}
-
-        checked: set[str] = set()
-        missing: list[str] = []
-        for step_result in report.step_results:
-            artifact = step_result.step.expected_artifact
-            if not artifact:
-                continue
-            # The Root Knot is a source-code invariant; runtime reports and
-            # non-Python artifacts (e.g., test_results.txt) are not signed.
-            if not artifact.endswith(".py"):
-                continue
-            path = self.project_dir / artifact
-            if not path.is_file():
-                if artifact not in checked:
-                    missing.append(artifact)
-                continue
-            checked.add(artifact)
-            text = path.read_text(encoding="utf-8")
-            if "_ROOT_KNOT = object()" not in text:
-                missing.append(artifact)
-
-        return {
-            "checked_files": sorted(checked),
-            "missing_knot": missing,
-            "all_knotted": not missing,
-        }
-
     def _compute_quality_score(self, report: ExecutionReport | Plan | None) -> float:
         """Return the deterministic quality score for the iteration."""
         scorecard = QualityScorecard()
@@ -721,7 +660,6 @@ class LoopController:
         index: int,
         error: str | None,
         test_returncode: int | None,
-        knot_status: dict[str, Any],
         quality_score: float,
         previous_score: float | None,
         ledger_message: str | None = None,
@@ -736,12 +674,6 @@ class LoopController:
             parts.append("tests failed")
         else:
             parts.append("tests passed")
-
-        if not knot_status.get("all_knotted", False):
-            missing = knot_status.get("missing_knot", [])
-            parts.append(f"Root Knot missing from {missing}")
-        else:
-            parts.append("Root Knot intact")
 
         if previous_score is not None:
             delta = round(quality_score - previous_score, 3)
@@ -792,8 +724,6 @@ class LoopController:
             if self._attempt_repair(iteration):
                 return "continue"
             return "regression"
-        if not iteration.knot_status.get("all_knotted", False):
-            return "regression"
         if iteration.quality_score < self.quality_floor:
             return "regression"
 
@@ -805,13 +735,10 @@ class LoopController:
             if iteration.quality_score < previous_score:
                 return "regression"
             same_score = iteration.quality_score == previous_score
-            same_files = iteration.knot_status.get(
-                "checked_files"
-            ) == last_iteration.knot_status.get("checked_files")
             same_content = self._report_fingerprint(
                 iteration.report
             ) == self._report_fingerprint(last_iteration.report)
-            if same_score and same_files and same_content:
+            if same_score and same_content:
                 return "stagnant"
 
         if done_callback is not None and done_callback(iteration):
@@ -894,7 +821,6 @@ class LoopController:
                 "test_returncode": it.test_returncode,
                 "test_summary": it.test_summary,
                 "test_output": it.test_output,
-                "knot_status": it.knot_status,
                 "quality_score": it.quality_score,
                 "reflection": it.reflection,
                 "decision": it.decision,

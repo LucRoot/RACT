@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Set
@@ -40,14 +38,14 @@ class CapabilityRegistry:
     def select(
         self,
         hint: str,
-        prefer: Set[str] = _ROOT_KNOT,  # type: ignore[assignment]
-        exclude: Set[str] = _ROOT_KNOT,  # type: ignore[assignment]
+        prefer: Set[str] = _SENTINEL,  # type: ignore[assignment]
+        exclude: Set[str] = _SENTINEL,  # type: ignore[assignment]
     ) -> Rooted[ProviderAdapter]:
         candidates: List[tuple[float, str, ProviderAdapter]] = []
         for slot_id, entry in self._providers.items():
-            if prefer is not _ROOT_KNOT and slot_id not in prefer:
+            if prefer is not _SENTINEL and slot_id not in prefer:
                 continue
-            if exclude is not _ROOT_KNOT and slot_id in exclude:
+            if exclude is not _SENTINEL and slot_id in exclude:
                 continue
             candidates.append((entry.score, slot_id, entry.adapter))
 
@@ -63,7 +61,7 @@ class CapabilityRegistry:
             )
 
         # When no preferred set is supplied, require the hint to match a capability.
-        if prefer is _ROOT_KNOT:
+        if prefer is _SENTINEL:
             capability_matches = [
                 (score, slot_id, adapter)
                 for score, slot_id, adapter in candidates

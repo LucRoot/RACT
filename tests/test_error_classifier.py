@@ -1,7 +1,6 @@
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
-from pathlib import Path
-from ract.error_classifier import ErrorInfo, classify_error, _ROOT_KNOT
+from ract.error_classifier import ErrorInfo, classify_error, _SENTINEL
 
 
 def test_classify_known_errors() -> None:
@@ -63,17 +62,10 @@ def test_classify_unknown_error_uses_default() -> None:
 
 def test_root_knot_sentinel_is_defined_in_module() -> None:
     assert (
-        hasattr(ErrorInfo, "_ROOT_KNOT") is False
+        hasattr(ErrorInfo, "_SENTINEL") is False
     )  # The sentinel is defined at module level, not on class
     # The test actually checks the module-level sentinel via import
-    assert _ROOT_KNOT is not None
-
-
-def test_root_author_marker_present() -> None:
-    module_path = Path(__file__).parents[1] / "src" / "ract" / "error_classifier.py"
-    content = module_path.read_text()
-    assert '__root_author__ = "Dr. Lucas Root, Ph.D."' in content
-    assert '__ract_name__ = "RACT"' in content
+    assert _SENTINEL is not None
 
 
 def test_error_info_immutable_fields() -> None:

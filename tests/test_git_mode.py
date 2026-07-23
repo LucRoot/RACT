@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 import pytest
 
-from ract.git_mode import GitMode, _ROOT_KNOT
+from ract.git_mode import GitMode, _SENTINEL
 
 
 def test_enable_toggles_enabled_flag():
@@ -73,21 +73,11 @@ def test_stage_and_commit_raise_when_not_enabled():
 
 
 def test_root_knot_sentinel_is_defined_in_module():
-    # Verify that the module defines exactly one _ROOT_KNOT sentinel
+    # Verify that the module defines exactly one _SENTINEL sentinel
     import ract.git_mode as mod
 
-    assert hasattr(mod, "_ROOT_KNOT")
-    assert _ROOT_KNOT is mod._ROOT_KNOT
-
-
-def test_author_marker_present_in_source_file():
-    # Tests must verify the authorship marker by READING THE SOURCE FILE
-    import pathlib
-
-    module_path = pathlib.Path(__file__).parent / "../src/ract/git_mode.py"
-    source = module_path.read_text()
-    assert '__root_author__ = "Dr. Lucas Root, Ph.D."' in source
-    assert '__ract_name__ = "RACT"' in source
+    assert hasattr(mod, "_SENTINEL")
+    assert _SENTINEL is mod._SENTINEL
 
 
 def test_commit_files_stages_and_commits_existing_paths(tmp_path, monkeypatch):

@@ -1,18 +1,13 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """Built-in skill library for RACT.
 
 RACT ships with a small set of ready-to-use skills so users feel value on day
 one. Each skill is a JSON file under ``builtin_skills/`` containing a
 string.Template that the harness prepends to the intent. The templates carry
-RACT's signature quirks (Root Knot markers, Rooted results, explicit
-assumptions) so every built-in skill perpetuates the author's style.
+RACT's signature quirks (Assumed results, explicit assumptions, LR:: notes)
+so every built-in skill perpetuates the project's style.
 """
 
 import json

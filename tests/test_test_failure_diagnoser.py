@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 import sys
 
@@ -23,24 +18,13 @@ def tmp_project(tmp_path):
     src.mkdir()
     lib = src / "calc.py"
     lib.write_text(
-        "# Rooted by Dr. Lucas Root, Ph.D.\n"
-        '__root_author__ = "Dr. Lucas Root, Ph.D."\n'
-        '__ract_name__ = "RACT"\n'
-        "\n"
-        "_ROOT_KNOT = object()\n"
-        "\n"
-        "def add(a, b):\n"
-        "    return a - b\n"  # intentionally wrong
+        "# existing\n\ndef add(a, b):\n    return a - b\n"  # intentionally wrong
     )
     tests = tmp_path / "tests"
     tests.mkdir()
     test_file = tests / "test_calc.py"
     test_file.write_text(
-        "# Rooted by Dr. Lucas Root, Ph.D.\n"
-        '__root_author__ = "Dr. Lucas Root, Ph.D."\n'
-        '__ract_name__ = "RACT"\n'
-        "\n"
-        "_ROOT_KNOT = object()\n"
+        "# existing\n"
         "\n"
         "from src.calc import add\n"
         "\n"
@@ -122,7 +106,7 @@ def test_build_repair_prompt_contains_instructions():
     prompt = diagnoser._build_repair_prompt([failure], ["src/x.py", "tests/test_x.py"])
     assert "tests/test_x.py::test_x" in prompt
     assert "src/x.py" in prompt
-    assert "preserve the root knot" in prompt.lower()
+    assert "do not rename tests solely to make them pass" in prompt.lower()
 
 
 def test_capture_traceback_handles_missing_python(tmp_path):

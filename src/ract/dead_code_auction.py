@@ -1,10 +1,5 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 """Dead code auction for RACT.
 
@@ -47,7 +42,6 @@ class DeadCodeAuction:
     DEFAULT_ALLOWLIST = {
         "cli.py",
         "cli_toggles.py",
-        "signature_guardian.py",
         # Provider adapters are looked up dynamically by adapter name.
         "internal_provider.py",
         # Pending council integration for public-launch report/audit features.
@@ -56,7 +50,6 @@ class DeadCodeAuction:
         "receipt_chain.py",
         # Consumed by the external council loop, not from inside src/ract.
         "council_self_audit.py",
-        "root_knot_guardian.py",
         # Placeholder stubs kept for upcoming CI / provenance integrations.
         "ci_workflow_generator.py",
         "in_toto_attestation.py",

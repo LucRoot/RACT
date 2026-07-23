@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
 
 import statistics
 import subprocess
@@ -10,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 
 @dataclass
@@ -71,7 +69,7 @@ class SelfTestBenchmarkMode:
     workloads. It is intentionally dependency-free beyond the standard library.
     """
 
-    _ROOT_KNOT = _ROOT_KNOT
+    _SENTINEL = _SENTINEL
 
     def __init__(self) -> None:
         self.test_results: list[PytestRunResult] = []

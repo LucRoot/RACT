@@ -1,17 +1,13 @@
-# Rooted by Dr. Lucas Root, Ph.D.
-
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-_ROOT_KNOT = object()
+_SENTINEL = object()
 
 
-class _RootKnotType:
-    """Sentinel for Root Knot default arguments."""
+class _SentinelType:
+    """Sentinel for default arguments."""
 
 
-_ROOT_KNOT_DEFAULT: _RootKnotType = _RootKnotType()
+_SENTINEL_DEFAULT: _SentinelType = _SentinelType()
 
 import json
 import shutil
@@ -64,9 +60,9 @@ class SessionCorruptedError(SessionStoreError):
 
 class SessionStore:
     def __init__(
-        self, base_dir: Path | str | _RootKnotType = _ROOT_KNOT_DEFAULT
+        self, base_dir: Path | str | _SentinelType = _SENTINEL_DEFAULT
     ) -> None:
-        if isinstance(base_dir, _RootKnotType):
+        if isinstance(base_dir, _SentinelType):
             resolved: Path | str = ".ract_sessions"
         else:
             resolved = base_dir

@@ -1,12 +1,7 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests for the Legacy Whisperer subagent."""
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 from pathlib import Path
 from unittest.mock import patch
@@ -151,7 +146,7 @@ def test_cli_whisper(capsys, tmp_path: Path):
 
     assert code == 0
     assert "Brief for: add logging" in out
-    assert "Root Knot dialect note" in out
+    assert "this brief is advisory" in out
 
 
 def test_brief_returns_error_when_no_candidates(tmp_path: Path):
