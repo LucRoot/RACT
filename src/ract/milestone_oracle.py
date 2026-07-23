@@ -20,7 +20,7 @@ from ract.core.provenance import ProvenanceIndex
 from ract.executor import ExecutionReport
 from ract.loop_planner import Milestone
 from ract.manager import Plan
-from ract.progress_oracle import ROOT_KNOT, ProgressOracle, ProgressVerdict
+from ract.progress_oracle import MILESTONE_KNOT, ProgressOracle, ProgressVerdict
 from ract.rooted import Rooted
 
 
@@ -211,7 +211,7 @@ class MilestoneOracle(ProgressOracle):
                 verdict="proceed",
                 reason="Milestone acceptance criteria are satisfied.",
                 confidence=signed_confidence,
-                knot=ROOT_KNOT,
+                knot=MILESTONE_KNOT,
             ),
             assumption="Milestone acceptance criteria are satisfied.",
             confidence=signed_confidence,
@@ -241,7 +241,7 @@ class MilestoneOracle(ProgressOracle):
                 verdict="proceed",
                 reason=f"Test selector '{selector}' passed.",
                 confidence=1.0,
-                knot=ROOT_KNOT,
+                knot=MILESTONE_KNOT,
             ),
             assumption="Test-based milestones require passing tests.",
             confidence=1.0,
@@ -272,7 +272,7 @@ class MilestoneOracle(ProgressOracle):
                     verdict="proceed",
                     reason="Assertion over workspace snapshot returned True.",
                     confidence=1.0,
-                    knot=ROOT_KNOT,
+                    knot=MILESTONE_KNOT,
                 ),
                 assumption="Assertion-based milestones evaluate the workspace.",
                 confidence=1.0,
@@ -369,7 +369,7 @@ class MilestoneOracle(ProgressOracle):
                 verdict="proceed",
                 reason=f"Artifact '{expected_file}' has a valid Rootknot.",
                 confidence=1.0,
-                knot=ROOT_KNOT,
+                knot=MILESTONE_KNOT,
             ),
             assumption="Artifact-based milestones require a signed artifact.",
             confidence=1.0,
@@ -401,7 +401,7 @@ class MilestoneOracle(ProgressOracle):
                     verdict="proceed",
                     reason=f"Provider rubric matched {rubric_hits} criteria.",
                     confidence=min(1.0, 0.7 + 0.1 * rubric_hits),
-                    knot=ROOT_KNOT,
+                    knot=MILESTONE_KNOT,
                 ),
                 assumption="Provider-based milestones match a fixed rubric.",
                 confidence=min(1.0, 0.7 + 0.1 * rubric_hits),

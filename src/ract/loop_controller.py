@@ -32,7 +32,7 @@ from ract.module_family_tracker import (
     detect_tunneling,
 )
 from ract.preflight_test_validator import PreflightIssue, validate_report_tests
-from ract.progress_oracle import ROOT_KNOT, ProgressOracle
+from ract.progress_oracle import MILESTONE_KNOT, ProgressOracle
 from ract.quality_scorecard import QualityScorecard
 from ract.refactor_ledger import RefactorLedger
 from ract.ract_runner import run_ract
@@ -422,11 +422,11 @@ class LoopController:
                             handshake_milestones=list(self.handshake_milestones),
                         )
                     verdict = oracle_result.unwrap()
-                    if verdict.knot is not ROOT_KNOT:
+                    if verdict.knot is not MILESTONE_KNOT:
                         return LoopResult(
                             iterations=iterations,
                             final_decision="regression",
-                            summary="Milestone verdict missing canonical Root Knot.",
+                            summary="Milestone verdict missing canonical milestone sentinel.",
                             handshake_milestones=list(self.handshake_milestones),
                         )
                     if verdict.verdict in {"proceed", "handshake"}:
