@@ -11,5 +11,5 @@ Add Pydantic input validation to the `create_user` endpoint in `src/main.py` so 
 ## Run
 
 ```bash
-python -m rootact.eval.runner evals/tasks/fastapi-validation --provider mock
+python -m ract.eval.runner evals/tasks/fastapi-validation --provider mock
 ```

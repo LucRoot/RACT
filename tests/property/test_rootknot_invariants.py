@@ -9,10 +9,10 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from rootact.core.keys import SessionKey
-from rootact.core.provenance import ProvenanceIndex, verify_workspace
-from rootact.core.rootknot import Rootknot, make_rootknot
-from rootact.core.types import Digest, digest_bytes, make_plan_id, make_step_id
+from ract.core.keys import SessionKey
+from ract.core.provenance import ProvenanceIndex, verify_workspace
+from ract.core.rootknot import Rootknot, make_rootknot
+from ract.core.types import Digest, digest_bytes, make_plan_id, make_step_id
 
 
 @pytest.fixture
@@ -28,15 +28,27 @@ def fresh_workspace() -> Path:  # type: ignore[misc]
 
 def _registry(assumption_digest: Digest) -> dict:
     """Return a tiny assumption object whose state is active."""
-    return {assumption_digest: type("A", (), {"state": type("S", (), {"name": "ACTIVE"})()})()}
+    return {
+        assumption_digest: type(
+            "A", (), {"state": type("S", (), {"name": "ACTIVE"})()}
+        )()
+    }
 
 
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=20,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 @given(
-    path=st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+    path=st.text(
+        min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+    ),
     content=st.binary(min_size=0, max_size=256),
 )
-def test_signed_rootknot_verifies(path: str, content: bytes, session_key: SessionKey) -> None:
+def test_signed_rootknot_verifies(
+    path: str, content: bytes, session_key: SessionKey
+) -> None:
     """A freshly signed Rootknot verifies against its public key."""
     plan_id = make_plan_id()
     step_id = make_step_id()
@@ -53,9 +65,15 @@ def test_signed_rootknot_verifies(path: str, content: bytes, session_key: Sessio
     assert knot.verify(session_key.public_key_bytes())
 
 
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=20,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 @given(
-    path=st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))),
+    path=st.text(
+        min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L", "N"))
+    ),
     content=st.binary(min_size=0, max_size=256),
     field=st.sampled_from(["plan_id", "step_id", "artifact_digest", "workspace_path"]),
 )
@@ -75,13 +93,19 @@ def test_tampered_field_breaks_verification(
     elif field == "step_id":
         tampered = Rootknot(**{**knot.__dict__, "step_id": make_step_id()})
     elif field == "artifact_digest":
-        tampered = Rootknot(**{**knot.__dict__, "artifact_digest": digest_bytes(b"other")})
+        tampered = Rootknot(
+            **{**knot.__dict__, "artifact_digest": digest_bytes(b"other")}
+        )
     else:
         tampered = Rootknot(**{**knot.__dict__, "workspace_path": path + "x"})
     assert not tampered.verify(session_key.public_key_bytes())
 
 
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=20,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 @given(content=st.binary(min_size=0, max_size=256))
 def test_verify_workspace_accepts_valid_artifact(
     content: bytes, fresh_workspace: Path, session_key: SessionKey
@@ -111,7 +135,11 @@ def test_verify_workspace_accepts_valid_artifact(
     assert result.is_ok()
 
 
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=20,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 @given(content=st.binary(min_size=0, max_size=256))
 def test_verify_workspace_rejects_mutated_artifact(
     content: bytes, fresh_workspace: Path, session_key: SessionKey
@@ -143,7 +171,11 @@ def test_verify_workspace_rejects_mutated_artifact(
     assert result.unwrap_err().predicate == "RK-1.1"
 
 
-@settings(max_examples=20, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=20,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 @given(content=st.binary(min_size=0, max_size=256))
 def test_verify_workspace_rejects_missing_parent(
     content: bytes, fresh_workspace: Path, session_key: SessionKey

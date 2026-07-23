@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the `rootact explain` CLI command."""
+"""Tests for the `ract explain` CLI command."""
 
 from __future__ import annotations
 
@@ -13,12 +13,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
-from rootact.cli import _explain_command
-from rootact.manager import Plan, Step
+from ract.cli import _explain_command
+from ract.manager import Plan, Step
 
 
 def test_explain_no_args_prints_help(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     exit_code = _explain_command(["--config", str(config_path)])
     assert exit_code == 1
@@ -27,7 +27,7 @@ def test_explain_no_args_prints_help(tmp_path: Path, capsys):
 
 
 def test_explain_from_intent(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     plan = Plan(
         assumption="add greeting",
@@ -44,7 +44,7 @@ def test_explain_from_intent(tmp_path: Path, capsys):
     mock_result.is_ok.return_value = True
     mock_result.unwrap.return_value = plan
 
-    with patch("rootact.cli.run_rootact", return_value=mock_result):
+    with patch("ract.cli.run_ract", return_value=mock_result):
         exit_code = _explain_command(
             ["--intent", "add a greeting", "--config", str(config_path)]
         )
@@ -58,13 +58,13 @@ def test_explain_from_intent(tmp_path: Path, capsys):
 
 
 def test_explain_planning_failure(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     mock_result = MagicMock()
     mock_result.is_ok.return_value = False
     mock_result.error = "provider unreachable"
 
-    with patch("rootact.cli.run_rootact", return_value=mock_result):
+    with patch("ract.cli.run_ract", return_value=mock_result):
         exit_code = _explain_command(
             ["--intent", "add a greeting", "--config", str(config_path)]
         )
@@ -75,7 +75,7 @@ def test_explain_planning_failure(tmp_path: Path, capsys):
 
 
 def test_explain_from_plan_file(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(
@@ -106,7 +106,7 @@ def test_explain_from_plan_file(tmp_path: Path, capsys):
 
 
 def test_explain_missing_plan_file(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     missing = tmp_path / "missing.json"
     exit_code = _explain_command(["--plan", str(missing), "--config", str(config_path)])

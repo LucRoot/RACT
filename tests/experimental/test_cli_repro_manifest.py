@@ -22,7 +22,7 @@ def test_repro_manifest_basic_json_output(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "repro-manifest",
             "--intent",
             "test intent",
@@ -57,7 +57,7 @@ def test_repro_manifest_derives_fingerprint(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "repro-manifest",
             "--intent",
             "derive fingerprint",
@@ -91,7 +91,7 @@ def test_repro_manifest_reads_fingerprint_from_receipt(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "repro-manifest",
             "--intent",
             "from receipt",
@@ -122,7 +122,7 @@ def test_repro_manifest_writes_output_file(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "repro-manifest",
             "--intent",
             "write output",
@@ -153,7 +153,7 @@ def test_repro_manifest_missing_plan_fails(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "repro-manifest",
             "--intent",
             "missing plan",
@@ -181,7 +181,7 @@ def test_repro_manifest_manifest_hash_stable(tmp_path: Path) -> None:
             [
                 sys.executable,
                 "-m",
-                "rootact.cli",
+                "ract.cli",
                 "repro-manifest",
                 "--intent",
                 "stable",

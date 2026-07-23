@@ -30,7 +30,7 @@ def test_run_reproducibility_manifest(tmp_path):
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "repro-manifest",
         "--intent",
         "refactor helper",

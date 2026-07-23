@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from rootact.milestone_oracle import _lr_signature_seed
-from rootact.signature_guardian import SignatureGuardian, SignatureViolationError
+from ract.milestone_oracle import _lr_signature_seed
+from ract.signature_guardian import SignatureGuardian, SignatureViolationError
 
 
 def test_signature_seed_is_locked():
@@ -46,7 +46,7 @@ def test_guardian_assert_intact_raises_on_violation(tmp_path: Path):
 
 def test_golden_hash_matches_known_value():
     """Golden hash for the current source tree."""
-    project_root = Path(__file__).parent.parent / "src" / "rootact"
+    project_root = Path(__file__).parent.parent / "src" / "ract"
     guardian = SignatureGuardian(project_root)
-    expected = "5a592fc91b1366c8fad2b1549430e758e4ba70cc974b1b45881380e8cbfa78f7"
+    expected = "f6d712b7a9b9420d56f0dc0879662336e818c9ff8746d44434cf0f19eef91e56"
     assert guardian.golden_hash() == expected

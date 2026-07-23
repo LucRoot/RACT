@@ -6,11 +6,11 @@ __ract_name__ = "RACT"
 
 from unittest.mock import MagicMock
 
-from rootact.executor import ExecutionReport, StepResult
-from rootact.harness import Harness
-from rootact.harness_report_enricher import enrich_harness_run
-from rootact.manager import Step
-from rootact.rooted import Rooted
+from ract.executor import ExecutionReport, StepResult
+from ract.harness import Harness
+from ract.harness_report_enricher import enrich_harness_run
+from ract.manager import Step
+from ract.rooted import Rooted
 
 _ROOT_KNOT = object()
 

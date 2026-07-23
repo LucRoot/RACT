@@ -10,8 +10,8 @@ _ROOT_KNOT = object()
 
 from unittest.mock import MagicMock, patch
 
-from rootact.doctor import RactDoctor
-from rootact.rooted import Rooted
+from ract.doctor import RactDoctor
+from ract.rooted import Rooted
 
 
 SAMPLE_CONFIG = """\
@@ -31,7 +31,7 @@ prompts_dir: prompts
 
 
 def test_doctor_passes_valid_config(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(SAMPLE_CONFIG, encoding="utf-8")
     prompts = tmp_path / "prompts"
     prompts.mkdir()
@@ -42,14 +42,14 @@ def test_doctor_passes_valid_config(tmp_path):
 
 
 def test_doctor_fails_missing_config(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     results = RactDoctor(config).diagnose()
     assert results[0].name == "config_exists"
     assert not results[0].passed
 
 
 def test_doctor_fails_missing_project_name(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "manager_provider: local\nproviders:\n  local:\n    adapter: local_http\n",
         encoding="utf-8",
@@ -60,7 +60,7 @@ def test_doctor_fails_missing_project_name(tmp_path):
 
 
 def test_doctor_fails_missing_provider_adapter(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: demo\nmanager_provider: local\nproviders:\n  local:\n    url: http://x\n",
         encoding="utf-8",
@@ -72,7 +72,7 @@ def test_doctor_fails_missing_provider_adapter(tmp_path):
 
 def test_doctor_detects_missing_env_api_key(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: demo\nmanager_provider: openai\nproviders:\n  openai:\n"
         "    adapter: openai\n    url: https://api.openai.com/v1\n"
@@ -86,7 +86,7 @@ def test_doctor_detects_missing_env_api_key(tmp_path, monkeypatch):
 
 
 def test_doctor_check_providers_reachable(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(SAMPLE_CONFIG, encoding="utf-8")
     prompts = tmp_path / "prompts"
     prompts.mkdir()
@@ -100,7 +100,7 @@ def test_doctor_check_providers_reachable(tmp_path):
         provenance=["test"],
     )
 
-    with patch("rootact.doctor.ProviderRouter", return_value=mock_router):
+    with patch("ract.doctor.ProviderRouter", return_value=mock_router):
         results = RactDoctor(config).diagnose(check_providers=True)
 
     reachability = [r for r in results if r.name.startswith("provider_reachable:")]
@@ -110,7 +110,7 @@ def test_doctor_check_providers_reachable(tmp_path):
 
 
 def test_doctor_check_providers_unreachable(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(SAMPLE_CONFIG, encoding="utf-8")
     prompts = tmp_path / "prompts"
     prompts.mkdir()
@@ -125,7 +125,7 @@ def test_doctor_check_providers_unreachable(tmp_path):
         error="connection refused",
     )
 
-    with patch("rootact.doctor.ProviderRouter", return_value=mock_router):
+    with patch("ract.doctor.ProviderRouter", return_value=mock_router):
         results = RactDoctor(config).diagnose(check_providers=True)
 
     reachability = [r for r in results if r.name.startswith("provider_reachable:")]
@@ -135,13 +135,13 @@ def test_doctor_check_providers_unreachable(tmp_path):
 
 
 def test_doctor_check_providers_skipped_by_default(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(SAMPLE_CONFIG, encoding="utf-8")
     prompts = tmp_path / "prompts"
     prompts.mkdir()
     (prompts / "manager.txt").write_text("manager prompt", encoding="utf-8")
 
-    with patch("rootact.doctor.ProviderRouter") as mock_cls:
+    with patch("ract.doctor.ProviderRouter") as mock_cls:
         results = RactDoctor(config).diagnose()
 
     mock_cls.assert_not_called()
@@ -150,7 +150,7 @@ def test_doctor_check_providers_skipped_by_default(tmp_path):
 
 
 def test_doctor_fails_invalid_yaml(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project: name: demo", encoding="utf-8")
     results = RactDoctor(config).diagnose()
     parse_check = next(r for r in results if r.name == "config_parse")
@@ -158,7 +158,7 @@ def test_doctor_fails_invalid_yaml(tmp_path):
 
 
 def test_doctor_fails_non_mapping_yaml(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("- just\n- a\n- list\n", encoding="utf-8")
     results = RactDoctor(config).diagnose()
     parse_check = next(r for r in results if r.name == "config_parse")
@@ -166,7 +166,7 @@ def test_doctor_fails_non_mapping_yaml(tmp_path):
 
 
 def test_doctor_fails_missing_manager_provider(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: demo\nproviders:\n  local:\n    adapter: local_http\n",
         encoding="utf-8",
@@ -177,7 +177,7 @@ def test_doctor_fails_missing_manager_provider(tmp_path):
 
 
 def test_doctor_fails_manager_provider_not_in_providers(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: demo\nmanager_provider: missing\nproviders:\n  local:\n    adapter: local_http\n",
         encoding="utf-8",
@@ -188,7 +188,7 @@ def test_doctor_fails_manager_provider_not_in_providers(tmp_path):
 
 
 def test_doctor_fails_no_providers(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: demo\nmanager_provider: local\n", encoding="utf-8"
     )
@@ -198,7 +198,7 @@ def test_doctor_fails_no_providers(tmp_path):
 
 
 def test_doctor_fails_provider_not_mapping(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: demo\nmanager_provider: local\nproviders:\n  local: not-a-mapping\n",
         encoding="utf-8",
@@ -209,7 +209,7 @@ def test_doctor_fails_provider_not_mapping(tmp_path):
 
 
 def test_doctor_reachability_skips_invalid_provider_settings(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: demo\nmanager_provider: local\nproviders:\n  local: not-a-mapping\n",
         encoding="utf-8",
@@ -219,14 +219,12 @@ def test_doctor_reachability_skips_invalid_provider_settings(tmp_path):
 
 
 def test_doctor_prompt_file_falls_back_to_default(tmp_path, monkeypatch):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(SAMPLE_CONFIG, encoding="utf-8")
     default_prompt = tmp_path / "default_manager.txt"
     default_prompt.write_text("default", encoding="utf-8")
 
-    with patch(
-        "rootact.doctor._default_manager_prompt_path", return_value=default_prompt
-    ):
+    with patch("ract.doctor._default_manager_prompt_path", return_value=default_prompt):
         results = RactDoctor(config).diagnose()
 
     check = next(r for r in results if r.name == "prompt_file")
@@ -235,11 +233,11 @@ def test_doctor_prompt_file_falls_back_to_default(tmp_path, monkeypatch):
 
 
 def test_doctor_prompt_file_missing_and_no_default(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(SAMPLE_CONFIG, encoding="utf-8")
 
     with patch(
-        "rootact.doctor._default_manager_prompt_path",
+        "ract.doctor._default_manager_prompt_path",
         return_value=tmp_path / "nope.txt",
     ):
         results = RactDoctor(config).diagnose()
@@ -249,7 +247,7 @@ def test_doctor_prompt_file_missing_and_no_default(tmp_path):
 
 
 def test_doctor_skill_missing(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         SAMPLE_CONFIG + "\nskill: missing_skill\n",
         encoding="utf-8",

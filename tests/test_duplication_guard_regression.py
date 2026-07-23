@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from rootact.duplication_guard import DuplicationGuard
+from ract.duplication_guard import DuplicationGuard
 
 # Historical near-duplicate from the RACT repo: strict_plus vs strict_enhanced
 # normalize to identical structure once identifiers are renamed.

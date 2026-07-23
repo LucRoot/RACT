@@ -17,7 +17,7 @@
 #   RACT_TEST_RUNNER       command used by mutmut to check each mutant (default: auto)
 #
 # When RACT_TEST_RUNNER is not set, the script tries to run only the test file
-# that matches a single mutation target (src/rootact/foo.py -> tests/test_foo.py)
+# that matches a single mutation target (src/ract/foo.py -> tests/test_foo.py)
 # to keep mutant checking fast. For multiple targets it falls back to the full
 # suite, which is slow but safe.
 
@@ -35,7 +35,7 @@ VENV_DIR="${HOME}/.cache/ract-mutmut-venv"
 # checks from clearing the cache between "run" and "results".
 WORK_DIR="/tmp/ract-mutmut-src"
 
-MUTATION_TARGETS="${RACT_MUTATION_TARGETS:-src/rootact/executor.py,src/rootact/loop_controller.py,src/rootact/harness.py,src/rootact/cli.py}"
+MUTATION_TARGETS="${RACT_MUTATION_TARGETS:-src/ract/executor.py,src/ract/loop_controller.py,src/ract/harness.py,src/ract/cli.py}"
 
 # Determine the test runner. Prefer a user override, then a single matching
 # test file, then fall back to the full suite.
@@ -73,7 +73,7 @@ source "$VENV_DIR/bin/activate"
 pip install --quiet --upgrade pip
 # Remove any stale editable install so the fresh install cannot inherit old
 # metadata or source paths from previous runs.
-pip uninstall -y rootact >/dev/null 2>&1 || true
+pip uninstall -y ract >/dev/null 2>&1 || true
 pip install --quiet --force-reinstall --no-deps -e "$WORK_DIR[dev]"
 # Pin to mutmut 2.x because 3.x removed the --paths-to-mutate and --runner CLI
 # flags and requires pyproject.toml configuration. The 2.x CLI is easier to

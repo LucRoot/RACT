@@ -4,9 +4,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "rootact"
+name = "ract"
 version = "0.2.0rc1"
-description = "RootAct — a claim-and-verify agentic coding tool with signed provenance."
+description = "RACT — a claim-and-verify agentic coding tool with signed provenance."
 readme = "README.md"
 license = { text = "PolyForm Noncommercial License 1.0.0" }
 requires-python = ">=3.11"
@@ -23,24 +23,23 @@ dependencies = [
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "hypothesis>=6.0", "respx>=0.21", "ruff>=0.5", "mypy>=1.11", "types-PyYAML>=6.0"]
 
 [project.scripts]
-rootact = "rootact.cli:main"
-ract = "rootact.cli:main"
+ract = "ract.cli:main"
 
 [tool.ruff.lint]
-# E402 is disabled project-wide because RootAct's authorship/sentinel markers
+# E402 is disabled project-wide because RACT's authorship/sentinel markers
 # (__root_author__, _ROOT_KNOT) intentionally appear before imports.
 ignore = ["E402"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/rootact"]
+packages = ["src/ract"]
 include = [
-    "src/rootact/py.typed",
-    "src/rootact/default_prompts/manager.txt",
-    "src/rootact/project_templates/*.json",
+    "src/ract/py.typed",
+    "src/ract/default_prompts/manager.txt",
+    "src/ract/project_templates/*.json",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "--cov=rootact --cov-report=term-missing"
+addopts = "--cov=ract --cov-report=term-missing"
 # RACT 0.2.0

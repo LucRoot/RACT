@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rootact import __version__
+from ract import __version__
 
 
 def test_readme_mentions_current_version():

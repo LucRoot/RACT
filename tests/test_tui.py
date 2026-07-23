@@ -11,13 +11,13 @@ _ROOT_KNOT = object()
 import os
 from unittest.mock import MagicMock, patch
 
-from rootact.tui import RactConsole, _reconfigure_utf8
+from ract.tui import RactConsole, _reconfigure_utf8
 
 
 def test_reconfigure_utf8_swallows_exception() -> None:
     stream = MagicMock()
     stream.reconfigure.side_effect = OSError("no")
-    with patch("rootact.tui.sys.stdout", stream):
+    with patch("ract.tui.sys.stdout", stream):
         _reconfigure_utf8()
 
 

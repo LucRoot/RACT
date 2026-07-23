@@ -2,7 +2,7 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
-from rootact.experimental.provider_scorecard import compute_scorecard
+from ract.experimental.provider_scorecard import compute_scorecard
 
 
 def test_success_rate_and_total_cost():

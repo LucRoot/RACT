@@ -13,12 +13,12 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-from rootact.cli import main
+from ract.cli import main
 
 
 def test_cli_novelty_scan_timeout_returns_partial_json(capsys, tmp_path: Path):
     """A deep scan that exceeds --timeout returns a JSON result with timeout_reached."""
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project: test\n", encoding="utf-8")
 
     def _slow_scan(_self):
@@ -26,7 +26,7 @@ def test_cli_novelty_scan_timeout_returns_partial_json(capsys, tmp_path: Path):
         return {"has_dictionary": True, "sample_count": 1, "scores": {}}
 
     with patch(
-        "rootact.compression_novelty_detector.CompressionNoveltyDetector.scan_project",
+        "ract.compression_novelty_detector.CompressionNoveltyDetector.scan_project",
         _slow_scan,
     ):
         code = main(
@@ -52,7 +52,7 @@ def test_cli_novelty_scan_timeout_returns_partial_json(capsys, tmp_path: Path):
 
 def test_cli_novelty_scan_default_fast_finishes_before_timeout(capsys, tmp_path: Path):
     """The default scan uses fast mode and completes normally."""
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project: test\n", encoding="utf-8")
     (tmp_path / "familiar.py").write_text(
         "def helper(x):\n    return x * 2\n" * 20,

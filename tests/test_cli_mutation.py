@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the `rootact mutation` CLI command."""
+"""Tests for the `ract mutation` CLI command."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.cli import main
-from rootact.mutation_runner import MutationReport
+from ract.cli import main
+from ract.mutation_runner import MutationReport
 
 
 def test_mutation_run_command_prints_report(tmp_path, monkeypatch, capsys):
@@ -17,7 +17,7 @@ def test_mutation_run_command_prints_report(tmp_path, monkeypatch, capsys):
     script.write_text("#!/bin/bash\n", encoding="utf-8")
 
     def _fake_run(_project_dir, *, script_path=None, timeout=None, wsl_distro=None):
-        from rootact.rooted import Rooted
+        from ract.rooted import Rooted
 
         return Rooted(
             value=MutationReport(killed=90, survived=10, timeout=0, error=0),
@@ -25,8 +25,8 @@ def test_mutation_run_command_prints_report(tmp_path, monkeypatch, capsys):
             confidence=1.0,
         )
 
-    monkeypatch.setattr("rootact.cli.run_mutation_tests", _fake_run)
-    config = tmp_path / "rootact.yaml"
+    monkeypatch.setattr("ract.cli.run_mutation_tests", _fake_run)
+    config = tmp_path / "ract.yaml"
     config.write_text("", encoding="utf-8")
 
     rc = main(["mutation", "run", "--script", str(script), "--config", str(config)])
@@ -41,7 +41,7 @@ def test_mutation_run_command_passes_wsl_distro(tmp_path, monkeypatch, capsys):
     captured_distro = []
 
     def _fake_run(_project_dir, *, script_path=None, timeout=None, wsl_distro=None):
-        from rootact.rooted import Rooted
+        from ract.rooted import Rooted
 
         captured_distro.append(wsl_distro)
         return Rooted(
@@ -50,8 +50,8 @@ def test_mutation_run_command_passes_wsl_distro(tmp_path, monkeypatch, capsys):
             confidence=1.0,
         )
 
-    monkeypatch.setattr("rootact.cli.run_mutation_tests", _fake_run)
-    config = tmp_path / "rootact.yaml"
+    monkeypatch.setattr("ract.cli.run_mutation_tests", _fake_run)
+    config = tmp_path / "ract.yaml"
     config.write_text("", encoding="utf-8")
 
     rc = main(
@@ -75,7 +75,7 @@ def test_mutation_run_command_reports_failure(tmp_path, monkeypatch, capsys):
     script.write_text("#!/bin/bash\n", encoding="utf-8")
 
     def _fake_run(_project_dir, *, script_path=None, timeout=None, wsl_distro=None):
-        from rootact.rooted import Rooted
+        from ract.rooted import Rooted
 
         return Rooted(
             value=None,
@@ -84,8 +84,8 @@ def test_mutation_run_command_reports_failure(tmp_path, monkeypatch, capsys):
             error="mutation runner not found",
         )
 
-    monkeypatch.setattr("rootact.cli.run_mutation_tests", _fake_run)
-    config = tmp_path / "rootact.yaml"
+    monkeypatch.setattr("ract.cli.run_mutation_tests", _fake_run)
+    config = tmp_path / "ract.yaml"
     config.write_text("", encoding="utf-8")
 
     rc = main(["mutation", "run", "--script", str(script), "--config", str(config)])

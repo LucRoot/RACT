@@ -13,12 +13,12 @@ dist/
 build/
 *.log
 .env
-rootact.yaml
+ract.yaml
 .mutmut-cache
 
 # Session/runtime artifacts
-.rootact/
-.rootact_sessions/
+.ract/
+.ract_sessions/
 *.session
 skills/
 

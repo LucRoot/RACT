@@ -14,13 +14,13 @@ import sys
 
 
 def test_cli_novelty_scan_fast_returns_json(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "novelty",
             "scan",
             "--fast",

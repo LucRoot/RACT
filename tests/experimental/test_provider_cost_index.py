@@ -6,7 +6,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.experimental.provider_cost_index import (
+from ract.experimental.provider_cost_index import (
     COST_INDEX,
     get_cost_index,
     estimate_cost,
@@ -33,7 +33,9 @@ def test_anthropic_estimate_with_input_output_split():
 
 
 def test_case_insensitive_lookup():
-    assert get_cost_index("OPENAI")["input_per_1k"] == COST_INDEX["openai"]["input_per_1k"]
+    assert (
+        get_cost_index("OPENAI")["input_per_1k"] == COST_INDEX["openai"]["input_per_1k"]
+    )
 
 
 def test_unknown_provider_returns_zero_estimate():
@@ -43,7 +45,10 @@ def test_unknown_provider_returns_zero_estimate():
 
 
 def test_alias_resolution():
-    assert get_cost_index("claude")["input_per_1k"] == COST_INDEX["anthropic"]["input_per_1k"]
+    assert (
+        get_cost_index("claude")["input_per_1k"]
+        == COST_INDEX["anthropic"]["input_per_1k"]
+    )
     assert get_cost_index("gpt")["input_per_1k"] == COST_INDEX["openai"]["input_per_1k"]
 
 

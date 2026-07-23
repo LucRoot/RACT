@@ -16,7 +16,7 @@ import sys
 def test_cli_coverage_badge_writes_shields_json(tmp_path):
     project = tmp_path / "project"
     project.mkdir()
-    pkg = project / "rootact"
+    pkg = project / "ract"
     pkg.mkdir()
     (pkg / "__init__.py").write_text("", encoding="utf-8")
     (pkg / "module.py").write_text(
@@ -25,10 +25,10 @@ def test_cli_coverage_badge_writes_shields_json(tmp_path):
     tests = project / "tests"
     tests.mkdir()
     (tests / "test_module.py").write_text(
-        "from rootact.module import add\n\ndef test_add():\n    assert add(1, 2) == 3\n",
+        "from ract.module import add\n\ndef test_add():\n    assert add(1, 2) == 3\n",
         encoding="utf-8",
     )
-    config = project / "rootact.yaml"
+    config = project / "ract.yaml"
     config.write_text(
         "project:\n  name: test\ncoverage_gate:\n  timeout: 60.0\n",
         encoding="utf-8",
@@ -39,7 +39,7 @@ def test_cli_coverage_badge_writes_shields_json(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "coverage",
             "badge",
             "--output",

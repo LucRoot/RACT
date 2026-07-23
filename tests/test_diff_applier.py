@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.diff_applier import DiffApplier
+from ract.diff_applier import DiffApplier
 
 
 def test_apply_simple_diff(tmp_path):

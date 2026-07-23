@@ -29,7 +29,7 @@ def test_provider_scorecard_json(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "provider",
             "scorecard",
             "--receipts-dir",
@@ -68,7 +68,7 @@ def test_provider_scorecard_human_output(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "provider",
             "scorecard",
             "--receipts-dir",
@@ -104,7 +104,7 @@ def test_provider_scorecard_csv(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "provider",
             "scorecard",
             "--receipts-dir",

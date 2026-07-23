@@ -3,7 +3,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.experimental.ai_sbom import build_ai_manifest
+from ract.experimental.ai_sbom import build_ai_manifest
 
 
 def test_build_ai_manifest_with_empty_receipts():

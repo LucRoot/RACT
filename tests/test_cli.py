@@ -2,7 +2,8 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 import pytest
-from rootact.cli import toggle_mode
+from ract.cli import toggle_mode
+
 
 def test_toggle_mode():
     """Test toggle_mode function."""

@@ -1,5 +1,6 @@
 # Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
+
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
@@ -10,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from rootact.consolidate import ConsolidationScanner, MergeProposal
-from rootact.handshake_registry import HandshakeRegistry
+from ract.consolidate import ConsolidationScanner, MergeProposal
+from ract.handshake_registry import HandshakeRegistry
 
 
 def _write_module(path: Path, content: str) -> None:
@@ -133,7 +134,7 @@ def test_cli_consolidate_dry_run(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "consolidate",
             "scan",
             "--project-dir",
@@ -159,7 +160,7 @@ def test_cli_consolidate_invalid_threshold(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "consolidate",
             "scan",
             "--project-dir",
@@ -177,7 +178,7 @@ def test_cli_consolidate_invalid_threshold(tmp_path: Path) -> None:
 
 def test_applier_deletes_sources_and_creates_shim(tmp_path: Path) -> None:
     """Applying a proposal removes sources and writes deprecation shims."""
-    from rootact.consolidate import ConsolidationApplier
+    from ract.consolidate import ConsolidationApplier
 
     _write_module(tmp_path / "a.py", IDENTICAL_BODY)
     _write_module(tmp_path / "b.py", IDENTICAL_BODY)
@@ -200,7 +201,7 @@ def test_applier_deletes_sources_and_creates_shim(tmp_path: Path) -> None:
 
 def test_applier_dry_run_does_not_modify(tmp_path: Path) -> None:
     """Dry-run apply returns metadata without changing files."""
-    from rootact.consolidate import ConsolidationApplier
+    from ract.consolidate import ConsolidationApplier
 
     _write_module(tmp_path / "a.py", IDENTICAL_BODY)
     _write_module(tmp_path / "b.py", IDENTICAL_BODY)
@@ -219,7 +220,7 @@ def test_applier_dry_run_does_not_modify(tmp_path: Path) -> None:
 
 def test_applier_rollback_restores_sources(tmp_path: Path) -> None:
     """Rollback restores files deleted by apply."""
-    from rootact.consolidate import ConsolidationApplier
+    from ract.consolidate import ConsolidationApplier
 
     original_b = IDENTICAL_BODY
     _write_module(tmp_path / "a.py", IDENTICAL_BODY)
@@ -275,7 +276,7 @@ def test_cli_consolidate_scan_subcommand(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "consolidate",
             "scan",
             "--project-dir",
@@ -296,7 +297,7 @@ def test_cli_consolidate_scan_subcommand(tmp_path: Path) -> None:
 
 def test_cli_consolidate_apply_and_rollback(tmp_path: Path) -> None:
     """Apply and rollback through the CLI."""
-    from rootact.handshake_registry import HandshakeRegistry
+    from ract.handshake_registry import HandshakeRegistry
 
     _write_module(tmp_path / "a.py", IDENTICAL_BODY)
     _write_module(tmp_path / "b.py", IDENTICAL_BODY)
@@ -311,7 +312,7 @@ def test_cli_consolidate_apply_and_rollback(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "consolidate",
             "apply",
             "--project-dir",
@@ -332,7 +333,7 @@ def test_cli_consolidate_apply_and_rollback(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "consolidate",
             "rollback",
             "--project-dir",
@@ -359,7 +360,7 @@ def test_cli_consolidate_scan_apply_rollback_round_trip(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "consolidate",
             "scan",
             "--project-dir",
@@ -380,7 +381,7 @@ def test_cli_consolidate_scan_apply_rollback_round_trip(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "consolidate",
             "apply",
             "--project-dir",
@@ -400,7 +401,7 @@ def test_cli_consolidate_scan_apply_rollback_round_trip(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "consolidate",
             "rollback",
             "--project-dir",

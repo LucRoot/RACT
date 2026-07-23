@@ -8,10 +8,10 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.executor import Executor
-from rootact.manager import Plan, Step
-from rootact.novelty_budget import NoveltyBudget
-from rootact.rooted import Rooted
+from ract.executor import Executor
+from ract.manager import Plan, Step
+from ract.novelty_budget import NoveltyBudget
+from ract.rooted import Rooted
 
 
 class FakeAdapter:

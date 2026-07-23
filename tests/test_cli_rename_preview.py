@@ -13,7 +13,7 @@ import sys
 
 
 def test_cli_rename_preview_lists_occurrences(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     source = tmp_path / "mod.py"
     source.write_text("def old_name():\n    return old_name\n", encoding="utf-8")
@@ -22,7 +22,7 @@ def test_cli_rename_preview_lists_occurrences(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "rename",
             "preview",
             "--old",
@@ -46,7 +46,7 @@ def test_cli_rename_preview_lists_occurrences(tmp_path):
 
 
 def test_cli_rename_preview_missing_file_fails(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     missing = tmp_path / "missing.py"
 
@@ -54,7 +54,7 @@ def test_cli_rename_preview_missing_file_fails(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "rename",
             "preview",
             "--old",

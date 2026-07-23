@@ -7,9 +7,9 @@ from dataclasses import replace
 import hypothesis.strategies as st
 from hypothesis import given, settings
 
-from rootact.core.assumption import Violation
-from rootact.core.assumption_registry import AssumptionRegistry
-from rootact.core.loop import (
+from ract.core.assumption import Violation
+from ract.core.assumption_registry import AssumptionRegistry
+from ract.core.loop import (
     Budget,
     LoopState,
     MilestoneReport,
@@ -26,9 +26,9 @@ from rootact.core.loop import (
     check_t7,
     evaluate_termination,
 )
-from rootact.handshake_registry import HandshakeRegistry
-from rootact.loop_planner import Milestone
-from rootact.manager import Plan
+from ract.handshake_registry import HandshakeRegistry
+from ract.loop_planner import Milestone
+from ract.manager import Plan
 
 
 @st.composite
@@ -139,8 +139,14 @@ def test_t4_assumption_burst_reachable():
 def test_t5_budget_exhausted_reachable():
     """T5: exhausted iteration or wall-time budget terminates as BUDGET_EXHAUSTED."""
     budget = Budget(max_iterations=5, wall_time_seconds=10.0, step_timeout_seconds=1.0)
-    assert check_t5(5, budget, start_time=0.0, now=1.0) is TerminationCause.BUDGET_EXHAUSTED
-    assert check_t5(1, budget, start_time=0.0, now=11.0) is TerminationCause.BUDGET_EXHAUSTED
+    assert (
+        check_t5(5, budget, start_time=0.0, now=1.0)
+        is TerminationCause.BUDGET_EXHAUSTED
+    )
+    assert (
+        check_t5(1, budget, start_time=0.0, now=11.0)
+        is TerminationCause.BUDGET_EXHAUSTED
+    )
     assert check_t5(1, budget, start_time=0.0, now=1.0) is None
 
 
@@ -165,7 +171,9 @@ def test_t7_provider_timeout_reachable():
 @given(state=_loop_state())
 def test_t1_priority_over_t5(state):
     """When T1 and T5 both apply, T1 fires first (complete before budget)."""
-    state = replace(state, milestones=[Milestone(id="m1", description="d", acceptance="d")])
+    state = replace(
+        state, milestones=[Milestone(id="m1", description="d", acceptance="d")]
+    )
     state.milestone_history.append(
         MilestoneReport(milestone_id="m1", status="verified", confidence=1.0)
     )

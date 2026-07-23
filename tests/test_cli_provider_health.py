@@ -14,7 +14,7 @@ import sys
 
 
 def test_cli_provider_health_passes_for_reachable_internal_provider(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: RACT\nproviders:\n  echo:\n    adapter: internal\n    command: [python, -c, print(hello)]\n",
         encoding="utf-8",
@@ -23,7 +23,7 @@ def test_cli_provider_health_passes_for_reachable_internal_provider(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "provider",
             "health",
             "--config",
@@ -39,13 +39,13 @@ def test_cli_provider_health_passes_for_reachable_internal_provider(tmp_path):
 
 
 def test_cli_provider_health_fails_with_no_providers(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: RACT\n", encoding="utf-8")
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "provider",
             "health",
             "--config",

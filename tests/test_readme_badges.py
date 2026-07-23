@@ -14,7 +14,7 @@ from pathlib import Path
 
 def test_readme_has_badge_section():
     readme = Path("README.md").read_text(encoding="utf-8")
-    assert "![RootAct CI]" in readme
+    assert "![RACT CI]" in readme
     assert "![Coverage]" in readme
     assert "![License]" in readme
     assert "![Python]" in readme

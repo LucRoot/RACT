@@ -8,7 +8,7 @@ import sys
 
 
 def test_cli_provider_health_json_valid(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         """providers:\n  local:\n    adapter: internal\n    command: [python, -c, print(ok)]\n""",
         encoding="utf-8",
@@ -17,7 +17,7 @@ def test_cli_provider_health_json_valid(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "provider",
             "health",
             "--json",
@@ -35,7 +35,7 @@ def test_cli_provider_health_json_valid(tmp_path):
 
 
 def test_cli_provider_health_json_unreachable(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         """providers:\n  unreachable:\n    adapter: unreachable\n    command: [python, -c, print(no)]\n""",
         encoding="utf-8",
@@ -44,7 +44,7 @@ def test_cli_provider_health_json_unreachable(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "provider",
             "health",
             "--json",

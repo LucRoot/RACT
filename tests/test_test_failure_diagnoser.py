@@ -9,7 +9,7 @@ _ROOT_KNOT = object()
 import sys
 
 import pytest
-from rootact.test_failure_diagnoser import (
+from ract.test_failure_diagnoser import (
     FailureCase,
     RepairIntent,
     TestFailureDiagnoser,

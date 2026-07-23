@@ -66,8 +66,8 @@ If no verifier category is specified, the legacy heuristic verifier remains the 
 
 ## References
 
-- `src/rootact/core/loop.py`
-- `src/rootact/progress_oracle.py`
-- `src/rootact/milestone_oracle.py`
-- `src/rootact/run_reporter.py`
+- `src/ract/core/loop.py`
+- `src/ract/progress_oracle.py`
+- `src/ract/milestone_oracle.py`
+- `src/ract/run_reporter.py`
 - `tests/property/test_loop_termination.py`

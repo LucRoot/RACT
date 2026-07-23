@@ -10,7 +10,7 @@ import random
 
 import pytest
 
-from rootact.retry_policy import RetryConfig, RetryPolicy
+from ract.retry_policy import RetryConfig, RetryPolicy
 
 
 def test_retry_policy_basic():

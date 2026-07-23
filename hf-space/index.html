@@ -97,19 +97,19 @@
 
         <div class="card">
             <h2>Install</h2>
-            <pre><code>pip install rootact</code></pre>
+            <pre><code>pip install ract</code></pre>
             <p>Then scaffold a project for your favorite provider:</p>
-            <pre><code>rootact --init-provider local
-rootact --init-provider anthropic
-rootact --init-provider openai
-rootact --init-provider zai
-rootact --init-provider moonshot
-rootact --init-provider openrouter</code></pre>
+            <pre><code>ract --init-provider local
+ract --init-provider anthropic
+ract --init-provider openai
+ract --init-provider zai
+ract --init-provider moonshot
+ract --init-provider openrouter</code></pre>
         </div>
 
         <div class="card">
             <h2>Run a Root-Knot-anchored loop</h2>
-            <pre><code>rootact 'refactor the config loader to use dataclasses' --loop</code></pre>
+            <pre><code>ract 'refactor the config loader to use dataclasses' --loop</code></pre>
             <p>
                 Every generated file carries the <strong>Root Knot</strong> (<code>_ROOT_KNOT = object()</code>). Unsigned drift breaks the loop instead of compounding.
             </p>
@@ -118,10 +118,10 @@ rootact --init-provider openrouter</code></pre>
         <div class="card">
             <h2>Anti-rot verifier arsenal</h2>
             <ul>
-                <li><code>rootact novelty scan</code> — flag structural near-duplicates.</li>
-                <li><code>rootact whisper</code> — generate a codebase dialect brief before planning.</li>
-                <li><code>rootact auction list</code> — review dead-code candidates.</li>
-                <li><code>rootact fence inspect --file f.py</code> — ask why legacy code exists.</li>
+                <li><code>ract novelty scan</code> — flag structural near-duplicates.</li>
+                <li><code>ract whisper</code> — generate a codebase dialect brief before planning.</li>
+                <li><code>ract auction list</code> — review dead-code candidates.</li>
+                <li><code>ract fence inspect --file f.py</code> — ask why legacy code exists.</li>
             </ul>
         </div>
 

@@ -13,7 +13,7 @@ WORKDIR /app
 COPY . /app
 RUN pip install -e .
 
-ENTRYPOINT ["python", "-m", "rootact.cli"]
+ENTRYPOINT ["python", "-m", "ract.cli"]
 ```
 
 ## Building the image
@@ -30,7 +30,7 @@ Mount your project directory and run RACT against it:
 
 ```bash
 docker run --rm -v "$(pwd):/workspace" -w /workspace ract:latest \
-  --config /workspace/rootact.yaml "add tests"
+  --config /workspace/ract.yaml "add tests"
 ```
 
 ## Mounting the project directory

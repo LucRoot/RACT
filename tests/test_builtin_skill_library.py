@@ -10,8 +10,8 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.builtin_skill_library import BuiltinSkillLibrary
-from rootact.skills_registry import SkillRegistry
+from ract.builtin_skill_library import BuiltinSkillLibrary
+from ract.skills_registry import SkillRegistry
 
 
 def test_library_lists_built_in_skills():

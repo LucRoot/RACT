@@ -6,12 +6,12 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.approval_callback import (
+from ract.approval_callback import (
     auto_approval_callback,
     console_approval_callback,
     yolo_approval_callback,
 )
-from rootact.manager import Step
+from ract.manager import Step
 
 
 def test_yolo_approval_callback_always_true() -> None:

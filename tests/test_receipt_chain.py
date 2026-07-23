@@ -4,7 +4,7 @@ _ROOT_KNOT = object()
 
 import json
 
-from rootact.receipt_chain import append_receipt, verify_chain
+from ract.receipt_chain import append_receipt, verify_chain
 
 
 def test_append_links_hashes(tmp_path):

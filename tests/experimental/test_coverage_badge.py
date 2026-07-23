@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for rootact.coverage_badge."""
+"""Tests for ract.coverage_badge."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.experimental.coverage_badge import generate_svg
+from ract.experimental.coverage_badge import generate_svg
 
 
 def test_generate_svg_creates_file(tmp_path):

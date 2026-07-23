@@ -12,7 +12,9 @@ import sys
 from pathlib import Path
 
 
-def _receipt(score: float, cost: float, tokens: float = 0.0, latency: float = 0.0) -> dict:
+def _receipt(
+    score: float, cost: float, tokens: float = 0.0, latency: float = 0.0
+) -> dict:
     return {
         "complexity_score": score,
         "cost": cost,
@@ -33,15 +35,13 @@ def test_calibrate_json_output(tmp_path: Path) -> None:
         _receipt(0.95, 200.0),
     ]
     for i, rec in enumerate(records):
-        (receipts_dir / f"run_{i}.json").write_text(
-            json.dumps(rec), encoding="utf-8"
-        )
+        (receipts_dir / f"run_{i}.json").write_text(json.dumps(rec), encoding="utf-8")
 
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "calibrate",
             "--receipts-dir",
             str(receipts_dir),
@@ -69,15 +69,13 @@ def test_calibrate_human_output(tmp_path: Path) -> None:
             _receipt(0.90, 300.0),
         ]
     ):
-        (receipts_dir / f"run_{i}.json").write_text(
-            json.dumps(rec), encoding="utf-8"
-        )
+        (receipts_dir / f"run_{i}.json").write_text(json.dumps(rec), encoding="utf-8")
 
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "calibrate",
             "--receipts-dir",
             str(receipts_dir),
@@ -102,15 +100,13 @@ def test_calibrate_writes_output_file(tmp_path: Path) -> None:
             _receipt(0.90, 300.0),
         ]
     ):
-        (receipts_dir / f"run_{i}.json").write_text(
-            json.dumps(rec), encoding="utf-8"
-        )
+        (receipts_dir / f"run_{i}.json").write_text(json.dumps(rec), encoding="utf-8")
 
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "calibrate",
             "--receipts-dir",
             str(receipts_dir),
@@ -136,15 +132,13 @@ def test_calibrate_falls_back_to_quality(tmp_path: Path) -> None:
         {"quality": 90.0, "cost": 150.0, "latency": 2000.0},
     ]
     for i, rec in enumerate(records):
-        (receipts_dir / f"run_{i}.json").write_text(
-            json.dumps(rec), encoding="utf-8"
-        )
+        (receipts_dir / f"run_{i}.json").write_text(json.dumps(rec), encoding="utf-8")
 
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "calibrate",
             "--receipts-dir",
             str(receipts_dir),
@@ -170,7 +164,7 @@ def test_calibrate_fails_with_too_few_receipts(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "calibrate",
             "--receipts-dir",
             str(receipts_dir),

@@ -2,7 +2,7 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
-from rootact.providers.internal_provider import InternalProvider
+from ract.providers.internal_provider import InternalProvider
 
 
 def test_internal_provider_runs_command(tmp_path):

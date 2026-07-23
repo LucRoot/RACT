@@ -1,0 +1,14 @@
+project:
+  name: RACT
+
+manager_provider: local
+providers:
+  local:
+    adapter: local_http
+    url: http://127.0.0.1:11434/v1
+    model: nemotron
+prompts_dir: prompts
+coverage_gate:
+  enabled: false
+  hard_fail: false
+  timeout: 300.0

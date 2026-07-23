@@ -45,6 +45,6 @@ T1 writes are constrained to the workspace root. T2 actions queue an operator ha
 
 ## References
 
-- `src/rootact/core/threat_model.py`
+- `src/ract/core/threat_model.py`
 - `docs/THREAT_MODEL.md`
 - `tests/security/test_refuse_list.py`

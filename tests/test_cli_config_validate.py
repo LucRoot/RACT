@@ -13,7 +13,7 @@ import sys
 
 
 def test_cli_config_validate_passes_with_valid_config(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: RACT\nproviders:\n  local:\n    adapter: local_http\n",
         encoding="utf-8",
@@ -22,7 +22,7 @@ def test_cli_config_validate_passes_with_valid_config(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "config",
             "validate",
             "--config",
@@ -37,7 +37,7 @@ def test_cli_config_validate_passes_with_valid_config(tmp_path):
 
 
 def test_cli_config_validate_fails_with_missing_project_name(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: ''\nproviders:\n  local:\n    adapter: local_http\n",
         encoding="utf-8",
@@ -46,7 +46,7 @@ def test_cli_config_validate_fails_with_missing_project_name(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "config",
             "validate",
             "--config",

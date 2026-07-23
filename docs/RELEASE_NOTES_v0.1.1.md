@@ -2,16 +2,16 @@
 
 ## Summary
 
-This release hardens RACT's anti-rot tooling, expands provider and marketplace support, and adds the `rootact audit` meta-command. It also fixes the symbol-graph prefix bug that made the dead-code auction unreliable on its own repository.
+This release hardens RACT's anti-rot tooling, expands provider and marketplace support, and adds the `ract audit` meta-command. It also fixes the symbol-graph prefix bug that made the dead-code auction unreliable on its own repository.
 
 ## What's New
 
 ### Commands & UX
-- **`rootact audit`** — single-command health check running `doctor`, `dead_code_auction`, and (with `--deep`) `consolidate scan`.
-- **`rootact audit --deep`** — surfaces merge proposals from `consolidate scan` in a unified pass/fail table or JSON.
-- **`rootact consolidate scan|apply|rollback`** — find near-duplicate modules, preview merges as unified diffs, and roll back if needed.
-- **`rootact mcp invoke`** — call configured MCP tools directly from the CLI.
-- **`rootact skills marketplace list|install`** — install skills from a catalog by name.
+- **`ract audit`** — single-command health check running `doctor`, `dead_code_auction`, and (with `--deep`) `consolidate scan`.
+- **`ract audit --deep`** — surfaces merge proposals from `consolidate scan` in a unified pass/fail table or JSON.
+- **`ract consolidate scan|apply|rollback`** — find near-duplicate modules, preview merges as unified diffs, and roll back if needed.
+- **`ract mcp invoke`** — call configured MCP tools directly from the CLI.
+- **`ract skills marketplace list|install`** — install skills from a catalog by name.
 
 ### Anti-rot improvements
 - **AST-normalized structural similarity** in `consolidate` and the novelty detector catches copy-and-rename clones that byte-level compression misses.
@@ -37,15 +37,15 @@ This release hardens RACT's anti-rot tooling, expands provider and marketplace s
 |---|---|
 | Tests | 1079 passed, 1 skipped |
 | Line coverage | 91.30% |
-| `src/rootact/cli.py` coverage | 76% |
-| `src/rootact/executor.py` coverage | 100% |
+| `src/ract/cli.py` coverage | 76% |
+| `src/ract/executor.py` coverage | 100% |
 | Dead-code auction on RACT | 0 candidates |
-| `rootact doctor` | 7/7 |
-| `rootact audit --deep` | 9/9 |
+| `ract doctor` | 7/7 |
+| `ract audit --deep` | 9/9 |
 
 ## Known limitations
 
-- `rootact novelty scan` is accurate but slow on large codebases (>60s on RACT itself), so it is not currently included in `audit --deep`.
+- `ract novelty scan` is accurate but slow on large codebases (>60s on RACT itself), so it is not currently included in `audit --deep`.
 - `consolidate scan` is practical (~10s on RACT) but limited to the 50 largest modules by default.
 
 ## Installation

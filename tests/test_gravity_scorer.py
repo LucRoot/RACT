@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.gravity_scorer import GravityScorer
+from ract.gravity_scorer import GravityScorer
 
 
 def test_indexes_functions_and_classes(tmp_path):
@@ -121,7 +121,7 @@ def test_attribute_reference_increments_gravity(tmp_path):
 
 def test_corrupt_cache_triggers_rebuild(tmp_path):
     (tmp_path / "mod.py").write_text("def a(): pass\n", encoding="utf-8")
-    cache_dir = tmp_path / ".rootact"
+    cache_dir = tmp_path / ".ract"
     cache_dir.mkdir(parents=True, exist_ok=True)
     (cache_dir / "gravity_index.json").write_text("not json", encoding="utf-8")
     scorer = GravityScorer(tmp_path)

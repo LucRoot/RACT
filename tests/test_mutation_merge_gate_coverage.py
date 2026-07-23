@@ -8,8 +8,8 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.coverage_delta import CoverageDelta, CoverageSnapshot
-from rootact.mutation_merge_gate import MergePolicy, evaluate_coverage_policy
+from ract.coverage_delta import CoverageDelta, CoverageSnapshot
+from ract.mutation_merge_gate import MergePolicy, evaluate_coverage_policy
 
 
 def _snapshot(percent: float) -> CoverageSnapshot:
@@ -57,7 +57,7 @@ def test_evaluate_coverage_policy_fails_on_floor_breach():
         verdict="earn",
         detail="improved but floor breached",
         floor_breached=True,
-        per_file_breaches=["src/rootact/core.py"],
+        per_file_breaches=["src/ract/core.py"],
     )
     policies = [
         MergePolicy("p1", "require earn", ".*", "coverage_delta >= 0", 0.0, "block")

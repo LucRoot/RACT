@@ -32,7 +32,7 @@ def test_cli_explain_plan_json_outputs_fields(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "explain",
             "--plan",
             str(plan_path),

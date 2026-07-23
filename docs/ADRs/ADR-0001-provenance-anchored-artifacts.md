@@ -43,7 +43,7 @@ The old `_ROOT_KNOT` sentinel is kept as a legacy marker for v0.2.0 and will be 
 - Every artifact becomes independently auditable.
 - The loop can detect tampering, missing parents, and assumption violations structurally.
 - Workspace I/O grows by one SQLite write and one sidecar write per artifact; WAL mode keeps this cheap.
-- Session keys must be persisted securely; we store ed25519 private keys in XDG state (`%LOCALAPPDATA%/rootact/keys/` on Windows) with restrictive permissions.
+- Session keys must be persisted securely; we store ed25519 private keys in XDG state (`%LOCALAPPDATA%/ract/keys/` on Windows) with restrictive permissions.
 
 ## Alternatives Considered
 
@@ -53,7 +53,7 @@ The old `_ROOT_KNOT` sentinel is kept as a legacy marker for v0.2.0 and will be 
 
 ## References
 
-- `src/rootact/core/rootknot.py`
-- `src/rootact/core/keys.py`
-- `src/rootact/core/provenance.py`
+- `src/ract/core/rootknot.py`
+- `src/ract/core/keys.py`
+- `src/ract/core/provenance.py`
 - `tests/property/test_rootknot_invariants.py`

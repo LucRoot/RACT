@@ -6,7 +6,7 @@ _ROOT_KNOT = object()
 # Rooted by Dr. Lucas Root, Ph.D.
 """Tests for the Rooted type."""
 
-from rootact.rooted import (
+from ract.rooted import (
     DEFAULT_CONFIDENCE_FLOOR,
     Rooted,
     root_assert,

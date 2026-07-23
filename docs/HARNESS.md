@@ -1,12 +1,12 @@
 # Rooted by Dr. Lucas Root, Ph.D.
 
-# RootAct Harness
+# RACT Harness
 
 The harness is the runtime container. It loads configuration, instantiates the provider router, management LM, planner, executor, and support modules, and exposes a single `run(intent)` method.
 
 ## Configuration
 
-`rootact.yaml`:
+`ract.yaml`:
 
 ```yaml
 project:
@@ -48,7 +48,7 @@ Local servers often reject an `Authorization` header even when the key is empty.
 
 Every harness operation returns a `Rooted` result. Common failure modes:
 
-- Missing or unreadable `rootact.yaml` → init failure.
+- Missing or unreadable `ract.yaml` → init failure.
 - Missing `project.name` → preflight failure.
 - Unconfigured `manager_provider` slot → init failure.
 - Missing `prompts/manager.txt` → init failure.
@@ -64,8 +64,8 @@ Every harness operation returns a `Rooted` result. Common failure modes:
 
 - Replace `prompts/manager.txt` to change management LM behavior.
 - Add provider adapters via `register_adapter(name, AdapterClass)`.
-- Register skills in `.rootact/skills/` via `SkillRegistry`.
-- Register author signatures in `.rootact/signatures/` via `SignatureRegistry`.
+- Register skills in `.ract/skills/` via `SkillRegistry`.
+- Register author signatures in `.ract/signatures/` via `SignatureRegistry`.
 - Register pre/post-step hooks via `HookManager`.
 - Wrap `Harness` in a UI, scheduler, or CI step.
 

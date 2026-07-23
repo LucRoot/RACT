@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.duplication_guard import DuplicationBlockedError, DuplicationGuard
+from ract.duplication_guard import DuplicationBlockedError, DuplicationGuard
 
 
 def test_no_duplicates_for_new_symbol(tmp_path):
@@ -83,7 +83,7 @@ def test_handles_invalid_python_gracefully(tmp_path):
 
 
 def test_uses_provided_historian(tmp_path):
-    from rootact.codebase_historian import CodebaseHistorian
+    from ract.codebase_historian import CodebaseHistorian
 
     (tmp_path / "existing.py").write_text("def helper(): pass\n", encoding="utf-8")
     historian = CodebaseHistorian(tmp_path).build()

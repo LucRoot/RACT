@@ -1,5 +1,6 @@
 # Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
+
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
@@ -10,7 +11,7 @@ import httpx
 import pytest
 import respx
 
-from rootact.github_release import GitHubReleaseClient, GitHubReleaseError
+from ract.github_release import GitHubReleaseClient, GitHubReleaseError
 
 
 @pytest.fixture

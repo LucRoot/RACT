@@ -19,9 +19,9 @@ from pathlib import Path
 
 import pytest
 
-from rootact.compression_novelty_detector import CompressionNoveltyDetector
-from rootact.consolidate import ConsolidationScanner
-from rootact.duplication_guard import DuplicationBlockedError, DuplicationGuard
+from ract.compression_novelty_detector import CompressionNoveltyDetector
+from ract.consolidate import ConsolidationScanner
+from ract.duplication_guard import DuplicationBlockedError, DuplicationGuard
 
 STRICT_ENHANCED = """\
 def strict_enhanced(value):

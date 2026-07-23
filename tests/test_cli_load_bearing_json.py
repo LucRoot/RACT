@@ -18,12 +18,12 @@ def _run(args, project_dir):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "load-bearing",
             "list",
             *args,
             "--config",
-            str(project_dir / "rootact.yaml"),
+            str(project_dir / "ract.yaml"),
         ],
         capture_output=True,
         text=True,
@@ -32,7 +32,7 @@ def _run(args, project_dir):
 
 
 def test_cli_load_bearing_json_finds_annotation(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     src = tmp_path / "src"
     src.mkdir()
@@ -51,7 +51,7 @@ def test_cli_load_bearing_json_finds_annotation(tmp_path):
 
 
 def test_cli_load_bearing_json_empty_when_clean(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     src = tmp_path / "src"
     src.mkdir()

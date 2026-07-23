@@ -6,8 +6,9 @@ import json
 import subprocess
 import sys
 
+
 def test_cli_audit_json_passes_on_healthy_project(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n"
         "  name: audit-test\n"
@@ -23,7 +24,7 @@ def test_cli_audit_json_passes_on_healthy_project(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "audit",
             "--config",
             str(config),

@@ -32,7 +32,7 @@ def test_cli_receipt_chain_verify_reports_valid_chain(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "receipt",
             "chain-verify",
             str(chain),
@@ -60,7 +60,7 @@ def test_cli_receipt_chain_verify_reports_broken_chain(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "receipt",
             "chain-verify",
             str(chain),

@@ -13,9 +13,9 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from rootact.providers.local_http_provider import LocalHttpProvider
-from rootact.providers.openai_provider import OpenAICompatibleProvider
-from rootact.providers.router import ProviderRouter
+from ract.providers.local_http_provider import LocalHttpProvider
+from ract.providers.openai_provider import OpenAICompatibleProvider
+from ract.providers.router import ProviderRouter
 
 
 class _FakeResponse:
@@ -83,7 +83,7 @@ def test_router_returns_error_when_no_providers():
 @pytest.fixture
 def isolated_registry():
     """Snapshot and restore the global adapter registry around a test."""
-    from rootact.providers.router import _ADAPTER_CLASSES
+    from ract.providers.router import _ADAPTER_CLASSES
 
     snapshot = dict(_ADAPTER_CLASSES)
     yield
@@ -92,9 +92,9 @@ def isolated_registry():
 
 
 def test_register_custom_adapter(isolated_registry):
-    from rootact.providers.base import ProviderAdapter
-    from rootact.providers.router import register_adapter
-    from rootact.rooted import Rooted
+    from ract.providers.base import ProviderAdapter
+    from ract.providers.router import register_adapter
+    from ract.rooted import Rooted
 
     class DummyAdapter(ProviderAdapter):
         def __init__(self, config: dict[str, Any]) -> None:

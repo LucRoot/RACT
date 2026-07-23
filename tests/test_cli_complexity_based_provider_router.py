@@ -19,12 +19,12 @@ def _write_valid_config(path: Path) -> None:
 
 
 def test_complexity_based_provider_router(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     _write_valid_config(config)
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "provider",
         "health",
         "--json",

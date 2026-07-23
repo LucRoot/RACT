@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from rootact.skill_marketplace import load_catalog
+from ract.skill_marketplace import load_catalog
 
 
 def test_load_catalog_round_trip(tmp_path):

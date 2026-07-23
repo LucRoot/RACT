@@ -1,6 +1,6 @@
 # RACT (Root Agentic Coding Tool)
 
-![RootAct CI](https://github.com/LucRoot/RACT/actions/workflows/ci.yml/badge.svg)
+![RACT CI](https://github.com/LucRoot/RACT/actions/workflows/ci.yml/badge.svg)
 ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LucRoot/RACT/main/docs/coverage-badge.json)
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
@@ -10,7 +10,7 @@ RACT is a model-agnostic, local-first agentic coding tool built around three ide
 ## Install
 
 ```bash
-pip install rootact
+pip install ract
 ```
 
 Or from source:
@@ -24,7 +24,7 @@ cd RACT
 For the pre-release:
 
 ```bash
-pip install rootact==0.2.0rc1
+pip install ract==0.2.0rc1
 ```
 
 See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
@@ -35,9 +35,9 @@ See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
 ract init --template python-package --provider local
 ract doctor                          # verify workspace and dependencies
 ract fence inspect --file src/hello.py  # check safety guardrails and threat-model boundaries
-ract run "add a test for the hello-world script" --config rootact.yaml --dry-run
-ract run "add a test for the hello-world script" --config rootact.yaml
-ract run "refactor the greeting module" --config rootact.yaml --loop --max-iterations 5
+ract run "add a test for the hello-world script" --config ract.yaml --dry-run
+ract run "add a test for the hello-world script" --config ract.yaml
+ract run "refactor the greeting module" --config ract.yaml --loop --max-iterations 5
 ```
 
 [![asciicast](https://asciinema.org/a/demo.svg)](https://asciinema.org/a/demo)
@@ -45,7 +45,7 @@ ract run "refactor the greeting module" --config rootact.yaml --loop --max-itera
 ## CLI Verb Index
 
 - `ract doctor` — verify workspace health and dependencies.
-- `ract config validate` — validate rootact.yaml configuration.
+- `ract config validate` — validate ract.yaml configuration.
 - `ract provider health` — check configured provider reachability.
 - `ract session list` — list persisted run sessions.
 - `ract plan diff` — show the diff a plan would apply.
@@ -61,10 +61,10 @@ ract run "refactor the greeting module" --config rootact.yaml --loop --max-itera
 
 ## Architecture
 
-- `src/rootact/core/rootknot.py` — signed provenance capability.
-- `src/rootact/core/assumption.py` — `Assumed[T]` and the assumption registry.
-- `src/rootact/core/plan.py` — plan schema and validator.
-- `src/rootact/core/loop.py` — recursion loop with invariants.
+- `src/ract/core/rootknot.py` — signed provenance capability.
+- `src/ract/core/assumption.py` — `Assumed[T]` and the assumption registry.
+- `src/ract/core/plan.py` — plan schema and validator.
+- `src/ract/core/loop.py` — recursion loop with invariants.
 
 See `docs/ARCHITECTURE.md` for the system diagram and boundary contracts, and `docs/ADRs/` for the architectural decision records.
 

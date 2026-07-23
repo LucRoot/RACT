@@ -14,9 +14,9 @@ import sys
 
 
 def test_cli_report_last_markdown_writes_output_file(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
-    report_dir = tmp_path / ".rootact"
+    report_dir = tmp_path / ".ract"
     report_dir.mkdir(parents=True, exist_ok=True)
     (report_dir / "loop_report.json").write_text(
         json.dumps({"final_decision": "done", "summary": "ok"}), encoding="utf-8"
@@ -27,7 +27,7 @@ def test_cli_report_last_markdown_writes_output_file(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "report",
             "--last",
             "--format",

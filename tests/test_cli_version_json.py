@@ -15,7 +15,7 @@ import sys
 
 def _run(args):
     return subprocess.run(
-        [sys.executable, "-m", "rootact.cli", *args],
+        [sys.executable, "-m", "ract.cli", *args],
         capture_output=True,
         text=True,
         check=False,

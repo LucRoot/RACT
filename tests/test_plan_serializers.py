@@ -11,8 +11,8 @@ _ROOT_KNOT = object()
 import json
 from pathlib import Path
 
-from rootact.manager import Plan, Step
-from rootact.plan_serializers import (
+from ract.manager import Plan, Step
+from ract.plan_serializers import (
     load_plan,
     plan_from_dict,
     plan_from_json,

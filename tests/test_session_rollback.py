@@ -8,7 +8,7 @@ _ROOT_KNOT = object()
 
 from pathlib import Path
 
-from rootact.session_rollback import SessionRollback, SnapshotNotFoundError
+from ract.session_rollback import SessionRollback, SnapshotNotFoundError
 
 
 def test_capture_and_restore_roundtrip(tmp_path: Path) -> None:

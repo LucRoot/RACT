@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the `rootact diff` CLI command."""
+"""Tests for the `ract diff` CLI command."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ _ROOT_KNOT = object()
 from pathlib import Path
 
 
-from rootact.cli import _diff_command
+from ract.cli import _diff_command
 
 
 def test_diff_apply_no_action_prints_help(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     exit_code = _diff_command(["--config", str(config_path)])
     assert exit_code == 1
@@ -24,7 +24,7 @@ def test_diff_apply_no_action_prints_help(tmp_path: Path, capsys):
 
 
 def test_diff_apply_missing_patch(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     missing = tmp_path / "missing.patch"
     exit_code = _diff_command(
@@ -36,7 +36,7 @@ def test_diff_apply_missing_patch(tmp_path: Path, capsys):
 
 
 def test_diff_apply_success(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     target = tmp_path / "greet.py"
     target.write_text("def greet():\n    return 'hello'\n", encoding="utf-8")
@@ -64,7 +64,7 @@ def test_diff_apply_success(tmp_path: Path, capsys):
 
 
 def test_diff_apply_dry_run_restores_file(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     target = tmp_path / "greet.py"
     original = "def greet():\n    return 'hello'\n"
@@ -92,7 +92,7 @@ def test_diff_apply_dry_run_restores_file(tmp_path: Path, capsys):
 
 
 def test_diff_apply_failure(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: demo\n", encoding="utf-8")
     patch = tmp_path / "bad.patch"
     patch.write_text(

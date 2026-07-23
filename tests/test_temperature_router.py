@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.temperature_router import TemperatureRouter
+from ract.temperature_router import TemperatureRouter
 
 
 def test_code_action_uses_low_temperature():

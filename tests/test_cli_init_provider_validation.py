@@ -17,7 +17,7 @@ def test_cli_init_provider_valid_creates_config(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "--init-provider",
             "local",
         ],
@@ -27,8 +27,8 @@ def test_cli_init_provider_valid_creates_config(tmp_path):
         cwd=str(tmp_path),
     )
     assert result.returncode == 0, result.stderr
-    assert (tmp_path / "rootact.yaml").is_file()
-    assert "wrote rootact.yaml" in result.stdout
+    assert (tmp_path / "ract.yaml").is_file()
+    assert "wrote ract.yaml" in result.stdout
 
 
 def test_cli_init_provider_invalid_prints_error(tmp_path):
@@ -36,7 +36,7 @@ def test_cli_init_provider_invalid_prints_error(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "--init-provider",
             "invalid-preset",
         ],

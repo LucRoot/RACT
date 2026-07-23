@@ -4,7 +4,7 @@ _ROOT_KNOT = object()
 
 from pathlib import Path
 
-from rootact.root_knot_guardian import check, ensure_markers, fix, missing_markers, scan
+from ract.root_knot_guardian import check, ensure_markers, fix, missing_markers, scan
 
 
 def test_missing_markers_detects_absence() -> None:

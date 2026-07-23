@@ -43,7 +43,7 @@ def _run_consolidate_json(project_dir):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "consolidate",
             "scan",
             "--json",

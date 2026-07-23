@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from rootact.mutation_merge_gate import load_policies, MergePolicy
+from ract.mutation_merge_gate import load_policies, MergePolicy
 
 
 def test_load_policies_round_trip(tmp_path):

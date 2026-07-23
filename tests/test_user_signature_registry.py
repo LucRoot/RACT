@@ -7,7 +7,7 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.user_signature_registry import SignatureRegistry
+from ract.user_signature_registry import SignatureRegistry
 
 
 def test_save_and_load_profile(tmp_path):

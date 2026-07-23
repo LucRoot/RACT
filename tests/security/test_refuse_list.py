@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from rootact.core.threat_model import (
+from ract.core.threat_model import (
     CapabilityTier,
     PolicyDecision,
     authorize_action,
     classify_action,
 )
-from rootact.core.types import Digest
+from ract.core.types import Digest
 
 
 def test_tier_0_read_allowed():
@@ -66,7 +66,9 @@ def test_tier_3_allowed_with_flag(tmp_path):
 
 
 def test_refuse_rm_rf_outside_vcs(tmp_path):
-    action = {"tool_call": {"name": "shell", "arguments": {"command": "rm -rf /tmp/foo"}}}
+    action = {
+        "tool_call": {"name": "shell", "arguments": {"command": "rm -rf /tmp/foo"}}
+    }
     auth = authorize_action(action, tmp_path)
     assert not auth.allowed
     assert any("rm -rf" in r.reason for r in auth.refusals)

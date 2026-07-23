@@ -4,23 +4,23 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the RootAct harness."""
+"""Tests for the RACT harness."""
 
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from rootact.harness import (
+from ract.harness import (
     Harness,
     _build_retrieval_adapter,
     _context_relevance,
     _curate_context,
     _load_config,
 )
-from rootact.rooted import Rooted
-from rootact.skills_registry import SkillRegistry
-from rootact.coverage_delta import CoverageSnapshot
+from ract.rooted import Rooted
+from ract.skills_registry import SkillRegistry
+from ract.coverage_delta import CoverageSnapshot
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def test_harness_runs_intent_end_to_end(tmp_project):
         "prompts_dir": "prompts",
     }
 
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     config_path.write_text(
         "\n".join(f"{k}: {v}" for k, v in config.items()) if False else "",
         encoding="utf-8",
@@ -103,13 +103,13 @@ def test_harness_includes_curated_context(tmp_project):
         "prompts_dir": "prompts",
         "context_budget_tokens": 200,
     }
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     # Create a source file the intent explicitly names.
-    src_dir = tmp_project / "src" / "rootact"
+    src_dir = tmp_project / "src" / "ract"
     src_dir.mkdir(parents=True)
     (src_dir / "widget.py").write_text("def widget(): pass\n", encoding="utf-8")
 
@@ -165,7 +165,7 @@ def test_harness_rejects_plan_missing_assumption(tmp_project):
         },
         "prompts_dir": "prompts",
     }
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -206,7 +206,7 @@ def test_harness_rejects_plan_with_empty_steps(tmp_project):
         },
         "prompts_dir": "prompts",
     }
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -248,7 +248,7 @@ def test_harness_rejects_plan_with_dependency_cycle(tmp_project):
         },
         "prompts_dir": "prompts",
     }
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -292,7 +292,7 @@ def test_harness_uses_configured_skill(tmp_project):
         "prompts_dir": "prompts",
         "skill": "test_skill",
     }
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -301,7 +301,7 @@ def test_harness_uses_configured_skill(tmp_project):
     assert harness_rooted.is_ok(), harness_rooted.error
     harness = harness_rooted.unwrap()
 
-    SkillRegistry(tmp_project / ".rootact").register(
+    SkillRegistry(tmp_project / ".ract").register(
         "test_skill", "Focus on $intent for project $project_name."
     )
 
@@ -348,7 +348,7 @@ def test_harness_git_mode_commits_artifacts(tmp_project):
         "prompts_dir": "prompts",
         "git_mode": True,
     }
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -395,7 +395,7 @@ def test_harness_git_mode_commits_artifacts(tmp_project):
     assert any(Path(p).name == "foo.py" for p in committed)
 
 
-from rootact.retrieval_adapter import KeywordRetrievalAdapter, WebSearchAdapter
+from ract.retrieval_adapter import KeywordRetrievalAdapter, WebSearchAdapter
 
 
 def test_build_retrieval_adapter_keyword(tmp_project):
@@ -428,12 +428,12 @@ def test_harness_includes_retrieval_block(tmp_project):
         "prompts_dir": "prompts",
         "retrieval": {"adapter": "keyword", "top_k": 5},
     }
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    src_dir = tmp_project / "src" / "rootact"
+    src_dir = tmp_project / "src" / "ract"
     src_dir.mkdir(parents=True)
     (src_dir / "retrieval_target.py").write_text(
         "def find_me(): pass\n", encoding="utf-8"
@@ -478,7 +478,7 @@ def test_harness_includes_retrieval_block(tmp_project):
 
 
 def test_harness_from_config_uses_bundled_prompt_when_project_prompt_missing(tmp_path):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(
         "project:\n  name: test\n"
         "manager_provider: local\n"
@@ -492,7 +492,7 @@ def test_harness_from_config_uses_bundled_prompt_when_project_prompt_missing(tmp
     harness_rooted = Harness.from_config_path(config_path)
     assert harness_rooted.is_ok(), harness_rooted.error
     harness = harness_rooted.unwrap()
-    assert "RootAct Core Manager" in harness.manager.system_prompt
+    assert "RACT Core Manager" in harness.manager.system_prompt
 
 
 def test_load_config_missing_file(tmp_path):
@@ -556,14 +556,14 @@ def test_curate_context_budget_too_small_for_overhead(tmp_path):
 
 
 def test_harness_from_config_load_failure(tmp_path):
-    missing = tmp_path / "rootact.yaml"
+    missing = tmp_path / "ract.yaml"
     result = Harness.from_config_path(missing)
     assert not result.is_ok()
     assert "Configuration file not found" in result.error
 
 
 def test_harness_from_config_bad_manager_provider(tmp_path):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(
         "manager_provider: missing\nproviders: {}\n", encoding="utf-8"
     )
@@ -573,7 +573,7 @@ def test_harness_from_config_bad_manager_provider(tmp_path):
 
 
 def test_harness_from_config_manager_prompt_read_failure(tmp_path, monkeypatch):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(
         "manager_provider: local\n"
         "providers:\n"
@@ -593,7 +593,7 @@ def test_harness_from_config_manager_prompt_read_failure(tmp_path, monkeypatch):
             error="prompt read failed",
         )
 
-    monkeypatch.setattr("rootact.manager.Manager.from_path", failing_from_path)
+    monkeypatch.setattr("ract.manager.Manager.from_path", failing_from_path)
     result = Harness.from_config_path(config_path)
     assert not result.is_ok()
     assert "prompt read failed" in result.error
@@ -627,7 +627,7 @@ def test_harness_from_config_empty_mcp_registry_keeps_tools_desc_empty(tmp_proje
     }
     import yaml
 
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     harness_rooted = Harness.from_config_path(config_path)
@@ -653,7 +653,7 @@ def test_harness_from_config_populates_tools_desc_with_mcp_tools(
     }
     import yaml
 
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     fake_registry = MagicMock()
@@ -667,7 +667,7 @@ def test_harness_from_config_populates_tools_desc_with_mcp_tools(
     def fake_from_config(_config):
         return fake_registry
 
-    monkeypatch.setattr("rootact.harness.McpToolRegistry.from_config", fake_from_config)
+    monkeypatch.setattr("ract.harness.McpToolRegistry.from_config", fake_from_config)
 
     harness_rooted = Harness.from_config_path(config_path)
     assert harness_rooted.is_ok(), harness_rooted.error
@@ -692,7 +692,7 @@ def _build_harness(tmp_project, config_extra=None):
         config.update(config_extra)
     import yaml
 
-    config_path = tmp_project / "rootact.yaml"
+    config_path = tmp_project / "ract.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     harness_rooted = Harness.from_config_path(config_path)
     assert harness_rooted.is_ok(), harness_rooted.error
@@ -741,7 +741,7 @@ def test_coverage_gate_records_delta_in_report(tmp_project, monkeypatch):
         )
 
     monkeypatch.setattr(
-        "rootact.harness.coverage_gate",
+        "ract.harness.coverage_gate",
         lambda *_args, **_kwargs: Rooted(
             value=FakeDelta(),
             assumption="coverage gate ok",
@@ -777,7 +777,7 @@ def test_coverage_gate_hard_fail_returns_error(tmp_project, monkeypatch):
         )
 
     monkeypatch.setattr(
-        "rootact.harness.coverage_gate",
+        "ract.harness.coverage_gate",
         lambda *_args, **_kwargs: Rooted(
             value=FakeDelta(),
             assumption="coverage gate ok",
@@ -806,7 +806,7 @@ def test_mutation_gate_records_score_in_report(tmp_project, monkeypatch):
         total = 50
 
     monkeypatch.setattr(
-        "rootact.harness.run_mutation_tests",
+        "ract.harness.run_mutation_tests",
         lambda *_args, **_kwargs: Rooted(
             value=FakeMutationReport(),
             assumption="mutation gate ok",
@@ -844,7 +844,7 @@ def test_mutation_gate_hard_fail_when_below_floor(tmp_project, monkeypatch):
         total = 50
 
     monkeypatch.setattr(
-        "rootact.harness.run_mutation_tests",
+        "ract.harness.run_mutation_tests",
         lambda *_args, **_kwargs: Rooted(
             value=FakeMutationReport(),
             assumption="mutation gate ok",
@@ -865,12 +865,12 @@ def test_per_file_mutation_gate_records_scores(tmp_project, monkeypatch):
             "mutation_gate": {
                 "enabled": True,
                 "hard_fail": True,
-                "per_file": {"src/rootact/widget.py": 30.0},
+                "per_file": {"src/ract/widget.py": 30.0},
             }
         },
     )
     _fake_plan_and_step(harness)
-    src_dir = tmp_project / "src" / "rootact"
+    src_dir = tmp_project / "src" / "ract"
     src_dir.mkdir(parents=True)
     (src_dir / "widget.py").write_text("def widget(): pass\n", encoding="utf-8")
 
@@ -901,18 +901,18 @@ def test_per_file_mutation_gate_records_scores(tmp_project, monkeypatch):
             provenance=["fake_runner"],
         )
 
-    monkeypatch.setattr("rootact.harness.run_mutation_tests", fake_run)
+    monkeypatch.setattr("ract.harness.run_mutation_tests", fake_run)
 
     report_rooted = harness.run("write tests")
     assert report_rooted.is_ok(), report_rooted.error
     report = report_rooted.unwrap()
     assert "mutation_score_per_file" in report.artifacts
     per_file = report.artifacts["mutation_score_per_file"]
-    assert "src/rootact/widget.py" in per_file
-    assert per_file["src/rootact/widget.py"]["score"] == 42.0
-    assert per_file["src/rootact/widget.py"]["min_score"] == 30.0
+    assert "src/ract/widget.py" in per_file
+    assert per_file["src/ract/widget.py"]["score"] == 42.0
+    assert per_file["src/ract/widget.py"]["min_score"] == 30.0
     assert calls == [
-        ("src/rootact/widget.py", "python3 -m pytest tests/test_widget.py -q")
+        ("src/ract/widget.py", "python3 -m pytest tests/test_widget.py -q")
     ]
 
 
@@ -923,12 +923,12 @@ def test_per_file_mutation_gate_hard_fail_when_below_floor(tmp_project, monkeypa
             "mutation_gate": {
                 "enabled": True,
                 "hard_fail": True,
-                "per_file": {"src/rootact/widget.py": 50.0},
+                "per_file": {"src/ract/widget.py": 50.0},
             }
         },
     )
     _fake_plan_and_step(harness)
-    src_dir = tmp_project / "src" / "rootact"
+    src_dir = tmp_project / "src" / "ract"
     src_dir.mkdir(parents=True)
     (src_dir / "widget.py").write_text("def widget(): pass\n", encoding="utf-8")
 
@@ -941,7 +941,7 @@ def test_per_file_mutation_gate_hard_fail_when_below_floor(tmp_project, monkeypa
         total = 50
 
     monkeypatch.setattr(
-        "rootact.harness.run_mutation_tests",
+        "ract.harness.run_mutation_tests",
         lambda *_args, **_kwargs: Rooted(
             value=FakeMutationReport(),
             assumption="mutation gate ok",
@@ -952,7 +952,7 @@ def test_per_file_mutation_gate_hard_fail_when_below_floor(tmp_project, monkeypa
 
     report_rooted = harness.run("write tests")
     assert not report_rooted.is_ok()
-    assert "src/rootact/widget.py" in (report_rooted.error or "")
+    assert "src/ract/widget.py" in (report_rooted.error or "")
     assert "42.00%" in (report_rooted.error or "")
 
 
@@ -963,7 +963,7 @@ def test_per_file_mutation_gate_missing_target_hard_fails(tmp_project, monkeypat
             "mutation_gate": {
                 "enabled": True,
                 "hard_fail": True,
-                "per_file": {"src/rootact/missing.py": 30.0},
+                "per_file": {"src/ract/missing.py": 30.0},
             }
         },
     )
@@ -971,7 +971,7 @@ def test_per_file_mutation_gate_missing_target_hard_fails(tmp_project, monkeypat
 
     report_rooted = harness.run("write tests")
     assert not report_rooted.is_ok()
-    assert "src/rootact/missing.py" in (report_rooted.error or "")
+    assert "src/ract/missing.py" in (report_rooted.error or "")
 
 
 # RACT 0.1.1 - Trust and tooling

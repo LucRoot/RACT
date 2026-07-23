@@ -14,7 +14,7 @@ import sys
 
 
 def test_cli_diff_apply_json_reports_applied(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     target = tmp_path / "src" / "foo.txt"
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -29,7 +29,7 @@ def test_cli_diff_apply_json_reports_applied(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "diff",
             "apply",
             "--patch",
@@ -48,7 +48,7 @@ def test_cli_diff_apply_json_reports_applied(tmp_path):
 
 
 def test_cli_diff_apply_json_reports_failed(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     target = tmp_path / "src" / "foo.txt"
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -63,7 +63,7 @@ def test_cli_diff_apply_json_reports_failed(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "diff",
             "apply",
             "--patch",

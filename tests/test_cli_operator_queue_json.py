@@ -22,7 +22,7 @@ def test_cli_operator_queue_list_json_reports_pending_request(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "operator-queue",
             "raise",
             "--question",
@@ -39,7 +39,7 @@ def test_cli_operator_queue_list_json_reports_pending_request(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "operator-queue",
             "list",
             "--json",
@@ -63,7 +63,7 @@ def test_cli_operator_queue_answer_json_reports_recorded_answer(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "operator-queue",
             "raise",
             "--question",
@@ -81,7 +81,7 @@ def test_cli_operator_queue_answer_json_reports_recorded_answer(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "operator-queue",
             "answer",
             "--id",

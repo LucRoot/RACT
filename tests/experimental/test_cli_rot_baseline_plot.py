@@ -18,7 +18,7 @@ def test_rot_baseline_plot_missing_history(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "rot",
             "baseline",
             "--history",
@@ -40,7 +40,7 @@ def test_rot_baseline_plot_empty_history(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "rot",
             "baseline",
             "--history",
@@ -70,7 +70,7 @@ def test_rot_baseline_plot_renders_chart(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "rot",
             "baseline",
             "--history",
@@ -100,7 +100,7 @@ def test_rot_baseline_plot_output_file(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "rot",
             "baseline",
             "--history",

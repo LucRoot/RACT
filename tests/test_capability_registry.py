@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 from unittest.mock import MagicMock
 
-from rootact.capability_registry import CapabilityRegistry
+from ract.capability_registry import CapabilityRegistry
 
 
 def _adapter(name: str) -> MagicMock:

@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.error_mask_detector import ErrorMaskDetector, error_mask_violations
+from ract.error_mask_detector import ErrorMaskDetector, error_mask_violations
 
 
 def test_detects_bare_except():

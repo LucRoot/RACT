@@ -34,7 +34,7 @@ def test_cli_marketplace_list_json_reads_catalog(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "skills",
             "marketplace",
             "list",

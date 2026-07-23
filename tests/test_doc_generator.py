@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.doc_generator import DocGenerator
+from ract.doc_generator import DocGenerator
 
 
 SAMPLE_MODULE = '''\

@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from rootact.cli_toggles import main, parse_cli_args
+from ract.cli_toggles import main, parse_cli_args
 
 
 def _set_home(tmp_path, monkeypatch):
@@ -52,7 +52,7 @@ def test_main_persists_yolo_auto_reload_session(tmp_path, monkeypatch) -> None:
     _set_home(tmp_path, monkeypatch)
     result = main(["--yolo", "--auto", "--reload", "--session", "xyz"])
     assert result == 0
-    saved = json.loads((tmp_path / ".rootact" / "session.json").read_text())
+    saved = json.loads((tmp_path / ".ract" / "session.json").read_text())
     assert saved["yolo"] is True
     assert saved["auto"] is True
     assert saved["reload"] is True
@@ -61,7 +61,7 @@ def test_main_persists_yolo_auto_reload_session(tmp_path, monkeypatch) -> None:
 
 def test_main_resume_loads_existing_session(tmp_path, monkeypatch) -> None:
     _set_home(tmp_path, monkeypatch)
-    session_path = tmp_path / ".rootact" / "session.json"
+    session_path = tmp_path / ".ract" / "session.json"
     session_path.parent.mkdir(parents=True, exist_ok=True)
     session_path.write_text(
         json.dumps(

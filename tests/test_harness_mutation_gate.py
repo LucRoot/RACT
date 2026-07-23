@@ -12,11 +12,11 @@ from unittest.mock import MagicMock
 
 import yaml
 
-from rootact.executor import ExecutionReport, StepResult
-from rootact.harness import Harness
-from rootact.manager import Plan, Step
-from rootact.mutation_runner import MutationReport
-from rootact.rooted import Rooted
+from ract.executor import ExecutionReport, StepResult
+from ract.harness import Harness
+from ract.manager import Plan, Step
+from ract.mutation_runner import MutationReport
+from ract.rooted import Rooted
 
 
 def _make_harness_config(mutation_gate_cfg):
@@ -39,7 +39,7 @@ def _bootstrap_harness(tmp_path, config):
     (tmp_path / "prompts" / "manager.txt").write_text(
         "You are the manager.", encoding="utf-8"
     )
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
     harness_rooted = Harness.from_config_path(config_path)
@@ -78,7 +78,7 @@ def test_harness_mutation_gate_disabled_by_default(tmp_path, monkeypatch):
 
     called = []
     monkeypatch.setattr(
-        "rootact.harness.run_mutation_tests",
+        "ract.harness.run_mutation_tests",
         lambda *_args, **_kwargs: (
             called.append(True)
             or Rooted(
@@ -102,7 +102,7 @@ def test_harness_mutation_gate_hard_fail_on_low_score(tmp_path, monkeypatch):
     harness, _fake_report = _bootstrap_harness(tmp_path, config)
 
     monkeypatch.setattr(
-        "rootact.harness.run_mutation_tests",
+        "ract.harness.run_mutation_tests",
         lambda *_args, **_kwargs: Rooted(
             value=MutationReport(killed=70, survived=30, timeout=0, error=0),
             assumption="ok",
@@ -125,7 +125,7 @@ def test_harness_mutation_gate_soft_fail_attaches_artifact(tmp_path, monkeypatch
     harness, _fake_report = _bootstrap_harness(tmp_path, config)
 
     monkeypatch.setattr(
-        "rootact.harness.run_mutation_tests",
+        "ract.harness.run_mutation_tests",
         lambda *_args, **_kwargs: Rooted(
             value=MutationReport(killed=70, survived=30, timeout=0, error=0),
             assumption="ok",
@@ -152,7 +152,7 @@ def test_harness_mutation_gate_pass_attaches_artifact(tmp_path, monkeypatch):
     harness, _fake_report = _bootstrap_harness(tmp_path, config)
 
     monkeypatch.setattr(
-        "rootact.harness.run_mutation_tests",
+        "ract.harness.run_mutation_tests",
         lambda *_args, **_kwargs: Rooted(
             value=MutationReport(killed=80, survived=20, timeout=0, error=0),
             assumption="ok",
@@ -174,7 +174,7 @@ def test_harness_mutation_gate_run_error_hard_fail(tmp_path, monkeypatch):
     harness, _fake_report = _bootstrap_harness(tmp_path, config)
 
     monkeypatch.setattr(
-        "rootact.harness.run_mutation_tests",
+        "ract.harness.run_mutation_tests",
         lambda *_args, **_kwargs: Rooted(
             value=None,
             assumption="script exists",
@@ -197,7 +197,7 @@ def test_harness_mutation_gate_run_error_soft_fail(tmp_path, monkeypatch):
     harness, _fake_report = _bootstrap_harness(tmp_path, config)
 
     monkeypatch.setattr(
-        "rootact.harness.run_mutation_tests",
+        "ract.harness.run_mutation_tests",
         lambda *_args, **_kwargs: Rooted(
             value=None,
             assumption="script exists",

@@ -7,12 +7,12 @@ import sys
 
 
 def test_self_audit_cli_verb(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("provider: local\n", encoding="utf-8")
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "self-audit",
         "--json",
         "--config",

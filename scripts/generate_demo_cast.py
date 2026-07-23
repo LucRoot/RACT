@@ -32,7 +32,7 @@ WIDTH = 100
 HEIGHT = 30
 
 DEMO_FILES = {
-    "rootact.yaml": """\
+    "ract.yaml": """\
 project:
   name: DemoApp
 manager_provider: local
@@ -63,11 +63,11 @@ def split_tokens(txt):
 }
 
 COMMANDS = [
-    ("rootact --welcome", None),
+    ("ract --welcome", None),
     ("cd demo-app", None),
-    ("rootact doctor", None),
-    ("rootact auction list", None),
-    ("rootact consolidate scan", None),
+    ("ract doctor", None),
+    ("ract auction list", None),
+    ("ract consolidate scan", None),
 ]
 
 
@@ -165,7 +165,7 @@ def main() -> int:
             add_output(output.rstrip("\n") + "\r\n", dt=output_delay)
 
         add_output(
-            "\r\nDone. Run `rootact handshakes` to approve the merge.\r\n",
+            "\r\nDone. Run `ract handshakes` to approve the merge.\r\n",
             dt=line_delay,
         )
 

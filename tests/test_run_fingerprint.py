@@ -3,7 +3,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.run_fingerprint import diff_fingerprints, fingerprint_run
+from ract.run_fingerprint import diff_fingerprints, fingerprint_run
 
 
 def test_fingerprint_run_is_deterministic():

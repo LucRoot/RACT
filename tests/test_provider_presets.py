@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.provider_presets import get_preset, list_presets
+from ract.provider_presets import get_preset, list_presets
 
 
 def test_list_presets_includes_local():

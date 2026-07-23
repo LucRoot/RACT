@@ -8,9 +8,9 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.manager import Plan, Step
-from rootact.planner import Planner
-from rootact.rooted import Rooted
+from ract.manager import Plan, Step
+from ract.planner import Planner
+from ract.rooted import Rooted
 
 
 class FakeManager:

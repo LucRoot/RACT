@@ -5,7 +5,7 @@ __ract_name__ = "RACT"
 
 import pytest
 
-from rootact.safety_guardrails import SafetyGuardrail
+from ract.safety_guardrails import SafetyGuardrail
 
 _ROOT_KNOT = object()
 

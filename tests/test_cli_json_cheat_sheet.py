@@ -22,7 +22,7 @@ def _extract_commands(md_path: Path):
         if not line.startswith("| `ract "):
             continue
         # Extract the backtick-quoted command in the first cell.
-        m = re.search(r"`((?:ract|rootact)\s+[^`]+)`", line)
+        m = re.search(r"`((?:ract|ract)\s+[^`]+)`", line)
         if not m:
             continue
         commands.append(m.group(1))
@@ -31,7 +31,7 @@ def _extract_commands(md_path: Path):
 
 def _run(args):
     return subprocess.run(
-        [sys.executable, "-m", "rootact.cli", *args],
+        [sys.executable, "-m", "ract.cli", *args],
         capture_output=True,
         text=True,
         check=False,
@@ -50,7 +50,7 @@ def test_cli_json_cheat_sheet_commands_exist():
     assert commands
     failures = []
     for cmd in commands:
-        tokens = cmd.split()[1:]  # drop the 'ract'/'rootact' prefix
+        tokens = cmd.split()[1:]  # drop the 'ract'/'ract' prefix
         # Try the command's own help to confirm it is wired.
         result = _run([*tokens, "--help"])
         output = result.stdout + result.stderr

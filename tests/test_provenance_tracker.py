@@ -6,7 +6,7 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
 import unittest
-from rootact.provenance_tracker import Artifact, ProvenanceTracker
+from ract.provenance_tracker import Artifact, ProvenanceTracker
 
 
 class TestProvenanceTracker(unittest.TestCase):

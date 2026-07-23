@@ -29,5 +29,5 @@ Provider health is checked with a lightweight ping; unhealthy providers are skip
 
 ## References
 
-- `src/rootact/providers/router.py`
-- `src/rootact/capability_registry.py`
+- `src/ract/providers/router.py`
+- `src/ract/capability_registry.py`

@@ -11,10 +11,10 @@ _ROOT_KNOT = object()
 from pathlib import Path
 from unittest.mock import patch
 
-from rootact.cli import main
-from rootact.legacy_whisperer import LegacyWhisperer
-from rootact.providers.base import ProviderAdapter
-from rootact.rooted import Rooted
+from ract.cli import main
+from ract.legacy_whisperer import LegacyWhisperer
+from ract.providers.base import ProviderAdapter
+from ract.rooted import Rooted
 
 
 class FakeProvider(ProviderAdapter):
@@ -128,7 +128,7 @@ def test_brief_degrades_without_git(tmp_path: Path):
 
 
 def test_cli_whisper(capsys, tmp_path: Path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: test\nmanager_provider: fake\nproviders:\n  fake:\n"
         "    adapter: local_http\n    url: http://127.0.0.1:1/v1\n    model: fake\n",
@@ -143,7 +143,7 @@ def test_cli_whisper(capsys, tmp_path: Path):
             provenance=["fake"],
         )
 
-    with patch("rootact.cli.LegacyWhisperer") as MockWhisperer:
+    with patch("ract.cli.LegacyWhisperer") as MockWhisperer:
         instance = MockWhisperer.return_value
         instance.brief = _fake_brief
         code = main(["whisper", "--intent", "add logging", "--config", str(config)])

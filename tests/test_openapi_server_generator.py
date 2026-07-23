@@ -13,7 +13,7 @@ import json
 import pytest
 import yaml
 
-from rootact.openapi_server_generator import OpenApiServerGenerator
+from ract.openapi_server_generator import OpenApiServerGenerator
 
 
 SIMPLE_SPEC = {

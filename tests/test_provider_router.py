@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 from unittest.mock import MagicMock
 
-from rootact.providers.router import ProviderRouter
+from ract.providers.router import ProviderRouter
 
 
 def _mock_adapter(name: str) -> MagicMock:
@@ -27,7 +27,7 @@ def _make_router(configs: dict, adapters: dict | None = None) -> ProviderRouter:
 
     def fake_get_adapter(slot_id: str):
         if slot_id in adapters:
-            from rootact.rooted import Rooted
+            from ract.rooted import Rooted
 
             return Rooted(
                 value=adapters[slot_id],

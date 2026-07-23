@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from rootact.handshake_registry import HandshakeItem, HandshakeRegistry
+from ract.handshake_registry import HandshakeItem, HandshakeRegistry
 
 
 def test_add_stores_metadata(tmp_path):
@@ -37,7 +37,7 @@ def test_none_metadata_not_serialized(tmp_path):
     registry = HandshakeRegistry(tmp_path)
     registry.add("plain-0001", "desc", "accept")
     raw = json.loads(
-        (tmp_path / ".rootact" / "handshakes.json").read_text(encoding="utf-8")
+        (tmp_path / ".ract" / "handshakes.json").read_text(encoding="utf-8")
     )
     assert "metadata" not in raw[0]
 

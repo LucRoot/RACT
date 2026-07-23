@@ -14,7 +14,7 @@ import sys
 
 
 def test_cli_retrieval_search_json_finds_query_term(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     src = tmp_path / "src"
     src.mkdir()
@@ -26,7 +26,7 @@ def test_cli_retrieval_search_json_finds_query_term(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "retrieval",
             "search",
             "greeting",

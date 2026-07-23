@@ -6,11 +6,13 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.complexity_calibrator import ComplexityCalibrator, CalibrationRecord
-from rootact.complexity_router import ComplexityRouter
+from ract.complexity_calibrator import ComplexityCalibrator, CalibrationRecord
+from ract.complexity_router import ComplexityRouter
 
 
-def _record(score: float, cost: float, tokens: float = 0.0, latency: float = 0.0) -> dict:
+def _record(
+    score: float, cost: float, tokens: float = 0.0, latency: float = 0.0
+) -> dict:
     return {
         "complexity_score": score,
         "cost": cost,
@@ -58,7 +60,9 @@ def test_clean_separation_finds_expected_boundaries():
 
 
 def test_cost_proxy_prefers_explicit_cost():
-    rec = CalibrationRecord.from_dict({"cost": 10.0, "tokens": 100.0, "latency_ms": 1000.0})
+    rec = CalibrationRecord.from_dict(
+        {"cost": 10.0, "tokens": 100.0, "latency_ms": 1000.0}
+    )
     assert ComplexityCalibrator._cost_proxy(rec) == 10.0
 
 

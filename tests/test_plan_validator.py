@@ -3,8 +3,8 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.plan_validator import PlanValidator, ValidationResult
-from rootact.manager import Plan, Step
+from ract.plan_validator import PlanValidator, ValidationResult
+from ract.manager import Plan, Step
 
 
 def test_validate_valid_plan():
@@ -143,7 +143,7 @@ def test_validate_schema_rejects_missing_version():
 
 
 def test_migrate_plan_v090_to_v100():
-    from rootact.plan_validator import migrate_plan
+    from ract.plan_validator import migrate_plan
 
     data = {
         "schema_version": "0.9.0",
@@ -166,14 +166,14 @@ def test_migrate_plan_v090_to_v100():
 
 
 def test_migrate_plan_unsupported_returns_none():
-    from rootact.plan_validator import migrate_plan
+    from ract.plan_validator import migrate_plan
 
     data = _plan_dict("0.8.0")
     assert migrate_plan(data, "1.0.0") is None
 
 
 def test_migrate_plan_noop_when_already_target():
-    from rootact.plan_validator import migrate_plan
+    from ract.plan_validator import migrate_plan
 
     data = _plan_dict("1.0.0")
     migrated = migrate_plan(data, "1.0.0")

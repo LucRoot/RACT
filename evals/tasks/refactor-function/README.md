@@ -11,5 +11,5 @@ Split the monolithic `process_order` function in `src/orders.py` into three test
 ## Run
 
 ```bash
-python -m rootact.eval.runner evals/tasks/refactor-function --provider mock
+python -m ract.eval.runner evals/tasks/refactor-function --provider mock
 ```

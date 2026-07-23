@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 from pathlib import Path
 
-from rootact.mutation_runner import (
+from ract.mutation_runner import (
     MutationReport,
     _parse_mutmut_results,
     run_mutation_tests,
@@ -138,7 +138,7 @@ def test_report_str_with_score():
 
 def test_resolve_runner_command_on_windows(monkeypatch):
     monkeypatch.setattr("sys.platform", "win32")
-    from rootact.mutation_runner import _resolve_runner_command
+    from ract.mutation_runner import _resolve_runner_command
 
     cmd = _resolve_runner_command(Path("/tmp/script.sh"))
     assert cmd[0] == "wsl"
@@ -146,7 +146,7 @@ def test_resolve_runner_command_on_windows(monkeypatch):
 
 def test_resolve_runner_command_uses_provided_distro(monkeypatch):
     monkeypatch.setattr("sys.platform", "win32")
-    from rootact.mutation_runner import _resolve_runner_command
+    from ract.mutation_runner import _resolve_runner_command
 
     script = Path("C:/tmp/script.sh")
     cmd = _resolve_runner_command(script, wsl_distro="Ubuntu-24.04")
@@ -155,7 +155,7 @@ def test_resolve_runner_command_uses_provided_distro(monkeypatch):
 
 def test_detect_wsl_distro_prefers_env(monkeypatch):
     monkeypatch.setenv("RACT_WSL_DISTRO", "Custom-Distro")
-    from rootact.mutation_runner import _detect_wsl_distro
+    from ract.mutation_runner import _detect_wsl_distro
 
     assert _detect_wsl_distro() == "Custom-Distro"
 
@@ -173,7 +173,7 @@ def test_detect_wsl_distro_parses_running_list(monkeypatch):
         )
 
     monkeypatch.setattr("subprocess.run", _fake_run)
-    from rootact.mutation_runner import _detect_wsl_distro
+    from ract.mutation_runner import _detect_wsl_distro
 
     assert _detect_wsl_distro() == "Ubuntu-24.04"
 
@@ -191,7 +191,7 @@ def test_detect_wsl_distro_skips_docker(monkeypatch):
         )
 
     monkeypatch.setattr("subprocess.run", _fake_run)
-    from rootact.mutation_runner import _detect_wsl_distro
+    from ract.mutation_runner import _detect_wsl_distro
 
     assert _detect_wsl_distro() is None
 
@@ -203,13 +203,13 @@ def test_detect_wsl_distro_returns_none_on_failure(monkeypatch):
         raise FileNotFoundError("wsl")
 
     monkeypatch.setattr("subprocess.run", _fake_run)
-    from rootact.mutation_runner import _detect_wsl_distro
+    from ract.mutation_runner import _detect_wsl_distro
 
     assert _detect_wsl_distro() is None
 
 
 def test_to_wsl_path_converts_windows_absolute():
-    from rootact.mutation_runner import _to_wsl_path
+    from ract.mutation_runner import _to_wsl_path
 
     assert (
         _to_wsl_path(Path("C:/Users/rootl/ract-work/scripts/run.sh"))
@@ -218,7 +218,7 @@ def test_to_wsl_path_converts_windows_absolute():
 
 
 def test_to_wsl_path_converts_windows_backslash():
-    from rootact.mutation_runner import _to_wsl_path
+    from ract.mutation_runner import _to_wsl_path
 
     assert (
         _to_wsl_path(Path("C:\\Users\\rootl\\ract-work\\scripts\\run.sh"))
@@ -227,7 +227,7 @@ def test_to_wsl_path_converts_windows_backslash():
 
 
 def test_to_wsl_path_leaves_unix_path_unchanged():
-    from rootact.mutation_runner import _to_wsl_path
+    from ract.mutation_runner import _to_wsl_path
 
     assert (
         _to_wsl_path(Path("/home/user/project/run.sh")) == "/home/user/project/run.sh"

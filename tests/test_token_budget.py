@@ -5,7 +5,7 @@ __ract_name__ = "RACT"
 
 import pytest
 
-from rootact.token_budget import TokenBudget
+from ract.token_budget import TokenBudget
 
 _ROOT_KNOT = object()
 

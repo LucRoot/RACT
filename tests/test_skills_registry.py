@@ -7,7 +7,7 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.skills_registry import SkillRegistry
+from ract.skills_registry import SkillRegistry
 
 
 def test_register_and_load(tmp_path):

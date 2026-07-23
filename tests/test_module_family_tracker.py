@@ -12,8 +12,8 @@ import json
 
 import pytest
 
-from rootact.loop_planner import Milestone
-from rootact.module_family_tracker import (
+from ract.loop_planner import Milestone
+from ract.module_family_tracker import (
     build_diversity_prompt,
     classify_milestone,
     detect_tunneling,
@@ -76,7 +76,7 @@ def test_build_diversity_prompt_includes_alternative_cases(tmp_path):
     ]
     catalog.write_text("\n".join(json.dumps(c) for c in cases), encoding="utf-8")
 
-    from rootact.module_family_tracker import TunnelingSignal
+    from ract.module_family_tracker import TunnelingSignal
 
     signal = TunnelingSignal(family="test-fixtures", consecutive_count=3, limit=3)
     prompt = build_diversity_prompt(signal, tmp_path, sample_count=4)

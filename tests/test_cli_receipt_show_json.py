@@ -29,7 +29,7 @@ def test_cli_receipt_show_json_outputs_receipt_fields(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "receipt",
             "show",
             str(receipt_path),

@@ -5,8 +5,8 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from rootact.core.assumption import Assumed, AssumptionState, Evidence, Violation
-from rootact.core.assumption_registry import AssumptionRegistry
+from ract.core.assumption import Assumed, AssumptionState, Evidence, Violation
+from ract.core.assumption_registry import AssumptionRegistry
 
 
 @settings(max_examples=30, deadline=None)
@@ -14,7 +14,7 @@ from rootact.core.assumption_registry import AssumptionRegistry
 def test_violating_root_marks_whole_chain_violated(chain_length: int) -> None:
     """Violating the root of a linear dependency chain marks every node violated."""
     registry = AssumptionRegistry()
-    from rootact.core.types import AssumptionId
+    from ract.core.types import AssumptionId
 
     prev_id: AssumptionId | None = None
     ids: list[AssumptionId] = []

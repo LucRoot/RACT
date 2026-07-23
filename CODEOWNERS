@@ -6,7 +6,7 @@
 # Core architectural changes (ADRs, threat model, invariants) require owner review.
 docs/ADRs/ @LucRoot
 docs/THREAT_MODEL.md @LucRoot
-src/rootact/core/ @LucRoot
+src/ract/core/ @LucRoot
 
 # Eval changes should keep reproducibility intact.
 evals/ @LucRoot

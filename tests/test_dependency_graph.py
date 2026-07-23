@@ -5,8 +5,8 @@ _ROOT_KNOT = object()
 
 import json
 
-from rootact.dependency_graph import DependencyGraph
-from rootact.manager import Plan, Step
+from ract.dependency_graph import DependencyGraph
+from ract.manager import Plan, Step
 
 
 def test_dependency_graph_infers_dependencies_from_action_text():

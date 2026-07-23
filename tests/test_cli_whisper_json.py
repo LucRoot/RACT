@@ -19,7 +19,7 @@ def test_cli_whisper_json_outputs_brief(tmp_path):
         "import sys\n_ = sys.stdin.read()\nprint('Legacy Whisperer brief content.')\n",
         encoding="utf-8",
     )
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n"
         "  name: test\n"
@@ -37,7 +37,7 @@ def test_cli_whisper_json_outputs_brief(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "whisper",
             "--intent",
             "refactor module",

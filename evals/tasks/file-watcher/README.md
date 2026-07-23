@@ -11,5 +11,5 @@ Implement a file watcher that rebuilds a static site when `src/` changes.
 ## Run
 
 ```bash
-python -m rootact.eval.runner evals/tasks/file-watcher --provider mock
+python -m ract.eval.runner evals/tasks/file-watcher --provider mock
 ```

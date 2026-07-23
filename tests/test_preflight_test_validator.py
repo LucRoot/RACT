@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.preflight_test_validator import (
+from ract.preflight_test_validator import (
     PreflightIssue,
     validate_report_tests,
     validate_test_content,
@@ -56,8 +56,8 @@ def test_non_test_artifact_is_ignored():
 
 
 def test_validate_report_tests_filters_non_tests():
-    from rootact.executor import ExecutionReport, StepResult
-    from rootact.manager import Plan, Step
+    from ract.executor import ExecutionReport, StepResult
+    from ract.manager import Plan, Step
 
     step = Step(action="write", provider_hint="chat", expected_artifact="src/foo.py")
     report = ExecutionReport(
@@ -70,8 +70,8 @@ def test_validate_report_tests_filters_non_tests():
 
 
 def test_validate_report_tests_reports_test_issue():
-    from rootact.executor import ExecutionReport, StepResult
-    from rootact.manager import Plan, Step
+    from ract.executor import ExecutionReport, StepResult
+    from ract.manager import Plan, Step
 
     step = Step(
         action="write test", provider_hint="chat", expected_artifact="tests/test_foo.py"

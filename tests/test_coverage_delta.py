@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 import json
 
-from rootact.coverage_delta import (
+from ract.coverage_delta import (
     CoverageSnapshot,
     compute_delta,
     export_delta,
@@ -111,12 +111,12 @@ def test_gate_floor_breach_on_baseline(monkeypatch, tmp_path):
     )
 
     def _fake_run_snapshot(_project_dir, **kwargs):
-        from rootact.rooted import Rooted
+        from ract.rooted import Rooted
 
         return Rooted(value=low, assumption="mock", confidence=1.0)
 
     monkeypatch.setattr(
-        "rootact.coverage_delta.run_snapshot",
+        "ract.coverage_delta.run_snapshot",
         _fake_run_snapshot,
     )
     rooted = gate(tmp_path, min_percent=95.0)
@@ -134,7 +134,7 @@ def test_gate_per_file_floor_breach_on_baseline(monkeypatch, tmp_path):
         missing_lines=4,
         total_lines=100,
         per_file={
-            "src/rootact/core.py": CoverageSnapshot(
+            "src/ract/core.py": CoverageSnapshot(
                 percent_covered=70.0,
                 covered_lines=70,
                 missing_lines=30,
@@ -144,15 +144,15 @@ def test_gate_per_file_floor_breach_on_baseline(monkeypatch, tmp_path):
     )
 
     def _fake_run_snapshot(_project_dir, **kwargs):
-        from rootact.rooted import Rooted
+        from ract.rooted import Rooted
 
         return Rooted(value=snapshot, assumption="mock", confidence=1.0)
 
     monkeypatch.setattr(
-        "rootact.coverage_delta.run_snapshot",
+        "ract.coverage_delta.run_snapshot",
         _fake_run_snapshot,
     )
-    rooted = gate(tmp_path, per_file_min_percent={"src/rootact/core.py": 80.0})
+    rooted = gate(tmp_path, per_file_min_percent={"src/ract/core.py": 80.0})
     assert rooted.is_ok()
     delta = rooted.unwrap()
     assert delta.verdict == "regress"
@@ -170,15 +170,15 @@ def test_gate_per_file_missing_file_is_breach(monkeypatch, tmp_path):
     )
 
     def _fake_run_snapshot(_project_dir, **kwargs):
-        from rootact.rooted import Rooted
+        from ract.rooted import Rooted
 
         return Rooted(value=snapshot, assumption="mock", confidence=1.0)
 
     monkeypatch.setattr(
-        "rootact.coverage_delta.run_snapshot",
+        "ract.coverage_delta.run_snapshot",
         _fake_run_snapshot,
     )
-    rooted = gate(tmp_path, per_file_min_percent={"src/rootact/core.py": 80.0})
+    rooted = gate(tmp_path, per_file_min_percent={"src/ract/core.py": 80.0})
     assert rooted.is_ok()
     delta = rooted.unwrap()
     assert delta.verdict == "regress"
@@ -186,7 +186,7 @@ def test_gate_per_file_missing_file_is_breach(monkeypatch, tmp_path):
 
 
 def test_save_and_load_baseline_round_trip_with_per_file(tmp_path):
-    from rootact.coverage_delta import load_baseline, save_baseline
+    from ract.coverage_delta import load_baseline, save_baseline
 
     snapshot = CoverageSnapshot(
         percent_covered=91.0,
@@ -194,7 +194,7 @@ def test_save_and_load_baseline_round_trip_with_per_file(tmp_path):
         missing_lines=9,
         total_lines=100,
         per_file={
-            "src/rootact/core.py": CoverageSnapshot(
+            "src/ract/core.py": CoverageSnapshot(
                 percent_covered=95.0,
                 covered_lines=95,
                 missing_lines=5,
@@ -207,11 +207,11 @@ def test_save_and_load_baseline_round_trip_with_per_file(tmp_path):
     assert loaded is not None
     assert loaded.percent_covered == 91.0
     assert loaded.per_file is not None
-    assert loaded.per_file["src/rootact/core.py"].percent_covered == 95.0
+    assert loaded.per_file["src/ract/core.py"].percent_covered == 95.0
 
 
 def test_save_coverage_badge_writes_shields_json(tmp_path):
-    from rootact.coverage_delta import save_coverage_badge
+    from ract.coverage_delta import save_coverage_badge
 
     snapshot = CoverageSnapshot(
         percent_covered=91.2, covered_lines=912, missing_lines=88, total_lines=1000
@@ -226,7 +226,7 @@ def test_save_coverage_badge_writes_shields_json(tmp_path):
 
 
 def test_coverage_color_thresholds():
-    from rootact.coverage_delta import _coverage_color
+    from ract.coverage_delta import _coverage_color
 
     assert _coverage_color(95.0) == "brightgreen"
     assert _coverage_color(85.0) == "green"

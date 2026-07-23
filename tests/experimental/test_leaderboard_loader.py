@@ -3,7 +3,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.experimental.leaderboard_loader import load_receipts
+from ract.experimental.leaderboard_loader import load_receipts
 
 
 def test_load_receipts_loads_valid_json_files(tmp_path):

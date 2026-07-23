@@ -8,9 +8,9 @@ Add an optional, configurable provider router that categorizes work by complexit
 3. **High-cost frontier fallback** — only when both local and low-cost fail or the task is explicitly flagged as requiring frontier reasoning.
 
 ## Scope for this wave
-- A `ComplexityRouter` class in `src/rootact/providers/complexity_router.py`.
+- A `ComplexityRouter` class in `src/ract/providers/complexity_router.py`.
 - A public `score_complexity(intent: str, plan_steps: list[dict]) -> str` function returning `"low"`, `"medium"`, `"high"`, or `"frontier"`.
-- Configurable endpoint slots in `rootact.yaml` under `complexity_router:`:
+- Configurable endpoint slots in `ract.yaml` under `complexity_router:`:
   - `local`, `low_cost_cloud`, `high_cost_fallback`
   - Each slot has `base_url`, `model`, `adapter`, `timeout`, `max_tokens`, `cost_per_1k_tokens` (optional).
 - Route selection API: `select_endpoint(complexity: str, health_check: bool = True) -> dict`.
@@ -33,5 +33,5 @@ Add an optional, configurable provider router that categorizes work by complexit
 3. If all tiers fail, return an error with a clear message.
 
 ## Integration
-- `rootact_runner.run_rootact` may optionally accept `complexity_hint` and use the router.
+- `ract_runner.run_ract` may optionally accept `complexity_hint` and use the router.
 - Existing `ProviderRouter` remains untouched; `ComplexityRouter` is a higher-level orchestrator.

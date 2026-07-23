@@ -31,7 +31,7 @@ def test_cli_session_export_import_roundtrip(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "session",
             "export",
             "--session",
@@ -56,7 +56,7 @@ def test_cli_session_export_import_roundtrip(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "session",
             "import",
             "--input",

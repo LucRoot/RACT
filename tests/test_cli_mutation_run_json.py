@@ -14,7 +14,7 @@ import sys
 
 
 def test_cli_mutation_run_json_emits_json_or_fails_cleanly(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     script = tmp_path / "fake_mutation.sh"
     script.write_text(
@@ -26,7 +26,7 @@ def test_cli_mutation_run_json_emits_json_or_fails_cleanly(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "mutation",
             "run",
             "--json",

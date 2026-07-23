@@ -14,13 +14,13 @@ from unittest.mock import patch
 
 import httpx
 
-from rootact.mcp_adapter import (
+from ract.mcp_adapter import (
     McpToolResult,
     SseMcpClient,
     StdioMcpClient,
     health_check,
 )
-from rootact.rooted import Rooted
+from ract.rooted import Rooted
 
 
 def test_stdio_client_parses_tool_list():
@@ -31,7 +31,7 @@ def test_stdio_client_parses_tool_list():
         "result": {"tools": [{"name": "read_file", "description": "Read a file"}]},
     }
     with patch(
-        "rootact.mcp_adapter.subprocess.run",
+        "ract.mcp_adapter.subprocess.run",
         return_value=__import__("subprocess").CompletedProcess(
             args=["echo"],
             returncode=0,
@@ -60,7 +60,7 @@ def test_stdio_client_parses_tool_call():
         "result": {"content": [{"type": "text", "text": "hello"}]},
     }
     with patch(
-        "rootact.mcp_adapter.subprocess.run",
+        "ract.mcp_adapter.subprocess.run",
         return_value=__import__("subprocess").CompletedProcess(
             args=["echo"],
             returncode=0,
@@ -75,7 +75,7 @@ def test_stdio_client_parses_tool_call():
     assert tool_result.tool == "read_file"
 
 
-from rootact.mcp_adapter import McpAdapter, McpToolRegistry
+from ract.mcp_adapter import McpAdapter, McpToolRegistry
 
 
 class FakeMcpAdapter(McpAdapter):

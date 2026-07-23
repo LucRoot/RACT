@@ -24,7 +24,7 @@ def test_cli_session_list_shows_saved_sessions(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "session",
             "list",
             "--store",
@@ -45,7 +45,7 @@ def test_cli_session_list_empty_store(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "session",
             "list",
             "--store",

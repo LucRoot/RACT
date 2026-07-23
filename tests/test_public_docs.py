@@ -31,8 +31,8 @@ def test_public_doc_exists(filename: str) -> None:
 
 def test_quickstart_covers_installation_and_first_run() -> None:
     text = (DOCS_DIR / "QUICKSTART.md").read_text(encoding="utf-8")
-    assert "pip install rootact" in text
-    assert "rootact.yaml" in text
+    assert "pip install ract" in text
+    assert "ract.yaml" in text
     assert "--dry-run" in text
     assert "--session" in text
     assert "--mode" in text
@@ -49,7 +49,7 @@ def test_provider_setup_covers_adapters_and_env_vars() -> None:
 
 def test_skill_authoring_covers_templates_and_variables() -> None:
     text = (DOCS_DIR / "SKILL_AUTHORING.md").read_text(encoding="utf-8")
-    assert ".rootact/skills/" in text
+    assert ".ract/skills/" in text
     assert "string.Template" in text
     assert "$intent" in text
     assert "$project_name" in text
