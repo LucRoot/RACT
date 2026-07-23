@@ -103,6 +103,9 @@ class RunReporter:
         lines.append("RACT Loop Report")
         lines.append("================")
         lines.append(f"Final decision: {report.get('final_decision', 'unknown')}")
+        termination_cause = report.get("termination_cause")
+        if termination_cause:
+            lines.append(f"Termination cause: {termination_cause}")
         lines.append(f"Summary: {report.get('summary', 'n/a')}")
 
         top_metrics = report.get("metrics")
@@ -122,12 +125,16 @@ class RunReporter:
         if iterations:
             lines.append("")
             lines.append(f"Iterations ({len(iterations)}):")
+            trajectory: list[str] = []
             for it in iterations:
                 status = "pass" if it.get("test_returncode") == 0 else "fail"
+                score = it.get("quality_score")
                 line = (
                     f"  #{it.get('index')}: decision={it.get('decision')} "
-                    f"tests={status} score={it.get('quality_score')}"
+                    f"tests={status} score={score}"
                 )
+                if score is not None:
+                    trajectory.append(str(score))
                 it_metrics = self._format_metrics_line(it.get("metrics"))
                 if it_metrics:
                     line += f" {it_metrics}"
@@ -135,6 +142,9 @@ class RunReporter:
                 reflection = it.get("reflection", "")
                 if reflection:
                     lines.append(f"    {reflection}")
+            if trajectory:
+                lines.append("")
+                lines.append(f"Score trajectory: {' -> '.join(trajectory)}")
 
         return "\n".join(lines)
 
@@ -172,6 +182,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     """Convert a loop-report dict into a Markdown summary."""
     lines = ["# RACT Run Report", ""]
     lines.append(f"**Final decision:** {report.get('final_decision', 'unknown')}")
+    termination_cause = report.get("termination_cause")
+    if termination_cause:
+        lines.append(f"**Termination cause:** {termination_cause}")
     lines.append(f"**Summary:** {report.get('summary', 'n/a')}")
     metrics = report.get("metrics")
     if metrics:
@@ -186,12 +199,19 @@ def render_markdown(report: dict[str, Any]) -> str:
     iterations = report.get("iterations", [])
     if iterations:
         lines.extend(["", "## Iterations", ""])
+        trajectory: list[str] = []
         for it in iterations:
             status = "pass" if it.get("test_returncode") == 0 else "fail"
+            score = it.get("quality_score")
             lines.append(
                 f"- #{it.get('index')}: decision={it.get('decision')} "
-                f"tests={status} score={it.get('quality_score')}"
+                f"tests={status} score={score}"
             )
+            if score is not None:
+                trajectory.append(str(score))
+        if trajectory:
+            lines.extend(["", "## Score Trajectory", ""])
+            lines.append(f"`{' -> '.join(trajectory)}`")
     return "\n".join(lines)
 
 
@@ -201,8 +221,11 @@ def render_html_report(report: dict[str, Any]) -> str:
         "<html><body>",
         "<h1>RACT Run Report</h1>",
         f"<p><strong>Final decision:</strong> {report.get('final_decision', 'unknown')}</p>",
-        f"<p><strong>Summary:</strong> {report.get('summary', 'n/a')}</p>",
     ]
+    termination_cause = report.get("termination_cause")
+    if termination_cause:
+        lines.append(f"<p><strong>Termination cause:</strong> {termination_cause}</p>")
+    lines.append(f"<p><strong>Summary:</strong> {report.get('summary', 'n/a')}</p>")
     metrics = report.get("metrics")
     if metrics:
         lines.extend(["<h2>Metrics</h2>", "<ul>"])
@@ -218,13 +241,24 @@ def render_html_report(report: dict[str, Any]) -> str:
     iterations = report.get("iterations", [])
     if iterations:
         lines.extend(["<h2>Iterations</h2>", "<ul>"])
+        trajectory: list[str] = []
         for it in iterations:
             status = "pass" if it.get("test_returncode") == 0 else "fail"
+            score = it.get("quality_score")
             lines.append(
                 f"<li>#{it.get('index')}: decision={it.get('decision')} "
-                f"tests={status} score={it.get('quality_score')}</li>"
+                f"tests={status} score={score}</li>"
             )
+            if score is not None:
+                trajectory.append(str(score))
         lines.append("</ul>")
+        if trajectory:
+            lines.extend(
+                [
+                    "<h2>Score Trajectory</h2>",
+                    f"<p>{' -&gt; '.join(trajectory)}</p>",
+                ]
+            )
     lines.append("</body></html>")
     return "\n".join(lines)
 

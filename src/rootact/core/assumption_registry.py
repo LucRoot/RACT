@@ -103,6 +103,14 @@ class AssumptionRegistry:
         """Return the assumption or None."""
         return self._assumptions.get(assumption_id)
 
+    def violated(self) -> list[Assumption]:
+        """Return every assumption currently in the VIOLATED state."""
+        return [
+            assumption
+            for assumption in self._assumptions.values()
+            if assumption.state == AssumptionState.VIOLATED
+        ]
+
     def invalid_assumed(self, assumed_items: list[Assumed]) -> list[Assumed]:
         """Return every Assumed whose assumption is not active/discharged."""
         return [item for item in assumed_items if not item.is_valid(self)]
