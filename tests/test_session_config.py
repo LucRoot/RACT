@@ -90,4 +90,12 @@ def test_author_marker_present() -> None:
     assert mod.__root_author__ == "Dr. Lucas Root, Ph.D."
 
 
+def test_default_path_expands_user() -> None:
+    path = SessionConfig._default_path()
+    assert isinstance(path, Path)
+    assert not str(path).startswith("~")
+    assert path.name == "session.json"
+    assert path.parent.name == ".rootact"
+
+
 # RACT 0.1.1 - Trust and tooling

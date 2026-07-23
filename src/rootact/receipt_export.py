@@ -8,8 +8,25 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 
-def export_receipts(directory: str, anonymize: bool = True) -> List[Dict[str, Any]]:
-    """Read *.receipt.json files from directory and return anonymized list."""
+def _to_markdown(receipts: List[Dict[str, Any]]) -> str:
+    """Render a list of receipts as a Markdown table."""
+    if not receipts:
+        return "# Receipt Export\n\nNo receipts found.\n"
+    headers = ["run_id", "plan_hash", "diff_hash"]
+    lines = ["# Receipt Export", ""]
+    lines.append("| " + " | ".join(headers) + " |")
+    lines.append("| " + " | ".join("---" for _ in headers) + " |")
+    for r in receipts:
+        values = [str(r.get(h, "")) for h in headers]
+        lines.append("| " + " | ".join(values) + " |")
+    return "\n".join(lines) + "\n"
+
+
+def export_receipts(directory: str, anonymize: bool = True, fmt: str = "json") -> Any:
+    """Read *.receipt.json files from directory and return anonymized list.
+
+    fmt: 'json' returns a list of dicts; 'markdown' returns a Markdown string.
+    """
     dir_path = Path(directory)
     if not dir_path.is_dir():
         raise FileNotFoundError(f"Directory not found: {directory}")
@@ -30,6 +47,8 @@ def export_receipts(directory: str, anonymize: bool = True) -> List[Dict[str, An
     if anonymize:
         receipts = [_anonymize(r) for r in receipts]
 
+    if fmt == "markdown":
+        return _to_markdown(receipts)
     return receipts
 
 
@@ -45,6 +64,7 @@ def main(argv: List[str]) -> None:
     """CLI entry point for receipt export."""
     directory = None
     anonymize = True
+    fmt = "json"
 
     args = argv[1:]
     i = 0
@@ -55,6 +75,8 @@ def main(argv: List[str]) -> None:
             if i + 1 < len(args):
                 directory = args[i + 1]
                 i += 1
+        elif args[i] == "--markdown":
+            fmt = "markdown"
         i += 1
 
     if not directory:
@@ -62,8 +84,11 @@ def main(argv: List[str]) -> None:
         sys.exit(1)
 
     try:
-        result = export_receipts(directory, anonymize)
-        print(json.dumps(result, indent=2))
+        result = export_receipts(directory, anonymize, fmt=fmt)
+        if fmt == "markdown":
+            print(result)
+        else:
+            print(json.dumps(result, indent=2))
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

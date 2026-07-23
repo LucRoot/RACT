@@ -14,6 +14,7 @@ project. v0.1 renames the definition, same-module bare references, and
 """
 
 import ast
+import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -114,6 +115,60 @@ class SymbolRenamer:
             for edit in sorted_edits:
                 text = self._apply_edit(text, edit)
             path.write_text(text, encoding="utf-8")
+
+    def preview_rename(self, old_name: str, new_name: str, path: Path) -> RenameResult:
+        """Token-level preview of renaming *old_name* to *new_name* in *path*.
+
+        This is a fast, local-only preview: it does not build the symbol graph
+        and it does not write any files. It highlights every NAME token equal to
+        *old_name* so the operator can see what a full refactor would touch.
+        """
+        if not old_name or not new_name:
+            return RenameResult(
+                edits=[], files_changed=[], error="old_name and new_name are required"
+            )
+        if old_name == new_name:
+            return RenameResult(edits=[], files_changed=[], error="names are identical")
+
+        target = Path(path)
+        if not target.is_file():
+            return RenameResult(
+                edits=[], files_changed=[], error=f"file not found: {path}"
+            )
+
+        edits: list[RenameEdit] = []
+        try:
+            with tokenize.open(target) as f:
+                for tok in tokenize.generate_tokens(f.readline):
+                    if tok.type == tokenize.NAME and tok.string == old_name:
+                        edits.append(
+                            RenameEdit(
+                                path=target,
+                                start_line=tok.start[0],
+                                start_col=tok.start[1],
+                                end_line=tok.end[0],
+                                end_col=tok.end[1],
+                                new_text=new_name,
+                            )
+                        )
+        except (OSError, tokenize.TokenError, SyntaxError) as exc:
+            return RenameResult(
+                edits=[], files_changed=[], error=f"tokenization failed: {exc}"
+            )
+
+        if not edits:
+            return RenameResult(
+                edits=[],
+                files_changed=[],
+                error=f"No occurrences of '{old_name}' found in {path}",
+            )
+
+        rel = (
+            str(target.relative_to(self.project_dir))
+            if target.is_relative_to(self.project_dir)
+            else str(target)
+        )
+        return RenameResult(edits=edits, files_changed=[rel])
 
     def _find_candidates(
         self, graph: SymbolGraph, old_name: str, module: str | None

@@ -1,86 +1,54 @@
-:warning: This file is project documentation, not part of the source code.
-
 # Changelog
 
-All notable changes to RACT will be documented in this file.
+All notable changes to RACT (Root Agentic Coding Tool) are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-
-## [0.1.2] - 2026-07-16
-
-### Fixed
-- Anti-rot detectors now catch copy-and-rename clones. `duplication_guard`, `consolidate`, and `compression_novelty_detector` all compare AST-normalized structure, so renaming identifiers no longer defeats the duplication gate.
-- `duplication_guard` no longer short-circuits on symbol name equality; cross-module renamed duplicates now surface.
-- `ract marketplace` dispatches as a top-level verb without argparse rejecting `list`.
-- Scrubbed a Windows-specific path from `scripts/run_mutation_tests_wsl.sh`; ROADMAP clarifies mutation testing is local/WSL-only, not a CI gate.
-- `src/rootact/__init__.py` version aligned with `pyproject.toml`.
+## 0.1.2
 
 ### Added
-- `rootact.github_release` client and `ract release list` / `ract release create` commands (reads `github.owner`/`github.repo` from `rootact.yaml` and `GITHUB_TOKEN` from the environment).
-- `rootact.ast_normalizer` — canonical identifier renaming, docstring/annotation stripping, and Jaccard similarity over normalized tokens.
-- Natural-Language Mutation Merge Gates (`ract mutation merge-gate`) — engine, tests, and CLI verb for gating merges with structured risk review.
-- Operator Handshake queue (`rootact.handshake`) — raise, list, answer, and attestation flow for high-risk actions.
-- Signed run receipts (`rootact.receipt`) — HMAC sign/verify/save/load with round-trip tests.
-- Receipt export (`rootact.receipt_export`) — anonymized export over signed receipts directory.
-- Rot report duplicate scan (`rootact.rot_report`) — `find_duplicate_blocks` via structural similarity + tests.
-- Configurable CI Policy Gate (`rootact.policy_gate`) — `evaluate_policy` and `policy-gate` CLI verb.
-- Run Fingerprint + AI-SBOM (`rootact.run_fingerprint`, `rootact.ai_sbom`) — artifact provenance manifest builder.
-- Retrieval adapter enhancements — `KeywordRetrievalAdapter.index()` / `keyword_search()` inverted-index API, `WebSearchAdapter` response normalization, and expanded tests.
-- Capability registry circular-import fix and provider-router health tests.
-- Anti-rot regression suite covering verbatim and renamed clones across all three detectors.
 
-## [0.1.1] - 2026-07-09
-
-### Fixed
-- Symbol graph import resolution now correctly resolves `src/<pkg>` layouts; dead-code auction no longer flags live modules as dead.
-- Novelty detector now uses AST-normalized similarity and nearest-neighbor scoring; verbatim duplicates are blocked before write.
-- `ract fence` relative-path crash fixed.
-- `ract marketplace` dispatch fixed.
-- `ract refactor` Windows path-separator bug fixed.
-
-### Added
-- `ract consolidate` — scans for near-duplicate modules and proposes safe merges.
-- `ract audit` meta-command with deep self-audit mode.
-- Per-file mutation-test floors and coverage-delta gate (`rootact coverage delta`).
-- MCP adapter with SSE transport.
-- Skill marketplace install path.
-- Session config persistence and `rootact report --last` fallback.
-- Public leaderboard design doc (`docs/PUBLIC_LEADERBOARD.md`).
-- Hugging Face Space static landing page (`hf-space/`).
-- Demo asciicast (`assets/demo.cast`).
-- CLI smoke tests for core verbs and CI self-audit job.
+- **Signed receipts and receipt chain**: every run produces a signed receipt; receipts can be chained tamper-evidently and exported.
+- **Handshake queue**: operator handshakes queue high-risk items for async review.
+- **Dead-code auction**: `ract auction list` identifies unreachable modules; `ract auction html-report` exports HTML reports.
+- **AI provenance manifest / SBOM**: `ract ai-sbom` and `ract manifest` build and export AI provenance manifests.
+- **Configurable CI policy gate**: `ract policy-gate` evaluates JSON policies against run evidence.
+- **Coverage delta**: `ract coverage delta|baseline|status|badge` implements earned-coverage gates.
+- **Mutation merge gate**: `ract merge-gate` evaluates natural-language merge policies against mutation metrics.
+- **Native internal provider**: route prompts to local scripts via `adapter: internal`.
+- **MCP adapter health probe**: verify MCP tool wiring before running loops.
+- **Receipt leaderboard**: `ract leaderboard` renders model/plan ranking tables from receipts.
+- **Deterministic run fingerprints**: `ract run-fingerprint` fingerprints runs for reproducibility studies.
+- **Run report exports**: Markdown, HTML, and JSON run reports for CI artifacts.
+- **Quality scorecard JSON export**: archive and compare quality scorecards across runs.
+- **Novelty scan fast mode**: `ract novelty scan --fast` finishes in seconds for CI.
+- **New CLI verbs**:
+  - `ract --version`
+  - `ract config validate`
+  - `ract provider health`
+  - `ract session list`
+  - `ract plan diff`
+  - `ract init --list-templates`
+  - `ract doctor --json`
+- **JSON output flags** across the CLI surface:
+  - `ract retrieval search --json`
+  - `ract diff apply --json`
+  - `ract skills list --json` and `ract skills marketplace list --json`
+  - `ract mcp list --json`
+  - `ract run-fingerprint --json`
+  - `ract leaderboard --json`
+  - `ract mutation run --json`
+  - `ract refactor --dry-run --json`
+  - `ract whisper --json`
+- **Diff applier context verification**: `ract diff apply` now validates hunk context before writing and parses both git-style and plain unified-diff headers.
 
 ### Changed
-- README now includes status badges and a "Why RACT" comparison table.
-- Documentation expanded: `AUDIT.md`, `PROVIDER_SETUP.md`, `HARNESS.md`, `SKILL_AUTHORING.md`, `SEPARATION.md`, `PHILOSOPHY.md`.
 
-## [0.1.0] - 2026-07-08
+- Thermal governance in the [REDACTED] council loop now uses a hard ceiling and a separate concurrency-fallback threshold.
+- Provider router now registers the `internal` adapter by default.
 
-### Added
-- Initial public release of RACT (Root Agentic Coding Tool).
-- Model-agnostic provider layer with presets for local, OpenAI, Anthropic, Z.ai, Moonshot, and OpenRouter.
-- Root-Knot-anchored self-recursing build loop with Progress Oracle milestone tracking.
-- `Rooted[T]` assumption-driven result type.
-- Operator Handshake registry for high-risk actions.
-- Anti-rot verifier arsenal:
-  - `rootact novelty scan` — compression-based novelty detection.
-  - `rootact whisper` — Legacy Whisperer pre-planning dialect brief.
-  - `rootact auction list` — Dead Code Auction candidate scanner.
-  - `rootact fence inspect` — Chesterton's Fence legacy-code reason subagent.
-- Built-in skill library with 7 signed templates.
-- MCP adapter, DiffApplier, and retrieval adapter (keyword + web search).
-- Run reports with JSON export.
-- Multi-file symbol rename (`rootact refactor`).
-- OpenAPI client/server generation.
-- Project health diagnostics (`rootact doctor`).
-- Branded terminal UI with colorized input/output and rich tables.
-- Documentation: README, QUICKSTART, TUTORIAL, ARCHITECTURE, PHILOSOPHY, PROVIDER_SETUP, SKILL_AUTHORING, AUDIT, SEPARATION.
+## 0.1.1
 
-### License
-- Released under the PolyForm Noncommercial License 1.0.0.
+- Trust and tooling release: dead-code auction, Chesterton's Fence, consolidation, rot report, and provider routing.
 
----
+## 0.1.0
 
-*Dr. Lucas Root, Ph.D.*
-
-<!-- RACT 0.1.1 - Trust and tooling -->
+- Initial public release of RACT.

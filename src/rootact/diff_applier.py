@@ -57,11 +57,14 @@ class DiffApplier:
                 return candidate
             counter += 1
 
-    def _parse_hunk(self, hunk_lines: list[str]) -> tuple[int, list[str]]:
-        """Parse a unified-diff hunk and return (start_line, new_lines).
+    def _parse_hunk(self, hunk_lines: list[str]) -> tuple[int, list[tuple[str, str]]]:
+        """Parse a unified-diff hunk and return (start_line, operations).
 
         Lines are 0-indexed. The hunk header looks like:
           @@ -l,s +l,s @@
+
+        Each operation is a tuple of (op, text) where op is one of:
+          ' ' context line, '-' removed line, '+' added line.
         """
         header = hunk_lines[0]
         match = re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", header)
@@ -69,20 +72,17 @@ class DiffApplier:
             raise ValueError(f"Invalid hunk header: {header}")
         start = int(match.group(2)) - 1
 
-        new_lines: list[str] = []
+        ops: list[tuple[str, str]] = []
         for line in hunk_lines[1:]:
-            if line.startswith("+"):
-                new_lines.append(line[1:])
-            elif line.startswith("-"):
-                continue
-            elif line.startswith(" "):
-                new_lines.append(line[1:])
-            elif line.startswith("\\"):
+            if line.startswith("\\"):
                 # "\ No newline at end of file" — ignore
                 continue
+            if line.startswith((" ", "-", "+")):
+                ops.append((line[0], line[1:]))
             else:
-                new_lines.append(line)
-        return start, new_lines
+                # Treat unexpected bare lines as context.
+                ops.append((" ", line))
+        return start, ops
 
     def apply_diff(self, diff_text: str) -> list[DiffApplyResult]:
         """Apply all hunks in *diff_text* and return per-file results."""
@@ -98,6 +98,16 @@ class DiffApplier:
 
         for raw_line in diff_text.splitlines():
             if raw_line.startswith("--- ") or raw_line.startswith("+++ "):
+                flush_hunk()
+                # Git-style headers prefix the old path with "a/" and the new
+                # path with "b/"; strip those prefixes so the project-relative
+                # path resolves correctly.
+                if raw_line.startswith("--- "):
+                    stripped = raw_line[4:].strip().removeprefix("a/")
+                    current_file = self.project_dir / stripped
+                elif raw_line.startswith("+++ "):
+                    stripped = raw_line[4:].strip().removeprefix("b/")
+                    current_file = self.project_dir / stripped
                 continue
             if raw_line.startswith("diff --git") or raw_line.startswith("index "):
                 flush_hunk()
@@ -116,7 +126,7 @@ class DiffApplier:
         return results
 
     def _apply_hunk(self, target: Path, hunk: list[str]) -> DiffApplyResult:
-        """Apply a single hunk to *target*."""
+        """Apply a single hunk to *target* after verifying context."""
         if not target.is_file():
             return DiffApplyResult(
                 path=target,
@@ -125,7 +135,7 @@ class DiffApplier:
                 message="Target file does not exist.",
             )
         try:
-            start, new_lines = self._parse_hunk(hunk)
+            start, ops = self._parse_hunk(hunk)
         except ValueError as exc:
             return DiffApplyResult(
                 path=target,
@@ -139,18 +149,32 @@ class DiffApplier:
         # Detect the file's newline convention so we preserve it exactly.
         newline = "\r\n" if b"\r\n" in original_bytes else "\n"
         original_lines = original_text.splitlines()
-        backup = self._backup_path(target)
-        shutil.copy2(target, backup)
 
-        # Replace the affected region. This is a naive implementation: it replaces
-        # from start with the new lines, preserving everything else.
-        end = start + len(new_lines)
-        merged = original_lines[:start] + new_lines + original_lines[end:]
+        # The original-file slice that this hunk expects to overwrite is made up
+        # of context lines and removed lines, in order.
+        expected_orig = [text for op, text in ops if op in (" ", "-")]
+        if original_lines[start : start + len(expected_orig)] != expected_orig:
+            return DiffApplyResult(
+                path=target,
+                applied=False,
+                backup=None,
+                message="Hunk context does not match target file.",
+            )
+
+        new_segment = [text for op, text in ops if op in (" ", "+")]
+        merged = (
+            original_lines[:start]
+            + new_segment
+            + original_lines[start + len(expected_orig) :]
+        )
         merged_text = newline.join(merged)
         # Preserve the original file's trailing-newline convention so the diff
         # does not silently rewrite EOF when it is not supposed to.
         if original_text.endswith(newline):
             merged_text += newline
+
+        backup = self._backup_path(target)
+        shutil.copy2(target, backup)
         # Write without newline translation so the detected convention survives.
         with open(target, "w", encoding="utf-8", newline="") as f:
             f.write(merged_text)

@@ -8,6 +8,8 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
+import pytest
+
 from rootact.builtin_skill_library import BuiltinSkillLibrary
 from rootact.skills_registry import SkillRegistry
 
@@ -51,6 +53,31 @@ def test_library_installs_all_skills(tmp_path):
     }
     assert expected.issubset(set(installed))
     assert set(registry.list_skills()) == set(installed)
+
+
+def test_library_previews_install(tmp_path):
+    library = BuiltinSkillLibrary()
+    registry = SkillRegistry(base_dir=tmp_path)
+    preview = library.preview_install("python-package", registry)
+    assert preview["name"] == "python-package"
+    assert "python-package.json" in preview["source"]
+    assert "python-package.json" in preview["target"]
+    assert preview["description"]
+    assert not (registry.skills_dir / "python-package.json").exists()
+
+
+def test_library_install_missing_skill_raises_key_error(tmp_path):
+    library = BuiltinSkillLibrary()
+    registry = SkillRegistry(base_dir=tmp_path)
+    with pytest.raises(KeyError, match="Built-in skill not found: missing-skill"):
+        library.install("missing-skill", registry)
+
+
+def test_library_preview_install_missing_skill_raises_key_error(tmp_path):
+    library = BuiltinSkillLibrary()
+    registry = SkillRegistry(base_dir=tmp_path)
+    with pytest.raises(KeyError, match="Built-in skill not found: missing-skill"):
+        library.preview_install("missing-skill", registry)
 
 
 # RACT 0.1.1 - Trust and tooling

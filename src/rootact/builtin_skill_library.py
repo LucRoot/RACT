@@ -49,6 +49,20 @@ class BuiltinSkillLibrary:
         shutil.copy2(source, target)
         return target
 
+    def preview_install(self, name: str, registry: SkillRegistry) -> dict[str, Any]:
+        """Return metadata for what installing *name* would do, without writing."""
+        source = self.builtin_dir / f"{name}.json"
+        if not source.is_file():
+            raise KeyError(f"Built-in skill not found: {name}")
+        data = json.loads(source.read_text(encoding="utf-8"))
+        target = registry.skills_dir / f"{name}.json"
+        return {
+            "name": name,
+            "source": str(source),
+            "target": str(target),
+            "description": data.get("description", ""),
+        }
+
     def install_all(self, registry: SkillRegistry) -> list[str]:
         """Install every built-in skill into the project's skill registry."""
         installed: list[str] = []

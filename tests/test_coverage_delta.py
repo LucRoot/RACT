@@ -13,6 +13,7 @@ import json
 from rootact.coverage_delta import (
     CoverageSnapshot,
     compute_delta,
+    export_delta,
     gate,
     read_snapshot,
 )
@@ -233,6 +234,23 @@ def test_coverage_color_thresholds():
     assert _coverage_color(65.0) == "yellow"
     assert _coverage_color(55.0) == "orange"
     assert _coverage_color(45.0) == "red"
+
+
+def test_export_delta_writes_json(tmp_path):
+    delta = {"before": 90.0, "after": 92.0, "delta": 2.0}
+    out = tmp_path / "delta.json"
+    export_delta(delta, out)
+    loaded = json.loads(out.read_text(encoding="utf-8"))
+    assert loaded == delta
+
+
+def test_export_delta_uses_indent(tmp_path):
+    delta = {"verdict": "earn"}
+    out = tmp_path / "delta.json"
+    export_delta(delta, out)
+    text = out.read_text(encoding="utf-8")
+    assert "{\n" in text
+    assert '"verdict"' in text
 
 
 # RACT 0.1.1 - Trust and Tooling

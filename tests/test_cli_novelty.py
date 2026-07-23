@@ -58,4 +58,18 @@ def test_cli_novelty_scan_json_output(capsys, tmp_path):
     assert "outlier.py" in payload["scores"]
 
 
+def test_cli_novelty_scan_html_output(capsys, tmp_path):
+    _seed_project(tmp_path)
+    config = tmp_path / "rootact.yaml"
+    config.write_text("project: test\n", encoding="utf-8")
+
+    code = main(["novelty", "scan", "--html", "--config", str(config)])
+    out = capsys.readouterr().out
+
+    assert code == 0
+    assert "<!DOCTYPE html>" in out
+    assert "RACT Novelty Scan" in out
+    assert "familiar.py" in out
+
+
 # RACT 0.1.1 - Trust and tooling

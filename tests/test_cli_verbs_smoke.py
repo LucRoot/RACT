@@ -14,7 +14,7 @@ import pytest
 _VERBS = [
     (["--help"], 0),
     (["plan", "--help"], 0),
-    (["run", "--help"], 0),
+    (["router", "--help"], 0),
     (["skills", "list"], 0),
     (["skills", "marketplace", "list"], 0),
     (["marketplace", "list"], 0),
@@ -22,10 +22,15 @@ _VERBS = [
     (["release", "--help"], 0),
     (["fence", "--help"], 0),
     (["doctor", "--help"], 0),
-    (["reflect", "--help"], 0),
-    (["repair", "--help"], 0),
+    (["cost", "--help"], 0),
+    (["self-audit", "--help"], 0),
     (["audit", "--help"], 0),
     (["init", "--help"], 0),
+    (["status", "--help"], 0),
+    (["leaderboard", "--help"], 0),
+    (["repro-manifest", "--help"], 0),
+    (["calibrate", "--help"], 0),
+    (["infer", "--help"], 0),
 ]
 
 

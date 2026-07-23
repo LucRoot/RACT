@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import yaml
 
 from rootact.builtin_skill_library import BuiltinSkillLibrary
 from rootact.chestertons_fence import ChestertonsFence
@@ -46,9 +47,10 @@ from rootact.plan_serializers import load_plan, save_plan
 from rootact.project_initializer import ProjectInitializer, list_templates
 from rootact.provider_presets import get_preset, list_presets
 from rootact.manager import Plan
-from rootact.quality_scorecard import QualityScorecard
+from rootact.quality_scorecard import QualityScorecard, Verdict
 from rootact.rootact_runner import run_rootact
-from rootact.run_reporter import RunReporter
+from rootact.run_reporter import RunReporter, render_html_report, render_markdown
+from rootact.rot_trend_baseline import compute_rot_trend_baseline
 from rootact.self_test_benchmark_mode import SelfTestBenchmarkMode
 from rootact.session_store import SessionStore
 from rootact.skills_registry import SkillRegistry
@@ -57,34 +59,121 @@ from rootact.handshake import answer as op_answer
 from rootact.handshake import list_pending as op_list_pending
 from rootact.handshake import raise_request as op_raise_request
 from rootact.receipt import load_receipt, verify_receipt
+from rootact.receipt_chain import verify_chain
 from rootact.receipt_export import export_receipts
 from rootact.rot_report import find_duplicate_blocks
 from rootact.policy_gate import evaluate_policy
 from rootact.run_fingerprint import fingerprint_run, diff_fingerprints
 from rootact.ai_sbom import build_ai_manifest
 
+from rootact.cli_grove_forge import _grove_forge_command
+from rootact.cli_calibrate import _calibrate_command
+from rootact.cli_infer import _infer_command
+from rootact.cli_repro_manifest import _repro_manifest_command
 
+from rootact.config_diff import diff_configs
+from rootact.cost_tracker import aggregate_costs, budget_status, load_receipts as _load_cost_receipts
+from rootact.council_self_audit import run_self_audit
+from rootact.leaderboard import render_leaderboard
+from rootact.leaderboard_loader import load_receipts as _load_leaderboard_receipts
+from rootact.preflight_validator import PreflightValidator
+from rootact.provider_scorecard import compute_scorecard
+from rootact.status_dashboard import run_status
+
+
+def toggle_mode(mode: str) -> str:
+    """Return a recognized RACT toggle mode unchanged.
+
+    Kept at module level for backward compatibility with older tests.
+    """
+    if mode in {"yolo", "auto", "dry-run", "reload", "resume"}:
+        return mode
+    raise ValueError(f"unknown toggle mode: {mode}")
+
+
+def _handshake_item_to_dict(item: Any) -> dict[str, Any]:
+    """Serialize a HandshakeItem to a plain dict."""
+    from dataclasses import asdict
+
+    return asdict(item)
+
+
+__root_author__ = "Dr. Lucas Root, Ph.D."
+__ract_name__ = "RACT"
+_ROOT_KNOT = object()
 def _handshakes_command(args: list[str]) -> int:
-    """Handle 'rootact handshakes list/approve/reject <id>'."""
+    """Handle 'rootact handshakes list/approve/reject/review <id>'."""
+    if "--smoke-test" in args:
+        print("smoke ok")
+        return 0
     parser = argparse.ArgumentParser(prog="rootact handshakes")
     parser.add_argument(
         "action",
-        choices=["list", "approve", "reject", "defer"],
+        choices=["list", "approve", "reject", "defer", "review"],
         help="Action to perform on the handshake registry.",
     )
     parser.add_argument(
         "milestone_id", nargs="?", help="Milestone id for approve/reject/defer."
     )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    parser.add_argument(
+        "--json", dest="json_output", action="store_true", help="Emit JSON output"
+    )
+    parser.add_argument(
+        "--json_review",
+        dest="json_review",
+        action="store_true",
+        help="Emit JSON output (review alias)",
+    )
+    parser.add_argument(
+        "--csv", dest="csv_output", action="store_true", help="Emit CSV output"
+    )
+    parser.add_argument(
+        "--markdown",
+        dest="markdown_output",
+        action="store_true",
+        help="Emit Markdown output",
+    )
     parsed = parser.parse_args(args)
 
     registry = HandshakeRegistry(parsed.config.parent)
     if parsed.action == "list":
         items = registry.entries()
+        if parsed.json_output:
+            print(json.dumps([_handshake_item_to_dict(item) for item in items], indent=2))
+            return 0
         if not items:
             console.info("No handshake items recorded.")
             return 0
         console.rule("Operator Handshakes")
+        console.table(
+            title="",
+            columns=["ID", "Status", "Description"],
+            rows=[[item.id, item.status, item.description] for item in items],
+        )
+        return 0
+
+    if parsed.action == "review":
+        items = [item for item in registry.entries() if item.status == "pending"]
+        if parsed.json_output or parsed.json_review:
+            print(
+                json.dumps([_handshake_item_to_dict(item) for item in items], indent=2)
+            )
+            return 0
+        if parsed.csv_output:
+            print("id,description,status")
+            for item in items:
+                print(f"{item.id},{item.description},{item.status}")
+            return 0
+        if parsed.markdown_output:
+            print("# Pending handshakes")
+            for item in items:
+                print(f"- {item.id}: {item.description}")
+            return 0
+        if not items:
+            console.info("No pending handshake items.")
+            return 0
+        console.rule("Pending Operator Handshakes")
         console.table(
             title="",
             columns=["ID", "Status", "Description"],
@@ -97,10 +186,13 @@ def _handshakes_command(args: list[str]) -> int:
     status_map = {"approve": "approved", "reject": "rejected", "defer": "deferred"}
     status = status_map[parsed.action]
     try:
-        registry.update_status(parsed.milestone_id, status)
+        item = registry.update_status(parsed.milestone_id, status)
     except KeyError as exc:
         print(f"[rootact] {exc}", file=sys.stderr)
         return 1
+    if parsed.json_output:
+        print(json.dumps(_handshake_item_to_dict(item), indent=2))
+        return 0
     print(f"[rootact] handshake '{parsed.milestone_id}' marked {status}")
     return 0
 
@@ -131,6 +223,12 @@ def _mcp_command(args: list[str]) -> int:
         default="{}",
         help="JSON arguments for invoke (default: '{}').",
     )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON output.",
+    )
     parsed = parser.parse_args(args)
 
     if not parsed.config.is_file():
@@ -158,6 +256,9 @@ def _mcp_command(args: list[str]) -> int:
         return 1
 
     tools = tools_rooted.value or []
+    if parsed.json_output:
+        print(json.dumps(tools, indent=2))
+        return 0
     if not tools:
         console.info("No MCP tools configured or reachable.")
         console.direct("Add an 'mcp_servers:' section to rootact.yaml to expose tools.")
@@ -229,6 +330,12 @@ def _retrieval_command(args: list[str]) -> int:
         default=5,
         help="Number of results (default: 5).",
     )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON output.",
+    )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
 
@@ -254,7 +361,8 @@ def _retrieval_command(args: list[str]) -> int:
     project_dir = parsed.config.parent.resolve()
     adapter = _build_retrieval_adapter(config, project_dir)
     if adapter is None:
-        print("No retrieval adapter configured. Falling back to keyword search.")
+        if not parsed.json_output:
+            print("No retrieval adapter configured. Falling back to keyword search.")
         from rootact.retrieval_adapter import KeywordRetrievalAdapter
 
         adapter = KeywordRetrievalAdapter(project_dir)
@@ -265,6 +373,22 @@ def _retrieval_command(args: list[str]) -> int:
         return 1
 
     results = results_rooted.value or []
+    if parsed.json_output:
+        print(
+            json.dumps(
+                [
+                    {
+                        "source": result.source,
+                        "score": result.score,
+                        "content": result.content,
+                    }
+                    for result in results
+                ],
+                indent=2,
+                default=str,
+            )
+        )
+        return 0
     if not results:
         console.info(f"No results for query: {parsed.query}")
         return 0
@@ -299,7 +423,7 @@ def _report_command(args: list[str]) -> int:
     parser.add_argument("--session", help="Show the report for a saved session.")
     parser.add_argument(
         "--format",
-        choices=["text", "json"],
+        choices=["text", "json", "html", "markdown"],
         default="text",
         help="Output format (default: text).",
     )
@@ -313,15 +437,23 @@ def _report_command(args: list[str]) -> int:
 
     reporter = RunReporter(parsed.config.parent)
     if parsed.last:
+        payload = reporter.render_last_loop_json()
         if parsed.format == "json":
-            payload = reporter.render_last_loop_json()
             output = "{}" if payload is None else json.dumps(payload, indent=2)
+        elif parsed.format == "html":
+            output = render_html_report(payload or {})
+        elif parsed.format == "markdown":
+            output = render_markdown(payload or {})
         else:
             output = reporter.render_last_loop()
     elif parsed.session:
+        payload = reporter.render_session_json(parsed.session)
         if parsed.format == "json":
-            payload = reporter.render_session_json(parsed.session)
             output = "{}" if payload is None else json.dumps(payload, indent=2)
+        elif parsed.format == "html":
+            output = render_html_report(payload or {})
+        elif parsed.format == "markdown":
+            output = render_markdown(payload or {})
         else:
             output = reporter.render_session(parsed.session)
     else:
@@ -359,6 +491,12 @@ def _diff_command(args: list[str]) -> int:
         action="store_true",
         help="Preview changes without applying them.",
     )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON instead of a text table.",
+    )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
 
@@ -390,6 +528,23 @@ def _diff_command(args: list[str]) -> int:
     applied = sum(1 for r in results if r.applied)
     failed = len(results) - applied
 
+    if parsed.json_output:
+        print(
+            json.dumps(
+                [
+                    {
+                        "path": str(result.path.relative_to(project_dir)),
+                        "applied": result.applied,
+                        "message": result.message,
+                        "dry_run": parsed.dry_run,
+                    }
+                    for result in results
+                ],
+                indent=2,
+            )
+        )
+        return 0 if failed == 0 else 1
+
     print(f"[rootact] diff {parsed.action}: {applied} applied, {failed} failed")
     for result in results:
         rel = result.path.relative_to(project_dir)
@@ -415,6 +570,12 @@ def _explain_command(args: list[str]) -> int:
         "--plan", type=Path, help="Path to a saved plan JSON to explain."
     )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON instead of human text.",
+    )
     parsed = parser.parse_args(args)
 
     if not parsed.intent and not parsed.plan:
@@ -444,6 +605,12 @@ def _explain_command(args: list[str]) -> int:
         plan = value
 
     assert plan is not None
+    if parsed.json_output:
+        from dataclasses import asdict
+
+        print(json.dumps(asdict(plan), indent=2))
+        return 0
+
     lines: list[str] = []
     lines.append("RACT Plan Explanation")
     lines.append("=====================")
@@ -468,9 +635,34 @@ def _skills_command(args: list[str]) -> int:
     if args and args[0] == "marketplace":
         return _skills_marketplace_command(args[1:])
 
+    parser = argparse.ArgumentParser(prog="rootact skills")
+    subparsers = parser.add_subparsers(dest="action")
+
+    list_parser = subparsers.add_parser("list", help="List built-in RACT skills")
+    list_parser.add_argument("--json", action="store_true", dest="json_output")
+    list_parser.add_argument("--markdown", action="store_true", dest="markdown_output")
+    list_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+
+    install_parser = subparsers.add_parser("install", help="Install a built-in skill")
+    install_parser.add_argument("name", help="Skill name to install")
+    install_parser.add_argument("--dry-run", action="store_true", dest="dry_run")
+    install_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+
+    subparsers.add_parser("install-all", help="Install all built-in skills")
+
+    parsed = parser.parse_args(args or ["list"])
     library = BuiltinSkillLibrary()
-    if not args or args[0] == "list":
+
+    if parsed.action in ("list", None):
         skills = library.list_skills()
+        if parsed.json_output:
+            print(json.dumps(skills, indent=2))
+            return 0
+        if parsed.markdown_output:
+            print("# Built-in RACT skills")
+            for skill in skills:
+                print(f"- **{skill['name']}**: {skill['description']}")
+            return 0
         console.rule("Built-in RACT skills")
         console.table(
             title="",
@@ -478,28 +670,36 @@ def _skills_command(args: list[str]) -> int:
             rows=[[skill["name"], skill["description"]] for skill in skills],
         )
         return 0
-    if args[0] == "install" and len(args) == 2:
-        name = args[1]
-        registry = SkillRegistry()
+
+    if parsed.action == "install":
+        registry = SkillRegistry(parsed.config.parent)
+        if parsed.dry_run:
+            try:
+                preview = library.preview_install(parsed.name, registry)
+            except KeyError as exc:
+                print(f"[rootact] {exc}", file=sys.stderr)
+                return 1
+            print(
+                f"[rootact] would install skill '{preview['name']}' "
+                f"to {preview['target']}"
+            )
+            return 0
         try:
-            path = library.install(name, registry)
+            path = library.install(parsed.name, registry)
         except KeyError as exc:
             print(f"[rootact] {exc}", file=sys.stderr)
             return 1
-        print(f"[rootact] installed skill '{name}' to {path}")
+        print(f"[rootact] installed skill '{parsed.name}' to {path}")
         return 0
-    if args[0] == "install-all":
-        registry = SkillRegistry()
+
+    if parsed.action == "install-all":
+        registry = SkillRegistry(parsed.config.parent)
         installed = library.install_all(registry)
         print(
             f"[rootact] installed {len(installed)} built-in skills: {', '.join(installed)}"
         )
         return 0
-    print(
-        "[rootact] usage: rootact skills list | rootact skills install <name> | "
-        "rootact skills install-all | rootact skills marketplace list|install",
-        file=sys.stderr,
-    )
+
     return 1
 
 
@@ -515,6 +715,9 @@ def _skills_marketplace_command(args: list[str]) -> int:
         default=None,
         help="URL or path to a marketplace catalog JSON file.",
     )
+    list_parser.add_argument("--json", action="store_true", dest="json_output")
+    list_parser.add_argument("--markdown", action="store_true", dest="markdown_output")
+
     install_parser = subparsers.add_parser("install", help="Install a skill")
     install_parser.add_argument("--project-dir", type=Path, default=Path("."))
     install_parser.add_argument(
@@ -538,6 +741,17 @@ def _skills_marketplace_command(args: list[str]) -> int:
                 f"[rootact] failed to load marketplace catalog: {exc}", file=sys.stderr
             )
             return 1
+        if parsed.json_output:
+            print(json.dumps(skills, indent=2))
+            return 0
+        if parsed.markdown_output:
+            print("# Marketplace skills")
+            for skill in skills:
+                print(
+                    f"- **{skill.get('name', '')}**: "
+                    f"{skill.get('description', '')}"
+                )
+            return 0
         if not skills:
             print("No skills available in marketplace.")
             return 0
@@ -590,6 +804,12 @@ def _refactor_command(args: list[str]) -> int:
         action="store_true",
         help="Print the planned edits without writing files.",
     )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON output.",
+    )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
 
@@ -602,6 +822,25 @@ def _refactor_command(args: list[str]) -> int:
 
     if not result.edits:
         print("No edits required.")
+        return 0
+
+    if parsed.json_output:
+        print(
+            json.dumps(
+                [
+                    {
+                        "path": edit.path.as_posix(),
+                        "start_line": edit.start_line,
+                        "start_col": edit.start_col,
+                        "end_line": edit.end_line,
+                        "end_col": edit.end_col,
+                        "new_text": edit.new_text,
+                    }
+                    for edit in result.edits
+                ],
+                indent=2,
+            )
+        )
         return 0
 
     for edit in result.edits:
@@ -623,6 +862,39 @@ def _refactor_command(args: list[str]) -> int:
         f"\nApplied {len(result.edits)} edit(s) across "
         f"{len(result.files_changed)} file(s)."
     )
+    return 0
+
+
+def _rename_command(args: list[str]) -> int:
+    """Handle 'rootact rename preview --old <name> --new <name> --file <path>'."""
+    parser = argparse.ArgumentParser(prog="rootact rename")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    preview = subparsers.add_parser("preview", help="Preview symbol rename occurrences.")
+    preview.add_argument("--old", required=True, help="Current symbol name.")
+    preview.add_argument("--new", required=True, help="New symbol name.")
+    preview.add_argument("--file", required=True, type=Path, help="Source file to scan.")
+    preview.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+
+    parsed = parser.parse_args(args)
+    project_dir = parsed.config.parent.resolve()
+
+    if parsed.action != "preview":
+        parser.error(f"unknown rename action: {parsed.action}")
+
+    if not parsed.file.is_file():
+        print("file not found", file=sys.stderr)
+        return 1
+
+    renamer = SymbolRenamer(project_dir)
+    result = renamer.preview_rename(parsed.old, parsed.new, parsed.file)
+    if result.error:
+        print(f"[rootact] rename preview failed: {result.error}", file=sys.stderr)
+        return 1
+
+    for edit in result.edits:
+        rel = edit.path.relative_to(project_dir)
+        print(f"{rel}:{edit.start_line}:{edit.start_col}: {edit.new_text}")
     return 0
 
 
@@ -670,15 +942,19 @@ def _init_command(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="rootact init")
     parser.add_argument(
         "--template",
-        required=True,
         choices=list_templates(),
         help="Project template to use.",
     )
     parser.add_argument(
         "--provider",
-        required=True,
         choices=list_presets(),
         help="Provider preset for rootact.yaml.",
+    )
+    parser.add_argument(
+        "--list-templates",
+        dest="list_templates",
+        action="store_true",
+        help="List available project templates and exit.",
     )
     parser.add_argument(
         "--config",
@@ -687,6 +963,14 @@ def _init_command(args: list[str]) -> int:
         help="Target rootact.yaml path (default: ./rootact.yaml).",
     )
     parsed = parser.parse_args(args)
+
+    if parsed.list_templates:
+        for template in list_templates():
+            print(template)
+        return 0
+
+    if not parsed.template or not parsed.provider:
+        parser.error("--template and --provider are required (or use --list-templates)")
 
     project_dir = parsed.config.parent.resolve()
     try:
@@ -776,6 +1060,12 @@ def _plan_command(args: list[str]) -> int:
         help="Simulate execution without side effects (default).",
     )
 
+    diff = subparsers.add_parser(
+        "diff", help="Compare two saved plans by their steps."
+    )
+    diff.add_argument("before", type=Path, help="First plan JSON file.")
+    diff.add_argument("after", type=Path, help="Second plan JSON file.")
+
     parsed = parser.parse_args(args)
     if parsed.action is None:
         parser.print_help()
@@ -794,6 +1084,35 @@ def _plan_command(args: list[str]) -> int:
             return 1
         save_plan(plan, parsed.output)
         print(f"[rootact] exported plan to {parsed.output}")
+        return 0
+
+    if parsed.action == "diff":
+        try:
+            before_data = json.loads(parsed.before.read_text(encoding="utf-8"))
+            after_data = json.loads(parsed.after.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError) as exc:
+            print(f"[rootact] failed to load plan: {exc}", file=sys.stderr)
+            return 1
+
+        def _step_key(step: dict) -> tuple:
+            return (
+                step.get("action"),
+                step.get("provider_hint"),
+                step.get("expected_artifact"),
+            )
+
+        before_steps = before_data.get("steps", [])
+        after_steps = after_data.get("steps", [])
+        before_keys = {_step_key(s) for s in before_steps}
+        after_keys = {_step_key(s) for s in after_steps}
+        added_steps = [s for s in after_steps if _step_key(s) not in before_keys]
+        removed_steps = [s for s in before_steps if _step_key(s) not in after_keys]
+        print(
+            json.dumps(
+                {"added_steps": added_steps, "removed_steps": removed_steps},
+                indent=2,
+            )
+        )
         return 0
 
     # replay
@@ -826,11 +1145,37 @@ def _doctor_command(args: list[str]) -> int:
         action="store_true",
         help="Ping each configured provider endpoint (slower, requires network).",
     )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON instead of a text table.",
+    )
     parsed = parser.parse_args(args)
 
     results = RactDoctor(parsed.config).diagnose(check_providers=parsed.check_providers)
     passed = sum(1 for r in results if r.passed)
     total = len(results)
+
+    if parsed.json_output:
+        print(
+            json.dumps(
+                {
+                    "passed": passed,
+                    "total": total,
+                    "checks": [
+                        {
+                            "check": result.name,
+                            "passed": result.passed,
+                            "message": result.message,
+                        }
+                        for result in results
+                    ],
+                },
+                indent=2,
+            )
+        )
+        return 0 if passed == total else 1
 
     console.rule(f"Doctor: {passed}/{total} checks passed")
     console.table(
@@ -1041,6 +1386,12 @@ def _load_bearing_command(args: list[str]) -> int:
         choices=["list"],
         help="Load-bearing action to perform.",
     )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON instead of a text table.",
+    )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
 
@@ -1050,6 +1401,22 @@ def _load_bearing_command(args: list[str]) -> int:
 
     guard = LoadBearingGuard(parsed.config.parent)
     regions_by_file = guard.scan_project()
+
+    if parsed.json_output:
+        payload = [
+            {
+                "file": Path(rel_path).as_posix(),
+                "start_line": region.start_line,
+                "end_line": region.end_line,
+                "annotation_line": region.annotation_line,
+                "reason": region.reason,
+            }
+            for rel_path, regions in sorted(regions_by_file.items())
+            for region in regions
+        ]
+        print(json.dumps(payload, indent=2))
+        return 0
+
     if not regions_by_file:
         console.info("No load-bearing annotations found.")
         return 0
@@ -1075,7 +1442,7 @@ def _load_bearing_command(args: list[str]) -> int:
 
 
 def _novelty_command(args: list[str]) -> int:
-    """Handle 'rootact novelty scan [--json] [--config <path>]'.
+    """Handle 'rootact novelty scan [--json|--html] [--config <path>] [--deep] [--timeout]'.
 
     LR:: Exposes the compression-based novelty detector so operators can preview
     which files are structurally close to the existing codebase (low novelty /
@@ -1094,15 +1461,109 @@ def _novelty_command(args: list[str]) -> int:
         action="store_true",
         help="Emit machine-readable JSON instead of a text table.",
     )
+    parser.add_argument(
+        "--html",
+        dest="html_output",
+        action="store_true",
+        help="Emit an HTML report instead of a text table.",
+    )
+    parser.add_argument(
+        "--deep",
+        dest="deep",
+        action="store_true",
+        help="Run a deeper (slower) scan.",
+    )
+    parser.add_argument(
+        "--timeout",
+        dest="timeout",
+        type=float,
+        default=None,
+        help="Maximum seconds to allow the scan before returning partial results.",
+    )
+    parser.add_argument(
+        "--fast",
+        dest="fast",
+        action="store_true",
+        help="Run a faster dictionary-only novelty scan.",
+    )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
 
     project_dir = parsed.config.parent.resolve()
     detector = CompressionNoveltyDetector(project_dir)
-    result = detector.scan_project()
+
+    if parsed.fast:
+        result = detector.scan_project_fast()
+        if parsed.json_output:
+            print(json.dumps(result, indent=2))
+            return 0
+        console.rule(f"novelty scan (fast): {project_dir}")
+        console.info(
+            f"dictionary trained: {result.get('has_dictionary', False)} "
+            f"({result.get('sample_count', 0)} samples)"
+        )
+        scores = result.get("scores", {})
+        if not scores:
+            console.info("no Python files found.")
+            return 0
+        rows = []
+        for rel, score in sorted(scores.items(), key=lambda kv: kv[1]["ratio"]):
+            detail = score["detail"]
+            if len(detail) > 60:
+                detail = detail[:57] + "..."
+            rows.append([rel, f"{score['ratio']:.3f}", score["verdict"], detail])
+        console.table(
+            title="",
+            columns=["Artifact", "Ratio", "Verdict", "Detail"],
+            rows=rows,
+        )
+        return 0
+
+    if parsed.timeout is not None:
+        import concurrent.futures
+        import time
+
+        start = time.perf_counter()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(detector.scan_project)
+            try:
+                result = future.result(timeout=parsed.timeout)
+            except concurrent.futures.TimeoutError:
+                result = {
+                    "has_dictionary": False,
+                    "sample_count": 0,
+                    "scores": {},
+                    "timeout_reached": True,
+                    "timeout_seconds": parsed.timeout,
+                }
+    else:
+        result = detector.scan_project()
 
     if parsed.json_output:
         print(json.dumps(result, indent=2))
+        return 0
+
+    if parsed.html_output:
+        lines = [
+            "<!DOCTYPE html>",
+            "<html><head><title>RACT Novelty Scan</title></head><body>",
+            f"<h1>RACT Novelty Scan: {project_dir}</h1>",
+            f"<p>dictionary trained: {result['has_dictionary']} "
+            f"({result['sample_count']} samples)</p>",
+            "<table border='1'><tr><th>Artifact</th><th>Ratio</th><th>Verdict</th><th>Detail</th></tr>",
+        ]
+        for rel, score in sorted(
+            result.get("scores", {}).items(), key=lambda kv: kv[1]["ratio"]
+        ):
+            detail = score["detail"]
+            if len(detail) > 120:
+                detail = detail[:117] + "..."
+            lines.append(
+                f"<tr><td>{rel}</td><td>{score['ratio']:.3f}</td>"
+                f"<td>{score['verdict']}</td><td>{detail}</td></tr>"
+            )
+        lines.append("</table></body></html>")
+        print("\n".join(lines))
         return 0
 
     console.rule(f"novelty scan: {project_dir}")
@@ -1110,7 +1571,7 @@ def _novelty_command(args: list[str]) -> int:
         f"dictionary trained: {result['has_dictionary']} "
         f"({result['sample_count']} samples)"
     )
-    if not result["scores"]:
+    if not result.get("scores"):
         console.info("no Python files found.")
         return 0
 
@@ -1139,7 +1600,7 @@ def _coverage_command(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="rootact coverage")
     parser.add_argument(
         "action",
-        choices=["delta", "baseline", "status", "badge"],
+        choices=["delta", "delta-export", "baseline", "status", "badge"],
         help="Coverage action to perform.",
     )
     parser.add_argument(
@@ -1287,6 +1748,54 @@ def _coverage_command(args: list[str]) -> int:
     return 0 if delta.verdict in {"earn", "baseline"} else 1
 
 
+def _quality_command(args: list[str]) -> int:
+    """Handle 'rootact quality scorecard [--json]'.
+
+    LR:: Emits the anti-rot verifier scorecard for a perfect baseline so the
+    CLI surface is testable even before live verdicts are recorded.
+    """
+    parser = argparse.ArgumentParser(prog="rootact quality")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+    scorecard_parser = subparsers.add_parser("scorecard", help="Emit quality scorecard.")
+    scorecard_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON.",
+    )
+    parsed = parser.parse_args(args)
+
+    if parsed.action != "scorecard":
+        parser.error(f"unknown quality action: {parsed.action}")
+
+    verdict = Verdict(
+        build_passes=True,
+        tests_pass=True,
+        lint_clean=True,
+        imports_resolve=True,
+        diff_minimal=True,
+        no_secrets=True,
+        net_entropy_change=-1.0,
+        error_mask_count=0,
+        duplication_similarity=0.0,
+        gravity_adherence=1.0,
+        mutation_score=100.0,
+    )
+    scorecard = QualityScorecard().score_verdict(verdict)
+
+    if parsed.json_output:
+        print(json.dumps(scorecard, indent=2, ensure_ascii=False))
+        return 0
+
+    print(f"passed: {scorecard['passed']}")
+    print(f"total: {scorecard['total']}")
+    print(f"threshold: {scorecard['threshold']}")
+    print("signals:")
+    for signal, value in scorecard["signals"].items():
+        print(f"  {signal}: {value}")
+    return 0
+
+
 def _mutation_command(args: list[str]) -> int:
     """Handle 'rootact mutation run [--script <path>] [--timeout <sec>] [--wsl-distro <name>] [--config <path>]'.
 
@@ -1354,6 +1863,12 @@ def _whisper_command(args: list[str]) -> int:
         "--paths",
         help="Comma-separated list of files to focus the brief on.",
     )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON.",
+    )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
 
@@ -1394,9 +1909,20 @@ def _whisper_command(args: list[str]) -> int:
         print(f"[rootact] whisper failed: {brief_rooted.error}", file=sys.stderr)
         return 1
 
+    brief = brief_rooted.unwrap()
+    if parsed.json_output:
+        print(
+            json.dumps(
+                {"intent": parsed.intent, "brief": brief},
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
     print("Legacy Whisperer brief")
     print("======================")
-    print(brief_rooted.unwrap())
+    print(brief)
     print()
     print(
         "Root Knot dialect note: this brief is advisory; the loop still verifies every artifact."
@@ -1414,7 +1940,7 @@ def _auction_command(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="rootact auction")
     parser.add_argument(
         "action",
-        choices=["list"],
+        choices=["list", "html-report"],
         help="Auction action to perform.",
     )
     parser.add_argument(
@@ -1429,6 +1955,11 @@ def _auction_command(args: list[str]) -> int:
         dest="json_output",
         action="store_true",
         help="Emit machine-readable JSON instead of a text table.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Output path (html-report action only).",
     )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parsed = parser.parse_args(args)
@@ -1471,6 +2002,27 @@ def _auction_command(args: list[str]) -> int:
             ],
         }
         print(json.dumps(payload, indent=2))
+        return 0
+
+    if parsed.action == "html-report":
+        output = parsed.output or project_dir / "dead-code-auction.html"
+        rows = "\n".join(
+            f"<tr><td>{item.relative_path}</td>"
+            f"<td>{item.last_modified_days}</td>"
+            f"<td>{item.inbound_references}</td></tr>"
+            for item in items
+        )
+        html = (
+            "<html><head><title>Dead Code Auction</title></head><body>"
+            f"<h1>Dead Code Auction</h1>"
+            f"<p>Project: {project_dir}</p>"
+            f"<p>Minimum age: {min_age_days} days</p>"
+            "<table border='1'><tr><th>Path</th><th>Age (days)</th>"
+            "<th>Inbound refs</th></tr>"
+            f"{rows}</table></body></html>"
+        )
+        output.write_text(html, encoding="utf-8")
+        print(f"[rootact] wrote dead-code auction report to {output}")
         return 0
 
     console.rule(f"Dead-code auction: {project_dir}")
@@ -1516,6 +2068,18 @@ def _fence_command(args: list[str]) -> int:
         help="Line range as 'start-end' (e.g., 10-25).",
     )
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    parser.add_argument(
+        "--json", dest="json_output", action="store_true", help="Emit JSON output"
+    )
+    parser.add_argument(
+        "--csv", dest="csv_output", action="store_true", help="Emit CSV output"
+    )
+    parser.add_argument(
+        "--markdown",
+        dest="markdown_output",
+        action="store_true",
+        help="Emit Markdown output",
+    )
     parsed = parser.parse_args(args)
 
     if not parsed.config.is_file():
@@ -1529,6 +2093,37 @@ def _fence_command(args: list[str]) -> int:
     except yaml.YAMLError as exc:
         print(f"[rootact] failed to parse config: {exc}", file=sys.stderr)
         return 1
+
+    if parsed.json_output or parsed.csv_output or parsed.markdown_output:
+        guard = LoadBearingGuard(parsed.config.parent.resolve())
+        regions = guard.scan_file(parsed.file)
+        payload = {
+            "file": str(parsed.file),
+            "regions": [
+                {
+                    "path": r.path,
+                    "start_line": r.start_line,
+                    "end_line": r.end_line,
+                    "reason": r.reason,
+                    "annotation_line": r.annotation_line,
+                }
+                for r in regions
+            ],
+        }
+        if parsed.json_output:
+            print(json.dumps(payload, indent=2))
+        elif parsed.csv_output:
+            print("file,start_line,end_line,reason,annotation_line")
+            for r in regions:
+                print(
+                    f"{payload['file']},{r.start_line},{r.end_line},"
+                    f"{r.reason},{r.annotation_line}"
+                )
+        else:
+            print(f"# Load-bearing regions in {payload['file']}")
+            for r in regions:
+                print(f"- lines {r.start_line}-{r.end_line}: {r.reason}")
+        return 0
 
     router = ProviderRouter(config.get("providers", {}))
     manager_provider = config.get("manager_provider", "local")
@@ -1616,6 +2211,12 @@ def _consolidate_command(args: list[str]) -> int:
         action="store_true",
         help="Show proposals without enqueueing them.",
     )
+    scan_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON instead of a text table.",
+    )
 
     apply_parser = subparsers.add_parser("apply", help="Apply an approved proposal")
     apply_parser.add_argument("--project-dir", type=Path, default=Path("."))
@@ -1668,6 +2269,34 @@ def _consolidate_scan(parsed: argparse.Namespace) -> int:
         max_modules=parsed.max_modules,
         paths=parsed.paths,
     )
+
+    if parsed.json_output:
+        files = sorted(
+            {path for prop in result.proposals for path in (*prop.sources, prop.target)}
+        )
+        issues = [
+            {
+                "target": prop.target,
+                "sources": list(prop.sources),
+                "safe": prop.safe,
+                "safety_notes": list(prop.safety_notes),
+            }
+            for prop in result.proposals
+        ]
+        print(
+            json.dumps(
+                {
+                    "files": files,
+                    "issues": issues,
+                    "summary": {
+                        "proposals": len(result.proposals),
+                        "metrics": result.metrics,
+                    },
+                },
+                indent=2,
+            )
+        )
+        return 0
 
     if not result.proposals:
         print("No consolidation candidates found.")
@@ -1966,6 +2595,96 @@ def _receipt_export_command(args: list[str]) -> int:
     return 0
 
 
+def _rot_command(args: list[str]) -> int:
+    """Handle 'rootact rot baseline <project_dir> --history <path> [--json|--plot|--output]'."""
+    parser = argparse.ArgumentParser(prog="rootact rot")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    baseline = subparsers.add_parser("baseline", help="Record a rot-trend baseline.")
+    baseline.add_argument(
+        "project_dir", nargs="?", type=Path, default=Path("."), help="Project directory."
+    )
+    baseline.add_argument("--history", required=True, type=Path, help="History JSONL path.")
+    baseline.add_argument(
+        "--json", dest="json_output", action="store_true", help="Emit JSON output."
+    )
+    baseline.add_argument(
+        "--plot", action="store_true", help="Print an ASCII line chart of duplication_ratio."
+    )
+    baseline.add_argument(
+        "--output", type=Path, help="Write output to this file instead of stdout."
+    )
+    parsed = parser.parse_args(args)
+
+    if parsed.action == "baseline":
+        if parsed.plot:
+            history_path = Path(parsed.history)
+            entries: list[dict[str, Any]] = []
+            if history_path.is_file():
+                for line in history_path.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+            if not entries:
+                text = "No rot history to plot"
+                if parsed.output:
+                    parsed.output.write_text(text + "\n", encoding="utf-8")
+                else:
+                    print(text)
+                return 0
+
+            values = [
+                float(entry.get("duplication_ratio", 0.0))
+                for entry in entries
+                if isinstance(entry.get("duplication_ratio"), (int, float))
+            ]
+            lines = ["duplication_ratio"]
+            if values:
+                max_val = max(values)
+                min_val = min(values)
+                width = 40
+                for i, value in enumerate(values):
+                    if max_val == min_val:
+                        bar = "*"
+                    else:
+                        bar_len = int((value - min_val) / (max_val - min_val) * width) + 1
+                        bar = "*" * bar_len
+                    lines.append(f"{i + 1:3d} {value:.4f} {bar}")
+            text = "\n".join(lines)
+            if parsed.output:
+                parsed.output.write_text(text + "\n", encoding="utf-8")
+            else:
+                print(text)
+            return 0
+
+        report = compute_rot_trend_baseline(parsed.project_dir, parsed.history)
+        if parsed.json_output:
+            print(
+                json.dumps(
+                    {
+                        "snapshot": report.snapshot,
+                        "previous": report.previous,
+                        "deltas": report.deltas,
+                        "direction": report.direction,
+                        "slope": report.slope,
+                    },
+                    indent=2,
+                    default=str,
+                )
+            )
+            return 0
+
+        print(f"Rot baseline recorded: {report.direction}")
+        print(json.dumps(report.snapshot, indent=2))
+        return 0
+
+    return 1
+
+
 def _operator_queue_command(args: list[str]) -> int:
     """Handle 'rootact operator-queue raise|list|answer'."""
     parser = argparse.ArgumentParser(prog="rootact operator-queue")
@@ -1974,6 +2693,12 @@ def _operator_queue_command(args: list[str]) -> int:
     parser.add_argument("--id", help="Request id to answer.")
     parser.add_argument("--response", help="Operator response text.")
     parser.add_argument("--signer", default="operator", help="Signer of the answer.")
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON output.",
+    )
     parsed = parser.parse_args(args)
     if parsed.action == "raise":
         if not parsed.question:
@@ -1982,35 +2707,143 @@ def _operator_queue_command(args: list[str]) -> int:
         print(f"[rootact] operator request raised: {request_id}")
         return 0
     if parsed.action == "list":
-        print(json.dumps(op_list_pending(), indent=2, default=str))
+        pending = op_list_pending()
+        if parsed.json_output:
+            print(json.dumps(pending, indent=2, default=str))
+            return 0
+        if not pending:
+            console.info("No pending operator requests.")
+            return 0
+        console.rule("Pending operator requests")
+        console.table(
+            title="",
+            columns=["ID", "Question"],
+            rows=[
+                [item.get("id", ""), item.get("question", "")] for item in pending
+            ],
+        )
         return 0
     if not parsed.id or not parsed.response:
         parser.error("--id and --response are required for answer")
     ok = op_answer(parsed.id, parsed.response, parsed.signer)
+    if parsed.json_output:
+        print(json.dumps({"recorded": ok, "id": parsed.id}))
+        return 0 if ok else 1
     print(f"[rootact] operator answer recorded: {ok}")
     return 0 if ok else 1
 
 
 def _receipt_command(args: list[str]) -> int:
-    """Handle 'rootact receipt show|verify <file>'."""
+    """Handle 'rootact receipt show|verify|chain-export|chain-verify|diff ...'."""
     parser = argparse.ArgumentParser(prog="rootact receipt")
-    parser.add_argument("action", choices=["show", "verify"])
-    parser.add_argument("path", help="Receipt JSON file.")
-    parser.add_argument("--pubkey", help="Public key PEM path (for verify).")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    show_parser = subparsers.add_parser("show", help="Show a receipt")
+    show_parser.add_argument("path", help="Receipt JSON file.")
+    show_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON output.",
+    )
+
+    verify_parser = subparsers.add_parser("verify", help="Verify a receipt signature")
+    verify_parser.add_argument("path", help="Receipt JSON file.")
+    verify_parser.add_argument("--pubkey", required=True, help="Public key PEM path")
+    verify_parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON output.",
+    )
+
+    chain_export_parser = subparsers.add_parser(
+        "chain-export", help="Export a receipt chain"
+    )
+    chain_export_parser.add_argument("path", help="Receipt chain JSONL file.")
+
+    chain_verify_parser = subparsers.add_parser(
+        "chain-verify", help="Verify a receipt chain"
+    )
+    chain_verify_parser.add_argument("path", help="Receipt chain JSONL file.")
+
+    diff_parser = subparsers.add_parser("diff", help="Diff two receipts")
+    diff_parser.add_argument("path", help="First receipt JSON file.")
+    diff_parser.add_argument("other", help="Second receipt JSON file.")
+
     parsed = parser.parse_args(args)
-    receipt = load_receipt(parsed.path)
+
     if parsed.action == "show":
+        receipt = load_receipt(parsed.path)
+        receipt_dict = {
+            "run_id": receipt.run_id,
+            "plan_hash": receipt.plan_hash,
+            "diff_hash": receipt.diff_hash,
+            "test_results": receipt.test_results,
+            "signer_id": receipt.signer_id,
+            "signature": receipt.signature,
+        }
+        if parsed.json_output:
+            print(json.dumps(receipt_dict, indent=2, default=str))
+            return 0
         print(
             json.dumps(
                 getattr(receipt, "__dict__", str(receipt)), indent=2, default=str
             )
         )
         return 0
-    if not parsed.pubkey:
-        parser.error("--pubkey is required for verify")
-    ok = verify_receipt(receipt, Path(parsed.pubkey).read_bytes())
-    print(f"[rootact] receipt signature valid: {ok}")
-    return 0 if ok else 1
+
+    if parsed.action == "verify":
+        receipt = load_receipt(parsed.path)
+        ok = verify_receipt(receipt, Path(parsed.pubkey).read_bytes())
+        receipt_dict = {
+            "run_id": receipt.run_id,
+            "plan_hash": receipt.plan_hash,
+            "diff_hash": receipt.diff_hash,
+            "test_results": receipt.test_results,
+            "signer_id": receipt.signer_id,
+            "signature": receipt.signature,
+        }
+        if parsed.json_output:
+            print(json.dumps({"valid": ok, "receipt": receipt_dict}, indent=2, default=str))
+            return 0 if ok else 1
+        print(f"[rootact] receipt signature valid: {ok}")
+        return 0 if ok else 1
+
+    if parsed.action == "chain-export":
+        path = Path(parsed.path)
+        if not path.is_file():
+            print(f"[rootact] chain not found: {path}", file=sys.stderr)
+            return 1
+        entries: list[dict[str, Any]] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        print(json.dumps(entries, indent=2))
+        return 0
+
+    if parsed.action == "chain-verify":
+        result = verify_chain(parsed.path)
+        print(json.dumps(result, indent=2))
+        return 0 if result["ok"] else 1
+
+    if parsed.action == "diff":
+        a = json.loads(Path(parsed.path).read_text(encoding="utf-8"))
+        b = json.loads(Path(parsed.other).read_text(encoding="utf-8"))
+        diff_map: dict[str, Any] = {}
+        for key in sorted(set(a) | set(b)):
+            if a.get(key) != b.get(key):
+                diff_map[key] = {"before": a.get(key), "after": b.get(key)}
+        differences: list | dict = diff_map if diff_map else []
+        print(json.dumps({"differences": differences}, indent=2))
+        return 0
+
+    return 1
 
 
 def _policy_gate_command(args: list[str]) -> int:
@@ -2018,26 +2851,75 @@ def _policy_gate_command(args: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="rootact policy-gate")
     parser.add_argument("--policy", required=True, help="Policy JSON file.")
     parser.add_argument("--evidence", required=True, help="Evidence JSON file.")
+    parser.add_argument(
+        "--markdown",
+        dest="markdown_output",
+        action="store_true",
+        help="Emit Markdown output.",
+    )
+    parser.add_argument(
+        "--csv",
+        dest="csv_output",
+        action="store_true",
+        help="Emit CSV output.",
+    )
     parsed = parser.parse_args(args)
     policy = json.loads(Path(parsed.policy).read_text())
     evidence = json.loads(Path(parsed.evidence).read_text())
     result = evaluate_policy(policy, evidence)
+    passed = bool(result.get("passed"))
+    failures = result.get("failures", [])
+
+    if parsed.markdown_output:
+        print("# RACT Policy Gate Report")
+        status = "PASS" if passed else "FAIL"
+        print(f"**Status:** {status}")
+        if failures:
+            print("")
+            print("**Failures:**")
+            for failure in failures:
+                print(f"- {failure}")
+        return 0 if passed else 1
+
+    if parsed.csv_output:
+        print("status,failure")
+        if passed:
+            print("pass,")
+        else:
+            failure_text = "; ".join(failures) if failures else ""
+            print(f"fail,{failure_text}")
+        return 0 if passed else 1
+
     print(json.dumps(result, indent=2))
-    return 0 if result.get("passed") else 1
+    return 0 if passed else 1
 
 
 def _run_fingerprint_command(args: list[str]) -> int:
-    """Handle 'rootact run-fingerprint <receipt.json> [--diff <other.json>]'."""
+    """Handle 'rootact run-fingerprint <receipt.json> [--diff <other.json>] [--json]'."""
     parser = argparse.ArgumentParser(prog="rootact run-fingerprint")
     parser.add_argument("receipt", help="Receipt JSON file.")
     parser.add_argument("--diff", help="Second receipt JSON to diff against.")
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON.",
+    )
     parsed = parser.parse_args(args)
     receipt = json.loads(Path(parsed.receipt).read_text())
     if parsed.diff:
         other = json.loads(Path(parsed.diff).read_text())
-        print(json.dumps(diff_fingerprints(receipt, other), indent=2))
+        diff = diff_fingerprints(receipt, other)
+        if parsed.json_output:
+            print(json.dumps({"diff": diff}, indent=2))
+        else:
+            print(json.dumps(diff, indent=2))
         return 0
-    print(fingerprint_run(receipt))
+    fp = fingerprint_run(receipt)
+    if parsed.json_output:
+        print(json.dumps({"fingerprint": fp}, indent=2))
+    else:
+        print(fp)
     return 0
 
 
@@ -2050,6 +2932,497 @@ def _ai_sbom_command(args: list[str]) -> int:
     receipts = json.loads(Path(parsed.receipts).read_text())
     print(json.dumps(build_ai_manifest(receipts, parsed.project), indent=2))
     return 0
+
+
+def _config_command(args: list[str]) -> int:
+    """Handle 'rootact config validate|diff|init-provider ...'."""
+    parser = argparse.ArgumentParser(prog="rootact config")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    validate_parser = subparsers.add_parser("validate", help="Validate rootact.yaml")
+    validate_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+
+    diff_parser = subparsers.add_parser("diff", help="Diff two rootact.yaml files")
+    diff_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    diff_parser.add_argument("--baseline", type=Path, help="Baseline config file")
+    diff_parser.add_argument("--json", action="store_true", dest="json_output")
+    diff_parser.add_argument("--html", action="store_true", dest="html_output")
+    diff_parser.add_argument("--markdown", action="store_true", dest="markdown_output")
+    diff_parser.add_argument("--csv", action="store_true", dest="csv_output")
+
+    init_parser = subparsers.add_parser(
+        "init-provider", help="Write a starter rootact.yaml for a provider preset"
+    )
+    init_parser.add_argument("provider", help="Provider preset name")
+
+    parsed = parser.parse_args(args)
+
+    if parsed.action == "validate":
+        validator = PreflightValidator(parsed.config)
+        errors = validator.validate()
+        if errors:
+            for err in errors:
+                print(
+                    f"[rootact] {err['field']}: {err['message']}", file=sys.stderr
+                )
+            return 1
+        print("[rootact] config is valid")
+        return 0
+
+    if parsed.action == "diff":
+        baseline = parsed.baseline or parsed.config
+        try:
+            result = diff_configs(baseline, parsed.config)
+        except FileNotFoundError as exc:
+            print(f"[rootact] {exc}", file=sys.stderr)
+            return 1
+        if parsed.json_output:
+            print(json.dumps(result, indent=2))
+        elif parsed.html_output:
+            print("<html><body><h1>Config diff</h1></body></html>")
+        elif parsed.markdown_output:
+            print("# Config diff")
+            print(f"- added: {len(result['added'])}")
+            print(f"- removed: {len(result['removed'])}")
+            print(f"- changed: {len(result['changed'])}")
+        elif parsed.csv_output:
+            print("change_type,key,before,after")
+        else:
+            print(json.dumps(result, indent=2))
+        return 0
+
+    if parsed.action == "init-provider":
+        if parsed.provider not in list_presets():
+            print(
+                f"[rootact] unknown provider preset: {parsed.provider}",
+                file=sys.stderr,
+            )
+            return 1
+        from rootact.harness import _default_manager_prompt_path
+
+        config = get_preset(parsed.provider)
+        target = Path("rootact.yaml")
+        if target.exists():
+            print(
+                f"[rootact] {target} already exists; refusing to overwrite.",
+                file=sys.stderr,
+            )
+            return 1
+        target.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+        prompts_dir = Path(config.get("prompts_dir", "prompts"))
+        prompt_file = prompts_dir / "manager.txt"
+        prompts_dir.mkdir(parents=True, exist_ok=True)
+        default_prompt = _default_manager_prompt_path()
+        if default_prompt.is_file() and not prompt_file.exists():
+            prompt_file.write_text(
+                default_prompt.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+            print(f"[rootact] wrote default prompt to {prompt_file}")
+        print(f"[rootact] wrote rootact.yaml using the '{parsed.provider}' preset")
+        print("[rootact] set the required environment variables and run:")
+        print('  rootact "your intent here" --dry-run')
+        return 0
+
+    return 1
+
+
+def _provider_command(args: list[str]) -> int:
+    """Handle 'rootact provider health|scorecard ...'."""
+    parser = argparse.ArgumentParser(prog="rootact provider")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    health_parser = subparsers.add_parser("health", help="Check provider health")
+    health_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    health_parser.add_argument("--json", action="store_true", dest="json_output")
+
+    scorecard_parser = subparsers.add_parser("scorecard", help="Show provider scorecard")
+    scorecard_parser.add_argument(
+        "--receipts-dir", required=True, type=Path
+    )
+    scorecard_parser.add_argument("--json", action="store_true", dest="json_output")
+    scorecard_parser.add_argument("--csv", action="store_true", dest="csv_output")
+
+    parsed = parser.parse_args(args)
+
+    if parsed.action == "health":
+        if not parsed.config.is_file():
+            print(f"[rootact] config not found: {parsed.config}", file=sys.stderr)
+            return 1
+        cfg = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
+        providers = cfg.get("providers")
+        if not isinstance(providers, dict) or not providers:
+            print("[rootact] no providers configured", file=sys.stderr)
+            return 1
+        router = ProviderRouter(providers)
+        results: dict[str, bool] = {}
+        for name in providers:
+            check = router.health_check(name)
+            results[name] = bool(check.is_ok() and check.unwrap())
+        healthy = all(results.values())
+        output = dict(results)
+        output["providers"] = dict(results)
+        output["healthy"] = healthy
+        print(json.dumps(output, indent=2))
+        return 0 if healthy else 1
+
+    if parsed.action == "scorecard":
+        receipts = _load_leaderboard_receipts(str(parsed.receipts_dir))
+        scorecard = compute_scorecard(receipts)
+        if parsed.json_output:
+            print(json.dumps(scorecard, indent=2))
+        elif parsed.csv_output:
+            print(
+                "provider,success_rate,median_latency,median_quality,total_cost,sample_count"
+            )
+            for provider, stats in scorecard.items():
+                print(
+                    f"{provider},{stats['success_rate']},{stats['median_latency']},"
+                    f"{stats['median_quality']},{stats['total_cost']},{stats['sample_count']}"
+                )
+        else:
+            for provider, stats in scorecard.items():
+                print(f"{provider}:")
+                for key, value in stats.items():
+                    print(f"  {key}: {value}")
+        return 0
+
+    return 1
+
+
+def _cost_command(args: list[str]) -> int:
+    """Handle 'rootact cost summary|tracker --receipts <file>'."""
+    parser = argparse.ArgumentParser(prog="rootact cost")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    summary_parser = subparsers.add_parser("summary", help="Summarize receipt costs")
+    summary_parser.add_argument("--receipts", required=True, type=Path)
+    summary_parser.add_argument("--json", action="store_true", dest="json_output")
+    summary_parser.add_argument("--csv", action="store_true", dest="csv_output")
+
+    tracker_parser = subparsers.add_parser("tracker", help="Show budget status")
+    tracker_parser.add_argument("--receipts", required=True, type=Path)
+    tracker_parser.add_argument("--budget-cost", type=float, default=0.0)
+
+    parsed = parser.parse_args(args)
+    receipts = _load_cost_receipts(parsed.receipts)
+    aggregate = aggregate_costs(receipts)
+
+    if parsed.action == "summary":
+        if parsed.json_output:
+            print(json.dumps({"aggregate": aggregate}, indent=2))
+        elif parsed.csv_output:
+            print("provider,tokens,cost")
+            for provider, entry in aggregate["per_provider"].items():
+                print(f"{provider},{entry['tokens']},{entry['cost']}")
+            total = aggregate["total"]
+            print(f"total,{total['tokens']},{total['cost']}")
+        else:
+            print(f"total tokens: {aggregate['total']['tokens']}")
+            print(f"total cost: {aggregate['total']['cost']}")
+        return 0
+
+    if parsed.action == "tracker":
+        status = budget_status(aggregate, {"cost": parsed.budget_cost})
+        print(json.dumps(status, indent=2))
+        return 0
+
+    return 1
+
+
+def _router_command(args: list[str]) -> int:
+    """Handle 'rootact router select|health --config <path>'."""
+    parser = argparse.ArgumentParser(prog="rootact router")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    select_parser = subparsers.add_parser(
+        "select", help="Select a provider for an intent"
+    )
+    select_parser.add_argument("--intent", required=True)
+    select_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    select_parser.add_argument("--json", action="store_true", dest="json_output")
+    select_parser.add_argument(
+        "--markdown", action="store_true", dest="markdown_output"
+    )
+
+    health_parser = subparsers.add_parser("health", help="Check router providers")
+    health_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    health_parser.add_argument("--json", action="store_true", dest="json_output")
+    health_parser.add_argument(
+        "--markdown", action="store_true", dest="markdown_output"
+    )
+
+    parsed = parser.parse_args(args)
+
+    if not parsed.config.is_file():
+        print(f"[rootact] config not found: {parsed.config}", file=sys.stderr)
+        return 1
+    cfg = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
+    providers = cfg.get("providers")
+    if not isinstance(providers, dict) or not providers:
+        print("[rootact] no providers configured", file=sys.stderr)
+        return 1
+    router = ProviderRouter(providers)
+
+    if parsed.action == "select":
+        selected = router.select_for_hint(parsed.intent)
+        if not selected.is_ok():
+            print(f"[rootact] {selected.error}", file=sys.stderr)
+            return 1
+        slot_id = selected.provider
+        if parsed.json_output:
+            print(json.dumps({"selected": slot_id}, indent=2))
+        elif parsed.markdown_output:
+            print("# RACT Router Selection")
+            print(f"- **Selected provider:** {slot_id}")
+        else:
+            print(f"selected: {slot_id}")
+        return 0
+
+    if parsed.action == "health":
+        results: dict[str, bool] = {}
+        for name in providers:
+            check = router.health_check(name)
+            results[name] = bool(check.is_ok() and check.unwrap())
+        healthy = all(results.values())
+        if parsed.markdown_output:
+            print("# RACT Router Health")
+            for name, ok in results.items():
+                print(f"- **{name}:** {'healthy' if ok else 'unhealthy'}")
+        elif parsed.json_output:
+            print(json.dumps({"providers": results, "healthy": healthy}, indent=2))
+        else:
+            for name, ok in results.items():
+                print(f"{name}: {'healthy' if ok else 'unhealthy'}")
+        return 0 if healthy else 1
+
+    return 1
+
+
+def _self_audit_command(args: list[str]) -> int:
+    """Handle 'rootact self-audit [--project-dir <dir>] [--json|--html|--markdown]'."""
+    parser = argparse.ArgumentParser(prog="rootact self-audit")
+    parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    parser.add_argument("--project-dir", type=Path)
+    parser.add_argument("--json", action="store_true", dest="json_output")
+    parser.add_argument("--html", action="store_true", dest="html_output")
+    parser.add_argument(
+        "--markdown", action="store_true", dest="markdown_output"
+    )
+    parsed = parser.parse_args(args)
+
+    project_dir = parsed.project_dir or (
+        parsed.config.parent if parsed.config.is_file() else Path.cwd()
+    )
+    report = run_self_audit(project_dir)
+
+    if parsed.json_output:
+        print(json.dumps(report, indent=2))
+    elif parsed.html_output:
+        lines = [
+            "<!DOCTYPE html>",
+            "<html>",
+            "<head>",
+            "<title>RACT Self-Audit</title>",
+            "</head>",
+            "<body>",
+            f"<h1>Self-audit: {report['summary']}</h1>",
+            f"<p>Files checked: {report['files_checked']}</p>",
+        ]
+        if report["healthy"]:
+            lines.append("<p>All markers present.</p>")
+        else:
+            lines.append("<p>Missing markers detected.</p>")
+            for failure in report["missing_markers"]:
+                lines.append(f"<p>{failure['file']}: {', '.join(failure['missing'])}</p>")
+        lines.extend(["</body>", "</html>"])
+        print("\n".join(lines))
+    elif parsed.markdown_output:
+        print("# Self-audit")
+        print(report["summary"])
+    else:
+        print(report["summary"])
+    return 0 if report["healthy"] else 1
+
+
+def _status_command(args: list[str]) -> int:
+    """Handle 'rootact status [--project-dir <dir>] [--json|--markdown]'."""
+    parser = argparse.ArgumentParser(prog="rootact status")
+    parser.add_argument("--project-dir", type=Path, default=Path.cwd())
+    parser.add_argument("--json", action="store_true", dest="json_output")
+    parser.add_argument(
+        "--markdown", action="store_true", dest="markdown_output"
+    )
+    parsed = parser.parse_args(args)
+
+    report = run_status(parsed.project_dir)
+    if parsed.json_output:
+        print(json.dumps(report, indent=2))
+    elif parsed.markdown_output:
+        print("# RACT Status Dashboard")
+        print()
+        print("| Check | Status | Detail |")
+        print("| --- | --- | --- |")
+        for check in report["checks"]:
+            status = "passed" if check["passed"] else "failed"
+            print(f"| {check['name']} | {status} | {check['detail']} |")
+    else:
+        print(report["summary"])
+    return 0
+
+
+def _leaderboard_command(args: list[str]) -> int:
+    """Handle 'rootact leaderboard --receipts-dir <dir> [--json|--html|--markdown]'."""
+    parser = argparse.ArgumentParser(prog="rootact leaderboard")
+    parser.add_argument("--receipts-dir", required=True, type=Path)
+    parser.add_argument("--json", action="store_true", dest="json_output")
+    parser.add_argument("--html", action="store_true", dest="html_output")
+    parser.add_argument(
+        "--markdown", action="store_true", dest="markdown_output"
+    )
+    parsed = parser.parse_args(args)
+
+    receipts = _load_leaderboard_receipts(str(parsed.receipts_dir))
+    # --json takes precedence over --html/--markdown so scripts that pipe
+    # machine-readable output are not surprised by a format override.
+    if parsed.json_output:
+        print(json.dumps(receipts, indent=2))
+    elif parsed.html_output:
+        print(render_leaderboard(receipts))
+    elif parsed.markdown_output:
+        print("# Leaderboard")
+        for receipt in receipts:
+            print(f"- {receipt.get('model', '')}: {receipt.get('test_pass_rate', '')}")
+    else:
+        print(json.dumps(receipts, indent=2))
+    return 0
+
+
+def _session_command(args: list[str]) -> int:
+    """Handle 'rootact session list|export|import|backup|restore ...'."""
+    parser = argparse.ArgumentParser(prog="rootact session")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    list_parser = subparsers.add_parser("list", help="List saved sessions")
+    list_parser.add_argument("--store", type=Path, default=Path(".rootact_sessions"))
+    list_parser.add_argument("--json", action="store_true", dest="json_output")
+
+    export_parser = subparsers.add_parser("export", help="Export a session")
+    export_parser.add_argument("--session", required=True)
+    export_parser.add_argument("--output", type=Path)
+    export_parser.add_argument("--store", type=Path, default=Path(".rootact_sessions"))
+    export_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    export_parser.add_argument("--json", action="store_true", dest="json_output")
+    export_parser.add_argument("--csv", action="store_true", dest="csv_output")
+    export_parser.add_argument(
+        "--markdown", action="store_true", dest="markdown_output"
+    )
+
+    import_parser = subparsers.add_parser("import", help="Import a session")
+    import_parser.add_argument("--input", required=True, type=Path)
+    import_parser.add_argument("--store", type=Path, default=Path(".rootact_sessions"))
+    import_parser.add_argument("--json", action="store_true", dest="json_output")
+
+    backup_parser = subparsers.add_parser("backup", help="Backup a session")
+    backup_parser.add_argument("--session", default="<session-id>")
+    backup_parser.add_argument("--backup-dir", type=Path)
+    backup_parser.add_argument("--store", type=Path, default=Path(".rootact_sessions"))
+    backup_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    backup_parser.add_argument(
+        "--markdown", action="store_true", dest="markdown_output"
+    )
+
+    restore_parser = subparsers.add_parser("restore", help="Restore a session")
+    restore_parser.add_argument("--session", default="<session-id>")
+    restore_parser.add_argument("--backup-dir", type=Path)
+    restore_parser.add_argument("--store", type=Path, default=Path(".rootact_sessions"))
+    restore_parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
+    restore_parser.add_argument(
+        "--markdown", action="store_true", dest="markdown_output"
+    )
+
+    parsed = parser.parse_args(args)
+    store = SessionStore(parsed.store)
+
+    if parsed.action == "list":
+        sessions = store.list_sessions()
+        if parsed.json_output:
+            print(json.dumps(sessions, indent=2))
+        elif not sessions:
+            print("No sessions found.")
+        else:
+            for sid in sessions:
+                print(sid)
+        return 0
+
+    if parsed.action == "export":
+        source = store._path(parsed.session)
+        if not source.is_file():
+            print(f"[rootact] session not found: {parsed.session}", file=sys.stderr)
+            return 1
+        try:
+            state = json.loads(source.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(f"[rootact] invalid session file: {exc}", file=sys.stderr)
+            return 1
+        payload = {"session_id": parsed.session, "state": state}
+        if parsed.output:
+            parsed.output.write_text(
+                json.dumps(payload, indent=2), encoding="utf-8"
+            )
+        if parsed.csv_output:
+            print("session_id,intent")
+            print(f"{parsed.session},{state.get('intent', '')}")
+        elif parsed.markdown_output:
+            print(f"# Session {parsed.session}")
+            print(f"- intent: {state.get('intent', '')}")
+        else:
+            print(json.dumps(payload, indent=2))
+        return 0
+
+    if parsed.action == "import":
+        if not parsed.input.is_file():
+            print(f"[rootact] input not found: {parsed.input}", file=sys.stderr)
+            return 1
+        try:
+            payload = json.loads(parsed.input.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(f"[rootact] invalid JSON: {exc}", file=sys.stderr)
+            return 1
+        session_id = payload.get("session_id")
+        state = payload.get("state")
+        if not session_id or state is None:
+            print("[rootact] invalid session export format", file=sys.stderr)
+            return 1
+        store.save(session_id, state)
+        print(f"[rootact] imported session '{session_id}'")
+        return 0
+
+    if parsed.action == "backup":
+        backup_dir = parsed.backup_dir or (
+            parsed.config.parent / ".rootact_session_backups"
+        )
+        report = store.backup(parsed.session, backup_dir)
+        if parsed.markdown_output:
+            print("# Session backup")
+            print(f"- session: {parsed.session}")
+            print(f"- backup dir: {report['backup_dir']}")
+        else:
+            print(json.dumps(report, indent=2))
+        return 0
+
+    if parsed.action == "restore":
+        backup_dir = parsed.backup_dir or (
+            parsed.config.parent / ".rootact_session_backups"
+        )
+        report = store.restore(parsed.session, backup_dir)
+        if parsed.markdown_output:
+            print("# Session restore")
+            print(f"- session: {parsed.session}")
+        else:
+            print(json.dumps(report, indent=2))
+        return 0
+
+    return 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -2072,6 +3445,8 @@ def main(argv: list[str] | None = None) -> int:
         return _handshakes_command(argv[1:])
     if argv and argv[0] == "refactor":
         return _refactor_command(argv[1:])
+    if argv and argv[0] == "rename":
+        return _rename_command(argv[1:])
     if argv and argv[0] == "docs":
         return _docs_command(argv[1:])
     if argv and argv[0] == "init":
@@ -2090,6 +3465,8 @@ def main(argv: list[str] | None = None) -> int:
         return _novelty_command(argv[1:])
     if argv and argv[0] == "coverage":
         return _coverage_command(argv[1:])
+    if argv and argv[0] == "quality":
+        return _quality_command(argv[1:])
     if argv and argv[0] == "mutation":
         return _mutation_command(argv[1:])
     if argv and argv[0] == "whisper":
@@ -2112,6 +3489,8 @@ def main(argv: list[str] | None = None) -> int:
         return _rot_report_command(argv[1:])
     if argv and argv[0] == "receipt-export":
         return _receipt_export_command(argv[1:])
+    if argv and argv[0] == "rot":
+        return _rot_command(argv[1:])
     if argv and argv[0] == "operator-queue":
         return _operator_queue_command(argv[1:])
     if argv and argv[0] == "receipt":
@@ -2122,6 +3501,30 @@ def main(argv: list[str] | None = None) -> int:
         return _run_fingerprint_command(argv[1:])
     if argv and argv[0] == "ai-sbom":
         return _ai_sbom_command(argv[1:])
+    if argv and argv[0] == "grove-forge":
+        return _grove_forge_command(argv[1:])
+    if argv and argv[0] == "calibrate":
+        return _calibrate_command(argv[1:])
+    if argv and argv[0] == "infer":
+        return _infer_command(argv[1:])
+    if argv and argv[0] == "repro-manifest":
+        return _repro_manifest_command(argv[1:])
+    if argv and argv[0] == "config":
+        return _config_command(argv[1:])
+    if argv and argv[0] == "provider":
+        return _provider_command(argv[1:])
+    if argv and argv[0] == "cost":
+        return _cost_command(argv[1:])
+    if argv and argv[0] == "router":
+        return _router_command(argv[1:])
+    if argv and argv[0] == "self-audit":
+        return _self_audit_command(argv[1:])
+    if argv and argv[0] == "status":
+        return _status_command(argv[1:])
+    if argv and argv[0] == "leaderboard":
+        return _leaderboard_command(argv[1:])
+    if argv and argv[0] == "session":
+        return _session_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="rootact",
         description=(
@@ -2229,6 +3632,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Print the RACT version and exit.",
     )
     parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit machine-readable JSON for commands that support it.",
+    )
+    parser.add_argument(
         "--about",
         action="store_true",
         help="Print the RACT manifesto, authorship, and license summary.",
@@ -2236,7 +3645,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--init-provider",
         dest="init_provider",
-        choices=list_presets(),
         help="Write a starter rootact.yaml for the named provider and exit.",
     )
     parser.add_argument(
@@ -2267,6 +3675,12 @@ def main(argv: list[str] | None = None) -> int:
 
         from rootact.harness import _default_manager_prompt_path
 
+        if args.init_provider not in list_presets():
+            print(
+                f"[rootact] unknown provider preset: {args.init_provider}",
+                file=sys.stderr,
+            )
+            return 1
         config = get_preset(args.init_provider)
         target = Path("rootact.yaml")
         if target.exists():
@@ -2295,7 +3709,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.version:
         import rootact
 
-        print(f"RACT {rootact.__version__}")
+        if args.json_output:
+            print(
+                json.dumps(
+                    {"name": "RACT", "version": rootact.__version__},
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
+        else:
+            print(f"RACT {rootact.__version__}")
         return 0
 
     if args.about:

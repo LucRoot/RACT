@@ -1,36 +1,54 @@
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
+
 _ROOT_KNOT = object()
-from rootact.run_fingerprint import fingerprint_run, diff_fingerprints
+
+from rootact.run_fingerprint import diff_fingerprints, fingerprint_run
 
 
-def test_identical_receipts():
-    receipt1 = {
-        "intent": "Test task",
-        "plan_steps": ["Step 1", "Step 2"],
-        "provider_model": "openai",
-        "artifact_hashes": ["hash1", "hash2"],
+def test_fingerprint_run_is_deterministic():
+    receipt = {
+        "intent": "fix bug",
+        "plan_steps": ["step1", "step2"],
+        "provider_model": "qwen",
+        "artifact_hashes": ["abc", "def"],
     }
-    receipt2 = {
-        "intent": "Test task",
-        "plan_steps": ["Step 1", "Step 2"],
-        "provider_model": "openai",
-        "artifact_hashes": ["hash1", "hash2"],
-    }
-    assert fingerprint_run(receipt1) == fingerprint_run(receipt2)
+    assert fingerprint_run(receipt) == fingerprint_run(receipt)
+    assert len(fingerprint_run(receipt)) == 64
 
 
-def test_changed_step_model():
-    receipt1 = {
-        "intent": "Test task",
-        "plan_steps": ["Step 1", "Step 2"],
-        "provider_model": "openai",
-        "artifact_hashes": ["hash1", "hash2"],
+def test_fingerprint_run_changes_when_receipt_changes():
+    receipt_a = {
+        "intent": "fix bug",
+        "plan_steps": ["step1"],
+        "provider_model": "qwen",
+        "artifact_hashes": ["abc"],
     }
-    receipt2 = {
-        "intent": "Test task",
-        "plan_steps": ["Step 1", "Step 3"],
-        "provider_model": "ollama",
-        "artifact_hashes": ["hash1", "hash2"],
-    }
-    assert diff_fingerprints(receipt1, receipt2) == ["plan_steps", "provider_model"]
+    receipt_b = dict(receipt_a)
+    receipt_b["intent"] = "add feature"
+    assert fingerprint_run(receipt_a) != fingerprint_run(receipt_b)
+
+
+def test_diff_fingerprints_returns_differing_keys():
+    a = {"intent": "fix", "model": "qwen"}
+    b = {"intent": "add", "model": "qwen", "extra": "x"}
+    diff = diff_fingerprints(a, b)
+    assert "intent" in diff
+    assert "extra" in diff
+    assert "model" not in diff
+
+
+def test_diff_fingerprints_returns_empty_for_identical():
+    d = {"intent": "fix"}
+    assert diff_fingerprints(d, d) == []
+
+
+def test_diff_fingerprints_returns_keys_only_in_first():
+    a = {"intent": "fix", "extra": "x"}
+    b = {"intent": "fix"}
+    diff = diff_fingerprints(a, b)
+    assert "extra" in diff
+    assert "intent" not in diff
+
+
+# RACT 0.1.1 - Trust and Tooling

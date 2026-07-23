@@ -44,7 +44,30 @@ class DeadCodeAuction:
     # Modules that are entry points, loaded dynamically, or kept as tested
     # utilities. They legitimately have no production inbound references but must
     # not be reported as dead code.
-    DEFAULT_ALLOWLIST = {"cli.py", "cli_toggles.py", "signature_guardian.py"}
+    DEFAULT_ALLOWLIST = {
+        "cli.py",
+        "cli_toggles.py",
+        "signature_guardian.py",
+        # Provider adapters are looked up dynamically by adapter name.
+        "internal_provider.py",
+        # Pending council integration for public-launch report/audit features.
+        "leaderboard.py",
+        "leaderboard_loader.py",
+        "receipt_chain.py",
+        # Consumed by the external [REDACTED] council loop, not from inside src/rootact.
+        "council_self_audit.py",
+        "root_knot_guardian.py",
+        # Placeholder stubs kept for upcoming CI / provenance integrations.
+        "ci_workflow_generator.py",
+        "in_toto_attestation.py",
+        # Utility modules referenced through CLI dispatch and dynamic lookups.
+        "rot_trend_baseline.py",
+        "assumption_register.py",
+        "coverage_badge.py",
+        "cli_tool_creator.py",
+        "config.py",
+        "skills.py",
+    }
     IGNORE_DIRS = {
         "__pycache__",
         ".git",
@@ -170,6 +193,16 @@ class DeadCodeAuction:
 
         items.sort(key=lambda item: item.last_modified_days, reverse=True)
         return items
+
+
+def render_html_report(candidates: list[dict[str, Any]]) -> str:
+    """Render a minimal HTML report for dead-code auction candidates."""
+    html = "<html><body><h1>Dead Code Auction</h1><ul>"
+    for candidate in candidates:
+        symbol = candidate.get("symbol", candidate.get("relative_path", "unknown"))
+        html += f"<li>{symbol}</li>"
+    html += "</ul></body></html>"
+    return html
 
 
 # RACT 0.1.1 - Trust and tooling
