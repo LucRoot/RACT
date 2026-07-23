@@ -50,7 +50,6 @@ from rootact.manager import Plan
 from rootact.quality_scorecard import QualityScorecard, Verdict
 from rootact.rootact_runner import run_rootact
 from rootact.run_reporter import RunReporter, render_html_report, render_markdown
-from rootact.rot_trend_baseline import compute_rot_trend_baseline
 from rootact.self_test_benchmark_mode import SelfTestBenchmarkMode
 from rootact.session_store import SessionStore
 from rootact.skills_registry import SkillRegistry
@@ -61,24 +60,11 @@ from rootact.handshake import raise_request as op_raise_request
 from rootact.receipt import load_receipt, verify_receipt
 from rootact.receipt_chain import verify_chain
 from rootact.receipt_export import export_receipts
-from rootact.rot_report import find_duplicate_blocks
 from rootact.policy_gate import evaluate_policy
 from rootact.run_fingerprint import fingerprint_run, diff_fingerprints
-from rootact.ai_sbom import build_ai_manifest
-
-from rootact.cli_grove_forge import _grove_forge_command
-from rootact.cli_calibrate import _calibrate_command
-from rootact.cli_infer import _infer_command
-from rootact.cli_repro_manifest import _repro_manifest_command
 
 from rootact.config_diff import diff_configs
-from rootact.cost_tracker import aggregate_costs, budget_status, load_receipts as _load_cost_receipts
-from rootact.council_self_audit import run_self_audit
-from rootact.leaderboard import render_leaderboard
-from rootact.leaderboard_loader import load_receipts as _load_leaderboard_receipts
 from rootact.preflight_validator import PreflightValidator
-from rootact.provider_scorecard import compute_scorecard
-from rootact.status_dashboard import run_status
 
 
 def toggle_mode(mode: str) -> str:
@@ -2562,6 +2548,8 @@ def _merge_gate_command(args: list[str]) -> int:
 
 def _rot_report_command(args: list[str]) -> int:
     """Handle 'rootact rot-report <file> [file...]' -- near-duplicate scan."""
+    from rootact.experimental.rot_report import find_duplicate_blocks
+
     parser = argparse.ArgumentParser(prog="rootact rot-report")
     parser.add_argument(
         "paths", nargs="+", help="Python files to scan for near-duplicate blocks."
@@ -2597,6 +2585,8 @@ def _receipt_export_command(args: list[str]) -> int:
 
 def _rot_command(args: list[str]) -> int:
     """Handle 'rootact rot baseline <project_dir> --history <path> [--json|--plot|--output]'."""
+    from rootact.experimental.rot_trend_baseline import compute_rot_trend_baseline
+
     parser = argparse.ArgumentParser(prog="rootact rot")
     subparsers = parser.add_subparsers(dest="action", required=True)
 
@@ -2925,6 +2915,8 @@ def _run_fingerprint_command(args: list[str]) -> int:
 
 def _ai_sbom_command(args: list[str]) -> int:
     """Handle 'rootact ai-sbom <receipts.json> [--project <name>]'."""
+    from rootact.experimental.ai_sbom import build_ai_manifest
+
     parser = argparse.ArgumentParser(prog="rootact ai-sbom")
     parser.add_argument("receipts", help="JSON file holding a list of receipt dicts.")
     parser.add_argument("--project", default="ract-project", help="Project name.")
@@ -3066,6 +3058,11 @@ def _provider_command(args: list[str]) -> int:
         return 0 if healthy else 1
 
     if parsed.action == "scorecard":
+        from rootact.experimental.leaderboard_loader import (
+            load_receipts as _load_leaderboard_receipts,
+        )
+        from rootact.experimental.provider_scorecard import compute_scorecard
+
         receipts = _load_leaderboard_receipts(str(parsed.receipts_dir))
         scorecard = compute_scorecard(receipts)
         if parsed.json_output:
@@ -3091,6 +3088,12 @@ def _provider_command(args: list[str]) -> int:
 
 def _cost_command(args: list[str]) -> int:
     """Handle 'rootact cost summary|tracker --receipts <file>'."""
+    from rootact.experimental.cost_tracker import (
+        aggregate_costs,
+        budget_status,
+        load_receipts as _load_cost_receipts,
+    )
+
     parser = argparse.ArgumentParser(prog="rootact cost")
     subparsers = parser.add_subparsers(dest="action", required=True)
 
@@ -3200,6 +3203,8 @@ def _router_command(args: list[str]) -> int:
 
 def _self_audit_command(args: list[str]) -> int:
     """Handle 'rootact self-audit [--project-dir <dir>] [--json|--html|--markdown]'."""
+    from rootact.experimental.council_self_audit import run_self_audit
+
     parser = argparse.ArgumentParser(prog="rootact self-audit")
     parser.add_argument("--config", type=Path, default=Path("rootact.yaml"))
     parser.add_argument("--project-dir", type=Path)
@@ -3246,6 +3251,8 @@ def _self_audit_command(args: list[str]) -> int:
 
 def _status_command(args: list[str]) -> int:
     """Handle 'rootact status [--project-dir <dir>] [--json|--markdown]'."""
+    from rootact.experimental.status_dashboard import run_status
+
     parser = argparse.ArgumentParser(prog="rootact status")
     parser.add_argument("--project-dir", type=Path, default=Path.cwd())
     parser.add_argument("--json", action="store_true", dest="json_output")
@@ -3272,6 +3279,11 @@ def _status_command(args: list[str]) -> int:
 
 def _leaderboard_command(args: list[str]) -> int:
     """Handle 'rootact leaderboard --receipts-dir <dir> [--json|--html|--markdown]'."""
+    from rootact.experimental.leaderboard import render_leaderboard
+    from rootact.experimental.leaderboard_loader import (
+        load_receipts as _load_leaderboard_receipts,
+    )
+
     parser = argparse.ArgumentParser(prog="rootact leaderboard")
     parser.add_argument("--receipts-dir", required=True, type=Path)
     parser.add_argument("--json", action="store_true", dest="json_output")
@@ -3502,12 +3514,20 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "ai-sbom":
         return _ai_sbom_command(argv[1:])
     if argv and argv[0] == "grove-forge":
+        from rootact.experimental.cli_grove_forge import _grove_forge_command
+
         return _grove_forge_command(argv[1:])
     if argv and argv[0] == "calibrate":
+        from rootact.experimental.cli_calibrate import _calibrate_command
+
         return _calibrate_command(argv[1:])
     if argv and argv[0] == "infer":
+        from rootact.experimental.cli_infer import _infer_command
+
         return _infer_command(argv[1:])
     if argv and argv[0] == "repro-manifest":
+        from rootact.experimental.cli_repro_manifest import _repro_manifest_command
+
         return _repro_manifest_command(argv[1:])
     if argv and argv[0] == "config":
         return _config_command(argv[1:])

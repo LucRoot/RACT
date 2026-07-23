@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from rootact.ast_normalizer import structural_similarity
-from rootact.rot_trend import TrendReport, record_snapshot
+from rootact.experimental.rot_trend import TrendReport, record_snapshot
 
 
 def record_rot_trend_snapshot(metrics: dict, history_path: Path | str) -> TrendReport:
