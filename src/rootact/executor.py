@@ -38,6 +38,7 @@ from rootact.provenance_tracker import Artifact as ProvenanceArtifact, Provenanc
 from rootact.providers.base import ProviderAdapter
 from rootact.providers.router import ProviderRouter
 from rootact.rooted import Rooted
+from rootact.core.threat_model import Refusal, authorize_action
 from rootact.safety_guardrails import SafetyGuardrail
 from rootact.temperature_router import TemperatureRouter
 
@@ -63,6 +64,7 @@ class ExecutionReport:
     artifacts: dict[str, Any] = field(default_factory=dict)
     plan: Plan | None = None
     metrics: dict[str, Any] = field(default_factory=dict)
+    refusals: list[Refusal] = field(default_factory=list)
 
 
 class Executor:
@@ -648,6 +650,7 @@ class Executor:
         novelty_scores: list[dict[str, Any]] = []
         assumptions = [plan.assumption]
 
+        refusals: list[Refusal] = []
         for index, step in enumerate(plan.steps, start=1):
             if approval_callback is not None and not approval_callback(step):
                 return Rooted(
@@ -658,6 +661,29 @@ class Executor:
                     error=f"Approval denied for step {index}: {step.action}",
                     hint="approval",
                 )
+
+            # Threat-model tier check: every workspace-mutating action passes
+            # through the same authorization chokepoint, including MCP tool calls.
+            if self.project_dir is not None:
+                step_dict: dict[str, Any] = {
+                    "action": step.action,
+                    "expected_artifact": step.expected_artifact,
+                }
+                if step.tool_call is not None:
+                    step_dict["tool_call"] = step.tool_call
+                auth = authorize_action(step_dict, self.project_dir)
+                refusals.extend(auth.refusals)
+                if not auth.allowed:
+                    details = "; ".join(r.reason for r in auth.refusals)
+                    return Rooted(
+                        value=None,
+                        assumption=f"Step {index} passes the threat-model authorization check.",
+                        confidence=0.0,
+                        provenance=[f"executor.step:{index}"],
+                        error=f"Step {index} refused by threat model: {details}",
+                        hint="security",
+                    )
+
             if self.hook_manager is not None:
                 pre_results = self.hook_manager.run_hooks(
                     "pre",
@@ -991,6 +1017,7 @@ class Executor:
                 provenance=self.provenance.snapshot(),
                 plan=plan,
                 metrics=aggregated_metrics,
+                refusals=refusals,
                 artifacts=(
                     {
                         "hook_results": hook_results,
