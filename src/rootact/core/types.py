@@ -9,6 +9,7 @@ from typing import Any, Generic, NewType, TypeVar
 
 PlanId = NewType("PlanId", bytes)  # 16 bytes, UUID
 StepId = NewType("StepId", bytes)  # 16 bytes, UUID
+AssumptionId = NewType("AssumptionId", bytes)  # 16 bytes, UUID
 Digest = NewType("Digest", bytes)  # 32 bytes, SHA256
 
 T = TypeVar("T")
@@ -61,6 +62,11 @@ def make_plan_id() -> PlanId:
 def make_step_id() -> StepId:
     """Return a fresh 16-byte UUID step identifier."""
     return StepId(uuid.uuid4().bytes)
+
+
+def make_assumption_id() -> AssumptionId:
+    """Return a fresh 16-byte UUID assumption identifier."""
+    return AssumptionId(uuid.uuid4().bytes)
 
 
 def digest_bytes(data: bytes) -> Digest:
