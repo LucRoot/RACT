@@ -42,4 +42,4 @@ By submitting a pull request or other Contribution to the Project, You agree to 
 
 ---
 
-*RACT 0.1.1 - Trust and tooling*
+*RACT v0.2.0 - Provenance and Invariants*
