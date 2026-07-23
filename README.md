@@ -34,6 +34,16 @@ ract run "refactor the greeting module" --config rootact.yaml --loop --max-itera
 
 [![asciicast](https://asciinema.org/a/demo.svg)](https://asciinema.org/a/demo)
 
+## CLI Verb Index
+
+- `ract doctor` — verify workspace health and dependencies.
+- `ract config validate` — validate rootact.yaml configuration.
+- `ract provider health` — check configured provider reachability.
+- `ract session list` — list persisted run sessions.
+- `ract plan diff` — show the diff a plan would apply.
+- `ract run` — execute an intent against the workspace.
+- `ract fence` — inspect threat-model guardrails.
+
 ## What makes RACT different
 
 - **Provenance-anchored artifacts** — every file the loop writes is bound to a `Rootknot` that records the plan step, assumption, generator, and parent artifacts, and can be cryptographically verified.
