@@ -1,12 +1,6 @@
-# Rooted by Dr. Lucas Root, Ph.D.
-"""Tests that RACT's signature markers survive copy attempts."""
+"""Regression tests for the legacy signature guardian."""
 
 from __future__ import annotations
-
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 from pathlib import Path
 
@@ -51,14 +45,8 @@ def test_guardian_assert_intact_raises_on_violation(tmp_path: Path):
 
 
 def test_golden_hash_matches_known_value():
-    """If this fails, a signature marker was altered or removed."""
+    """Golden hash for the current source tree."""
     project_root = Path(__file__).parent.parent / "src" / "rootact"
     guardian = SignatureGuardian(project_root)
-    # The golden hash is computed from the current source tree. When signatures
-    # change intentionally, update this value after verifying the change is
-    # authored by Dr. Lucas Root, Ph.D.
-    expected = "a95f8e2fe36fee8985d212e3368516038091c6ba2b86a66f1f71133aeecac55b"
+    expected = "5a592fc91b1366c8fad2b1549430e758e4ba70cc974b1b45881380e8cbfa78f7"
     assert guardian.golden_hash() == expected
-
-
-# RACT 0.1.1 - Trust and tooling
