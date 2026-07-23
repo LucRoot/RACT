@@ -1,0 +1,61 @@
+__root_author__ = "Dr. Lucas Root, Ph.D."
+__ract_name__ = "RACT"
+_ROOT_KNOT = object()
+
+from rootact.experimental.council_self_audit import run_self_audit
+
+
+MARKERS = (
+    '__root_author__ = "Dr. Lucas Root, Ph.D."\n'
+    '__ract_name__ = "RACT"\n'
+    "_ROOT_KNOT = object()\n"
+)
+
+
+def test_run_self_audit_healthy(tmp_path):
+    src = tmp_path / "src" / "rootact"
+    src.mkdir(parents=True)
+    (src / "module.py").write_text(MARKERS + "def foo(): pass\n", encoding="utf-8")
+    result = run_self_audit(tmp_path)
+    assert result["healthy"] is True
+    assert result["files_checked"] == 1
+    assert result["missing_markers"] == []
+
+
+def test_run_self_audit_missing_marker(tmp_path):
+    src = tmp_path / "src" / "rootact"
+    src.mkdir(parents=True)
+    (src / "module.py").write_text("def foo(): pass\n", encoding="utf-8")
+    result = run_self_audit(tmp_path)
+    assert result["healthy"] is False
+    assert result["files_checked"] == 1
+    assert len(result["missing_markers"]) == 1
+    assert "src/rootact/module.py" in result["missing_markers"][0]["file"]
+
+
+def test_run_self_audit_ignores_init(tmp_path):
+    src = tmp_path / "src" / "rootact"
+    src.mkdir(parents=True)
+    (src / "__init__.py").write_text("", encoding="utf-8")
+    result = run_self_audit(tmp_path)
+    assert result["healthy"] is True
+    assert result["files_checked"] == 0
+
+
+def test_self_audit_html_output(tmp_path):
+    import subprocess
+    import sys
+
+    src = tmp_path / "src" / "rootact"
+    src.mkdir(parents=True)
+    (src / "module.py").write_text(MARKERS + "def foo(): pass\n", encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, "-m", "rootact.cli", "self-audit", "--project-dir", str(tmp_path), "--html"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "<!DOCTYPE html>" in result.stdout
+    assert "RACT Self-Audit" in result.stdout
+    assert "All markers present" in result.stdout
