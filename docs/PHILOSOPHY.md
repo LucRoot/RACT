@@ -1,5 +1,3 @@
-# Rooted by Dr. Lucas Root, Ph.D.
-
 # The Philosophy Behind RACT
 
 RACT is not just another CLI wrapper around a language model. It is a deliberate answer to a question I've been asking for years:
@@ -8,15 +6,15 @@ RACT is not just another CLI wrapper around a language model. It is a deliberate
 
 ## Every plan is Rooted
 
-In RACT, every plan and every result carries three things: an **assumption**, a **confidence**, and **provenance**. This is the `Rooted[T]` idea. It means the system is never allowed to say "trust me" without also saying "here is what I assumed, how sure I am, and where this came from."
+In RACT, every plan and every result carries three things: an **assumption**, a **confidence**, and **provenance**. This is the `Assumed[T]` idea. It means the system is never allowed to say "trust me" without also saying "here is what I assumed, how sure I am, and where this came from."
 
-When a model hallucinates, the damage is usually not the wrong answer. The damage is the wrong answer delivered with false certainty. `Rooted[T]` makes uncertainty a first-class citizen.
+When a model hallucinates, the damage is usually not the wrong answer. The damage is the wrong answer delivered with false certainty. `Assumed[T]` makes uncertainty a first-class citizen.
 
-## The Root Knot
+## The Rootknot
 
-Every file RACT touches carries a small identity marker: `_ROOT_KNOT = object()`. This is partly a coder signature, but it is also a loop invariant. If the recursion loop ever produces an artifact without the knot, the loop stops immediately rather than compounding unsigned work.
+Every file RACT writes carries a signed provenance capability called a **Rootknot**. It records the plan step, assumption, generator, parent artifacts, and artifact digest, and it can be cryptographically verified. If the recursion loop ever produces an artifact whose Rootknot is missing or invalid, the loop halts with a provenance violation rather than compounding unsigned work.
 
-The Root Knot is my answer to a world where generated code can proliferate faster than it can be reviewed. It forces a moment of human accountability at the boundary between machine output and project truth.
+The Rootknot is the boundary between machine output and project truth: a verifiable answer to the question "where did this come from?"
 
 ## Model-agnostic by design
 
@@ -38,4 +36,4 @@ No pressure. Use RACT however it helps you build better software. The philosophy
 
 — Dr. Lucas Root, Ph.D.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.2.0 -->
