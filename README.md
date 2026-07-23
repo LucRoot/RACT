@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 
-RACT is a model-agnostic, local-first agentic coding tool built around three ideas: every artifact carries a signed provenance capability (a *rootknot*), every plan step is tied to an explicit assumption, and the recursion loop halts on measurable milestones rather than a fixed iteration count.
+RACT is a model-agnostic, local-first agentic coding tool built around three ideas: signed provenance capabilities (*rootknots*) on every artifact, explicit assumptions for every plan step, and milestone-halting recursion instead of fixed iteration counts.
 
 ## Install
 
@@ -40,8 +40,6 @@ ract run "add a test for the hello-world script" --config ract.yaml
 ract run "refactor the greeting module" --config ract.yaml --loop --max-iterations 5
 ```
 
-[![asciicast](https://asciinema.org/a/demo.svg)](https://asciinema.org/a/demo)
-
 ## CLI Verb Index
 
 - `ract doctor` — verify workspace health and dependencies.
@@ -66,7 +64,7 @@ ract run "refactor the greeting module" --config ract.yaml --loop --max-iteratio
 - `src/ract/core/plan.py` — plan schema and validator.
 - `src/ract/core/loop.py` — recursion loop with invariants.
 
-See `docs/ARCHITECTURE.md` for the system diagram and boundary contracts, and `docs/ADRs/` for the architectural decision records.
+See `docs/ARCHITECTURE.md` for the system diagram and boundary contracts, and `docs/ADRs/` for decision records.
 
 ## Evals
 
@@ -80,17 +78,17 @@ See [`AUTHOR.md`](AUTHOR.md) for project authorship and background.
 
 ## Environment
 
-RACT is developed and tested on Python 3.11 and 3.12, on Windows and Linux. The default `local` provider runs entirely on your machine; other providers are optional.
+RACT is developed and tested on Python 3.11/3.12 on Windows and Linux. The default `local` provider runs entirely on your machine.
 
 ## Known limitations
 
-- Windows file-watcher tests can be flaky under heavy I/O load.
-- MCP tool execution is serialized within a single plan step.
-- Benchmark numbers are machine-specific; re-run the scripts on your hardware.
+- Windows file-watcher tests can be flaky under heavy I/O.
+- MCP tools run serially within a plan step.
+- Benchmark numbers are machine-specific; re-run on your hardware.
 
 ---
 
-License: PolyForm Noncommercial 1.0.0. Measurements: take them as one data point from one machine on one day, and re-run the scripts on yours.
+License: PolyForm Noncommercial 1.0.0. Measurements: take them as one data point from one machine on one day, and re-run on yours.
 
 ---
 
