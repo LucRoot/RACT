@@ -12,3 +12,5 @@ coverage_gate:
   enabled: false
   hard_fail: false
   timeout: 300.0
+
+# RACT v0.2.0 - Provenance and Invariants

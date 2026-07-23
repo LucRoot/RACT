@@ -7,3 +7,5 @@ If this line of thinking resonates with you, I explore it in more depth in my [A
 No pressure. Use RACT however it helps you build better software.
 
 — Dr. Lucas Root, Ph.D.
+
+<!-- RACT v0.2.0 - Provenance and Invariants -->
