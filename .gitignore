@@ -38,3 +38,4 @@ novelty_report.json
 # Build artifacts generated during development. Not part of the release.
 _BUILD/
 # RACT 0.1.1 - Trust and tooling
+.hypothesis/

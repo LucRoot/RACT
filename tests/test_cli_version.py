@@ -1,15 +1,11 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Tests for the RACT --version CLI flag."""
 
 from __future__ import annotations
 
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
-
 import subprocess
 import sys
+
+import rootact
 
 
 def test_cli_version_flag_prints_version():
@@ -20,7 +16,4 @@ def test_cli_version_flag_prints_version():
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert "0.1.2" in result.stdout
-
-
-# RACT 0.1.1 - Trust and tooling
+    assert rootact.__version__ in result.stdout, result.stdout

@@ -8,18 +8,13 @@ Thank you for considering a contribution to RACT.
 
 1. **Open an issue first** for substantial changes so we can align on direction.
 2. **Keep changes focused.** One concern per pull request.
-3. **Preserve the Root Knot.** Every non-init `.py` file must include:
-   ```python
-   __root_author__ = "Dr. Lucas Root, Ph.D."
-   __ract_name__ = "RACT"
-   _ROOT_KNOT = object()
-   ```
+3. **Prefer depth over surface area.** New features must justify themselves against the claim-and-verify genre. Load-bearing invariants need property tests.
 4. **Run the gate** before submitting:
    ```bash
    ruff check src tests scripts
    ruff format --check src tests scripts
    mypy src tests
-   pytest -q -o addopts="" --cov=src/rootact
+   pytest -q -o addopts="" --cov=src/rootact/core --cov-report=term-missing
    python -m rootact.eval.runner evals/tasks/refactor-function --provider mock
    python -m rootact.eval.runner evals/tasks/fastapi-validation --provider mock
    python -m rootact.eval.runner evals/tasks/file-watcher --provider mock
@@ -27,7 +22,7 @@ Thank you for considering a contribution to RACT.
 5. **Update tests and docs** for any new behavior.
 6. **Write an ADR** for any architectural decision. ADRs live in `docs/ADRs/` and follow the standard shape: Context, Decision, Consequences, Alternatives Considered, Status.
 7. **Add property tests** for every load-bearing invariant. See `tests/property/` for examples.
-8. **No proprietary IP.** RACT must remain independent of the author's proprietary internal tooling. See `docs/internal/PROVENANCE.md`.
+8. **No proprietary IP.** RACT must remain independent of the author's proprietary internal tooling.
 
 ## Contributor License Agreement
 
@@ -45,8 +40,4 @@ When configuring cla-assistant.io, use the raw URL of `CLA.md`:
 
 By contributing, you agree that your contributions will be licensed under the PolyForm Noncommercial License 1.0.0.
 
----
-
-*Dr. Lucas Root, Ph.D.*
-
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.2.0 -->

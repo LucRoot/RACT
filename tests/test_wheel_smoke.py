@@ -1,18 +1,14 @@
-# Rooted by Dr. Lucas Root, Ph.D.
 """Smoke test that the RACT wheel builds and entry points work."""
 
 from __future__ import annotations
-
-__root_author__ = "Dr. Lucas Root, Ph.D."
-__ract_name__ = "RACT"
-
-_ROOT_KNOT = object()
 
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+import rootact
 
 
 @pytest.mark.skipif(
@@ -47,7 +43,9 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
     wheels = list(wheelhouse.glob("rootact-*.whl"))
     assert len(wheels) == 1, f"expected exactly one wheel, found {wheels}"
     wheel = wheels[0]
-    assert "0.1.2" in wheel.name, f"expected version 0.1.2 in wheel name: {wheel.name}"
+    assert rootact.__version__ in wheel.name, (
+        f"expected version {rootact.__version__} in wheel name: {wheel.name}"
+    )
 
     # Create a fresh virtual environment.
     venv_dir = tmp_path / "venv"
@@ -76,8 +74,8 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
             check=False,
         )
         assert result.returncode == 0, result.stderr
-        assert "0.1.2" in result.stdout, (
-            f"expected 0.1.2 from {entry_point}: {result.stdout}"
+        assert rootact.__version__ in result.stdout, (
+            f"expected {rootact.__version__} from {entry_point}: {result.stdout}"
         )
 
     # Verify ract doctor passes in the installed environment.
@@ -92,6 +90,3 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
     )
     assert doctor.returncode == 0, doctor.stderr
     assert "passed" in doctor.stdout.lower(), doctor.stdout
-
-
-# RACT 0.1.2 - Trust and tooling
