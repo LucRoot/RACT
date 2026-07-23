@@ -28,8 +28,8 @@ pip install rootact
 ### From source
 
 ```bash
-git clone <repository>
-cd rootact
+git clone <repository> RACT
+cd RACT
 ./scripts/install.sh --local --venv
 ```
 

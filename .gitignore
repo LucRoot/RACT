@@ -30,6 +30,10 @@ test_decisions.json
 test_load.json
 my_custom.json
 test_dummy.py
+test_project/
+tests/test_report.json
+auction_report.html
+novelty_report.json
 
 # Build artifacts generated during development. Not part of the release.
 _BUILD/
