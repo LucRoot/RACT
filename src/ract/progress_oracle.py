@@ -33,7 +33,9 @@ class ProgressVerdict:
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError(f"Confidence out of range: {self.confidence}")
         if self.knot is not MILESTONE_KNOT:
-            raise ValueError("ProgressVerdict must carry the milestone sentinel sentinel.")
+            raise ValueError(
+                "ProgressVerdict must carry the milestone sentinel sentinel."
+            )
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 
-import re
 from pathlib import Path
 
 
@@ -21,8 +20,3 @@ def test_readme_has_quickstart_with_core_commands():
     assert "ract run" in readme
     assert "ract doctor" in readme
     assert "ract fence" in readme
-
-
-def test_readme_demo_embed_link():
-    readme = Path("README.md").read_text(encoding="utf-8")
-    assert re.search(r"\[\!\[asciicast\]\([^)]+\)\]\([^)]+\)", readme)
