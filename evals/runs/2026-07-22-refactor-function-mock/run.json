@@ -1,0 +1,46 @@
+{
+  "task": "refactor-function",
+  "provider": "mock",
+  "seed": 42,
+  "passed": true,
+  "checks": [
+    {
+      "name": "tests_pass",
+      "passed": true
+    },
+    {
+      "name": "complexity__validate_items",
+      "score": 4,
+      "passed": true
+    },
+    {
+      "name": "complexity__apply_discounts",
+      "score": 3,
+      "passed": true
+    },
+    {
+      "name": "complexity__calculate_tax",
+      "score": 1,
+      "passed": true
+    },
+    {
+      "name": "complexity__shipping",
+      "score": 2,
+      "passed": true
+    },
+    {
+      "name": "complexity_process_order",
+      "score": 1,
+      "passed": true
+    },
+    {
+      "name": "complexity_under_8",
+      "passed": true
+    },
+    {
+      "name": "no_rootknot_violations",
+      "passed": true
+    }
+  ],
+  "errors": []
+}
