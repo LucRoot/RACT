@@ -43,4 +43,4 @@ RACT is licensed under the **PolyForm Noncommercial License 1.0.0** — free for
 
 Commercial use requires a separate agreement. See [`COMMERCIAL.md`](../COMMERCIAL.md) for details.
 
-<!-- RACT 0.2.0 -->
+<!-- RACT v0.2.0 - Provenance and Invariants -->
