@@ -557,6 +557,19 @@ class CompressionNoveltyDetector:
 
     def scan_project(self) -> dict[str, Any]:
         """Return novelty scores for all Python files in the project."""
+        return self._scan_project(fast=False)
+
+    def scan_project_fast(self) -> dict[str, Any]:
+        """Return dictionary-only novelty scores for all Python files.
+
+        Skips the O(n^2) nearest-neighbor conditional ratio so the scan
+        finishes quickly on large repos. The trade-off is that structural
+        duplicates detected only by nearest-neighbor comparison may be missed.
+        """
+        return self._scan_project(fast=True)
+
+    def _scan_project(self, fast: bool) -> dict[str, Any]:
+        """Return novelty scores for all Python files in the project."""
         result: dict[str, Any] = {
             "sample_count": len(self._samples),
             "has_dictionary": self._dictionary is not None,
@@ -571,7 +584,10 @@ class CompressionNoveltyDetector:
                 rel = str(path.relative_to(self.project_dir))
             except ValueError:
                 continue
-            score = self.score_artifact_leave_one_out(rel)
+            if fast:
+                score = self.score_artifact(rel)
+            else:
+                score = self.score_artifact_leave_one_out(rel)
             if score is not None:
                 result["scores"][rel] = {
                     "raw_bytes": score.raw_bytes,

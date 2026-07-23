@@ -168,4 +168,70 @@ class RunReporter:
         return self._load_session_report(session_id)
 
 
+def render_markdown(report: dict[str, Any]) -> str:
+    """Convert a loop-report dict into a Markdown summary."""
+    lines = ["# RACT Run Report", ""]
+    lines.append(f"**Final decision:** {report.get('final_decision', 'unknown')}")
+    lines.append(f"**Summary:** {report.get('summary', 'n/a')}")
+    metrics = report.get("metrics")
+    if metrics:
+        lines.extend(["", "## Metrics", ""])
+        for key, value in sorted(metrics.items()):
+            lines.append(f"- **{key}:** {value}")
+    handshakes = report.get("handshake_milestones", [])
+    if handshakes:
+        lines.extend(["", "## Operator Handshakes", ""])
+        for item in handshakes:
+            lines.append(f"- {item}")
+    iterations = report.get("iterations", [])
+    if iterations:
+        lines.extend(["", "## Iterations", ""])
+        for it in iterations:
+            status = "pass" if it.get("test_returncode") == 0 else "fail"
+            lines.append(
+                f"- #{it.get('index')}: decision={it.get('decision')} "
+                f"tests={status} score={it.get('quality_score')}"
+            )
+    return "\n".join(lines)
+
+
+def render_html_report(report: dict[str, Any]) -> str:
+    """Convert a loop-report dict into a self-contained HTML summary."""
+    lines = [
+        "<html><body>",
+        "<h1>RACT Run Report</h1>",
+        f"<p><strong>Final decision:</strong> {report.get('final_decision', 'unknown')}</p>",
+        f"<p><strong>Summary:</strong> {report.get('summary', 'n/a')}</p>",
+    ]
+    metrics = report.get("metrics")
+    if metrics:
+        lines.extend(["<h2>Metrics</h2>", "<ul>"])
+        for key, value in sorted(metrics.items()):
+            lines.append(f"<li><strong>{key}:</strong> {value}</li>")
+        lines.append("</ul>")
+    handshakes = report.get("handshake_milestones", [])
+    if handshakes:
+        lines.extend(["<h2>Operator Handshakes</h2>", "<ul>"])
+        for item in handshakes:
+            lines.append(f"<li>{item}</li>")
+        lines.append("</ul>")
+    iterations = report.get("iterations", [])
+    if iterations:
+        lines.extend(["<h2>Iterations</h2>", "<ul>"])
+        for it in iterations:
+            status = "pass" if it.get("test_returncode") == 0 else "fail"
+            lines.append(
+                f"<li>#{it.get('index')}: decision={it.get('decision')} "
+                f"tests={status} score={it.get('quality_score')}</li>"
+            )
+        lines.append("</ul>")
+    lines.append("</body></html>")
+    return "\n".join(lines)
+
+
+def export_report(report: dict[str, Any], path: Path | str) -> None:
+    """Write a run-report dict to a JSON file with indent=2."""
+    Path(path).write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+
 # RACT 0.1.1 - Trust and tooling

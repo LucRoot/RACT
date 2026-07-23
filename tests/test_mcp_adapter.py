@@ -14,7 +14,12 @@ from unittest.mock import patch
 
 import httpx
 
-from rootact.mcp_adapter import McpToolResult, SseMcpClient, StdioMcpClient
+from rootact.mcp_adapter import (
+    McpToolResult,
+    SseMcpClient,
+    StdioMcpClient,
+    health_check,
+)
 from rootact.rooted import Rooted
 
 
@@ -232,6 +237,44 @@ def test_registry_from_config_builds_sse_clients():
     registry = McpToolRegistry.from_config(config)
     assert "memory" in registry._servers
     assert isinstance(registry._servers["memory"], SseMcpClient)
+
+
+class _FakeAdapter(McpAdapter):
+    def __init__(
+        self, tools: list[dict[str, Any]] | None = None, fail: bool = False
+    ) -> None:
+        self._tools = tools or []
+        self._fail = fail
+
+    def list_tools(self) -> Rooted[list[dict[str, Any]]]:
+        if self._fail:
+            return Rooted(
+                value=None, error="listing failed", confidence=0.0, provenance=["fake"]
+            )
+        return Rooted(value=list(self._tools), confidence=1.0, provenance=["fake"])
+
+    def call_tool(self, name: str, arguments: dict[str, Any]) -> Rooted[McpToolResult]:
+        raise NotImplementedError
+
+
+def test_health_check_ok_with_tools():
+    adapter = _FakeAdapter([{"name": "read"}, {"name": "write"}])
+    result = health_check(adapter)
+    assert result == {"ok": True, "tools": 2, "error": None}
+
+
+def test_health_check_fails_when_no_tools():
+    adapter = _FakeAdapter([])
+    result = health_check(adapter)
+    assert result == {"ok": False, "tools": 0, "error": "no tools configured"}
+
+
+def test_health_check_fails_when_listing_errors():
+    adapter = _FakeAdapter(fail=True)
+    result = health_check(adapter)
+    assert result["ok"] is False
+    assert result["tools"] == 0
+    assert "listing failed" in (result["error"] or "")
 
 
 # RACT 0.1.1 - Trust and Tooling

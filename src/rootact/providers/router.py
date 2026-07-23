@@ -17,6 +17,7 @@ from typing import Any
 
 from rootact.capability_registry import CapabilityRegistry
 from rootact.providers.base import ProviderAdapter
+from rootact.providers.internal_provider import InternalProvider
 from rootact.providers.local_http_provider import LocalHttpProvider
 from rootact.providers.openai_provider import OpenAICompatibleProvider
 from rootact.rooted import Rooted
@@ -27,6 +28,7 @@ _ADAPTER_CLASSES: dict[str, type[ProviderAdapter]] = {
     "openai_compatible": OpenAICompatibleProvider,
     "local_http": LocalHttpProvider,
     "local": LocalHttpProvider,
+    "internal": InternalProvider,
 }
 
 # Default capability tags inferred from adapter type when the user does not
@@ -75,6 +77,7 @@ class ProviderRouter:
                 assumption=f"Provider slot '{name}' is already initialized.",
                 confidence=1.0,
                 provenance=["router.get_adapter"],
+                provider=name,
             )
 
         config = self.providers.get(name)
@@ -105,6 +108,7 @@ class ProviderRouter:
             assumption=f"Adapter '{adapter_name}' instantiated for slot '{name}'.",
             confidence=1.0,
             provenance=["router.get_adapter"],
+            provider=name,
         )
 
     def select_for_hint(self, hint: str) -> Rooted[ProviderAdapter]:

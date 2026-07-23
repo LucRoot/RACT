@@ -1,7 +1,8 @@
 from __future__ import annotations
-
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
+_ROOT_KNOT = object()
+
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -68,7 +69,7 @@ class PreflightValidator:
             errors.append(
                 {"field": "project", "message": "'project' must be a mapping"}
             )
-        elif "name" not in config["project"]:
+        elif "name" not in config["project"] or not config["project"]["name"]:
             errors.append(
                 {
                     "field": "project.name",

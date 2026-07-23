@@ -476,4 +476,9 @@ def gate(
     )
 
 
+def export_delta(delta: dict[str, Any], path: Path | str) -> None:
+    """Write a coverage delta dictionary to a JSON file with indent=2."""
+    Path(path).write_text(json.dumps(delta, indent=2), encoding="utf-8")
+
+
 # RACT 0.1.1 - Trust and tooling

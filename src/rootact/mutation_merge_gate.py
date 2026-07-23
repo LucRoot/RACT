@@ -5,7 +5,10 @@ _ROOT_KNOT = object()
 import re
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, List
+
+from rootact.coverage_delta import CoverageDelta
 
 
 @dataclass
@@ -30,6 +33,40 @@ class MergePolicy:
     condition: str  # e.g. "coverage_delta >= 5" or "mutation_score >= 90"
     threshold: float
     action: str  # "block" or "warn"
+
+
+def load_policies(path: str) -> List[MergePolicy]:
+    """Load a list of MergePolicy objects from a JSON file."""
+    import json
+
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, list):
+        raise ValueError("policy file must contain a JSON list")
+    required = {
+        "id",
+        "description",
+        "trigger_pattern",
+        "condition",
+        "threshold",
+        "action",
+    }
+    policies = []
+    for idx, item in enumerate(data):
+        if not isinstance(item, dict) or not required.issubset(item):
+            raise ValueError(
+                f"policy {idx} missing required keys: {required - set(item)}"
+            )
+        policies.append(
+            MergePolicy(
+                id=item["id"],
+                description=item["description"],
+                trigger_pattern=item["trigger_pattern"],
+                condition=item["condition"],
+                threshold=float(item["threshold"]),
+                action=item["action"],
+            )
+        )
+    return policies
 
 
 class MutationMergeGateEngine:
@@ -188,3 +225,16 @@ class MutationMergeGateEngine:
             )
             results.append(result)
         return results
+
+
+def evaluate_coverage_policy(policies: List[MergePolicy], delta: CoverageDelta) -> bool:
+    """Return True only if the earned-coverage delta passes every policy.
+
+    A delta passes when its verdict is 'earn' and no per-file floor is breached.
+    Policies are accepted for future extension; currently the gate is all-or-nothing.
+    """
+    if delta.verdict != "earn":
+        return False
+    if delta.floor_breached or delta.per_file_breaches:
+        return False
+    return bool(policies) or True

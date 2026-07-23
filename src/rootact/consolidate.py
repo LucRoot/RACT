@@ -604,4 +604,35 @@ class ConsolidationApplier:
         )
 
 
+def render_html_report(plan: ConsolidationResult) -> str:
+    """Return a self-contained HTML summary of a consolidation plan."""
+    lines: list[str] = [
+        "<!DOCTYPE html>",
+        "<html><head><meta charset='utf-8'><title>Consolidation Report</title></head>",
+        "<body><h1>Consolidation Report</h1>",
+    ]
+    metrics = plan.metrics or {}
+    lines.append(
+        f"<p>Candidates: {metrics.get('candidates', 0)} | Proposals: {len(plan.proposals)}</p>"
+    )
+    if plan.proposals:
+        lines.append("<ul>")
+        for proposal in plan.proposals:
+            reduction = metrics.get("predicted_line_reduction", 0)
+            lines.append(
+                f"<li><strong>{proposal.target}</strong> ← {', '.join(proposal.sources)} "
+                f"(predicted reduction: {reduction} lines)</li>"
+            )
+        lines.append("</ul>")
+    else:
+        lines.append("<p>No consolidation proposals.</p>")
+    if plan.skipped:
+        lines.append("<h2>Warnings</h2><ul>")
+        for _cluster, reason in plan.skipped:
+            lines.append(f"<li>{reason}</li>")
+        lines.append("</ul>")
+    lines.append("</body></html>")
+    return "\n".join(lines)
+
+
 # RACT 0.1.1 - Trust and Tooling

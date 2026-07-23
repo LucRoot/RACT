@@ -2,8 +2,20 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
+from pathlib import Path
 from typing import List, Tuple
+
 from rootact.ast_normalizer import structural_similarity
+from rootact.rot_trend import TrendReport, record_snapshot
+
+
+def record_rot_trend_snapshot(metrics: dict, history_path: Path | str) -> TrendReport:
+    """Record a longitudinal rot trend snapshot for the project.
+
+    Wraps :func:`rootact.rot_trend.record_snapshot` so callers do not need to
+    import the trend module directly.
+    """
+    return record_snapshot(metrics, Path(history_path))
 
 
 def find_duplicate_blocks(paths: List[str]) -> List[Tuple[str, str]]:

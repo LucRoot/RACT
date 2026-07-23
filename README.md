@@ -18,6 +18,66 @@ A 2024 analysis of **623 million commits** by GitClear and GitKraken found that 
 
 RACT keeps the human in the loop while a small management LM routes work to the right provider. Every plan and every result is `Rooted[T]` — it carries the assumption, confidence, and provenance that justify it. Every generated file carries the **Root Knot** (`_ROOT_KNOT = object()`), so unsigned drift breaks the loop instead of compounding.
 
+## Quickstart
+
+```bash
+ract run        # start a Rooted agent loop on your intent
+ract doctor     # verify project config and provider health
+ract fence      # inspect why legacy code exists before changing it
+```
+
+## CLI Verb Index
+
+| Command | What it does |
+|---|---|
+| `ract run <intent>` | Start a Rooted agent loop on your intent. |
+| `ract doctor [--json]` | Verify project config and provider health. |
+| `ract config validate` | Validate `rootact.yaml` structure. |
+| `ract config diff --before <path> --after <path> [--json]` | Compare two rootact.yaml files. |
+| `ract provider health [--json|--markdown]` | Check reachability of configured providers. |
+| `ract provider scorecard --receipts-dir <dir> [--json|--csv]` | Aggregate provider statistics from receipts. |
+| `ract quality scorecard [--json]` | Score a sample anti-rot verdict. |
+| `ract self-audit [--json|--html]` | Audit project for Root Knot markers. |
+| `ract status [--json|--markdown]` | Print project status dashboard. |
+| `ract session list` | List saved session IDs. |
+| `ract session export --session <id> --output <path>` | Export a session to JSON. |
+| `ract session import --input <path>` | Import a session from JSON. |
+| `ract plan diff <a> <b>` | Diff two saved plans. |
+| `ract init --list-templates` | List available project templates. |
+| `ract auction list|html-report` | Find dead code or export an HTML report. |
+| `ract leaderboard --receipts-dir <dir> [--json]` | Render receipt leaderboards. |
+| `ract coverage delta|baseline|status|badge` | Earned-coverage gates. |
+| `ract novelty scan [--fast] [--json|--html] [--timeout <sec>]` | Measure code novelty vs. the codebase. |
+| `ract receipt show|verify|chain-export [--json]` | Inspect signed receipts and chains. |
+| `ract receipt export --directory <dir> [--markdown]` | Export anonymized receipts as Markdown table. |
+| `ract fence inspect --file <path> [--json|--csv]` | Ask why legacy code exists. |
+| `ract merge-gate --policy <json>` | Evaluate merge policies. |
+| `ract policy-gate --policy <json> --evidence <json> [--json|--markdown|--csv]` | CI policy evaluation. |
+| `ract router select --intent <hint> [--markdown]` | Select provider for a capability hint. |
+| `ract router health [--json|--markdown]` | Check configured provider health. |
+| `ract infer <task> [--config rootact.yaml] [--json|--markdown]` | Score and route a task through the 3-tier inference router. |
+| `ract calibrate --receipts-dir <dir> [--json] [--output <path>]` | Calibrate complexity-router tier thresholds from receipts. |
+| `ract run-fingerprint <receipt.json> [--json]` | Fingerprint a run for reproducibility. |
+| `ract ai-sbom <receipts.json>` | Build an AI provenance manifest. |
+| `ract manifest --receipts-dir <dir>` | Export AI provenance manifest from a directory. |
+| `ract repro-manifest --intent <text> --plan <file> --config <file> [--fingerprint <str>] [--output <path>]` | Build a canonical reproducibility manifest. |
+| `ract grove-forge eval --results-dir <dir> [--learning-feed]` | Summarize Grove Forge benchmark results and feed learnings. |
+| `ract grove-forge guardian --reports-dir <dir> [--learning-feed]` | Scan Grove Forge artifacts for Root Knot markers. |
+| `ract report --last --format markdown|html|json --output <path>` | Export the last run report in the chosen format. |
+| `ract cost summary --receipts <path> [--json|--csv]` | Summarize run receipt costs. |
+| `ract consolidate --dry-run` | Preview near-duplicate module merges. |
+| `ract release list|create` | List or create GitHub releases. |
+| `ract rot baseline --history <path> [--json]` | Record a rot-trend baseline snapshot. |
+| `ract fence inspect --file <path>` | Ask why legacy code exists. |
+| `ract retrieval search <query> --json` | Search retrieval context as JSON. |
+| `ract diff apply --patch <path> --json` | Apply a patch and report results as JSON. |
+| `ract skills list [--json]` | List built-in RACT skills. |
+| `ract skills marketplace list [--json]` | List skills from a marketplace catalog. |
+| `ract mcp list [--json]` | List tools exposed by configured MCP servers. |
+| `ract mutation run [--json]` | Run mutation tests and report as JSON. |
+| `ract refactor --old <n> --new <n> --dry-run --json` | Preview symbol renames as JSON. |
+| `ract whisper --intent <text> [--json]` | Generate a codebase brief as JSON. |
+
 ## Demo
 
 ```bash
@@ -32,7 +92,7 @@ $ rootact --welcome
         Every plan Rooted. Every file carries the Knot.
 
 ╭─ Welcome to RACT ────────────────────────────────────────────────────────────╮
-│ Version: 0.1.0                                                               │
+│ Version: 0.1.2                                                               │
 │ Author: Dr. Lucas Root, Ph.D.                                                │
 │ License: PolyForm Noncommercial License 1.0.0                                │
 │                                                                              │
@@ -56,7 +116,7 @@ A recorded session is available: [`assets/demo.cast`](assets/demo.cast). Play it
 asciinema play https://raw.githubusercontent.com/LucRoot/RACT/main/assets/demo.cast
 ```
 
-An embedded asciinema.org upload is queued for the public README player once the upload toolchain is available on Windows ARM64.
+[![asciicast](https://asciinema.org/a/demo.svg)](https://asciinema.org/a/demo)
 
 ## Why RACT instead of Cursor, Claude Code, or Lovable?
 
@@ -166,6 +226,8 @@ RACT is terminal-first. Run `rootact --welcome` to see the Root-Knot logo and a 
 - `rootact consolidate scan|apply|rollback` — Find, apply, and rollback module consolidations.
 - `rootact report --last` / `--session ID` — View a structured summary of the last run or session.
 - `rootact report --last --format json --output report.json` — Export a structured run report for scripts or CI.
+- `rootact report --last --format markdown --output report.md` — Export a human-readable Markdown run report.
+- `rootact report --last --format html --output report.html` — Export a self-contained HTML run report.
 - `rootact handshakes list/approve/reject/defer` — Review high-risk milestones that the loop deferred.
 - `rootact mcp list` — Inspect tools exposed by configured MCP servers.
 - `rootact retrieval search <query>` — Preview what context RACT retrieves for a query.

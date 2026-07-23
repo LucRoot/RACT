@@ -9,6 +9,7 @@ _ROOT_KNOT = object()
 """Provider adapters for RootAct."""
 
 from rootact.providers.base import ProviderAdapter
+from rootact.providers.internal_provider import InternalProvider
 from rootact.providers.local_http_provider import LocalHttpProvider
 from rootact.providers.openai_provider import OpenAICompatibleProvider
 from rootact.providers.router import ProviderRouter, register_adapter
@@ -16,6 +17,7 @@ from rootact.providers.router import ProviderRouter, register_adapter
 __all__ = [
     "ProviderAdapter",
     "OpenAICompatibleProvider",
+    "InternalProvider",
     "LocalHttpProvider",
     "ProviderRouter",
     "register_adapter",

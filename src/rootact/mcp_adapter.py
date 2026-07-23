@@ -400,4 +400,19 @@ class McpToolRegistry:
         return adapter.call_tool(tool_name, arguments)
 
 
+def health_check(adapter: McpAdapter) -> dict[str, Any]:
+    """Return a health summary for an MCP adapter.
+
+    The result reports whether the adapter exposes at least one tool, the
+    number of tools discovered, and an optional error message.
+    """
+    listed = adapter.list_tools()
+    if not listed.is_ok():
+        return {"ok": False, "tools": 0, "error": listed.error or "tool listing failed"}
+    tools = listed.unwrap()
+    if tools:
+        return {"ok": True, "tools": len(tools), "error": None}
+    return {"ok": False, "tools": 0, "error": "no tools configured"}
+
+
 # RACT 0.1.1 - Trust and tooling

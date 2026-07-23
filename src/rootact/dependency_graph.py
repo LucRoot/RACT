@@ -7,6 +7,8 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
+import json
+from pathlib import Path
 from typing import Dict, Set
 
 from .manager import Plan, Step
@@ -121,6 +123,21 @@ class DependencyGraph:
             A dictionary mapping each artifact to its dependencies.
         """
         return {node: deps for node, deps in self._graph.items()}
+
+    def export_json(self, path: str | Path | None = None) -> str:
+        """Serialize the graph as JSON.
+
+        Args:
+            path: If provided, write the JSON to this file path.
+
+        Returns:
+            The JSON string representation of the graph.
+        """
+        data = {node: sorted(deps) for node, deps in self._graph.items()}
+        text = json.dumps(data, indent=2, sort_keys=True)
+        if path is not None:
+            Path(path).write_text(text, encoding="utf-8")
+        return text
 
 
 # RACT 0.1.1 - Trust and tooling

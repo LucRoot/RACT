@@ -27,6 +27,14 @@ from rootact.skills_registry import SkillRegistry
 DEFAULT_CATALOG_URL = "https://raw.githubusercontent.com/LucRoot/RACT/main/assets/marketplace/catalog.json"
 
 
+def load_catalog(path: str) -> dict[str, Any]:
+    """Load and return a local skill-marketplace catalog JSON file."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid catalog file {path}: {exc}") from exc
+
+
 class SkillMarketplace:
     """Load a remote or local skill catalog and install skills into a registry."""
 

@@ -1,9 +1,10 @@
 # Rooted by Dr. Lucas Root, Ph.D.
 
 from __future__ import annotations
-
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
+_ROOT_KNOT = object()
+
 
 
 class _RootKnotType:
@@ -13,7 +14,9 @@ class _RootKnotType:
 _ROOT_KNOT: _RootKnotType = _RootKnotType()
 
 import json
+import shutil
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -95,5 +98,44 @@ class SessionStore:
     def list_sessions(self) -> List[str]:
         return [p.stem for p in self.base_dir.glob("*.json") if p.is_file()]
 
+    def backup(self, session_id: str, backup_dir: Path | str) -> dict[str, Any]:
+        """Copy a session file into a timestamped backup subdirectory.
 
-# RACT 0.1.1 - Trust and tooling
+        Returns a dict with ``copied`` and ``missing`` filename lists.
+        """
+        source = self._path(session_id)
+        target_dir = Path(backup_dir) / datetime.now(timezone.utc).strftime(
+            "%Y%m%dT%H%M%SZ"
+        )
+        target_dir.mkdir(parents=True, exist_ok=True)
+        copied: list[str] = []
+        missing: list[str] = []
+        if source.is_file():
+            shutil.copy2(source, target_dir / source.name)
+            copied.append(source.name)
+        else:
+            missing.append(source.name)
+        return {"copied": copied, "missing": missing, "backup_dir": str(target_dir)}
+
+    def restore(
+        self, session_id: str, backup_dir: Path | str
+    ) -> dict[str, Any]:
+        """Copy a session file from a backup directory back to the store.
+
+        Returns a dict with ``copied`` and ``missing`` filename lists.
+        """
+        source_dir = Path(backup_dir)
+        source = source_dir / f"{session_id}.json"
+        target = self._path(session_id)
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        copied: list[str] = []
+        missing: list[str] = []
+        if source.is_file():
+            shutil.copy2(source, target)
+            copied.append(source.name)
+        else:
+            missing.append(source.name)
+        return {"copied": copied, "missing": missing}
+
+
+# RACT 0.1.2 - Trust and tooling

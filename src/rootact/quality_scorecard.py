@@ -192,4 +192,10 @@ class QualityScorecard:
             self._records = json.load(f)
 
 
+def export_scorecard(scorecard: dict[str, Any], path: str) -> None:
+    """Write a scorecard dict to *path* as formatted JSON."""
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(scorecard, f, indent=2)
+
+
 # RACT 0.1.1 - Trust and tooling
