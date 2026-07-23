@@ -96,7 +96,7 @@ returns clean, and the full test suite is still green.
    - **How to verify a Rootknot without the tool:** CLI command (see Module 5), sidecar format, public-key location.
    - **What happens if a Rootknot is missing or invalid:** loop halts with `TerminationCause.PROVENANCE_VIOLATION`.
 2. Update `docs/ARCHITECTURE.md` to reference `docs/PROVENANCE.md` in the provenance contract bullet.
-3. Add a lint test `tests/test_public_provenance.py` that asserts `docs/PROVENANCE.md` exists, contains the key phrases, and that no source file imports from a `[REDACTED]` module.
+3. Add a lint test `tests/test_public_provenance.py` that asserts `docs/PROVENANCE.md` exists, contains the key phrases, and that no source file imports from a private/internal project module.
 
 **Definition of Done:** `docs/PROVENANCE.md` exists, is under 800 words, and the lint test passes.
 
