@@ -27,6 +27,6 @@ def test_readme_verb_index_includes_core_verbs():
         "`ract session list`",
         "`ract plan diff`",
         "`ract run`",
-        "`ract fence`",
+        "`ract fence inspect --file <path>`",
     ):
         assert verb in text, f"README.md CLI verb index should include {verb}"
