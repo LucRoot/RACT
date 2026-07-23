@@ -18,6 +18,12 @@ from rootact.reproducibility_manifest import build_manifest as build_manifest
 from rootact.complexity_calibrator import ComplexityCalibrator as ComplexityCalibrator
 from rootact.inference_router import InferenceRouter as InferenceRouter
 
+# v0.2.0 provenance primitives.
+from rootact.core.keys import SessionKey as SessionKey
+from rootact.core.provenance import ProvenanceIndex as ProvenanceIndex
+from rootact.core.provenance import verify_workspace as verify_workspace
+from rootact.core.rootknot import Rootknot as Rootknot
+
 # Keep these modules wired into the public API so the dead-code auction
 # does not flag them as unreferenced.
 (
@@ -26,6 +32,10 @@ from rootact.inference_router import InferenceRouter as InferenceRouter
     build_manifest,
     ComplexityCalibrator,
     InferenceRouter,
+    SessionKey,
+    ProvenanceIndex,
+    verify_workspace,
+    Rootknot,
 )
 
-# RACT 0.1.2 - Trust and tooling
+# RACT 0.2.0
