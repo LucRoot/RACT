@@ -183,7 +183,7 @@ For tasks that need multiple iterations of plan/execute/verify, use `--loop`. Th
 ract "add input validation to the login endpoint" --config ract.yaml --loop --max-iterations 10
 ```
 
-If a provider call hangs, the loop enforces a per-iteration timeout (default 900s, configurable in code) and feeds the previous iteration's error, test output, and any missing Root Knot files into the next prompt.
+If a provider call hangs, the loop enforces a per-iteration timeout (default 900s, configurable in code) and feeds the previous iteration's error, test output, and any missing Rootknot sidecars into the next prompt.
 
 ## Use built-in skills
 

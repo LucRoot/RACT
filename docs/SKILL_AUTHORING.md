@@ -1,5 +1,3 @@
-# Rooted by Dr. Lucas Root, Ph.D.
-
 # RACT Skill Authoring Guide
 
 Skills are reusable prompt templates that prepend context to an intent. They let you codify recurring styles, constraints, or workflows so every run starts from the same baseline.
@@ -64,13 +62,13 @@ Unknown `$variables` are left untouched, so a skill template can safely include 
 
 ## Authoring a skill in the RACT voice
 
-A strong RACT skill encodes the author's style, not just a generic instruction. Use the same markers you expect in generated code:
+A strong RACT skill encodes the project's style, not just a generic instruction. Use the same conventions you expect in generated code:
 
 ```json
 {
-  "name": "root_knot_python",
-  "description": "Generate Python files that carry the Root Knot and return Rooted results.",
-  "template": "RACT PYTHON SKILL\n\nGenerate Python code for this intent: $intent\n\nRequired style:\n- Every non-__init__.py file must carry:\n    __root_author__ = \"Dr. Lucas Root, Ph.D.\"\n    __ract_name__ = \"RACT\"\n    _ROOT_KNOT = object()\n- Functions that depend on unstated assumptions return Rooted[T] with assumption, confidence, and provenance.\n- No bare except blocks. No silent error masks.\n- Include an LR:: comment explaining one non-obvious choice.",
+  "name": "ract_python",
+  "description": "Generate Python files that carry Assumed results and Rootknot provenance.",
+  "template": "RACT PYTHON SKILL\n\nGenerate Python code for this intent: $intent\n\nRequired style:\n- Functions that depend on unstated assumptions return Assumed[T] with assumption, confidence, and provenance.\n- No bare except blocks. No silent error masks.\n- Include a short comment explaining one non-obvious choice.",
   "tools": []
 }
 ```
@@ -113,4 +111,4 @@ They are ordinary JSON skill files, so you can copy one into your project `skill
 - Do not put secrets in skill templates.
 - Include a `description` so `ract skills list` remains useful.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT 0.2.0 -->
