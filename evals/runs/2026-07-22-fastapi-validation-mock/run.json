@@ -1,0 +1,13 @@
+{
+  "task": "fastapi-validation",
+  "provider": "mock",
+  "seed": 42,
+  "passed": true,
+  "checks": [
+    {
+      "name": "tests_pass",
+      "passed": true
+    }
+  ],
+  "errors": []
+}
