@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ract"
-version = "0.2.0rc1"
+version = "0.2.0"
 description = "RACT — a claim-and-verify agentic coding tool with signed provenance."
 readme = "README.md"
 license = { text = "PolyForm Noncommercial License 1.0.0" }

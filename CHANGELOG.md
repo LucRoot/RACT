@@ -6,7 +6,7 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.2.0] - 2026-07-23
+## [0.2.0] - 2026-07-23 — Provenance and Invariants
 
 ### Added
 
