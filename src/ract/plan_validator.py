@@ -25,7 +25,7 @@ class ValidationResult:
 
 @dataclass
 class PlanValidator:
-    """Validator for RootACT plans, including schema-version checks."""
+    """Validator for RACT plans, including schema-version checks."""
 
     @staticmethod
     def validate(plan: Plan) -> ValidationResult:
