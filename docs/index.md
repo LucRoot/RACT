@@ -30,6 +30,7 @@ ract init --template python-package --provider local
 ## Quick links
 
 - [Quickstart](QUICKSTART.md)
+- [Release notes v0.2.0](RELEASE_NOTES_v0.2.0.md)
 - [Provider setup](PROVIDER_SETUP.md)
 - [Skill authoring](SKILL_AUTHORING.md)
 - [Architecture](ARCHITECTURE.md)
