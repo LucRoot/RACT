@@ -10,8 +10,8 @@ _ROOT_KNOT = object()
 
 import ast
 
-from rootact.symbol_graph import SymbolGraph
-from rootact.symbol_renamer import SymbolRenamer
+from ract.symbol_graph import SymbolGraph
+from ract.symbol_renamer import SymbolRenamer
 
 
 def test_rename_function_in_same_module(tmp_path):

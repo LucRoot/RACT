@@ -13,14 +13,14 @@ import sys
 
 
 def test_cli_auction_html_report_writes_file(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     output = tmp_path / "dead.html"
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "auction",
             "html-report",
             "--output",

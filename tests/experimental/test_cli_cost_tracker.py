@@ -10,12 +10,23 @@ import sys
 def test_cost_summary_json(tmp_path):
     receipts = tmp_path / "receipts.json"
     receipts.write_text(
-        json.dumps({"provider": "local", "usage": {"total_tokens": 1000}}) + "\n" +
-        json.dumps({"provider": "openai", "usage": {"total_tokens": 500}}) + "\n",
+        json.dumps({"provider": "local", "usage": {"total_tokens": 1000}})
+        + "\n"
+        + json.dumps({"provider": "openai", "usage": {"total_tokens": 500}})
+        + "\n",
         encoding="utf-8",
     )
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "cost", "summary", "--receipts", str(receipts), "--json"],
+        [
+            sys.executable,
+            "-m",
+            "ract.cli",
+            "cost",
+            "summary",
+            "--receipts",
+            str(receipts),
+            "--json",
+        ],
         cwd=str(tmp_path),
         capture_output=True,
         text=True,
@@ -34,7 +45,16 @@ def test_cost_summary_csv(tmp_path):
         encoding="utf-8",
     )
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "cost", "summary", "--receipts", str(receipts), "--csv"],
+        [
+            sys.executable,
+            "-m",
+            "ract.cli",
+            "cost",
+            "summary",
+            "--receipts",
+            str(receipts),
+            "--csv",
+        ],
         cwd=str(tmp_path),
         capture_output=True,
         text=True,

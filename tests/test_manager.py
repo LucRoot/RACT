@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the RootAct manager and plan parsing."""
+"""Tests for the RACT manager and plan parsing."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ _ROOT_KNOT = object()
 
 from unittest.mock import MagicMock, patch
 
-from rootact.manager import Manager, Plan, _extract_json
-from rootact.rooted import Rooted
-from rootact.temperature_router import TemperatureRouter
+from ract.manager import Manager, Plan, _extract_json
+from ract.rooted import Rooted
+from ract.temperature_router import TemperatureRouter
 
 
 def test_extract_json_plain_object():

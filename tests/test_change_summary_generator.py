@@ -3,7 +3,7 @@ from __future__ import annotations
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 
-from rootact.change_summary_generator import ChangeSummary
+from ract.change_summary_generator import ChangeSummary
 
 _ROOT_KNOT = object()
 

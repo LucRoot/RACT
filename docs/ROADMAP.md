@@ -15,7 +15,7 @@ Post-audit upgrade queue. Items are ordered by leverage for the public launch.
 
 3. **Coverage floor + mutation testing**
    - DONE: 90% coverage floor enforced in CI (`coverage-gate` job).
-   - Mutation testing (`mutmut` against `executor.py`, `loop_controller.py`, `harness.py`, `cli.py`) is a local/WSL-only manual operation via `rootact mutation run` and `scripts/run_mutation_tests_wsl.sh`. It is not a CI gate: `mutmut` does not run on GitHub-hosted Windows runners and the run is too slow for per-PR enforcement.
+   - Mutation testing (`mutmut` against `executor.py`, `loop_controller.py`, `harness.py`, `cli.py`) is a local/WSL-only manual operation via `ract mutation run` and `scripts/run_mutation_tests_wsl.sh`. It is not a CI gate: `mutmut` does not run on GitHub-hosted Windows runners and the run is too slow for per-PR enforcement.
 
 4. **CI/CD pipeline**
    - GitHub Actions workflow running `ruff check`, `ruff format --check`, `mypy`, and `pytest`.
@@ -29,7 +29,7 @@ Post-audit upgrade queue. Items are ordered by leverage for the public launch.
    - Close the duplication hole at the source.
 
 6. **Consolidation mode**
-   - New command: `rootact consolidate`.
+   - New command: `ract consolidate`.
    - Scans the repo for near-duplicate modules, proposes merges with diff preview, and routes through the operator handshake queue.
 
 7. **Example project walkthrough**

@@ -7,7 +7,7 @@ _ROOT_KNOT = object()
 
 from pathlib import Path
 
-from rootact.quality_scorecard import QualityScorecard, Verdict, _ROOT_KNOT
+from ract.quality_scorecard import QualityScorecard, Verdict, _ROOT_KNOT
 
 
 def test_compute_score_nonempty_plan():
@@ -127,7 +127,7 @@ def test_write_and_read_json_file(tmp_path: Path):
 
 
 def test_root_knot_is_defined_at_module_scope():
-    import rootact.quality_scorecard as mod
+    import ract.quality_scorecard as mod
 
     assert hasattr(mod, "_ROOT_KNOT")
     assert mod._ROOT_KNOT is _ROOT_KNOT

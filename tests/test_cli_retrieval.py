@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the `rootact retrieval` CLI command."""
+"""Tests for the `ract retrieval` CLI command."""
 
 from __future__ import annotations
 
@@ -13,11 +13,11 @@ from unittest.mock import MagicMock, patch
 
 import yaml
 
-from rootact.cli import _retrieval_command
+from ract.cli import _retrieval_command
 
 
 def test_retrieval_search_no_config(tmp_path: Path, capsys):
-    missing = tmp_path / "rootact.yaml"
+    missing = tmp_path / "ract.yaml"
     exit_code = _retrieval_command(["search", "foo", "--config", str(missing)])
     assert exit_code == 1
     captured = capsys.readouterr()
@@ -25,7 +25,7 @@ def test_retrieval_search_no_config(tmp_path: Path, capsys):
 
 
 def test_retrieval_search_with_results(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(
         yaml.safe_dump({"project": {"name": "demo"}}), encoding="utf-8"
     )
@@ -41,7 +41,7 @@ def test_retrieval_search_with_results(tmp_path: Path, capsys):
     mock_rooted.value = [mock_result]
     mock_adapter.search.return_value = mock_rooted
 
-    with patch("rootact.cli._build_retrieval_adapter", return_value=mock_adapter):
+    with patch("ract.cli._build_retrieval_adapter", return_value=mock_adapter):
         exit_code = _retrieval_command(["search", "foo", "--config", str(config_path)])
 
     assert exit_code == 0
@@ -52,7 +52,7 @@ def test_retrieval_search_with_results(tmp_path: Path, capsys):
 
 
 def test_retrieval_search_empty_results(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(
         yaml.safe_dump({"project": {"name": "demo"}}), encoding="utf-8"
     )
@@ -63,7 +63,7 @@ def test_retrieval_search_empty_results(tmp_path: Path, capsys):
     mock_rooted.value = []
     mock_adapter.search.return_value = mock_rooted
 
-    with patch("rootact.cli._build_retrieval_adapter", return_value=mock_adapter):
+    with patch("ract.cli._build_retrieval_adapter", return_value=mock_adapter):
         exit_code = _retrieval_command(["search", "bar", "--config", str(config_path)])
 
     assert exit_code == 0
@@ -72,7 +72,7 @@ def test_retrieval_search_empty_results(tmp_path: Path, capsys):
 
 
 def test_retrieval_search_top_k_passed(tmp_path: Path):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(
         yaml.safe_dump({"project": {"name": "demo"}}), encoding="utf-8"
     )
@@ -83,7 +83,7 @@ def test_retrieval_search_top_k_passed(tmp_path: Path):
     mock_rooted.value = []
     mock_adapter.search.return_value = mock_rooted
 
-    with patch("rootact.cli._build_retrieval_adapter", return_value=mock_adapter):
+    with patch("ract.cli._build_retrieval_adapter", return_value=mock_adapter):
         _retrieval_command(
             ["search", "baz", "--top-k", "3", "--config", str(config_path)]
         )
@@ -92,7 +92,7 @@ def test_retrieval_search_top_k_passed(tmp_path: Path):
 
 
 def test_retrieval_search_error(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(
         yaml.safe_dump({"project": {"name": "demo"}}), encoding="utf-8"
     )
@@ -102,7 +102,7 @@ def test_retrieval_search_error(tmp_path: Path, capsys):
     mock_rooted.error = "network failure"
     mock_adapter.search.return_value = mock_rooted
 
-    with patch("rootact.cli._build_retrieval_adapter", return_value=mock_adapter):
+    with patch("ract.cli._build_retrieval_adapter", return_value=mock_adapter):
         exit_code = _retrieval_command(["search", "qux", "--config", str(config_path)])
 
     assert exit_code == 1
@@ -111,7 +111,7 @@ def test_retrieval_search_error(tmp_path: Path, capsys):
 
 
 def test_retrieval_no_action_prints_help(tmp_path: Path, capsys):
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(
         yaml.safe_dump({"project": {"name": "demo"}}), encoding="utf-8"
     )

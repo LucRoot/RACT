@@ -7,9 +7,9 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.artifact_diff_wiring import render_change_summary, render_file_diff
-from rootact.executor import ExecutionReport, StepResult
-from rootact.manager import Plan, Step
+from ract.artifact_diff_wiring import render_change_summary, render_file_diff
+from ract.executor import ExecutionReport, StepResult
+from ract.manager import Plan, Step
 
 
 def _make_report(contents: dict[str, str]) -> ExecutionReport:

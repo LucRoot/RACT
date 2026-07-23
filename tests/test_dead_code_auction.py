@@ -13,8 +13,8 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-from rootact.cli import main
-from rootact.dead_code_auction import AuctionItem, DeadCodeAuction
+from ract.cli import main
+from ract.dead_code_auction import AuctionItem, DeadCodeAuction
 
 
 def _set_old_mtime(path: Path, days: int = 200) -> None:
@@ -112,7 +112,7 @@ def test_auction_flags_module_imported_only_by_its_test(tmp_path: Path):
 
 
 def test_cli_auction_list_json(capsys, tmp_path: Path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
 
     fake_item = AuctionItem(
@@ -123,7 +123,7 @@ def test_cli_auction_list_json(capsys, tmp_path: Path):
         reason="no inbound references",
     )
 
-    with patch("rootact.cli.DeadCodeAuction") as MockAuction:
+    with patch("ract.cli.DeadCodeAuction") as MockAuction:
         MockAuction.return_value.scan.return_value = [fake_item]
         code = main(["auction", "list", "--json", "--config", str(config)])
         out = capsys.readouterr().out
@@ -141,7 +141,7 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist, or removed. Entry-point modules under ``eval/`` are allowed
     because they are invoked as scripts rather than imported.
     """
-    project_root = Path(__file__).parent.parent / "src" / "rootact"
+    project_root = Path(__file__).parent.parent / "src" / "ract"
     allowlist = set(DeadCodeAuction.DEFAULT_ALLOWLIST)
     allowlist.add("runner.py")
     items = DeadCodeAuction(

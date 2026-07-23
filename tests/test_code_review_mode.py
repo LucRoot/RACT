@@ -3,7 +3,7 @@ from __future__ import annotations
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 
-from rootact.code_review_mode import CodeReviewMode
+from ract.code_review_mode import CodeReviewMode
 
 _ROOT_KNOT = object()
 

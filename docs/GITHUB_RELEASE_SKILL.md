@@ -2,7 +2,7 @@
 # GitHub Release Skill
 
 The `release` skill lets RACT list and create GitHub releases for a project
-configured in `rootact.yaml`.
+configured in `ract.yaml`.
 
 ## Status
 
@@ -10,12 +10,12 @@ Implemented in RACT v0.1.2.
 
 ## Configuration
 
-Add a `github` section to `rootact.yaml`:
+Add a `github` section to `ract.yaml`:
 
 ```yaml
 github:
   owner: LucRoot
-  repo: rootact
+  repo: ract
 ```
 
 The skill reads the `GITHUB_TOKEN` environment variable. The token must have
@@ -28,7 +28,7 @@ never prints the token.
 
 ```bash
 ract release list
-ract release list --config path/to/rootact.yaml
+ract release list --config path/to/ract.yaml
 ```
 
 Prints a table of existing releases with tag, name, and draft status.
@@ -55,8 +55,8 @@ ract release create \
   --tag v0.1.2 \
   --name "RACT 0.1.2" \
   --body "See CHANGELOG.md" \
-  --asset dist/rootact-0.1.2-py3-none-any.whl \
-  --asset dist/rootact-0.1.2.tar.gz
+  --asset dist/ract-0.1.2-py3-none-any.whl \
+  --asset dist/ract-0.1.2.tar.gz
 ```
 
 ## Error handling

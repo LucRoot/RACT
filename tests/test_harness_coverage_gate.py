@@ -12,11 +12,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from rootact import coverage_delta
-from rootact.executor import ExecutionReport, StepResult
-from rootact.harness import Harness
-from rootact.manager import Plan, Step
-from rootact.rooted import Rooted
+from ract import coverage_delta
+from ract.executor import ExecutionReport, StepResult
+from ract.harness import Harness
+from ract.manager import Plan, Step
+from ract.rooted import Rooted
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def test_gate_establishes_baseline(tmp_coverage_project):
     assert result.is_ok(), result.error
     delta = result.unwrap()
     assert delta.verdict == "baseline"
-    assert (project_dir / ".rootact" / "coverage_baseline.json").exists()
+    assert (project_dir / ".ract" / "coverage_baseline.json").exists()
 
 
 def test_gate_detects_regress(tmp_coverage_project):
@@ -127,7 +127,7 @@ def test_harness_hard_fail_on_coverage_regress(tmp_path, monkeypatch):
     (tmp_path / "prompts" / "manager.txt").write_text(
         "You are the manager.", encoding="utf-8"
     )
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -172,7 +172,7 @@ def test_harness_hard_fail_on_coverage_regress(tmp_path, monkeypatch):
         total_lines=100,
     )
     monkeypatch.setattr(
-        "rootact.harness.coverage_gate",
+        "ract.harness.coverage_gate",
         lambda *_args, **_kwargs: Rooted(
             value=coverage_delta.compute_delta(before, after),
             assumption="ok",
@@ -208,7 +208,7 @@ def test_harness_soft_fail_attaches_delta(tmp_path, monkeypatch):
     (tmp_path / "prompts" / "manager.txt").write_text(
         "You are the manager.", encoding="utf-8"
     )
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -253,7 +253,7 @@ def test_harness_soft_fail_attaches_delta(tmp_path, monkeypatch):
         total_lines=200,
     )
     monkeypatch.setattr(
-        "rootact.harness.coverage_gate",
+        "ract.harness.coverage_gate",
         lambda *_args, **_kwargs: Rooted(
             value=coverage_delta.compute_delta(before, after),
             assumption="ok",
@@ -291,7 +291,7 @@ def test_harness_floor_breach_hard_fail(tmp_path, monkeypatch):
     (tmp_path / "prompts" / "manager.txt").write_text(
         "You are the manager.", encoding="utf-8"
     )
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     import yaml
 
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
@@ -343,7 +343,7 @@ def test_harness_floor_breach_hard_fail(tmp_path, monkeypatch):
             confidence=1.0,
         )
 
-    monkeypatch.setattr("rootact.harness.coverage_gate", _fake_gate)
+    monkeypatch.setattr("ract.harness.coverage_gate", _fake_gate)
 
     result = harness.run("noop")
     assert not result.is_ok()

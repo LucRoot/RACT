@@ -1,6 +1,6 @@
 # Root Signature Quirk — `Rooted[T]`
 
-Every non-trivial computation in RootAct returns a `Rooted[T]` value: the result, the load-bearing assumption that justifies it, a confidence score, and a provenance chain.
+Every non-trivial computation in RACT returns a `Rooted[T]` value: the result, the load-bearing assumption that justifies it, a confidence score, and a provenance chain.
 
 ## Why It Works
 
@@ -15,7 +15,7 @@ Most code hides its assumptions. When those assumptions break, debugging is arch
 
 ## Code Example
 
-See `src/rootact/rooted.py`.
+See `src/ract/rooted.py`.
 
 ---
 
@@ -45,7 +45,7 @@ Using `None` as a sentinel conflates two meanings: "the caller did not supply th
 
 ## Authorship Marker
 
-Every new RootAct module must also carry a module-level authorship marker:
+Every new RACT module must also carry a module-level authorship marker:
 
 ```python
 __root_author__ = "Dr. Lucas Root, Ph.D."

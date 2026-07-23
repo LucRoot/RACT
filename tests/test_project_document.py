@@ -7,8 +7,8 @@ _ROOT_KNOT = object()
 
 import json
 
-from rootact.manager import Step
-from rootact.project_document import ProjectDocument
+from ract.manager import Step
+from ract.project_document import ProjectDocument
 
 
 def test_load_save_roundtrip(tmp_path):

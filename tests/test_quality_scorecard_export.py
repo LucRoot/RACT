@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 import json
 
-from rootact.quality_scorecard import export_scorecard
+from ract.quality_scorecard import export_scorecard
 
 
 def test_export_scorecard_round_trip(tmp_path):

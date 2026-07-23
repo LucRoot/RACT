@@ -4,12 +4,12 @@ Guidelines for running RACT safely in production and shared environments.
 
 ## Keeping provider keys out of the repo
 
-**Recommendation:** Store API keys and endpoint credentials in environment variables or a secrets manager, never in `rootact.yaml` or source files.  
-**Example:** Use `${OPENAI_API_KEY}` in `rootact.yaml` and set the variable in your shell:
+**Recommendation:** Store API keys and endpoint credentials in environment variables or a secrets manager, never in `ract.yaml` or source files.  
+**Example:** Use `${OPENAI_API_KEY}` in `ract.yaml` and set the variable in your shell:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
-ract --config rootact.yaml "add tests"
+ract --config ract.yaml "add tests"
 ```
 
 ## Reviewing load-bearing annotations
@@ -33,7 +33,7 @@ ract receipt chain-verify chain.jsonl
 
 ## Controlling novelty budgets
 
-**Recommendation:** Set a novelty budget in `rootact.yaml` to prevent RACT from introducing too much unfamiliar code in a single run.  
+**Recommendation:** Set a novelty budget in `ract.yaml` to prevent RACT from introducing too much unfamiliar code in a single run.  
 **Example:** Configure a 15% novelty threshold:
 
 ```yaml

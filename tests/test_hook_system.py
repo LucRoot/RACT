@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import cast
 
-from rootact.hook_system import HookManager
+from ract.hook_system import HookManager
 
 _ROOT_KNOT = object()
 
@@ -32,9 +32,9 @@ def test_run_hooks_execute_in_order(tmp_path: Path) -> None:
 def test_context_passed_as_env_vars(tmp_path: Path) -> None:
     manager = HookManager(tmp_path)
     if sys.platform == "win32":
-        manager.register("pre", "env", ["cmd", "/c", "echo %ROOTACT_FOO%"])
+        manager.register("pre", "env", ["cmd", "/c", "echo %RACT_FOO%"])
     else:
-        manager.register("pre", "env", ["sh", "-c", "echo $ROOTACT_FOO"])
+        manager.register("pre", "env", ["sh", "-c", "echo $RACT_FOO"])
     results = manager.run_hooks("pre", {"foo": "bar"})
     assert cast(str, results[0]["stdout"]).strip() == "bar"
 

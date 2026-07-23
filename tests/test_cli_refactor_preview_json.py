@@ -14,7 +14,7 @@ import sys
 
 
 def test_cli_refactor_preview_json_outputs_edits(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     src = tmp_path / "module.py"
     src.write_text("def old_func():\n    return 1\n", encoding="utf-8")
@@ -23,7 +23,7 @@ def test_cli_refactor_preview_json_outputs_edits(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "refactor",
             "--old",
             "old_func",

@@ -14,7 +14,7 @@ from typing import Any, cast
 
 import pytest
 
-from rootact.openapi_spec_parser import (
+from ract.openapi_spec_parser import (
     arg_signature,
     categorize_params,
     class_name_from_spec,

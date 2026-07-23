@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.config_diff import diff_configs
+from ract.config_diff import diff_configs
 
 
 def test_diff_configs_detects_added_removed_and_changed(tmp_path):

@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 import json
 
-from rootact.run_reporter import export_report
+from ract.run_reporter import export_report
 
 
 def test_export_report_roundtrips(tmp_path):

@@ -4,7 +4,7 @@ Common problems and how to fix them.
 
 ## Installation issues
 
-**Symptom:** `ModuleNotFoundError: No module named 'rootact'` after install.  
+**Symptom:** `ModuleNotFoundError: No module named 'ract'` after install.  
 **Cause:** The package was installed into a different Python environment or the editable install was not performed from the repo root.  
 **Fix:** Activate the correct virtual environment and reinstall from the project root:
 
@@ -15,14 +15,14 @@ Common problems and how to fix them.
 ## Provider connection failures
 
 **Symptom:** `ract doctor` reports a provider as unreachable or every plan fails with a timeout.  
-**Cause:** The provider endpoint in `rootact.yaml` is wrong, the local model server is not running, or a firewall is blocking the port.  
+**Cause:** The provider endpoint in `ract.yaml` is wrong, the local model server is not running, or a firewall is blocking the port.  
 **Fix:** Check the endpoint with curl and verify the model server is healthy:
 
 ```bash
 curl http://127.0.0.1:11435/v1/health
 ```
 
-Then update `rootact.yaml` so the provider URL matches the running server.
+Then update `ract.yaml` so the provider URL matches the running server.
 
 ## Thermal throttling during long runs
 
@@ -51,5 +51,5 @@ git remote set-url origin git@github.com:LucRoot/RACT.git
 **Fix:** Lower the thresholds or restrict the scan to a smaller set of files:
 
 ```bash
-ract consolidate scan --similarity-threshold 0.7 --merge-threshold 0.6 --paths src/rootact
+ract consolidate scan --similarity-threshold 0.7 --merge-threshold 0.6 --paths src/ract
 ```

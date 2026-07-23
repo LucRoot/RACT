@@ -11,7 +11,7 @@ _ROOT_KNOT = object()
 import subprocess
 from pathlib import Path
 
-from rootact.codebase_historian import CodebaseHistorian
+from ract.codebase_historian import CodebaseHistorian
 
 
 def test_build_indexes_symbols(tmp_path):
@@ -104,7 +104,7 @@ def test_query_excludes_negative_similarity(tmp_path):
 
 
 def test_module_to_path() -> None:
-    from rootact.codebase_historian import _module_to_path
+    from ract.codebase_historian import _module_to_path
 
     assert _module_to_path("a.b.c") == Path("a/b/c.py")
 

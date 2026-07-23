@@ -11,11 +11,11 @@ _ROOT_KNOT = object()
 from pathlib import Path
 from typing import Any
 
-from rootact.executor import Executor, ExecutionReport
-from rootact.hook_system import HookManager
-from rootact.manager import Plan, Step
-from rootact.rooted import Rooted
-from rootact.user_signature_registry import SignatureRegistry
+from ract.executor import Executor, ExecutionReport
+from ract.hook_system import HookManager
+from ract.manager import Plan, Step
+from ract.rooted import Rooted
+from ract.user_signature_registry import SignatureRegistry
 
 
 class FakeDiffApplier:
@@ -25,7 +25,7 @@ class FakeDiffApplier:
         self.message = message
 
     def apply_diff(self, _diff_text: str):
-        from rootact.diff_applier import DiffApplyResult
+        from ract.diff_applier import DiffApplyResult
 
         return [
             DiffApplyResult(
@@ -543,7 +543,7 @@ def test_executor_falls_back_to_complete_when_streaming_unsupported():
     assert report.step_results[0].content == "non-stream"
 
 
-from rootact.mcp_adapter import McpAdapter, McpToolRegistry, McpToolResult
+from ract.mcp_adapter import McpAdapter, McpToolRegistry, McpToolResult
 
 
 class FakeMcpAdapter(McpAdapter):
@@ -615,7 +615,7 @@ def test_executor_fails_tool_call_without_registry():
     assert "configured MCP server" in result.error
 
 
-from rootact.diff_applier import DiffApplier
+from ract.diff_applier import DiffApplier
 
 
 def test_executor_applies_diff_to_existing_file(tmp_path):
@@ -1144,7 +1144,7 @@ def test_check_load_bearing_returns_empty_when_no_project_dir():
 
 
 def test_check_load_bearing_truncates_long_modified_lines_list(tmp_path):
-    from rootact.load_bearing_guard import LoadBearingGuard, LoadBearingRegion
+    from ract.load_bearing_guard import LoadBearingGuard, LoadBearingRegion
     from unittest.mock import MagicMock
 
     router = FakeRouter(FakeAdapter("mock"))
@@ -1174,7 +1174,7 @@ def test_check_load_bearing_truncates_long_modified_lines_list(tmp_path):
 
 
 def test_duplication_guard_blocks_write(tmp_path):
-    from rootact.duplication_guard import DuplicationMatch
+    from ract.duplication_guard import DuplicationMatch
     from unittest.mock import MagicMock
 
     router = FakeRouter(FakeAdapter("mock", response_content="def dup(): pass"))

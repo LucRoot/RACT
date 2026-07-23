@@ -3,7 +3,7 @@ from __future__ import annotations
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 
-from rootact.self_test_benchmark_mode import (
+from ract.self_test_benchmark_mode import (
     BenchmarkResult,
     PytestRunResult,
     SelfTestBenchmarkMode,

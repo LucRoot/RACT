@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from rootact.progress_oracle import ProgressOracle, ProgressVerdict
-from rootact.rooted import Rooted
+from ract.progress_oracle import ProgressOracle, ProgressVerdict
+from ract.rooted import Rooted
 
 
 class StubOracle(ProgressOracle):

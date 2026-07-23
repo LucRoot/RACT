@@ -34,7 +34,7 @@ def test_cli_leaderboard_json_explicit_and_overrides_html(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "leaderboard",
             "--receipts-dir",
             str(receipts_dir),
@@ -53,7 +53,7 @@ def test_cli_leaderboard_json_explicit_and_overrides_html(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "leaderboard",
             "--receipts-dir",
             str(receipts_dir),

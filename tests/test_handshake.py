@@ -10,7 +10,7 @@ from unittest import mock
 
 import pytest
 
-from rootact.handshake import raise_request, list_pending, answer
+from ract.handshake import raise_request, list_pending, answer
 
 
 @pytest.fixture

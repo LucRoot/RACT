@@ -16,7 +16,7 @@ from pathlib import Path
 
 def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "rootact.cli", *args],
+        [sys.executable, "-m", "ract.cli", *args],
         capture_output=True,
         text=True,
         check=False,

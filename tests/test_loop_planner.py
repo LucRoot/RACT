@@ -14,14 +14,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rootact.loop_planner import LoopPlanner, Milestone
-from rootact.manager import Plan, Step
-from rootact.rooted import Rooted
+from ract.loop_planner import LoopPlanner, Milestone
+from ract.manager import Plan, Step
+from ract.rooted import Rooted
 
 
 @pytest.fixture
 def tmp_project(tmp_path: Path) -> Path:
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: test\n", encoding="utf-8")
     return tmp_path
 
@@ -49,7 +49,7 @@ def _fake_harness(milestone_json: str) -> MagicMock:
 
 
 def test_generate_backlog_parses_milestones(tmp_project: Path):
-    planner = LoopPlanner(tmp_project / "rootact.yaml")
+    planner = LoopPlanner(tmp_project / "ract.yaml")
     milestone_json = json.dumps(
         {
             "milestones": [
@@ -67,7 +67,7 @@ def test_generate_backlog_parses_milestones(tmp_project: Path):
         }
     )
     with patch(
-        "rootact.loop_planner.Harness.from_config_path",
+        "ract.loop_planner.Harness.from_config_path",
         return_value=Rooted(
             value=_fake_harness(milestone_json), assumption="ok", confidence=1.0
         ),
@@ -82,7 +82,7 @@ def test_generate_backlog_parses_milestones(tmp_project: Path):
 
 
 def test_generate_backlog_uses_step_action_as_fallback(tmp_project: Path):
-    planner = LoopPlanner(tmp_project / "rootact.yaml")
+    planner = LoopPlanner(tmp_project / "ract.yaml")
     milestone_json = json.dumps(
         {
             "milestones": [
@@ -112,7 +112,7 @@ def test_generate_backlog_uses_step_action_as_fallback(tmp_project: Path):
         confidence=0.9,
     )
     with patch(
-        "rootact.loop_planner.Harness.from_config_path",
+        "ract.loop_planner.Harness.from_config_path",
         return_value=Rooted(value=harness, assumption="ok", confidence=1.0),
     ):
         result = planner.generate_backlog("fallback intent")
@@ -122,10 +122,10 @@ def test_generate_backlog_uses_step_action_as_fallback(tmp_project: Path):
 
 
 def test_generate_backlog_returns_error_on_bad_json(tmp_project: Path):
-    planner = LoopPlanner(tmp_project / "rootact.yaml")
+    planner = LoopPlanner(tmp_project / "ract.yaml")
     harness = _fake_harness("not json")
     with patch(
-        "rootact.loop_planner.Harness.from_config_path",
+        "ract.loop_planner.Harness.from_config_path",
         return_value=Rooted(value=harness, assumption="ok", confidence=1.0),
     ):
         result = planner.generate_backlog("bad json")
@@ -135,7 +135,7 @@ def test_generate_backlog_returns_error_on_bad_json(tmp_project: Path):
 
 
 def test_save_and_load_roundtrip(tmp_project: Path):
-    planner = LoopPlanner(tmp_project / "rootact.yaml")
+    planner = LoopPlanner(tmp_project / "ract.yaml")
     milestones = [
         Milestone(id="m1", description="one", acceptance="done"),
         Milestone(id="m2", description="two", acceptance="pending", status="blocked"),
@@ -151,7 +151,7 @@ def test_save_and_load_roundtrip(tmp_project: Path):
 
 
 def test_load_returns_none_when_missing(tmp_project: Path):
-    planner = LoopPlanner(tmp_project / "rootact.yaml")
+    planner = LoopPlanner(tmp_project / "ract.yaml")
     assert planner.load() is None
 
 
@@ -197,19 +197,19 @@ def test_historian_context_finds_related_symbols(tmp_project: Path):
     (tmp_project / "payment.py").write_text(
         "def process_payment(): pass\n", encoding="utf-8"
     )
-    planner = LoopPlanner(tmp_project / "rootact.yaml")
+    planner = LoopPlanner(tmp_project / "ract.yaml")
     context = planner._historian_context("payment processing", k=5)
     assert "process_payment" in context
 
 
 def test_historian_context_returns_empty_when_no_matches(tmp_project: Path):
-    planner = LoopPlanner(tmp_project / "rootact.yaml")
+    planner = LoopPlanner(tmp_project / "ract.yaml")
     context = planner._historian_context("zzzzzz", k=5)
     assert context == ""
 
 
 def test_planner_prompt_includes_historian_context(tmp_project: Path):
-    planner = LoopPlanner(tmp_project / "rootact.yaml")
+    planner = LoopPlanner(tmp_project / "ract.yaml")
     prompt = planner._planner_prompt(
         "build a thing", historian_context="- existing.helper (function)"
     )
@@ -220,7 +220,7 @@ def test_planner_prompt_includes_historian_context(tmp_project: Path):
 
 def test_generate_backlog_passes_historian_context_to_planner(tmp_project: Path):
     (tmp_project / "core.py").write_text("def core_helper(): pass\n", encoding="utf-8")
-    planner = LoopPlanner(tmp_project / "rootact.yaml")
+    planner = LoopPlanner(tmp_project / "ract.yaml")
     milestone_json = json.dumps(
         {
             "milestones": [
@@ -234,7 +234,7 @@ def test_generate_backlog_passes_historian_context_to_planner(tmp_project: Path)
     )
     harness = _fake_harness(milestone_json)
     with patch(
-        "rootact.loop_planner.Harness.from_config_path",
+        "ract.loop_planner.Harness.from_config_path",
         return_value=Rooted(value=harness, assumption="ok", confidence=1.0),
     ):
         planner.generate_backlog("build a core helper")

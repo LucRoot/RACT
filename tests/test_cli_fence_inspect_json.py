@@ -8,7 +8,7 @@ import sys
 
 
 def test_cli_fence_inspect_json_with_annotation(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         """providers:
   local:
@@ -29,7 +29,7 @@ def class_block():
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "fence",
             "inspect",
             "--file",
@@ -49,7 +49,7 @@ def class_block():
 
 
 def test_cli_fence_inspect_json_clean_file(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         """providers:
   local:
@@ -69,7 +69,7 @@ def test_cli_fence_inspect_json_clean_file(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "fence",
             "inspect",
             "--file",
@@ -89,7 +89,7 @@ def test_cli_fence_inspect_json_clean_file(tmp_path):
 
 
 def test_cli_fence_inspect_csv_with_annotation(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         """providers:
   local:
@@ -110,7 +110,7 @@ def class_block():
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "fence",
             "inspect",
             "--file",

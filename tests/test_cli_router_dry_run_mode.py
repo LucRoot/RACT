@@ -19,12 +19,12 @@ def _write_valid_config(path: Path) -> None:
 
 
 def test_router_dry_run_mode(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     _write_valid_config(config)
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "router",
         "select",
         "--intent",

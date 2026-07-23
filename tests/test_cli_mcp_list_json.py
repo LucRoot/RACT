@@ -14,14 +14,14 @@ import sys
 
 
 def test_cli_mcp_list_json_empty_config(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
 
     result = subprocess.run(
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "mcp",
             "list",
             "--json",

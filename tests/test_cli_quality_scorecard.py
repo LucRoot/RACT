@@ -13,7 +13,7 @@ def test_quality_scorecard_json(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "quality",
             "scorecard",
             "--json",
@@ -34,7 +34,7 @@ def test_quality_scorecard_human_output(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "quality",
             "scorecard",
         ],

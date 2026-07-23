@@ -2,6 +2,7 @@
 """Tests for the RACT skill marketplace."""
 
 from __future__ import annotations
+
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
@@ -11,8 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from rootact.skill_marketplace import SkillMarketplace
-from rootact.skills_registry import SkillRegistry
+from ract.skill_marketplace import SkillMarketplace
+from ract.skills_registry import SkillRegistry
 
 
 def test_marketplace_list_local_catalog(tmp_path: Path) -> None:
@@ -106,7 +107,7 @@ def test_cli_skills_marketplace_list(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "skills",
             "marketplace",
             "list",
@@ -150,7 +151,7 @@ def test_cli_skills_marketplace_install(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "skills",
             "marketplace",
             "install",

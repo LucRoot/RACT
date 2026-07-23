@@ -11,10 +11,10 @@ _ROOT_KNOT = object()
 from pathlib import Path
 from unittest.mock import patch
 
-from rootact.chestertons_fence import ChestertonsFence
-from rootact.cli import main
-from rootact.providers.base import ProviderAdapter
-from rootact.rooted import Rooted
+from ract.chestertons_fence import ChestertonsFence
+from ract.cli import main
+from ract.providers.base import ProviderAdapter
+from ract.rooted import Rooted
 
 
 class FakeProvider(ProviderAdapter):
@@ -64,13 +64,13 @@ def test_inspect_returns_provider_response(tmp_path: Path):
 
 
 def test_inspect_relative_path_does_not_crash(tmp_path: Path):
-    target = tmp_path / "src" / "rootact" / "rooted.py"
+    target = tmp_path / "src" / "ract" / "rooted.py"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("def rooted():\n    pass\n", encoding="utf-8")
     fence = ChestertonsFence(tmp_path, FakeProvider("Works with relative path."))
 
     with patch.object(fence, "_run_git", return_value="abc123 init\n"):
-        result = fence.inspect("src/rootact/rooted.py")
+        result = fence.inspect("src/ract/rooted.py")
 
     assert result.error is None
     assert result.value == "Works with relative path."
@@ -99,7 +99,7 @@ def test_inspect_fails_for_missing_file(tmp_path: Path):
 
 
 def test_cli_fence_inspect(capsys, tmp_path: Path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text(
         "project:\n  name: test\nmanager_provider: fake\nproviders:\n  fake:\n"
         "    adapter: local_http\n    url: http://127.0.0.1:1/v1\n    model: fake\n",
@@ -116,7 +116,7 @@ def test_cli_fence_inspect(capsys, tmp_path: Path):
             provenance=["fake"],
         )
 
-    with patch("rootact.cli.ChestertonsFence") as MockFence:
+    with patch("ract.cli.ChestertonsFence") as MockFence:
         instance = MockFence.return_value
         instance.inspect = _fake_inspect
         code = main(

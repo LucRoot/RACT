@@ -11,7 +11,7 @@ _ROOT_KNOT = object()
 import httpx
 import respx
 
-from rootact.retrieval_adapter import KeywordRetrievalAdapter, WebSearchAdapter
+from ract.retrieval_adapter import KeywordRetrievalAdapter, WebSearchAdapter
 
 
 def test_keyword_search_finds_relevant_file(tmp_path):

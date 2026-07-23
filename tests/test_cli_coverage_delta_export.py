@@ -46,7 +46,7 @@ def test_cli_coverage_delta_export_shows_verdict(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "coverage",
             "delta-export",
             "--before",

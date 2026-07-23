@@ -14,9 +14,9 @@ import sys
 
 
 def test_cli_handshakes_review_json_shows_pending_items(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("provider: local\n")
-    registry_dir = tmp_path / ".rootact"
+    registry_dir = tmp_path / ".ract"
     registry_dir.mkdir()
     registry_dir.joinpath("handshakes.json").write_text(
         json.dumps(
@@ -37,7 +37,7 @@ def test_cli_handshakes_review_json_shows_pending_items(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "handshakes",
             "review",
             "--json_review",
@@ -54,9 +54,9 @@ def test_cli_handshakes_review_json_shows_pending_items(tmp_path):
 
 
 def test_cli_handshakes_review_json_shows_no_pending_items(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("provider: local\n")
-    registry_dir = tmp_path / ".rootact"
+    registry_dir = tmp_path / ".ract"
     registry_dir.mkdir()
     registry_dir.joinpath("handshakes.json").write_text(
         json.dumps(
@@ -77,7 +77,7 @@ def test_cli_handshakes_review_json_shows_no_pending_items(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "handshakes",
             "review",
             "--json_review",
@@ -91,5 +91,3 @@ def test_cli_handshakes_review_json_shows_no_pending_items(tmp_path):
     assert result.returncode == 0, result.stderr
     items = json.loads(result.stdout)
     assert items == []
-
-

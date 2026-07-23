@@ -21,7 +21,7 @@ def test_cli_receipt_chain_export_roundtrips(tmp_path):
     ]
     chain.write_text("\n".join(json.dumps(e) for e in entries), encoding="utf-8")
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "receipt", "chain-export", str(chain)],
+        [sys.executable, "-m", "ract.cli", "receipt", "chain-export", str(chain)],
         capture_output=True,
         text=True,
         check=False,

@@ -14,9 +14,9 @@ import sys
 
 
 def test_cli_handshakes_list_json_shows_added_item(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
-    registry_dir = tmp_path / ".rootact"
+    registry_dir = tmp_path / ".ract"
     registry_dir.mkdir()
     registry_dir.joinpath("handshakes.json").write_text(
         json.dumps(
@@ -37,7 +37,7 @@ def test_cli_handshakes_list_json_shows_added_item(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "handshakes",
             "list",
             "--json",
@@ -54,9 +54,9 @@ def test_cli_handshakes_list_json_shows_added_item(tmp_path):
 
 
 def test_cli_handshakes_approve_json_reports_status(tmp_path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
-    registry_dir = tmp_path / ".rootact"
+    registry_dir = tmp_path / ".ract"
     registry_dir.mkdir()
     registry_dir.joinpath("handshakes.json").write_text(
         json.dumps(
@@ -77,7 +77,7 @@ def test_cli_handshakes_approve_json_reports_status(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "handshakes",
             "approve",
             "m1",

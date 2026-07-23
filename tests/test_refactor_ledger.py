@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.refactor_ledger import RefactorLedger
+from ract.refactor_ledger import RefactorLedger
 
 
 def test_new_file_counts_as_added():

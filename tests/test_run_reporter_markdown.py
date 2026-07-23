@@ -2,7 +2,7 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
-from rootact.run_reporter import render_markdown
+from ract.run_reporter import render_markdown
 
 
 def test_render_markdown_includes_sections():

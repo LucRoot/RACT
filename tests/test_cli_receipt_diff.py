@@ -31,7 +31,7 @@ def test_cli_receipt_diff_reports_differing_fields(tmp_path):
     b.write_text(json.dumps(_receipt("run-b")), encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "receipt", "diff", str(a), str(b)],
+        [sys.executable, "-m", "ract.cli", "receipt", "diff", str(a), str(b)],
         capture_output=True,
         text=True,
         check=False,
@@ -49,7 +49,7 @@ def test_cli_receipt_diff_empty_for_identical_receipts(tmp_path):
     b.write_text(json.dumps(_receipt("same")), encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "receipt", "diff", str(a), str(b)],
+        [sys.executable, "-m", "ract.cli", "receipt", "diff", str(a), str(b)],
         capture_output=True,
         text=True,
         check=False,

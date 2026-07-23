@@ -3,7 +3,7 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
 import json
-from rootact.mutation_merge_gate import MutationMergeGateEngine, MergePolicy
+from ract.mutation_merge_gate import MutationMergeGateEngine, MergePolicy
 
 
 class TestMutationMergeGateEngine:
@@ -121,7 +121,7 @@ class TestMergeGateCli:
         return path
 
     def test_cli_pass_returns_zero(self, tmp_path, capsys):
-        from rootact.cli import main
+        from ract.cli import main
 
         code = main(
             [
@@ -140,7 +140,7 @@ class TestMergeGateCli:
         assert "PASS" in capsys.readouterr().out
 
     def test_cli_blocking_failure_returns_one(self, tmp_path, capsys):
-        from rootact.cli import main
+        from ract.cli import main
 
         code = main(
             [
@@ -159,7 +159,7 @@ class TestMergeGateCli:
         assert "FAIL" in capsys.readouterr().out
 
     def test_cli_warn_action_does_not_block(self, tmp_path):
-        from rootact.cli import main
+        from ract.cli import main
 
         code = main(
             [
@@ -177,7 +177,7 @@ class TestMergeGateCli:
         assert code == 0
 
     def test_cli_missing_policy_file_returns_one(self, tmp_path, capsys):
-        from rootact.cli import main
+        from ract.cli import main
 
         code = main(["merge-gate", "--policy", str(tmp_path / "nope.json")])
         assert code == 1

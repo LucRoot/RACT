@@ -116,15 +116,15 @@ if [[ "$SOURCE" == "local" ]]; then
     fi
 else
     log "installing RACT from PyPI"
-    "$PYTHON_CMD" -m pip install --upgrade rootact
+    "$PYTHON_CMD" -m pip install --upgrade ract
 fi
 
-if command -v rootact >/dev/null 2>&1; then
-    INSTALLED_VERSION=$(rootact --version || true)
+if command -v ract >/dev/null 2>&1; then
+    INSTALLED_VERSION=$(ract --version || true)
     log "installed successfully: $INSTALLED_VERSION"
-    log "run 'rootact --help' to get started."
+    log "run 'ract --help' to get started."
 else
-    warn "rootact command not found on PATH after install."
+    warn "ract command not found on PATH after install."
     warn "you may need to add your Python scripts directory to PATH."
 fi
 # RACT 0.1.1 - Trust and tooling

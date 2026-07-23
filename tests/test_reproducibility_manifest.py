@@ -6,7 +6,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.reproducibility_manifest import build_manifest, _canonical_json, _sha256_hex
+from ract.reproducibility_manifest import build_manifest, _canonical_json, _sha256_hex
 
 
 def test_build_manifest_structure_and_markers():
@@ -68,9 +68,7 @@ def test_manifest_hash_excludes_itself():
     plan = {"step": 1}
     config = {"model": "qwen"}
     manifest = build_manifest("intent", plan, config, "fp")
-    body_without_hash = {
-        k: v for k, v in manifest.items() if k != "manifest_hash"
-    }
+    body_without_hash = {k: v for k, v in manifest.items() if k != "manifest_hash"}
     assert manifest["manifest_hash"] == _sha256_hex(_canonical_json(body_without_hash))
 
 

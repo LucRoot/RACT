@@ -11,7 +11,7 @@ _ROOT_KNOT = object()
 import json
 from pathlib import Path
 
-from rootact.run_reporter import RunReporter
+from ract.run_reporter import RunReporter
 
 
 def test_render_last_loop_when_missing(tmp_path: Path):
@@ -20,7 +20,7 @@ def test_render_last_loop_when_missing(tmp_path: Path):
 
 
 def test_render_last_loop_shows_summary(tmp_path: Path):
-    report_path = tmp_path / ".rootact" / "loop_report.json"
+    report_path = tmp_path / ".ract" / "loop_report.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report = {
         "final_decision": "done",
@@ -49,7 +49,7 @@ def test_render_session_when_missing(tmp_path: Path):
 
 
 def test_render_session_shows_outcomes(tmp_path: Path):
-    sessions_dir = tmp_path / ".rootact" / "sessions"
+    sessions_dir = tmp_path / ".ract" / "sessions"
     sessions_dir.mkdir(parents=True, exist_ok=True)
     report = {
         "intent": "add feature",
@@ -63,7 +63,7 @@ def test_render_session_shows_outcomes(tmp_path: Path):
 
 
 def test_render_last_loop_json_round_trip(tmp_path: Path):
-    report_path = tmp_path / ".rootact" / "loop_report.json"
+    report_path = tmp_path / ".ract" / "loop_report.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report = {
         "final_decision": "done",
@@ -76,7 +76,7 @@ def test_render_last_loop_json_round_trip(tmp_path: Path):
 
 
 def test_render_session_json_round_trip(tmp_path: Path):
-    sessions_dir = tmp_path / ".rootact" / "sessions"
+    sessions_dir = tmp_path / ".ract" / "sessions"
     sessions_dir.mkdir(parents=True, exist_ok=True)
     report = {"intent": "add feature", "outcomes": ["write src/foo.py"]}
     (sessions_dir / "demo.json").write_text(json.dumps(report), encoding="utf-8")
@@ -93,7 +93,7 @@ def test_render_session_json_when_missing(tmp_path: Path):
 
 
 def test_render_last_loop_includes_metrics(tmp_path: Path):
-    report_path = tmp_path / ".rootact" / "loop_report.json"
+    report_path = tmp_path / ".ract" / "loop_report.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report = {
         "final_decision": "done",
@@ -131,7 +131,7 @@ def test_render_last_loop_includes_metrics(tmp_path: Path):
 
 
 def test_render_last_loop_json_includes_metrics(tmp_path: Path):
-    report_path = tmp_path / ".rootact" / "loop_report.json"
+    report_path = tmp_path / ".ract" / "loop_report.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report = {
         "final_decision": "done",
@@ -148,7 +148,7 @@ def test_render_last_loop_json_includes_metrics(tmp_path: Path):
 
 
 def test_render_last_loop_falls_back_to_latest_session(tmp_path: Path):
-    sessions_dir = tmp_path / ".rootact" / "sessions"
+    sessions_dir = tmp_path / ".ract" / "sessions"
     sessions_dir.mkdir(parents=True, exist_ok=True)
     report = {
         "intent": "fallback session",
@@ -163,7 +163,7 @@ def test_render_last_loop_falls_back_to_latest_session(tmp_path: Path):
 
 
 def test_latest_session_id_picks_most_recent(tmp_path: Path):
-    sessions_dir = tmp_path / ".rootact" / "sessions"
+    sessions_dir = tmp_path / ".ract" / "sessions"
     sessions_dir.mkdir(parents=True, exist_ok=True)
     (sessions_dir / "older.json").write_text(
         json.dumps({"intent": "old"}), encoding="utf-8"

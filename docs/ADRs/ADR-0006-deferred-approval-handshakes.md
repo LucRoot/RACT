@@ -17,7 +17,7 @@ Handshakes are non-blocking by default. A milestone can be marked blocking only 
 ## Consequences
 
 - The loop keeps moving while risky actions wait for human review.
-- Approval state survives process restarts because it is stored in `.rootact/handshakes.json`.
+- Approval state survives process restarts because it is stored in `.ract/handshakes.json`.
 - The run report lists all pending handshakes so nothing is silently skipped.
 
 ## Alternatives Considered
@@ -27,5 +27,5 @@ Handshakes are non-blocking by default. A milestone can be marked blocking only 
 
 ## References
 
-- `src/rootact/handshake_registry.py`
-- `src/rootact/milestone_oracle.py`
+- `src/ract/handshake_registry.py`
+- `src/ract/milestone_oracle.py`

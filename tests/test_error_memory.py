@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from rootact.error_memory import ErrorMemory
+from ract.error_memory import ErrorMemory
 
 
 @pytest.fixture

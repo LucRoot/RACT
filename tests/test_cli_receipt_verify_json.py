@@ -12,7 +12,7 @@ import json
 import subprocess
 import sys
 
-from rootact.receipt import Receipt, sign_receipt
+from ract.receipt import Receipt, sign_receipt
 
 
 def _signed_receipt(tmp_path, key: bytes):
@@ -51,7 +51,7 @@ def test_cli_receipt_verify_json_reports_valid(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "receipt",
             "verify",
             str(receipt_path),
@@ -79,7 +79,7 @@ def test_cli_receipt_verify_json_reports_invalid(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "receipt",
             "verify",
             str(receipt_path),

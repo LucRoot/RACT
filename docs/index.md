@@ -10,13 +10,13 @@ Model-agnostic, local-first agentic coding with signed provenance and assumption
 ## Install
 
 ```bash
-pip install rootact
+pip install ract
 ```
 
 Or scaffold a project in one command:
 
 ```bash
-rootact init --template python-package --provider local
+ract init --template python-package --provider local
 ```
 
 ## What makes RACT different

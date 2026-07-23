@@ -35,13 +35,13 @@ The `ract consolidate` subcommand transforms RACT's static duplication detection
 - The HandshakeRegistry entry is marked as `COMPLETED`, and a confirmation message is emitted.
 
 ## Integration points
-- **src/rootact/symbol_graph.py** – provides the graph representation and utilities for adding/removing nodes.
-- **src/rootact/compression_novelty_detector.py** – supplies the similarity scoring function.
-- **src/rootact/dead_code_auction.py** – can be reused for the clustering logic if desired.
-- **src/rootact/diff_applier.py** – handles the actual file writes for approved merges.
-- **src/rootact/handshake_registry.py** – manages the queue of merge proposals and their lifecycle.
-- **src/rootact/symbol_renamer.py** – performs reference updates when a merge involves name changes.
-- **src/rootact/cli.py** – will be extended with a new `consolidate` subcommand that orchestrates the above steps.
+- **src/ract/symbol_graph.py** – provides the graph representation and utilities for adding/removing nodes.
+- **src/ract/compression_novelty_detector.py** – supplies the similarity scoring function.
+- **src/ract/dead_code_auction.py** – can be reused for the clustering logic if desired.
+- **src/ract/diff_applier.py** – handles the actual file writes for approved merges.
+- **src/ract/handshake_registry.py** – manages the queue of merge proposals and their lifecycle.
+- **src/ract/symbol_renamer.py** – performs reference updates when a merge involves name changes.
+- **src/ract/cli.py** – will be extended with a new `consolidate` subcommand that orchestrates the above steps.
 
 ## Implementation notes
 - All thresholds (similarity, merge, and approval) should be configurable via command‑line flags.

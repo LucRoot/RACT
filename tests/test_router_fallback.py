@@ -8,7 +8,7 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.router_fallback import FallbackChain, FallbackResult
+from ract.router_fallback import FallbackChain, FallbackResult
 
 
 def test_first_endpoint_succeeds():

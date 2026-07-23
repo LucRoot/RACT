@@ -37,7 +37,7 @@ _VERBS = [
 @pytest.mark.parametrize("args, expected", _VERBS)
 def test_verb_smoke(args: list[str], expected: int) -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", *args],
+        [sys.executable, "-m", "ract.cli", *args],
         capture_output=True,
         text=True,
         encoding="utf-8",

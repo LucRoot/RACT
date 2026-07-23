@@ -14,10 +14,10 @@ Thank you for considering a contribution to RACT.
    ruff check src tests scripts
    ruff format --check src tests scripts
    mypy src tests
-   pytest -q -o addopts="" --cov=src/rootact/core --cov-report=term-missing
-   python -m rootact.eval.runner evals/tasks/refactor-function --provider mock
-   python -m rootact.eval.runner evals/tasks/fastapi-validation --provider mock
-   python -m rootact.eval.runner evals/tasks/file-watcher --provider mock
+   pytest -q -o addopts="" --cov=src/ract/core --cov-report=term-missing
+   python -m ract.eval.runner evals/tasks/refactor-function --provider mock
+   python -m ract.eval.runner evals/tasks/fastapi-validation --provider mock
+   python -m ract.eval.runner evals/tasks/file-watcher --provider mock
    ```
 5. **Update tests and docs** for any new behavior.
 6. **Write an ADR** for any architectural decision. ADRs live in `docs/ADRs/` and follow the standard shape: Context, Decision, Consequences, Alternatives Considered, Status.

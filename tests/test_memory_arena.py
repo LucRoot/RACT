@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from rootact.memory_arena import MemoryArena, _ROOT_KNOT
+from ract.memory_arena import MemoryArena, _ROOT_KNOT
 
 
 def test_store_and_retrieve():
@@ -90,7 +90,7 @@ def test_clear_resets_state():
 
 
 def test_root_knot_is_module_singleton():
-    import rootact.memory_arena as mod
+    import ract.memory_arena as mod
 
     assert hasattr(mod, "_ROOT_KNOT")
     assert mod._ROOT_KNOT is _ROOT_KNOT
@@ -150,7 +150,7 @@ def test_save_and_load(tmp_path):
 def test_for_session_loads_existing_file(tmp_path):
     arena = MemoryArena.for_session(tmp_path, "session_a")
     arena.record("fact", "loaded from session", importance=1)
-    arena.save(tmp_path / ".rootact" / "memory" / "session_a.json")
+    arena.save(tmp_path / ".ract" / "memory" / "session_a.json")
 
     loaded = MemoryArena.for_session(tmp_path, "session_a")
     replay = loaded.replay()

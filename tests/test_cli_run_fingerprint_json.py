@@ -33,7 +33,7 @@ def test_cli_run_fingerprint_json_outputs_fingerprint(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "run-fingerprint",
             str(receipt),
             "--json",

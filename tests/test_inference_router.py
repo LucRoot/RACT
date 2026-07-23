@@ -8,7 +8,7 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.inference_router import InferenceRouter
+from ract.inference_router import InferenceRouter
 
 
 def _router_config():
@@ -16,19 +16,31 @@ def _router_config():
         "tiers": {
             "local": {
                 "endpoints": [
-                    {"name": "qwen", "base_url": "http://127.0.0.1:8106", "model": "qwen"},
+                    {
+                        "name": "qwen",
+                        "base_url": "http://127.0.0.1:8106",
+                        "model": "qwen",
+                    },
                 ],
                 "cost": 1,
             },
             "low_cost_cloud": {
                 "endpoints": [
-                    {"name": "cloud", "base_url": "http://cloud.example.com", "model": "cheap"},
+                    {
+                        "name": "cloud",
+                        "base_url": "http://cloud.example.com",
+                        "model": "cheap",
+                    },
                 ],
                 "cost": 5,
             },
             "high_cost_fallback": {
                 "endpoints": [
-                    {"name": "frontier", "base_url": "http://frontier.example.com", "model": "big"},
+                    {
+                        "name": "frontier",
+                        "base_url": "http://frontier.example.com",
+                        "model": "big",
+                    },
                 ],
                 "cost": 50,
             },
@@ -41,6 +53,7 @@ def _router_config():
 def _make_call(return_value="ok"):
     def call_fn(endpoint, **kwargs):
         return {"endpoint": endpoint["name"], "value": return_value, "kwargs": kwargs}
+
     return call_fn
 
 
@@ -55,7 +68,9 @@ def test_routes_trivial_task_to_local():
 
 def test_routes_frontier_task_to_high_cost_fallback():
     router = InferenceRouter(_router_config(), call_fn=_make_call("frontier-result"))
-    result = router.route("Design a repo-wide architecture refactor for unknown frontier algorithms")
+    result = router.route(
+        "Design a repo-wide architecture refactor for unknown frontier algorithms"
+    )
     assert result.success
     assert result.selected_tier == "high_cost_fallback"
     assert result.selected_endpoint == "frontier"

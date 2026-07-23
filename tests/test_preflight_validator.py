@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from rootact.preflight_validator import PreflightValidator
+from ract.preflight_validator import PreflightValidator
 
 _ROOT_KNOT = object()
 
@@ -22,7 +22,7 @@ def test_missing_config_file(tmp_path: Path) -> None:
 
 
 def test_missing_project_section(tmp_path: Path) -> None:
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("providers: []\n")
     validator = PreflightValidator(config)
     errors = validator.validate()
@@ -31,7 +31,7 @@ def test_missing_project_section(tmp_path: Path) -> None:
 
 
 def test_missing_project_name(tmp_path: Path) -> None:
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  description: test\n")
     validator = PreflightValidator(config)
     errors = validator.validate()
@@ -40,7 +40,7 @@ def test_missing_project_name(tmp_path: Path) -> None:
 
 
 def test_valid_config(tmp_path: Path) -> None:
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: myproject\n")
     validator = PreflightValidator(config)
     assert validator.validate() == []
@@ -48,7 +48,7 @@ def test_valid_config(tmp_path: Path) -> None:
 
 
 def test_invalid_yaml(tmp_path: Path) -> None:
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project: [\n")
     validator = PreflightValidator(config)
     errors = validator.validate()
@@ -59,7 +59,7 @@ def test_invalid_yaml(tmp_path: Path) -> None:
 
 def test_default_config_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: default\n")
     validator = PreflightValidator()
     assert validator.is_valid() is True

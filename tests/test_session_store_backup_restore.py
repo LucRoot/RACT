@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 from pathlib import Path
 
-from rootact.session_store import SessionStore
+from ract.session_store import SessionStore
 
 
 def test_backup_and_restore_round_trip(tmp_path):

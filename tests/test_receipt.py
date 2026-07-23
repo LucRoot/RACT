@@ -6,7 +6,7 @@ import tempfile
 import os
 import secrets
 
-from rootact.receipt import (
+from ract.receipt import (
     Receipt,
     sign_receipt,
     verify_receipt,

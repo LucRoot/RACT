@@ -8,22 +8,34 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.complexity_router import ComplexityRouter
+from ract.complexity_router import ComplexityRouter
 
 
 def _make_router(health_fn=None):
     return ComplexityRouter(
         tiers={
             "local": {
-                "endpoint": {"name": "local", "base_url": "http://127.0.0.1:8106", "model": "qwen"},
+                "endpoint": {
+                    "name": "local",
+                    "base_url": "http://127.0.0.1:8106",
+                    "model": "qwen",
+                },
                 "cost": 1,
             },
             "low_cost_cloud": {
-                "endpoint": {"name": "cloud", "base_url": "http://cloud.example.com", "model": "cheap"},
+                "endpoint": {
+                    "name": "cloud",
+                    "base_url": "http://cloud.example.com",
+                    "model": "cheap",
+                },
                 "cost": 5,
             },
             "high_cost_fallback": {
-                "endpoint": {"name": "frontier", "base_url": "http://frontier.example.com", "model": "big"},
+                "endpoint": {
+                    "name": "frontier",
+                    "base_url": "http://frontier.example.com",
+                    "model": "big",
+                },
                 "cost": 50,
             },
         },
@@ -42,7 +54,9 @@ def test_routes_trivial_task_to_local():
 
 def test_routes_frontier_task_to_fallback():
     router = _make_router()
-    selection = router.select_endpoint("Design a repo-wide architecture refactor for unknown frontier algorithms")
+    selection = router.select_endpoint(
+        "Design a repo-wide architecture refactor for unknown frontier algorithms"
+    )
     # Strong frontier signals reach the high tier and map to the high-cost fallback.
     assert selection.score.tier in ("high", "frontier")
     assert selection.endpoint_tier == "high_cost_fallback"
@@ -92,12 +106,14 @@ def test_no_tiers_raises():
 
 
 def test_from_config():
-    router = ComplexityRouter.from_config({
-        "tiers": {
-            "local": {"endpoint": {"name": "local"}},
-        },
-        "thresholds": {"low": 0.3, "medium": 0.6, "high": 0.9},
-    })
+    router = ComplexityRouter.from_config(
+        {
+            "tiers": {
+                "local": {"endpoint": {"name": "local"}},
+            },
+            "thresholds": {"low": 0.3, "medium": 0.6, "high": 0.9},
+        }
+    )
     assert router.thresholds["low"] == 0.3
     selection = router.select_endpoint("trivial task")
     assert selection.endpoint_name == "local"
@@ -110,12 +126,16 @@ def test_from_config_bad_tiers():
 
 def test_from_config_bad_thresholds():
     with pytest.raises(ValueError, match="thresholds must be a dict"):
-        ComplexityRouter.from_config({"tiers": {"local": {"endpoint": {}}}, "thresholds": "bad"})
+        ComplexityRouter.from_config(
+            {"tiers": {"local": {"endpoint": {}}}, "thresholds": "bad"}
+        )
 
 
 def test_override_health_check_fn():
     router = _make_router(health_fn=lambda _ep: True)
-    selection = router.select_endpoint("anything", health_check_fn=lambda ep: ep.get("name") == "cloud")
+    selection = router.select_endpoint(
+        "anything", health_check_fn=lambda ep: ep.get("name") == "cloud"
+    )
     assert selection.endpoint_name == "cloud"
 
 

@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.run_reporter import render_html_report
+from ract.run_reporter import render_html_report
 
 
 def test_render_html_report_includes_key_sections():

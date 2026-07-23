@@ -6,8 +6,8 @@ __ract_name__ = "RACT"
 import json
 from pathlib import Path
 
-from rootact.manager import Plan, Step
-from rootact.plan_replay import PlanReplay, ReplayResult
+from ract.manager import Plan, Step
+from ract.plan_replay import PlanReplay, ReplayResult
 
 _ROOT_KNOT = object()
 

@@ -19,7 +19,11 @@ def test_complexity_calibrator_from_receipt_history(tmp_path):
                     "cost": score * 0.01,
                     "tokens": int(score * 1000),
                     "latency_ms": int(score * 500),
-                    "tier": "low" if score < 0.4 else "medium" if score < 0.7 else "high",
+                    "tier": "low"
+                    if score < 0.4
+                    else "medium"
+                    if score < 0.7
+                    else "high",
                 }
             ),
             encoding="utf-8",
@@ -27,7 +31,7 @@ def test_complexity_calibrator_from_receipt_history(tmp_path):
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "calibrate",
         "--receipts-dir",
         str(receipts_dir),

@@ -1,5 +1,6 @@
 # Rooted by Dr. Lucas Root, Ph.D.
 from __future__ import annotations
+
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
@@ -9,12 +10,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rootact.cli import _release_command
+from ract.cli import _release_command
 
 
 @pytest.fixture
 def config_file(tmp_path: Path) -> Path:
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("github:\n  owner: octocat\n  repo: hello-world\n")
     return config
 
@@ -37,13 +38,13 @@ def test_release_list_missing_github_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "test-token")
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("providers: {}\n")
     result = _release_command(["list", "--config", str(config)])
     assert result == 1
 
 
-@patch("rootact.cli.GitHubReleaseClient")
+@patch("ract.cli.GitHubReleaseClient")
 def test_release_list_success(
     mock_client_cls: MagicMock, config_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -59,7 +60,7 @@ def test_release_list_success(
     mock_client.list_releases.assert_called_once()
 
 
-@patch("rootact.cli.GitHubReleaseClient")
+@patch("ract.cli.GitHubReleaseClient")
 def test_release_create_success(
     mock_client_cls: MagicMock,
     config_file: Path,
@@ -105,12 +106,12 @@ def test_release_create_success(
     mock_client.upload_asset.assert_called_once_with(2, str(asset))
 
 
-@patch("rootact.cli.GitHubReleaseClient")
+@patch("ract.cli.GitHubReleaseClient")
 def test_release_create_api_error(
     mock_client_cls: MagicMock, config_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("GITHUB_TOKEN", "test-token")
-    from rootact.github_release import GitHubReleaseError
+    from ract.github_release import GitHubReleaseError
 
     mock_client = MagicMock()
     mock_client.create_release.side_effect = GitHubReleaseError("boom", 500)

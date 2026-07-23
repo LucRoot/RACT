@@ -10,7 +10,7 @@ A threat model is only as strong as its boundary. Users and reviewers need a con
 
 ## Decision
 
-RACT maintains a refuse-list enforced by `authorize_action` in `src/rootact/core/threat_model.py`. The following actions are always refused, with a structured `Refusal` record in the run report:
+RACT maintains a refuse-list enforced by `authorize_action` in `src/ract/core/threat_model.py`. The following actions are always refused, with a structured `Refusal` record in the run report:
 
 1. **Workspace escape.** Writing or modifying files that resolve outside the configured workspace root.
 2. **Untracked destructive deletion.** Executing `rm -rf`, `rm -r`, or `rmdir /s` on paths not under version control.
@@ -30,6 +30,6 @@ Each refusal names the action, the reason, the tier, and relevant details (path,
 
 ## References
 
-- `src/rootact/core/threat_model.py`
+- `src/ract/core/threat_model.py`
 - `docs/THREAT_MODEL.md`
 - `tests/security/test_refuse_list.py`

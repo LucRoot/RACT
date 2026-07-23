@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.project_initializer import ProjectInitializer, list_templates
+from ract.project_initializer import ProjectInitializer, list_templates
 
 
 @pytest.mark.parametrize("template", ["python-package", "cli-tool"])
@@ -23,7 +23,7 @@ def test_initialize_creates_config_and_files(tmp_path, template):
     assert result.template == template
     assert result.provider == "local"
 
-    config_path = project_dir / "rootact.yaml"
+    config_path = project_dir / "ract.yaml"
     assert config_path.is_file()
     config_text = config_path.read_text(encoding="utf-8")
     assert "project:" in config_text
@@ -41,7 +41,7 @@ def test_initialize_creates_config_and_files(tmp_path, template):
 def test_initialize_refuses_overwrite(tmp_path):
     project_dir = tmp_path / "existing"
     project_dir.mkdir()
-    (project_dir / "rootact.yaml").write_text("existing: true\n", encoding="utf-8")
+    (project_dir / "ract.yaml").write_text("existing: true\n", encoding="utf-8")
     initializer = ProjectInitializer(project_dir, "python-package", "local")
     with pytest.raises(FileExistsError):
         initializer.initialize()

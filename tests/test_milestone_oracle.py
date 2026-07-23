@@ -10,10 +10,10 @@ _ROOT_KNOT = object()
 
 from pathlib import Path
 
-from rootact.executor import ExecutionReport, StepResult
-from rootact.loop_planner import Milestone
-from rootact.manager import Plan, Step
-from rootact.milestone_oracle import MilestoneContext, MilestoneOracle
+from ract.executor import ExecutionReport, StepResult
+from ract.loop_planner import Milestone
+from ract.manager import Plan, Step
+from ract.milestone_oracle import MilestoneContext, MilestoneOracle
 
 
 def _make_report(artifacts: dict[str, str], project_dir: Path) -> ExecutionReport:

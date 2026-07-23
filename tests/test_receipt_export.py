@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from rootact.receipt_export import export_receipts, main
+from ract.receipt_export import export_receipts, main
 
 
 def test_export_receipts_loads_dict_and_list(tmp_path):

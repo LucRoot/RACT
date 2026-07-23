@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from rootact.experimental.grove_forge_eval import (
+from ract.experimental.grove_forge_eval import (
     BatterySummary,
     append_to_learning_feed,
     evaluate_results,
@@ -37,10 +37,7 @@ def _battery_result(
         "pass_rate": n_passed / n_problems if n_problems else 0.0,
         "wall_clock_s": wall_clock_s,
         "per_problem": per_problem
-        or [
-            {"wall_s": 10.0, "passed": i < n_passed}
-            for i in range(n_problems)
-        ],
+        or [{"wall_s": 10.0, "passed": i < n_passed} for i in range(n_problems)],
     }
 
 
@@ -109,13 +106,22 @@ def test_evaluate_results_bad_json_recorded(tmp_path: Path):
 
 
 def test_battery_summary_percentiles():
-    data = _battery_result(
-        per_problem=[{"wall_s": float(i)} for i in range(1, 11)]
+    data = _battery_result(per_problem=[{"wall_s": float(i)} for i in range(1, 11)])
+    summary = BatterySummary(
+        **{
+            k: data.get(k, 0)
+            for k in [
+                "battery",
+                "stack",
+                "n_problems",
+                "n_passed",
+                "n_errored",
+                "n_skipped",
+                "pass_rate",
+                "wall_clock_s",
+            ]
+        }
     )
-    summary = BatterySummary(**{k: data.get(k, 0) for k in [
-        "battery", "stack", "n_problems", "n_passed", "n_errored", "n_skipped",
-        "pass_rate", "wall_clock_s",
-    ]})
     assert summary.battery == "humaneval"
     assert summary.n_problems == 5
 

@@ -1,5 +1,5 @@
 # Rooted by Dr. Lucas Root, Ph.D.
-"""Tests for the rootact plan CLI commands."""
+"""Tests for the ract plan CLI commands."""
 
 from __future__ import annotations
 
@@ -8,18 +8,18 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.cli import main
-from rootact.manager import Plan, Step
-from rootact.plan_serializers import save_plan
-from rootact.session_store import SessionStore
+from ract.cli import main
+from ract.manager import Plan, Step
+from ract.plan_serializers import save_plan
+from ract.session_store import SessionStore
 
 
 def test_plan_export_writes_session_plan(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: test\n", encoding="utf-8")
 
-    store = SessionStore(tmp_path / ".rootact" / "sessions")
+    store = SessionStore(tmp_path / ".ract" / "sessions")
     plan = Plan(
         assumption="test assumption",
         confidence=0.9,
@@ -51,7 +51,7 @@ def test_plan_export_writes_session_plan(tmp_path, monkeypatch, capsys):
 
 def test_plan_export_missing_session_fails(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text("project:\n  name: test\n", encoding="utf-8")
     output = tmp_path / "plan.json"
     code = main(

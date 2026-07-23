@@ -18,7 +18,7 @@ def test_cli_skills_install_dry_run_does_not_write(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "skills",
             "install",
             "library-refactor",
@@ -39,7 +39,7 @@ def test_cli_skills_install_without_dry_run_writes_file(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "skills",
             "install",
             "library-refactor",

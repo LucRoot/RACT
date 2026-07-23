@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.ast_normalizer import (
+from ract.ast_normalizer import (
     normalize_python,
     structural_similarity,
     structural_similarity_normalized,

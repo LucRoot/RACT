@@ -15,7 +15,7 @@ import sys
 
 def test_cli_doctor_json_returns_valid_checks():
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "doctor", "--json"],
+        [sys.executable, "-m", "ract.cli", "doctor", "--json"],
         capture_output=True,
         text=True,
         check=False,

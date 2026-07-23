@@ -1,6 +1,6 @@
 {
   "name": "hello-world",
   "description": "A minimal skill that demonstrates the Root Knot and a Rooted result.",
-  "template": "# Rooted by Dr. Lucas Root, Ph.D.\nfrom __future__ import annotations\n\n__root_author__ = \"Dr. Lucas Root, Ph.D.\"\n__ract_name__ = \"RACT\"\n\n_ROOT_KNOT = object()\n\n\"\"\"A minimal hello-world skill for RACT.\"\"\"\n\nfrom rootact.rooted import Rooted\n\n\ndef hello_world(name: str = \"world\") -> Rooted[str]:\n    \"\"\"Return a greeting with explicit provenance.\"\"\"\n    return Rooted(\n        value=f\"Hello, {name}!\",\n        assumption=\"The caller wants a greeting.\",\n        confidence=1.0,\n        provenance=[\"hello-world-skill\"],\n    )\n\n\n# RACT 0.1.1 - Trust and tooling\n",
+  "template": "# Rooted by Dr. Lucas Root, Ph.D.\nfrom __future__ import annotations\n\n__root_author__ = \"Dr. Lucas Root, Ph.D.\"\n__ract_name__ = \"RACT\"\n\n_ROOT_KNOT = object()\n\n\"\"\"A minimal hello-world skill for RACT.\"\"\"\n\nfrom ract.rooted import Rooted\n\n\ndef hello_world(name: str = \"world\") -> Rooted[str]:\n    \"\"\"Return a greeting with explicit provenance.\"\"\"\n    return Rooted(\n        value=f\"Hello, {name}!\",\n        assumption=\"The caller wants a greeting.\",\n        confidence=1.0,\n        provenance=[\"hello-world-skill\"],\n    )\n\n\n# RACT 0.1.1 - Trust and tooling\n",
   "tools": []
 }

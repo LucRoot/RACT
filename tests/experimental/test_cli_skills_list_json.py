@@ -17,7 +17,7 @@ from pathlib import Path
 def test_cli_skills_list_json_outputs_skills():
     project_root = Path(__file__).resolve().parents[1]
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "skills", "list", "--json"],
+        [sys.executable, "-m", "ract.cli", "skills", "list", "--json"],
         capture_output=True,
         text=True,
         check=False,

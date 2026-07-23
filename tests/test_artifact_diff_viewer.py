@@ -3,7 +3,7 @@ from __future__ import annotations
 __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 
-from rootact.artifact_diff_viewer import DiffViewer
+from ract.artifact_diff_viewer import DiffViewer
 
 _ROOT_KNOT = object()
 

@@ -2,7 +2,7 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
-from rootact.experimental.council_self_audit import run_self_audit
+from ract.experimental.council_self_audit import run_self_audit
 
 
 MARKERS = (
@@ -13,7 +13,7 @@ MARKERS = (
 
 
 def test_run_self_audit_healthy(tmp_path):
-    src = tmp_path / "src" / "rootact"
+    src = tmp_path / "src" / "ract"
     src.mkdir(parents=True)
     (src / "module.py").write_text(MARKERS + "def foo(): pass\n", encoding="utf-8")
     result = run_self_audit(tmp_path)
@@ -23,18 +23,18 @@ def test_run_self_audit_healthy(tmp_path):
 
 
 def test_run_self_audit_missing_marker(tmp_path):
-    src = tmp_path / "src" / "rootact"
+    src = tmp_path / "src" / "ract"
     src.mkdir(parents=True)
     (src / "module.py").write_text("def foo(): pass\n", encoding="utf-8")
     result = run_self_audit(tmp_path)
     assert result["healthy"] is False
     assert result["files_checked"] == 1
     assert len(result["missing_markers"]) == 1
-    assert "src/rootact/module.py" in result["missing_markers"][0]["file"]
+    assert "src/ract/module.py" in result["missing_markers"][0]["file"]
 
 
 def test_run_self_audit_ignores_init(tmp_path):
-    src = tmp_path / "src" / "rootact"
+    src = tmp_path / "src" / "ract"
     src.mkdir(parents=True)
     (src / "__init__.py").write_text("", encoding="utf-8")
     result = run_self_audit(tmp_path)
@@ -46,11 +46,19 @@ def test_self_audit_html_output(tmp_path):
     import subprocess
     import sys
 
-    src = tmp_path / "src" / "rootact"
+    src = tmp_path / "src" / "ract"
     src.mkdir(parents=True)
     (src / "module.py").write_text(MARKERS + "def foo(): pass\n", encoding="utf-8")
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "self-audit", "--project-dir", str(tmp_path), "--html"],
+        [
+            sys.executable,
+            "-m",
+            "ract.cli",
+            "self-audit",
+            "--project-dir",
+            str(tmp_path),
+            "--html",
+        ],
         capture_output=True,
         text=True,
         cwd=tmp_path,

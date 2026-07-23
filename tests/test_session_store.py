@@ -9,8 +9,8 @@ import tempfile
 from pathlib import Path
 from typing import Dict
 
-from rootact.manager import Plan, Step
-from rootact.session_store import SessionStore, _ROOT_KNOT
+from ract.manager import Plan, Step
+from ract.session_store import SessionStore, _ROOT_KNOT
 
 
 def test_save_and_load_roundtrip() -> None:
@@ -56,7 +56,7 @@ def test_load_missing_session_raises_keyerror() -> None:
 
 
 def test_session_store_includes_root_author_and_root_knot() -> None:
-    from rootact.session_store import __root_author__ as author, _ROOT_KNOT as knot
+    from ract.session_store import __root_author__ as author, _ROOT_KNOT as knot
 
     assert author == "Dr. Lucas Root, Ph.D."
     assert knot is _ROOT_KNOT
@@ -94,7 +94,7 @@ def test_default_base_dir_is_created(tmp_path: Path) -> None:
     try:
         os.chdir(tmp_path)
         store = SessionStore()
-        assert store.base_dir.name == ".rootact_sessions"
+        assert store.base_dir.name == ".ract_sessions"
         assert store.base_dir.exists()
     finally:
         os.chdir(original)

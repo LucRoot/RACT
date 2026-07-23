@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from rootact.signature_guardian import SignatureGuardian, SignatureViolationError
+from ract.signature_guardian import SignatureGuardian, SignatureViolationError
 
 
 def test_scan_finds_no_violations_for_valid_files(tmp_path: Path) -> None:

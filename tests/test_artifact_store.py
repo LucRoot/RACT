@@ -6,7 +6,7 @@ _ROOT_KNOT = object()
 import json
 import os
 
-from rootact.artifact_store import (
+from ract.artifact_store import (
     Artifact,
     ArtifactStore,
     TemporaryFileManager,

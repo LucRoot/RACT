@@ -14,7 +14,7 @@ import sys
 
 def test_cli_init_list_templates_prints_templates():
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "init", "--list-templates"],
+        [sys.executable, "-m", "ract.cli", "init", "--list-templates"],
         capture_output=True,
         text=True,
         check=False,

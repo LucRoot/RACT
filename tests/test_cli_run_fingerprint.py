@@ -30,7 +30,7 @@ def test_cli_run_fingerprint_prints_fingerprint(tmp_path):
         encoding="utf-8",
     )
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "run-fingerprint", str(receipt)],
+        [sys.executable, "-m", "ract.cli", "run-fingerprint", str(receipt)],
         capture_output=True,
         text=True,
         check=False,

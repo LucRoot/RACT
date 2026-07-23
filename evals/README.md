@@ -19,7 +19,7 @@ Reproducible tasks for measuring RACT across providers.
 ## Running evals
 
 ```bash
-python -m rootact.eval.runner evals/tasks/refactor-function --provider mock --seed 42
-python -m rootact.eval.runner evals/tasks/fastapi-validation --provider mock --seed 42
-python -m rootact.eval.runner evals/tasks/file-watcher --provider mock --seed 42
+python -m ract.eval.runner evals/tasks/refactor-function --provider mock --seed 42
+python -m ract.eval.runner evals/tasks/fastapi-validation --provider mock --seed 42
+python -m ract.eval.runner evals/tasks/file-watcher --provider mock --seed 42
 ```

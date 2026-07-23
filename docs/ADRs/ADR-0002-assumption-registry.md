@@ -47,6 +47,6 @@ Consider nine plan steps. Step 3 assumes "the login endpoint uses form encoding.
 
 ## References
 
-- `src/rootact/core/assumption.py`
-- `src/rootact/core/assumption_registry.py`
+- `src/ract/core/assumption.py`
+- `src/ract/core/assumption_registry.py`
 - `tests/property/test_assumption_propagation.py`

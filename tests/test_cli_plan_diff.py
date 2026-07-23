@@ -62,7 +62,7 @@ def test_cli_plan_diff_reports_added_and_removed_steps(tmp_path):
         [
             sys.executable,
             "-m",
-            "rootact.cli",
+            "ract.cli",
             "plan",
             "diff",
             str(plan_a),

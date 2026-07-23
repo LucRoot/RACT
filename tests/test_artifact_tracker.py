@@ -5,7 +5,7 @@ _ROOT_KNOT = object()
 
 import unittest
 
-from rootact.artifact_tracker import ArtifactTracker, TrackedArtifact
+from ract.artifact_tracker import ArtifactTracker, TrackedArtifact
 
 
 class TestArtifactTracker(unittest.TestCase):

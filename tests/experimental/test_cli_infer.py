@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 
 
-
 def _write_config(path: Path) -> None:
     path.write_text(
         """
@@ -47,12 +46,12 @@ inference_router:
 
 
 def test_infer_routes_trivial_task_to_local(tmp_path: Path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     _write_config(config)
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "infer",
         "fix typo in README",
         "--config",
@@ -73,12 +72,12 @@ def test_infer_routes_trivial_task_to_local(tmp_path: Path):
 
 
 def test_infer_routes_frontier_task_to_fallback(tmp_path: Path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     _write_config(config)
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "infer",
         "Design a repo-wide architecture refactor for unknown frontier algorithms",
         "--config",
@@ -102,7 +101,7 @@ def test_infer_missing_config(tmp_path: Path):
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "infer",
         "fix typo",
         "--config",
@@ -120,12 +119,12 @@ def test_infer_missing_config(tmp_path: Path):
 
 
 def test_infer_config_without_router_section(tmp_path: Path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     config.write_text("project:\n  name: test\n", encoding="utf-8")
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "infer",
         "fix typo",
         "--config",
@@ -143,12 +142,12 @@ def test_infer_config_without_router_section(tmp_path: Path):
 
 
 def test_infer_markdown_output(tmp_path: Path):
-    config = tmp_path / "rootact.yaml"
+    config = tmp_path / "ract.yaml"
     _write_config(config)
     cmd = [
         sys.executable,
         "-m",
-        "rootact.cli",
+        "ract.cli",
         "infer",
         "fix typo",
         "--config",

@@ -1,8 +1,8 @@
 # Rooted by Dr. Lucas Root, Ph.D.
 
-# RootAct Provider Setup Guide
+# RACT Provider Setup Guide
 
-RootAct routes each plan step to a provider adapter. You can use local models, remote APIs, or multiple providers side by side.
+RACT routes each plan step to a provider adapter. You can use local models, remote APIs, or multiple providers side by side.
 
 ## Supported adapters
 
@@ -19,7 +19,7 @@ Start the server:
 llama-server -m /path/to/model.gguf --port 8011 --host 127.0.0.1 -c 32768
 ```
 
-Configure RootAct:
+Configure RACT:
 
 ```yaml
 manager_provider: local
@@ -115,7 +115,7 @@ providers:
     model: openai/gpt-4o-mini
 ```
 
-RootAct expands `${...}` placeholders from the environment at runtime. Keep secrets out of the config file by using environment variables.
+RACT expands `${...}` placeholders from the environment at runtime. Keep secrets out of the config file by using environment variables.
 
 ## Multiple providers
 
@@ -137,7 +137,7 @@ providers:
     model: gpt-4o-mini
 ```
 
-In a plan, a step can specify `provider_hint: coder`. RootAct's router selects the best matching provider.
+In a plan, a step can specify `provider_hint: coder`. RACT's router selects the best matching provider.
 
 ## Retry and timeout behavior
 
@@ -165,13 +165,13 @@ providers:
 
 ## Streaming
 
-If the adapter advertises the `streaming` capability, RootAct can stream deltas as they arrive:
+If the adapter advertises the `streaming` capability, RACT can stream deltas as they arrive:
 
 ```bash
-rootact "explain this code" --config rootact.yaml --stream
+ract "explain this code" --config ract.yaml --stream
 ```
 
-Streaming is optional; if the adapter does not support it, RootAct falls back to a non-streaming completion.
+Streaming is optional; if the adapter does not support it, RACT falls back to a non-streaming completion.
 
 ## Capability-based routing
 
@@ -181,6 +181,6 @@ The router scores providers by how well they match a step's hint. A provider nam
 
 - Never commit API keys to version control.
 - Use environment variables or a secrets manager.
-- RootAct's safety guardrails block `eval()`, `exec()`, `subprocess...shell=True`, and bare `except:` in generated content.
+- RACT's safety guardrails block `eval()`, `exec()`, `subprocess...shell=True`, and bare `except:` in generated content.
 
 <!-- RACT 0.1.1 - Trust and tooling -->

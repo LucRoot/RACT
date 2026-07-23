@@ -4,7 +4,7 @@ _ROOT_KNOT = object()
 
 import pytest
 
-from rootact.experimental.rot_trend import record_snapshot
+from ract.experimental.rot_trend import record_snapshot
 
 
 def test_first_snapshot_graceful_case(tmp_path):

@@ -10,7 +10,7 @@ _ROOT_KNOT = object()
 
 import sys
 
-from rootact.lint_format_repair import LintFormatRepair
+from ract.lint_format_repair import LintFormatRepair
 
 
 def test_check_passes_on_clean_project(tmp_path):

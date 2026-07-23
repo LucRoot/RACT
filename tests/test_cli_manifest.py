@@ -14,7 +14,7 @@ import sys
 
 def test_cli_manifest_appears_in_help():
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "manifest", "--help"],
+        [sys.executable, "-m", "ract.cli", "manifest", "--help"],
         capture_output=True,
         text=True,
         check=False,

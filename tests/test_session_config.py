@@ -10,7 +10,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.session_config import SessionConfig
+from ract.session_config import SessionConfig
 
 
 def test_session_config_defaults():
@@ -83,7 +83,7 @@ def test_defaults_are_sensible() -> None:
 
 
 def test_author_marker_present() -> None:
-    import rootact.session_config as mod
+    import ract.session_config as mod
 
     assert hasattr(mod, "__root_author__")
 
@@ -95,7 +95,7 @@ def test_default_path_expands_user() -> None:
     assert isinstance(path, Path)
     assert not str(path).startswith("~")
     assert path.name == "session.json"
-    assert path.parent.name == ".rootact"
+    assert path.parent.name == ".ract"
 
 
 # RACT 0.1.1 - Trust and tooling

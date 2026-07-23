@@ -2,8 +2,11 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
-from rootact.experimental.rot_report import find_duplicate_blocks, record_rot_trend_snapshot
-from rootact.experimental.rot_trend import TrendReport
+from ract.experimental.rot_report import (
+    find_duplicate_blocks,
+    record_rot_trend_snapshot,
+)
+from ract.experimental.rot_trend import TrendReport
 
 
 def test_find_duplicate_blocks(tmp_path):

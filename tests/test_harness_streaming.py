@@ -10,8 +10,8 @@ from unittest.mock import MagicMock
 
 import yaml
 
-from rootact.harness import Harness
-from rootact.rooted import Rooted
+from ract.harness import Harness
+from ract.rooted import Rooted
 
 
 def _write_config(tmp_path: Path) -> Path:
@@ -29,7 +29,7 @@ def _write_config(tmp_path: Path) -> Path:
         },
         "prompts_dir": "prompts",
     }
-    config_path = tmp_path / "rootact.yaml"
+    config_path = tmp_path / "ract.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
     return config_path
 

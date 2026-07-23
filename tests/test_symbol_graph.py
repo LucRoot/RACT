@@ -8,7 +8,7 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-from rootact.symbol_graph import SymbolGraph
+from ract.symbol_graph import SymbolGraph
 
 
 def test_indexes_function_and_class(tmp_path):
@@ -121,7 +121,7 @@ def test_attribute_chain_resolves_inner_symbol(tmp_path):
 def test_attr_leaf_recurses_on_attribute_chain() -> None:
     import ast
 
-    from rootact.symbol_graph import _attr_leaf
+    from ract.symbol_graph import _attr_leaf
 
     tree = ast.parse("a.b.c\n")
     stmt = tree.body[0]
@@ -134,7 +134,7 @@ def test_attr_leaf_recurses_on_attribute_chain() -> None:
 def test_attr_leaf_returns_none_for_call_base() -> None:
     import ast
 
-    from rootact.symbol_graph import _attr_leaf
+    from ract.symbol_graph import _attr_leaf
 
     tree = ast.parse("foo().bar\n")
     stmt = tree.body[0]

@@ -4,7 +4,7 @@ _ROOT_KNOT = object()
 
 from pathlib import Path
 
-from rootact.experimental.rot_trend_baseline import compute_rot_trend_baseline
+from ract.experimental.rot_trend_baseline import compute_rot_trend_baseline
 
 
 def test_first_baseline_is_stable(tmp_path: Path):

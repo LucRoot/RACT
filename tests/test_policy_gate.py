@@ -2,7 +2,7 @@ __root_author__ = "Dr. Lucas Root, Ph.D."
 __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
-from rootact.policy_gate import evaluate_policy
+from ract.policy_gate import evaluate_policy
 
 
 def test_policy_gate_modes():

@@ -3,11 +3,11 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 
 
-from rootact.experimental.status_dashboard import run_status
+from ract.experimental.status_dashboard import run_status
 
 
 def test_run_status_healthy(tmp_path):
-    (tmp_path / "rootact.yaml").write_text("provider: local\n", encoding="utf-8")
+    (tmp_path / "ract.yaml").write_text("provider: local\n", encoding="utf-8")
     (tmp_path / "main.py").write_text("print('ok')\n", encoding="utf-8")
     result = run_status(tmp_path)
     assert isinstance(result, dict)
@@ -21,16 +21,26 @@ def test_run_status_unhealthy(tmp_path):
     assert isinstance(result, dict)
     assert result["healthy"] is False
     assert result["summary"] == "Some checks failed"
-    assert any(c["name"] == "config_present" and not c["passed"] for c in result["checks"])
+    assert any(
+        c["name"] == "config_present" and not c["passed"] for c in result["checks"]
+    )
 
 
 def test_status_markdown_output(tmp_path):
     import subprocess
     import sys
 
-    (tmp_path / "rootact.yaml").write_text("provider: local\n", encoding="utf-8")
+    (tmp_path / "ract.yaml").write_text("provider: local\n", encoding="utf-8")
     result = subprocess.run(
-        [sys.executable, "-m", "rootact.cli", "status", "--project-dir", str(tmp_path), "--markdown"],
+        [
+            sys.executable,
+            "-m",
+            "ract.cli",
+            "status",
+            "--project-dir",
+            str(tmp_path),
+            "--markdown",
+        ],
         capture_output=True,
         text=True,
         cwd=str(tmp_path),
