@@ -3,7 +3,6 @@ __ract_name__ = "RACT"
 _ROOT_KNOT = object()
 import subprocess
 import sys
-from pathlib import Path
 
 def test_receipt_chain_verify_markdown_output(tmp_path):
     config = tmp_path / "rootact.yaml"

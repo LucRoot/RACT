@@ -110,7 +110,7 @@ tooling:
 
 - No proprietary code is imported or referenced.
 - The `Rooted[T]` quirk and Root Knot signature are public design choices.
-- The separation is documented in `docs/SEPARATION.md`.
+- The separation is documented in `docs/internal/PROVENANCE.md`.
 
 ## Current Status
 
@@ -120,14 +120,14 @@ tooling:
 - **Coverage:** 93% overall; core modules are exercised.
 - **Harness integration:** `HookSystem`, `SkillRegistry`, `BuiltinSkillLibrary`, `UserSignatureRegistry`, `SignatureGuardian`, `HandshakeRegistry`, `RunReporter`, `LoopController`, `ProgressOracle`, `MilestoneOracle`, `LoopPlanner`, `McpToolRegistry`, `DiffApplier`, and `RetrievalAdapter` are wired into the codebase.
 - **Provider resilience:** `OpenAICompatibleProvider` and `LocalHttpProvider` use `RetryPolicy` for exponential-backoff retries on transient failures.
-- **Use-case catalog:** `rootact_use_cases.jsonl` contains 29 accepted and 1 rejected case with tests verifying validity.
+- **Use-case catalog:** `docs/internal/use_cases.jsonl` contains 29 accepted and 1 rejected case with tests verifying validity.
 - **Packaging:** `python -m build` produces `rootact-0.1.0-py3-none-any.whl` including `py.typed`; `rootact --help` works after install.
 - **Competitive feature wave:** Progress Oracle, signature survival, provider presets, built-in skill library, run report, operator handshakes, MCP integration, DiffApplier integration, and Retrieval integration (keyword + web search) are implemented.
 - **Public docs:** README and QUICKSTART cover installation, first run, loop mode, built-in skills, run reports, and operator handshakes.
 
 ## Open Gaps
 
-- **Use-case expansion:** continue adding use cases to `rootact_use_cases.jsonl` and building them through the loop.
+- **Use-case expansion:** continue adding use cases to `docs/internal/use_cases.jsonl` and building them through the loop.
 - **Real-world loop validation:** run multi-file refactor tasks end-to-end and tune the Progress Oracle thresholds now that the loop has timeout and feedback hardening.
 
 <!-- RACT 0.1.1 - Trust and tooling -->

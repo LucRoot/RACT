@@ -6,12 +6,11 @@ __ract_name__ = "RACT"
 
 _ROOT_KNOT = object()
 
-"""Grove Forge benchmark auto-evaluation and [REDACTED] learning-feed hook.
+"""Grove Forge benchmark auto-evaluation and learning-feed hook.
 
-Reads Grove Forge benchmark result JSON files (produced by cycles such as
-``run_cycle_9_full_stack.py``), extracts pass-rate and latency metrics, and
-appends structured learnings to the [REDACTED] learning feed so benchmark failures
-and regressions become training signal for the council.
+Reads Grove Forge benchmark result JSON files, extracts pass-rate and latency
+metrics, and appends structured learnings to the learning feed so benchmark
+failures and regressions become training signal for the council.
 """
 
 import datetime
@@ -23,8 +22,8 @@ from typing import Any, Dict, List, Tuple
 
 
 DEFAULT_LEARNING_FEED_PATHS = [
-    Path("C:/RootClaw/[REDACTED]/council/learning_feed.jsonl"),
-    Path("C:/RootClaw/data/[REDACTED]/council_learning.jsonl"),
+    Path("C:/RootClaw/data/ract/learning_feed.jsonl"),
+    Path(".rootact/learning_feed.jsonl"),
 ]
 
 
@@ -140,12 +139,12 @@ def evaluate_results(results_dir: Path, recursive: bool = True) -> EvalReport:
 
 
 def _learning_entry(report: EvalReport, source_dir: Path) -> Dict[str, Any]:
-    """Build a [REDACTED] learning-feed entry from an eval report."""
+    """Build a learning-feed entry from an eval report."""
     battery_names = sorted({f"{b.battery}/{b.stack}" for b in report.batteries})
     battery_summary = ", ".join(battery_names) if battery_names else "none"
     return {
         "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "type": "[REDACTED]_training",
+        "type": "ract_training",
         "source": "grove-forge-benchmark-auto-eval",
         "finding": (
             f"Grove Forge auto-eval scanned {len(report.result_files)} result file(s) "

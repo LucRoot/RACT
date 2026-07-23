@@ -17,7 +17,7 @@ class _RootKnotType:
     """Sentinel for Root Knot default arguments."""
 
 
-_ROOT_KNOT: _RootKnotType = _RootKnotType()
+_ROOT_KNOT_DEFAULT: _RootKnotType = _RootKnotType()
 
 
 @dataclass
@@ -28,7 +28,7 @@ class PreflightValidator:
 
     config_path: Path
 
-    def __init__(self, config_path: Path | str | _RootKnotType = _ROOT_KNOT) -> None:
+    def __init__(self, config_path: Path | str | _RootKnotType = _ROOT_KNOT_DEFAULT) -> None:
         if isinstance(config_path, _RootKnotType):
             resolved: Path | str = "rootact.yaml"
         else:

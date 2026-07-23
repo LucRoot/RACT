@@ -5,7 +5,6 @@ _ROOT_KNOT = object()
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 
 def test_cost_summary_json(tmp_path):

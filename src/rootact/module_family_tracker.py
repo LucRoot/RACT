@@ -93,7 +93,9 @@ def detect_tunneling(families: list[str], limit: int = 3) -> TunnelingSignal | N
 
 def _load_accepted_use_cases(project_dir: Path) -> list[dict[str, Any]]:
     """Return accepted use cases from the project's JSONL catalog."""
-    catalog = project_dir / "rootact_use_cases.jsonl"
+    catalog = project_dir / "docs" / "internal" / "use_cases.jsonl"
+    if not catalog.is_file():
+        catalog = project_dir / "rootact_use_cases.jsonl"
     if not catalog.is_file():
         catalog = project_dir / "_BUILD" / "rootact_use_cases.jsonl"
     if not catalog.is_file():

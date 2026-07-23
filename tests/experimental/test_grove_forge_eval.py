@@ -13,7 +13,6 @@ import pytest
 
 from rootact.experimental.grove_forge_eval import (
     BatterySummary,
-    EvalReport,
     append_to_learning_feed,
     evaluate_results,
     report_to_dict,
@@ -117,7 +116,8 @@ def test_battery_summary_percentiles():
         "battery", "stack", "n_problems", "n_passed", "n_errored", "n_skipped",
         "pass_rate", "wall_clock_s",
     ]})
-    # Recompute via evaluate_results to exercise _summarize_battery.
+    assert summary.battery == "humaneval"
+    assert summary.n_problems == 5
 
 
 def test_append_to_learning_feed_writes_entry(tmp_path: Path):
@@ -135,7 +135,7 @@ def test_append_to_learning_feed_writes_entry(tmp_path: Path):
     lines = feed_path.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 1
     entry = json.loads(lines[0])
-    assert entry["type"] == "[REDACTED]_training"
+    assert entry["type"] == "ract_training"
     assert entry["source"] == "grove-forge-benchmark-auto-eval"
     assert "humaneval" in entry["finding"]
 

@@ -4,7 +4,6 @@ _ROOT_KNOT = object()
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 
 def test_complexity_calibrator_from_receipt_history(tmp_path):

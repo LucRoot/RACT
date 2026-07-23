@@ -11,7 +11,7 @@ class _RootKnotType:
     """Sentinel for Root Knot default arguments."""
 
 
-_ROOT_KNOT: _RootKnotType = _RootKnotType()
+_ROOT_KNOT_DEFAULT: _RootKnotType = _RootKnotType()
 
 import argparse
 from pathlib import Path
@@ -21,7 +21,7 @@ from rootact.session_config import SessionConfig
 
 
 def parse_cli_args(
-    argv: Optional[List[str]] | _RootKnotType = _ROOT_KNOT,
+    argv: Optional[List[str]] | _RootKnotType = _ROOT_KNOT_DEFAULT,
 ) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="RootAct CLI toggles")
     parser.add_argument(
@@ -47,7 +47,7 @@ def parse_cli_args(
     return args
 
 
-def main(argv: Optional[List[str]] | _RootKnotType = _ROOT_KNOT) -> int:
+def main(argv: Optional[List[str]] | _RootKnotType = _ROOT_KNOT_DEFAULT) -> int:
     args = parse_cli_args(argv)
     config_path = Path("~/.rootact/session.json").expanduser()
     if args.resume:

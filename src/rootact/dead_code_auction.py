@@ -54,7 +54,7 @@ class DeadCodeAuction:
         "leaderboard.py",
         "leaderboard_loader.py",
         "receipt_chain.py",
-        # Consumed by the external [REDACTED] council loop, not from inside src/rootact.
+        # Consumed by the external council loop, not from inside src/rootact.
         "council_self_audit.py",
         "root_knot_guardian.py",
         # Placeholder stubs kept for upcoming CI / provenance integrations.

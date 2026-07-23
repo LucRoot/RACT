@@ -12,7 +12,7 @@ auto-fix utility so the council and CI can enforce the invariant.
 """
 
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import List, Tuple
 
 
 AUTHOR_MARKER = '__root_author__ = "Dr. Lucas Root, Ph.D."'

@@ -67,7 +67,8 @@ def test_detect_tunneling_resets_on_change():
 
 
 def test_build_diversity_prompt_includes_alternative_cases(tmp_path):
-    catalog = tmp_path / "rootact_use_cases.jsonl"
+    catalog = tmp_path / "docs" / "internal" / "use_cases.jsonl"
+    catalog.parent.mkdir(parents=True, exist_ok=True)
     cases = [
         {"status": "accepted", "title": "CLI Toggles", "value": "yolo/auto"},
         {"status": "accepted", "title": "Documentation Mode", "value": "docs first"},

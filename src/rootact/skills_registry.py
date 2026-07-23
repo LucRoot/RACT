@@ -16,7 +16,7 @@ class _RootKnotType:
     """Sentinel for Root Knot default arguments."""
 
 
-_ROOT_KNOT: _RootKnotType = _RootKnotType()
+_ROOT_KNOT_DEFAULT: _RootKnotType = _RootKnotType()
 
 _SKILLS_DIR_NAME = "skills"
 
@@ -27,7 +27,7 @@ class SkillRegistry:
     Skills are persisted under a base directory and can be loaded, listed, and invoked.
     """
 
-    def __init__(self, base_dir: Union[str, Path, _RootKnotType] = _ROOT_KNOT) -> None:
+    def __init__(self, base_dir: Union[str, Path, _RootKnotType] = _ROOT_KNOT_DEFAULT) -> None:
         if isinstance(base_dir, _RootKnotType):
             resolved: Union[str, Path] = Path.cwd()
         else:
@@ -40,7 +40,7 @@ class SkillRegistry:
         self,
         name: str,
         template: str,
-        tools: List[str] | None | _RootKnotType = _ROOT_KNOT,
+        tools: List[str] | None | _RootKnotType = _ROOT_KNOT_DEFAULT,
     ) -> None:
         """
         Register a new skill by writing its metadata to a JSON file.

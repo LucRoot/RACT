@@ -1507,9 +1507,7 @@ def _novelty_command(args: list[str]) -> int:
 
     if parsed.timeout is not None:
         import concurrent.futures
-        import time
 
-        start = time.perf_counter()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(detector.scan_project)
             try:
@@ -3051,7 +3049,7 @@ def _provider_command(args: list[str]) -> int:
             check = router.health_check(name)
             results[name] = bool(check.is_ok() and check.unwrap())
         healthy = all(results.values())
-        output = dict(results)
+        output: dict[str, Any] = dict(results)
         output["providers"] = dict(results)
         output["healthy"] = healthy
         print(json.dumps(output, indent=2))

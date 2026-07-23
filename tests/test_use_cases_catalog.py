@@ -13,12 +13,12 @@ from pathlib import Path
 
 
 def _catalog_path() -> Path:
-    return Path(__file__).resolve().parents[1] / "rootact_use_cases.jsonl"
+    return Path(__file__).resolve().parents[1] / "docs" / "internal" / "use_cases.jsonl"
 
 
 def test_catalog_exists_and_is_valid_jsonl():
     path = _catalog_path()
-    assert path.exists(), "rootact_use_cases.jsonl should exist"
+    assert path.exists(), "docs/internal/use_cases.jsonl should exist"
     entries = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.strip():

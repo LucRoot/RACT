@@ -11,7 +11,7 @@ class _RootKnotType:
     """Sentinel for Root Knot default arguments."""
 
 
-_ROOT_KNOT: _RootKnotType = _RootKnotType()
+_ROOT_KNOT_DEFAULT: _RootKnotType = _RootKnotType()
 
 import json
 import shutil
@@ -63,7 +63,7 @@ class SessionCorruptedError(SessionStoreError):
 
 
 class SessionStore:
-    def __init__(self, base_dir: Path | str | _RootKnotType = _ROOT_KNOT) -> None:
+    def __init__(self, base_dir: Path | str | _RootKnotType = _ROOT_KNOT_DEFAULT) -> None:
         if isinstance(base_dir, _RootKnotType):
             resolved: Path | str = ".rootact_sessions"
         else:

@@ -4,7 +4,6 @@ _ROOT_KNOT = object()
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 
 def test_self_audit_cli_verb(tmp_path):

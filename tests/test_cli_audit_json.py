@@ -5,7 +5,6 @@ _ROOT_KNOT = object()
 import json
 import subprocess
 import sys
-from pathlib import Path
 
 def test_cli_audit_json_passes_on_healthy_project(tmp_path):
     config = tmp_path / "rootact.yaml"
