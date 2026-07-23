@@ -279,6 +279,13 @@ class SymbolGraph:
             candidate = f"{self._package_name}.{target_module}"
             if candidate in self._project_modules:
                 return True
+            # Imports already prefixed with the package name (e.g. from inside
+            # ``src/rootact`` when the package root is detected there).
+            prefix = f"{self._package_name}."
+            if target_module.startswith(prefix):
+                suffix = target_module[len(prefix):]
+                if suffix in self._project_modules:
+                    return True
         return False
 
     def _resolve_imported_module(self, target_module: str) -> str:
@@ -294,6 +301,11 @@ class SymbolGraph:
             candidate = f"{self._package_name}.{target_module}"
             if candidate in self._project_modules:
                 return candidate
+            prefix = f"{self._package_name}."
+            if target_module.startswith(prefix):
+                suffix = target_module[len(prefix):]
+                if suffix in self._project_modules:
+                    return suffix
         return target_module
 
     def _parse(self, path: Path) -> ast.AST | None:
