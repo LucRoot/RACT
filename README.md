@@ -24,11 +24,15 @@ cd RACT
 ## Quickstart
 
 ```bash
-rootact init --template python-package --provider local
-rootact "add a test for the hello-world script" --config rootact.yaml --dry-run
-rootact "add a test for the hello-world script" --config rootact.yaml
-rootact "refactor the greeting module" --config rootact.yaml --loop --max-iterations 5
+ract init --template python-package --provider local
+ract doctor                          # verify workspace and dependencies
+ract fence                           # check safety guardrails and threat-model boundaries
+ract run "add a test for the hello-world script" --config rootact.yaml --dry-run
+ract run "add a test for the hello-world script" --config rootact.yaml
+ract run "refactor the greeting module" --config rootact.yaml --loop --max-iterations 5
 ```
+
+[![asciicast](https://asciinema.org/a/demo.svg)](https://asciinema.org/a/demo)
 
 ## What makes RACT different
 
