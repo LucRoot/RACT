@@ -120,6 +120,46 @@ See ADR-0010 for the design rationale and rejected alternatives, and
 `docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §2 (Substrate Layer 1) and §11
 signals 1 and 2 for the master-spec source.
 
+## Transactional execution: worktree-per-step
+
+Every step in the v0.4 loop opens a `StepTransaction`
+(`src/ract/core/transaction.py`). The workspace is the durable artifact;
+the plan reduces to a schedule over transactions.
+
+- **Code isolation** — a `git worktree` on a step-specific branch named
+  `rootact/step/<step_id_hex>`, created off the loop's current parent
+  snapshot. `git branch --list "rootact/step/*"` enumerates the active
+  transactions, and `ract session ls` presents that listing (with
+  `--json` for machine consumption). See `src/ract/executor/worktree.py`.
+- **Runtime isolation** — optional per plan step. The
+  `ContainerBackend` protocol in `src/ract/executor/runtime.py` ships
+  with a `DaggerBackend` and a `PodmanBackend` (`docker` fallback). A
+  step whose `runtime_image` is `None` runs in the worktree alone;
+  module_03 will land the OS-enforced sandbox inside the container
+  the shim starts.
+- **Handshake-blocks-commit** — a step whose `handshake_ids` include any
+  pending id returns `TransactionOutcome.BLOCKED_ON_HANDSHAKE`; the
+  worktree stays intact for operator inspection, the parent-snapshot
+  pointer does not advance, and dependent steps cannot commit past the
+  blocked one. This is the git-layer replacement for v0.3's plan-level
+  handshake acknowledgement (SUBSTRATE §3.5).
+- **Plan-as-schedule** — `SubstrateLoop` (`src/ract/executor/loop.py`)
+  drives a sequence of `SubstrateStepSpec` values as transactions;
+  `LoopController` accepts an `AcceptanceSuite` and, when set, routes
+  through `build_loop_state` so T1 reads from the suite substrate
+  (module_01) rather than the milestone oracle path.
+- **Loop-entry preconditions** — the loop refuses to enter when the
+  workspace is not a git repository, or when its tracked tree has
+  uncommitted changes. The error names the offending paths so the
+  operator can commit or stash without guessing. See
+  `ensure_git_repo` and `ensure_clean_tracked_tree` in
+  `src/ract/executor/worktree.py`; these are the enforcement points for
+  lateral chain branch E.
+
+See ADR-0011 for the design rationale and rejected alternatives, and
+`docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §3 (Substrate Layer 2) plus §11
+signal 3 for the master-spec source.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -128,3 +168,4 @@ signals 1 and 2 for the master-spec source.
 - CI runs lint, type-check, tests, and eval-smoke on every push.
 
 <!-- RACT 0.4.0: Acceptance suite compiled before loop entry (ADR-0010) -->
+<!-- RACT 0.4.0: Transactional execution: worktree-per-step (ADR-0011) -->
