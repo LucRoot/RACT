@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-
 import hypothesis.strategies as st
 from hypothesis import given, settings
 
@@ -12,7 +10,6 @@ from ract.core.assumption_registry import AssumptionRegistry
 from ract.core.loop import (
     Budget,
     LoopState,
-    MilestoneReport,
     ProviderTimeoutRecord,
     QualityScore,
     TerminationCause,
@@ -26,9 +23,50 @@ from ract.core.loop import (
     check_t7,
     evaluate_termination,
 )
+from ract.core.predicate import (
+    AcceptancePredicate,
+    AcceptanceSuite,
+    ArtifactInvocation,
+    new_intent_id,
+    new_predicate_id,
+)
 from ract.handshake_registry import HandshakeRegistry
-from ract.loop_planner import Milestone
 from ract.manager import Plan
+
+
+def _always_failing_suite() -> AcceptanceSuite:
+    """A minimal suite whose only required predicate cannot pass an empty snapshot.
+
+    Suffices to satisfy the LoopState constructor (>=1 required predicate)
+    without accidentally firing T1 in tests that focus on other causes.
+    """
+    predicate = AcceptancePredicate(
+        id=new_predicate_id(),
+        kind="artifact",
+        invocation=ArtifactInvocation(
+            path="__never_present_in_snapshot__.rk", must_have_rootknot=False
+        ),
+        required=True,
+    )
+    return AcceptanceSuite(
+        intent_id=new_intent_id(),
+        predicates=(predicate,),
+        compiled_from="property test scaffolding",
+    )
+
+
+def _always_passing_suite() -> AcceptanceSuite:
+    predicate = AcceptancePredicate(
+        id=new_predicate_id(),
+        kind="artifact",
+        invocation=ArtifactInvocation(path="present.txt"),
+        required=True,
+    )
+    return AcceptanceSuite(
+        intent_id=new_intent_id(),
+        predicates=(predicate,),
+        compiled_from="property test scaffolding — passing",
+    )
 
 
 @st.composite
@@ -49,6 +87,7 @@ def _loop_state(draw, budget: Budget | None = None):
     return LoopState(
         plan=plan,
         workspace=workspace,
+        suite=_always_failing_suite(),
         budget=budget if budget is not None else draw(_budget()),
         assumption_registry=registry,
         handshake_registry=handshakes,
@@ -82,22 +121,17 @@ def test_always_halts_under_wall_time_budget(state):
 
 
 def test_t1_complete_reachable():
-    """T1: all milestones verified with high confidence terminates as COMPLETE."""
-    milestones = [
-        Milestone(id="m1", description="first", acceptance="done"),
-        Milestone(id="m2", description="second", acceptance="done"),
-    ]
-    reports = [
-        MilestoneReport(milestone_id="m1", status="verified", confidence=1.0),
-        MilestoneReport(milestone_id="m2", status="verified", confidence=1.0),
-    ]
-    assert check_t1(milestones, reports, tau_complete=0.95) is TerminationCause.COMPLETE
+    """T1: every required predicate ok against the final snapshot → COMPLETE."""
+    suite = _always_passing_suite()
+    snapshot = WorkspaceSnapshot(files={"present.txt": "hello"})
+    assert check_t1(suite, snapshot) is TerminationCause.COMPLETE
 
 
-def test_t1_incomplete_missing_report():
-    """T1 does not fire when a milestone is missing its report."""
-    milestones = [Milestone(id="m1", description="first", acceptance="done")]
-    assert check_t1(milestones, [], tau_complete=0.95) is None
+def test_t1_incomplete_missing_artifact():
+    """T1 does not fire when a required artifact predicate is not satisfied."""
+    suite = _always_failing_suite()
+    snapshot = WorkspaceSnapshot(files={})
+    assert check_t1(suite, snapshot) is None
 
 
 def test_t2_regression_reachable():
@@ -167,15 +201,19 @@ def test_t7_provider_timeout_reachable():
     assert check_t7(record) is None
 
 
-@settings(max_examples=20, deadline=None)
-@given(state=_loop_state())
-def test_t1_priority_over_t5(state):
+def test_t1_priority_over_t5(tmp_path):
     """When T1 and T5 both apply, T1 fires first (complete before budget)."""
-    state = replace(
-        state, milestones=[Milestone(id="m1", description="d", acceptance="d")]
-    )
-    state.milestone_history.append(
-        MilestoneReport(milestone_id="m1", status="verified", confidence=1.0)
+    suite = _always_passing_suite()
+    plan = Plan(assumption="t", confidence=1.0, steps=[])
+    workspace = WorkspaceSnapshot(files={"present.txt": ""})
+    budget = Budget(max_iterations=1, wall_time_seconds=1.0, step_timeout_seconds=1.0)
+    state = LoopState(
+        plan=plan,
+        workspace=workspace,
+        suite=suite,
+        budget=budget,
+        handshake_registry=HandshakeRegistry(tmp_path),
+        start_time=0.0,
     )
     state.iteration = state.budget.max_iterations
     cause = evaluate_termination(state, now=0.0)
