@@ -3293,6 +3293,101 @@ def _leaderboard_command(args: list[str]) -> int:
     return 0
 
 
+def _session_substrate_command(parsed: argparse.Namespace) -> int:
+    """Handle 'ract session ls' and 'ract session diff <step_id>'.
+
+    v0.4 substrate CLI (SUBSTRATE §3, module_02). ``ls`` enumerates the
+    ``rootact/step/*`` branches and their worktree state; ``diff`` prints
+    the patch a named step's transaction produced against its parent
+    snapshot. Both accept ``--json`` for machine consumption.
+    """
+    import subprocess as _sp
+    from ract.executor.worktree import WorktreeManager
+
+    repo = Path(parsed.repo)
+    if parsed.action == "ls":
+        manager = WorktreeManager(repo)
+        try:
+            branches = manager.list_active()
+            records = manager.worktree_list()
+        except Exception as exc:  # noqa: BLE001 — surface the git error verbatim
+            print(f"[ract] session ls failed: {exc}", file=sys.stderr)
+            return 1
+        # Index worktree records by branch for a joined view.
+        by_branch: dict[str, dict[str, str]] = {}
+        for rec in records:
+            branch = rec.get("branch", "").replace("refs/heads/", "")
+            if branch:
+                by_branch[branch] = rec
+        rows: list[dict[str, str]] = []
+        for branch in branches:
+            step_id = branch.split("rootact/step/", 1)[-1]
+            rec = by_branch.get(branch, {})
+            rows.append(
+                {
+                    "step_id": step_id,
+                    "branch": branch,
+                    "worktree": rec.get("worktree", ""),
+                    "head": rec.get("HEAD", ""),
+                    "status": "open" if rec else "committed",
+                }
+            )
+        if parsed.json_output:
+            print(json.dumps(rows, indent=2))
+            return 0
+        if not rows:
+            print("No active rootact/step/* branches.")
+            return 0
+        header = f"{'STEP_ID':32}  {'STATUS':10}  BRANCH"
+        print(header)
+        for row in rows:
+            print(f"{row['step_id']:32}  {row['status']:10}  {row['branch']}")
+        return 0
+
+    if parsed.action == "diff":
+        branch = f"rootact/step/{parsed.step_id}"
+        parent = parsed.parent or _sp.run(
+            [
+                "git", "-C", str(repo), "merge-base", "HEAD", branch,
+            ],
+            capture_output=True, text=True, check=False,
+        ).stdout.strip()
+        if not parent:
+            print(
+                f"[ract] could not resolve parent snapshot for {branch}; "
+                "pass --parent explicitly.",
+                file=sys.stderr,
+            )
+            return 1
+        diff = _sp.run(
+            ["git", "-C", str(repo), "diff", parent, branch],
+            capture_output=True, text=True, check=False,
+        )
+        if diff.returncode != 0:
+            print(
+                f"[ract] git diff failed: {diff.stderr.strip()}",
+                file=sys.stderr,
+            )
+            return 1
+        if parsed.json_output:
+            print(
+                json.dumps(
+                    {
+                        "step_id": parsed.step_id,
+                        "branch": branch,
+                        "parent": parent,
+                        "patch": diff.stdout,
+                    },
+                    indent=2,
+                )
+            )
+            return 0
+        print(diff.stdout, end="")
+        return 0
+
+    return 1
+
+
 def _session_command(args: list[str]) -> int:
     """Handle 'ract session list|export|import|backup|restore ...'."""
     parser = argparse.ArgumentParser(prog="ract session")
@@ -3336,7 +3431,57 @@ def _session_command(args: list[str]) -> int:
         "--markdown", action="store_true", dest="markdown_output"
     )
 
+    # v0.4 substrate verbs (SUBSTRATE §3, module_02 CLI): ``session ls``
+    # enumerates the active worktrees, ``session diff <step_id>`` shows
+    # the patch a given step transaction produced against its parent
+    # snapshot. Kept alongside the v0.3 saved-session verbs — the
+    # ``session`` namespace already exists; adding sibling subcommands
+    # avoids a new top-level verb.
+    ls_parser = subparsers.add_parser(
+        "ls",
+        help="List active worktree-per-step transactions (rootact/step/*)",
+        description=(
+            "List every rootact/step/* branch with its worktree state — the "
+            "v0.4 substrate CLI view (SUBSTRATE §3, module_02)."
+        ),
+    )
+    ls_parser.add_argument(
+        "--repo", type=Path, default=Path("."),
+        help="Repository root (default: current directory).",
+    )
+    ls_parser.add_argument(
+        "--json", action="store_true", dest="json_output",
+        help="Emit JSON instead of a human-readable table.",
+    )
+
+    diff_parser = subparsers.add_parser(
+        "diff",
+        help="Show the diff a step transaction produced against its parent.",
+    )
+    diff_parser.add_argument(
+        "step_id",
+        help="Step id in hex (matches rootact/step/<step_id>).",
+    )
+    diff_parser.add_argument(
+        "--repo", type=Path, default=Path("."),
+        help="Repository root (default: current directory).",
+    )
+    diff_parser.add_argument(
+        "--parent",
+        default=None,
+        help=(
+            "Parent snapshot to diff against (default: the branch's fork "
+            "point from HEAD)."
+        ),
+    )
+    diff_parser.add_argument(
+        "--json", action="store_true", dest="json_output",
+        help="Emit a structured patch record instead of a git-format diff.",
+    )
+
     parsed = parser.parse_args(args)
+    if parsed.action in {"ls", "diff"}:
+        return _session_substrate_command(parsed)
     store = SessionStore(parsed.store)
 
     if parsed.action == "list":
