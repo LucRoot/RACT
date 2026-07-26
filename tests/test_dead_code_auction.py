@@ -139,6 +139,17 @@ def test_ract_auction_reports_zero_dead_modules():
     project_root = Path(__file__).parent.parent / "src" / "ract"
     allowlist = set(DeadCodeAuction.DEFAULT_ALLOWLIST)
     allowlist.add("runner.py")
+    # v0.4 (module_02): the substrate step-loop lives at
+    # ``src/ract/executor/loop.py``. It is imported explicitly by
+    # ``tests/property/test_transaction_atomicity.py`` and by
+    # ``src/ract/cli.py`` (session ls / diff) but NOT re-exported from
+    # ``ract/executor/__init__.py`` because doing so would trigger a
+    # circular import (executor → core.loop → loop_planner → harness →
+    # executor). The auction sees no inbound production reference;
+    # allowlist here mirrors the pattern used for other transitional
+    # substrate modules until module_03+ wires the substrate into the
+    # live loop.
+    allowlist.add("loop.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
