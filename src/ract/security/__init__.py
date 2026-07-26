@@ -22,6 +22,7 @@ a run-scoped declaration; each ``StepTransaction`` derives its concrete
 sandbox at ``open`` time.
 """
 
+from ract.security.keys import SandboxKey
 from ract.security.manifest import (
     ApprovalPolicy,
     CapabilityManifest,
@@ -58,6 +59,7 @@ __all__ = [
     "ProcessPolicy",
     "SandboxBackend",
     "SandboxEvent",
+    "SandboxKey",
     "SandboxNotAvailable",
     "SandboxViolation",
     "SyscallPolicy",
