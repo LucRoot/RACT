@@ -150,6 +150,15 @@ def test_ract_auction_reports_zero_dead_modules():
     # substrate modules until module_03+ wires the substrate into the
     # live loop.
     allowlist.add("loop.py")
+    # v0.4 (module_03): the platform-specific sandbox backends
+    # (sandbox_linux, sandbox_macos) are lazily imported by
+    # ``ract.security.sandbox.resolve_backend`` at runtime — the local
+    # import keeps a missing macOS-only or Linux-only import from
+    # crashing the wrong platform at package init time. The auction
+    # cannot see through the lazy import, so both are allowlisted here
+    # (same pattern as ``loop.py`` above).
+    allowlist.add("sandbox_linux.py")
+    allowlist.add("sandbox_macos.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
