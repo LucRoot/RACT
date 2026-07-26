@@ -31,6 +31,7 @@ from enum import Enum, auto
 from pathlib import Path
 
 from ract.core.predicate import AcceptancePredicate
+from ract.core.types import Digest
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +112,13 @@ class StepTransaction:
     budget: ResourceBudget
     runtime_container: ContainerRef | None = None
     depends_on: tuple[bytes, ...] = field(default_factory=tuple)
+    # module_03 (SUBSTRATE §4): every transaction opens inside a sandbox
+    # derived from the run's ``CapabilityManifest``. The digest here is
+    # what module_05's event log joins to the manifest and what module_06
+    # will stamp into the extended Rootknot as ``manifest_digest``. Kept
+    # as ``Digest | None`` so v0.3 call sites still construct valid
+    # transactions during the SubstrateLoop-as-default migration.
+    manifest_digest: Digest | None = None
 
     def __post_init__(self) -> None:
         if len(self.step_id) != 16:
@@ -149,6 +157,7 @@ def open_transaction(
     budget: ResourceBudget | None = None,
     runtime_container: ContainerRef | None = None,
     depends_on: tuple[bytes, ...] = (),
+    manifest: object | None = None,
 ) -> StepTransaction:
     """Build a ``StepTransaction`` value.
 
@@ -159,6 +168,21 @@ def open_transaction(
     stitches the descriptors together so the transaction is a value the
     loop can pass around and reason about.
     """
+    # ``manifest`` is typed ``object | None`` here (rather than
+    # ``CapabilityManifest | None``) so the substrate primitive does not
+    # take a hard runtime import on ``ract.security.manifest`` — that
+    # would create a cycle when the security layer eventually imports
+    # types from this module. The digest is computed locally when a
+    # manifest is passed; both branches produce a valid transaction.
+    digest: Digest | None = None
+    if manifest is not None:
+        from ract.security.manifest import CapabilityManifest, ManifestDigest
+
+        if not isinstance(manifest, CapabilityManifest):
+            raise TypeError(
+                "manifest must be a ract.security.manifest.CapabilityManifest"
+            )
+        digest = ManifestDigest.of(manifest)
     return StepTransaction(
         step_id=step_id,
         parent_snapshot=parent_snapshot,
@@ -168,6 +192,7 @@ def open_transaction(
         budget=budget if budget is not None else ResourceBudget(),
         runtime_container=runtime_container,
         depends_on=tuple(depends_on),
+        manifest_digest=digest,
     )
 
 

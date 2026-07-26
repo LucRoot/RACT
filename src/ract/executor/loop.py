@@ -42,6 +42,8 @@ from ract.core.transaction import (
 from ract.executor.runtime import ContainerBackend
 from ract.executor.worktree import Worktree, WorktreeManager
 from ract.handshake_registry import HandshakeRegistry
+from ract.security.manifest import CapabilityManifest
+from ract.security.sandbox import SandboxBackend
 
 
 # ---------------------------------------------------------------------------
@@ -103,12 +105,22 @@ class SubstrateLoop:
         worktree_manager: WorktreeManager | None = None,
         container_backend: ContainerBackend | None = None,
         handshake_registry: HandshakeRegistry | None = None,
+        manifest: CapabilityManifest | None = None,
+        sandbox_backend: SandboxBackend | None = None,
     ) -> None:
         self.repo_root = Path(repo_root)
         self.parent_snapshot = parent_snapshot
         self.worktrees = worktree_manager or WorktreeManager(repo_root)
         self.container_backend = container_backend
         self.handshakes = handshake_registry
+        # module_03 (SUBSTRATE §4): the loop carries the run's capability
+        # manifest and the resolved sandbox backend. On Windows the caller
+        # may pass ``sandbox_backend=UnenforcedSandbox()`` after honoring
+        # the ``--allow-unenforced-sandbox`` flag; the loop will still
+        # enter the (no-op) sandbox so the call site exists and
+        # ``sandbox.unenforced`` fires into the event log.
+        self.manifest = manifest
+        self.sandbox_backend = sandbox_backend
         self.records: list[StepRecord] = []
         # Track committed step_ids so ``depends_on`` can gate downstream
         # commits without leaking the plan graph into git.
@@ -162,9 +174,23 @@ class SubstrateLoop:
                 budget=spec.budget,
                 runtime_container=container,
                 depends_on=spec.depends_on,
+                manifest=self.manifest,
             )
 
-            snapshot = step_runner(wt, container)
+            # module_03: enter the OS-enforced sandbox for this step.
+            # A manifest-less loop skips sandbox entry entirely so v0.3
+            # tests still pass while the SubstrateLoop-as-default
+            # migration is pending (see module_02 flagged gaps).
+            if self.manifest is not None and self.sandbox_backend is not None:
+                with self.sandbox_backend.enter(
+                    self.manifest,
+                    wt.path,
+                    container,
+                    step_id=spec.step_id,
+                ):
+                    snapshot = step_runner(wt, container)
+            else:
+                snapshot = step_runner(wt, container)
             record = self._finalize(txn, wt, snapshot, spec)
             return record
         finally:
