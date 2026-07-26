@@ -44,10 +44,12 @@ def test_windows_returns_stub_with_escape_hatch(tmp_path: Path):
         with backend.enter(manifest, tmp_path, step_id=b"\x00" * 16):
             pass
     finally:
-        # Reset the sink so no other test sees these events.
-        from ract.security.sandbox import _null_sink
+        # Reset the sink so no other test sees these events. module_05
+        # renamed the module-level default to _default_sink because it
+        # now forwards to the trace event log rather than dropping.
+        from ract.security.sandbox import _default_sink
 
-        set_event_sink(_null_sink)
+        set_event_sink(_default_sink)
 
     assert len(events) == 1
     assert events[0].name == "sandbox.unenforced"

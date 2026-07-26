@@ -313,13 +313,35 @@ class IntentCompiler:
                 self._request_group_handshake(approvals, preview)
 
         coverage = float(cfg.coverage_gate or self.coverage_gate_default)
-        return AcceptanceSuite(
+        suite = AcceptanceSuite(
             intent_id=new_intent_id(),
             predicates=tuple(predicates),
             coverage_gate=coverage,
             compiled_from=intent_text.strip(),
             compiler_version=self.version,
         )
+        # module_05 (SUBSTRATE §6.3): the compiled suite is the first
+        # legible artifact of a run; emit ``run.started`` at the site
+        # that produces it. A run with no registered writer drops the
+        # event (null sink); the emit shape stays load-bearing so the
+        # replay/reporter paths always have a stable start marker.
+        try:  # local import breaks the trace→core cycle at import time
+            from ract.trace.sink import emit as _emit_event
+
+            _emit_event(
+                "run.started",
+                {
+                    "intent_id": suite.intent_id.hex(),
+                    "suite_digest": suite.digest(),
+                    "compiler_version": suite.compiler_version,
+                    "predicate_count": len(suite.predicates),
+                    "required_count": len(suite.required()),
+                    "coverage_gate": suite.coverage_gate,
+                },
+            )
+        except Exception:  # noqa: BLE001 — never fail compile on trace error
+            pass
+        return suite
 
 
 # ---------------------------------------------------------------------------

@@ -84,16 +84,41 @@ class SandboxEvent:
 EventSink = Callable[[SandboxEvent], None]
 
 
-def _null_sink(event: SandboxEvent) -> None:
-    """Default sink — drops events. Module_05 will replace this."""
-    del event
+def _default_sink(event: SandboxEvent) -> None:
+    """Default sink — forwards to ``ract.trace.sink`` when a writer is set.
+
+    module_05 closes the null-sink gap: sandbox events are structured
+    values; the trace substrate is the natural home for them. When no
+    trace writer is registered (unit tests without a run scope) the
+    forward is a no-op and the sandbox event drops harmlessly.
+    """
+    try:  # local import so ``ract.security`` never imports ``ract.trace``
+        # at module load time — the trace layer imports from security
+        # via ``ManifestDigest`` and a two-way import would cycle.
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            event.name,  # type: ignore[arg-type]  # runtime-checked EventKind
+            {
+                "manifest_digest": event.manifest_digest,
+                "reason": event.reason,
+                "details": event.details,
+            },
+            step_id=(
+                bytes.fromhex(event.step_id_hex)
+                if event.step_id_hex
+                else None
+            ),
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
 
-_sink: EventSink = _null_sink
+_sink: EventSink = _default_sink
 
 
 def set_event_sink(sink: EventSink) -> None:
-    """Replace the module-level sink. Module_05's event log will call this."""
+    """Replace the module-level sink. Kept for tests that isolate the sink."""
     global _sink
     _sink = sink
 

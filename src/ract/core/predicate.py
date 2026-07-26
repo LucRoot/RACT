@@ -182,7 +182,27 @@ class AcceptancePredicate:
         # Local import: gates depends on predicate types.
         from ract.core.gates import evaluate_invocation
 
-        return evaluate_invocation(self.invocation, ws)
+        result = evaluate_invocation(self.invocation, ws)
+        # module_05 (SUBSTRATE §6.3): every predicate evaluation lands
+        # in the event log so the reporter's pass/fail counts derive
+        # from durable state, not in-memory tallies.
+        try:
+            from ract.trace.sink import emit as _emit_event
+
+            _emit_event(
+                "predicate.evaluated",
+                {
+                    "predicate_id": self.id.hex(),
+                    "kind": self.kind,
+                    "required": self.required,
+                    "ok": result.ok,
+                    "reason": result.reason,
+                    "duration_ns": result.duration_ns,
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return result
 
 
 # ---------------------------------------------------------------------------

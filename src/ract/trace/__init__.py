@@ -18,6 +18,13 @@ from ract.trace.events import (
     new_event_id,
 )
 from ract.trace.otel import OtlpExporter, event_to_span_attributes, install_otlp_exporter
+from ract.trace.sink import (
+    clear_writer,
+    current_writer,
+    emit,
+    has_writer,
+    set_writer,
+)
 from ract.trace.writer import EventReader, JsonlEventWriter, RedactionProfile
 
 __all__ = [
@@ -31,10 +38,15 @@ __all__ = [
     "OtlpExporter",
     "RedactionProfile",
     "canonical_payload_bytes",
+    "clear_writer",
+    "current_writer",
+    "emit",
     "event_to_span_attributes",
+    "has_writer",
     "hash_event",
     "install_otlp_exporter",
     "new_event_id",
+    "set_writer",
 ]
 
 

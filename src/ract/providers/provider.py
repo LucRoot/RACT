@@ -69,7 +69,56 @@ class Provider(Protocol):
         ...  # pragma: no cover — protocol
 
 
-__all__ = ["Provider", "ResponseShape"]
+def send_with_trace(
+    provider: Provider,
+    *,
+    prompt: str,
+    schema_payload: Any,
+    intent_id: str,
+) -> str | dict[str, Any]:
+    """Wrap ``Provider.send_planned_step_request`` with trace events.
+
+    module_05 (SUBSTRATE §6.3). Emits ``prompt.sent`` before the call and
+    ``response.received`` after. The wrapper is opt-in: callers that
+    don't route through it still work; only the event log is thinner in
+    that case.
+    """
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            "prompt.sent",
+            {
+                "provider": provider.name,
+                "response_shape": provider.response_shape,
+                "intent_id": intent_id,
+                "prompt_chars": len(prompt),
+            },
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    raw = provider.send_planned_step_request(
+        prompt=prompt, schema_payload=schema_payload, intent_id=intent_id
+    )
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        preview = raw if isinstance(raw, dict) else str(raw)[:200]
+        _emit_event(
+            "response.received",
+            {
+                "provider": provider.name,
+                "intent_id": intent_id,
+                "response_type": type(raw).__name__,
+                "preview": preview if isinstance(preview, str) else "",
+            },
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return raw
+
+
+__all__ = ["Provider", "ResponseShape", "send_with_trace"]
 
 
 # RACT 0.4.0
