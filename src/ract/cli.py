@@ -3968,23 +3968,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.about:
-        print("RACT - Root Agentic Coding Tool")
-        print("By Dr. Lucas Root, Ph.D.")
-        print()
-        print(
-            "RACT is a model-agnostic, local-first agentic coding tool. It keeps "
-            "the human in the loop while a small management LM routes work to the "
-            "right provider. Every plan and result is Rooted to the assumption "
-            "that justifies it."
-        )
-        print()
-        print("License: PolyForm Noncommercial License 1.0.0")
-        print(
-            "  Free for personal use, research, education, and noncommercial organizations."
-        )
-        print(
-            "  Commercial use requires a separate agreement with Dr. Lucas Root, Ph.D."
-        )
+        # module_06 step 6: --about is the ONLY reader of __root_author__.
+        # The marker moved to src/ract/_about.py; see docstring there for
+        # the audit-gate grep that enforces display-only.
+        from ract._about import about_lines
+
+        for line in about_lines():
+            print(line)
         return 0
 
     if args.welcome:
