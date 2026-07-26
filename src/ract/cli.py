@@ -3564,6 +3564,95 @@ def _session_command(args: list[str]) -> int:
     return 1
 
 
+def _conformance_command(args: list[str]) -> int:
+    """Handle ``ract conformance run --provider <name> [...]``.
+
+    module_04 (SUBSTRATE §5). The command drives a corpus run against a
+    named provider, writes a machine-readable report card under
+    ``evals/conformance/results/<provider>-<date>.json``, and appends a
+    row to ``evals/conformance/RESULTS.md``.
+
+    A ``FakeProvider`` fixture (``ract.providers.fake_provider``) is
+    exposed as ``--provider fake`` so the full gate loop is exercisable
+    from CI without live API keys. Real providers need a subclass that
+    implements the ``Provider`` protocol; the CLI names the missing
+    integration and halts if the provider cannot be resolved.
+    """
+    parser = argparse.ArgumentParser(prog="ract conformance")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run the conformance corpus against a named provider.",
+    )
+    run_parser.add_argument(
+        "--provider", required=True, help="Provider name (use 'fake' for the fixture)."
+    )
+    run_parser.add_argument(
+        "--category",
+        choices=("schema_compliance", "tool_discipline", "refusal_fidelity"),
+        default=None,
+        help="Restrict the run to one category.",
+    )
+    run_parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Ignore the response cache and hit the provider fresh.",
+    )
+    run_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Print the JSON report to stdout as well as writing it.",
+    )
+    run_parser.add_argument(
+        "--corpus-root",
+        type=Path,
+        default=Path("evals/conformance"),
+        help="Root of the conformance corpus (default: evals/conformance).",
+    )
+    parsed = parser.parse_args(args)
+
+    if parsed.action != "run":  # pragma: no cover — argparse enforces
+        return 1
+
+    from ract.providers.conformance import run_conformance, write_report
+    from ract.providers.fake_provider import FakeProvider
+
+    if parsed.provider == "fake":
+        provider = FakeProvider(name="fake")
+    else:
+        # Real provider integrations are not shipped in this module.
+        # module_08 or a hardening module lands the adapter registry
+        # for live-API conformance runs; today the fixture is the
+        # supported path and the CLI names the gap explicitly.
+        print(
+            (
+                f"[ract] no live provider integration for "
+                f"{parsed.provider!r}. Only 'fake' is wired end-to-end "
+                "in module_04. Set --provider fake to exercise the gate "
+                "loop, or add a Provider-protocol adapter and register it."
+            ),
+            file=sys.stderr,
+        )
+        return 2
+
+    report = run_conformance(
+        provider=provider,
+        corpus_root=parsed.corpus_root,
+        cache_root=parsed.corpus_root / "cache",
+        category=parsed.category,
+        refresh=parsed.refresh,
+    )
+    results_root = parsed.corpus_root / "results"
+    markdown_index = parsed.corpus_root / "RESULTS.md"
+    report_path = write_report(report, results_root, markdown_index=markdown_index)
+    print(f"[ract] conformance report written: {report_path}")
+    if parsed.json_output:
+        print(report.to_json())
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """RACT CLI entry point."""
     if argv is None:
@@ -3672,6 +3761,8 @@ def main(argv: list[str] | None = None) -> int:
         return _leaderboard_command(argv[1:])
     if argv and argv[0] == "session":
         return _session_command(argv[1:])
+    if argv and argv[0] == "conformance":
+        return _conformance_command(argv[1:])
     if argv and argv[0] == "provenance":
         from ract.provenance_cli import _provenance_command
 
