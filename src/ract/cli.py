@@ -3763,6 +3763,10 @@ def main(argv: list[str] | None = None) -> int:
         return _session_command(argv[1:])
     if argv and argv[0] == "conformance":
         return _conformance_command(argv[1:])
+    if argv and argv[0] == "trace":
+        from ract.trace.cli_trace import _trace_command
+
+        return _trace_command(argv[1:])
     if argv and argv[0] == "provenance":
         from ract.provenance_cli import _provenance_command
 
