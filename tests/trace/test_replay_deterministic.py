@@ -98,7 +98,7 @@ def test_replay_until_step_truncates(tmp_path: Path) -> None:
                 str(runs),
                 "replay",
                 "r2",
-                f"--until",
+                "--until",
                 f"step:{step_hex}",
                 "--json",
             ]
