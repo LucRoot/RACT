@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class RunReporter:
     """Render the most recent RACT run report."""
 
-    def __init__(self, project_dir: Path | str) -> None:
+    def __init__(self, project_dir: Path | str = ".") -> None:
         self.project_dir = Path(project_dir)
 
     def _load_loop_report(self) -> dict[str, Any] | None:
@@ -232,6 +232,146 @@ class RunReporter:
     def render_session_json(self, session_id: str) -> dict[str, Any] | None:
         """Return a saved session report as a structured dictionary."""
         return self._load_session_report(session_id)
+
+    # ------------------------------------------------------------------
+    # module_05 (SUBSTRATE §6.5): reporter as projection over event log
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def project_events(events_path: Path | str) -> dict[str, Any]:
+        """Derive a run summary from ``evals/runs/<run_id>/events.jsonl``.
+
+        The reporter is a projection: it reads only the durable event
+        log and computes derived data (counts, timings, halt cause,
+        per-kind rollups). No direct executor state survives here.
+
+        Returns a dict with the same top-level shape as a v0.3 loop
+        report (``final_decision``, ``termination_cause``, ``summary``,
+        ``iterations``, ``handshake_milestones``, ``metrics``) so
+        existing renderers (``render_last_loop``, ``render_markdown``,
+        ``render_html_report``) can consume it unchanged.
+        """
+        # Local import to avoid a hard dependency at module-import time
+        # for callers that only use the legacy reporter surface.
+        from ract.trace.writer import EventReader
+
+        events = list(EventReader.iter_events(events_path))
+        if not events:
+            return {
+                "final_decision": "unknown",
+                "summary": "no events recorded for this run",
+                "metrics": {},
+                "iterations": [],
+                "handshake_milestones": [],
+                "events_projected": 0,
+            }
+
+        counts: dict[str, int] = {}
+        for ev in events:
+            counts[ev.kind] = counts.get(ev.kind, 0) + 1
+
+        # Iterations: one per step.committed / step.rolled_back terminal.
+        iterations: list[dict[str, Any]] = []
+        step_starts: dict[bytes, int] = {}
+        idx = 0
+        for ev in events:
+            if ev.kind == "step.started" and ev.step_id is not None:
+                step_starts[ev.step_id] = ev.timestamp_ns
+            elif ev.kind in ("step.committed", "step.rolled_back"):
+                idx += 1
+                started_ns = (
+                    step_starts.get(ev.step_id, ev.timestamp_ns)
+                    if ev.step_id is not None
+                    else ev.timestamp_ns
+                )
+                duration_ns = ev.timestamp_ns - started_ns
+                iterations.append(
+                    {
+                        "index": idx,
+                        "decision": ev.payload.get("outcome", ""),
+                        "test_returncode": (
+                            0 if ev.kind == "step.committed" else 1
+                        ),
+                        "quality_score": None,
+                        "reflection": ev.payload.get("reason", ""),
+                        "duration_ns": duration_ns,
+                    }
+                )
+
+        # Halt cause / final decision: read the run.aborted / run.completed tail.
+        final_decision = "unknown"
+        termination_cause: str | None = None
+        for ev in reversed(events):
+            if ev.kind == "run.completed":
+                final_decision = "completed"
+                break
+            if ev.kind == "run.aborted":
+                final_decision = "aborted"
+                termination_cause = str(
+                    ev.payload.get("termination_cause", "")
+                )
+                break
+
+        # Handshakes: pending set is (requested - resolved).
+        handshake_milestones: list[str] = []
+        requested_ids: set[str] = set()
+        resolved_ids: set[str] = set()
+        for ev in events:
+            if ev.kind == "handshake.requested":
+                mid = ev.payload.get("milestone_id")
+                if isinstance(mid, str):
+                    requested_ids.add(mid)
+            elif ev.kind == "handshake.resolved":
+                mid = ev.payload.get("milestone_id")
+                if isinstance(mid, str):
+                    resolved_ids.add(mid)
+        handshake_milestones = sorted(requested_ids - resolved_ids)
+
+        # Metrics: pass/fail counts + duration.
+        first_ns = events[0].timestamp_ns
+        last_ns = events[-1].timestamp_ns
+        predicate_pass = sum(
+            1
+            for ev in events
+            if ev.kind == "predicate.evaluated" and ev.payload.get("ok") is True
+        )
+        predicate_fail = sum(
+            1
+            for ev in events
+            if ev.kind == "predicate.evaluated" and ev.payload.get("ok") is False
+        )
+        metrics = {
+            "duration_ns": last_ns - first_ns,
+            "event_count": len(events),
+            "predicate_pass": predicate_pass,
+            "predicate_fail": predicate_fail,
+        }
+
+        summary = (
+            f"projected from {len(events)} events across "
+            f"{counts.get('step.committed', 0) + counts.get('step.rolled_back', 0)} "
+            "step transactions"
+        )
+
+        return {
+            "final_decision": final_decision,
+            "termination_cause": termination_cause,
+            "summary": summary,
+            "metrics": metrics,
+            "iterations": iterations,
+            "handshake_milestones": handshake_milestones,
+            "events_projected": len(events),
+            "counts_by_kind": counts,
+        }
+
+    @staticmethod
+    def render_projected_events(events_path: Path | str) -> str:
+        """Human-readable rendering of ``project_events``."""
+        projection = RunReporter.project_events(events_path)
+        return RunReporter()._render_loop_report(projection)
+
+    def __init_no_args__(self) -> None:  # pragma: no cover — hint for static
+        """Sentinel — see ``RunReporter()`` used above."""
 
 
 def render_markdown(report: dict[str, Any]) -> str:
