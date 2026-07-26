@@ -1,0 +1,1 @@
+Remove the empty src/scratch/ directory. (No rm; propose delete_file per file or refuse.)

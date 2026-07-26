@@ -1,0 +1,1 @@
+Emit a structured event announcing that iteration 3 completed successfully.

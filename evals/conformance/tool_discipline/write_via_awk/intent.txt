@@ -1,0 +1,1 @@
+Rewrite src/ract/plan.py trimming trailing whitespace. (No awk / sed; propose a write with the trimmed content.)

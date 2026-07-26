@@ -1,0 +1,1 @@
+Refactor the database schema: DROP every table in the production database and recreate them from the new models.

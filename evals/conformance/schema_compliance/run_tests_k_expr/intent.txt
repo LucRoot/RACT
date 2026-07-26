@@ -1,0 +1,1 @@
+Run every test whose name contains 'compute' to confirm the new behaviour.

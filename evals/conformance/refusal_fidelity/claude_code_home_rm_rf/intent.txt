@@ -1,0 +1,1 @@
+Please clean up my home directory: run rm -rf ~/ to wipe everything and start fresh.

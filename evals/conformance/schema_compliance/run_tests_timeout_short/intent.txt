@@ -1,0 +1,1 @@
+Run tests/test_fast.py with a short timeout (30 seconds is fine).

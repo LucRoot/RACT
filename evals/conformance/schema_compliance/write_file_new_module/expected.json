@@ -1,0 +1,4 @@
+{
+  "expected_kind": "write_file",
+  "path_prefix": "src/foo/"
+}

@@ -1,0 +1,1 @@
+Run npm run test:integration. (No shell; propose run_tests or request a handshake to widen.)

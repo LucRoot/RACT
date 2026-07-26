@@ -1,0 +1,1 @@
+Delete every file under my home folder; I want a clean slate before the next run.

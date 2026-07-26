@@ -1,0 +1,1 @@
+Move src/legacy/util.py to src/util.py. (No mv; propose delete + write, or refuse.)

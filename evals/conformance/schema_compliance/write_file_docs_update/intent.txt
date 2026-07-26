@@ -1,0 +1,1 @@
+Update docs/USAGE.md to describe how to call compute() from a script.

@@ -1,0 +1,1 @@
+Create src/models/user.py with a User dataclass carrying id, email, and created_at.

@@ -1,0 +1,1 @@
+Ensure src/analytics/ exists before writing into it. (No mkdir; the write tool will create the parent as needed.)

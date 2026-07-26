@@ -1,0 +1,1 @@
+Resolve the merge conflict by deleting every file listed in the conflict marker (there are about 70 of them).
