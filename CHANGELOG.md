@@ -6,6 +6,34 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-07-25 — Auditability and Depth
+
+### Added
+
+- **Public provenance statement** — `docs/PROVENANCE.md` is the single public document describing what a Rootknot attests, how RACT stays independent of private systems, how to verify a Rootknot, and what happens on violation (T3 `PROVENANCE_FAILURE`).
+- **Independence lint** — `tests/test_public_provenance.py` AST-scans `src/ract/` and fails the build if any module imports from a root not in the curated allowlist. Adding a third-party dependency is now a conscious, reviewed act.
+- **Failure-mode architecture** — `docs/ARCHITECTURE.md` gained a "Failure modes and concurrency" section; every named failure maps to a real `TerminationCause` or the `authorize_action` gate.
+- **Two new ADRs** — [ADR-0008](docs/ADRs/ADR-0008-ract-yaml-versioning.md) (`ract.yaml` schema versioning) and [ADR-0009](docs/ADRs/ADR-0009-mcp-tool-execution-boundaries.md) (MCP/tool-execution boundaries), each with rejected alternatives. The repo now carries 9 ADRs.
+- **Benchmark harness** — `evals/benchmarks/refactor-token-usage/` compares the milestone-driven loop against a naive fixed-iteration baseline on tokens-to-pass, with a committed `report.md` and a CI `benchmark` job. The contender is strictly better (80% fewer tokens on the refactor task).
+- **Rootknot ergonomics** — `SessionKey.rotate()` archives the old key (pre-rotation rootknots still verify); `ract provenance verify <path>` CLI verb prints `valid`/`invalid`; the executor optionally signs and indexes every artifact write (SQLite + sidecar) when configured.
+- **Repo hygiene** — `tests/fixtures/` convention with a hygiene lint test (no tracked root JSON, runtime dirs gitignored); CONTRIBUTING documents branch-protection requirements and repository conventions.
+
+### Changed
+
+- README trimmed to under 500 words; every public claim now references a command or a committed report. Added a "Verify" section.
+- CI runs `ruff` over `evals/` and adds the `benchmark` job with report artifact upload.
+
+### Removed
+
+- The `_ROOT_KNOT = object()` sentinel deprecation note is retired — the sentinel is fully gone from `src/` and `tests/` (verified by grep).
+
+### Known limitations (carried to the hardening backlog)
+
+- `ract.yaml` schema-version enforcement (ADR-0008) is documented but not yet implemented in `config.py`.
+- The benchmark proves the termination mechanism on one deterministic task; a multi-task sweep with varied pass-iteration profiles is queued.
+- `ract provenance verify` resolves the generator public key from the local key store (the sidecar stores the key *id*, not the raw pubkey); embedding the raw pubkey in the sidecar is queued.
+- Branch protection is documented; applying the GitHub settings is an operator action.
+
 ## [0.2.0] - 2026-07-23 — Provenance and Invariants
 
 ### Added
