@@ -10,7 +10,10 @@ persisted JSON artifacts and prints them in a readable format.
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ract.core.predicate import AcceptanceSuite, PredicateResult
 
 
 class RunReporter:
@@ -167,6 +170,64 @@ class RunReporter:
     def render_last_loop_json(self) -> dict[str, Any] | None:
         """Return the last loop report as a structured dictionary."""
         return self._load_loop_report()
+
+    @staticmethod
+    def render_acceptance_suite(
+        suite: "AcceptanceSuite",
+        results: "dict[bytes, PredicateResult] | None" = None,
+    ) -> str:
+        """Return a human-readable rendering of an ``AcceptanceSuite``.
+
+        Includes every predicate — id, kind, required flag, and invocation
+        summary — plus every ``PredicateResult`` from the final snapshot.
+
+        This is the RunReporter surface for module_01's DoD: a reviewer can
+        read the exit condition (and what the environment saw when it
+        evaluated it) without running the tool. See ADR-0010.
+        """
+        results = results or {}
+        lines: list[str] = [
+            "Acceptance Suite",
+            "----------------",
+            f"intent_id: {suite.intent_id.hex()}",
+            f"compiler_version: {suite.compiler_version}",
+            f"coverage_gate: {suite.coverage_gate}",
+            f"digest: {suite.digest()}",
+            f"required: {len(suite.required())} / {len(suite.predicates)}",
+            "",
+            "Predicates:",
+        ]
+        for predicate in suite.predicates:
+            invocation_summary = json.dumps(
+                predicate.invocation.to_canonical(), sort_keys=True
+            )
+            flag = "required" if predicate.required else "optional"
+            lines.append(
+                f"  - {predicate.id.hex()} [{predicate.kind}/{flag}] "
+                f"{invocation_summary}"
+            )
+            result = results.get(predicate.id)
+            if result is not None:
+                lines.append(
+                    f"      result: ok={result.ok} "
+                    f"reason={result.reason!r} "
+                    f"duration_ns={result.duration_ns}"
+                )
+        return "\n".join(lines)
+
+    @staticmethod
+    def render_acceptance_suite_from_run_dir(run_dir: Path | str) -> str | None:
+        """Read ``<run_dir>/suite.json`` and render it. Returns ``None`` if missing."""
+        suite_path = Path(run_dir) / "suite.json"
+        if not suite_path.is_file():
+            return None
+        # Local import to keep RunReporter's module import surface tight
+        # (predicate imports uuid/hashlib; RunReporter has no need for them
+        # unless a caller asks for suite rendering).
+        from ract.core.predicate import suite_from_json
+
+        suite = suite_from_json(suite_path.read_text(encoding="utf-8"))
+        return RunReporter.render_acceptance_suite(suite)
 
     def render_session_json(self, session_id: str) -> dict[str, Any] | None:
         """Return a saved session report as a structured dictionary."""
