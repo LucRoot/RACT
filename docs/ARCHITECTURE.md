@@ -260,6 +260,48 @@ See ADR-0015 for the design rationale and rejected alternatives, and
 `docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §6 (Substrate Layer 5) plus §11
 signals 9, 10, 11 for the master-spec source.
 
+## Trust direction: environment attests
+
+module_06 (SUBSTRATE §7 and §8) inverts the trust direction. In v0.3 the
+`Rootknot`'s single signature was the *generator*'s — a self-signed
+capability whose trust flowed from the author. In v0.4 the
+**environment** is the primary attester: every v2 sidecar carries an
+`environment_signature` produced by a per-run `SandboxKey`
+(`src/ract/security/keys.py`) alongside the `generator_signature`. RK-3
+(Environmental Attestation) requires the environment signature to
+verify, the `acceptance_suite_digest` and `manifest_digest` to be
+currently registered, and `predicate_results` to be non-empty. v1
+sidecars from v0.3 workspaces continue to verify under RK-1 + RK-2
+only, with a `DeprecationWarning` and refusal under `--strict`. See
+`docs/PROVENANCE.md` for the v1 / v2 sidecar compatibility table.
+
+Whisperer, Fence, and Auction move from CLI features to
+environment-enforced contracts under `src/ract/contracts/`:
+
+- **`WhispererContract`** runs before every planner call and prepends a
+  `DialectBrief` to the prompt. The model does not opt in; the
+  environment injects.
+- **`FenceGate`** intercepts every `DeleteFileAction` before the
+  transaction opens. `open_transaction` refuses a delete action whose
+  `fence_ticket_id` is not present in `FenceGate.approved_tickets`
+  (`ract.core.transaction.UnfencedDeleteError`).
+- **`AuctionSweep`** runs between iterations on the loop's schedule
+  (gated by `min_iteration_wall_seconds`) and emits
+  `auction.proposal` events. Nothing is deleted without a handshake.
+
+`FenceGate` and `AuctionSweep` compose: an Auction proposal the
+operator approves still passes through `FenceGate` at execute time,
+because the deletion itself is a `DeleteFileAction`.
+
+`__root_author__` moves to display-only under `ract --about`
+(`src/ract/_about.py`); the marker has no role in any invariant and
+its absence from other code paths is enforced by
+`tests/test_root_author_display_only.py`.
+
+See ADR-0016 and ADR-0017 for the design rationale and rejected
+alternatives, and `docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §7 and §8 plus
+§11 signals 12, 13, 15 for the master-spec source.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -271,3 +313,4 @@ signals 9, 10, 11 for the master-spec source.
 <!-- RACT 0.4.0: Transactional execution: worktree-per-step (ADR-0011) -->
 <!-- RACT 0.4.0: Typed action union + conformance gate (ADR-0014) -->
 <!-- RACT 0.4.0: Event trace as the product (ADR-0015) -->
+<!-- RACT 0.4.0: Rootknot environment attestation + contracts (ADR-0016, ADR-0017) -->

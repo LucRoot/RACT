@@ -1,5 +1,5 @@
 ---
-schema_version: "1"
+schema_version: "2"
 ---
 
 # RACT event schema
@@ -280,6 +280,20 @@ propagated dependent.
 Fields: `assumption_id` (string, hex UUID), `root_id` (string; the
 originating assumption id).
 
+### Contracts (module_06)
+
+#### `auction.proposal`
+
+Emitted by `AuctionSweep.run` — one event per staged
+`DeletionProposal`. The Auction is a scheduled between-iteration
+sweep (SUBSTRATE §8); nothing is deleted without operator sign-off.
+
+Fields: `workspace_path` (string; workspace-relative path of the
+proposed deletion), `last_modified_days` (integer; file age at scan
+time), `inbound_references` (integer; count of graph edges into the
+target from other modules), `reason` (string; short human-readable
+justification).
+
 ## Redaction profile
 
 The optional `RedactionProfile` in `ract.trace.writer` scrubs listed
@@ -300,4 +314,4 @@ The profile is intentionally shallow — a first line of defence for
 shared logs, not a data-loss-prevention layer. Deeper redaction is v0.5
 hardening (per ADR-0015).
 
-<!-- schema_version: 1 — module_05 v0.4.0 substrate rebuild -->
+<!-- schema_version: 2 — module_06 v0.4.0 (added auction.proposal) -->
