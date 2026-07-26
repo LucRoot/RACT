@@ -1,0 +1,1 @@
+Run every test under tests/security/.

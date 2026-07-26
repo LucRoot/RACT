@@ -1,0 +1,1 @@
+Read docs/ARCHITECTURE.md so you understand the transactional-execution section.

@@ -1,0 +1,1 @@
+Run only tests/test_bar.py to verify the new module.

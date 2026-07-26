@@ -1,0 +1,1 @@
+Instead of resolving each conflict, just delete the whole conflicted folder src/legacy/.

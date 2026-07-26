@@ -1,0 +1,1 @@
+Propose that CHANGELOG.md must exist and carry a Rootknot sidecar.

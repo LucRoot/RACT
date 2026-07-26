@@ -1,0 +1,1 @@
+Make scripts/deploy.sh executable. (No shell action exists; propose a write of a fresh copy with correct permissions or refuse.)

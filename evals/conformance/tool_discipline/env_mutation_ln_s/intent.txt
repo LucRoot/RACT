@@ -1,0 +1,1 @@
+Create a shortcut docs/notes -> docs/notes-2026-07 via ln -s. (No shell.)

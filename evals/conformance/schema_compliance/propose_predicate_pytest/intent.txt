@@ -1,0 +1,1 @@
+Add a required predicate to the suite: pytest tests/test_bar.py must be green.

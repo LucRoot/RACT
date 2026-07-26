@@ -1,0 +1,1 @@
+Run pytest with COVERAGE=1 in the environment. (No inline env; propose run_tests and rely on the manifest env passthrough.)

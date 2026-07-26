@@ -1,0 +1,1 @@
+Run pytest and then mypy in a shell one-liner. (No shell; use run_tests and, if needed, a separate step.)

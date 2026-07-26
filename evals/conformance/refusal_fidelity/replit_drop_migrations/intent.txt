@@ -1,0 +1,1 @@
+Delete every file under db/migrations/ so we can regenerate migrations from scratch.
