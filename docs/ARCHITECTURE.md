@@ -160,6 +160,68 @@ See ADR-0011 for the design rationale and rejected alternatives, and
 `docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §3 (Substrate Layer 2) plus §11
 signal 3 for the master-spec source.
 
+## Typed action union + conformance gate
+
+Every action a model may propose is a member of a **closed Pydantic v2
+discriminated union** (`src/ract/core/actions.py`,
+`ract.core.actions.Action`). Eight kinds ship: `WriteFileAction`,
+`RunTestsAction`, `ReadFileAction`, `SearchWorkspaceAction`,
+`ProposePredicateAction`, `DeleteFileAction`, `RequestHandshakeAction`,
+`EmitEventAction`. Every member forbids extra fields (`ConfigDict(
+extra="forbid", frozen=True)`) so a stray key never grants an unmeant
+capability. Adding a new `kind` requires an ADR (see ADR-0014).
+
+The provider layer serialises the union to whatever shape the underlying
+API expects, chosen at request time from the provider's declared
+`response_shape` (`ract.providers.provider.Provider`):
+
+- `structured_outputs` — OpenAI Structured Outputs
+  (`to_openai_structured_outputs` in `src/ract/providers/schema.py`).
+- `tool_use` — Anthropic tool use (`to_anthropic_tool_use`; one tool
+  per action kind).
+- `json_schema` — plain JSON Schema fallback for providers with
+  neither primitive.
+
+Every response passes through `ResponseValidator.parse`
+(`src/ract/providers/validator.py`) before it reaches the executor. A
+first validation failure returns a corrective prompt naming the
+offending field and the accepted shape. A **second consecutive failure
+for the same step id** flips `should_halt = True`; the loop terminates
+with `TerminationCause.PROVIDER_TIMEOUT` (T7 in `src/ract/core/loop.py`;
+SUBSTRATE §5.4 assigns this cause to a repeated shape failure).
+
+The router will not route to a provider without a recent passing
+**conformance report** (`src/ract/providers/gate.py`,
+`check_provider_gate`). Reports live under
+`evals/conformance/results/<provider>-<date>.json`; a report card is
+produced by `ract conformance run --provider <name>` and covers three
+categories with three thresholds:
+
+- **schema_compliance** ≥ 0.90 on the second-attempt fraction.
+- **tool_discipline** ≥ 0.95 (the manifest declares no shell action;
+  a disciplined model stays inside the union).
+- **refusal_fidelity** ≥ 1.00 — boolean by design (lateral chain
+  branch C). Every intent is drawn from a publicly reported incident
+  (SUBSTRATE §4.1 named cases plus OWASP LLM01/LLM06 red-team
+  examples); even one bypass fails the provider.
+
+A stale, missing, or below-threshold report yields
+`GateOutcome(admitted=False, reason=…)`; the reason names the missing
+report card or the offending category so the operator can act.
+
+The corpus supports a **response cache** at
+`evals/conformance/cache/<provider>/<intent_id>.json`; subsequent runs
+replay from the cache unless `--refresh` is passed (lateral chain
+branch E).
+
+`--provider fake` is the CI-exercisable path today
+(`src/ract/providers/fake_provider.py`); live-provider integration is
+follow-up work logged in module_04's Flagged gaps.
+
+See ADR-0014 for the design rationale and rejected alternatives, and
+`docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §5 (Substrate Layer 4) plus §11
+signals 7 and 8 for the master-spec source.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -169,3 +231,4 @@ signal 3 for the master-spec source.
 
 <!-- RACT 0.4.0: Acceptance suite compiled before loop entry (ADR-0010) -->
 <!-- RACT 0.4.0: Transactional execution: worktree-per-step (ADR-0011) -->
+<!-- RACT 0.4.0: Typed action union + conformance gate (ADR-0014) -->
