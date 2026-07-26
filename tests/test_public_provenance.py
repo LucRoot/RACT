@@ -93,6 +93,10 @@ ALLOWED_IMPORT_ROOTS = {
     # OS-enforced sandbox backends
     "fnmatch",
     "shlex",
+    # module_06: Rootknot.signature deprecation alias emits a
+    # ``DeprecationWarning`` via stdlib ``warnings``; provenance.py
+    # emits the same at RK-3-skipped-for-v1 sites. Both stdlib.
+    "warnings",
 }
 
 

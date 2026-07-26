@@ -176,6 +176,25 @@ def test_ract_auction_reports_zero_dead_modules():
     # module_08. Allowlist here mirrors the transitional-substrate
     # pattern used above until module_08 wires the run-entry install.
     allowlist.add("otel.py")
+    # v0.4 (module_06): the environment-enforced contract primitives at
+    # ``ract.contracts.{whisperer,fence,auction}`` and the sandbox key
+    # module at ``ract.security.keys`` are exported from their package
+    # __init__ files and consumed by tests today. The shipped CLI
+    # migration to the environment-enforced call sites lands in
+    # module_08 (the CLI wrappers ``ract whisper|fence|auction`` still
+    # route through the v0.3 modules). Allowlist mirrors the
+    # transitional-substrate pattern used above until module_08 wires
+    # the SubstrateLoop-as-default path.
+    allowlist.add("whisperer.py")
+    allowlist.add("fence.py")
+    # ``contracts/auction.py`` shares its filename with the executor's
+    # auction — allowlist the basename to cover the new module. (The
+    # v0.3 dead_code_auction.py already lives in the DEFAULT_ALLOWLIST.)
+    allowlist.add("auction.py")
+    # ``security/keys.py`` — SandboxKey generator; consumed by
+    # module_06 tests and by the RK-3 verify path. No shipped-CLI call
+    # site until module_08 (see module_06 Flagged gaps).
+    allowlist.add("keys.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
