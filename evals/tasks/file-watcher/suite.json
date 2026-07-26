@@ -1,0 +1,50 @@
+{
+  "compiled_from": "Implement a file watcher that rebuilds a static site when src/ changes, exits cleanly on SIGINT, and produces a Rootknot-valid artifact.",
+  "compiler_version": "0.4.0",
+  "coverage_gate": 0.85,
+  "intent_id": "cffbfe899b3940feb217561f773e609c",
+  "predicates": [
+    {
+      "depends_on": [],
+      "id": "bd4fcfd20f2a4fefad4c9a8843d24e07",
+      "invocation": {
+        "strict": true,
+        "target": "src/watcher.py",
+        "type": "mypy"
+      },
+      "kind": "type",
+      "required": true
+    },
+    {
+      "depends_on": [],
+      "id": "48b668a7721649caae1130efe503a306",
+      "invocation": {
+        "callable_ref": "ract.core.compile:_canonical_touched",
+        "type": "assertion"
+      },
+      "kind": "invariant",
+      "required": true
+    },
+    {
+      "depends_on": [],
+      "id": "8991b4cd3df74469af42dff62ec0e32a",
+      "invocation": {
+        "callable_ref": "ract.core.compile:_discover_test_files",
+        "type": "assertion"
+      },
+      "kind": "invariant",
+      "required": true
+    },
+    {
+      "depends_on": [],
+      "id": "0080e759c20748ffb88b3b436ef25fe6",
+      "invocation": {
+        "must_have_rootknot": false,
+        "path": "src/watcher.py",
+        "type": "artifact"
+      },
+      "kind": "artifact",
+      "required": true
+    }
+  ]
+}
