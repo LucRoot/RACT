@@ -167,6 +167,15 @@ def test_ract_auction_reports_zero_dead_modules():
     # directly — the plan says module_08 is where that wiring lands.
     # Allowlist mirrors the transitional-substrate pattern used above.
     allowlist.add("gate.py")
+    # v0.4 (module_05): the OTLP mirror in ``ract.trace.otel`` uses lazy
+    # local imports (opentelemetry-api / sdk / exporter-otlp are runtime
+    # deps declared in pyproject.toml per ADR-0015) so the module
+    # imports cleanly without live OTLP installed at test time. It is
+    # exported from ``ract.trace.__init__`` and installed via
+    # ``install_otlp_exporter`` from a shipped CLI code path lands in
+    # module_08. Allowlist here mirrors the transitional-substrate
+    # pattern used above until module_08 wires the run-entry install.
+    allowlist.add("otel.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
