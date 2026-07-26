@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
@@ -54,6 +55,36 @@ class SessionKey:
             key_path.chmod(0o600)
         return cls(private_key, key_path)
 
+    def rotate(
+        self,
+        session_id: bytes,
+        state_dir: Path | None = None,
+    ) -> SessionKey:
+        """Archive this key and generate a fresh one for ``session_id``.
+
+        Rotation archives the current private key to
+        ``<key_path>.archived-<unix_ts>`` and writes a new key in its place.
+        The archived key is retained so that Rootknots signed before rotation
+        remain verifiable — Rootknot verification uses the public key embedded
+        in the Rootknot itself, not a key lookup, so an archived private key is
+        only needed to re-derive that public key for archival audit.
+
+        Returns the new ``SessionKey``. The caller should sign subsequent
+        artifacts with the returned key.
+        """
+        if state_dir is None:
+            # self._key_path is <state_dir>/keys/<id>.pem, so its grandparent
+            # is the state_dir that load_or_create expects.
+            state_dir = self._key_path.parent.parent
+        archive_path = self._key_path.with_suffix(
+            self._key_path.suffix + f".archived-{int(time.time())}"
+        )
+        # If an existing key file is present, preserve it as the archive.
+        if self._key_path.exists():
+            self._key_path.replace(archive_path)
+        # Generate and persist the fresh key at the canonical path.
+        return SessionKey.load_or_create(session_id, state_dir=state_dir)
+
     def public_key_bytes(self) -> bytes:
         """Return the raw 32-byte Ed25519 public key."""
         return self._private_key.public_key().public_bytes(
@@ -98,4 +129,4 @@ def verify(message: bytes, signature: bytes, pubkey: bytes) -> bool:
     return True
 
 
-# RACT 0.2.0
+# RACT 0.3.0

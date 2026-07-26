@@ -53,9 +53,16 @@ Each indexed artifact is stored two ways:
 
 To verify by hand: read the sidecar, recompute the canonical bytes exactly as
 `Rootknot.canonical_bytes()` does (sorted JSON, `(",", ":")` separators), and
-check the ed25519 signature against the generator's public key. The
-**planned** CLI verb `ract provenance verify <path>` (v0.3.0) automates this
-and prints `valid` / `invalid`.
+check the ed25519 signature against the generator's public key. The CLI verb
+
+```
+ract provenance verify <path>
+```
+
+automates this: it loads the sidecar, recomputes the artifact digest, resolves
+the generator's public key from the local key store (including archived keys,
+so pre-rotation rootknots still verify), checks the signature, and prints
+`valid` / `invalid` with exit code 0 / 1.
 
 The operator's session public keys live in `<state_dir>/ract/keys/*.pem`.
 

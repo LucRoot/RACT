@@ -78,6 +78,8 @@ class Executor:
         allow_novelty_overrun: bool = False,
         compression_novelty_detector: CompressionNoveltyDetector | None = None,
         handshake_registry: HandshakeRegistry | None = None,
+        provenance_index: Any = None,
+        session_key: Any = None,
     ) -> None:
         self.router = router
         self.hook_manager = hook_manager
@@ -94,6 +96,11 @@ class Executor:
         self.allow_novelty_overrun = allow_novelty_overrun
         self.compression_novelty_detector = compression_novelty_detector
         self.handshake_registry = handshake_registry
+        # Optional signed-provenance wiring. When both are supplied, every
+        # artifact write is signed and indexed (SQLite + sidecar). When absent
+        # (the default, preserving prior behavior), writes are untracked.
+        self.provenance_index = provenance_index
+        self.session_key = session_key
         self.provenance = ProvenanceTracker()
         self.artifact_store = ArtifactStore()
         self.artifact_tracker = ArtifactTracker()
@@ -318,6 +325,11 @@ class Executor:
         LR:: Writing is gated by project_dir because the Executor is also used in
         unit tests that do not target a real filesystem. Absolute paths are
         rejected to prevent a plan from escaping the project directory.
+
+        When ``provenance_index`` and ``session_key`` are configured, every
+        successful write is signed into a Rootknot and recorded in the index
+        (SQLite + sidecar). This makes the executor the single chokepoint that
+        binds provenance to artifacts (per ADR-0001 and docs/PROVENANCE.md).
         """
         if self.project_dir is None:
             return
@@ -328,7 +340,43 @@ class Executor:
             return
         full_path = self.project_dir / target
         full_path.parent.mkdir(parents=True, exist_ok=True)
-        full_path.write_text(self._strip_markdown_fences(content), encoding="utf-8")
+        cleaned = self._strip_markdown_fences(content)
+        full_path.write_text(cleaned, encoding="utf-8")
+        self._record_provenance(full_path, cleaned)
+
+    def _record_provenance(self, full_path: Path, content: str) -> None:
+        """Sign and index the artifact just written, if provenance is configured.
+
+        Failures here are logged, not raised: a provenance recording error must
+        not corrupt the artifact write itself. The loop's ``verify_workspace``
+        step will catch any artifact that ended up without a valid rootknot.
+        """
+        if self.provenance_index is None or self.session_key is None:
+            return
+        try:
+            from ract.core.rootknot import make_rootknot
+            from ract.core.types import digest_bytes
+
+            artifact_digest = digest_bytes(content.encode("utf-8"))
+            # The assumption digest is opaque at the write layer; use a stable
+            # placeholder derived from the path so the rootknot is well-formed.
+            # The plan/assumption binding is enriched upstream by the loop.
+            assumption_digest = digest_bytes(
+                str(full_path.relative_to(self.project_dir)).encode("utf-8")
+            )
+            workspace_path = str(full_path.relative_to(self.project_dir)).replace("\\", "/")
+            knot = make_rootknot(
+                self.session_key,
+                workspace_path=workspace_path,
+                artifact_digest=artifact_digest,
+                assumption_digest=assumption_digest,
+            )
+            self.provenance_index.save(knot, full_path)
+        except Exception as exc:  # noqa: BLE001 - log and continue (see docstring)
+            print(
+                f"[executor] provenance recording failed for {full_path}: {exc}",
+                flush=True,
+            )
 
     def _stream_completion(
         self,
