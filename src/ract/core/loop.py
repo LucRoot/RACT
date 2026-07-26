@@ -1,20 +1,37 @@
-"""Formal recursion loop with T1–T7 termination conditions."""
+"""Formal recursion loop with T1–T7 termination conditions.
+
+v0.4 change (SUBSTRATE §2 and §11 signals 1–2): T1 (Completion) is now a
+fact about the environment. ``LoopState`` carries a frozen
+``AcceptanceSuite``; ``check_t1`` returns ``COMPLETE`` only when every
+required predicate evaluates ``ok=True`` against the workspace snapshot.
+The milestone-oracle path is retained for scheduling/reporting only; no
+model opinion terminates the loop.
+
+Rationale in ``docs/ADRs/ADR-0010-acceptance-predicates.md``.
+"""
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from ract.core.assumption_registry import AssumptionRegistry
+from ract.core.predicate import AcceptanceSuite
 from ract.handshake_registry import HandshakeRegistry
 from ract.loop_planner import Milestone
 from ract.manager import Plan
+
+if TYPE_CHECKING:
+    pass
 
 
 class TerminationCause(Enum):
     """Why the recursion loop stopped."""
 
-    COMPLETE = auto()  # T1: all milestones verified.
+    COMPLETE = auto()  # T1: all required predicates evaluate ok against the snapshot.
     REGRESSED = auto()  # T2: quality regressed twice consecutively.
     PROVENANCE_FAILURE = auto()  # T3: RK-1 or RK-2 violated.
     ASSUMPTION_BURST = auto()  # T4: too many assumptions violated.
@@ -42,15 +59,25 @@ class Budget:
 
 @dataclass
 class WorkspaceSnapshot:
-    """Lightweight view of the workspace at a point in time."""
+    """Lightweight view of the workspace at a point in time.
+
+    ``metadata`` carries evaluator side-channel results — pytest returncodes,
+    mypy exit codes, Hypothesis property outcomes — so gates can be pure over
+    ``(invocation, snapshot)`` without spawning subprocesses. See
+    ``src/ract/core/gates.py`` for the channel keys.
+    """
 
     files: dict[str, str] = field(default_factory=dict)
     timestamp: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class MilestoneReport:
-    """Outcome of evaluating one milestone."""
+    """Outcome of evaluating one milestone.
+
+    Retained for scheduling and reporting; no longer a T1 input.
+    """
 
     milestone_id: str
     status: str  # "verified" | "pending" | "blocked"
@@ -88,10 +115,17 @@ class ProviderTimeoutRecord:
 
 @dataclass
 class LoopState:
-    """Complete state of the recursion loop."""
+    """Complete state of the recursion loop.
+
+    The suite is required. A caller that constructs ``LoopState`` without
+    one fails at construction — the compile-before-loop rule from SUBSTRATE
+    §2 lives here. Lateral chain branch B: a suite with zero required
+    predicates is refused with a specific error.
+    """
 
     plan: Plan
     workspace: WorkspaceSnapshot
+    suite: AcceptanceSuite
     milestones: list[Milestone] = field(default_factory=list)
     milestone_history: list[MilestoneReport] = field(default_factory=list)
     assumption_registry: AssumptionRegistry = field(default_factory=AssumptionRegistry)
@@ -104,6 +138,8 @@ class LoopState:
         default_factory=ProviderTimeoutRecord
     )
     start_time: float = 0.0
+    # Retained for backwards compatibility with reporting/scheduling
+    # heuristics, but no longer read by T1.
     tau_complete: float = 0.95
     delta_regress: float = 0.1
     assumption_burst_threshold: int = 3
@@ -112,32 +148,36 @@ class LoopState:
     def __post_init__(self) -> None:
         if self.handshake_registry is None:
             self.handshake_registry = HandshakeRegistry(".")
+        if not self.suite.required():
+            raise ValueError(
+                f"AcceptanceSuite for intent {self.suite.intent_id.hex()} has "
+                "zero required predicates; T1 would trivially fire. The "
+                "IntentCompiler must produce at least one required predicate "
+                "before the loop enters step one."
+            )
 
 
-# Default thresholds used by the predicates.
-_DEFAULT_TAU_COMPLETE: float = 0.95
+# Default thresholds retained for the non-T1 predicates.
 _DEFAULT_DELTA_REGRESS: float = 0.1
 _DEFAULT_ASSUMPTION_BURST: int = 3
 
 
 def check_t1(
-    milestones: list[Milestone],
-    reports: list[MilestoneReport],
-    tau_complete: float = _DEFAULT_TAU_COMPLETE,
+    suite: AcceptanceSuite, snapshot: WorkspaceSnapshot
 ) -> TerminationCause | None:
-    """T1: all milestones verified with confidence >= tau_complete."""
-    if not milestones:
+    """T1 (Completion): all required predicates evaluate ok against the snapshot.
+
+    The environment decides. ``ProgressOracle`` is not consulted here; its
+    score is a scheduling heuristic and reporting axis only.
+    """
+    required = suite.required()
+    if not required:
         return None
-    verified = {r.milestone_id for r in reports if r.status == "verified"}
-    for milestone in milestones:
-        report = next((r for r in reports if r.milestone_id == milestone.id), None)
-        if report is None or report.status != "verified":
+    for predicate in required:
+        result = predicate.evaluate(snapshot)
+        if not result.ok:
             return None
-        if report.confidence < tau_complete:
-            return None
-    if len(verified) == len(milestones):
-        return TerminationCause.COMPLETE
-    return None
+    return TerminationCause.COMPLETE
 
 
 def check_t2(
@@ -147,11 +187,9 @@ def check_t2(
     """T2: quality regressed by > delta_regress for two consecutive iterations."""
     if len(quality_history) < 2:
         return None
-    # Look at the last two scores.
     last = quality_history[-1]
     previous = quality_history[-2]
     if previous.value - last.value > delta_regress:
-        # Check if this is the second consecutive regression.
         if len(quality_history) >= 3:
             before = quality_history[-3]
             if before.value - previous.value > delta_regress:
@@ -195,11 +233,7 @@ def check_t6(
     registry: HandshakeRegistry,
     blocking_ids: set[str] | None = None,
 ) -> TerminationCause | None:
-    """T6: unresolved handshake blocks the critical path.
-
-    Only handshakes explicitly listed in *blocking_ids* are considered blocking.
-    When *blocking_ids* is None, any pending handshake blocks.
-    """
+    """T6: unresolved handshake blocks the critical path."""
     pending = {item.id for item in registry.pending()}
     if not pending:
         return None
@@ -219,7 +253,7 @@ def check_t7(record: ProviderTimeoutRecord) -> TerminationCause | None:
 
 def evaluate_termination(state: LoopState, now: float) -> TerminationCause | None:
     """Evaluate T1–T7 in order and return the first cause that fires."""
-    if cause := check_t1(state.milestones, state.milestone_history, state.tau_complete):
+    if cause := check_t1(state.suite, state.workspace):
         return cause
     if cause := check_t2(state.quality_history, state.delta_regress):
         return cause
@@ -237,4 +271,45 @@ def evaluate_termination(state: LoopState, now: float) -> TerminationCause | Non
     return None
 
 
-# RACT 0.2.0
+# ---------------------------------------------------------------------------
+# Factory: persist the suite before the first step executes.
+# ---------------------------------------------------------------------------
+
+
+def build_loop_state(
+    *,
+    plan: Plan,
+    workspace: WorkspaceSnapshot,
+    suite: AcceptanceSuite,
+    run_dir: Path | str | None = None,
+    **kwargs: Any,
+) -> LoopState:
+    """Construct a ``LoopState`` and persist ``suite.json`` before returning.
+
+    When ``run_dir`` is provided, the canonical serialization of the suite
+    is written to ``<run_dir>/suite.json`` **before** the ``LoopState`` is
+    returned to the caller. That ordering is the guarantee module_01 makes:
+    the compile artifact is on disk before any step-write path can run.
+
+    See ``docs/ARCHITECTURE.md``, section "Acceptance suite compiled before
+    loop entry" and ADR-0010.
+    """
+    if run_dir is not None:
+        run_path = Path(run_dir)
+        run_path.mkdir(parents=True, exist_ok=True)
+        suite_path = run_path / "suite.json"
+        suite_path.write_text(suite.to_json(), encoding="utf-8")
+    return LoopState(plan=plan, workspace=workspace, suite=suite, **kwargs)
+
+
+def load_suite_from_run_dir(run_dir: Path | str) -> AcceptanceSuite:
+    """Read ``<run_dir>/suite.json`` and deserialize it."""
+    # Import here to keep the module surface tight and avoid a cycle if the
+    # reader ever grows dependencies on loop primitives.
+    from ract.core.predicate import suite_from_canonical
+
+    payload = json.loads((Path(run_dir) / "suite.json").read_text(encoding="utf-8"))
+    return suite_from_canonical(payload)
+
+
+# RACT 0.4.0
