@@ -33,6 +33,13 @@ ALLOWED_IMPORT_ROOTS = {
     "zstandard",
     "rich",
     "cryptography",
+    # module_05 (ADR-0015): OpenTelemetry API/SDK/OTLP-HTTP exporter is
+    # a runtime dep for the event-trace substrate. Imported lazily
+    # inside ``ract.trace.otel``; declared in pyproject.toml.
+    "opentelemetry",
+    # threading is stdlib; the writer uses a Lock for the
+    # single-writer-per-run contract (see writer.py docstring).
+    "threading",
     # dev-only libs that some modules import for optional features
     "pytest",
     "pydantic",
