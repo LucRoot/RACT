@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 from ract.core.actions import ACTION_MEMBERS, Action, PlannedStep
 
@@ -86,7 +86,7 @@ def _harden(schema: Any) -> Any:
     return schema
 
 
-def _action_json_schema(cls: type) -> dict[str, Any]:
+def _action_json_schema(cls: type[BaseModel]) -> dict[str, Any]:
     """JSON Schema for a single action class."""
     schema = cls.model_json_schema()
     return _harden(schema)

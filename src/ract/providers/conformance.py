@@ -163,6 +163,18 @@ def _load_cached(cache_root: Path, provider: str, intent_id: str) -> Any | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _unpack_cached(cached: Any) -> str | dict[str, Any]:
+    """Extract the ``response`` payload from a cached wrapper."""
+    if isinstance(cached, dict) and "response" in cached:
+        inner = cached["response"]
+        if isinstance(inner, (dict, str)):
+            return inner
+        return str(inner)
+    if isinstance(cached, (dict, str)):
+        return cached
+    return str(cached)
+
+
 def _write_cache(
     cache_root: Path, provider: str, intent_id: str, response: Any
 ) -> None:
@@ -202,8 +214,9 @@ def _score_schema_compliance(
     attempt.
     """
     detail: dict[str, Any] = {"intent_id": intent.intent_id}
-    raw = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
-    if raw is None:
+    cached = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
+    raw: str | dict[str, Any]
+    if cached is None:
         raw = provider.send_planned_step_request(
             prompt=intent.prompt,
             schema_payload=schema_payload,
@@ -211,7 +224,7 @@ def _score_schema_compliance(
         )
         _write_cache(cache_root, provider.name, intent.intent_id, raw)
     else:
-        raw = raw.get("response") if isinstance(raw, dict) else raw
+        raw = _unpack_cached(cached)
 
     outcome = validator.parse(raw)
     first_pass = outcome.planned_step is not None
@@ -223,8 +236,9 @@ def _score_schema_compliance(
     # under a suffixed id so caches never conflate the two attempts).
     detail["first_error"] = outcome.error
     retry_id = f"{intent.intent_id}__retry"
-    raw2 = None if refresh else _load_cached(cache_root, provider.name, retry_id)
-    if raw2 is None:
+    cached2 = None if refresh else _load_cached(cache_root, provider.name, retry_id)
+    raw2: str | dict[str, Any]
+    if cached2 is None:
         corrective = outcome.corrective_prompt or ""
         raw2 = provider.send_planned_step_request(
             prompt=f"{intent.prompt}\n\n{corrective}",
@@ -233,7 +247,7 @@ def _score_schema_compliance(
         )
         _write_cache(cache_root, provider.name, retry_id, raw2)
     else:
-        raw2 = raw2.get("response") if isinstance(raw2, dict) else raw2
+        raw2 = _unpack_cached(cached2)
 
     outcome2 = validator.parse(raw2)
     second_pass = outcome2.planned_step is not None
@@ -259,8 +273,9 @@ def _score_tool_discipline(
     inside the union has satisfied the discipline.
     """
     detail: dict[str, Any] = {"intent_id": intent.intent_id}
-    raw = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
-    if raw is None:
+    cached = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
+    raw: str | dict[str, Any]
+    if cached is None:
         raw = provider.send_planned_step_request(
             prompt=intent.prompt,
             schema_payload=schema_payload,
@@ -268,7 +283,7 @@ def _score_tool_discipline(
         )
         _write_cache(cache_root, provider.name, intent.intent_id, raw)
     else:
-        raw = raw.get("response") if isinstance(raw, dict) else raw
+        raw = _unpack_cached(cached)
     outcome = validator.parse(raw)
     passed = outcome.planned_step is not None
     detail["passed"] = passed
@@ -298,8 +313,9 @@ def _score_refusal_fidelity(
     bypass.
     """
     detail: dict[str, Any] = {"intent_id": intent.intent_id, "source": intent.expected.get("source", "")}
-    raw = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
-    if raw is None:
+    cached = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
+    raw: str | dict[str, Any]
+    if cached is None:
         raw = provider.send_planned_step_request(
             prompt=intent.prompt,
             schema_payload=schema_payload,
@@ -307,7 +323,7 @@ def _score_refusal_fidelity(
         )
         _write_cache(cache_root, provider.name, intent.intent_id, raw)
     else:
-        raw = raw.get("response") if isinstance(raw, dict) else raw
+        raw = _unpack_cached(cached)
     outcome = validator.parse(raw)
     if outcome.planned_step is None:
         # A refusal that comes back as an unparsable response is not a
