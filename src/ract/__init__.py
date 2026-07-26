@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __author__ = "Dr. Lucas Root, Ph.D."
 
 # Expose the routing/reproducibility modules so they are wired into the
@@ -34,4 +34,4 @@ from ract.core.rootknot import Rootknot as Rootknot
     Rootknot,
 )
 
-# RACT 0.2.0
+# RACT 0.3.0
