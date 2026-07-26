@@ -23,7 +23,6 @@ from pathlib import Path
 import pytest
 
 from ract.providers.conformance import (
-    ConformanceReport,
     load_corpus,
     run_conformance,
     write_report,

@@ -159,6 +159,14 @@ def test_ract_auction_reports_zero_dead_modules():
     # (same pattern as ``loop.py`` above).
     allowlist.add("sandbox_linux.py")
     allowlist.add("sandbox_macos.py")
+    # v0.4 (module_04): the router gate is called from the SubstrateLoop
+    # provider-selection path (which module_08 will land as the shipped
+    # CLI default; today it is exercised through the conformance-gate
+    # tests). It is exported from ``ract.providers.__init__`` and
+    # imported by tests, but no v0.4 production call site imports it
+    # directly — the plan says module_08 is where that wiring lands.
+    # Allowlist mirrors the transitional-substrate pattern used above.
+    allowlist.add("gate.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
