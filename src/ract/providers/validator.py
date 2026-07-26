@@ -99,6 +99,13 @@ class ResponseValidator:
         # Success clears the per-step failure count.
         if step.step_id in self._failures:
             del self._failures[step.step_id]
+        _emit_response_event(
+            "response.validated",
+            {
+                "step_id": step.step_id,
+                "kind": step.action.kind,
+            },
+        )
         return ValidationOutcome(planned_step=step, step_id=step.step_id)
 
     # ------------------------------------------------------------------
@@ -150,6 +157,15 @@ class ResponseValidator:
         bucket = step_id or "<unknown>"
         self._failures[bucket] = self._failures.get(bucket, 0) + 1
         halt = self._failures[bucket] >= 2
+        _emit_response_event(
+            "response.rejected",
+            {
+                "step_id": step_id or "",
+                "error": error,
+                "attempt": self._failures[bucket],
+                "should_halt": halt,
+            },
+        )
         return ValidationOutcome(
             error=error,
             corrective_prompt=corrective_prompt,
@@ -200,6 +216,22 @@ class ResponseValidator:
             "schema. Do not add fields; do not remove required fields."
         )
         return "\n".join(lines)
+
+
+def _emit_response_event(kind: str, payload: dict[str, Any]) -> None:
+    """Emit a provider-response event to the run's event log.
+
+    module_05 (SUBSTRATE §6.3). The ``prompt.sent`` / ``response.received``
+    pair is emitted at the ``Provider`` call site; the validator only
+    emits the ``response.validated`` / ``response.rejected`` outcome so
+    the log distinguishes "the model answered" from "the answer parsed".
+    """
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(kind, payload)  # type: ignore[arg-type]
+    except Exception:  # noqa: BLE001
+        pass
 
 
 __all__ = ["ResponseValidator", "ValidationOutcome"]

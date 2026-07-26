@@ -201,10 +201,12 @@ class RequestHandshakeAction(_ActionBase):
 class EmitEventAction(_ActionBase):
     """Emit a structured event through the event log (module_05).
 
-    Until module_05 wires the log, the event goes to a null sink (same
-    pattern as ``ract.security.sandbox.emit``). The action still
-    validates and still crosses the validator boundary; only the
-    downstream sink is deferred.
+    module_05 closed the null-sink gap: dispatching this action calls
+    ``ract.trace.sink.emit`` with the payload plus the manifest digest.
+    A run without a registered writer drops the event via the null-sink
+    default in ``ract.trace.sink`` — the model's proposed event kind
+    still has to match the closed ``EventKind`` vocabulary (see
+    ``ract.trace.events.LEGAL_EVENT_KINDS``).
 
     ``event_kind`` names the event; ``payload`` is a small JSON dict
     the log interprets. ``manifest_digest_hex`` is optional; when set,
@@ -217,6 +219,28 @@ class EmitEventAction(_ActionBase):
     event_kind: str
     payload: dict[str, str | int | float | bool] = Field(default_factory=dict)
     manifest_digest_hex: str = ""
+
+    def dispatch(self) -> None:
+        """Publish this action's event to the run's event log.
+
+        The action's ``event_kind`` is validated against the closed
+        ``LEGAL_EVENT_KINDS`` set at dispatch time (not at construction —
+        the closed vocabulary is a trace-layer concern, and importing
+        the set at action-definition time would cycle).
+        """
+        # Local imports keep the actions module's import surface tight.
+        from ract.trace.events import LEGAL_EVENT_KINDS
+        from ract.trace.sink import emit as _emit_event
+
+        if self.event_kind not in LEGAL_EVENT_KINDS:
+            raise ValueError(
+                f"emit_event: unknown event_kind {self.event_kind!r}; "
+                f"legal kinds are {sorted(LEGAL_EVENT_KINDS)}"
+            )
+        payload = dict(self.payload)
+        if self.manifest_digest_hex:
+            payload.setdefault("manifest_digest", self.manifest_digest_hex)
+        _emit_event(self.event_kind, payload)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------

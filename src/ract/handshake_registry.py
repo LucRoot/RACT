@@ -122,6 +122,14 @@ class HandshakeRegistry:
         )
         items.append(item)
         self._save(items)
+        # module_05: emit at the request site so the log is complete
+        # regardless of who called ``add`` (compiler group requests,
+        # handshake CLI, MilestoneOracle escalations).
+        _emit_handshake_event(
+            "handshake.requested",
+            item,
+            reason="",
+        )
         return item
 
     # ------------------------------------------------------------------
@@ -209,8 +217,35 @@ class HandshakeRegistry:
                     depends_on=item.depends_on,
                 )
                 self._save(items)
+                # module_05: emit at the resolve site so the log carries
+                # every terminal transition.
+                _emit_handshake_event(
+                    "handshake.resolved", items[i], reason=""
+                )
                 return items[i]
         raise KeyError(f"Handshake not found: {milestone_id}")
+
+
+def _emit_handshake_event(kind: str, item: HandshakeItem, *, reason: str) -> None:
+    """Emit a handshake lifecycle event to the run's event log.
+
+    module_05 (SUBSTRATE §6.3). Local import so this module has no
+    top-level dependency on ``ract.trace``.
+    """
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            kind,  # type: ignore[arg-type]
+            {
+                "milestone_id": item.id,
+                "status": item.status,
+                "description": item.description,
+                "reason": reason,
+            },
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # RACT 0.1.1 - Trust and tooling

@@ -152,6 +152,7 @@ class SubstrateLoop:
                     reason=f"blocked on prior step {dep.hex()}",
                 )
                 self.records.append(record)
+                _emit_step_event(record, "step.rolled_back")
                 return record
 
         # ---- open worktree + (maybe) container ----------------------------
@@ -225,6 +226,7 @@ class SubstrateLoop:
                     reason=f"post-condition failed: {result.reason}",
                 )
                 self.records.append(record)
+                _emit_step_event(record, "step.rolled_back")
                 return record
 
         # Handshake gate: post-conditions passed, but if any declared
@@ -246,6 +248,7 @@ class SubstrateLoop:
                     ),
                 )
                 self.records.append(record)
+                _emit_step_event(record, "step.rolled_back")
                 # Deliberately do NOT roll back — the worktree stays intact.
                 return record
 
@@ -265,6 +268,7 @@ class SubstrateLoop:
                 reason=f"commit failed: {exc}",
             )
             self.records.append(record)
+            _emit_step_event(record, "step.rolled_back")
             return record
 
         # Update the loop's canonical HEAD to reference the step-branch
@@ -288,6 +292,7 @@ class SubstrateLoop:
             branch=wt.branch,
         )
         self.records.append(record)
+        _emit_step_event(record, "step.committed")
         return record
 
 
@@ -326,6 +331,30 @@ def _fast_forward_head(repo_root: Path, new_sha: str) -> None:
         text=True,
         check=False,
     )
+
+
+def _emit_step_event(record: StepRecord, kind: str) -> None:
+    """Emit a step terminal event into the run's event log.
+
+    module_05 (SUBSTRATE §6.3). Wraps the emit so a run without a
+    registered writer (unit tests, ad-hoc loops) still runs.
+    """
+    try:  # local import so the executor→trace edge is one-way
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            kind,  # type: ignore[arg-type]  # runtime-checked EventKind
+            {
+                "outcome": record.outcome.name,
+                "parent_snapshot_before": record.parent_snapshot_before,
+                "parent_snapshot_after": record.parent_snapshot_after,
+                "branch": record.branch,
+                "reason": record.reason,
+            },
+            step_id=record.step_id,
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _remove_worktree_only(repo_root: Path, worktree_path: Path) -> None:

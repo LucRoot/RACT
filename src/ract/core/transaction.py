@@ -183,7 +183,7 @@ def open_transaction(
                 "manifest must be a ract.security.manifest.CapabilityManifest"
             )
         digest = ManifestDigest.of(manifest)
-    return StepTransaction(
+    txn = StepTransaction(
         step_id=step_id,
         parent_snapshot=parent_snapshot,
         worktree_path=Path(worktree_path),
@@ -194,6 +194,31 @@ def open_transaction(
         depends_on=tuple(depends_on),
         manifest_digest=digest,
     )
+    # module_05: emit step.started at the transaction-open site so the
+    # event log's step timeline is derivable from the loop even when
+    # the loop's driver code is out of scope (a caller building a
+    # transaction directly still gets a durable start marker).
+    try:  # local import breaks the trace→core cycle at import time
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            "step.started",
+            {
+                "parent_snapshot": txn.parent_snapshot,
+                "branch": txn.branch_name,
+                "postcondition_count": len(txn.postconditions),
+                "manifest_digest": (
+                    txn.manifest_digest.hex()
+                    if txn.manifest_digest is not None
+                    else None
+                ),
+                "timeout_seconds": txn.timeout_seconds,
+            },
+            step_id=txn.step_id,
+        )
+    except Exception:  # noqa: BLE001 — never fail transaction open on trace error
+        pass
+    return txn
 
 
 # RACT 0.4.0

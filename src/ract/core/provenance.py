@@ -59,6 +59,24 @@ class ProvenanceIndex:
             conn.close()
         sidecar = artifact_path.parent / f".{artifact_path.name}.rootknot.json"
         sidecar.write_text(payload, encoding="utf-8")
+        # module_05: emit at the write site so the event log names every
+        # signed artifact the run produced. Verification emits are made
+        # by ``verify_workspace`` below.
+        try:
+            from ract.trace.sink import emit as _emit_event
+
+            _emit_event(
+                "rootknot.created",
+                {
+                    "workspace_path": knot.workspace_path,
+                    "plan_id": knot.plan_id.hex(),
+                    "step_id_ref": knot.step_id.hex(),
+                    "artifact_digest": knot.artifact_digest.hex(),
+                    "assumption_digest": knot.assumption_digest.hex(),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     def load(self, artifact_path: Path) -> Rootknot | None:
         """Load the Rootknot for ``artifact_path`` if one exists."""
@@ -205,6 +223,20 @@ def verify_workspace(
                 index, knot, active_plans, registered_assumptions, generator_pubkey
             )
             return Result.err(violation)
+        # module_05: emit per-verified knot so the reporter's rootknot
+        # counts derive from the event log.
+        try:
+            from ract.trace.sink import emit as _emit_event
+
+            _emit_event(
+                "rootknot.verified",
+                {
+                    "workspace_path": rel_path,
+                    "artifact_digest": knot.artifact_digest.hex(),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     return Result.ok(None)
 

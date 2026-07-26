@@ -27,6 +27,14 @@ class AssumptionRegistry:
         """Propose a new assumption and return it."""
         assumption = Assumption.propose(text, depends_on)
         self._assumptions[assumption.id] = assumption
+        _emit_assumption_event(
+            "assumption.proposed",
+            {
+                "assumption_id": assumption.id.hex(),
+                "digest": assumption.digest.hex(),
+                "text": text,
+            },
+        )
         return assumption
 
     def accept(self, assumption_id: AssumptionId) -> Assumption:
@@ -58,6 +66,13 @@ class AssumptionRegistry:
             discharged_by=evidence,
         )
         self._assumptions[assumption_id] = updated
+        _emit_assumption_event(
+            "assumption.discharged",
+            {
+                "assumption_id": assumption_id.hex(),
+                "digest": assumption.digest.hex(),
+            },
+        )
         return updated
 
     def violate(
@@ -101,6 +116,14 @@ class AssumptionRegistry:
                         violated_by=violation,
                     )
                     violated.append(candidate.id)
+        for vid in violated:
+            _emit_assumption_event(
+                "assumption.violated",
+                {
+                    "assumption_id": vid.hex(),
+                    "root_id": assumption_id.hex(),
+                },
+            )
         return violated
 
     def get(self, assumption_id: AssumptionId) -> Assumption | None:
@@ -127,6 +150,20 @@ class AssumptionRegistry:
 
 
 T = TypeVar("T")
+
+
+def _emit_assumption_event(kind: str, payload: dict) -> None:
+    """Emit an assumption lifecycle event to the event log.
+
+    module_05 (SUBSTRATE §6.3). Local import so the assumption module
+    stays trace-independent at import time.
+    """
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(kind, payload)  # type: ignore[arg-type]
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def bind_assumption(value: T, registry: AssumptionRegistry, text: str) -> Assumed[T]:

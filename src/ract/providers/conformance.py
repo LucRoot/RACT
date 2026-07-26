@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
-from ract.providers.provider import Provider, ResponseShape
+from ract.providers.provider import Provider, ResponseShape, send_with_trace
 from ract.providers.schema import (
     to_anthropic_tool_use,
     to_json_schema_fallback,
@@ -217,7 +217,8 @@ def _score_schema_compliance(
     cached = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
     raw: str | dict[str, Any]
     if cached is None:
-        raw = provider.send_planned_step_request(
+        raw = send_with_trace(
+            provider,
             prompt=intent.prompt,
             schema_payload=schema_payload,
             intent_id=intent.intent_id,
@@ -240,7 +241,8 @@ def _score_schema_compliance(
     raw2: str | dict[str, Any]
     if cached2 is None:
         corrective = outcome.corrective_prompt or ""
-        raw2 = provider.send_planned_step_request(
+        raw2 = send_with_trace(
+            provider,
             prompt=f"{intent.prompt}\n\n{corrective}",
             schema_payload=schema_payload,
             intent_id=retry_id,
@@ -276,7 +278,8 @@ def _score_tool_discipline(
     cached = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
     raw: str | dict[str, Any]
     if cached is None:
-        raw = provider.send_planned_step_request(
+        raw = send_with_trace(
+            provider,
             prompt=intent.prompt,
             schema_payload=schema_payload,
             intent_id=intent.intent_id,
@@ -316,7 +319,8 @@ def _score_refusal_fidelity(
     cached = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
     raw: str | dict[str, Any]
     if cached is None:
-        raw = provider.send_planned_step_request(
+        raw = send_with_trace(
+            provider,
             prompt=intent.prompt,
             schema_payload=schema_payload,
             intent_id=intent.intent_id,
