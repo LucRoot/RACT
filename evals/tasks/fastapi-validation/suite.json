@@ -1,0 +1,51 @@
+{
+  "compiled_from": "Add request validation and typed responses to the FastAPI app under src/main.py; ensure existing endpoints keep 2xx contracts.",
+  "compiler_version": "0.4.0",
+  "coverage_gate": 0.85,
+  "intent_id": "0163f68648d943eca54e084fc9bc2428",
+  "predicates": [
+    {
+      "depends_on": [],
+      "id": "4e665b16792d48b2ba3548a9a6d5e972",
+      "invocation": {
+        "selector": "tests/test_app.py",
+        "timeout_seconds": 60,
+        "type": "pytest"
+      },
+      "kind": "test",
+      "required": true
+    },
+    {
+      "depends_on": [],
+      "id": "14629fd3cd7d4279a9e1f24a0ae282e5",
+      "invocation": {
+        "strict": true,
+        "target": "src/main.py",
+        "type": "mypy"
+      },
+      "kind": "type",
+      "required": true
+    },
+    {
+      "depends_on": [],
+      "id": "b93cf7f6e6ca4484bf1550fcf8f9f188",
+      "invocation": {
+        "callable_ref": "ract.core.compile:_canonical_touched",
+        "type": "assertion"
+      },
+      "kind": "invariant",
+      "required": true
+    },
+    {
+      "depends_on": [],
+      "id": "6abb0e6e4d044693ad4c662ff5014838",
+      "invocation": {
+        "must_have_rootknot": false,
+        "path": "src/main.py",
+        "type": "artifact"
+      },
+      "kind": "artifact",
+      "required": true
+    }
+  ]
+}
