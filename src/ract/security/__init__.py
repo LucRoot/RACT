@@ -37,6 +37,13 @@ from ract.security.manifest import (
     TierPolicy,
     YoloWiden,
 )
+from ract.security.sandbox import (
+    SandboxBackend,
+    SandboxEvent,
+    SandboxNotAvailable,
+    SandboxViolation,
+    resolve_backend,
+)
 
 __all__ = [
     "ApprovalPolicy",
@@ -49,9 +56,14 @@ __all__ = [
     "NetworkPolicy",
     "PathPattern",
     "ProcessPolicy",
+    "SandboxBackend",
+    "SandboxEvent",
+    "SandboxNotAvailable",
+    "SandboxViolation",
     "SyscallPolicy",
     "TierPolicy",
     "YoloWiden",
+    "resolve_backend",
 ]
 
 _SECURITY_EXPORTS = (
@@ -68,6 +80,11 @@ _SECURITY_EXPORTS = (
     SyscallPolicy,
     TierPolicy,
     YoloWiden,
+    SandboxBackend,
+    SandboxEvent,
+    SandboxNotAvailable,
+    SandboxViolation,
+    resolve_backend,
 )
 
 # RACT 0.4.0
