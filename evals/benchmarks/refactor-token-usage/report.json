@@ -1,0 +1,30 @@
+{
+  "dimension": "tokens spent to reach a passing state (lower is better)",
+  "task": "refactor-function",
+  "max_iterations_ceiling": 5,
+  "runs": 5,
+  "token_model": "deterministic mock (PROMPT_TOKENS + EDIT_LINES * TOKENS_PER_LINE)",
+  "baseline": {
+    "name": "naive-baseline",
+    "runs": 5,
+    "mean_tokens_to_pass": 4320.0,
+    "stdev_tokens": 0.0,
+    "min_tokens": 4320.0,
+    "max_tokens": 4320.0,
+    "mean_iterations": 5,
+    "passed_runs": 5
+  },
+  "contender": {
+    "name": "ract-contender",
+    "runs": 5,
+    "mean_tokens_to_pass": 864.0,
+    "stdev_tokens": 0.0,
+    "min_tokens": 864.0,
+    "max_tokens": 864.0,
+    "mean_iterations": 1,
+    "passed_runs": 5
+  },
+  "contender_mean_delta_vs_baseline": 3456.0,
+  "contender_pct_fewer_tokens": 80.0,
+  "contender_strictly_better": true
+}

@@ -49,7 +49,7 @@ ract run "refactor the greeting module" --config ract.yaml --loop --max-iteratio
 
 - **Provenance-anchored artifacts** — every file the loop writes is bound to a `Rootknot` that records the plan step, assumption, generator, and parent artifacts, and can be cryptographically verified.
 - **Assumption-driven programming** — assumptions live in a registry with a four-state lifecycle (`proposed`, `active`, `discharged`, `violated`); violations propagate through the dependency graph and trigger targeted re-planning.
-- **Milestone-halting recursion** — the loop stops on completion, regression, provenance violation, assumption cascade, budget exhaustion, handshake block, or provider fault, each with a distinct termination cause.
+- **Milestone-halting recursion** — the loop stops on completion, regression, provenance violation, assumption cascade, budget exhaustion, handshake block, or provider fault, each with a distinct termination cause. On a refactoring task, milestone termination spends measurably fewer tokens than a naive fixed-iteration loop — see [`evals/benchmarks/refactor-token-usage/report.md`](evals/benchmarks/refactor-token-usage/report.md).
 - **Operator Handshake** — high-risk actions queue for async review instead of blocking the loop.
 
 ## Architecture
@@ -64,6 +64,10 @@ See `docs/ARCHITECTURE.md` for the system diagram and boundary contracts, and `d
 ## Evals
 
 Three reproducible tasks live under `evals/tasks/`. Run reports are committed to `evals/runs/`. See `evals/README.md`.
+
+## Benchmark
+
+`evals/benchmarks/refactor-token-usage/` compares the milestone-driven loop against a naive fixed-iteration baseline on tokens spent to reach a passing state. Reproduce with `python evals/benchmarks/refactor-token-usage/report.py`; the committed `report.md` holds the result.
 
 ## License
 
