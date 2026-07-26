@@ -138,6 +138,60 @@ class HandshakeRegistry:
         pending_ids = {item.id for item in self.pending()}
         return [hid for hid in handshake_ids if hid in pending_ids]
 
+    def widen_manifest_for(
+        self, manifest_widen: object, milestone_id: str
+    ) -> object:
+        """Apply an approved handshake's widen to the run's capability manifest.
+
+        SUBSTRATE §4.3 + module_03 step 6. A handshake widens the manifest
+        for the specific action and only for the duration of the approved
+        step; the sandbox re-reads the (widened) manifest at the next
+        ``enter`` call. This method is the harness-facing hook: it takes
+        the base manifest (typed ``object`` so the module has no import-
+        time dependency on ``ract.security``) and returns a widened copy.
+
+        The widen is bounded by the manifest's own ``yolo_widen`` field —
+        an approved handshake cannot lift a policy the manifest did not
+        pre-declare could be widened. Tier 3 remains denied even under
+        an approved handshake (compile-time hard-off; see ADR-0012).
+        """
+        # Local import to avoid the security → handshake → security cycle.
+        from ract.security.manifest import CapabilityManifest
+
+        if not isinstance(manifest_widen, CapabilityManifest):
+            raise TypeError(
+                "widen_manifest_for expected a CapabilityManifest; got "
+                f"{type(manifest_widen).__name__}"
+            )
+        # Verify the handshake is approved before applying any widen.
+        approved = {
+            item.id
+            for item in self.entries()
+            if item.status == "approved"
+        }
+        if milestone_id not in approved:
+            return manifest_widen
+        # Apply the widen: union filesystem read + write, union network hosts.
+        widened = manifest_widen.model_copy(
+            update={
+                "filesystem": manifest_widen.filesystem.model_copy(
+                    update={
+                        "read": manifest_widen.filesystem.read
+                        + manifest_widen.yolo_widen.extra_read,
+                        "write": manifest_widen.filesystem.write
+                        + manifest_widen.yolo_widen.extra_write,
+                    }
+                ),
+                "network": manifest_widen.network.model_copy(
+                    update={
+                        "allow_hosts": manifest_widen.network.allow_hosts
+                        + manifest_widen.yolo_widen.extra_hosts,
+                    }
+                ),
+            }
+        )
+        return widened
+
     def update_status(self, milestone_id: str, status: str) -> HandshakeItem:
         """Approve, reject, or defer a handshake by milestone id."""
         if status not in {"approved", "rejected", "deferred"}:
