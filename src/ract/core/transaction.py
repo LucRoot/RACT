@@ -147,6 +147,16 @@ def new_step_id() -> bytes:
 # ---------------------------------------------------------------------------
 
 
+class UnfencedDeleteError(RuntimeError):
+    """Raised when a transaction bundling a ``DeleteFileAction`` opens
+    without a valid ``fence_ticket_id`` (SUBSTRATE §8, module_06 step 8).
+
+    The intercept is structural: the transaction opener refuses to
+    proceed. There is no code path that admits a delete action that has
+    not passed through ``ract.contracts.fence.FenceGate``.
+    """
+
+
 def open_transaction(
     *,
     step_id: bytes,
@@ -158,6 +168,8 @@ def open_transaction(
     runtime_container: ContainerRef | None = None,
     depends_on: tuple[bytes, ...] = (),
     manifest: object | None = None,
+    actions: tuple[object, ...] = (),
+    fence_ticket_id: str | None = None,
 ) -> StepTransaction:
     """Build a ``StepTransaction`` value.
 
@@ -168,6 +180,30 @@ def open_transaction(
     stitches the descriptors together so the transaction is a value the
     loop can pass around and reason about.
     """
+    # ---- Fence pre-delete structural gate (module_06 step 8) ------------
+    # Any DeleteFileAction in the step's actions requires a matching Fence
+    # ticket. This is enforced BEFORE the transaction is constructed so
+    # the transaction descriptor cannot exist for an unfenced delete.
+    #
+    # SUBSTRATE §8 (Chesterton's Fence as pre-delete gate). Refusal is
+    # structural: there is no code path that produces a StepTransaction
+    # bundling an unfenced DeleteFileAction. A bypass-attempt test
+    # (tests/contracts/test_fence_pre_delete.py) asserts this.
+    for action in actions:
+        # Duck-typed on ``kind`` so the transaction module keeps its
+        # narrow import surface — actions live in ract.core.actions.
+        if getattr(action, "kind", None) == "delete_file":
+            from ract.contracts.fence import FenceGate  # local import breaks cycles
+
+            if fence_ticket_id is None or not FenceGate.consume_ticket(
+                fence_ticket_id
+            ):
+                raise UnfencedDeleteError(
+                    f"DeleteFileAction on {getattr(action, 'path', '<unknown>')!r} "
+                    "requires a valid fence_ticket_id (SUBSTRATE §8, module_06). "
+                    "Call FenceGate.evaluate(action) first."
+                )
+
     # ``manifest`` is typed ``object | None`` here (rather than
     # ``CapabilityManifest | None``) so the substrate primitive does not
     # take a hard runtime import on ``ract.security.manifest`` — that
