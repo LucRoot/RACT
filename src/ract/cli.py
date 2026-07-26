@@ -3527,6 +3527,10 @@ def main(argv: list[str] | None = None) -> int:
         return _leaderboard_command(argv[1:])
     if argv and argv[0] == "session":
         return _session_command(argv[1:])
+    if argv and argv[0] == "provenance":
+        from ract.provenance_cli import _provenance_command
+
+        return _provenance_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="ract",
         description=(

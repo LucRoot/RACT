@@ -21,6 +21,9 @@ ract.yaml
 .ract_sessions/
 *.session
 skills/
+# Provenance runtime: SQLite index dir + archived session keys (ADR-0001, v0.3)
+.rack/
+*.pem.archived-*
 
 # Smoke-test / development artifacts
 _smoke_*/
