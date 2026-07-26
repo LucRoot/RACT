@@ -351,7 +351,11 @@ class Executor:
         not corrupt the artifact write itself. The loop's ``verify_workspace``
         step will catch any artifact that ended up without a valid rootknot.
         """
-        if self.provenance_index is None or self.session_key is None:
+        if (
+            self.provenance_index is None
+            or self.session_key is None
+            or self.project_dir is None
+        ):
             return
         try:
             from ract.core.rootknot import make_rootknot
