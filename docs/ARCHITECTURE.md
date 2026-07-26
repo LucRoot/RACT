@@ -222,6 +222,44 @@ See ADR-0014 for the design rationale and rejected alternatives, and
 `docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §5 (Substrate Layer 4) plus §11
 signals 7 and 8 for the master-spec source.
 
+## Event trace as the product
+
+module_05 (SUBSTRATE §6) makes the append-only event log the source of
+truth. Every load-bearing decision — every predicate evaluation, every
+step transaction outcome, every prompt/response pair, every sandbox
+entry, every handshake, every rootknot write, every assumption
+lifecycle transition — lands as one event in a **hash-chained JSONL
+log** at `evals/runs/<run_id>/events.jsonl`. Each event carries a
+SHA-256 of its canonical payload and a `prev_hash` reference to the
+tip hash at append time; a bit-flip anywhere in the middle of the log
+surfaces as a `ChainBrokenError` when `EventReader.load` re-hashes the
+chain.
+
+The vocabulary is closed (`ract.trace.events.LEGAL_EVENT_KINDS`);
+adding a kind is a schema-version bump in `docs/EVENTS.md`. The log
+mirrors through OpenTelemetry OTLP-HTTP when `otlp_endpoint` is set in
+`ract.yaml`, following the GenAI Semantic Conventions; export is
+opt-in — a run with no endpoint configured still writes the JSONL log.
+
+`RunReporter` reads only the event log and derives its summary from
+it. The report is derived data; the log is the source of truth.
+
+Four CLI verbs operate on the log:
+
+- `ract trace replay <run_id> [--until step:<step_id>]` — reconstruct
+  workspace state from cached responses.
+- `ract trace fork <run_id> --at step:<step_id> --with "…"` — replay
+  up to the chosen point, then run live from the alternative intent.
+- `ract trace diff <run_id_a> <run_id_b>` — structured diff by event
+  kind; first divergence highlighted.
+- `ract trace to-test <run_id> --out <path>` — emit a pytest test that
+  pins the model responses (fixtures in a sibling directory) and
+  asserts the workspace state.
+
+See ADR-0015 for the design rationale and rejected alternatives, and
+`docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §6 (Substrate Layer 5) plus §11
+signals 9, 10, 11 for the master-spec source.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -232,3 +270,4 @@ signals 7 and 8 for the master-spec source.
 <!-- RACT 0.4.0: Acceptance suite compiled before loop entry (ADR-0010) -->
 <!-- RACT 0.4.0: Transactional execution: worktree-per-step (ADR-0011) -->
 <!-- RACT 0.4.0: Typed action union + conformance gate (ADR-0014) -->
+<!-- RACT 0.4.0: Event trace as the product (ADR-0015) -->
