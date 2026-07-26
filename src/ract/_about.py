@@ -51,7 +51,7 @@ def about_lines() -> tuple[str, ...]:
         ),
         (
             f"  Commercial use requires a separate agreement with "
-            f"{__root_author__}."
+            f"{__root_author__}"
         ),
     )
 
