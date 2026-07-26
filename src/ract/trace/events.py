@@ -77,6 +77,8 @@ EventKind = Literal[
     "assumption.proposed",
     "assumption.discharged",
     "assumption.violated",
+    # Contracts (module_06 — Auction as scheduled environment sweep)
+    "auction.proposal",
 ]
 
 
