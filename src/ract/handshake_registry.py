@@ -7,6 +7,15 @@ High-risk milestones never pause the loop. Instead, the MilestoneOracle returns 
 "handshake" verdict, the loop continues with other work, and the milestone is
 recorded here for operator review. The operator can approve, reject, or defer
 each handshake after the fact.
+
+**v0.4 substrate change (SUBSTRATE §3.5).** High-risk steps under the
+transactional executor still record here — but resolution now blocks the
+step's *commit* at the git layer, not just the plan-level milestone
+acknowledgement. See ``ract.executor.loop.SubstrateLoop._finalize``: a
+step whose ``handshake_ids`` include any pending id returns
+``BLOCKED_ON_HANDSHAKE`` and leaves its worktree intact for operator
+inspection; the parent snapshot does not advance and no dependent step
+can commit past it. The blast radius is bounded by git.
 """
 
 import json
@@ -18,7 +27,13 @@ from typing import Any
 
 @dataclass(frozen=True)
 class HandshakeItem:
-    """A single operator-handshake request."""
+    """A single operator-handshake request.
+
+    ``depends_on`` names other handshake ids whose resolution this
+    handshake waits on. It is a display / diagnostic aid; the git-layer
+    block enforced by ``SubstrateLoop`` reads the ``handshake_ids`` on
+    each step spec and cross-references ``pending()``.
+    """
 
     id: str
     description: str
@@ -26,6 +41,7 @@ class HandshakeItem:
     timestamp: str
     status: str = "pending"
     metadata: dict[str, Any] | None = None
+    depends_on: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.status not in {"pending", "approved", "rejected", "deferred"}:
@@ -59,12 +75,27 @@ class HandshakeRegistry:
             # the on-disk format clean and backward-compatible.
             if raw.get("metadata") is None:
                 raw.pop("metadata", None)
+            # An empty depends_on carries no information; strip it so v0.3
+            # readers see the exact on-disk shape they expect.
+            if not raw.get("depends_on"):
+                raw.pop("depends_on", None)
+            else:
+                raw["depends_on"] = list(raw["depends_on"])
             payload.append(raw)
         self.registry_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def entries(self) -> list[HandshakeItem]:
         """Return all handshake items."""
-        return [HandshakeItem(**raw) for raw in self._load()]
+        items: list[HandshakeItem] = []
+        for raw in self._load():
+            # ``depends_on`` is v0.4 and may be absent from v0.3 registry
+            # files; normalize the deserialization so old files still load.
+            raw = dict(raw)
+            deps = raw.pop("depends_on", ())
+            if isinstance(deps, list):
+                deps = tuple(str(d) for d in deps)
+            items.append(HandshakeItem(depends_on=tuple(deps), **raw))
+        return items
 
     def pending(self) -> list[HandshakeItem]:
         """Return only pending handshake items."""
@@ -76,6 +107,7 @@ class HandshakeRegistry:
         description: str,
         acceptance: str,
         metadata: dict[str, Any] | None = None,
+        depends_on: tuple[str, ...] = (),
     ) -> HandshakeItem:
         """Record a new pending handshake."""
         items = self.entries()
@@ -86,10 +118,25 @@ class HandshakeRegistry:
             timestamp=datetime.now(timezone.utc).isoformat(),
             status="pending",
             metadata=metadata,
+            depends_on=tuple(depends_on),
         )
         items.append(item)
         self._save(items)
         return item
+
+    # ------------------------------------------------------------------
+    # v0.4: git-layer blocking
+    # ------------------------------------------------------------------
+
+    def blocks_commit(self, handshake_ids: tuple[str, ...] | list[str]) -> list[str]:
+        """Return the subset of ``handshake_ids`` that are currently pending.
+
+        A non-empty result means the caller (a ``SubstrateLoop`` step) must
+        return ``BLOCKED_ON_HANDSHAKE`` rather than commit — SUBSTRATE §3.5.
+        Empty result means the step is free to commit its worktree.
+        """
+        pending_ids = {item.id for item in self.pending()}
+        return [hid for hid in handshake_ids if hid in pending_ids]
 
     def update_status(self, milestone_id: str, status: str) -> HandshakeItem:
         """Approve, reject, or defer a handshake by milestone id."""
@@ -105,6 +152,7 @@ class HandshakeRegistry:
                     timestamp=item.timestamp,
                     status=status,
                     metadata=item.metadata,
+                    depends_on=item.depends_on,
                 )
                 self._save(items)
                 return items[i]
