@@ -82,6 +82,10 @@ ALLOWED_IMPORT_ROOTS = {
     "itertools",
     "contextlib",
     "operator",
+    # security substrate (module_03) — small stdlib deps used by the
+    # OS-enforced sandbox backends
+    "fnmatch",
+    "shlex",
 }
 
 
