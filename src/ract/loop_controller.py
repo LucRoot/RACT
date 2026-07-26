@@ -18,8 +18,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ract.core.loop import (
+    LoopState,
+    WorkspaceSnapshot,
+    build_loop_state,
+    check_t1,
+)
+from ract.core.predicate import AcceptanceSuite
 from ract.error_memory import ErrorMemory
 from ract.executor import ExecutionReport
+from ract.executor.worktree import ensure_clean_tracked_tree, ensure_git_repo
 from ract.gravity_scorer import GravityScorer
 from ract.handshake_registry import HandshakeRegistry
 from ract.lint_format_repair import LintFormatRepair
@@ -103,6 +111,10 @@ class LoopController:
         strategic_clear_threshold: int = 3,
         allow_load_bearing_override: bool = False,
         allow_novelty_overrun: bool = False,
+        acceptance_suite: AcceptanceSuite | None = None,
+        run_dir: Path | str | None = None,
+        require_git_workspace: bool = False,
+        require_clean_tracked_tree: bool = False,
     ) -> None:
         self.config_path = Path(config_path)
         self.max_iterations = max(max_iterations, 1)
@@ -153,6 +165,27 @@ class LoopController:
             paths=lint_paths,
         )
         self._error_memory = ErrorMemory(self.project_dir)
+
+        # ------------------------------------------------------------------
+        # Substrate wiring (SUBSTRATE §2, lateral chain branch E)
+        # ------------------------------------------------------------------
+        # When an ``AcceptanceSuite`` is provided the loop routes through
+        # ``build_loop_state`` (module_01), which persists the suite to
+        # ``run_dir/suite.json`` before returning a ``LoopState``. T1 then
+        # reads from ``state.suite`` rather than the milestone oracle path;
+        # the milestone oracle survives here only as a scheduling heuristic
+        # and, when a suite is present, is not consulted for termination.
+        self.acceptance_suite: AcceptanceSuite | None = acceptance_suite
+        self.run_dir: Path | None = Path(run_dir) if run_dir else None
+        self._loop_state: LoopState | None = None
+        # Loop-entry preconditions (lateral chain branch E). Off by default
+        # so v0.3 CLI paths keep working; turned on by the substrate CLI
+        # path and by tests that assert the git-workspace / clean-tree
+        # invariants.
+        if require_git_workspace:
+            ensure_git_repo(self.project_dir)
+        if require_clean_tracked_tree:
+            ensure_clean_tracked_tree(self.project_dir)
 
     def _take_snapshot(self) -> dict[str, str]:
         """Return a snapshot of Python file contents relative to project_dir."""
@@ -224,6 +257,27 @@ class LoopController:
         """Run the loop and return the final result."""
         if self.planner is not None and self.backlog is None:
             self.backlog = self._load_or_generate_backlog(intent)
+
+        # Substrate wiring (SUBSTRATE §2, module_01 predicate-based T1):
+        # when an ``AcceptanceSuite`` is on the controller, build the
+        # ``LoopState`` up-front so the suite is persisted to
+        # ``run_dir/suite.json`` before step 1 runs, and wrap
+        # ``done_callback`` so termination is decided by the predicate
+        # suite rather than by the milestone-oracle path.
+        if self.acceptance_suite is not None:
+            plan_seed = Plan(assumption=intent, confidence=1.0, steps=[])
+            snapshot_seed = WorkspaceSnapshot(
+                files=dict(self._take_snapshot()), timestamp=0.0
+            )
+            self._loop_state = build_loop_state(
+                plan=plan_seed,
+                workspace=snapshot_seed,
+                suite=self.acceptance_suite,
+                run_dir=self.run_dir,
+                handshake_registry=self.handshake_registry,
+            )
+            user_done = done_callback
+            done_callback = self._make_suite_done_callback(user_done)
 
         iterations: list[LoopIteration] = []
         previous_score: float | None = None
@@ -462,6 +516,52 @@ class LoopController:
             summary=f"Reached max iterations ({self.max_iterations}).",
             handshake_milestones=list(self.handshake_milestones),
         )
+
+    def _make_suite_done_callback(
+        self,
+        user_done: Callable[[LoopIteration], bool] | None,
+    ) -> Callable[[LoopIteration], bool]:
+        """Wrap ``done_callback`` so the acceptance suite is T1's authority.
+
+        The wrapped callback refreshes the ``LoopState.workspace`` snapshot
+        against the current on-disk project state, calls ``check_t1``, and
+        returns ``True`` only when every required predicate is ``ok``. A
+        user-supplied ``done_callback`` still fires — it is AND-ed with the
+        suite result so callers can add extra done-signals without being
+        able to *soften* the environment gate (SUBSTRATE §11 signal 1).
+        """
+
+        def _cb(iteration: LoopIteration) -> bool:
+            state = self._loop_state
+            if state is None:
+                return bool(user_done(iteration)) if user_done else False
+            # Refresh the snapshot to reflect the current on-disk state so
+            # the predicate evaluators see what the loop just wrote.
+            state.workspace = WorkspaceSnapshot(
+                files=dict(self._take_snapshot()),
+                timestamp=float(iteration.index),
+                metadata=dict(state.workspace.metadata),
+            )
+            cause = check_t1(state.suite, state.workspace)
+            suite_done = cause is not None
+            if user_done is not None:
+                # The user's callback runs even when the suite is not done —
+                # some tests use it purely to record iterations. Its return
+                # value is folded into the AND above.
+                user_cb = bool(user_done(iteration))
+                return suite_done and user_cb
+            return suite_done
+
+        return _cb
+
+    @property
+    def loop_state(self) -> LoopState | None:
+        """The ``LoopState`` constructed at ``run()`` when a suite is set.
+
+        Tests read ``controller.loop_state.suite`` to assert T1 is being
+        driven by the suite substrate rather than the milestone oracle.
+        """
+        return self._loop_state
 
     def _load_or_generate_backlog(self, intent: str) -> list[Milestone] | None:
         """Load an existing backlog or ask the management LM to create one."""
