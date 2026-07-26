@@ -1,0 +1,17 @@
+{
+  "_comment": "Canonical sample Rootknot sidecar for tests/docs. Fields mirror the ProvenanceIndex sidecar shape (src/ract/core/provenance.py::_knot_to_json). Signature/digest values are illustrative, not real.",
+  "plan_id": "0102030405060708090a0b0c0d0e0f10",
+  "step_id": "1112131415161718191a1b1c1d1e1f20",
+  "assumption_digest": "2122232425262728292a2b2c2d2e2f30",
+  "generator": {
+    "model_name": "mock",
+    "model_version": "0",
+    "session_id": "31323334353637383930414243444546",
+    "public_key_id": "5152535455565758595a5b5c5d5e5f60"
+  },
+  "parent_digests": [],
+  "workspace_path": "src/example.py",
+  "artifact_digest": "7172737475767778797a7b7c7d7e7f80",
+  "created_at_ns": 1785000000000000000,
+  "signature": "8182838485868788898a8b8c8d8e8f90"
+}
