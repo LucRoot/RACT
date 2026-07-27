@@ -8,11 +8,16 @@ from ract import __version__
 
 
 def test_readme_mentions_current_version():
-    """README.md must mention the current RACT version."""
+    """README.md must mention the current RACT version. Accepts either the
+    canonical PEP 440 form (``0.4.0rc1``) or the display-friendly
+    hyphenated form (``0.4.0-rc1``); both resolve to the same PEP 440
+    identity under ``packaging.version.Version``."""
     readme = Path(__file__).parent.parent / "README.md"
     text = readme.read_text(encoding="utf-8")
-    assert __version__ in text, (
-        f"README.md should mention the current version {__version__}"
+    hyphenated = __version__.replace("rc", "-rc")  # 0.4.0rc1 -> 0.4.0-rc1
+    assert __version__ in text or hyphenated in text, (
+        f"README.md should mention the current version "
+        f"{__version__} (or its display form {hyphenated})"
     )
 
 
