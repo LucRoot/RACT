@@ -391,6 +391,73 @@ def test_metaprogramming_getattr_escape_detected() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 8b. Second Pass Cycle-2 fix — importlib.import_module escape detected
+# ---------------------------------------------------------------------------
+
+
+def test_importlib_import_module_escape_detected() -> None:
+    """Second Pass Cycle-2 fix for adversarial Q1.
+
+    The reviewer named ``importlib.import_module('pytest').skip()`` as a
+    metaprogramming shape the original escape detector missed. The
+    Cycle-2 fix extends ``_detect_metaprogramming_escape`` to catch
+    the ``Attribute(Call(importlib.import_module, "pytest"), "skip")``
+    shape.
+    """
+    parent_source = "def test_smoke():\n    assert True\n"
+    child_source = (
+        "import importlib\n"
+        "\n"
+        "def test_smoke():\n"
+        "    importlib.import_module('pytest').skip('bypass')\n"
+        "    assert True\n"
+    )
+    violations = analyze_diff_python(
+        "tests/test_smoke.py",
+        parent_source,
+        child_source,
+        default_test_integrity_config(),
+    )
+    patterns = {v.pattern for v in violations}
+    assert PATTERN_METAPROG_ESCAPE in patterns, (
+        f"expected importlib escape detection; got {patterns}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 8c. Second Pass Cycle-2 fix — type().__getattribute__ escape detected
+# ---------------------------------------------------------------------------
+
+
+def test_type_getattribute_escape_detected() -> None:
+    """Second Pass Cycle-2 fix for adversarial Q1.
+
+    ``type(pytest).__getattribute__(pytest, 'skip')()`` is a class-
+    attribute lookup shape that reaches the same denied target. The
+    Cycle-2 fix in ``_detect_metaprogramming_escape`` names it under
+    ``PATTERN_METAPROG_ESCAPE``.
+    """
+    parent_source = "def test_smoke():\n    assert True\n"
+    child_source = (
+        "import pytest\n"
+        "\n"
+        "def test_smoke():\n"
+        "    type(pytest).__getattribute__(pytest, 'skip')('bypass')\n"
+        "    assert True\n"
+    )
+    violations = analyze_diff_python(
+        "tests/test_smoke.py",
+        parent_source,
+        child_source,
+        default_test_integrity_config(),
+    )
+    patterns = {v.pattern for v in violations}
+    assert PATTERN_METAPROG_ESCAPE in patterns, (
+        f"expected type().__getattribute__ escape detection; got {patterns}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # 9. DoD leaf (c) — symgraph.db persisted on disk after loop entry
 # ---------------------------------------------------------------------------
 
