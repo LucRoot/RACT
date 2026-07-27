@@ -80,6 +80,10 @@ def test_rk3_ok_for_v2_sidecar_with_valid_env_signature(
         knot, fresh_workspace / "artifact.txt", sandbox_pubkey=sandbox_key.public
     )
 
+    # Non-strict: v2 verifies (RK-3 required, AL-1 skipped with warning).
+    # ALM module_05 raised strict-mode's bar to "AL-1 required" — the
+    # v2 sidecars are still fine at the non-strict floor, which is the
+    # backwards-compatibility contract module_05's DoD commits to.
     result = verify_workspace(
         index,
         active_plans={knot.plan_id: [knot.step_id]},
@@ -88,7 +92,6 @@ def test_rk3_ok_for_v2_sidecar_with_valid_env_signature(
         sandbox_pubkey=lambda _k: sandbox_key.public,
         registered_suites={suite_digest},
         registered_manifests={manifest_digest},
-        strict=True,
     )
     assert result.is_ok(), result.unwrap_err()
 
@@ -258,6 +261,8 @@ def test_rk3_hypothesis_holds_after_every_step(
         knot, fresh_workspace / "artifact.txt", sandbox_pubkey=sandbox_key.public
     )
 
+    # Non-strict: v2 verifies (RK-3 required, AL-1 skipped with warning).
+    # ALM module_05 raised strict-mode's bar to "AL-1 required".
     result = verify_workspace(
         index,
         active_plans={knot.plan_id: [knot.step_id]},
@@ -266,7 +271,6 @@ def test_rk3_hypothesis_holds_after_every_step(
         sandbox_pubkey=lambda _k: sandbox_key.public,
         registered_suites={suite_digest},
         registered_manifests={manifest_digest},
-        strict=True,
     )
     assert result.is_ok(), result.unwrap_err()
 

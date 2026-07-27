@@ -1,0 +1,6 @@
+{
+  "fixture": "all_gates_pass_clean",
+  "description": "Every ALM gate (G1..G8) passes and no reversal was suspicious. AL-1 passes.",
+  "expect": "pass",
+  "predicate": null
+}

@@ -1,9 +1,8 @@
 # RACT Provenance and Separation Statement
 
 RACT is independent of any private system, and every artifact it writes is
-cryptographically bound to its origin. This document is the single public
-statement of how both claims hold. It is intentionally short and points at
-commands and source symbols rather than prose.
+cryptographically bound to its origin. This document points at commands and
+source symbols rather than prose.
 
 ## What a Rootknot attests
 
@@ -28,43 +27,37 @@ no proprietary crypto anywhere in the chain.
 ## How RACT stays independent of private systems
 
 RACT depends only on its declared, public dependencies (`pyproject.toml`):
-`pyyaml`, `httpx`, `zstandard`, `rich`, and `cryptography`. Specifically:
+`pyyaml`, `httpx`, `zstandard`, `rich`, and `cryptography`.
 
-- **No proprietary code.** `src/ract/` imports nothing from a private or
-  internal package. The lint test `tests/test_public_provenance.py` asserts
-  this and fails the build if a forbidden import appears.
-- **No private endpoints.** Providers are configured by the operator in
-  `ract.yaml`; the default `local` adapter points at `127.0.0.1`. RACT ships
-  no hardcoded call to any private host.
-- **No shared state.** All runtime state — session keys, the provenance index,
-  approval queues — lives under the operator's XDG state directory
-  (`%LOCALAPPDATA%\ract\` on Windows, `$XDG_STATE_HOME/ract/` elsewhere) or in
-  the workspace's gitignored `.rack/` directory. Nothing leaves the machine.
+- **No proprietary code.** `src/ract/` imports nothing private. The lint
+  test `tests/test_public_provenance.py` fails the build on a forbidden
+  import.
+- **No private endpoints.** Providers are configured in `ract.yaml`; the
+  default `local` adapter points at `127.0.0.1`.
+- **No shared state.** All runtime state lives under the operator's XDG
+  state directory or the workspace's gitignored `.rack/`. Nothing leaves
+  the machine.
 
 ## How to verify a Rootknot without the tool
 
-Each indexed artifact is stored two ways:
+Each indexed artifact is stored two ways: a SQLite index at
+`.rack/rootknots.db` in the workspace root (`ProvenanceIndex`,
+`src/ract/core/provenance.py`) and a sidecar file
+`.<artifact>.rootknot.json` beside the artifact.
 
-1. **SQLite index** — `.rack/rootknots.db` in the workspace root; the runtime
-   source of truth (`ProvenanceIndex`, `src/ract/core/provenance.py`).
-2. **Sidecar file** — `.<artifact>.rootknot.json` beside the artifact; the
-   human-audit path. It carries the canonical fields and the hex-encoded
-   signature.
-
-To verify by hand: read the sidecar, recompute the canonical bytes exactly as
-`Rootknot.canonical_bytes()` does (sorted JSON, `(",", ":")` separators), and
-check the ed25519 signature against the generator's public key. The CLI verb
+To verify by hand: read the sidecar, recompute the canonical bytes as
+`Rootknot.canonical_bytes()` does (sorted JSON, `(",", ":")` separators),
+and check the ed25519 signature against the generator's public key. The
+CLI verb
 
 ```
 ract provenance verify <path>
 ```
 
-automates this: it loads the sidecar, recomputes the artifact digest, resolves
-the generator's public key from the local key store (including archived keys,
-so pre-rotation rootknots still verify), checks the signature, and prints
-`valid` / `invalid` with exit code 0 / 1.
-
-The operator's session public keys live in `<state_dir>/ract/keys/*.pem`.
+automates this: loads the sidecar, recomputes the artifact digest,
+resolves the generator's public key from the local key store (including
+archived keys), checks the signature, and prints `valid` / `invalid`
+with exit code 0 / 1. Session public keys live in `<state_dir>/ract/keys/*.pem`.
 
 ## What happens if a Rootknot is missing or invalid
 
@@ -81,6 +74,13 @@ across every indexed artifact (`src/ract/core/provenance.py`):
   the `acceptance_suite_digest` is a currently registered suite (RK-3.2);
   the `predicate_results` tuple is non-empty (RK-3.3); the `manifest_digest`
   is a currently registered manifest (RK-3.4).
+- **AL-1 (Anti-Lazy Attestation, v0.4-ALM)** — for every v3 sidecar: the
+  anti-lazy signature verifies under the ALM verifier pubkey the
+  resolver returns (AL-1.1); every `GateResult` in `gate_results` has
+  `passed=True` OR carries a `handshake_id` that appears in the
+  operator's approved-handshake set (AL-1.2); `reversal_taint` is
+  `"clean"` OR the run's `plan_id` appears in the operator's
+  `accepted_partial_taint_runs` set (AL-1.3).
 
 If any fails, the loop halts immediately with
 `TerminationCause.PROVENANCE_FAILURE` (T3) and names the sub-clause that
@@ -93,26 +93,32 @@ Reader dispatches on the top-level `schema` field.
 
 - **`sidecar/v1`** (v0.3) — no `schema` field. Carries `signature`.
   RK-3 skipped with `DeprecationWarning`; `--strict` refuses.
-- **`sidecar/v2`** (v0.4) — `schema: sidecar/v2`. Adds
+- **`sidecar/v2`** (v0.4 substrate) — `schema: sidecar/v2`. Adds
   `generator_signature`, `environment_signature`,
   `acceptance_suite_digest`, `predicate_results`, `manifest_digest`.
+- **`sidecar/v3`** (v0.4 ALM) — `schema: sidecar/v3`. Adds
+  `antilazy_signature`, `gate_results` (tuple of eight per-gate
+  records), `reversal_taint` (`"clean"` or `"partial"`), and the
+  base64 raw ALM verifier pubkey (`alm_pubkey_b64`) so AL-1 can be
+  verified from the sidecar plus an out-of-sidecar registry check.
 
 **Offline verification.** v2 sidecars embed the raw sandbox pubkey
-(`sandbox_pubkey_b64`, 32 bytes base64) so RK-3.1 checks without any
-local `.rack/` state. Save sites may also embed `generator_pubkey_b64`.
-The sidecar becomes a self-contained audit artifact: recompute
-canonical bytes, ed25519-verify against embedded pubkeys, check digest
-fields against the registered set.
+(`sandbox_pubkey_b64`) for RK-3.1. v3 sidecars also embed the raw ALM
+verifier pubkey (`alm_pubkey_b64`) for AL-1.1. Save sites may also
+embed `generator_pubkey_b64`. Recompute canonical bytes, ed25519-verify
+against embedded pubkeys, check digest fields against the registered
+set.
 
-**Authorship bound.** The sidecar proves its own *consistency* —
-signatures verify against embedded pubkeys, digests match, bytes are
-reproducible. Whether those pubkeys are the ones the operator expected
-is out-of-band work: compare the embedded values against known-good
-keys.
+**Authorship bound.** The sidecar proves its own *consistency*. Whether
+the embedded pubkeys are the ones the operator expected is out-of-band
+work. For the ALM verifier pubkey the v0.4-ALM design REQUIRES a
+cross-check against `.rack/alm/archive/` or an operator registry (see
+ADR-0023 for the chain-of-custody rationale).
 
-| Sidecar | RK-1 | RK-2 | RK-3 | `--strict` |
-|---|---|---|---|---|
-| `sidecar/v1` | required | required | skipped (warn) | refused |
-| `sidecar/v2` | required | required | required | required |
+| Sidecar | RK-1 | RK-2 | RK-3 | AL-1 | `--strict` |
+|---|---|---|---|---|---|
+| `sidecar/v1` | required | required | skipped (warn) | skipped (warn) | refused |
+| `sidecar/v2` | required | required | required | skipped (warn) | refused |
+| `sidecar/v3` | required | required | required | required | required |
 
 <!-- RACT 0.4.0 -->

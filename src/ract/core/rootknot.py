@@ -26,6 +26,7 @@ import json
 import time
 import warnings
 from dataclasses import dataclass, field
+from typing import Literal
 
 from ract.core.keys import SessionKey, verify
 from ract.core.types import Digest, PlanId, StepId, make_plan_id, make_step_id
@@ -35,6 +36,49 @@ from ract.core.types import Digest, PlanId, StepId, make_plan_id, make_step_id
 # environment-attestation fields. RK-3 skips-with-warning for any knot
 # whose ``schema_version`` is 1 (per module_06 lateral chain branch A).
 _ZERO_DIGEST: Digest = Digest(b"\x00" * 32)
+
+
+# ---------------------------------------------------------------------------
+# v0.4 ALM module_05 — Gate result value carried inside the v3 Rootknot.
+# ---------------------------------------------------------------------------
+
+
+ReversalTaint = Literal["clean", "partial"]
+
+
+@dataclass(frozen=True)
+class GateResult:
+    """One anti-lazy gate report snapshotted into the Rootknot.
+
+    ``gate_id`` is one of ``"G1"`` through ``"G8"`` (ALM §3). ``passed``
+    is the boolean outcome of the gate this iteration. ``evidence_digest``
+    is a 32-byte SHA-256 over the on-disk report (patchdiff report,
+    coverage delta report, mutation report, ...); a verifier reconstructs
+    the report from disk and re-hashes to confirm the digest matches.
+    ``handshake_id`` is set when the gate failed but an operator
+    handshake overrode the failure; the verifier looks the id up in the
+    HandshakeRegistry and confirms status is ``approved``.
+
+    v3 rootknots serialize the full tuple of ``GateResult`` records into
+    the signed canonical bytes so the ALM verifier key is signing over
+    the exact gate-outcome set the completion claims.
+    """
+
+    gate_id: str
+    passed: bool
+    evidence_digest: Digest = _ZERO_DIGEST
+    handshake_id: str | None = None
+
+    def canonical_dict(self) -> dict[str, object]:
+        """Return a JSON-serialisable stable-key form of this result."""
+        payload: dict[str, object] = {
+            "gate_id": self.gate_id,
+            "passed": bool(self.passed),
+            "evidence_digest": self.evidence_digest.hex(),
+        }
+        if self.handshake_id is not None:
+            payload["handshake_id"] = self.handshake_id
+        return payload
 
 
 @dataclass(frozen=True)
@@ -84,8 +128,14 @@ class Rootknot:
     acceptance_suite_digest: Digest = _ZERO_DIGEST
     predicate_results: tuple[Digest, ...] = field(default_factory=tuple)
     manifest_digest: Digest = _ZERO_DIGEST
-    # 1 = v0.3-compat (v1 sidecar); 2 = v0.4 (v2 sidecar). Canonical bytes
-    # dispatch on this so a v1 signature never breaks under v0.4 code load.
+    # v0.4 ALM module_05 additions — default zeros / clean so v0.3 and v0.4
+    # substrate constructors still work.
+    antilazy_signature: bytes = b""
+    gate_results: tuple[GateResult, ...] = field(default_factory=tuple)
+    reversal_taint: ReversalTaint = "clean"
+    # 1 = v0.3-compat (v1 sidecar); 2 = v0.4 substrate (v2 sidecar);
+    # 3 = v0.4 ALM (v3 sidecar). Canonical bytes dispatch on this so a
+    # v1 or v2 signature never breaks under v0.4-ALM code load.
     schema_version: int = 1
 
     # ------------------------------------------------------------------
@@ -141,6 +191,14 @@ class Rootknot:
             payload["predicate_results"] = [d.hex() for d in self.predicate_results]
             payload["manifest_digest"] = self.manifest_digest.hex()
             payload["schema_version"] = self.schema_version
+        if self.schema_version >= 3:
+            # ALM module_05: gate_results + reversal_taint feed the signed
+            # canonical bytes so the anti-lazy signature attests the exact
+            # gate-outcome set the completion claims. The antilazy_signature
+            # itself is NOT part of the canonical bytes — it signs over
+            # them, so including it would be a chicken-and-egg loop.
+            payload["gate_results"] = [gr.canonical_dict() for gr in self.gate_results]
+            payload["reversal_taint"] = self.reversal_taint
         return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
             "utf-8"
         )
@@ -165,6 +223,9 @@ class Rootknot:
             acceptance_suite_digest=self.acceptance_suite_digest,
             predicate_results=self.predicate_results,
             manifest_digest=self.manifest_digest,
+            antilazy_signature=self.antilazy_signature,
+            gate_results=self.gate_results,
+            reversal_taint=self.reversal_taint,
             schema_version=self.schema_version,
         )
 
@@ -191,6 +252,50 @@ class Rootknot:
             acceptance_suite_digest=self.acceptance_suite_digest,
             predicate_results=self.predicate_results,
             manifest_digest=self.manifest_digest,
+            antilazy_signature=self.antilazy_signature,
+            gate_results=self.gate_results,
+            reversal_taint=self.reversal_taint,
+            schema_version=self.schema_version,
+        )
+
+    def attest_antilazy(self, alm_signer) -> Rootknot:  # type: ignore[no-untyped-def]
+        """Return a new Rootknot whose ``antilazy_signature`` is set.
+
+        ``alm_signer`` is any object with a ``sign(bytes) -> bytes``
+        method — typically a ``ract.security.alm_verifier_key.AlmVerifierKey``.
+        The anti-lazy signature is over the same canonical bytes as the
+        generator and environment signatures; AL-1 verifies it under the
+        ALM verifier's distinct pubkey (ALM §5).
+
+        Precondition: ``schema_version`` must be at least 3 — earlier
+        schemas do not include ``gate_results`` or ``reversal_taint`` in
+        the canonical bytes, so an anti-lazy signature over v1 or v2
+        canonical bytes would not attest what the invariant claims. The
+        caller is expected to build a v3 knot via ``make_rootknot_v3``.
+        """
+        if self.schema_version < 3:
+            raise ValueError(
+                "attest_antilazy requires schema_version >= 3; "
+                f"got {self.schema_version}. Use make_rootknot_v3 to "
+                "construct the ALM-shaped Rootknot."
+            )
+        return Rootknot(
+            plan_id=self.plan_id,
+            step_id=self.step_id,
+            assumption_digest=self.assumption_digest,
+            generator=self.generator,
+            parent_digests=self.parent_digests,
+            workspace_path=self.workspace_path,
+            artifact_digest=self.artifact_digest,
+            created_at_ns=self.created_at_ns,
+            generator_signature=self.generator_signature,
+            environment_signature=self.environment_signature,
+            acceptance_suite_digest=self.acceptance_suite_digest,
+            predicate_results=self.predicate_results,
+            manifest_digest=self.manifest_digest,
+            antilazy_signature=alm_signer.sign(self.canonical_bytes()),
+            gate_results=self.gate_results,
+            reversal_taint=self.reversal_taint,
             schema_version=self.schema_version,
         )
 
@@ -204,6 +309,14 @@ class Rootknot:
             return False
         return verify(
             self.canonical_bytes(), self.environment_signature, sandbox_pubkey
+        )
+
+    def verify_antilazy(self, alm_pubkey: bytes) -> bool:
+        """Verify the anti-lazy signature against ``alm_pubkey`` (AL-1.1)."""
+        if not self.antilazy_signature:
+            return False
+        return verify(
+            self.canonical_bytes(), self.antilazy_signature, alm_pubkey
         )
 
 
@@ -287,6 +400,65 @@ def make_rootknot_v2(
         schema_version=2,
     )
     return unsigned.sign(key).attest_environment(sandbox_signer)
+
+
+def make_rootknot_v3(
+    *,
+    key: SessionKey,
+    sandbox_signer,  # type: ignore[no-untyped-def]
+    alm_signer,  # type: ignore[no-untyped-def]
+    workspace_path: str,
+    artifact_digest: Digest,
+    assumption_digest: Digest,
+    acceptance_suite_digest: Digest,
+    predicate_results: tuple[Digest, ...],
+    manifest_digest: Digest,
+    gate_results: tuple[GateResult, ...],
+    reversal_taint: ReversalTaint = "clean",
+    model_name: str = "unknown",
+    model_version: str = "0",
+    plan_id: PlanId | None = None,
+    step_id: StepId | None = None,
+    parent_digests: tuple[Digest, ...] = (),
+) -> Rootknot:
+    """Construct, sign, and triple-attest a v3 (v0.4 ALM) Rootknot.
+
+    All three signatures land: generator (session key), environment
+    (sandbox signer), and anti-lazy (ALM verifier signer). The returned
+    Rootknot verifies under RK-1, RK-2, RK-3, and AL-1 when the pubkeys
+    the verifier resolves match the keys used here.
+    """
+    session_id = key.public_key_id()[:16]
+    generator = GeneratorRef(
+        model_name=model_name,
+        model_version=model_version,
+        session_id=session_id,
+        public_key_id=key.public_key_id(),
+    )
+    unsigned = Rootknot(
+        plan_id=plan_id or make_plan_id(),
+        step_id=step_id or make_step_id(),
+        assumption_digest=assumption_digest,
+        generator=generator,
+        parent_digests=parent_digests,
+        workspace_path=workspace_path,
+        artifact_digest=artifact_digest,
+        created_at_ns=time.time_ns(),
+        generator_signature=b"",
+        environment_signature=b"",
+        acceptance_suite_digest=acceptance_suite_digest,
+        predicate_results=tuple(predicate_results),
+        manifest_digest=manifest_digest,
+        antilazy_signature=b"",
+        gate_results=tuple(gate_results),
+        reversal_taint=reversal_taint,
+        schema_version=3,
+    )
+    return (
+        unsigned.sign(key)
+        .attest_environment(sandbox_signer)
+        .attest_antilazy(alm_signer)
+    )
 
 
 # RACT 0.4.0

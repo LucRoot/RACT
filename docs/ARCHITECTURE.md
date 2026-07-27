@@ -651,6 +651,78 @@ See ADR-0022 for the design rationale and rejected alternatives, and
 ``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §3.7 and §3.8 for the master-
 spec source.
 
+## Anti-Lazy Attestation: three signatures and Invariant AL-1
+
+ALM module_05 lands the sacred-spine change: the Rootknot gains a third
+signature (``antilazy_signature``), a snapshot of the eight anti-lazy
+gate outcomes (``gate_results``), and a taint value the sycophancy
+circuit produces (``reversal_taint``). ``schema_version`` bumps to 3;
+``canonical_bytes`` dispatches on the version so v1 (v0.3) and v2 (v0.4
+substrate) rootknots continue to verify under the compatibility reader.
+
+**The three signatures.** A v3 Rootknot carries the generator signature
+(session key, RK-1.2), the environment signature (sandbox key, RK-3.1),
+and the anti-lazy signature (ALM verifier key, AL-1.1). The three keys
+live in three separate processes: model layer, sandbox, ALM verifier.
+Compromising any one does not forge the others.
+
+**Invariant AL-1 (Anti-Lazy Attestation).** ``verify_workspace`` runs
+three sub-clauses per v3 rootknot:
+
+- AL-1.1 ``knot.antilazy_signature`` verifies under the ALM verifier
+  pubkey the resolver returns.
+- AL-1.2 every ``GateResult`` in ``knot.gate_results`` has
+  ``passed=True`` OR carries a ``handshake_id`` that appears in
+  ``approved_gate_exceptions`` (the operator's approved-handshake ids
+  read from the ``HandshakeRegistry``).
+- AL-1.3 ``knot.reversal_taint == "clean"`` OR the run identified by
+  ``knot.plan_id`` appears in ``accepted_partial_taint_runs`` (the
+  operator's point-in-time acceptance of the partial taint).
+
+Under ``strict=True`` the bar rises to "AL-1 required" the same way
+module_06 raised it to "RK-3 required": pre-v3 sidecars are refused
+outright.
+
+**Sycophancy circuit breaker (``ract.antilazy.sycophancy``).** The
+scanner reads the event trace for assistant turns that flip position
+within a five-turn window without intervening evidence (predicate
+evaluation, tool result, companion response, or Investigator report).
+Position classification is deterministic (regex plus small heuristic
+ledger) so the sycophancy detector is independent of the primary
+provider. A suspicious reversal fires a forcing prompt via
+``force_evidence_or_restore``; unresolved suspicious reversals set
+``reversal_taint`` to ``partial``. The two-consecutive-reversal gate
+plus the Investigator-report exemption keep the false-positive rate
+bounded.
+
+**Investigator (``ract.antilazy.investigator``).** A pre-completion
+contract that reads files the primary loop did not touch. Files are
+selected by symbol-graph adjacency (import + call edges) to touched
+symbols; the top 20 by score are opened (Lateral Chain branch B). The
+selection pads with lexicographically-earliest untouched files when
+the adjacency ranking is shorter than the bound, so a primary that
+tries to name no symbols the graph would connect to hidden files still
+cannot cap the Investigator's reach (Second Pass Q3 defence). The
+Investigator's probe is a companion-provider callable (different
+family per G7); its report is required input to G6 and G7. A
+completion without an ``investigator.report`` event in the trace emits
+``laziness.violated`` with ``kind="investigator_missing"`` and does
+not authenticate.
+
+**ALM verifier key chain of custody.** The v3 sidecar embeds the ALM
+pubkey the sidecar was signed under. This is trust-by-declaration:
+the sidecar carries both the signature and the pubkey that verifies
+it. The verifier is REQUIRED to cross-check the embedded pubkey
+against an out-of-sidecar source: a resolver passed as ``alm_pubkey``
+to ``verify_workspace`` (typically a lookup into the workspace-level
+``.rack/alm/archive/*.key`` file the ALM verifier process wrote at
+run close, or an operator-supplied registry). The
+``load_sidecar_alm_pubkey`` docstring documents this explicitly. See
+ADR-0023.
+
+See ``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §4, §5, §8, §10 for the
+master-spec source.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -669,3 +741,4 @@ spec source.
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G3 (patch differentiation) + Gate G4 (coverage delta) (ADR-0020) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G5 (test integrity) + Gate G6 (symbol-graph under-edit) (ADR-0021) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G7 (companion red team) + Gate G8 (effort reconciliation) (ADR-0022) -->
+<!-- RACT 0.4.0-rc1: Three-signature Rootknot + Invariant AL-1 + sycophancy circuit + Investigator (ADR-0023) -->
