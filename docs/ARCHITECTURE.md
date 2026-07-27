@@ -351,6 +351,72 @@ C); historical numbers remain readable against historical subsets.
 Design rationale in `docs/ADRs/ADR-0018-aider-polyglot-swebench-
 lite-external-anchors.md`.
 
+## Anti-Lazy Gate G1 (held-out predicates) and Gate G2 (mutation-kill)
+
+ALM spec §3.1 and §3.2; §13 signals 1 and 2. The substrate
+``AcceptanceSuite`` already prevents "model votes done, environment
+does not"; the ALM turns the pressure one level in. A model that
+observes which predicates the suite contains can steer its patch to
+satisfy those predicates literally while missing the underlying intent.
+G1 and G2 sit between the substrate suite and the pre-commit gate to
+close that failure mode.
+
+**Gate G1 — held-out predicate enforcement.** ``IntentCompiler.compile``
+accepts an optional ``companion: HoldoutComposer``; when present it
+returns a ``DualAcceptanceSuite`` wrapping the substrate
+``AcceptanceSuite`` as ``visible`` plus a companion-composed
+``held_out`` suite whose canonical JSON is AES-256-GCM sealed under a
+symmetric key derived from the run's ``SandboxKey`` via HKDF-SHA256
+(context string ``"ract/antilazy/holdout-seal/v1"``, salt = the raw
+Ed25519 pubkey bytes). The public ``held_out_digest`` is committed to
+``evals/runs/<run_id>/suite.json`` alongside the base64-encoded seal;
+the plaintext of the held-out predicates never lands on disk in that
+file. The sandbox layer's capability manifest denies read of
+``.rack/sandbox/holdout/`` so a model-facing tool cannot request the
+seal bytes.
+
+A composer that produces a suite whose predicates evaluate identically
+on the current workspace and on a deterministic byte-shuffled
+perturbation of the touched surface is marked
+``holdout_kind="trivial"`` and T1 treats the held-out half as
+auto-pass (lateral chain branch E). This closes the escape hatch where
+a model influences the composer into emitting theatre.
+
+T1 (``ract.core.loop.check_t1``) duck-types the dual suite through a
+``visible``/``held_out`` attribute pair and calls
+``check_visible_and_held_out``, which fires ``laziness.violated`` with
+``kind="visible_holdout_gap"`` when the visible half is all-ok but the
+held-out half is not. Substrate T1 semantics remain unchanged for
+callers that hold a bare ``AcceptanceSuite``.
+
+**Gate G2 — mutation-kill threshold.** After the model claims
+completion and before the ``StepTransaction`` commits, ``enforce_g2``
+runs mutation testing against the touched surface. A
+``MutantSource`` produces mutants (default is a built-in AST-level
+arithmetic-operator swap; the ``MutmutSource`` adapter wires to the
+optional ``mutmut`` dev dependency), the runner caps per-file mutants
+at 200 with deterministic sampling under a fixed seed (lateral chain
+branch B), and each mutant is scored against the acceptance suite
+under a per-mutant timeout defaulting to 10s. A mutant that exceeds
+the timeout lands under ``mutants_survived``, never
+``mutants_equivalent``, so a hung evaluator cannot inflate the kill
+rate. Surviving mutants are batched into groups of 10 for a single
+companion-backed equivalence check per batch (lateral chain branch C);
+mutants flagged equivalent land in ``mutants_equivalent`` and are
+subtracted from the denominator. Below a 0.7 kill threshold, the gate
+returns ``should_roll_back=True`` and emits ``laziness.violated`` with
+``kind="mutation_kill_below_threshold"``. The full ``MutationReport``
+is persisted to ``evals/runs/<run_id>/mutation.json``.
+
+Both gates land as ALM extensions on top of the substrate; nothing in
+``ract.core`` imports from ``ract.antilazy``. The trace vocabulary
+gains exactly one new value (``laziness.violated``); every other
+event site is reused.
+
+See ADR-0019 for the design rationale and rejected alternatives, and
+``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §3.1 and §3.2 for the
+master-spec source.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -365,3 +431,4 @@ lite-external-anchors.md`.
 <!-- RACT 0.4.0: Event trace as the product (ADR-0015) -->
 <!-- RACT 0.4.0: Rootknot environment attestation + contracts (ADR-0016, ADR-0017) -->
 <!-- RACT 0.4.0: Eval-first — Aider Polyglot + SWE-bench Lite anchors (ADR-0018) -->
+<!-- RACT 0.4.0-rc1: Anti-Lazy Gate G1 (held-out) + Gate G2 (mutation-kill) (ADR-0019) -->
