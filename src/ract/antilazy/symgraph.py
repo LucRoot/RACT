@@ -57,7 +57,7 @@ SymbolKind = Literal["function", "class", "method", "import_alias"]
 # absent the graph still excludes these well-known generator outputs
 # so absent annotations do not become a false-positive surface.
 #
-# Cycle-2 review expansion: Gemini flash_reason review named three
+# Cycle-2 review expansion: external reviewer named three
 # additional shapes worth shipping as defaults so workspaces using
 # OpenAPI / GraphQL / ORM codegen without explicit annotations still
 # get correct closure results. See ``## Second Pass results`` in

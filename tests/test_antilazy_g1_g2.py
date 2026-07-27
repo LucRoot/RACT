@@ -491,7 +491,7 @@ def test_worked_example_visible_passes_holdout_fails(tmp_path: Path) -> None:
 def test_held_out_predicate_id_redacted_from_predicate_evaluated_event(
     tmp_path: Path,
 ) -> None:
-    """Second Pass finding 1 (Google flash_reason).
+    """Second Pass finding 1 (external reviewer).
 
     ``AcceptancePredicate.evaluate`` emits a ``predicate.evaluated``
     event carrying ``predicate_id`` in the payload. Without redaction,

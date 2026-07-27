@@ -398,7 +398,7 @@ def run_companion(
         )
     except _CompanionTimeout:
         time_exceeded = True
-    # Second Pass fix (module_04 Second Pass, NVIDIA reason_deep
+    # Second Pass fix (module_04 Second Pass, external reviewer
     # Additional Defect #3): elapsed is computed once at the end of
     # all work and both the ``time_exceeded`` flag and
     # ``time_spent_seconds`` derive from the same measurement. The

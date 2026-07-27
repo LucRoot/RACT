@@ -99,7 +99,7 @@ through `module_07.md`.
 - module_05: operator handshake UX on partial reversal taint deferred to release close
 - module_05: ALM verifier key registry primitive not shipped; no default `.rack/alm/archive/*.key` resolver
 - module_05: `LoopController` wiring for Investigator + reversal-scan + gate_results embedding
-- module_05: `endpoints_SKILL.md` three-family review example not landed (see operator-side gaps below)
+- module_05: operator's dispatcher-scoping documentation three-family review example not landed (see operator-side gaps below)
 - module_05: Investigator per-file probe requires a real `CompanionAdapter` (stub in tests today)
 - module_05: silent `except Exception` in trace-emit blocks — add debug-log of suppressed exception
 - module_06: cost cap on primary-provider dispatch per rule-like completion (belongs in `ract.yaml`)
@@ -120,30 +120,30 @@ but the module deferred rather than landing as a fix commit. Reviewer
 identities reflect the ACTUAL dispatcher used (see the operator-side
 dispatcher-gaps section for the four plan-vs-actual drift events).
 
-- module_01 (Google flash_reason): ACH 0.79 precision inflates `kill_rate` denominator; ~21% missed equivalents
-- module_01 (Google flash_reason): trivial-holdout ceiling insufficient — add compose-time signal + consecutive-similar refusal
+- module_01 (external reviewer via operator dispatcher): ACH 0.79 precision inflates `kill_rate` denominator; ~21% missed equivalents
+- module_01 (external reviewer via operator dispatcher): trivial-holdout ceiling insufficient — add compose-time signal + consecutive-similar refusal
 - module_02 (cross-family reviewer via operator dispatcher): `_classify_triviality` gameable by mixed-diff (formatter + substantive)
 - module_02 (cross-family reviewer via operator dispatcher): 3-run flakiness filter 52% pass at 20% flake; need adaptive N + Wilson interval
-- module_03 (Google flash_reason): data-flow escape via `s = pytest.skip; s()` bound-method assignment
-- module_03 (Google flash_reason): handshake-approval per-pattern cap absent (`max_handshake_approvals_per_pattern`)
-- module_03 (Google flash_reason): no cross-run cluster analysis over `handshake.requested`/`resolved`
-- module_03 (Google flash_reason): `SymbolNode` lacks signature info; arg-list/return changes miss under-edit
-- module_03 (Google flash_reason): full tree-sitter analyzers for TypeScript/Go/Rust G5/G6
-- module_04 (NVIDIA reason_deep): companion-matrix vs live conformance staleness (no per-schedule liveness check)
-- module_04 (NVIDIA reason_deep): `files_touched_expected` doesn't weight by file size
-- module_04 (NVIDIA reason_deep): companion time budget is soft; adapter runs unbounded, no interrupt signal
-- module_05 (Google flash_reason): Investigator lex-fallback biasable via `z_` file-rename attack
-- module_05 (Google flash_reason): sycophancy classifier moderate-high FN rate on indirect/euphemistic reversals
-- module_05 (Google flash_reason): `scan_trace` reports only closest reversal per anchor; distinct chains under-reported
-- module_05 (Google flash_reason): narrow `load_sidecar_alm_pubkey` catch to `JSONDecodeError` + `binascii.Error`
+- module_03 (external reviewer via operator dispatcher): data-flow escape via `s = pytest.skip; s()` bound-method assignment
+- module_03 (external reviewer via operator dispatcher): handshake-approval per-pattern cap absent (`max_handshake_approvals_per_pattern`)
+- module_03 (external reviewer via operator dispatcher): no cross-run cluster analysis over `handshake.requested`/`resolved`
+- module_03 (external reviewer via operator dispatcher): `SymbolNode` lacks signature info; arg-list/return changes miss under-edit
+- module_03 (external reviewer via operator dispatcher): full tree-sitter analyzers for TypeScript/Go/Rust G5/G6
+- module_04 (external reviewer via operator dispatcher): companion-matrix vs live conformance staleness (no per-schedule liveness check)
+- module_04 (external reviewer via operator dispatcher): `files_touched_expected` doesn't weight by file size
+- module_04 (external reviewer via operator dispatcher): companion time budget is soft; adapter runs unbounded, no interrupt signal
+- module_05 (external reviewer via operator dispatcher): Investigator lex-fallback biasable via `z_` file-rename attack
+- module_05 (external reviewer via operator dispatcher): sycophancy classifier moderate-high FN rate on indirect/euphemistic reversals
+- module_05 (external reviewer via operator dispatcher): `scan_trace` reports only closest reversal per anchor; distinct chains under-reported
+- module_05 (external reviewer via operator dispatcher): narrow `load_sidecar_alm_pubkey` catch to `JSONDecodeError` + `binascii.Error`
 - module_06 (cross-family reviewer via operator dispatcher): rule-like detector under-inclusive on wrapper phrasings (invariant/uniqueness)
 - module_06 (cross-family reviewer via operator dispatcher): low-confidence branch always runs `rename_entities`; needs randomization
 - module_06 (cross-family reviewer via operator dispatcher): case-mapping subtlety in reverse rename (latent hole)
 - module_06 (cross-family reviewer via operator dispatcher): AST canonicalizer for semantic control-flow equivalence (astor)
 - module_06 (cross-family reviewer via operator dispatcher): pre-transform anomaly check on free-var count vs token count
-- module_07 (Google flash_lite): `crash_rate` companion column alongside `attested_pass_rate`
-- module_07 (Google flash_lite): `attestation_gap` 0.05/0.20 thresholds need empirical calibration across ≥3 providers
-- module_07 (Google flash_lite): `MISSING_ROOTKNOT.txt` whitespace-split parsing breaks on names with spaces
+- module_07 (external reviewer via operator dispatcher): `crash_rate` companion column alongside `attested_pass_rate`
+- module_07 (external reviewer via operator dispatcher): `attestation_gap` 0.05/0.20 thresholds need empirical calibration across ≥3 providers
+- module_07 (external reviewer via operator dispatcher): `MISSING_ROOTKNOT.txt` whitespace-split parsing breaks on names with spaces
 
 ## Operator-side dispatcher gaps
 
@@ -151,9 +151,9 @@ Four reviewer-drift events surfaced across the ALM pipeline where the
 module's plan named a specific reviewer endpoint that was not actually
 available at dispatch time. In each case the pipeline fell back to a
 cross-family alternative and the Second Pass still shipped, but the
-`endpoints_SKILL.md` scoping recommendations are systematically not what
+operator's dispatcher-scoping documentation is systematically not what
 actually ships. The RACT repo tree cannot write to the operator's
-`endpoints_SKILL.md` per the executor fence; these items are
+dispatcher-scoping documentation per the executor fence; these items are
 recorded here for the operator to resolve outside the RACT tree.
 
 - **module_02 reviewer-not-in-catalog:** plan named an OpenRouter DeepSeek-family reviewer function that the operator's dispatcher catalog did not expose. Fell back to a cross-family reviewer endpoint. Resolution: either restore the named reviewer in the operator's local multi-provider dispatcher OR update the operator's dispatcher-scoping documentation to remove it.
@@ -167,7 +167,7 @@ Module_08's Second Pass surfaced ONE CONCRETE DEFECT (VERSION-vs-tag
 identity check inadequate; fixed in commit `9a0b684`) and TRUNCATED
 BEFORE ANSWERING Q1/Q2/Q4. The following items feed the v0.5 backlog:
 
-- **v0.4.0-final second-pass re-coverage.** Q1 (43-signal distinctness), Q2 (CHANGELOG completeness vs 14 ADRs), and Q4 (ROADMAP compilation completeness) went unanswered because the Google flash_reason response truncated at ~1.2 KB. Self-audit substituted, but a follow-up dispatch (four sequential lightweight prompts) is queued for the v0.4.0-final review cycle so the reviewer's own distinctness/completeness/compilation claims are on the record.
+- **v0.4.0-final second-pass re-coverage.** Q1 (43-signal distinctness), Q2 (CHANGELOG completeness vs 14 ADRs), and Q4 (ROADMAP compilation completeness) went unanswered because the external reviewer response truncated at ~1.2 KB. Self-audit substituted, but a follow-up dispatch (four sequential lightweight prompts) is queued for the v0.4.0-final review cycle so the reviewer's own distinctness/completeness/compilation claims are on the record.
 - **Mistral daily token budget vs single-prompt reasoning size.** ALM modules 05 and 08 both fell back from the Mistral reasoning reviewer because the daily token budget (30 000) is smaller than a single reasoning prompt (typically ≥30 000 tokens). Feed into the operator's dispatcher-scoping documentation: either raise the Mistral tier before v0.4.0-final OR remove the Mistral reasoning reviewer from the ALM scoping recommendations.
 - **Dispatcher `finish_reason: length` surfacing.** Each provider dispatcher module in the operator's local multi-provider dispatcher should surface `finish_reason: length` warnings so a truncated review is visible to the caller rather than silent. Queued for the operator side.
 - **Version-string spelling unification.** VERSION carries the hyphenated `v0.4.0-rc1` display form; `pyproject.toml` and `__init__.py` carry the PEP 440 canonical `0.4.0rc1`; the two are the same version identity under `packaging.version.Version`, but a v0.5 cleanup could unify to a single spelling everywhere and add a lint enforcing the choice.
@@ -189,7 +189,7 @@ following items feed the v0.5 backlog as deeper improvements:
   operator's dispatcher-scoping documentation so producer-reviewer
   pairs are cross-family by construction, not by accident.
 - **Second-Pass reviewer reliability profile.** D12 also flagged that
-  Google `flash_reason` truncated at ~1.2 KB on the module_08 release-
+  the external reviewer truncated at ~1.2 KB on the module_08 release-
   close review despite `--max-tokens 8000`. When response-size
   reliability matters (release-close reviews), plan-time endpoint
   choice should account for observed truncation patterns, not just
