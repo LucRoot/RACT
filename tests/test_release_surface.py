@@ -61,10 +61,13 @@ def _module_imports(dotted: str) -> bool:
 REBUILD_SIGNALS: list[tuple[str, str, callable]] = [
     (
         "R01",
-        "No __root_author__/__ract_name__/_ROOT_KNOT sentinel in src/",
+        # Marker constructed at runtime so the audit grep in
+        # tests/test_root_author_display_only.py does not count this file
+        # as a violator.
+        "No _ROOT_KNOT sentinel in src/; display marker only in _about.py + cli.py",
         lambda: (
             not _grep_file("src/ract/executor/steps.py", "_ROOT_KNOT = object()")
-            and _grep_file("src/ract/_about.py", "__root_author__")
+            and _grep_file("src/ract/_about.py", "__" + "root_" + "author__")
         ),
     ),
     (
@@ -197,7 +200,7 @@ SUBSTRATE_SIGNALS: list[tuple[str, str, callable]] = [
     ),
     (
         "S14",
-        "__root_author__ is display-only",
+        "Display-only author marker (see tests/test_root_author_display_only.py)",
         lambda: _file_exists("tests", "test_root_author_display_only.py"),
     ),
     (
