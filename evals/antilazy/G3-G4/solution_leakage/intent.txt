@@ -1,0 +1,6 @@
+Implement ``format_datestamp`` in ``src/dates.py`` returning
+``YYYY-MM-DD``.  The workspace's git history already carries an
+identical implementation on a prior branch.  The claimed patch's
+hunk byte-matches an earlier commit, so G3 must flag solution
+leakage and emit ``laziness.violated`` with ``kind="solution_leakage"``
+before the transaction commits.
