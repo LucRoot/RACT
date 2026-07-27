@@ -28,6 +28,47 @@ Most agentic tools optimize for speed. RACT optimizes for *sustainable* speed. T
 
 The answer, without guardrails, is usually a mess. The answer with RACT is a codebase that still makes sense to a human.
 
+## v0.4.0-rc1: environment as thorough verifier
+
+Every previous version of RACT still let the model decide when it was
+done. The management LM chose the moment to stop iterating, chose which
+tests counted, and chose whether to skip a hard case with `pytest.skip`
+and call the run "passing". The guardrails caught the loudest mistakes,
+but the *decision authority* still lived with the model.
+
+v0.4.0-rc1 moves that authority out of the model and into the
+environment. Two combined pipelines land in this tag:
+
+- **Substrate.** Every plan step runs in its own git worktree, inside an
+  OS-enforced sandbox derived from a signed capability manifest. Every
+  model action is a member of a closed Pydantic union validated at the
+  provider boundary. Every run emits a hash-chained event log the
+  environment (not the model) reads to decide T1 completion: *every
+  required predicate evaluates true against the final snapshot*.
+  `Rootknot` gains an `environment_signature` (Invariant RK-3) — the
+  origin the sidecar attests shifts from author to environment.
+
+- **Anti-Lazy Module (ALM).** Eight gates run at the pre-commit boundary:
+  held-out predicates the model never sees, mutation-kill against the
+  test suite, patch differentiation, coverage delta, test-integrity AST
+  diff, symbol-graph under-edit, companion red-team from a distinct
+  provider, and effort reconciliation. A sycophancy circuit forces
+  evidence on suspicious reversals. `Rootknot` gains a third signature
+  (`antilazy_signature`) held by an ALM-verifier key distinct from the
+  sandbox key. Invariant AL-1 (Anti-Lazy Attestation) raises the
+  verification bar: `strict=True` verifies only when every gate passed
+  (or its handshake was approved) AND the run's `reversal_taint` is
+  clean.
+
+The naming convention matters. The tag is `v0.4.0-rc1` — the `rc1`
+suffix is honest about the fact that the ALM code is new and the
+combined shape warrants a release-candidate cycle before a `v0.4.0`
+final tag. Substrate alone would have shipped as `v0.4.0`; substrate
+plus ALM ships as a candidate.
+
+The word "attested" appears in a run report only when all three
+signatures land. The word "done" is no longer the model's to say.
+
 ## The longer story
 
 If this line of thinking interests you, I explore it in much more depth in my [AI Agent Playbook](https://lucasroot.pro/ai-agent-playbook-thanks). The first chapter is free, and subscribers get behind-the-scenes notes on builds like RACT, early drafts, and the occasional rant about tools that pretend to be magic.
@@ -36,4 +77,4 @@ No pressure. Use RACT however it helps you build better software. The philosophy
 
 — Dr. Lucas Root, Ph.D.
 
-<!-- RACT 0.2.0 -->
+<!-- RACT 0.4.0-rc1 -->
