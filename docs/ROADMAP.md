@@ -1,59 +1,179 @@
 # RACT Roadmap
 
-Post-audit upgrade queue. Items are ordered by leverage for the public launch.
+Post-release upgrade queue. v0.4.0-rc1 (2026-07-26) closes the SUBSTRATE
+and Anti-Lazy Module (ALM) pipelines with the environment as thorough
+verifier; this file compiles the honest-gaps log from every one of the
+fourteen combined-pipeline modules plus every deferred deeper-improvement
+finding from the ALM Second Passes plus four dispatcher-drift events at
+the [REDACTED] endpoints_SKILL boundary.
 
-## P0 — Trust and correctness
+## v0.5 hardening (from substrate close)
 
-1. **Enforcing novelty gate**
-   - Flip `allow_novelty_overrun` default to `False`.
-   - Change duplication/novelty failure action from "warn and proceed" to "reject the write and require an edit of the existing module."
-   - Update `executor.py` and `novely_budget.py` tests.
+Flagged gaps compiled from `_BUILD/ract_v0.4.0_substrate/module_01.md`
+through `module_07.md`. Substrate module_08 was scope-amended to defer
+the entire release surface to ALM module_08 (this pipeline); its own
+gap log is limited to the executor-adapter shim and is folded into the
+substrate module gaps below.
 
-2. **Real import resolution in symbol graph**
-   - Move `symbol_graph.py` from name-matching to AST-based import resolution.
-   - Make `load_bearing_guard.py`, `duplication_guard.py`, and `dead_code_auction.py` inherit the accurate reference graph.
+- module_01: live evaluators are stubs; pytest/mypy/hypothesis read metadata, don't execute
+- module_01: coverage gate stored but not enforced (no CoverageInvocation kind)
+- module_01: IntentCompiler scaffold — no test proposal, no ADR walking, no diff traversal
+- module_01: LoopController still runs v0.3 milestone-oracle path, not wired to build_loop_state
+- module_01: RunReporter.render_last_loop doesn't include the suite
+- module_01: assertion callable_refs not sandboxed (importlib, no allowlist)
+- module_01: pre-existing mypy noise in src/ract/executor.py:365,367
+- module_01: pre-existing `tests/test_readme_report_formats.py::test_readme_documents_eval_runs` red at HEAD (unchanged since v0.3)
+- module_02: substrate CLI is wrapper; SubstrateLoop not the shipped loop default until module_08 shim (config-flag gated)
+- module_02: `_fast_forward_head` uses `git reset --hard`, discards untracked files
+- module_02: container backends (Dagger/Podman) never contacted live runtime
+- module_02: container process-group teardown CLI-scoped; escaped background processes not tracked
+- module_02: loop-entry preconditions opt-in (default False)
+- module_02: `HandshakeRegistry.blocks_commit` is O(pending × ids); needs indexed lookup
+- module_02: `ract session ls` doesn't distinguish BLOCKED_ON_HANDSHAKE from open
+- module_02: Windows-case check only on worktree root basename, not deeper segments
+- module_02: `SubstrateStepSpec.predicates` typed only as `tuple`, not `tuple[AcceptancePredicate, ...]`
+- module_03: Windows OS-enforced sandbox unshipped (no AppContainer + Job Object + WFP backend)
+- module_03: `--allow-unenforced-sandbox` is a real escape hatch; no shipped-tag hard-refuse
+- module_03: Pydantic wheel absent on exotic architectures triggers sdist build
+- module_03: `sandbox.granted`/`sandbox.denied` events drop to null sink until module_05 event log lands (closed in module_05)
+- module_03: sandbox key material manifest-referenced; storage layer is module_06 work (closed in module_06)
+- module_03: Landlock version drift is runtime probe, not compile-time guarantee
+- module_03: pre-flight `would_refuse_*` uses fnmatch, not real path resolution
+- module_03: `RACT_TIER_3_ENABLED` constant in source — no signed build attestation
+- module_03: no `ract run --manifest` CLI flag yet
+- module_04: corpus is 68/75 (schema_compliance short of 40)
+- module_04: refusal-fidelity 15-item boolean at 1.00 too unforgiving; needs weighted-severity
+- module_04: live-provider CLI path not wired (`--provider openai` returns exit 2)
+- module_04: router gate not wired into `ProviderRouter.register`
+- module_04: `ract.yaml` schema override for gate thresholds not loaded from CLI
+- module_04: response cache TTL is `--refresh`-only; no `--max-cache-age`
+- module_04: Anthropic tool-use needs PlannedStep reassembly wrapper before validator
+- module_05: OTLP export not proven against live collector in CI
+- module_05: `RunReporter.project_events` doesn't map quality_score, token counts, cost, latency
+- module_05: `RedactionProfile` is shallow pattern-scrub; no entity-aware DLP
+- module_05: replay determinism assumes tool layer deterministic; no divergence detection
+- module_05: `prompt.sent`/`response.received` emit only via `send_with_trace`; live CLI unwrapped
+- module_05: `tool.called`/`tool.result`/`tool.refused` not auto-emitted by executor dispatcher
+- module_06: sandbox key archive per-machine; no `.rack/sandbox/archive/` sync convention
+- module_06: schema_version v1→v2 event migration testing not wired
+- module_06: RK-3 skipped-with-warning for v1 sidecars is audit gap until strict-mode CI
+- module_06: contract-primitive migration reuses v0.3 CLI; needs `ract.contracts.core` refactor
+- module_06: `WhispererContract` prompt injection wired at Harness.run planner site (substrate module_08 commit 492296c); coverage across every planner call site TBD
+- module_06: `FenceGate.approved_tickets` is process-local class variable; no cross-process store
+- module_06: `AuctionSweep` between-iteration wiring lands in substrate module_08 (commit 73b42b8); config-flag toggle across all loop entrypoints TBD
+- module_06: rootknot `predicate_results` field carries only digests; RK-3.3 can't assert `ok=True`
+- module_06: auction sweep uses O(files) sequential subprocess `git blame`/`git log`
+- module_07: `evals/LEADERBOARD.md` has only FakeProvider row; live per-provider rows deferred
+- module_07: live-provider E2E path not exercised; nightly `evals-full.yml` gated on `RACT_EVAL_ENABLED`
+- module_07: fixture streams cover 3 of 15 pinned problems; other 12 SKIPPED
+- module_07: SWE-bench Lite live path doesn't apply git patch nor invoke instance-image harness
+- module_07: Polyglot live path doesn't run upstream hidden test suite
+- module_07: Conformance/security columns read RESULTS.md files not present in tree
+- module_07: Polyglot subset selection assumes historic Exercism categorization
+- module_08 (substrate): manifest not attached to the SubstrateLoop the executor-adapter shim constructs; shim-driven runs are un-sandboxed (SUBSTRATE §11 signal 4 PARTIAL)
+- module_08 (substrate): no code path writes `<run_dir>/manifest.json` (SUBSTRATE §11 signal 5 PARTIAL)
 
-3. **Coverage floor + mutation testing**
-   - DONE: 90% coverage floor enforced in CI (`coverage-gate` job).
-   - Mutation testing (`mutmut` against `executor.py`, `loop_controller.py`, `harness.py`, `cli.py`) is a local/WSL-only manual operation via `ract mutation run` and `scripts/run_mutation_tests_wsl.sh`. It is not a CI gate: `mutmut` does not run on GitHub-hosted Windows runners and the run is too slow for per-PR enforcement.
+## v0.5 hardening (from ALM close)
 
-4. **CI/CD pipeline**
-   - GitHub Actions workflow running `ruff check`, `ruff format --check`, `mypy`, and `pytest`.
-   - Add status badges to `README.md`.
-   - Publish coverage badge.
+Flagged gaps compiled from `_BUILD/ract_v0.4.0_antilazy/module_01.md`
+through `module_07.md`.
 
-## P1 — Product differentiation
+- module_01: per-intent G2 threshold override (default 0.7; needs `ract.yaml` per-run overrides)
+- module_01: `MutmutSource` adapter is a stub (raises `NotImplementedError`); AST source only today
+- module_01: `enforce_g2` wired to shipped loop entry point pending SubstrateLoop-default rollout
+- module_01: non-triviality check is byte-shuffle only; metadata-channel perturbations missing
+- module_02: per-intent `tau_cov` override (default 0.8; needs `ract.yaml` overrides)
+- module_02: cross-language coverage runner is Python-only; Rust/TS hunks logged not gated
+- module_02: AST-normalized leakage scan is `--grep`-marker only; no full-tree walk
+- module_02: `enforce_g3`/`enforce_g4` wired to shipped loop entry point pending SubstrateLoop rollout
+- module_02: `is_trivial_change` bypass cross-step attack not caught by per-step gate
+- module_03: `enforce_g5`/`enforce_g6` wired to shipped loop entry point pending SubstrateLoop rollout
+- module_03: handshake-approved denials still emit `laziness.violated`; cluster analyzer missing
+- module_03: `getattr(module, 'old_name')` is advisory-only, not hard-block (accepted design)
+- module_03: stdlib `ast` chosen over tree-sitter; migration is v0.5 ADR when TS/Go/Rust land
+- module_04: G7/G8 completion-gate wiring requires `_final_diff_for_gates` hook in `LoopController`
+- module_04: anti_lazy conformance fixtures are placeholder; need real mini-workspaces
+- module_04: companion adapter interface has no rate-limit backpressure
+- module_04: `enforce_trivial_rate_ceiling` is memoryless; callers must persist history in event trace
+- module_04: `_extract_keywords` stop-word set is English-only
+- module_05: operator handshake UX on partial reversal taint deferred to release close
+- module_05: ALM verifier key registry primitive not shipped; no default `.rack/alm/archive/*.key` resolver
+- module_05: `LoopController` wiring for Investigator + reversal-scan + gate_results embedding
+- module_05: `endpoints_SKILL.md` three-family review example not landed (see [REDACTED]-side gaps below)
+- module_05: Investigator per-file probe requires a real `CompanionAdapter` (stub in tests today)
+- module_05: silent `except Exception` in trace-emit blocks — add debug-log of suppressed exception
+- module_06: cost cap on primary-provider dispatch per rule-like completion (belongs in `ract.yaml`)
+- module_06: cross-language iso-perturb solution comparison (Python-only today)
+- module_06: `compile_and_detect_rule_like` doesn't persist `rule_like` flag into `suite.json`
+- module_07: dedicated G4/G7 fixtures (currently piggy-backing on `weak_assertion_insertion` + `pattern_matching_rule_like`)
+- module_07: live-provider reruns across ≥3 provider families (via nightly `evals-full.yml`)
+- module_07: antilazy corpus growth cadence — documented process for new reward-hacking incidents
+- module_07: `sandbagging_under_effort` needs runner-applies-diff glue for real G8 exercise
+- module_07: `sycophantic_reversal_no_evidence` `trace.jsonl` needs exact `response.received` payload
+- module_07: PR-tier smoke workflow leaderboard idempotence drift on fresh base reports
+- module_07: dedicated PR-tier `iso_perturb` fixture needs deterministic mock companion
 
-5. **Model inspection tools**
-   - Let the management model invoke `read`, `grep`, and `list-tree` tools before writing.
-   - Close the duplication hole at the source.
+## v0.5 hardening (from second-pass deferrals)
 
-6. **Consolidation mode**
-   - New command: `ract consolidate`.
-   - Scans the repo for near-duplicate modules, proposes merges with diff preview, and routes through the operator handshake queue.
+Deeper-improvement findings the module-level second-pass reviewers named
+but the module deferred rather than landing as a fix commit. Reviewer
+identities reflect the ACTUAL dispatcher used (see the [REDACTED]-side
+dispatcher-gaps section for the four plan-vs-actual drift events).
 
-7. **Example project walkthrough**
-   - A complete `init` → `--loop` example in `docs/` or the HF Space.
+- module_01 (Google flash_reason): ACH 0.79 precision inflates `kill_rate` denominator; ~21% missed equivalents
+- module_01 (Google flash_reason): trivial-holdout ceiling insufficient — add compose-time signal + consecutive-similar refusal
+- module_02 (OpenRouter Nemotron Ultra): `_classify_triviality` gameable by mixed-diff (formatter + substantive)
+- module_02 (OpenRouter Nemotron Ultra): 3-run flakiness filter 52% pass at 20% flake; need adaptive N + Wilson interval
+- module_03 (Google flash_reason): data-flow escape via `s = pytest.skip; s()` bound-method assignment
+- module_03 (Google flash_reason): handshake-approval per-pattern cap absent (`max_handshake_approvals_per_pattern`)
+- module_03 (Google flash_reason): no cross-run cluster analysis over `handshake.requested`/`resolved`
+- module_03 (Google flash_reason): `SymbolNode` lacks signature info; arg-list/return changes miss under-edit
+- module_03 (Google flash_reason): full tree-sitter analyzers for TypeScript/Go/Rust G5/G6
+- module_04 (NVIDIA reason_deep): companion-matrix vs live conformance staleness (no per-schedule liveness check)
+- module_04 (NVIDIA reason_deep): `files_touched_expected` doesn't weight by file size
+- module_04 (NVIDIA reason_deep): companion time budget is soft; adapter runs unbounded, no interrupt signal
+- module_05 (Google flash_reason): Investigator lex-fallback biasable via `z_` file-rename attack
+- module_05 (Google flash_reason): sycophancy classifier moderate-high FN rate on indirect/euphemistic reversals
+- module_05 (Google flash_reason): `scan_trace` reports only closest reversal per anchor; distinct chains under-reported
+- module_05 (Google flash_reason): narrow `load_sidecar_alm_pubkey` catch to `JSONDecodeError` + `binascii.Error`
+- module_06 (OpenRouter Nemotron Ultra): rule-like detector under-inclusive on wrapper phrasings (invariant/uniqueness)
+- module_06 (OpenRouter Nemotron Ultra): low-confidence branch always runs `rename_entities`; needs randomization
+- module_06 (OpenRouter Nemotron Ultra): case-mapping subtlety in reverse rename (latent hole)
+- module_06 (OpenRouter Nemotron Ultra): AST canonicalizer for semantic control-flow equivalence (astor)
+- module_06 (OpenRouter Nemotron Ultra): pre-transform anomaly check on free-var count vs token count
+- module_07 (Google flash_lite): `crash_rate` companion column alongside `attested_pass_rate`
+- module_07 (Google flash_lite): `attestation_gap` 0.05/0.20 thresholds need empirical calibration across ≥3 providers
+- module_07 (Google flash_lite): `MISSING_ROOTKNOT.txt` whitespace-split parsing breaks on names with spaces
 
-8. **Signed-receipt examples**
-   - Show sample JSON receipts and explain the public-leaderboard plan.
+## [REDACTED]-side dispatcher gaps
 
-## P2 — Ecosystem and scale
+Four reviewer-drift events surfaced across the ALM pipeline where the
+module's plan named a specific reviewer endpoint that was not actually
+available at dispatch time. In each case the pipeline fell back to a
+cross-family alternative and the Second Pass still shipped, but the
+`endpoints_SKILL.md` scoping recommendations are systematically not what
+actually ships. The RACT repo tree cannot write to
+`C:\RootClaw\docs\Skills\` per the executor fence; these items are
+recorded here for the operator to resolve at the [REDACTED] side.
 
-9. **Public leaderboard backend**
-    - Accept and compare signed receipts from users who opt in.
+- **module_02 R1-not-in-catalog:** plan named OpenRouter `reason_r1_latest` (DeepSeek R1); OpenRouter dispatcher catalog does not expose that function. Fell back to `reason_nemotron_ultra` (Nemotron 3 Ultra 550B). Resolution: either restore `reason_r1_latest` in `openrouter_dispatch.py` OR update `endpoints_SKILL.md` scoping recommendations to remove `reason_r1_latest`.
+- **module_04 Google-quota-exhausted:** plan named Google `flash_reason`; daily free-tier quota (20 requests) was already exhausted at dispatch time. Fell back to NVIDIA `reason_deep`. Resolution: either raise the Google free-tier quota OR update `endpoints_SKILL.md` scoping to reflect the 20/day ceiling.
+- **module_05 Mistral-budget-exhausted:** plan named Mistral `reason_magistral` for a third-family review of the sacred-spine change; daily token budget was at 28164/30000 and the module_05 prompt was ~31000 tokens. Fell back to Google `flash_reason` (cross-family). Resolution: raise Mistral daily token budget OR update `endpoints_SKILL.md` to reflect the 30k/day token ceiling.
+- **module_06 R1-not-in-catalog (repeat of module_02 event):** plan named `reason_r1_latest` again; same fallback path to `reason_nemotron_ultra` as module_02. This is the fourth reviewer-drift event on eight modules attempted.
 
-11. **VS Code extension**
-    - Surface loop status, handshakes, and receipts inside the editor.
+## v0.5 hardening (from module_08 second pass)
 
-12. **Benchmark results**
-    - Compare RACT against Cursor/Claude Code on code-quality metrics.
+(Placeholder — extended after ALM module_08's Second Pass results land.)
 
-13. **Community channel**
-    - Discord or Slack for early adopters.
+## Previously logged (pre-v0.4) — carried forward
 
-## Blockers
+Items from the pre-v0.4 roadmap that remain open:
 
-- Animated asciicast/GIF is blocked until a terminal recorder supports Windows ARM64.
-- CLA assistant is blocked at the OAuth handshake step; the setup URL is open.
-<!-- RACT 0.1.1 - Trust and Tooling -->
+- **Public leaderboard backend** — accept and compare signed receipts from users who opt in.
+- **VS Code extension** — surface loop status, handshakes, and receipts inside the editor.
+- **Benchmark results** — compare RACT against Cursor/Claude Code on code-quality metrics.
+- **Community channel** — Discord or Slack for early adopters.
+- **Animated asciicast/GIF** — blocked until a terminal recorder supports Windows ARM64.
+- **CLA assistant** — blocked at the OAuth handshake step; the setup URL is open.
+
+<!-- RACT 0.4.0-rc1 -->
