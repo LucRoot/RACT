@@ -207,8 +207,8 @@ def test_to_wsl_path_converts_windows_absolute():
     from ract.mutation_runner import _to_wsl_path
 
     assert (
-        _to_wsl_path(Path("C:/Users/rootl/ract-work/scripts/run.sh"))
-        == "/mnt/c/Users/rootl/ract-work/scripts/run.sh"
+        _to_wsl_path(Path("C:/Users/example/project/scripts/run.sh"))
+        == "/mnt/c/Users/example/project/scripts/run.sh"
     )
 
 
@@ -216,8 +216,8 @@ def test_to_wsl_path_converts_windows_backslash():
     from ract.mutation_runner import _to_wsl_path
 
     assert (
-        _to_wsl_path(Path("C:\\Users\\rootl\\ract-work\\scripts\\run.sh"))
-        == "/mnt/c/Users/rootl/ract-work/scripts/run.sh"
+        _to_wsl_path(Path("C:\\Users\\example\\project\\scripts\\run.sh"))
+        == "/mnt/c/Users/example/project/scripts/run.sh"
     )
 
 

@@ -369,7 +369,7 @@ class _RenameNormalizer(ast.NodeTransformer):
 def _ast_normalized_fingerprint(hunk: Hunk) -> str | None:
     """Return the AST-normalized fingerprint of a Python hunk, or None.
 
-    Second Pass finding 1 (OpenRouter reason_nemotron_ultra): the
+    Second Pass finding 1 (external reviewer): the
     raw-byte fingerprint is defeated by an ``ast.NodeTransformer``
     rename that preserves semantics. The secondary check parses the
     added lines as a Python module, rewrites every name / arg /
@@ -586,7 +586,7 @@ def _proportional_budget(
 ) -> dict[str, int]:
     """Allocate ``total_budget`` across ``functions``, capped per function.
 
-    Second Pass finding 3 (OpenRouter reason_nemotron_ultra): the
+    Second Pass finding 3 (external reviewer): the
     prior implementation gave 0 differentiators to any function past
     ``total_budget`` in wide-refactor scenarios, contradicting its own
     docstring. The revised rule guarantees a minimum of 1
