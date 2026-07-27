@@ -29,6 +29,7 @@ Reference sources:
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import re
@@ -302,14 +303,101 @@ def _hunk_fingerprint(hunk: Hunk) -> str:
     """Return the rolling-hash fingerprint of ``hunk``.
 
     SHA-256 over the newline-joined added lines. This is the coarse
-    per-hunk fingerprint the leakage-scan queries. A shuffle-then-
-    rename attack that renames variables via ``ast.NodeTransformer``
-    while preserving semantics defeats a raw byte hash; that is a
-    known limitation flagged in the Second Pass adversarial question
-    set (see ADR-0020's rejected alternative 3 and module_02 Flagged
-    gaps).
+    per-hunk fingerprint the leakage-scan queries first; the
+    AST-normalized fingerprint below is the secondary check.
     """
     return hashlib.sha256(hunk.content_bytes()).hexdigest()
+
+
+class _RenameNormalizer(ast.NodeTransformer):
+    """Rewrite all ``Name`` and function/argument names to positional
+    placeholders so a rename attack collides with the original.
+
+    The transformer assigns ``_v0``, ``_v1``, ... in first-seen order.
+    Function names, argument names, and class names are rewritten
+    under the same registry so a shuffle-then-rename attack (per the
+    Second Pass adversarial question 1) that preserves semantics via
+    ``ast.NodeTransformer`` produces the same normalized AST as the
+    original.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._names: dict[str, str] = {}
+
+    def _rename(self, original: str) -> str:
+        if original.startswith("_") and original.endswith("_"):
+            # Preserve dunders and single-underscore idioms so the
+            # normalization does not collapse ``__init__`` into a
+            # positional slot (that would erase intent).
+            return original
+        if original not in self._names:
+            self._names[original] = f"_v{len(self._names)}"
+        return self._names[original]
+
+    def visit_Name(self, node: ast.Name) -> ast.AST:  # noqa: N802
+        return ast.copy_location(
+            ast.Name(id=self._rename(node.id), ctx=node.ctx), node
+        )
+
+    def visit_arg(self, node: ast.arg) -> ast.AST:  # noqa: N802
+        return ast.copy_location(
+            ast.arg(arg=self._rename(node.arg), annotation=node.annotation),
+            node,
+        )
+
+    def visit_FunctionDef(  # noqa: N802
+        self, node: ast.FunctionDef
+    ) -> ast.AST:
+        node = self.generic_visit(node)  # type: ignore[assignment]
+        node.name = self._rename(node.name)  # type: ignore[attr-defined]
+        return node
+
+    def visit_AsyncFunctionDef(  # noqa: N802
+        self, node: ast.AsyncFunctionDef
+    ) -> ast.AST:
+        node = self.generic_visit(node)  # type: ignore[assignment]
+        node.name = self._rename(node.name)  # type: ignore[attr-defined]
+        return node
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> ast.AST:  # noqa: N802
+        node = self.generic_visit(node)  # type: ignore[assignment]
+        node.name = self._rename(node.name)  # type: ignore[attr-defined]
+        return node
+
+
+def _ast_normalized_fingerprint(hunk: Hunk) -> str | None:
+    """Return the AST-normalized fingerprint of a Python hunk, or None.
+
+    Second Pass finding 1 (OpenRouter reason_nemotron_ultra): the
+    raw-byte fingerprint is defeated by an ``ast.NodeTransformer``
+    rename that preserves semantics. The secondary check parses the
+    added lines as a Python module, rewrites every name / arg /
+    function-name / class-name to a positional placeholder, unparses,
+    and hashes. A rename attack that preserves structure collides
+    with the original hunk on this normalized fingerprint.
+
+    Returns ``None`` when the hunk is not parseable Python (either
+    non-Python source or a code fragment). Non-Python paths fall
+    through to the raw fingerprint alone; tree-sitter for Rust /
+    TypeScript is v0.5 backlog.
+    """
+    if not hunk.path.endswith(".py"):
+        return None
+    source = "\n".join(hunk.added_lines)
+    if not source.strip():
+        return None
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None
+    normalized = _RenameNormalizer().visit(tree)
+    ast.fix_missing_locations(normalized)
+    try:
+        payload = ast.unparse(normalized)
+    except AttributeError:  # pragma: no cover — 3.9 fallback
+        return None
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _hunk_qualifies_for_leakage(hunk: Hunk) -> bool:
@@ -323,26 +411,59 @@ def _hunk_qualifies_for_leakage(hunk: Hunk) -> bool:
 def _search_git_history(
     hunk: Hunk, workspace_root: Path
 ) -> tuple[str, ...]:
-    """Return git refs where ``hunk``'s added-line block appears verbatim.
+    """Return git refs where ``hunk``'s added-line block matches.
 
-    Best-effort ``git log --all -S`` search. When git is not available
-    or the workspace is not a repo, returns an empty tuple; the
-    caller layers on ``retrieval_index_absent`` bookkeeping if the
-    retrieval index is also missing.
+    Two scans. The primary scan uses the first non-empty added line
+    as the raw anchor for ``git log --all -S``. The secondary scan
+    (Second Pass finding 1) looks for the AST-normalized signature
+    via the ``ract.antilazy.leakage:<sig>`` marker convention on
+    commit messages so a rename attack against a workspace whose
+    leakage worker stamped normalized signatures is caught. Non-
+    Python hunks skip the secondary scan.
+
+    When git is not available or the workspace is not a repo, both
+    scans return empty and the caller layers on
+    ``retrieval_index_absent`` bookkeeping.
     """
     if not hunk.added_lines:
         return ()
     if not workspace_root.exists():
         return ()
-    # Use the first non-empty added line as the -S search anchor.
+    matches: list[str] = []
+    # Primary scan: raw-byte anchor.
     anchor = ""
     for line in hunk.added_lines:
         candidate = line.strip()
         if candidate:
             anchor = candidate
             break
-    if not anchor:
-        return ()
+    if anchor:
+        matches.extend(
+            _git_log_S(anchor, hunk.path, workspace_root, cap=25)
+        )
+    # Secondary scan (Second Pass finding 1): AST-normalized signature
+    # for Python hunks. A full tree-normalized scan across every
+    # historical file is v0.5 work; the ``--grep`` scan here catches
+    # workspaces whose leakage worker stamps the marker into commit
+    # messages when a normalized-form leak is detected.
+    normalized_fp = _ast_normalized_fingerprint(hunk)
+    if normalized_fp is not None:
+        marker = f"ract.antilazy.leakage:{normalized_fp}"
+        matches.extend(_git_log_grep(marker, workspace_root, cap=25))
+    # De-dupe while preserving order.
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for ref in matches:
+        if ref not in seen:
+            seen.add(ref)
+            ordered.append(ref)
+    return tuple(ordered)
+
+
+def _git_log_S(
+    anchor: str, path: str, workspace_root: Path, *, cap: int
+) -> list[str]:
+    """Wrapper around ``git log --all -S <anchor> -- <path>``."""
     try:
         result = subprocess.run(
             [
@@ -355,7 +476,7 @@ def _search_git_history(
                 "-S",
                 anchor,
                 "--",
-                hunk.path,
+                path,
             ],
             capture_output=True,
             text=True,
@@ -363,12 +484,42 @@ def _search_git_history(
             check=False,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return ()
+        return []
     if result.returncode != 0:
-        return ()
-    return tuple(
-        line.strip() for line in result.stdout.splitlines() if line.strip()
-    )
+        return []
+    hits = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+    return hits[:cap]
+
+
+def _git_log_grep(
+    pattern: str, workspace_root: Path, *, cap: int
+) -> list[str]:
+    """Wrapper around ``git log --all --grep=<pattern>`` for the leakage
+    marker convention.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(workspace_root),
+                "log",
+                "--all",
+                "--format=%H",
+                "--grep",
+                pattern,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    if result.returncode != 0:
+        return []
+    hits = [ln.strip() for ln in result.stdout.splitlines() if ln.strip()]
+    return hits[:cap]
 
 
 def check_leakage(
@@ -397,6 +548,22 @@ def check_leakage(
         if retrieval_index is not None:
             for ref in retrieval_index.contains_hunk(hunk):
                 matches.append(ref)
+            # Second Pass finding 1: query the retrieval index a
+            # second time with the AST-normalized signature so an
+            # index adapter that stores documents under normalized-
+            # form keys catches a rename attack.
+            normalized_fp = _ast_normalized_fingerprint(hunk)
+            if normalized_fp is not None:
+                synthetic = Hunk(
+                    path=hunk.path,
+                    added_lines=(
+                        f"# ract.antilazy.leakage:{normalized_fp}",
+                    ),
+                    removed_lines=hunk.removed_lines,
+                    start_line=hunk.start_line,
+                )
+                for ref in retrieval_index.contains_hunk(synthetic):
+                    matches.append(ref)
     # De-dupe while preserving first-seen order.
     seen: set[str] = set()
     ordered: list[str] = []
