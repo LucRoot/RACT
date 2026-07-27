@@ -3657,6 +3657,13 @@ def main(argv: list[str] | None = None) -> int:
     """RACT CLI entry point."""
     if argv is None:
         argv = sys.argv[1:]
+    # README + Quickstart advertise ``ract run "<intent>"`` as the canonical
+    # execute-an-intent invocation. The default intent parser only accepts a
+    # single positional, so ``run`` is stripped here and the remaining argv
+    # is dispatched normally. Explicit alias: no behaviour change beyond the
+    # first token; every flag downstream still applies.
+    if argv and argv[0] == "run":
+        argv = argv[1:]
     if argv and argv[0] == "skills":
         return _skills_command(argv[1:])
     if argv and argv[0] == "mcp":
