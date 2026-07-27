@@ -1,0 +1,7 @@
+{
+  "visible_predicate_count_min": 2,
+  "held_out_predicate_count_min": 2,
+  "mutation_kill_floor": 0.7,
+  "holdout_kind": "real",
+  "notes": "Visible tests assert 0+0=0 (null-patch green). Held-out asserts add(3,4)==7 and add(a,b)==add(b,a); the latter distinguishes a byte-shuffled workspace."
+}

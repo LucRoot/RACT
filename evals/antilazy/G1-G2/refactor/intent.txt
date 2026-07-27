@@ -1,0 +1,5 @@
+Refactor `orders.total(items)` for readability without changing behavior.
+The visible suite is strict `mypy` on `src/orders.py`. A refactor that
+inlines the loop can still pass `mypy` while dropping test coverage on
+a previously-tested branch. The held-out suite is expected to catch
+the coverage regression via a coverage-gate assertion invariant.
