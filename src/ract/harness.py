@@ -16,6 +16,7 @@ from typing import Any
 import yaml
 
 from ract.codebase_historian import CodebaseHistorian
+from ract.contracts.whisperer import WhispererContract
 from ract.coverage_delta import (
     gate as coverage_gate,
     save_baseline as save_coverage_baseline,
@@ -685,6 +686,20 @@ class Harness:
 
         intent_parts.append(f"Intent: {intent}")
         augmented_intent = "\n\n".join(intent_parts)
+
+        # module_08 (SUBSTRATE §8): WhispererContract auto-injects a
+        # DialectBrief into every planner prompt. Environment-enforced —
+        # the planner cannot opt out; the model never sees the pre-
+        # injection form. The brief is cached per-snapshot inside the
+        # contract (lateral chain branch D from module_06).
+        if self.project_dir is not None:
+            try:
+                contract = WhispererContract(self.project_dir)
+                augmented_intent = contract.inject_into_prompt(
+                    augmented_intent, snapshot_id=str(self.project_dir)
+                )
+            except Exception:  # noqa: BLE001 — never fail planning on Whisperer error
+                pass
 
         plan_rooted = self.planner.plan(augmented_intent)
         if not plan_rooted.is_ok():
