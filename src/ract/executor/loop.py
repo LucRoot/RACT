@@ -26,10 +26,12 @@ durable artifact.
 from __future__ import annotations
 
 import subprocess
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ract.contracts.auction import AuctionSweep
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.transaction import (
     ContainerRef,
@@ -107,6 +109,7 @@ class SubstrateLoop:
         handshake_registry: HandshakeRegistry | None = None,
         manifest: CapabilityManifest | None = None,
         sandbox_backend: SandboxBackend | None = None,
+        auction_sweep: AuctionSweep | None = None,
     ) -> None:
         self.repo_root = Path(repo_root)
         self.parent_snapshot = parent_snapshot
@@ -121,6 +124,14 @@ class SubstrateLoop:
         # ``sandbox.unenforced`` fires into the event log.
         self.manifest = manifest
         self.sandbox_backend = sandbox_backend
+        # module_08 (SUBSTRATE §8): between-iteration Auction sweep. When
+        # attached, the sweep is invoked at every step boundary and gated
+        # by ``AuctionConfig.min_iteration_wall_seconds`` (module_06
+        # lateral chain branch D). Each proposal emits an
+        # ``auction.proposal`` event to the module_05 event log via
+        # ``AuctionSweep.run``.
+        self.auction_sweep = auction_sweep
+        self._loop_start_monotonic: float = time.monotonic()
         self.records: list[StepRecord] = []
         # Track committed step_ids so ``depends_on`` can gate downstream
         # commits without leaking the plan graph into git.
@@ -166,6 +177,15 @@ class SubstrateLoop:
                     budget=spec.budget,
                 )
 
+            # module_08 (SUBSTRATE §8): fire the between-iteration
+            # Auction sweep at the step boundary if attached. The
+            # ``should_run`` gate on ``AuctionConfig.min_iteration_wall_seconds``
+            # prevents runaway wall-clock. This intentionally runs
+            # BEFORE opening the transaction so a proposal emitted this
+            # boundary reflects the parent snapshot state, not any
+            # in-flight worktree.
+            self._maybe_run_auction_sweep()
+
             txn = open_transaction(
                 step_id=spec.step_id,
                 parent_snapshot=parent_before,
@@ -197,6 +217,24 @@ class SubstrateLoop:
         finally:
             if container is not None and self.container_backend is not None:
                 self.container_backend.stop(container)
+
+    # ---- between-iteration sweep ---------------------------------------
+
+    def _maybe_run_auction_sweep(self) -> None:
+        """Run ``AuctionSweep.run`` if the min-wall-seconds gate is met.
+
+        Called from ``run_step`` at each iteration boundary. A caller
+        without an attached sweep gets a no-op. Failures inside the
+        sweep are swallowed so a broken scanner cannot stall the loop.
+        """
+        if self.auction_sweep is None:
+            return
+        current_wall = time.monotonic() - self._loop_start_monotonic
+        try:
+            if self.auction_sweep.should_run(current_wall):
+                self.auction_sweep.run(current_wall_seconds=current_wall)
+        except Exception:  # noqa: BLE001 — never fail the loop on a sweep error
+            pass
 
     # ---- finalize -------------------------------------------------------
 
