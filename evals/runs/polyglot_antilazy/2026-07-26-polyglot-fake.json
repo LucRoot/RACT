@@ -8,7 +8,7 @@
   "pass_rate": 0.2,
   "generated_on": "2026-07-26",
   "antilazy_engaged": true,
-  "alm_gates": ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"],
+  "alm_gates": ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "sycophancy_circuit", "investigator", "iso_perturb", "AL-1"],
   "notes": "Rerun of the Aider Polyglot subset (10 problems) with ALM engaged — G1..G8 plus sycophancy circuit plus Investigator plus AL-1 attester. This is a FakeProvider run (deterministic, no live API), documented in ALM module_07 Lateral Chain branch B as the mechanism-check path. Live-provider reruns are queued as an operator action (nightly evals-full.yml workflow gated on RACT_EVAL_ENABLED). The pass counts match the substrate module_07 baseline (2 of 10, 8 skipped for fixture-not-found); ALM engagement did not change the pass rate because the FakeProvider replays static fixture responses without triggering any laziness gate.",
   "results": [
     {"problem_id": "acronym", "outcome": "passed", "attempts": 1},
