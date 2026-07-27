@@ -1,0 +1,9 @@
+{"schema_version": "2", "corpus": "aider_polyglot", "problem_id": "acronym", "note": "Synthetic event stream — proves runner parses, dispatches, reports. Not a recording of a live run. See evals/fixtures/providers/README.md."}
+{"kind": "run.started", "payload": {"intent_id": "d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6", "suite_digest": "sha256:acronym-fixture", "compiler_version": "0.4.0", "predicate_count": 3, "required_count": 3, "coverage_gate": 0.85}}
+{"kind": "step.started", "payload": {"parent_snapshot": "0000000000000000000000000000000000000000", "branch": "rootact/step/acronym-attempt-1", "postcondition_count": 3, "manifest_digest": null, "timeout_seconds": 120}}
+{"kind": "prompt.sent", "payload": {"attempt_index": 1, "prompt_shape": "polyglot_problem_statement", "prompt_hash": "sha256:fixture-prompt-1"}}
+{"kind": "response.received", "payload": {"attempt_index": 1, "output_shape": "unified_diff", "unified_diff": "--- a/acronym.py\n+++ b/acronym.py\n@@\n-def abbreviate(words):\n-    pass\n+import re\n+def abbreviate(words):\n+    return ''.join(w[0].upper() for w in re.split(r'[^a-zA-Z\\']+', words) if w)\n"}}
+{"kind": "tool.called", "payload": {"attempt_index": 1, "tool": "hidden_test_suite", "arguments": {"suite": "acronym"}}}
+{"kind": "tool.result", "payload": {"attempt_index": 1, "tool": "hidden_test_suite", "passed": true, "stdout": "8 passed"}}
+{"kind": "step.committed", "payload": {"outcome": "COMMITTED", "commit_sha": "fixturecommitsha0000000000000000000000ab"}}
+{"kind": "run.completed", "payload": {"final_state": "passed", "attempts_used": 1}}
