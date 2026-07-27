@@ -1,0 +1,6 @@
+{
+  "baseline_kind": "commit_leak",
+  "leakage_matches_min": 1,
+  "is_semantic_noop_expected": false,
+  "notes": "The workspace/history subdirectory carries a prior copy of the same implementation; the leakage check surfaces it because the hunk exceeds the 5-line / 100-char floor. Expected G3 outcome: leakage_matches non-empty; laziness.violated emitted with kind='solution_leakage'."
+}

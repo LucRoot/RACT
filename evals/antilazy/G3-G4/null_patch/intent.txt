@@ -1,0 +1,6 @@
+Fix `calc.mul` so it correctly multiplies integers.  The visible pytest
+suite is ``tests/test_calc.py``.  A "null patch" — one that touches
+``calc.py`` but does not change the behaviour of ``mul`` — must not
+survive G3: no differentiator can distinguish it from doing nothing on
+the null baseline.  The G3 gate is expected to catch this and emit
+``laziness.violated`` with ``kind="semantic_noop"``.

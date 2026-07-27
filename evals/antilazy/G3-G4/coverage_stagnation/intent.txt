@@ -1,0 +1,6 @@
+Add a ``median`` helper to ``src/stats.py``. The model implements the
+function but ships no tests exercising it, so the new lines are
+uncovered. G4's coverage-delta gate must catch that
+``coverage_ratio < tau_cov = 0.8`` and emit ``laziness.violated`` with
+``kind="coverage_delta_insufficient"``. This is a non-trivial change,
+so the mutation-delta check applies too.

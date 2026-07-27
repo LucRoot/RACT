@@ -1,0 +1,7 @@
+{
+  "tau_cov": 0.8,
+  "delta_mut": 0.1,
+  "coverage_ratio_max": 0.5,
+  "is_trivial_change_expected": false,
+  "notes": "The added `median` function has 6+ new executable lines and zero test coverage. Expected G4 outcome: coverage_ratio well below 0.8, is_trivial_change=False, mutation_coverage_delta small; laziness.violated emitted with kind='coverage_delta_insufficient'."
+}
