@@ -26,6 +26,11 @@ _VERBS = [
     (["repro-manifest", "--help"], 0),
     (["calibrate", "--help"], 0),
     (["infer", "--help"], 0),
+    # README + Quickstart advertise ``ract run "<intent>"``; the ``run``
+    # alias must be a no-op that hands control back to the default intent
+    # parser. Passing ``--version`` after ``run`` exercises the strip
+    # without triggering a provider call.
+    (["run", "--version"], 0),
 ]
 
 
