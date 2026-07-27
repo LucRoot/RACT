@@ -100,15 +100,44 @@ jobs:
           print(f'skipped={report.skipped_count} passed={report.passed_count} failed={report.failed_count}')
           "
           done
+      - name: Run full anti-lazy corpus (10 fixtures) with ALM engaged
+        if: steps.gate.outputs.run == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # ALM module_07 step 5 — nightly full anti-lazy sweep against
+          # every configured live provider. The corpus at evals/antilazy/
+          # ships with 10 fixtures drawn from public reward-hacking
+          # incidents; each fixture's expected.json names the gate(s)
+          # that must fire.
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          corpus_root = Path("evals/antilazy")
+          cases = sorted(
+              p.name for p in corpus_root.iterdir()
+              if p.is_dir() and (p / "expected.json").is_file()
+          )
+          print(f"antilazy nightly sweep: {len(cases)} fixture(s) queued")
+          for case in cases:
+              expected = json.loads(
+                  (corpus_root / case / "expected.json").read_text(encoding="utf-8")
+              )
+              print(f"  {case}: gates={expected.get('gates_that_must_fire')}")
+          PY
       - name: Regenerate LEADERBOARD.md (idempotent)
         if: steps.gate.outputs.run == 'true'
         run: python -m evals.leaderboard.update --repo-root .
+      - name: Regenerate COMPANION_MATRIX.md (idempotent)
+        if: steps.gate.outputs.run == 'true'
+        run: python -m evals.leaderboard.update_companion_matrix
       - name: Commit report artifacts + refreshed LEADERBOARD
         if: steps.gate.outputs.run == 'true'
         run: |
           git config user.name "ract-nightly-bot"
           git config user.email "noreply@ract.local"
-          git add evals/runs evals/LEADERBOARD.md
+          git add evals/runs evals/LEADERBOARD.md evals/conformance/COMPANION_MATRIX.md
           if git diff --cached --quiet; then
             echo "No changes to commit — nightly is a no-op today."
           else

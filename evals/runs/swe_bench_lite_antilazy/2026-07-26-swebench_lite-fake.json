@@ -1,0 +1,16 @@
+{
+  "corpus": "swebench_lite",
+  "provider": "fake",
+  "passed": 1,
+  "failed": 0,
+  "skipped": 4,
+  "subset_size": 5,
+  "pass_rate": 0.2,
+  "generated_on": "2026-07-26",
+  "antilazy_engaged": true,
+  "alm_gates": ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"],
+  "notes": "Rerun of the SWE-bench Lite subset (5 instances) with ALM engaged. FakeProvider mechanism check (Lateral Chain branch B, ALM module_07). Live-provider reruns are queued as an operator action.",
+  "results": [
+    {"instance_id": "django-django-11039", "outcome": "passed", "attempts": 1}
+  ]
+}
