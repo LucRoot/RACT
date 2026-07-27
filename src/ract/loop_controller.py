@@ -117,6 +117,7 @@ class LoopController:
         require_clean_tracked_tree: bool = False,
         companion: Any | None = None,
         effort_estimate: Any | None = None,
+        iso_perturb: Any | None = None,
     ) -> None:
         self.config_path = Path(config_path)
         self.max_iterations = max(max_iterations, 1)
@@ -206,6 +207,19 @@ class LoopController:
         self._recent_provider_history: tuple[str, ...] = ()
         self._effort_suspicion_active: bool = False
         self._companion_findings_seen: int = 0
+
+        # ------------------------------------------------------------------
+        # ALM module_06 wiring (isomorphic-perturbation gate).
+        # ------------------------------------------------------------------
+        # ``iso_perturb`` is an ``IsoPerturbBundle`` (typed at runtime by
+        # ``ract.antilazy.iso_perturb``) carrying the primary solution
+        # producer, optional companion, tunables, workspace symbols to
+        # preserve on rename, and the report-write directory. When None
+        # the substrate + module_04 paths run unchanged. When present,
+        # the loop runs the gate on completion but only fires it when
+        # ``detect_rule_like_intent(iteration.intent).is_rule_like`` is
+        # True. Divergence blocks COMPLETE and queues a resume prompt.
+        self.iso_perturb = iso_perturb
 
     def _take_snapshot(self) -> dict[str, str]:
         """Return a snapshot of Python file contents relative to project_dir."""
@@ -586,6 +600,14 @@ class LoopController:
                     if gate_outcome.resume_prompt:
                         self._repair_intent = gate_outcome.resume_prompt
                     return False
+            # ALM module_06: iso-perturbation gate. Fires only when the
+            # detector flags the intent as rule-like; skipped otherwise.
+            if self.iso_perturb is not None:
+                iso_outcome = self._run_iso_perturb_gate(iteration)
+                if iso_outcome is not None and iso_outcome.blocks_complete:
+                    if iso_outcome.resume_prompt:
+                        self._repair_intent = iso_outcome.resume_prompt
+                    return False
             return user_cb_result if user_done is not None else True
 
         return _cb
@@ -628,6 +650,53 @@ class LoopController:
             pre_change_workspace=self._pre_change_workspace_for_gates(),
             post_change_workspace=self._post_change_workspace_for_gates(),
         )
+
+    def _run_iso_perturb_gate(self, iteration: LoopIteration):
+        """Invoke ALM module_06's iso-perturbation gate.
+
+        Kept as a method so tests can monkeypatch it and so the
+        substrate loop does not import ALM at module load time.
+        Returns an ``IsoPerturbGateOutcome`` or ``None`` when the
+        bundle was not configured. The gate itself internally checks
+        rule-like detection and returns ``blocks_complete=False`` for
+        non-rule-like intents so this method's caller does not need
+        to re-check.
+        """
+        if self.iso_perturb is None:
+            return None
+        from ract.antilazy.iso_perturb import run_iso_perturb_gate
+
+        state = self._loop_state
+        workspace = state.workspace if state is not None else None
+        if workspace is None:
+            return None
+        original_solution = self._iso_perturb_original_solution(iteration)
+        run_id = self.run_dir.name if self.run_dir is not None else None
+        return run_iso_perturb_gate(
+            intent=iteration.intent,
+            workspace=workspace,
+            original_solution=original_solution,
+            bundle=self.iso_perturb,
+            run_id=run_id,
+        )
+
+    def _iso_perturb_original_solution(
+        self, iteration: LoopIteration
+    ) -> str | None:
+        """Return the original solution text for the iso-perturbation gate.
+
+        Overridden by tests. Default reads ``iteration.metrics`` for a
+        ``"solution_text"`` entry the executor may have stashed there.
+        Substrate v0.4 does not emit a canonical solution string; a
+        follow-up (module_08 CLI migration) will wire this to the
+        executor's diff-and-plan-text emitter. Until then the hook
+        makes the gate testable without stubbing the entire executor.
+        """
+        if isinstance(iteration.metrics, dict):
+            candidate = iteration.metrics.get("solution_text")
+            if isinstance(candidate, str) and candidate:
+                return candidate
+        return None
 
     def _final_diff_for_gates(self, iteration: LoopIteration):
         """Return the final diff (``Patch``) for the completion gates.

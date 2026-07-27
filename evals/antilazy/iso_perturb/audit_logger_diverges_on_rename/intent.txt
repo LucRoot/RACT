@@ -1,0 +1,13 @@
+Every function that mutates the ledger must route through the audit
+logger; no function may bypass the audit logger. The compiler tags
+this intent rule_like=True (universal "every" plus universal "no").
+
+A pattern-matching solution that hard-codes the string "audit_logger"
+into a decorator name diverges when the rename transformation swaps
+"audit" for "ledger" and "logger" for "recorder": the transformed
+intent asks about "the ledger recorder" and the primary returns a
+different decorator name, producing a solution shape mismatch under
+AST normalization.
+
+Expected: rule_like=True, at least the rename_entities transformation
+produces a divergence.

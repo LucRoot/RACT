@@ -723,6 +723,83 @@ ADR-0023.
 See ``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §4, §5, §8, §10 for the
 master-spec source.
 
+## Anti-Lazy Isomorphic Perturbation Gate
+
+ALM master spec §9. An optional completion-path gate that fires only
+when the intent is rule-like — universally quantified ("every user
+must have exactly one primary email"; "no function may bypass the
+audit logger"; "all monetary values are stored as integer cents").
+The gate restates the intent under three isomorphic transformations
+(rename entities, swap syntax, permute example order) and dispatches
+each transformed variant to the primary provider with the same
+workspace. Solutions are compared under AST-normalized digest with
+the rename map applied in reverse; divergence emits
+``laziness.violated`` with ``kind="isomorphic_divergence"`` and blocks
+COMPLETE, injecting the divergence as evidence into the next
+planning turn.
+
+**Detector (``ract.antilazy.iso_perturb.detect_rule_like_intent``).**
+Stdlib-regex over the universal-quantifier keywords (``every``,
+``all``, ``no``, ``exactly one``) and the modal keywords (``must``,
+``never``, ``always``, ``cannot``). Returns a ``RuleLikeDetection``
+with a ``confidence`` score; below 0.7 confidence the caller runs one
+transformation instead of three (lateral chain branch A). The
+detector is deliberately over-inclusive — a false positive costs one
+extra companion dispatch, a false negative loses the gate entirely,
+which is the more expensive error.
+
+**Compile pass (``IntentCompiler.compile_and_detect_rule_like``).**
+The rule-like flag rides alongside the ``AcceptanceSuite`` return so
+loop wiring reads a single ``(suite, rule_like)`` tuple and does not
+re-parse the intent. Substrate callers that call ``compile`` see the
+old return shape unchanged.
+
+**Transformations (``transform_intent``).** Deterministic, stdlib
+only. ``rename_entities`` substitutes free variables against a fixed
+synonym table; identifiers in ``workspace_symbols`` pass through
+unchanged so the rename does not shift domain vocabulary (lateral
+chain branch B). ``swap_syntax`` reorders clauses via a small
+sentence-splitter pass. ``permute_examples`` reverses dash-prefixed,
+numeric-prefixed, or comma-quoted lists inside the intent. The three
+variants are always returned in the same fixed order so the
+transformed-solution digests stay stable across runs.
+
+**AST-normalized comparison (``compare_solutions``).** When both the
+original and transformed solutions parse as Python, the reverse
+renaming map is applied to the transformed solution and both are
+compared via ``ast.dump``. Exact match returns similarity 1.0 with
+no divergence reason. Below the similarity threshold the divergence
+reason is one of ``ast_dump_mismatch``, ``parse_failure_original``,
+``parse_failure_transformed``, ``string_similarity_below_threshold``,
+or ``solution_missing`` (closed vocabulary). Non-Python solutions
+fall back to ``difflib.SequenceMatcher.ratio`` and emit an advisory
+under lateral chain branch C.
+
+**Loop wiring (``LoopController.iso_perturb``).** An optional
+``IsoPerturbBundle`` (primary ``SolutionProducer``, optional
+companion, config, workspace-symbol preservation set, report
+directory). When present, the loop's completion callback runs the
+gate after the module_04 completion gates. Divergence writes the
+resume prompt into ``_repair_intent`` and returns
+``blocks_complete=True`` so the loop does not terminate COMPLETE.
+The gate itself internally checks rule-like detection and returns
+``skipped_reason="non_rule_like"`` for non-rule-like intents,
+matching the DoD "the gate does not fire on non-rule-like intents".
+
+**Orthogonality with G1 (lateral chain branch D).** G1 verifies that
+the specific solution passes the held-out predicates the composer
+wrote. Iso-perturbation verifies that the solution's SHAPE is
+invariant under transformation of the intent. Different questions;
+both run when the intent is rule-like. See ADR-0024 for the
+explicit note in the "Rejected alternatives" and "Interaction with
+G1" sections.
+
+**Report at ``evals/runs/<run_id>/iso_perturb.json``.** The canonical
+form carries the original intent, the transformations with their
+renaming maps, the original and transformed solution digests, the
+divergences, and the ``is_pattern_matching`` flag. Written on every
+rule-like completion for retrospective audit. See ADR-0024.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -742,3 +819,4 @@ master-spec source.
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G5 (test integrity) + Gate G6 (symbol-graph under-edit) (ADR-0021) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G7 (companion red team) + Gate G8 (effort reconciliation) (ADR-0022) -->
 <!-- RACT 0.4.0-rc1: Three-signature Rootknot + Invariant AL-1 + sycophancy circuit + Investigator (ADR-0023) -->
+<!-- RACT 0.4.0-rc1: Isomorphic Perturbation gate for rule-like intents (ADR-0024) -->
