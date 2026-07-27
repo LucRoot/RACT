@@ -247,7 +247,7 @@ option added by either pipeline appears in the bullets below.
   `evals-full.yml` workflow gated on `RACT_EVAL_ENABLED`).
 - Reviewer-drift across the ALM pipeline: four of eight ALM modules'
   Second Pass reviewers fell back from the plan-named endpoint (see
-  `docs/ROADMAP.md` "[REDACTED]-side dispatcher gaps").
+  `docs/ROADMAP.md` "Operator-side dispatcher gaps").
 - Full v0.5 backlog compiled from every module's Flagged gaps and every
   Second Pass deferral: see `docs/ROADMAP.md`.
 

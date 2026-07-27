@@ -5,7 +5,7 @@ and Anti-Lazy Module (ALM) pipelines with the environment as thorough
 verifier; this file compiles the honest-gaps log from every one of the
 fourteen combined-pipeline modules plus every deferred deeper-improvement
 finding from the ALM Second Passes plus four dispatcher-drift events at
-the [REDACTED] endpoints_SKILL boundary.
+the operator-side endpoints_SKILL boundary.
 
 ## v0.5 hardening (from substrate close)
 
@@ -99,7 +99,7 @@ through `module_07.md`.
 - module_05: operator handshake UX on partial reversal taint deferred to release close
 - module_05: ALM verifier key registry primitive not shipped; no default `.rack/alm/archive/*.key` resolver
 - module_05: `LoopController` wiring for Investigator + reversal-scan + gate_results embedding
-- module_05: `endpoints_SKILL.md` three-family review example not landed (see [REDACTED]-side gaps below)
+- module_05: `endpoints_SKILL.md` three-family review example not landed (see operator-side gaps below)
 - module_05: Investigator per-file probe requires a real `CompanionAdapter` (stub in tests today)
 - module_05: silent `except Exception` in trace-emit blocks — add debug-log of suppressed exception
 - module_06: cost cap on primary-provider dispatch per rule-like completion (belongs in `ract.yaml`)
@@ -117,7 +117,7 @@ through `module_07.md`.
 
 Deeper-improvement findings the module-level second-pass reviewers named
 but the module deferred rather than landing as a fix commit. Reviewer
-identities reflect the ACTUAL dispatcher used (see the [REDACTED]-side
+identities reflect the ACTUAL dispatcher used (see the operator-side
 dispatcher-gaps section for the four plan-vs-actual drift events).
 
 - module_01 (Google flash_reason): ACH 0.79 precision inflates `kill_rate` denominator; ~21% missed equivalents
@@ -145,16 +145,16 @@ dispatcher-gaps section for the four plan-vs-actual drift events).
 - module_07 (Google flash_lite): `attestation_gap` 0.05/0.20 thresholds need empirical calibration across ≥3 providers
 - module_07 (Google flash_lite): `MISSING_ROOTKNOT.txt` whitespace-split parsing breaks on names with spaces
 
-## [REDACTED]-side dispatcher gaps
+## Operator-side dispatcher gaps
 
 Four reviewer-drift events surfaced across the ALM pipeline where the
 module's plan named a specific reviewer endpoint that was not actually
 available at dispatch time. In each case the pipeline fell back to a
 cross-family alternative and the Second Pass still shipped, but the
 `endpoints_SKILL.md` scoping recommendations are systematically not what
-actually ships. The RACT repo tree cannot write to
-`C:\RootClaw\docs\Skills\` per the executor fence; these items are
-recorded here for the operator to resolve at the [REDACTED] side.
+actually ships. The RACT repo tree cannot write to the operator's
+`endpoints_SKILL.md` per the executor fence; these items are
+recorded here for the operator to resolve outside the RACT tree.
 
 - **module_02 R1-not-in-catalog:** plan named OpenRouter `reason_r1_latest` (DeepSeek R1); OpenRouter dispatcher catalog does not expose that function. Fell back to `reason_nemotron_ultra` (Nemotron 3 Ultra 550B). Resolution: either restore `reason_r1_latest` in `openrouter_dispatch.py` OR update `endpoints_SKILL.md` scoping recommendations to remove `reason_r1_latest`.
 - **module_04 Google-quota-exhausted:** plan named Google `flash_reason`; daily free-tier quota (20 requests) was already exhausted at dispatch time. Fell back to NVIDIA `reason_deep`. Resolution: either raise the Google free-tier quota OR update `endpoints_SKILL.md` scoping to reflect the 20/day ceiling.
@@ -168,8 +168,8 @@ identity check inadequate; fixed in commit `9a0b684`) and TRUNCATED
 BEFORE ANSWERING Q1/Q2/Q4. The following items feed the v0.5 backlog:
 
 - **v0.4.0-final second-pass re-coverage.** Q1 (43-signal distinctness), Q2 (CHANGELOG completeness vs 14 ADRs), and Q4 (ROADMAP compilation completeness) went unanswered because the Google flash_reason response truncated at ~1.2 KB. Self-audit substituted, but a follow-up dispatch (four sequential lightweight prompts) is queued for the v0.4.0-final review cycle so the reviewer's own distinctness/completeness/compilation claims are on the record.
-- **Mistral daily token budget vs single-prompt reasoning size.** ALM modules 05 and 08 both fell back from Mistral `reason_magistral` because the daily token budget (30 000) is smaller than a single reasoning prompt (typically ≥30 000 tokens). Feed into the [REDACTED] endpoints_SKILL scoping table: either raise the Mistral tier before v0.4.0-final OR remove `reason_magistral` from the ALM scoping recommendations.
-- **Dispatcher `finish_reason: length` surfacing.** Each provider dispatcher (`google_dispatch.py`, `nvidia_dispatch.py`, `openrouter_dispatch.py`, `mistral_dispatch.py`) should surface `finish_reason: length` warnings so a truncated review is visible to the caller rather than silent. Queued for the [REDACTED] side.
+- **Mistral daily token budget vs single-prompt reasoning size.** ALM modules 05 and 08 both fell back from Mistral `reason_magistral` because the daily token budget (30 000) is smaller than a single reasoning prompt (typically ≥30 000 tokens). Feed into the operator-side endpoints_SKILL scoping table: either raise the Mistral tier before v0.4.0-final OR remove `reason_magistral` from the ALM scoping recommendations.
+- **Dispatcher `finish_reason: length` surfacing.** Each provider dispatcher (`google_dispatch.py`, `nvidia_dispatch.py`, `openrouter_dispatch.py`, `mistral_dispatch.py`) should surface `finish_reason: length` warnings so a truncated review is visible to the caller rather than silent. Queued for the operator side.
 - **Version-string spelling unification.** VERSION carries the hyphenated `v0.4.0-rc1` display form; `pyproject.toml` and `__init__.py` carry the PEP 440 canonical `0.4.0rc1`; the two are the same version identity under `packaging.version.Version`, but a v0.5 cleanup could unify to a single spelling everywhere and add a lint enforcing the choice.
 
 ## Previously logged (pre-v0.4) — carried forward
