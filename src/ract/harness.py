@@ -27,6 +27,11 @@ from ract.mutation_runner import run_mutation_tests
 from ract.diff_applier import DiffApplier
 from ract.duplication_guard import DuplicationGuard
 from ract.executor import ExecutionReport, Executor
+from ract.executor.worktree import (
+    WorktreeError,
+    ensure_clean_tracked_tree,
+    ensure_git_repo,
+)
 from ract.git_mode import GitMode
 from ract.handshake_registry import HandshakeRegistry
 from ract.hook_system import HookManager
@@ -738,14 +743,46 @@ class Harness:
         if pre_execute_callback is not None:
             pre_execute_callback(plan)
 
-        report_rooted = self.executor.execute(
-            intent,
-            plan,
-            context=context_block,
-            approval_callback=approval_callback,
-            stream=stream,
-            stream_callback=stream_callback,
-        ).with_step("harness.run")
+        # module_08 (SUBSTRATE §3, Path (d)): route per-plan-step execution
+        # through the worktree-per-step SubstrateLoop when the workspace
+        # meets the loop's preconditions. Legacy Executor.execute remains
+        # the fallback for non-git workspaces, dirty trees, or explicit
+        # opt-out via ``substrate_loop: false``. The branch is one call
+        # site; Executor internals are unchanged.
+        use_substrate = bool(self.config.get("substrate_loop", True))
+        substrate_ready = False
+        if use_substrate and self.project_dir is not None:
+            try:
+                ensure_git_repo(self.project_dir)
+                ensure_clean_tracked_tree(self.project_dir)
+                substrate_ready = True
+            except WorktreeError:
+                substrate_ready = False
+        if use_substrate and substrate_ready:
+            # Local import breaks a cycle:
+            #   harness → substrate_adapter → core.loop → loop_planner → harness.
+            from ract.executor.substrate_adapter import (
+                run_via_substrate as _run_via_substrate,
+            )
+
+            report_rooted = _run_via_substrate(
+                self,
+                intent,
+                plan,
+                context=context_block,
+                approval_callback=approval_callback,
+                stream=stream,
+                stream_callback=stream_callback,
+            ).with_step("harness.run")
+        else:
+            report_rooted = self.executor.execute(
+                intent,
+                plan,
+                context=context_block,
+                approval_callback=approval_callback,
+                stream=stream,
+                stream_callback=stream_callback,
+            ).with_step("harness.run")
 
         if self.coverage_gate_enabled and self.project_dir is not None:
             cg_result = coverage_gate(
