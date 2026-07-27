@@ -238,6 +238,24 @@ option added by either pipeline appears in the bullets below.
   module_08); `anti_lazy_conformance` threshold in
   `check_provider_gate` (default 0.7, ALM module_04); `AuctionConfig`
   block; `test_integrity` section in `CapabilityManifest`.
+- **Retag addendum (2026-07-27).** The `v0.4.0-rc1` tag was first cut on
+  commit `1fd764d` (2026-07-26). A retroactive endpoints audit on
+  2026-07-27 landed two release-surface fix commits and the tag was
+  moved to commit `8b0a6c5`:
+  - `2856ef0` audit(v0.4.0-rc1): fix — remove operator-project name
+    from shipped docs (D1: grep of tracked files found the operator's
+    project name and one absolute Windows path leaked into
+    `docs/ROADMAP.md` and `CHANGELOG.md`; replaced with neutral
+    "operator-side" terminology).
+  - `8b0a6c5` audit(v0.4.0-rc1): fix — substrate adapter rebinds every
+    captured helper (D6: NVIDIA Qwen3 Coder review of
+    `src/ract/executor/substrate_adapter.py` found `LoadBearingGuard`
+    and three other executor-held helpers captured `project_dir` at
+    construction time and were not covered by `_rebind_project_dir`;
+    extended the rebind to an enumerated `_HELPER_ATTRS` set and added
+    a regression test).
+  Version identity, 43-signal count, and every other release-surface
+  claim are unchanged.
 
 ### Known limitations (carried to the v0.5 hardening backlog)
 
