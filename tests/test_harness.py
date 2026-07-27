@@ -32,7 +32,7 @@ def test_harness_runs_intent_end_to_end(tmp_project):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -89,7 +89,7 @@ def test_harness_includes_curated_context(tmp_project):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -152,7 +152,7 @@ def test_harness_rejects_plan_missing_assumption(tmp_project):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -193,7 +193,7 @@ def test_harness_rejects_plan_with_empty_steps(tmp_project):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -235,7 +235,7 @@ def test_harness_rejects_plan_with_dependency_cycle(tmp_project):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -278,7 +278,7 @@ def test_harness_uses_configured_skill(tmp_project):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -334,7 +334,7 @@ def test_harness_git_mode_commits_artifacts(tmp_project):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -414,7 +414,7 @@ def test_harness_includes_retrieval_block(tmp_project):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -612,7 +612,7 @@ def test_harness_from_config_empty_mcp_registry_keeps_tools_desc_empty(tmp_proje
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -638,7 +638,7 @@ def test_harness_from_config_populates_tools_desc_with_mcp_tools(
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -675,7 +675,7 @@ def _build_harness(tmp_project, config_extra=None):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",

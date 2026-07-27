@@ -108,7 +108,7 @@ def test_harness_hard_fail_on_coverage_regress(tmp_path, monkeypatch):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -189,7 +189,7 @@ def test_harness_soft_fail_attaches_delta(tmp_path, monkeypatch):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",
@@ -271,7 +271,7 @@ def test_harness_floor_breach_hard_fail(tmp_path, monkeypatch):
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",

@@ -19,8 +19,8 @@ from typing import Any
 from ract.rooted import Rooted
 
 
-# Names that Nemotron (and many management models) frequently use in tests
-# without remembering to import them.
+# Names that management models frequently use in tests without
+# remembering to import them.
 _COMMON_TEST_MODULES: set[str] = {
     "re",
     "json",

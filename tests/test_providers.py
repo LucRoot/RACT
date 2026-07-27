@@ -58,7 +58,7 @@ def test_router_selects_provider_by_hint():
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         }
     )
@@ -129,7 +129,7 @@ def test_register_custom_adapter(isolated_registry):
 def test_local_http_provider_accepts_base_url_alias():
     """Configs that use 'base_url' instead of 'url' must route to the local server."""
     provider = LocalHttpProvider(
-        {"base_url": "http://127.0.0.1:11434/v1", "model": "nemotron"}
+        {"base_url": "http://127.0.0.1:11434/v1", "model": "local-model"}
     )
     assert provider.url == "http://127.0.0.1:11434/v1"
 
@@ -137,7 +137,7 @@ def test_local_http_provider_accepts_base_url_alias():
 def test_local_http_provider_omits_auth_header():
     """Local servers should not receive an Authorization header."""
     provider = LocalHttpProvider(
-        {"url": "http://127.0.0.1:11434/v1", "model": "nemotron"}
+        {"url": "http://127.0.0.1:11434/v1", "model": "local-model"}
     )
     fake = _FakeResponse(200, {"choices": [{"message": {"content": "hi"}}]})
     captured: dict[str, Any] = {}
@@ -258,7 +258,7 @@ def test_openai_stream_skips_malformed_lines():
 
 def test_local_http_provider_streams_without_auth():
     provider = LocalHttpProvider(
-        {"url": "http://127.0.0.1:11434/v1", "model": "nemotron"}
+        {"url": "http://127.0.0.1:11434/v1", "model": "local-model"}
     )
     captured: dict[str, Any] = {}
 
@@ -300,7 +300,7 @@ def test_router_uses_capability_scores_to_select_best_provider():
             "cheap": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
                 "capabilities": ["chat", "fast"],
                 "score_weights": {"chat": 1.0, "fast": 1.0},
             },
@@ -326,7 +326,7 @@ def test_router_fallback_chain_orders_by_score():
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
                 "capabilities": ["chat", "fast"],
                 "score_weights": {"chat": 1.0, "fast": 1.0},
             },
@@ -352,7 +352,7 @@ def test_router_health_check_returns_true_for_healthy_adapter():
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         }
     )
@@ -399,7 +399,7 @@ def test_openai_provider_health_check_failure():
 
 def test_local_http_provider_health_check_omits_auth():
     provider = LocalHttpProvider(
-        {"url": "http://127.0.0.1:11434/v1", "model": "nemotron"}
+        {"url": "http://127.0.0.1:11434/v1", "model": "local-model"}
     )
     ok = MagicMock(spec=httpx.Response)
     ok.status_code = 200
@@ -521,7 +521,7 @@ def test_router_falls_back_when_no_provider_matches_hint():
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
                 "capabilities": ["chat"],
                 "score_weights": {"chat": 1.0},
             },
@@ -538,7 +538,7 @@ def test_router_get_adapter_for_unknown_slot_returns_error():
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             }
         }
     )
@@ -574,7 +574,7 @@ def test_router_health_check_catches_adapter_exception():
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             }
         }
     )
@@ -592,7 +592,7 @@ def test_router_uses_default_capabilities_when_adapter_returns_empty():
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
                 "capabilities": [],
             }
         }
