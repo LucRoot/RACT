@@ -483,4 +483,68 @@ def test_worked_example_visible_passes_holdout_fails(tmp_path: Path) -> None:
             )
 
 
+# ---------------------------------------------------------------------------
+# 8. Second-pass finding 1 — held-out predicate ids redacted from trace
+# ---------------------------------------------------------------------------
+
+
+def test_held_out_predicate_id_redacted_from_predicate_evaluated_event(
+    tmp_path: Path,
+) -> None:
+    """Second Pass finding 1 (Google flash_reason).
+
+    ``AcceptancePredicate.evaluate`` emits a ``predicate.evaluated``
+    event carrying ``predicate_id`` in the payload. Without redaction,
+    a model observing the trace surface can enumerate the held-out
+    predicate ids by their evaluation events. The fix sets a
+    context-var-scoped redaction flag while iterating held-out
+    predicates so the trace payload carries a digest instead of the
+    raw hex.
+    """
+    visible = _visible_suite()
+    held_out = _held_out_suite(visible.intent_id)
+    dual = DualAcceptanceSuite(
+        visible=visible,
+        held_out=held_out,
+        held_out_digest=held_out.digest(),
+        held_out_seal=b"",
+        holdout_kind="real",
+    )
+    snapshot = _workspace_with_calc()
+    writer = JsonlEventWriter(
+        path=tmp_path / "events.jsonl",
+        run_id=bytes.fromhex("55" * 16),
+    )
+    set_writer(writer)
+    try:
+        check_visible_and_held_out(dual, snapshot)
+    finally:
+        clear_writer()
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    predicate_events = [e for e in events if e["kind"] == "predicate.evaluated"]
+    assert predicate_events, "expected at least one predicate.evaluated event"
+    held_out_ids = {p.id.hex() for p in held_out.required()}
+    visible_ids = {p.id.hex() for p in visible.required()}
+    saw_redacted = False
+    for event in predicate_events:
+        pid = event["payload"]["predicate_id"]
+        # Held-out ids never appear as raw hex on the trace surface.
+        assert pid not in held_out_ids, (
+            "held-out predicate id leaked into predicate.evaluated event"
+        )
+        if pid.startswith("redacted:"):
+            saw_redacted = True
+        else:
+            # Non-redacted ids must be visible-half ids.
+            assert pid in visible_ids or pid.startswith("redacted:"), (
+                f"unexpected predicate_id {pid!r} in trace"
+            )
+    assert saw_redacted, (
+        "no redacted predicate.evaluated event emitted during held-out evaluation"
+    )
+
+
 # RACT 0.4.0

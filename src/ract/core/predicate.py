@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Union
 
@@ -27,6 +28,28 @@ if TYPE_CHECKING:
 
 
 PredicateKind = Literal["test", "type", "property", "invariant", "artifact"]
+
+
+# ALM module_01 second-pass fix: when a caller is evaluating held-out
+# predicates it sets this context variable so ``AcceptancePredicate.
+# evaluate`` emits a redacted ``predicate_id`` in the ``predicate.
+# evaluated`` event. The raw id stays inside the sandbox side channel;
+# the model-facing trace surface sees only the digest. Substrate
+# callers that never touch the flag observe the substrate behaviour
+# unchanged.
+_REDACT_PREDICATE_ID: ContextVar[bool] = ContextVar(
+    "_ract_redact_predicate_id", default=False
+)
+
+
+def _redacted_predicate_id(raw: bytes) -> str:
+    """Return an id-shape digest for the trace payload of a held-out predicate.
+
+    SHA-256 of the raw id, first 16 hex chars. Short enough to remain
+    stable across the trace but not reversible to the raw id (the
+    model cannot enumerate the 2**64 preimages inside a run).
+    """
+    return "redacted:" + hashlib.sha256(raw).hexdigest()[:16]
 
 # Canonical form for the compiled suite. Reader dispatches on this value; an
 # unknown value halts, per the same policy as ADR-0008 (`ract.yaml`
@@ -189,10 +212,15 @@ class AcceptancePredicate:
         try:
             from ract.trace.sink import emit as _emit_event
 
+            payload_id: str
+            if _REDACT_PREDICATE_ID.get():
+                payload_id = _redacted_predicate_id(self.id)
+            else:
+                payload_id = self.id.hex()
             _emit_event(
                 "predicate.evaluated",
                 {
-                    "predicate_id": self.id.hex(),
+                    "predicate_id": payload_id,
                     "kind": self.kind,
                     "required": self.required,
                     "ok": result.ok,

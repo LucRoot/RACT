@@ -94,6 +94,11 @@ ALLOWED_IMPORT_ROOTS = {
     # ``ract.antilazy.mutation``. Both use ``random.Random(seed)`` so
     # the perturbation and the per-file cap are reproducible.
     "random",
+    # ALM module_01 second-pass fix (finding 1): ``ract.core.predicate``
+    # scopes a predicate-id redaction flag via ``contextvars.ContextVar``
+    # so held-out predicate ids do not leak into ``predicate.evaluated``
+    # trace events. Stdlib.
+    "contextvars",
     # security substrate (module_03) — small stdlib deps used by the
     # OS-enforced sandbox backends
     "fnmatch",
