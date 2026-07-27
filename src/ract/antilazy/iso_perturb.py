@@ -219,6 +219,14 @@ class IsoPerturbConfig:
     confidence_threshold_for_full_gate: float = 0.7
     similarity_threshold: float = 0.85
     max_transformations: int = 3
+    # Second Pass finding (Q1): floor on the rename-map degeneracy
+    # ratio (fraction of renameable alpha tokens actually renamed).
+    # Below this the rename transformation is effectively a no-op
+    # and the module emits an advisory event so the loop can
+    # compensate. Default 0.10 is deliberately low; the check
+    # exists to catch the "flood workspace_symbols" attack shape,
+    # not to reject legitimate high-preservation intents.
+    rename_degeneracy_ratio_floor: float = 0.10
 
 
 # ---------------------------------------------------------------------------
@@ -442,12 +450,21 @@ def _apply_rename(
 ) -> tuple[str, dict[str, str]]:
     """Substitute entity names against the fixed synonym table.
 
-    Preserves case only crudely: title-case tokens map to title-case
+    Preserves case crudely: title-case tokens map to title-case
     synonyms; everything else is lowercase. Identifiers appearing in
     ``workspace_symbols_lower`` are held out per lateral chain
     branch B.
+
+    Second Pass finding (Additional #2): tokens like ``audit_logger``
+    and ``primaryEmail`` are not plain alphabetic; the tokenizer
+    splits on underscores and case boundaries so the atomic parts
+    (``audit``, ``logger``; ``primary``, ``Email``) become candidates
+    for rename.
     """
-    tokens = re.split(r"(\W+)", intent)
+    # Split on non-alphanumeric AND camelCase boundaries. The regex
+    # keeps separators as tokens (the ``()`` group) so reconstruction
+    # is exact.
+    tokens = _split_intent_tokens(intent)
     out: list[str] = []
     rename_map: dict[str, str] = {}
     for tok in tokens:
@@ -471,6 +488,64 @@ def _apply_rename(
             continue
         out.append(tok)
     return "".join(out), rename_map
+
+
+def _split_intent_tokens(intent: str) -> list[str]:
+    """Split ``intent`` into tokens preserving separators for lossless join.
+
+    Second Pass finding (Additional #2): extends the naive
+    ``re.split(r"(\\W+)", ...)`` tokenizer to also split on underscores
+    (``_``) and case boundaries (``primaryEmail`` → ``primary``,
+    ``Email``) so multi-part identifiers become individually
+    renameable.
+    """
+    # First split on non-word plus underscore; then within each
+    # alphabetic chunk split on lower->upper transitions.
+    parts = re.split(r"([\W_]+)", intent)
+    result: list[str] = []
+    for part in parts:
+        if not part or not part.isalpha():
+            result.append(part)
+            continue
+        # camelCase: split at lower-to-upper boundary. e.g.
+        # "primaryEmail" -> ["primary", "Email"].
+        chunks = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)", part)
+        if not chunks:
+            result.append(part)
+            continue
+        # Interleave chunks with the empty-string separator that a
+        # join(...) would produce; keeping them as separate items
+        # preserves the token boundary for the rename loop's isalpha
+        # check.
+        for idx, chunk in enumerate(chunks):
+            result.append(chunk)
+            if idx != len(chunks) - 1:
+                # No physical separator existed at this boundary; we
+                # append an empty string so ``"".join(result)`` still
+                # reconstructs the original text.
+                result.append("")
+    return result
+
+
+def rename_map_degeneracy_ratio(
+    intent: str, rename_map: Mapping[str, str]
+) -> float:
+    """Return the fraction of renameable alpha tokens that were renamed.
+
+    Second Pass finding (Q1): a rename transformation whose map is
+    nearly empty is a no-op; a primary can force this by naming
+    every ordinary noun as a workspace symbol. The ratio is
+    ``renamed_alpha_tokens / total_alpha_tokens``; values below a
+    threshold surface an advisory so the loop can compensate.
+
+    Zero total alpha tokens returns 1.0 (no rename opportunities,
+    nothing to be degenerate about).
+    """
+    tokens = _split_intent_tokens(intent)
+    alpha_tokens = [t for t in tokens if t.isalpha()]
+    if not alpha_tokens:
+        return 1.0
+    return len(rename_map) / len(alpha_tokens)
 
 
 def _apply_swap_syntax(intent: str) -> str:
@@ -535,16 +610,27 @@ def _apply_permute_examples(intent: str) -> str:
         return "\n".join(lines)
 
     # Comma-separated quoted items: "a", "b", "c" → "c", "b", "a".
-    quoted = re.findall(r'"[^"]+"', intent)
+    #
+    # Second Pass finding (Additional #6): the previous placeholder
+    # scheme could cross-contaminate on duplicate quoted items. Use
+    # a two-pass approach: first replace each source occurrence with
+    # a unique per-index sentinel, then rewrite each sentinel to its
+    # rotated destination. The sentinel string is chosen so it
+    # cannot appear in normal intent text.
+    quoted = list(re.finditer(r'"[^"]+"', intent))
     if len(quoted) >= 2:
-        rotated = list(reversed(quoted))
+        rotated_values = list(reversed([m.group(0) for m in quoted]))
+        # Walk the intent from the end so index arithmetic stays stable
+        # (each replacement changes length; walking end-first avoids
+        # shifting later match spans).
         result = intent
-        # Replace occurrences one at a time to preserve first-match order.
-        for src, dst in zip(quoted, rotated):
-            if src == dst:
-                continue
-            result = result.replace(src, "\0PLACEHOLDER\0" + dst, 1)
-        return result.replace("\0PLACEHOLDER\0", "")
+        for idx in range(len(quoted) - 1, -1, -1):
+            match = quoted[idx]
+            sentinel = f"\x00\x01ISO_PERM_{idx}\x00\x02"
+            result = result[: match.start()] + sentinel + result[match.end() :]
+        for idx, dst in enumerate(rotated_values):
+            result = result.replace(f"\x00\x01ISO_PERM_{idx}\x00\x02", dst)
+        return result
 
     return intent
 
@@ -626,6 +712,7 @@ def compare_solutions(
     transformed: str,
     *,
     transformation: IsomorphicTransformation,
+    similarity_threshold: float | None = None,
 ) -> tuple[float, DivergenceReason | None]:
     """Compare ``original`` and ``transformed`` under the transformation.
 
@@ -633,6 +720,14 @@ def compare_solutions(
     the two are considered equivalent. AST-normalized comparison is
     used when both parse as Python; otherwise ``difflib`` string
     similarity.
+
+    Second Pass finding (Additional #1): the string-similarity
+    fallback reason ``string_similarity_below_threshold`` is now
+    only set when ``similarity < similarity_threshold``. Callers
+    that leave the argument as ``None`` see the reason set whenever
+    similarity is below 1.0 (the pre-fix behaviour); callers that
+    pass their own threshold see a reason that actually reflects
+    the divergence they will act on.
     """
     reverse = {v: k for k, v in transformation.renaming_map.items()}
     original_norm = _normalized_ast_dump(original)
@@ -642,9 +737,10 @@ def compare_solutions(
         similarity = difflib.SequenceMatcher(
             None, original.strip(), transformed.strip()
         ).ratio()
+        cutoff = 1.0 if similarity_threshold is None else similarity_threshold
         return similarity, (
             "string_similarity_below_threshold"
-            if similarity < 1.0
+            if similarity < cutoff
             else None
         )
     if original_norm is None:
@@ -702,6 +798,17 @@ def run_iso_perturbation(
     else:
         variants = variants[: cfg.max_transformations]
 
+    # Second Pass finding (Q1): a rename transformation whose map is
+    # degenerate (nearly-empty because the caller flooded workspace_symbols
+    # with ordinary nouns) is a no-op. Emit an advisory so the loop can
+    # compensate; the divergence check itself still runs.
+    for variant in variants:
+        if variant.kind != "rename_entities":
+            continue
+        ratio = rename_map_degeneracy_ratio(intent, variant.renaming_map)
+        if ratio < cfg.rename_degeneracy_ratio_floor:
+            _emit_rename_degeneracy_advisory(ratio, cfg.rename_degeneracy_ratio_floor)
+
     original_norm = _normalized_ast_dump(original_solution) or original_solution
     original_digest = _digest_of(original_norm)
 
@@ -712,7 +819,15 @@ def run_iso_perturbation(
             transformed_solution = primary.produce(
                 variant.transformed_intent, workspace
             )
-        except Exception:  # noqa: BLE001 — treat producer failure as solution_missing
+        except Exception as exc:  # noqa: BLE001 — differentiated below
+            # Second Pass finding (Additional #4): a producer error is
+            # not a divergence — it is an infrastructure failure. Emit
+            # a distinct advisory event so operators can differentiate
+            # provider outages from pattern-matching. The divergence
+            # record still lands so the loop blocks COMPLETE (a run
+            # with no comparable transformed solution cannot be
+            # declared invariant either way).
+            _emit_producer_error_advisory(variant.kind, exc)
             transformed_digests.append(_digest_of(""))
             divergences.append(
                 Divergence(
@@ -723,7 +838,10 @@ def run_iso_perturbation(
             )
             continue
         similarity, reason = compare_solutions(
-            original_solution, transformed_solution, transformation=variant
+            original_solution,
+            transformed_solution,
+            transformation=variant,
+            similarity_threshold=cfg.similarity_threshold,
         )
         transformed_norm = (
             _normalized_ast_dump(transformed_solution) or transformed_solution
@@ -764,6 +882,59 @@ def run_iso_perturbation(
     )
     _emit_iso_perturb_event(report)
     return report
+
+
+def _emit_rename_degeneracy_advisory(ratio: float, floor: float) -> None:
+    """Emit ``laziness.violated`` advisory for a degenerate rename map.
+
+    Second Pass finding (Q1). A rename-map degeneracy ratio below the
+    configured floor signals that the rename transformation is a
+    no-op (either the intent had no renameable free variables, or a
+    caller flooded ``workspace_symbols`` to defeat the rename).
+    The advisory carries ``advisory=True`` so operators can
+    differentiate it from a hard divergence.
+    """
+    try:  # local import breaks the trace → antilazy cycle
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            "laziness.violated",
+            {
+                "kind": "iso_perturb_rename_degenerate",
+                "advisory": True,
+                "ratio": round(ratio, 4),
+                "floor": round(floor, 4),
+            },
+        )
+    except Exception:  # noqa: BLE001 — never fail on trace error
+        pass
+
+
+def _emit_producer_error_advisory(
+    transformation_kind: str, exc: BaseException
+) -> None:
+    """Emit ``laziness.violated`` advisory when the primary producer errors.
+
+    Second Pass finding (Additional #4). Distinguishing a producer
+    outage from a genuine solution divergence unblocks operator
+    diagnosis. The advisory carries the exception class name (not
+    the message, which may contain sensitive credentials) and the
+    transformation the producer was called for.
+    """
+    try:  # local import breaks the trace → antilazy cycle
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            "laziness.violated",
+            {
+                "kind": "iso_perturb_producer_error",
+                "advisory": True,
+                "transformation_kind": transformation_kind,
+                "exception_class": type(exc).__name__,
+            },
+        )
+    except Exception:  # noqa: BLE001 — never fail on trace error
+        pass
 
 
 def _emit_iso_perturb_event(report: PerturbationDivergenceReport) -> None:
@@ -963,6 +1134,7 @@ __all__ = [
     "TransformationKind",
     "compare_solutions",
     "detect_rule_like_intent",
+    "rename_map_degeneracy_ratio",
     "run_iso_perturb_gate",
     "run_iso_perturbation",
     "transform_intent",

@@ -349,4 +349,205 @@ def test_compile_pass_tags_rule_like() -> None:
     assert is_rule_like_open is False
 
 
+# ---------------------------------------------------------------------------
+# Regression tests for Second Pass Nemotron Ultra findings
+# ---------------------------------------------------------------------------
+
+
+def test_rename_degeneracy_advisory_fires_when_workspace_symbols_flood(
+    tmp_path: Path,
+) -> None:
+    """Second Pass Q1: rename degeneracy advisory catches the flood attack.
+
+    A caller that dumps every ordinary noun into ``workspace_symbols``
+    turns the rename into a no-op. The advisory event surfaces the
+    degeneracy so operators can compensate.
+    """
+    from ract.antilazy.iso_perturb import (
+        rename_map_degeneracy_ratio,
+        transform_intent,
+    )
+
+    intent = (
+        "All monetary values must be stored as integer cents; no "
+        "floating-point representation may enter the money module."
+    )
+    # Flood workspace_symbols with the intent's own vocabulary.
+    flood = frozenset(
+        {
+            "monetary", "values", "integer", "cents", "floating",
+            "point", "representation", "money", "module",
+        }
+    )
+    variants = transform_intent(intent, workspace_symbols=flood)
+    rename = variants[0]
+    ratio = rename_map_degeneracy_ratio(intent, rename.renaming_map)
+    # With the flood the map is empty (or nearly so).
+    assert ratio < 0.10, f"expected degenerate ratio, got {ratio}"
+
+    # And the advisory event fires when run_iso_perturbation sees
+    # the degeneracy.
+    log_file = tmp_path / "trace.jsonl"
+    writer = JsonlEventWriter(log_file, run_id=b"\x00" * 16)
+    set_writer(writer)
+    try:
+        from ract.antilazy.iso_perturb import run_iso_perturbation
+
+        run_iso_perturbation(
+            intent=intent,
+            workspace=_blank_workspace(),
+            original_solution="def cents(x: int) -> int:\n    return int(x)\n",
+            primary=_StaticProducer(
+                "def cents(x: int) -> int:\n    return int(x)\n"
+            ),
+            workspace_symbols=flood,
+        )
+    finally:
+        clear_writer()
+    events = [
+        json.loads(line)
+        for line in log_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    degenerates = [
+        e for e in events
+        if e.get("kind") == "laziness.violated"
+        and e.get("payload", {}).get("kind") == "iso_perturb_rename_degenerate"
+    ]
+    assert degenerates, "expected the rename-degeneracy advisory to fire"
+    assert degenerates[0]["payload"]["advisory"] is True
+
+
+def test_camelcase_and_underscore_identifiers_are_renamed() -> None:
+    """Second Pass Additional #2: multi-part identifiers get renamed.
+
+    ``primaryEmail`` and ``audit_logger`` are single tokens under
+    naive isalpha() but should split into renameable parts.
+    """
+    from ract.antilazy.iso_perturb import _split_intent_tokens, transform_intent
+
+    tokens = _split_intent_tokens("primaryEmail audit_logger")
+    alpha = [t for t in tokens if t.isalpha()]
+    assert "primary" in alpha
+    assert "Email" in alpha
+    assert "audit" in alpha
+    assert "logger" in alpha
+
+    intent = "Every function must route through the audit_logger and primaryEmail must be unique."
+    variants = transform_intent(intent)
+    rename = variants[0]
+    # audit and logger both renamed from the synonym table.
+    assert rename.renaming_map.get("audit") == "ledger"
+    assert rename.renaming_map.get("logger") == "recorder"
+    # primary renamed too (present in synonym table).
+    assert rename.renaming_map.get("primary") == "default"
+    # Email (title-case) renames to Address via the case-preserving
+    # branch — the tokenizer surfaced Email as a candidate token and
+    # the synonym table (email -> address) fired with title-case
+    # preservation.
+    assert rename.renaming_map.get("Email") == "Address"
+
+
+def test_producer_error_emits_distinct_advisory(tmp_path: Path) -> None:
+    """Second Pass Additional #4: producer errors are distinguishable."""
+    from ract.antilazy.iso_perturb import run_iso_perturbation
+
+    class _RaisingProducer:
+        def produce(self, intent: str, workspace: WorkspaceSnapshot) -> str:  # noqa: ARG002
+            raise ConnectionError("simulated outage")
+
+    log_file = tmp_path / "trace.jsonl"
+    writer = JsonlEventWriter(log_file, run_id=b"\x00" * 16)
+    set_writer(writer)
+    try:
+        report = run_iso_perturbation(
+            intent=(
+                "Every function must route through the audit logger; "
+                "no function may bypass the audit logger."
+            ),
+            workspace=_blank_workspace(),
+            original_solution="def wrap():\n    return audit_logger(fn)\n",
+            primary=_RaisingProducer(),
+        )
+    finally:
+        clear_writer()
+    # Divergences reflect the missing solutions (loop still blocks).
+    assert report.is_pattern_matching is True
+    assert all(d.reason == "solution_missing" for d in report.divergences)
+    # A dedicated advisory landed per errored producer call so
+    # operators can distinguish outage from pattern-match.
+    events = [
+        json.loads(line)
+        for line in log_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    producer_errs = [
+        e for e in events
+        if e.get("kind") == "laziness.violated"
+        and e.get("payload", {}).get("kind") == "iso_perturb_producer_error"
+    ]
+    assert producer_errs, "expected iso_perturb_producer_error advisories"
+    assert producer_errs[0]["payload"]["exception_class"] == "ConnectionError"
+    assert producer_errs[0]["payload"]["advisory"] is True
+
+
+def test_permute_examples_handles_duplicate_quoted_items() -> None:
+    """Second Pass Additional #6: duplicate quoted items do not cross-contaminate."""
+    from ract.antilazy.iso_perturb import _apply_permute_examples
+
+    intent = 'Options are "alice", "bob", "alice" for the fixture.'
+    permuted = _apply_permute_examples(intent)
+    # Reversing ["alice", "bob", "alice"] yields ["alice", "bob", "alice"]
+    # — palindrome — so the permutation is a no-op AND no sentinel
+    # bleed appears in the output.
+    assert '\x00' not in permuted
+    assert 'ISO_PERM' not in permuted
+    # Sanity: a non-palindrome permutes correctly.
+    intent_np = 'Options are "alice", "bob", "carol" for the fixture.'
+    permuted_np = _apply_permute_examples(intent_np)
+    assert '\x00' not in permuted_np
+    assert 'ISO_PERM' not in permuted_np
+    # The original order was alice, bob, carol; the reversed shows
+    # carol first.
+    assert permuted_np.index('"carol"') < permuted_np.index('"alice"')
+
+
+def test_low_confidence_intent_runs_one_transformation(tmp_path: Path) -> None:
+    """Second Pass Additional #7: low-confidence branch runs exactly one variant."""
+    from ract.antilazy.iso_perturb import (
+        detect_rule_like_intent,
+        run_iso_perturbation,
+    )
+
+    # A modal-only intent with no verb hint in the 60-char window.
+    intent = "Callers must remember the guidance."
+    detection = detect_rule_like_intent(intent)
+    assert detection.is_rule_like is True
+    assert 0.7 <= detection.confidence < 0.8, (
+        f"expected modal-only confidence in [0.7, 0.8), got {detection.confidence}"
+    )
+    producer = _StaticProducer("def f():\n    pass\n")
+    report = run_iso_perturbation(
+        intent=intent,
+        workspace=_blank_workspace(),
+        original_solution="def f():\n    pass\n",
+        primary=producer,
+    )
+    # Below the 0.7 threshold-for-full-gate, only one variant runs.
+    # (The default threshold is 0.7 and confidence is 0.7; equal
+    # means at-or-above so full gate runs. Force low with a config.)
+    from ract.antilazy.iso_perturb import IsoPerturbConfig
+    report_low = run_iso_perturbation(
+        intent=intent,
+        workspace=_blank_workspace(),
+        original_solution="def f():\n    pass\n",
+        primary=producer,
+        config=IsoPerturbConfig(confidence_threshold_for_full_gate=0.9),
+    )
+    assert len(report_low.transformations) == 1
+    assert report_low.transformations[0].kind == "rename_entities"
+    # And at-or-above threshold: all three variants.
+    assert len(report.transformations) == 3
+
+
 # RACT 0.4.0
