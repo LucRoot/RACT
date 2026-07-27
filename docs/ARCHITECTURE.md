@@ -417,6 +417,70 @@ See ADR-0019 for the design rationale and rejected alternatives, and
 ``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §3.1 and §3.2 for the
 master-spec source.
 
+## Anti-Lazy Gate G3 (patch differentiation) and Gate G4 (coverage delta)
+
+ALM spec §3.3 and §3.4; §13 signals 3 and 4. Two more failure modes
+the substrate suite and G1/G2 do not close:
+
+- **Semantic no-op patches.** UTBoost measured over 5% of SWE-bench
+  Verified instances as diffs that pass the visible suite while
+  remaining behaviorally indistinguishable from doing nothing.
+- **Solution leakage.** SWE-Bench+ measured 32.67% of the base
+  corpus as diffs that byte-match a prior commit — the model
+  surfaced training-corpus material rather than authoring the fix.
+
+**Gate G3 — patch differentiation.** ``run_patchdiff(patch, workspace,
+generator, runner, baseline_kind="null")`` asks a companion-shaped
+``DifferentiatorGenerator`` for pytest-format tests targeting the
+functions the diff touches. The generator allocates a total budget
+(default 30 tests per transaction, capped per function at 10) with
+proportional allocation across touched functions (lateral chain
+branch A). Each candidate runs three times against the patch to
+filter flaky tests, then keeps only those whose verdict differs
+between ``patch`` and the baseline. A diff that touched functions but
+produced zero surviving differentiators is ``is_semantic_noop=True``
+and rolls back with ``kind="semantic_noop"``.
+
+The leakage fingerprint is a rolling hash (SHA-256) over the newline-
+joined added lines per hunk. For every hunk that clears the 5-line /
+100-char floor (lateral chain branch B), the scan queries git history
+via ``git log --all -S`` and (when supplied) the optional
+``RetrievalIndex``. A match surfaces as a ref in ``leakage_matches``;
+the report also carries ``leakage_below_floor`` (below-floor hunk
+count) and ``retrieval_index_absent`` (lateral chain branch E) so the
+reviewer sees what evidence the scan consulted. Non-empty
+``leakage_matches`` rolls back with ``kind="solution_leakage"``.
+
+**Gate G4 — coverage delta.** ``run_coverage_delta(parent, child,
+patch, mutation_report_parent, mutation_report_child)`` computes
+``lines_new = added_lines - moved_lines`` (lateral chain branch C: a
+pure refactor moves lines, and moved lines are already covered on the
+parent side), reads ``coverage.<path>`` metadata from the child
+snapshot to count covered new lines, and returns ``coverage_ratio =
+lines_new_covered / lines_new``. Below ``tau_cov = 0.8`` rolls back
+with ``kind="coverage_delta_insufficient"``. For non-trivial changes
+the mutation-coverage delta between child and parent reports must
+exceed ``delta_mut = 0.1``.
+
+A change is trivial iff the substantive added-line count is at or
+below 2 and every substantive added line has a whitespace-normalized
+match in the removed lines (a pure reformat), or the substantive
+added-line count is zero. Trivial changes skip the mutation-delta
+check. Non-Python touched files land under ``non_python_files``; the
+gate does not measure coverage for them yet (v0.5 backlog).
+
+Both gates land as pure-over-inputs helpers so tests exercise them
+without live worktrees; the ``StepTransaction`` pre-commit path calls
+them alongside G2. The trace vocabulary gains no new event kind; both
+gates emit under ``laziness.violated`` (with ``kind`` payload
+discriminators ``semantic_noop``, ``solution_leakage``, and
+``coverage_delta_insufficient``) and under ``predicate.evaluated``
+(with ``kind="coverage_delta"`` for successful G4 runs).
+
+See ADR-0020 for the design rationale and rejected alternatives, and
+``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §3.3 and §3.4 for the
+master-spec source.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -432,3 +496,4 @@ master-spec source.
 <!-- RACT 0.4.0: Rootknot environment attestation + contracts (ADR-0016, ADR-0017) -->
 <!-- RACT 0.4.0: Eval-first — Aider Polyglot + SWE-bench Lite anchors (ADR-0018) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G1 (held-out) + Gate G2 (mutation-kill) (ADR-0019) -->
+<!-- RACT 0.4.0-rc1: Anti-Lazy Gate G3 (patch differentiation) + Gate G4 (coverage delta) (ADR-0020) -->
