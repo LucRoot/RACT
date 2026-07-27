@@ -350,7 +350,7 @@ def test_compile_pass_tags_rule_like() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Regression tests for Second Pass Nemotron Ultra findings
+# Regression tests for Second Pass external-reviewer findings
 # ---------------------------------------------------------------------------
 
 

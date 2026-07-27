@@ -122,8 +122,8 @@ dispatcher-gaps section for the four plan-vs-actual drift events).
 
 - module_01 (Google flash_reason): ACH 0.79 precision inflates `kill_rate` denominator; ~21% missed equivalents
 - module_01 (Google flash_reason): trivial-holdout ceiling insufficient — add compose-time signal + consecutive-similar refusal
-- module_02 (OpenRouter Nemotron Ultra): `_classify_triviality` gameable by mixed-diff (formatter + substantive)
-- module_02 (OpenRouter Nemotron Ultra): 3-run flakiness filter 52% pass at 20% flake; need adaptive N + Wilson interval
+- module_02 (cross-family reviewer via operator dispatcher): `_classify_triviality` gameable by mixed-diff (formatter + substantive)
+- module_02 (cross-family reviewer via operator dispatcher): 3-run flakiness filter 52% pass at 20% flake; need adaptive N + Wilson interval
 - module_03 (Google flash_reason): data-flow escape via `s = pytest.skip; s()` bound-method assignment
 - module_03 (Google flash_reason): handshake-approval per-pattern cap absent (`max_handshake_approvals_per_pattern`)
 - module_03 (Google flash_reason): no cross-run cluster analysis over `handshake.requested`/`resolved`
@@ -136,11 +136,11 @@ dispatcher-gaps section for the four plan-vs-actual drift events).
 - module_05 (Google flash_reason): sycophancy classifier moderate-high FN rate on indirect/euphemistic reversals
 - module_05 (Google flash_reason): `scan_trace` reports only closest reversal per anchor; distinct chains under-reported
 - module_05 (Google flash_reason): narrow `load_sidecar_alm_pubkey` catch to `JSONDecodeError` + `binascii.Error`
-- module_06 (OpenRouter Nemotron Ultra): rule-like detector under-inclusive on wrapper phrasings (invariant/uniqueness)
-- module_06 (OpenRouter Nemotron Ultra): low-confidence branch always runs `rename_entities`; needs randomization
-- module_06 (OpenRouter Nemotron Ultra): case-mapping subtlety in reverse rename (latent hole)
-- module_06 (OpenRouter Nemotron Ultra): AST canonicalizer for semantic control-flow equivalence (astor)
-- module_06 (OpenRouter Nemotron Ultra): pre-transform anomaly check on free-var count vs token count
+- module_06 (cross-family reviewer via operator dispatcher): rule-like detector under-inclusive on wrapper phrasings (invariant/uniqueness)
+- module_06 (cross-family reviewer via operator dispatcher): low-confidence branch always runs `rename_entities`; needs randomization
+- module_06 (cross-family reviewer via operator dispatcher): case-mapping subtlety in reverse rename (latent hole)
+- module_06 (cross-family reviewer via operator dispatcher): AST canonicalizer for semantic control-flow equivalence (astor)
+- module_06 (cross-family reviewer via operator dispatcher): pre-transform anomaly check on free-var count vs token count
 - module_07 (Google flash_lite): `crash_rate` companion column alongside `attested_pass_rate`
 - module_07 (Google flash_lite): `attestation_gap` 0.05/0.20 thresholds need empirical calibration across ≥3 providers
 - module_07 (Google flash_lite): `MISSING_ROOTKNOT.txt` whitespace-split parsing breaks on names with spaces
@@ -156,10 +156,10 @@ actually ships. The RACT repo tree cannot write to the operator's
 `endpoints_SKILL.md` per the executor fence; these items are
 recorded here for the operator to resolve outside the RACT tree.
 
-- **module_02 R1-not-in-catalog:** plan named OpenRouter `reason_r1_latest` (DeepSeek R1); OpenRouter dispatcher catalog does not expose that function. Fell back to `reason_nemotron_ultra` (Nemotron 3 Ultra 550B). Resolution: either restore `reason_r1_latest` in `openrouter_dispatch.py` OR update `endpoints_SKILL.md` scoping recommendations to remove `reason_r1_latest`.
-- **module_04 Google-quota-exhausted:** plan named Google `flash_reason`; daily free-tier quota (20 requests) was already exhausted at dispatch time. Fell back to NVIDIA `reason_deep`. Resolution: either raise the Google free-tier quota OR update `endpoints_SKILL.md` scoping to reflect the 20/day ceiling.
-- **module_05 Mistral-budget-exhausted:** plan named Mistral `reason_magistral` for a third-family review of the sacred-spine change; daily token budget was at 28164/30000 and the module_05 prompt was ~31000 tokens. Fell back to Google `flash_reason` (cross-family). Resolution: raise Mistral daily token budget OR update `endpoints_SKILL.md` to reflect the 30k/day token ceiling.
-- **module_06 R1-not-in-catalog (repeat of module_02 event):** plan named `reason_r1_latest` again; same fallback path to `reason_nemotron_ultra` as module_02. This is the fourth reviewer-drift event on eight modules attempted.
+- **module_02 reviewer-not-in-catalog:** plan named an OpenRouter DeepSeek-family reviewer function that the operator's dispatcher catalog did not expose. Fell back to a cross-family reviewer endpoint. Resolution: either restore the named reviewer in the operator's local multi-provider dispatcher OR update the operator's dispatcher-scoping documentation to remove it.
+- **module_04 Google-quota-exhausted:** plan named a Google reasoning reviewer; daily free-tier quota (20 requests) was already exhausted at dispatch time. Fell back to a cross-family NVIDIA reviewer. Resolution: either raise the Google free-tier quota OR update the operator's dispatcher-scoping documentation to reflect the 20/day ceiling.
+- **module_05 Mistral-budget-exhausted:** plan named a Mistral reviewer for a third-family review of the sacred-spine change; daily token budget was at 28164/30000 and the module_05 prompt was ~31000 tokens. Fell back to a Google cross-family reviewer. Resolution: raise Mistral daily token budget OR update the operator's dispatcher-scoping documentation to reflect the 30k/day token ceiling.
+- **module_06 reviewer-not-in-catalog (repeat of module_02 event):** plan named the same DeepSeek-family reviewer again; same fallback path to the cross-family reviewer as module_02. This is the fourth reviewer-drift event on eight modules attempted.
 
 ## v0.5 hardening (from module_08 second pass)
 
@@ -168,8 +168,8 @@ identity check inadequate; fixed in commit `9a0b684`) and TRUNCATED
 BEFORE ANSWERING Q1/Q2/Q4. The following items feed the v0.5 backlog:
 
 - **v0.4.0-final second-pass re-coverage.** Q1 (43-signal distinctness), Q2 (CHANGELOG completeness vs 14 ADRs), and Q4 (ROADMAP compilation completeness) went unanswered because the Google flash_reason response truncated at ~1.2 KB. Self-audit substituted, but a follow-up dispatch (four sequential lightweight prompts) is queued for the v0.4.0-final review cycle so the reviewer's own distinctness/completeness/compilation claims are on the record.
-- **Mistral daily token budget vs single-prompt reasoning size.** ALM modules 05 and 08 both fell back from Mistral `reason_magistral` because the daily token budget (30 000) is smaller than a single reasoning prompt (typically ≥30 000 tokens). Feed into the operator-side endpoints_SKILL scoping table: either raise the Mistral tier before v0.4.0-final OR remove `reason_magistral` from the ALM scoping recommendations.
-- **Dispatcher `finish_reason: length` surfacing.** Each provider dispatcher (`google_dispatch.py`, `nvidia_dispatch.py`, `openrouter_dispatch.py`, `mistral_dispatch.py`) should surface `finish_reason: length` warnings so a truncated review is visible to the caller rather than silent. Queued for the operator side.
+- **Mistral daily token budget vs single-prompt reasoning size.** ALM modules 05 and 08 both fell back from the Mistral reasoning reviewer because the daily token budget (30 000) is smaller than a single reasoning prompt (typically ≥30 000 tokens). Feed into the operator's dispatcher-scoping documentation: either raise the Mistral tier before v0.4.0-final OR remove the Mistral reasoning reviewer from the ALM scoping recommendations.
+- **Dispatcher `finish_reason: length` surfacing.** Each provider dispatcher module in the operator's local multi-provider dispatcher should surface `finish_reason: length` warnings so a truncated review is visible to the caller rather than silent. Queued for the operator side.
 - **Version-string spelling unification.** VERSION carries the hyphenated `v0.4.0-rc1` display form; `pyproject.toml` and `__init__.py` carry the PEP 440 canonical `0.4.0rc1`; the two are the same version identity under `packaging.version.Version`, but a v0.5 cleanup could unify to a single spelling everywhere and add a lint enforcing the choice.
 
 ## v0.5 hardening (from retroactive audit)
@@ -179,16 +179,15 @@ decisions that had not gone through the two-endpoint review discipline
 during the pipeline. D1 and D6 landed release-surface fixes; the
 following items feed the v0.5 backlog as deeper improvements:
 
-- **Endpoints-SKILL scoping table drift.** D12 (Google flash_reason
+- **Endpoints-SKILL scoping table drift.** D12 (Google reasoning-reviewer
   meta-review of the Second Pass discipline) surfaced that the
-  plan-named reviewer pair for modules 02 and 06 was OpenRouter
-  `reason_r1_latest` against NVIDIA `reason_deep` — both DeepSeek
-  family. That is same-family, not cross-family, contrary to the
-  discipline's stated blind-spot-diversity goal. The Nemotron fallback
-  was actually MORE cross-family than the plan named. Revise the
-  operator-side `endpoints_SKILL.md` scoping table so
-  producer-reviewer pairs are cross-family by construction, not by
-  accident.
+  plan-named reviewer pair for modules 02 and 06 was a DeepSeek-family
+  OpenRouter reviewer against an NVIDIA DeepSeek-family reviewer — both
+  same family. That is same-family, not cross-family, contrary to the
+  discipline's stated blind-spot-diversity goal. The fallback reviewer
+  actually used was MORE cross-family than the plan named. Revise the
+  operator's dispatcher-scoping documentation so producer-reviewer
+  pairs are cross-family by construction, not by accident.
 - **Second-Pass reviewer reliability profile.** D12 also flagged that
   Google `flash_reason` truncated at ~1.2 KB on the module_08 release-
   close review despite `--max-tokens 8000`. When response-size

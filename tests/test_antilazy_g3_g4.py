@@ -513,7 +513,7 @@ def test_worked_example_null_patch_visible_passes_g3_catches(tmp_path: Path) -> 
 
 
 def test_ast_normalized_fingerprint_defeats_rename_attack() -> None:
-    """Second Pass finding 1 (OpenRouter reason_nemotron_ultra).
+    """Second Pass finding 1 (external reviewer).
 
     A patch whose only difference from an earlier commit is a
     variable-name substitution must produce the same AST-normalized
@@ -555,7 +555,7 @@ def test_ast_normalized_fingerprint_defeats_rename_attack() -> None:
 
 
 def test_proportional_budget_guarantees_min_one_per_function() -> None:
-    """Second Pass finding 3 (OpenRouter reason_nemotron_ultra).
+    """Second Pass finding 3 (external reviewer).
 
     Prior implementation gave 0 to functions past index ``total_budget``.
     The revised rule guarantees every touched function receives at
