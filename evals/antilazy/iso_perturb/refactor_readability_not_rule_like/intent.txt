@@ -1,0 +1,8 @@
+Refactor the report renderer for readability. Split long helpers into
+smaller ones, name intermediate values, and move the mode branching
+out of the top-level function.
+
+No universal quantifier, no modal keyword in subject-verb position.
+The detector correctly returns rule_like=False and the isomorphic
+perturbation gate does not fire; the substrate and module_04 gates
+still run.

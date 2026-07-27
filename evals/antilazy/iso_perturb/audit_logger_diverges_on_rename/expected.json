@@ -1,0 +1,13 @@
+{
+  "rule_like": true,
+  "confidence_floor": 0.8,
+  "matched_keywords_include": ["every", "no", "must"],
+  "expected_transformation_kinds": [
+    "rename_entities",
+    "swap_syntax",
+    "permute_examples"
+  ],
+  "is_pattern_matching": true,
+  "divergence_transformation_kinds_include": ["rename_entities"],
+  "notes": "A rule-like intent about ledger-audit routing where the shipped solution hard-coded the audit_logger name. The rename transformation surfaces the pattern-match: the transformed intent asks about the ledger recorder and the primary returns a different name, so the ast_dump_mismatch fires on rename_entities."
+}

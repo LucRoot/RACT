@@ -376,6 +376,38 @@ class IntentCompiler:
             pass
         return suite
 
+    def compile_and_detect_rule_like(
+        self,
+        intent_text: str,
+        ws: "WorkspaceSnapshot",
+        approvals: "HandshakeRegistry | None" = None,
+        *,
+        inputs: CompilerInputs | None = None,
+        companion: "HoldoutComposer | None" = None,
+    ) -> "tuple[AcceptanceSuite | DualAcceptanceSuite, bool]":
+        """Compile ``intent_text`` and additionally return the rule-like flag.
+
+        ALM module_06 hook. The rule-like flag drives whether the
+        isomorphic-perturbation gate fires at the completion path;
+        loop wiring keyed on this attribute (rather than a global
+        detector call) keeps the substrate compile pass free of ALM
+        imports.
+
+        Returns ``(compile_result, is_rule_like)``. The compile result
+        keeps its existing shape (``AcceptanceSuite`` or, when
+        ``companion`` is provided, ``DualAcceptanceSuite``).
+        """
+        # Local import breaks the substrate -> antilazy cycle at core
+        # load time; only the site that wants the rule-like flag pays
+        # the import cost.
+        from ract.antilazy.iso_perturb import detect_rule_like_intent
+
+        result = self.compile(
+            intent_text, ws, approvals, inputs=inputs, companion=companion
+        )
+        detection = detect_rule_like_intent(intent_text)
+        return result, detection.is_rule_like
+
     def compile_with_holdout(
         self,
         intent_text: str,

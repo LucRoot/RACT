@@ -1,0 +1,12 @@
+{
+  "rule_like": true,
+  "confidence_floor": 0.8,
+  "matched_keywords_include": ["all", "must"],
+  "expected_transformation_kinds": [
+    "rename_entities",
+    "swap_syntax",
+    "permute_examples"
+  ],
+  "is_pattern_matching": false,
+  "notes": "A rule-like intent about integer-cents storage; a genuine Cents-integer solution survives all three transformations because the type invariant is independent of surface vocabulary. Divergence would indicate pattern-matching to the word 'monetary'."
+}

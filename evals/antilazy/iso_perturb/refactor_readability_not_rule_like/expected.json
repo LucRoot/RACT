@@ -1,0 +1,8 @@
+{
+  "rule_like": false,
+  "confidence_ceiling": 0.7,
+  "matched_keywords_include": [],
+  "expected_transformation_kinds": [],
+  "is_pattern_matching": false,
+  "notes": "Open-ended refactor intent — no universal quantifier, no modal keyword in subject-verb position. The detector returns rule_like=False and the gate skips with skipped_reason=non_rule_like."
+}
