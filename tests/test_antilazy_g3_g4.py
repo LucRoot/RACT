@@ -36,6 +36,8 @@ from ract.antilazy.patchdiff import (
     Hunk,
     Patch,
     PatchDifferentiationReport,
+    _ast_normalized_fingerprint,
+    _hunk_fingerprint,
     _proportional_budget,
     generate_differentiators,
     null_patch,
@@ -506,7 +508,49 @@ def test_worked_example_null_patch_visible_passes_g3_catches(tmp_path: Path) -> 
 
 
 # ---------------------------------------------------------------------------
-# 8. Second Pass finding 3 — proportional budget guarantees min-1 per function
+# 8. Second Pass finding 1 — AST-normalized fingerprint catches rename attack
+# ---------------------------------------------------------------------------
+
+
+def test_ast_normalized_fingerprint_defeats_rename_attack() -> None:
+    """Second Pass finding 1 (OpenRouter reason_nemotron_ultra).
+
+    A patch whose only difference from an earlier commit is a
+    variable-name substitution must produce the same AST-normalized
+    fingerprint as the original. Raw-byte fingerprint differs; the
+    secondary check collapses them.
+    """
+    original = Hunk(
+        path="src/leaked.py",
+        added_lines=(
+            "def compute(total, rate):",
+            "    result = total * rate",
+            "    return result",
+        ),
+        removed_lines=(),
+    )
+    renamed = Hunk(
+        path="src/leaked.py",
+        added_lines=(
+            "def compute(amount, factor):",
+            "    output = amount * factor",
+            "    return output",
+        ),
+        removed_lines=(),
+    )
+    orig_fp = _ast_normalized_fingerprint(original)
+    ren_fp = _ast_normalized_fingerprint(renamed)
+    assert orig_fp is not None
+    assert ren_fp is not None
+    assert orig_fp == ren_fp, (
+        "AST-normalized fingerprint must collapse variable renames"
+    )
+    # Raw fingerprint differs (baseline sanity check).
+    assert _hunk_fingerprint(original) != _hunk_fingerprint(renamed)
+
+
+# ---------------------------------------------------------------------------
+# 9. Second Pass finding 3 — proportional budget guarantees min-1 per function
 # ---------------------------------------------------------------------------
 
 
