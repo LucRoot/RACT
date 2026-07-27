@@ -302,15 +302,66 @@ See ADR-0016 and ADR-0017 for the design rationale and rejected
 alternatives, and `docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §7 and §8 plus
 §11 signals 12, 13, 15 for the master-spec source.
 
+## Eval-first: borrowed benchmarks locate RACT on the existing map
+
+SUBSTRATE spec §9 (Eval-First as Engineering Discipline) and §11
+signal 16. The v0.3 harness ships three RACT-authored tasks under
+`evals/tasks/` — enough to prove the harness works, not enough for
+the reviewer to locate RACT against the field. Module_07 borrows two
+established coding-eval anchors so RACT's numbers become comparable
+without inventing a new benchmark:
+
+- **Aider Polyglot** (10-problem deterministic subset under
+  `evals/polyglot/`) — Aider's per-provider public leaderboard,
+  scored on multi-language edit + test-feedback loops at the
+  function-to-file scale. Two attempts per problem, hidden test
+  suite, unified-diff output.
+- **SWE-bench Lite** (5-instance deterministic pin under
+  `evals/swe_bench_lite/`) — the widely-adopted subset of SWE-bench
+  where every instance ships as one Docker image, scored on a
+  repo-scale issue-to-patch loop with `FAIL_TO_PASS` +
+  `PASS_TO_PASS` verification.
+
+Both runners execute each problem/instance inside a fresh
+`StepTransaction` (module_02) with a `CapabilityManifest`
+(module_03) attached — that is where the substrate proves itself
+against real-world workloads.
+
+`evals/LEADERBOARD.md` is the canonical published record. It carries
+four columns — Aider Polyglot, SWE-bench Lite, conformance
+(module_04), security (module_03) — and is regenerated idempotently
+by `evals/leaderboard/update.py` from the most recent report per
+`(provider, corpus)`. Module-internal `RESULTS.md` files remain the
+source of truth for the columns they contribute (Lateral Chain
+branch E, module_07); the leaderboard reads them without duplicating
+their content.
+
+CI runs a smoke tier on every PR against a fixture provider (schema
+v2 event streams under `evals/fixtures/providers/`); a nightly
+`evals-full.yml` workflow runs the full 10 + 5 sweep against live
+providers, gated by the `RACT_EVAL_ENABLED` repository secret so
+public forks and PRs do not incur cost (Lateral Chain branch B,
+module_07). When an upstream registry or fixture is unreachable, the
+runner reports SKIPPED with a specific reason and the CI summary
+counts the skip (Lateral Chain branch A).
+
+Every subset revision is an ADR-tracked event (Lateral Chain branch
+C); historical numbers remain readable against historical subsets.
+
+Design rationale in `docs/ADRs/ADR-0018-aider-polyglot-swebench-
+lite-external-anchors.md`.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
-- The eval harness runs three reproducible tasks under `evals/tasks/` and writes reports to `evals/runs/`.
+- The eval harness runs three reproducible v0.3 tasks under `evals/tasks/` and writes reports to `evals/runs/`.
 - Each `evals/tasks/<task>/suite.json` is committed as a fixture; a fresh compile against a task workspace must yield a suite with at least three required predicates (module_01 DoD).
-- CI runs lint, type-check, tests, and eval-smoke on every push.
+- The v0.4 Aider Polyglot and SWE-bench Lite runners under `evals/polyglot/` and `evals/swe_bench_lite/` produce per-provider reports under `evals/runs/<date>-<corpus>-<provider>.{json,md}`; `evals/LEADERBOARD.md` is regenerated idempotently by `evals/leaderboard/update.py`.
+- CI runs lint, type-check, tests, eval-smoke (v0.3 tasks + v0.4 polyglot smoke + v0.4 swebench_lite smoke against a fixture provider), and the LEADERBOARD regenerator on every push.
 
 <!-- RACT 0.4.0: Acceptance suite compiled before loop entry (ADR-0010) -->
 <!-- RACT 0.4.0: Transactional execution: worktree-per-step (ADR-0011) -->
 <!-- RACT 0.4.0: Typed action union + conformance gate (ADR-0014) -->
 <!-- RACT 0.4.0: Event trace as the product (ADR-0015) -->
 <!-- RACT 0.4.0: Rootknot environment attestation + contracts (ADR-0016, ADR-0017) -->
+<!-- RACT 0.4.0: Eval-first — Aider Polyglot + SWE-bench Lite anchors (ADR-0018) -->
