@@ -89,6 +89,11 @@ ALLOWED_IMPORT_ROOTS = {
     "itertools",
     "contextlib",
     "operator",
+    # ALM module_01: deterministic byte-shuffle for the non-triviality
+    # check in ``ract.antilazy.holdout`` and deterministic sampling in
+    # ``ract.antilazy.mutation``. Both use ``random.Random(seed)`` so
+    # the perturbation and the per-file cap are reproducible.
+    "random",
     # security substrate (module_03) — small stdlib deps used by the
     # OS-enforced sandbox backends
     "fnmatch",

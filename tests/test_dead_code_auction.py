@@ -195,6 +195,11 @@ def test_ract_auction_reports_zero_dead_modules():
     # module_06 tests and by the RK-3 verify path. No shipped-CLI call
     # site until module_08 (see module_06 Flagged gaps).
     allowlist.add("keys.py")
+    # ALM module_01: ``antilazy/pre_commit.py`` is the G2 pre-commit
+    # gate that the loop calls before a ``StepTransaction`` commits.
+    # No shipped-CLI call site until ALM module_08 wires the pre-commit
+    # entry point (see module_01 Flagged gaps).
+    allowlist.add("pre_commit.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
