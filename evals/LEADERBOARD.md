@@ -33,7 +33,7 @@ module_07).
 
 | Provider | Aider Polyglot (10) | SWE-bench Lite (5) | Conformance | Security | claimed_pass_rate | attested_pass_rate | attestation_gap | Last updated |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `fake` | 2 of 10 | 1 of 5 | - | - | 20.0% | 100.0% | 0.0% | 2026-07-26 |
+| `fake` (synthetic, mechanism-check only) | 2 of 10 | 1 of 5 | - | - | 20.0% | 100.0% | 0.0% | 2026-07-26 |
 
 ## Notes
 

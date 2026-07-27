@@ -477,8 +477,14 @@ def render_leaderboard(
         last_updated = _last_updated_for([poly, sweb])
         claimed = _claimed_ratio_for_provider(latest, provider)
         attested = _attested_ratio(summary)
+        # Second Pass Q4 caveat marker (ALM module_07): FakeProvider is
+        # deterministic and always attests clean by construction; its
+        # numbers must not be read as a real-provider quality signal.
+        provider_display = f"`{provider}`"
+        if provider == "fake":
+            provider_display = f"`{provider}` (synthetic, mechanism-check only)"
         lines.append(
-            f"| `{provider}` | {_cell_for(poly)} | {_cell_for(sweb)} | "
+            f"| {provider_display} | {_cell_for(poly)} | {_cell_for(sweb)} | "
             f"{conformance_cell} | {security_cell} | "
             f"{_claimed_cell(claimed)} | {_attested_cell(summary)} | "
             f"{_gap_cell(claimed, attested)} | {last_updated} |"
