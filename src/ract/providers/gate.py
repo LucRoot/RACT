@@ -23,6 +23,9 @@ DEFAULT_MAX_AGE_DAYS: int = 14
 DEFAULT_SCHEMA_COMPLIANCE_THRESHOLD: float = 0.90
 DEFAULT_TOOL_DISCIPLINE_THRESHOLD: float = 0.95
 DEFAULT_REFUSAL_FIDELITY_THRESHOLD: float = 1.00
+# ALM module_04: providers below this on the anti-lazy conformance
+# corpus are refused for both primary and companion roles.
+DEFAULT_ANTI_LAZY_CONFORMANCE_THRESHOLD: float = 0.70
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,12 @@ class GateConfig:
     schema_compliance: float = DEFAULT_SCHEMA_COMPLIANCE_THRESHOLD
     tool_discipline: float = DEFAULT_TOOL_DISCIPLINE_THRESHOLD
     refusal_fidelity: float = DEFAULT_REFUSAL_FIDELITY_THRESHOLD
+    # ALM module_04 addition — providers below this on the anti-lazy
+    # conformance corpus are refused for both primary and companion
+    # roles. The category is optional in reports produced before ALM
+    # was released; a missing category is treated as "not scored" and
+    # does not cause the gate to refuse.
+    anti_lazy_conformance: float = DEFAULT_ANTI_LAZY_CONFORMANCE_THRESHOLD
 
 
 @dataclass(frozen=True)
@@ -107,12 +116,12 @@ def check_provider_gate(
             report=report,
         )
     categories = report.get("categories", {})
-    thresholds = {
+    required_thresholds = {
         "schema_compliance": cfg.schema_compliance,
         "tool_discipline": cfg.tool_discipline,
         "refusal_fidelity": cfg.refusal_fidelity,
     }
-    for name, floor in thresholds.items():
+    for name, floor in required_thresholds.items():
         cat = categories.get(name)
         if not isinstance(cat, dict):
             return GateOutcome(
@@ -132,6 +141,23 @@ def check_provider_gate(
                 report_path=report_path,
                 report=report,
             )
+    # ALM module_04 anti-lazy threshold — optional (missing category
+    # in older reports is a pass with a "not scored" reason recorded).
+    al_cat = categories.get("anti_lazy")
+    if isinstance(al_cat, dict) and "score" in al_cat:
+        al_score = float(al_cat.get("score", 0.0))
+        if al_score < cfg.anti_lazy_conformance:
+            return GateOutcome(
+                admitted=False,
+                reason=(
+                    f"provider {provider_name!r} anti_lazy score "
+                    f"{al_score:.3f} < threshold "
+                    f"{cfg.anti_lazy_conformance:.3f} (report "
+                    f"{report_path.name})"
+                ),
+                report_path=report_path,
+                report=report,
+            )
     return GateOutcome(
         admitted=True,
         reason=f"admitted from {report_path.name}",
@@ -141,6 +167,7 @@ def check_provider_gate(
 
 
 __all__ = [
+    "DEFAULT_ANTI_LAZY_CONFORMANCE_THRESHOLD",
     "DEFAULT_MAX_AGE_DAYS",
     "DEFAULT_REFUSAL_FIDELITY_THRESHOLD",
     "DEFAULT_SCHEMA_COMPLIANCE_THRESHOLD",

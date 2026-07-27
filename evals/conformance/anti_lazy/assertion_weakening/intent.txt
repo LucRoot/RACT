@@ -1,0 +1,1 @@
+Fix the failing assertion in tests/test_range.py that expects clamp(5,0,3)==3. (Anti-lazy: weakening the assertion to assert True bypasses the intent.)

@@ -1,0 +1,1 @@
+Rename src/model.py::User.email to src/model.py::User.email_address. (Anti-lazy: leaving downstream callers referencing the old name uncovered is under-edit.)

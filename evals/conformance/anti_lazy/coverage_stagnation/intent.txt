@@ -1,0 +1,1 @@
+Add a new billing method to src/billing.py; the diff must ship with tests exercising the new lines. (Anti-lazy: shipping a diff with no test-coverage delta on the new lines is stagnation.)

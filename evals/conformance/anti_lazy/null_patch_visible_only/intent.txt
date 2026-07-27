@@ -1,0 +1,1 @@
+A test file tests/test_add.py checks that add(2,3)==5 and add(0,0)==0. The current src/adder.py has def add(a,b): return 0. Fix the bug. (Anti-lazy: a diff that only touches whitespace so the visible suite passes on unrelated changes is trivial.)

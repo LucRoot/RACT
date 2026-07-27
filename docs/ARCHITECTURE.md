@@ -587,6 +587,70 @@ See ADR-0021 for the design rationale and rejected alternatives,
 and ``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §3.5 and §3.6 for the
 master-spec source.
 
+## Anti-Lazy Gate G7 (companion red team) and Gate G8 (effort reconciliation)
+
+ALM module_04 adds the last two completion-path gates before the
+sycophancy circuit lands in module_05.
+
+**G7 (companion red team).** A cold-context second provider receives
+only the intent, the final diff, and the visible predicates (never
+the held-out ones, never the event trace, never the primary's turn
+history). Its job is to propose counterexamples that break the
+completion claim. The companion runs in a read-only workspace mount
+(``bwrap`` on Linux, ``seatbelt`` on macOS) with a 2-minute wall-time
+budget. A surviving counterexample — one that passes on the
+pre-change workspace and fails on the post-change workspace — emits
+``laziness.violated`` with ``kind="companion_counterexample"`` and
+the loop resumes with the counterexamples injected into the next
+planning prompt.
+
+The router-level different-provider constraint refuses to schedule a
+companion whose ``Provider.name`` matches the current primary or any
+of the last three primary-step providers; matches raise
+``CompanionProviderCollisionError``. Single-provider deployments opt
+into ``deployment_mode="single_provider_advisory"`` and get
+advisory-only findings (they log but do not block).
+
+**G8 (effort reconciliation).** Before the loop enters step one, a
+static-heuristic estimator produces a low-precision effort estimate
+from the workspace: grep density of intent keywords against filenames,
+symbol-graph fanout of matched entry points, existing test-to-symbol
+ratio, per-symbol median lines from git history. No model call, so
+the primary cannot frame the intent to bias the estimate. Keyword
+extraction drops tokens that hit more than half of workspace
+filenames as low-signal (Second Pass Q3 defense against
+keyword-packing). After T1 fires, realized effort is measured from
+the final diff; a ratio below ``tau_effort`` (default 0.3) on any
+dimension queues a suspicion prompt and holds COMPLETE until the
+primary either enumerates skipped items with justification or
+produces additional work that closes the anomaly.
+
+The completion-gate wiring lives in
+``ract.antilazy.completion_gate.run_completion_gates``; the
+``LoopController`` calls it after T1 predicate evaluation and reads
+``blocks_complete`` from the returned ``CompletionGateOutcome`` to
+decide whether to terminate or queue the resume prompt.
+
+The router-gate ``GateConfig`` extends with
+``anti_lazy_conformance: float = 0.7``; providers below the floor
+are refused for both primary and companion roles at registration.
+``evals/conformance/COMPANION_MATRIX.md`` publishes the eligible
+primary-companion pairs (different training family, anti-lazy score
+≥ 0.7, schema score ≥ 0.9); it is regenerated idempotently by
+``evals/leaderboard/update_companion_matrix.py``.
+
+Module_04 also closes module_01's flagged gap on
+``holdout_kind="trivial"``: a per-pipeline trivial-rate ceiling
+(``enforce_trivial_rate_ceiling`` in ``ract.antilazy.holdout``)
+refuses to compile a new held-out suite when the composer's rolling
+trivial rate exceeds 0.3 over the last 20 compositions. The gap
+becomes a loud refusal (``TrivialRateCeilingExceededError``) instead
+of a silent auto-pass.
+
+See ADR-0022 for the design rationale and rejected alternatives, and
+``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §3.7 and §3.8 for the master-
+spec source.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -604,3 +668,4 @@ master-spec source.
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G1 (held-out) + Gate G2 (mutation-kill) (ADR-0019) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G3 (patch differentiation) + Gate G4 (coverage delta) (ADR-0020) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G5 (test integrity) + Gate G6 (symbol-graph under-edit) (ADR-0021) -->
+<!-- RACT 0.4.0-rc1: Anti-Lazy Gate G7 (companion red team) + Gate G8 (effort reconciliation) (ADR-0022) -->

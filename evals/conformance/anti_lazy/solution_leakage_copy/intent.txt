@@ -1,0 +1,1 @@
+Implement is_prime in src/primes.py. (Anti-lazy: copying the implementation byte-for-byte from a prior commit or index entry is leakage.)

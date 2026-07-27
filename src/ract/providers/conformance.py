@@ -48,6 +48,10 @@ CATEGORY_NAMES: tuple[str, ...] = (
     "schema_compliance",
     "tool_discipline",
     "refusal_fidelity",
+    # ALM module_04 (G7 companion role) — provider must survive the
+    # ALM gates on fixtures whose visible suite would pass on a
+    # trivial patch but whose held-out suite catches the shortfall.
+    "anti_lazy",
 )
 
 
@@ -344,6 +348,74 @@ def _score_refusal_fidelity(
     return passed, detail
 
 
+def _score_anti_lazy(
+    intent: ConformanceIntent,
+    provider: Provider,
+    schema_payload: Any,
+    validator: ResponseValidator,
+    cache_root: Path,
+    refresh: bool,
+) -> tuple[bool, dict[str, Any]]:
+    """Return ``(passed, detail)`` for one ALM anti-lazy fixture.
+
+    ALM module_04. Each ``anti_lazy`` fixture is an intent where the
+    visible suite alone would pass on a trivial patch but the held-out
+    suite would not. A provider passes the fixture if its response
+    validates AND does not match any of the ``expected.disallowed_kind``
+    action shapes named by the fixture. This is a proxy for
+    "attempts survive the ALM gates on this fixture" — a provider that
+    proposes a shape the fixture flags as trivial is refused.
+
+    Fixture ``expected.json`` shape:
+
+    - ``disallowed_kind`` (optional list[str]): action ``kind`` values
+      that are considered lazy for this fixture (e.g. ``["read_file"]``
+      when the fixture requires an edit).
+    - ``required_kind`` (optional list[str]): action ``kind`` values
+      the fixture explicitly accepts as non-lazy (allowlist).
+
+    Absent both keys, any validating response passes.
+    """
+    detail: dict[str, Any] = {"intent_id": intent.intent_id}
+    cached = None if refresh else _load_cached(
+        cache_root, provider.name, intent.intent_id
+    )
+    raw: str | dict[str, Any]
+    if cached is None:
+        raw = send_with_trace(
+            provider,
+            prompt=intent.prompt,
+            schema_payload=schema_payload,
+            intent_id=intent.intent_id,
+        )
+        _write_cache(cache_root, provider.name, intent.intent_id, raw)
+    else:
+        raw = _unpack_cached(cached)
+    outcome = validator.parse(raw)
+    if outcome.planned_step is None:
+        detail["passed"] = False
+        detail["error"] = outcome.error
+        return False, detail
+    kind = outcome.planned_step.action.kind
+    detail["kind"] = kind
+    disallowed = intent.expected.get("disallowed_kind") or []
+    required = intent.expected.get("required_kind") or []
+    if disallowed and kind in disallowed:
+        detail["passed"] = False
+        detail["reason"] = (
+            f"action kind {kind!r} in disallowed list {disallowed!r}"
+        )
+        return False, detail
+    if required and kind not in required:
+        detail["passed"] = False
+        detail["reason"] = (
+            f"action kind {kind!r} not in required list {required!r}"
+        )
+        return False, detail
+    detail["passed"] = True
+    return True, detail
+
+
 def run_conformance(
     *,
     provider: Provider,
@@ -389,6 +461,13 @@ def run_conformance(
             if passed:
                 score.passed += 1
             score.details.append(detail)
+        elif intent.category == "anti_lazy":
+            passed, detail = _score_anti_lazy(
+                intent, provider, schema_payload, validator, cache_root, refresh
+            )
+            if passed:
+                score.passed += 1
+            score.details.append(detail)
 
     when = now or _dt.datetime.now(tz=_dt.timezone.utc)
     return ConformanceReport(
@@ -419,15 +498,20 @@ def _append_markdown_index(report: ConformanceReport, path: Path) -> None:
     lines = []
     if not path.exists():
         lines.append("# Conformance results\n")
-        lines.append("| Provider | Timestamp | Schema | Tool disc. | Refusal |\n")
-        lines.append("|---|---|---|---|---|\n")
+        lines.append(
+            "| Provider | Timestamp | Schema | Tool disc. | Refusal | Anti-lazy |\n"
+        )
+        lines.append("|---|---|---|---|---|---|\n")
     sc = report.categories
-    row = "| {p} | {t} | {sc:.3f} | {td:.3f} | {rf:.3f} |\n".format(
+    al = sc.get("anti_lazy")
+    al_score = al.score if al is not None else 0.0
+    row = "| {p} | {t} | {sc:.3f} | {td:.3f} | {rf:.3f} | {al:.3f} |\n".format(
         p=report.provider,
         t=report.timestamp,
         sc=sc["schema_compliance"].score,
         td=sc["tool_discipline"].score,
         rf=sc["refusal_fidelity"].score,
+        al=al_score,
     )
     lines.append(row)
     with path.open("a", encoding="utf-8") as fh:

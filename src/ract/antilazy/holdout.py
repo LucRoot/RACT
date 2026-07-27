@@ -44,6 +44,109 @@ if TYPE_CHECKING:
 
 
 HoldoutKind = Literal["real", "trivial"]
+
+# ALM module_04 addition — closes module_01's flagged gap
+# "``holdout_kind='trivial'`` silently disables held-out enforcement."
+# The composer's rolling trivial-rate (over the last N compositions,
+# default N=20) is bounded from above by a ceiling (default 0.3, i.e.
+# no more than 30% of intents may compose trivially). Above the
+# ceiling ``enforce_trivial_rate_ceiling`` raises and
+# ``compile_held_out`` refuses to return a new suite.
+
+DEFAULT_TRIVIAL_RATE_CEILING: float = 0.3
+"""No more than this fraction of the composer's last N compositions
+may be ``holdout_kind='trivial'``. Above this the compile refuses."""
+
+DEFAULT_TRIVIAL_RATE_WINDOW: int = 20
+"""Sliding window size for the trivial-rate check."""
+
+
+@dataclass(frozen=True)
+class HoldoutCompilationRecord:
+    """One entry in the composer's rolling trivial-rate history.
+
+    A record captures the outcome of one ``compile_held_out`` call:
+    the composer's identifier (``composer_name``) and the resulting
+    ``holdout_kind`` ("real" or "trivial"). The compiler builds a
+    tuple of these records across compositions and feeds it to
+    ``enforce_trivial_rate_ceiling`` at each new call.
+
+    Callers persist the history however they like; the check is
+    memoryless (the ceiling is a function of the tuple, not of
+    hidden state).
+    """
+
+    composer_name: str
+    holdout_kind: HoldoutKind
+
+
+class TrivialRateCeilingExceededError(RuntimeError):
+    """Raised by ``enforce_trivial_rate_ceiling`` when the composer's
+    rolling trivial rate is above the ceiling.
+
+    The compiler catches this and refuses to compile a new held-out
+    suite until the operator investigates the composer that keeps
+    producing trivial suites (module_01 flagged gap: a model that
+    biases the composer into always-trivial output silently bypasses
+    G1; the ceiling makes the pattern loud instead of silent).
+    """
+
+
+def enforce_trivial_rate_ceiling(
+    composer_history: tuple[HoldoutCompilationRecord, ...],
+    ceiling: float = DEFAULT_TRIVIAL_RATE_CEILING,
+    *,
+    window: int = DEFAULT_TRIVIAL_RATE_WINDOW,
+) -> None:
+    """Raise ``TrivialRateCeilingExceededError`` when the composer's
+    rolling trivial rate over the last ``window`` records exceeds
+    ``ceiling``.
+
+    A history shorter than ``window`` uses the full history it has.
+    An empty history is a pass — a fresh pipeline hasn't yet earned
+    the right to be suspicious.
+
+    Emits ``laziness.violated`` with ``kind="trivial_rate_ceiling_
+    exceeded"`` on refusal (best-effort; never fails the check on a
+    trace-writer error).
+    """
+    if not composer_history:
+        return
+    recent = composer_history[-window:] if window > 0 else composer_history
+    trivial_count = sum(
+        1 for r in recent if r.holdout_kind == "trivial"
+    )
+    total = len(recent)
+    if total == 0:
+        return
+    rate = trivial_count / total
+    if rate <= ceiling:
+        return
+    # Refuse — emit and raise.
+    composer_names = sorted({r.composer_name for r in recent})
+    try:  # local import breaks the trace→antilazy cycle
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            "laziness.violated",
+            {
+                "kind": "trivial_rate_ceiling_exceeded",
+                "trivial_rate": round(rate, 4),
+                "ceiling": ceiling,
+                "window": total,
+                "trivial_count": trivial_count,
+                "composer_names": composer_names,
+            },
+        )
+    except Exception:  # noqa: BLE001 — never fail on trace error
+        pass
+    raise TrivialRateCeilingExceededError(
+        f"composer trivial rate {rate:.3f} exceeds ceiling {ceiling:.3f} "
+        f"over last {total} composition(s); refusing to compile a new "
+        f"held-out suite. Composer(s) implicated: {composer_names!r}. "
+        "Investigate the composer that keeps producing trivial suites "
+        "(module_01 flagged gap closed by module_04)."
+    )
 """Whether the held-out suite carries composed predicates.
 
 ``"real"``: the companion produced at least one non-trivial held-out
@@ -260,6 +363,9 @@ def compose_held_out(
     composer: HoldoutComposer,
     *,
     touched: tuple[str, ...] = (),
+    composer_history: tuple[HoldoutCompilationRecord, ...] = (),
+    trivial_rate_ceiling: float = DEFAULT_TRIVIAL_RATE_CEILING,
+    trivial_rate_window: int = DEFAULT_TRIVIAL_RATE_WINDOW,
 ) -> tuple[AcceptanceSuite, HoldoutKind]:
     """Ask ``composer`` to produce held-out predicates; verify non-trivial.
 
@@ -273,7 +379,19 @@ def compose_held_out(
     returning an empty-``predicates`` suite or by returning a suite
     whose predicates all evaluate identically on ``ws`` and on a
     byte-shuffled perturbation of ``touched``.
+
+    ALM module_04 addition — trivial-rate ceiling (module_01 gap).
+    When ``composer_history`` is supplied, the ceiling is enforced
+    BEFORE the composer is called; if the composer has been producing
+    trivial suites at a rate above the ceiling, ``compose_held_out``
+    raises ``TrivialRateCeilingExceededError`` rather than adding
+    another silent auto-pass to the pile.
     """
+    enforce_trivial_rate_ceiling(
+        composer_history,
+        trivial_rate_ceiling,
+        window=trivial_rate_window,
+    )
     proposed = composer.compose(visible, ws)
     if proposed.intent_id != visible.intent_id:
         proposed = AcceptanceSuite(
