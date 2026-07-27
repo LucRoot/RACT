@@ -3736,10 +3736,6 @@ def main(argv: list[str] | None = None) -> int:
         return _run_fingerprint_command(argv[1:])
     if argv and argv[0] == "ai-sbom":
         return _ai_sbom_command(argv[1:])
-    if argv and argv[0] == "grove-forge":
-        from ract.experimental.cli_grove_forge import _grove_forge_command
-
-        return _grove_forge_command(argv[1:])
     if argv and argv[0] == "calibrate":
         from ract.experimental.cli_calibrate import _calibrate_command
 
