@@ -182,6 +182,97 @@ class ApprovalPolicy(_StrictModel):
 
 
 # ---------------------------------------------------------------------------
+# ALM Gate G5 — TestIntegrityConfig section
+# ---------------------------------------------------------------------------
+
+
+# Defaults from ALM spec §3.5 — the denied patterns that ship with
+# every manifest. Widening ``denied_ast_patterns`` (adding more) is
+# always fine; NARROWING requires an operator handshake because the
+# section is what keeps the reward channel non-writable from inside
+# the sandbox. Compare TierPolicy.allow_tier_3 — the same principle
+# applies: a manifest cannot silently disable its own anti-lazy floor.
+DEFAULT_DENIED_AST_PATTERNS: tuple[str, ...] = (
+    "pytest.skip",
+    "pytest.xfail",
+    "pytest.mark.skip",
+    "pytest.mark.skipif",
+    "pytest.mark.xfail",
+)
+DEFAULT_DENIED_ASSERTION_TRANSFORMS: tuple[str, ...] = (
+    "assertion_removal",
+    "assert_true_to_pass",
+)
+DEFAULT_DENIED_FILE_EDITS: tuple[str, ...] = (
+    "tests/conftest.py",
+    "tests/**/conftest.py",
+    "tests/grader.py",
+    "tests/**/grader.py",
+    "tests/*grader*.py",
+    "tests/**/*grader*.py",
+    "evals/grader.py",
+    "evals/**/grader.py",
+    "evals/*grader*.py",
+    "evals/**/*grader*.py",
+)
+DEFAULT_MONKEY_PATCH_WATCHLIST: tuple[str, ...] = (
+    "sys.modules['grader']",
+    "sys.modules['pytest']",
+    "builtins.__import__",
+    "sys.settrace",
+    "sys.setprofile",
+)
+DEFAULT_ALLOWED_SKIP_REASON_SUBSTRINGS: tuple[str, ...] = (
+    "only on windows",
+    "only on linux",
+    "only on macos",
+    "requires windows",
+    "requires linux",
+    "requires macos",
+    "requires posix",
+    "not supported on windows",
+    "not supported on linux",
+    "not supported on macos",
+    "platform-specific",
+)
+
+
+class TestIntegrityConfig(_StrictModel):
+    """G5 policy — the denied AST patterns the pre-commit gate refuses.
+
+    ALM spec §3.5. The pre-commit gate walks the diff between parent
+    and child snapshots; any hit against ``denied_ast_patterns``,
+    ``denied_assertion_transforms``, or ``denied_file_edits`` rolls
+    back the merge and emits ``laziness.violated`` with
+    ``kind="test_hack_denied"``. ``allow_with_operator_handshake``
+    controls whether the trace-recorded handshake event lets an
+    otherwise-denied diff through.
+
+    Defaults populate the ALM spec's baseline; adding more denied
+    patterns is safe; narrowing requires ManifestValidator flags.
+    """
+
+    denied_ast_patterns: tuple[str, ...] = DEFAULT_DENIED_AST_PATTERNS
+    denied_assertion_transforms: tuple[str, ...] = DEFAULT_DENIED_ASSERTION_TRANSFORMS
+    denied_file_edits: tuple[str, ...] = DEFAULT_DENIED_FILE_EDITS
+    monkey_patch_watchlist: tuple[str, ...] = DEFAULT_MONKEY_PATCH_WATCHLIST
+    allowed_skip_reason_substrings: tuple[str, ...] = (
+        DEFAULT_ALLOWED_SKIP_REASON_SUBSTRINGS
+    )
+    allow_with_operator_handshake: bool = True
+
+
+def default_test_integrity_config() -> TestIntegrityConfig:
+    """Return the shipped-defaults ``TestIntegrityConfig``.
+
+    Callers that want to analyze a diff without threading a full
+    ``CapabilityManifest`` (tests, fixtures, offline auditors) use this
+    helper to get the canonical policy.
+    """
+    return TestIntegrityConfig()
+
+
+# ---------------------------------------------------------------------------
 # CapabilityManifest
 # ---------------------------------------------------------------------------
 
@@ -203,6 +294,10 @@ class CapabilityManifest(_StrictModel):
     tiers: TierPolicy = Field(default_factory=TierPolicy)
     yolo_widen: YoloWiden = Field(default_factory=YoloWiden)
     approvals: ApprovalPolicy = Field(default_factory=ApprovalPolicy)
+    # ALM module_03: G5's denied-AST-pattern list. Every manifest
+    # carries a populated section by default; an author-narrowed
+    # section triggers ManifestValidator (see ADR-0021).
+    test_integrity: TestIntegrityConfig = Field(default_factory=TestIntegrityConfig)
     # Lateral chain branch C: the manifest names the sandbox key id (a
     # SHA256 hex of the pubkey the sandbox will use to attest); module_06
     # generates and stores the key, and this field is how the manifest
@@ -323,6 +418,38 @@ class ManifestValidator:
                         f"filesystem.denied: {sorted(overlap)!r}"
                     ),
                     field="filesystem",
+                )
+            )
+
+        # ALM module_03: test-integrity section must be present and the
+        # denied-AST-pattern list must be non-empty. A manifest that
+        # ships ``TestIntegrityConfig(denied_ast_patterns=())`` reads
+        # as an operator-initiated narrowing and requires a signed
+        # handshake to land; the validator refuses the shape at load
+        # time so ``--yolo`` cannot silently widen it (ADR-0021).
+        if not manifest.test_integrity.denied_ast_patterns:
+            violations.append(
+                ManifestViolation(
+                    code="test_integrity_section_narrowed",
+                    message=(
+                        "test_integrity.denied_ast_patterns is empty; the ALM "
+                        "spec §3.5 baseline requires at least the canonical "
+                        "pytest.skip / pytest.xfail / pytest.mark.skip family "
+                        "of denied patterns. Narrowing requires a signed "
+                        "operator handshake (see ADR-0021)."
+                    ),
+                    field="test_integrity.denied_ast_patterns",
+                )
+            )
+        if not manifest.test_integrity.denied_file_edits:
+            violations.append(
+                ManifestViolation(
+                    code="test_integrity_denied_files_missing",
+                    message=(
+                        "test_integrity.denied_file_edits is empty; the grader "
+                        "and conftest globs must ship as a baseline (ADR-0021)."
+                    ),
+                    field="test_integrity.denied_file_edits",
                 )
             )
 

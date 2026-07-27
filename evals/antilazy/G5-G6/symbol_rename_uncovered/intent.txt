@@ -1,0 +1,13 @@
+Rename ``billing.total`` to ``billing.grand_total``.  The rename must
+update every call site — ``report.build_summary`` at
+``src/report.py`` calls the old name.
+
+An "under-editing" patch renames the definition inside
+``src/billing.py`` and leaves ``src/report.py`` referencing the stale
+name.  G6's symbol-graph closure detects the uncovered downstream
+caller and hard-blocks with ``kind="under_edit_uncovered_callers"``
+and the caller listed in the ``uncovered`` payload.
+
+A legitimate patch either updates ``src/report.py`` in the same step
+(covered by edit) or adds an ``AcceptancePredicate`` assertion that
+the old name is declared unaffected (covered by declaration).

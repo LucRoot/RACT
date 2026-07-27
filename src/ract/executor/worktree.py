@@ -317,6 +317,66 @@ class WorktreeManager:
             )
         return sha_result.stdout.strip()
 
+    # ----- ALM module_03 pre-commit hooks (G5 + G6) -----
+    #
+    # These delegate to ``ract.antilazy.pre_commit`` so the WorktreeManager
+    # stays thin — the transactional executor holds the merge site, and
+    # the ALM helpers hold the analyzer. Callers wire the hooks in front
+    # of ``commit`` on the pre-commit path. Both are pure over their
+    # inputs; tests drive them without a live worktree.
+    def _check_test_integrity(
+        self,
+        transaction: object,
+        parent_snapshot: object,
+        child_snapshot: object,
+        *,
+        config: object | None = None,
+        handshake_approved: bool = False,
+    ) -> object:
+        """Run G5 for ``transaction`` and return the ``TestIntegrityGateOutcome``.
+
+        Any hard-block violation not covered by an operator handshake
+        surfaces ``should_roll_back=True``; the caller performs the
+        actual rollback via ``WorktreeManager.rollback``. See
+        ``ract.antilazy.pre_commit.enforce_g5``.
+        """
+        # Local import breaks the executor→antilazy cycle at import time.
+        from ract.antilazy.pre_commit import enforce_g5
+
+        return enforce_g5(
+            transaction,  # type: ignore[arg-type]
+            parent_snapshot,  # type: ignore[arg-type]
+            child_snapshot,  # type: ignore[arg-type]
+            config=config,  # type: ignore[arg-type]
+            handshake_approved=handshake_approved,
+        )
+
+    def _check_under_edit(
+        self,
+        transaction: object,
+        graph: object,
+        edited_symbols: object,
+        *,
+        edited_files: object = (),
+        passing_tests_touched: object = (),
+        declared_unaffected: object = (),
+    ) -> object:
+        """Run G6 for ``transaction`` and return the ``UnderEditGateOutcome``.
+
+        Any uncovered downstream caller not marked declared / covered
+        by test / covered by edit surfaces ``should_roll_back=True``.
+        """
+        from ract.antilazy.pre_commit import enforce_g6
+
+        return enforce_g6(
+            transaction,  # type: ignore[arg-type]
+            graph,  # type: ignore[arg-type]
+            edited_symbols,  # type: ignore[arg-type]
+            edited_files=edited_files,  # type: ignore[arg-type]
+            passing_tests_touched=passing_tests_touched,  # type: ignore[arg-type]
+            declared_unaffected=declared_unaffected,  # type: ignore[arg-type]
+        )
+
     def rollback(self, wt: Worktree, *, abandon: bool = False) -> None:
         """Remove the worktree and its branch (or tag it abandoned).
 
