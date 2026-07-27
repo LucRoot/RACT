@@ -1,0 +1,52 @@
+{
+  "corpus": "swebench_lite",
+  "failed": 0,
+  "generated_on": "2026-07-26",
+  "pass_rate": 1.0,
+  "passed": 1,
+  "provider": "fake",
+  "results": [
+    {
+      "fail_to_pass_ok": true,
+      "instance_id": "django__django-11099",
+      "outcome": "passed",
+      "pass_to_pass_ok": true,
+      "skip_reason": "",
+      "step_id_hex": "53c0749dbeb34e05a9c8eeb4c24eaf49"
+    },
+    {
+      "fail_to_pass_ok": null,
+      "instance_id": "django__django-11133",
+      "outcome": "skipped",
+      "pass_to_pass_ok": null,
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\swebench_lite\\django__django-11133.jsonl",
+      "step_id_hex": ""
+    },
+    {
+      "fail_to_pass_ok": null,
+      "instance_id": "pytest-dev__pytest-5227",
+      "outcome": "skipped",
+      "pass_to_pass_ok": null,
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\swebench_lite\\pytest-dev__pytest-5227.jsonl",
+      "step_id_hex": ""
+    },
+    {
+      "fail_to_pass_ok": null,
+      "instance_id": "sympy__sympy-13471",
+      "outcome": "skipped",
+      "pass_to_pass_ok": null,
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\swebench_lite\\sympy__sympy-13471.jsonl",
+      "step_id_hex": ""
+    },
+    {
+      "fail_to_pass_ok": null,
+      "instance_id": "sympy__sympy-13480",
+      "outcome": "skipped",
+      "pass_to_pass_ok": null,
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\swebench_lite\\sympy__sympy-13480.jsonl",
+      "step_id_hex": ""
+    }
+  ],
+  "skipped": 4,
+  "subset_size": 5
+}
