@@ -1,0 +1,15 @@
+{"schema_version": "2", "corpus": "aider_polyglot", "problem_id": "allergies", "note": "Synthetic — exercises the two-attempts-with-feedback path. Attempt 1 fails, attempt 2 passes."}
+{"kind": "run.started", "payload": {"intent_id": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "suite_digest": "sha256:allergies-fixture", "compiler_version": "0.4.0", "predicate_count": 4, "required_count": 4, "coverage_gate": 0.85}}
+{"kind": "step.started", "payload": {"parent_snapshot": "0000000000000000000000000000000000000000", "branch": "rootact/step/allergies-attempt-1", "postcondition_count": 4, "manifest_digest": null, "timeout_seconds": 120}}
+{"kind": "prompt.sent", "payload": {"attempt_index": 1, "prompt_shape": "polyglot_problem_statement", "prompt_hash": "sha256:allergies-prompt-1"}}
+{"kind": "response.received", "payload": {"attempt_index": 1, "output_shape": "unified_diff", "unified_diff": "--- a/allergies.py\n+++ b/allergies.py\n@@\n-class Allergies:\n-    pass\n+class Allergies:\n+    def __init__(self, score):\n+        self.score = score\n"}}
+{"kind": "tool.called", "payload": {"attempt_index": 1, "tool": "hidden_test_suite", "arguments": {"suite": "allergies"}}}
+{"kind": "tool.result", "payload": {"attempt_index": 1, "tool": "hidden_test_suite", "passed": false, "stdout": "F....\nAttributeError: 'Allergies' object has no attribute 'allergic_to'"}}
+{"kind": "step.rolled_back", "payload": {"outcome": "ROLLED_BACK", "reason": "hidden_test_suite failed"}}
+{"kind": "step.started", "payload": {"parent_snapshot": "0000000000000000000000000000000000000000", "branch": "rootact/step/allergies-attempt-2", "postcondition_count": 4, "manifest_digest": null, "timeout_seconds": 120}}
+{"kind": "prompt.sent", "payload": {"attempt_index": 2, "prompt_shape": "polyglot_problem_statement_with_test_feedback", "prompt_hash": "sha256:allergies-prompt-2"}}
+{"kind": "response.received", "payload": {"attempt_index": 2, "output_shape": "unified_diff", "unified_diff": "--- a/allergies.py\n+++ b/allergies.py\n@@\n-class Allergies:\n-    def __init__(self, score):\n-        self.score = score\n+ALLERGENS = ['eggs','peanuts','shellfish','strawberries','tomatoes','chocolate','pollen','cats']\n+class Allergies:\n+    def __init__(self, score):\n+        self.score = score\n+    def allergic_to(self, item):\n+        return bool(self.score & (1 << ALLERGENS.index(item)))\n+    def lst(self):\n+        return [a for i,a in enumerate(ALLERGENS) if self.score & (1<<i)]\n"}}
+{"kind": "tool.called", "payload": {"attempt_index": 2, "tool": "hidden_test_suite", "arguments": {"suite": "allergies"}}}
+{"kind": "tool.result", "payload": {"attempt_index": 2, "tool": "hidden_test_suite", "passed": true, "stdout": "22 passed"}}
+{"kind": "step.committed", "payload": {"outcome": "COMMITTED", "commit_sha": "fixturecommitsha0000000000000000000000cd"}}
+{"kind": "run.completed", "payload": {"final_state": "passed", "attempts_used": 2}}

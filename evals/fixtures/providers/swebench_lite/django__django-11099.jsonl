@@ -1,0 +1,11 @@
+{"schema_version": "2", "corpus": "swebench_lite", "instance_id": "django__django-11099", "note": "Synthetic — proves the runner extracts a git patch, dispatches FAIL_TO_PASS + PASS_TO_PASS, and reports pass. Not a recording of a live run."}
+{"kind": "run.started", "payload": {"intent_id": "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7", "suite_digest": "sha256:django-11099-fixture", "compiler_version": "0.4.0", "predicate_count": 2, "required_count": 2, "coverage_gate": 0.85}}
+{"kind": "step.started", "payload": {"parent_snapshot": "0000000000000000000000000000000000000000", "branch": "rootact/step/django-11099", "postcondition_count": 2, "manifest_digest": null, "timeout_seconds": 600}}
+{"kind": "prompt.sent", "payload": {"prompt_shape": "swebench_issue_body", "prompt_hash": "sha256:django-11099-prompt"}}
+{"kind": "response.received", "payload": {"output_shape": "git_patch", "git_patch": "diff --git a/django/contrib/auth/validators.py b/django/contrib/auth/validators.py\n--- a/django/contrib/auth/validators.py\n+++ b/django/contrib/auth/validators.py\n@@\n-    regex = r'^[\\w.@+-]+$'\n+    regex = r'\\A[\\w.@+-]+\\Z'\n"}}
+{"kind": "tool.called", "payload": {"tool": "fail_to_pass", "arguments": {"tests": ["auth_tests.test_validators.UsernameValidatorsTests.test_unicode_validator"]}}}
+{"kind": "tool.result", "payload": {"tool": "fail_to_pass", "passed": true, "stdout": "1 passed"}}
+{"kind": "tool.called", "payload": {"tool": "pass_to_pass", "arguments": {"tests": ["auth_tests.test_validators.UsernameValidatorsTests.test_ascii_validator"]}}}
+{"kind": "tool.result", "payload": {"tool": "pass_to_pass", "passed": true, "stdout": "1 passed"}}
+{"kind": "step.committed", "payload": {"outcome": "COMMITTED", "commit_sha": "fixturecommitsha00000000000000000000ef01"}}
+{"kind": "run.completed", "payload": {"final_state": "passed", "attempts_used": 1}}
