@@ -82,7 +82,12 @@ def test_update_writes_when_new_reports_land(tmp_path: Path) -> None:
     assert outcome.written is True
     assert outcome.provider_count == 1
     text = leaderboard.read_text(encoding="utf-8")
-    assert "| `fake` | 3 of 10 | 1 of 5 |" in text
+    # Provider display carries the ALM module_07 FakeProvider caveat marker
+    # (Second Pass Q4 fix); the row still reports the polyglot 3-of-10 and
+    # swebench 1-of-5 cells.
+    assert (
+        "| `fake` (synthetic, mechanism-check only) | 3 of 10 | 1 of 5 |" in text
+    )
 
 
 def test_update_idempotent_with_no_new_reports(tmp_path: Path) -> None:
