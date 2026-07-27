@@ -27,6 +27,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from ract.core.predicate import (
+    _REDACT_PREDICATE_ID,
     AcceptancePredicate,
     AcceptanceSuite,
     suite_from_canonical,
@@ -237,11 +238,19 @@ def _is_non_trivial(
     if not held_out.predicates:
         return False
     perturbed = _perturb_snapshot(ws, touched)
-    for predicate in held_out.predicates:
-        original = predicate.evaluate(ws)
-        shuffled = predicate.evaluate(perturbed)
-        if original.ok != shuffled.ok:
-            return True
+    # ALM module_01 second-pass fix (finding 1): redact predicate ids
+    # in the trace during the non-triviality check too. Compile-time
+    # evaluations of the composed held-out set would otherwise leak
+    # the ids before the model even sees the visible suite.
+    token = _REDACT_PREDICATE_ID.set(True)
+    try:
+        for predicate in held_out.predicates:
+            original = predicate.evaluate(ws)
+            shuffled = predicate.evaluate(perturbed)
+            if original.ok != shuffled.ok:
+                return True
+    finally:
+        _REDACT_PREDICATE_ID.reset(token)
     return False
 
 
@@ -398,9 +407,19 @@ def check_visible_and_held_out(
             failing_visible.append(predicate.id.hex())
     failing_held_out: list[str] = []
     if dual.holdout_kind == "real":
-        for predicate in dual.held_out.required():
-            if not predicate.evaluate(snapshot).ok:
-                failing_held_out.append(predicate.id.hex())
+        # ALM module_01 second-pass fix (finding 1): set the substrate
+        # predicate-id redaction flag while iterating held-out
+        # predicates so their ids do not appear in the
+        # ``predicate.evaluated`` events the trace surface carries.
+        # The raw id stays inside this frame; only the digest reaches
+        # the event log.
+        token = _REDACT_PREDICATE_ID.set(True)
+        try:
+            for predicate in dual.held_out.required():
+                if not predicate.evaluate(snapshot).ok:
+                    failing_held_out.append(predicate.id.hex())
+        finally:
+            _REDACT_PREDICATE_ID.reset(token)
     visible_ok = not failing_visible
     held_out_ok = not failing_held_out
     gap = visible_ok and not held_out_ok
