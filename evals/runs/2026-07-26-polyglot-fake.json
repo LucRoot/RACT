@@ -1,0 +1,87 @@
+{
+  "corpus": "aider_polyglot",
+  "failed": 0,
+  "generated_on": "2026-07-26",
+  "pass_rate": 1.0,
+  "passed": 2,
+  "provider": "fake",
+  "results": [
+    {
+      "attempts": 1,
+      "outcome": "passed",
+      "problem_id": "acronym",
+      "skip_reason": "",
+      "step_ids_hex": [
+        "b9a17339467b455d9b1f31d98286c15c"
+      ]
+    },
+    {
+      "attempts": 2,
+      "outcome": "passed",
+      "problem_id": "allergies",
+      "skip_reason": "",
+      "step_ids_hex": [
+        "295d745db65a4bca862f39c577d8e42e",
+        "c9ee77d9e09f4c458f0f53f4561c7a4f"
+      ]
+    },
+    {
+      "attempts": 0,
+      "outcome": "skipped",
+      "problem_id": "anagram",
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\aider_polyglot\\anagram.jsonl",
+      "step_ids_hex": []
+    },
+    {
+      "attempts": 0,
+      "outcome": "skipped",
+      "problem_id": "atbash-cipher",
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\aider_polyglot\\atbash-cipher.jsonl",
+      "step_ids_hex": []
+    },
+    {
+      "attempts": 0,
+      "outcome": "skipped",
+      "problem_id": "binary-search",
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\aider_polyglot\\binary-search.jsonl",
+      "step_ids_hex": []
+    },
+    {
+      "attempts": 0,
+      "outcome": "skipped",
+      "problem_id": "bowling",
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\aider_polyglot\\bowling.jsonl",
+      "step_ids_hex": []
+    },
+    {
+      "attempts": 0,
+      "outcome": "skipped",
+      "problem_id": "clock",
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\aider_polyglot\\clock.jsonl",
+      "step_ids_hex": []
+    },
+    {
+      "attempts": 0,
+      "outcome": "skipped",
+      "problem_id": "collatz-conjecture",
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\aider_polyglot\\collatz-conjecture.jsonl",
+      "step_ids_hex": []
+    },
+    {
+      "attempts": 0,
+      "outcome": "skipped",
+      "problem_id": "difference-of-squares",
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\aider_polyglot\\difference-of-squares.jsonl",
+      "step_ids_hex": []
+    },
+    {
+      "attempts": 0,
+      "outcome": "skipped",
+      "problem_id": "etl",
+      "skip_reason": "fixture-not-found: evals\\fixtures\\providers\\aider_polyglot\\etl.jsonl",
+      "step_ids_hex": []
+    }
+  ],
+  "skipped": 8,
+  "subset_size": 10
+}

@@ -43,6 +43,6 @@ include = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 addopts = "--cov=ract --cov-report=term-missing"
 # RACT 0.3.0
