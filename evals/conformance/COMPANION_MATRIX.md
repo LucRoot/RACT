@@ -17,7 +17,7 @@
 ## Notes
 
 - Providers with a missing ``anti_lazy`` or ``schema_compliance`` category are excluded from both roles.
-- Training family is a coarse substring match against known identifiers (openai, anthropic, google, gemini, mistral, nvidia, nemotron, deepseek, qwen, minimax); unknown providers are treated as their own singleton family.
+- Training family is a coarse substring match against known identifiers (openai, anthropic, google, gemini, mistral, nvidia, deepseek, qwen, minimax); unknown providers are treated as their own singleton family.
 - Same-family pairings are refused even when scores clear the floor — shared training regimes share blind spots (ALM §3.7 rejected alternative: same-provider companion).
 - The `single_provider_advisory` deployment mode (lateral chain branch D) opts a run into advisory-only companion findings without changing this matrix.
 

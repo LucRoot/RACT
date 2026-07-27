@@ -48,7 +48,6 @@ _TRAINING_FAMILY: dict[str, str] = {
     "mistral": "mistral",
     "magistral": "mistral",
     "nvidia": "nvidia",
-    "nemotron": "nvidia",
     "deepseek": "deepseek",
     "qwen": "qwen",
     "minimax": "minimax",
@@ -207,7 +206,7 @@ def _render_matrix(
         "``schema_compliance`` category are excluded from both roles.\n"
         "- Training family is a coarse substring match against known "
         "identifiers (openai, anthropic, google, gemini, mistral, "
-        "nvidia, nemotron, deepseek, qwen, minimax); unknown "
+        "nvidia, deepseek, qwen, minimax); unknown "
         "providers are treated as their own singleton family.\n"
         "- Same-family pairings are refused even when scores clear "
         "the floor — shared training regimes share blind spots (ALM "

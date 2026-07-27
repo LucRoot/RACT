@@ -21,7 +21,7 @@ def _write_config(tmp_path: Path) -> Path:
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             },
         },
         "prompts_dir": "prompts",

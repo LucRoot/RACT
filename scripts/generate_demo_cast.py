@@ -40,7 +40,7 @@ providers:
   local:
     adapter: local_http
     base_url: http://127.0.0.1:8011/v1
-    model: nemotron
+    model: local-model
 """,
     "src/myapp/util.py": """\
 def normalize(data):

@@ -22,7 +22,7 @@ PRESETS: dict[str, dict[str, Any]] = {
             "local": {
                 "adapter": "local_http",
                 "url": "http://127.0.0.1:11434/v1",
-                "model": "nemotron",
+                "model": "local-model",
             }
         },
         "prompts_dir": "prompts",
