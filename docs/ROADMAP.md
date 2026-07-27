@@ -206,6 +206,39 @@ following items feed the v0.5 backlog as deeper improvements:
   without a manual edit. The current test pins the enumeration; the
   protocol would remove the manual step.
 
+## v0.5 hardening (from functionality audit)
+
+Landed alongside the retroactive-audit sweep on 2026-07-27. One
+concrete-defect fix commit (`249c0c7`) covers the CLI verb gap; the
+remaining items below are usability polish surfaced by the six-lens
+audit and Lens 3's cross-family first-user simulation.
+
+- **Unify first-run prerequisites across install paths.** Lens 3
+  reviewer noted that `pip install ract`, the source install, and the
+  in-source editable path all name different prerequisites in
+  different sections. Consolidate into a single "Before you install"
+  block in README + QUICKSTART that lists Python 3.11+, git repo
+  (implicit for the substrate loop), and provider env vars in one
+  place.
+- **Success-output examples for the first `ract` run.** Lens 3
+  reviewer flagged "no clear expectation on what success looks like."
+  Add a fenced code block after the Quickstart's first `ract "…"`
+  showing the expected tail of the run (report path, exit code,
+  where `evals/runs/<run_id>/` lands).
+- **Post-first-run linear onboarding.** Lens 3 rated the jump from
+  first-run to sessions/project-docs/modes as "information overload."
+  Add a "What's next" ladder that walks a new user through: (a) run
+  once, (b) inspect the report, (c) resume via `--session`, (d)
+  advanced modes. Today all four appear at the same nesting depth.
+- **Copy-paste-verbatim README lint.** The `ract run "…"` line ran
+  verbatim from README failed on rc1 until fix commit `249c0c7`
+  (missing `run` alias). Cold Lens 3 reviewers do not always simulate
+  copy-paste execution, so add an in-repo lint that extracts every
+  fenced `ract …` command from README.md + docs/QUICKSTART.md and
+  runs it (or its `--help` when it would spend budget) as part of the
+  test suite. Would have caught the defect without a first-user
+  report.
+
 ## Previously logged (pre-v0.4) — carried forward
 
 Items from the pre-v0.4 roadmap that remain open:
