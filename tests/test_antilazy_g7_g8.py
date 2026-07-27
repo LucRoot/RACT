@@ -484,6 +484,74 @@ def test_antilazy_fixtures_dir_has_ten_intents():
         assert (fx / "workspace").is_dir()
 
 
+# ---------------------------------------------------------------------------
+# Second Pass fixes — regression tests for the three concrete defects the
+# reviewer named. Each test names the finding it locks in.
+# ---------------------------------------------------------------------------
+
+
+def test_extract_keywords_returns_empty_on_empty_workspace():
+    """Second Pass reviewer Additional Defect #1 — empty workspace bypass.
+
+    An empty workspace made the hit-fraction filter compute 0.0 for
+    every token so every token passed as high-signal. The fix returns
+    an empty tuple immediately so the caller enters its fallback path
+    with no amplification opportunity.
+    """
+    ws = WorkspaceSnapshot(files={})
+    assert _extract_keywords("pack pack pack tokens", ws) == ()
+
+
+def test_short_code_token_bypass_filtered():
+    """Second Pass reviewer Q3 — 4-char code tokens no longer pass.
+
+    Tokens like ``handler``, ``service``, ``runner`` sat above
+    ``min_length=4`` and were not in the previous stop-word set. The
+    fix adds them to ``_STOP_WORDS`` and tightens the filename-hit
+    filter to 0.15 so mid-frequency code tokens are dropped.
+    """
+    # A workspace with 20 files; ``rare_symbol`` names exactly one so
+    # its filename-hit-fraction (0.05) sits under the tightened 0.15
+    # cap, while the code-token attackers all fail the stop-word set.
+    files = {f"src/mod{i}.py": "x" for i in range(19)}
+    files["src/rare_symbol.py"] = "x"
+    ws = WorkspaceSnapshot(files=files)
+    kws = _extract_keywords(
+        "handler service runner utils helper config rare_symbol", ws
+    )
+    for banned in ("handler", "service", "runner", "utils", "helper", "config"):
+        assert banned not in kws, f"{banned} should have been filtered"
+    assert "rare_symbol" in kws
+
+
+def test_run_companion_report_time_matches_budget_flag():
+    """Second Pass reviewer Additional Defect #3 — no elapsed-time disagreement.
+
+    Previously ``time_spent_seconds`` was computed off a second
+    monotonic read after the runner loop and ``time_exceeded`` off an
+    adapter-only read; a report could show
+    ``time_spent_seconds > budget`` while ``time_exceeded`` was set
+    against a smaller number. The fix derives both from one
+    measurement.
+    """
+    primary = _StubProvider(name="prov_primary")
+    companion = _StubProvider(name="prov_companion")
+    adapter = _SpyAdapter(provider_name=companion.name)
+    # Fast-completing adapter with a generous budget: report must
+    # record time_exceeded=False AND time_spent_seconds <= budget.
+    config = CompanionConfig(provider=companion, time_budget_seconds=60)
+    report = run_companion(
+        intent="ok",
+        diff=_make_patch(),
+        visible_suite=_make_visible_suite(),
+        config=config,
+        adapter=adapter,
+        primary=primary,
+    )
+    assert report.time_exceeded is False
+    assert report.time_spent_seconds <= config.time_budget_seconds
+
+
 def test_measure_actual_effort_from_patch():
     """measure_actual_effort reads a Patch and returns integer scalars."""
     patch = Patch(

@@ -398,9 +398,14 @@ def run_companion(
         )
     except _CompanionTimeout:
         time_exceeded = True
-    elapsed = _time.monotonic() - start
-    if elapsed > config.time_budget_seconds:
-        time_exceeded = True
+    # Second Pass fix (module_04 Second Pass, NVIDIA reason_deep
+    # Additional Defect #3): elapsed is computed once at the end of
+    # all work and both the ``time_exceeded`` flag and
+    # ``time_spent_seconds`` derive from the same measurement. The
+    # earlier version had an adapter-scoped elapsed and a total
+    # elapsed that could produce ``time_spent_seconds > budget`` while
+    # ``time_exceeded=True`` was asserted against a smaller number,
+    # which read as internally inconsistent in the report.
 
     # Evaluate each finding against both snapshots (branch A: the
     # runner is expected to load the workspaces read-only).
@@ -438,7 +443,12 @@ def run_companion(
     survivors_count = sum(
         1 for f in evaluated if f.surviving() and not f.advisory
     )
-    total_elapsed_int = int(max(0.0, _time.monotonic() - start))
+    total_elapsed_seconds = max(0.0, _time.monotonic() - start)
+    total_elapsed_int = int(total_elapsed_seconds)
+    # Budget check runs against the SAME measurement as the report so
+    # ``time_spent_seconds`` and ``time_exceeded`` never disagree.
+    if total_elapsed_seconds > config.time_budget_seconds:
+        time_exceeded = True
     report = CompanionRedTeamReport(
         companion_provider=adapter.provider_name,
         primary_provider=primary.name if primary is not None else "",
