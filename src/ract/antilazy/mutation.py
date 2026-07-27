@@ -456,8 +456,10 @@ class MutmutSource:
     def generate(
         self, touched_files: tuple[str, ...]
     ) -> tuple[Mutant, ...]:  # pragma: no cover — dev-optional path
+        import importlib
+
         try:
-            import mutmut  # type: ignore[import-not-found]  # noqa: F401
+            importlib.import_module("mutmut")
         except ImportError as exc:
             raise RuntimeError(
                 "mutmut is not installed. Install the dev extras "
