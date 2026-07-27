@@ -36,6 +36,7 @@ from ract.antilazy.patchdiff import (
     Hunk,
     Patch,
     PatchDifferentiationReport,
+    _proportional_budget,
     generate_differentiators,
     null_patch,
     run_patchdiff,
@@ -502,6 +503,29 @@ def test_worked_example_null_patch_visible_passes_g3_catches(tmp_path: Path) -> 
     assert report.is_semantic_noop is True
     assert report.tests_that_distinguish == 0
     assert report.leakage_matches == ()
+
+
+# ---------------------------------------------------------------------------
+# 8. Second Pass finding 3 — proportional budget guarantees min-1 per function
+# ---------------------------------------------------------------------------
+
+
+def test_proportional_budget_guarantees_min_one_per_function() -> None:
+    """Second Pass finding 3 (OpenRouter reason_nemotron_ultra).
+
+    Prior implementation gave 0 to functions past index ``total_budget``.
+    The revised rule guarantees every touched function receives at
+    least 1 differentiator even when ``n > total_budget``; total
+    exceeds the stated cap in exchange for measurement coverage.
+    """
+    functions = tuple(f"fn_{i}" for i in range(40))
+    allocation = _proportional_budget(functions, total_budget=30, per_function_cap=10)
+    assert len(allocation) == 40
+    zero_alloc = [fn for fn, count in allocation.items() if count == 0]
+    assert zero_alloc == [], (
+        f"expected every touched function to get >= 1, got zeros: {zero_alloc}"
+    )
+    assert all(count >= 1 for count in allocation.values())
 
 
 # RACT 0.4.0

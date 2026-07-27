@@ -419,11 +419,25 @@ def _proportional_budget(
 ) -> dict[str, int]:
     """Allocate ``total_budget`` across ``functions``, capped per function.
 
-    Lateral chain branch A: fewer than one differentiator per function
-    when the diff touches more functions than the budget allows. The
-    minimum allocation is 1 (round up) so every touched function gets
-    at least one shot; the total is bounded by summing the caps rather
-    than exceeding ``total_budget``.
+    Second Pass finding 3 (OpenRouter reason_nemotron_ultra): the
+    prior implementation gave 0 differentiators to any function past
+    ``total_budget`` in wide-refactor scenarios, contradicting its own
+    docstring. The revised rule guarantees a minimum of 1
+    differentiator per function; when the number of touched functions
+    exceeds ``total_budget`` the actual dispatch count exceeds the
+    stated cap in exchange for measurement coverage. That tradeoff is
+    the honest one — the alternative (silent zero) is theatre.
+
+    Allocation shape:
+
+    - Every function gets ``floor(total_budget / n)`` (with a floor of
+      1) up to ``per_function_cap``.
+    - Any remainder is distributed round-robin one at a time until
+      exhausted.
+    - When ``n > total_budget`` the sum of allocations equals ``n``
+      (one per function); callers that need a hard cap should assert
+      on ``sum(allocation.values()) <= total_budget`` before
+      dispatch and refuse the transaction with a specific error.
     """
     if not functions:
         return {}
@@ -431,18 +445,19 @@ def _proportional_budget(
         return {fn: 0 for fn in functions}
     n = len(functions)
     base = max(1, total_budget // n)
-    allocation: dict[str, int] = {}
-    remaining = total_budget
-    for fn in functions:
-        alloc = min(per_function_cap, base, remaining)
-        alloc = max(alloc, 0 if remaining <= 0 else 1)
-        allocation[fn] = alloc
-        remaining -= alloc
-        if remaining <= 0:
-            # Set later functions to zero so the total does not exceed.
-            for later in functions[functions.index(fn) + 1 :]:
-                allocation[later] = 0
-            break
+    allocation: dict[str, int] = {fn: min(per_function_cap, base) for fn in functions}
+    # Distribute remainder — total may already equal or exceed budget
+    # when n > total_budget (min-1 floor).
+    consumed = sum(allocation.values())
+    remaining = total_budget - consumed
+    if remaining > 0:
+        i = 0
+        while remaining > 0 and i < len(functions) * per_function_cap:
+            fn = functions[i % len(functions)]
+            if allocation[fn] < per_function_cap:
+                allocation[fn] += 1
+                remaining -= 1
+            i += 1
     return allocation
 
 
