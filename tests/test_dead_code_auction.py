@@ -200,6 +200,17 @@ def test_ract_auction_reports_zero_dead_modules():
     # No shipped-CLI call site until ALM module_08 wires the pre-commit
     # entry point (see module_01 Flagged gaps).
     allowlist.add("pre_commit.py")
+    # ALM module_05: ``antilazy/sycophancy.py`` and
+    # ``antilazy/investigator.py`` land the sycophancy circuit and the
+    # Investigator pre-completion contract respectively;
+    # ``security/alm_verifier_key.py`` lands the ALM verifier signing
+    # key type. All three are consumed by
+    # ``tests/test_antilazy_al1.py`` and by the eventual LoopController
+    # wiring that module_08 lands. Allowlisted mirroring the
+    # module_06 substrate pattern.
+    allowlist.add("sycophancy.py")
+    allowlist.add("investigator.py")
+    allowlist.add("alm_verifier_key.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},

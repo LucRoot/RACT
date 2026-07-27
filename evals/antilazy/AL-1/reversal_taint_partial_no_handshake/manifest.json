@@ -1,0 +1,6 @@
+{
+  "fixture": "reversal_taint_partial_no_handshake",
+  "description": "Every gate passes but the sycophancy circuit tainted the run 'partial' without operator acceptance. AL-1 fails on AL-1.3.",
+  "expect": "fail",
+  "predicate": "AL-1.3"
+}

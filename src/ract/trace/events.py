@@ -81,6 +81,9 @@ EventKind = Literal[
     "auction.proposal",
     # ALM module_01 (visible-holdout gap, mutation-kill below threshold)
     "laziness.violated",
+    # ALM module_05 (sycophancy circuit + Investigator pre-completion contract)
+    "reversal.suspicious",
+    "investigator.report",
 ]
 
 
