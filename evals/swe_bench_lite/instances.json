@@ -1,0 +1,45 @@
+{
+  "schema_version": "1",
+  "source_site": "https://www.swebench.com/",
+  "source_repo": "https://github.com/SWE-bench/SWE-bench",
+  "selection_rule": "Five instances spanning three repositories and three issue types (bug fix, feature request, api behavior). Sorted by instance id ascending within the pinned set.",
+  "pinned_at": "2026-07-26",
+  "adr": "ADR-0018",
+  "instances": [
+    {
+      "instance_id": "django__django-11099",
+      "repo": "django/django",
+      "issue_type": "bug_fix",
+      "source_url": "https://github.com/SWE-bench/SWE-bench/blob/main/swebench/lite/instance_ids.txt",
+      "docker_image": "docker.io/swebench/sweb.eval.x86_64.django__django-11099:latest"
+    },
+    {
+      "instance_id": "django__django-11133",
+      "repo": "django/django",
+      "issue_type": "feature_request",
+      "source_url": "https://github.com/SWE-bench/SWE-bench/blob/main/swebench/lite/instance_ids.txt",
+      "docker_image": "docker.io/swebench/sweb.eval.x86_64.django__django-11133:latest"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5227",
+      "repo": "pytest-dev/pytest",
+      "issue_type": "api_behavior",
+      "source_url": "https://github.com/SWE-bench/SWE-bench/blob/main/swebench/lite/instance_ids.txt",
+      "docker_image": "docker.io/swebench/sweb.eval.x86_64.pytest-dev__pytest-5227:latest"
+    },
+    {
+      "instance_id": "sympy__sympy-13471",
+      "repo": "sympy/sympy",
+      "issue_type": "bug_fix",
+      "source_url": "https://github.com/SWE-bench/SWE-bench/blob/main/swebench/lite/instance_ids.txt",
+      "docker_image": "docker.io/swebench/sweb.eval.x86_64.sympy__sympy-13471:latest"
+    },
+    {
+      "instance_id": "sympy__sympy-13480",
+      "repo": "sympy/sympy",
+      "issue_type": "bug_fix",
+      "source_url": "https://github.com/SWE-bench/SWE-bench/blob/main/swebench/lite/instance_ids.txt",
+      "docker_image": "docker.io/swebench/sweb.eval.x86_64.sympy__sympy-13480:latest"
+    }
+  ]
+}
