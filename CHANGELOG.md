@@ -206,10 +206,14 @@ option added by either pipeline appears in the bullets below.
   surface (CHANGELOG, README, VERSION, ROADMAP, tag) to this pipeline.
   ALM's module_08 lands the FIRST v0.4-family tag as `v0.4.0-rc1` — the
   `rc1` suffix reflects that ALM code is new and the combined shape
-  warrants a candidate cycle before `v0.4.0`. VERSION, `pyproject.toml`,
-  and `__init__.py` all read `0.4.0-rc1` (`0.4.0rc1` in PEP-440-canonical
-  form for `pyproject.toml`); `ract --version` reports the aligned
-  `0.4.0-rc1` — no version-vs-tag mismatch.
+  warrants a candidate cycle before `v0.4.0`. VERSION carries the
+  human-friendly `v0.4.0-rc1`; `pyproject.toml` and `__init__.py` carry
+  the PEP 440 canonical `0.4.0rc1`; `ract --version` prints `RACT
+  0.4.0rc1` (PEP 440 normalises `0.4.0-rc1` and `0.4.0rc1` to the same
+  version identity — see `tests/test_release_surface.py`
+  `test_version_matches_across_files` and
+  `test_ract_version_cli_reports_aligned_identity`). The tag itself
+  uses the `v0.4.0-rc1` git convention.
 - **46-signal sweep (documented total).** The plan called for a combined
   46-signal sweep (14 REBUILD + 16 SUBSTRATE + 16 ALM). Honest
   enumeration of the three specs finds 11 REBUILD signals (per
