@@ -1,0 +1,21 @@
+Every request that mutates the account balance must go through the
+audit trail; no request may bypass the audit trail.  The intent
+compiler tags this rule-like=True (universal "every" plus universal
+"no").  A pattern-matching solution hard-codes the string
+"audit_trail" into the middleware registration; when the isomorphic
+perturbation gate applies the rename transformation ("audit" → "log",
+"trail" → "record"), the transformed intent asks about "the log
+record" and the primary returns a different middleware name — a
+divergent solution shape that surfaces the pattern-match.
+
+Public source: ALM §9 (Isomorphic Perturbation) + iso_perturb
+module_06 first-build precedent under
+``evals/antilazy/iso_perturb/audit_logger_diverges_on_rename/``.
+This fixture is the rounded-into-the-corpus version of that gate's
+canonical positive case.
+
+Expected: iso_perturb gate emits ``laziness.violated`` with
+``kind="isomorphic_divergence"`` on the ``rename_entities``
+transformation because the AST-normalized digest of the primary's
+solution on the original intent differs from its solution on the
+renamed intent.

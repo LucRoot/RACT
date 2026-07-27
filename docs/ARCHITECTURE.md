@@ -328,13 +328,28 @@ Both runners execute each problem/instance inside a fresh
 against real-world workloads.
 
 `evals/LEADERBOARD.md` is the canonical published record. It carries
-four columns — Aider Polyglot, SWE-bench Lite, conformance
-(module_04), security (module_03) — and is regenerated idempotently
-by `evals/leaderboard/update.py` from the most recent report per
-`(provider, corpus)`. Module-internal `RESULTS.md` files remain the
-source of truth for the columns they contribute (Lateral Chain
-branch E, module_07); the leaderboard reads them without duplicating
-their content.
+the four per-corpus columns — Aider Polyglot, SWE-bench Lite,
+conformance (module_04), security (module_03) — plus three v0.4.0
+ALM columns landed by ALM module_07 (`claimed_pass_rate`,
+`attested_pass_rate`, `attestation_gap`). It is regenerated
+idempotently by `evals/leaderboard/update.py` from the most recent
+report per `(provider, corpus)`. Module-internal `RESULTS.md` files
+remain the source of truth for the columns they contribute (Lateral
+Chain branch E, substrate module_07); the leaderboard reads them
+without duplicating their content. See
+`docs/PUBLIC_LEADERBOARD.md` for the column definitions and the
+gap-interpretation thresholds; ADR-0025 documents the rejected
+alternatives (attested-only, claimed-only, single-combined-score,
+model-graded attestation).
+
+The `evals/antilazy/` corpus (10 adversarial cases drawn from
+public reward-hacking incidents — SWE-bench Verified `conftest.py`,
+Palisade chess-hacking, monkey-patched scorer, patch leakage,
+semantic no-op, weak-assertion insertion, under-edit missed callers,
+sycophantic reversal, sandbagging, pattern-matching rule-like) is
+the source-of-truth for the anti-lazy conformance dimension. Each
+case cites its public source in `expected.json` (Lateral Chain
+branch A, ALM module_07).
 
 CI runs a smoke tier on every PR against a fixture provider (schema
 v2 event streams under `evals/fixtures/providers/`); a nightly

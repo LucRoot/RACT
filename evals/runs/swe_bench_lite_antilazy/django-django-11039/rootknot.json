@@ -1,0 +1,21 @@
+{
+  "provider": "fake",
+  "instance_id": "django-django-11039",
+  "signatures": {
+    "generator_valid": true,
+    "environment_valid": true,
+    "antilazy_valid": true
+  },
+  "reversal_taint": "clean",
+  "gate_results": [
+    {"name": "G1", "passed": true, "handshake_id": null},
+    {"name": "G2", "passed": true, "handshake_id": null},
+    {"name": "G3", "passed": true, "handshake_id": null},
+    {"name": "G4", "passed": true, "handshake_id": null},
+    {"name": "G5", "passed": true, "handshake_id": null},
+    {"name": "G6", "passed": true, "handshake_id": null},
+    {"name": "G7", "passed": true, "handshake_id": null},
+    {"name": "G8", "passed": true, "handshake_id": null}
+  ],
+  "notes": "FakeProvider mechanism-check attestation on the SWE-bench Lite subset. Deterministic."
+}
