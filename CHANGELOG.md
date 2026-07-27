@@ -201,15 +201,9 @@ option added by either pipeline appears in the bullets below.
 
 ### Removed
 
-- **`experimental/grove-forge` subsystem removed** — the CLI subcommand
-  `ract grove-forge` no longer exists. Files removed:
-  `src/ract/experimental/{cli_grove_forge,grove_forge_eval,grove_forge_guardian}.py`
-  and their tests under `tests/experimental/`. The JSONL learning-feed
-  `source` keys `grove-forge-benchmark-auto-eval` and
-  `grove-forge-artifact-scanner` leave with the modules — no external
-  consumers existed. Removed as part of the [REDACTED]-leakage audit
-  (2026-07-27); the subsystem carried an operator-side project name that
-  did not belong on the public RACT release surface.
+- Unused experimental modules and CLI subcommands from earlier
+  development that were not part of the v0.4 substrate design. Users of
+  the shipped v0.4 CLI verbs are unaffected.
 
 ### Verify
 
