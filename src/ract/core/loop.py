@@ -169,7 +169,25 @@ def check_t1(
 
     The environment decides. ``ProgressOracle`` is not consulted here; its
     score is a scheduling heuristic and reporting axis only.
+
+    ALM module_01: when ``suite`` is a ``DualAcceptanceSuite`` (duck-typed
+    via a ``visible`` attribute and a ``held_out`` attribute), the check
+    evaluates both halves and fires ``laziness.violated`` with
+    ``kind="visible_holdout_gap"`` when the visible half is all-ok but
+    the held-out half is not. The substrate return type is preserved:
+    a dual suite that passes both halves returns ``COMPLETE`` exactly
+    as the substrate suite would.
     """
+    # Dual-suite branch: run the ALM check_visible_and_held_out helper,
+    # which handles both the gap emit and the auto-pass for
+    # holdout_kind="trivial".
+    if hasattr(suite, "visible") and hasattr(suite, "held_out"):
+        from ract.antilazy.holdout import check_visible_and_held_out
+
+        outcome = check_visible_and_held_out(suite, snapshot)  # type: ignore[arg-type]
+        if outcome.visible_ok and outcome.held_out_ok:
+            return TerminationCause.COMPLETE
+        return None
     required = suite.required()
     if not required:
         return None
