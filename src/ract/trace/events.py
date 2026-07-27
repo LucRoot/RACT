@@ -79,6 +79,8 @@ EventKind = Literal[
     "assumption.violated",
     # Contracts (module_06 — Auction as scheduled environment sweep)
     "auction.proposal",
+    # ALM module_01 (visible-holdout gap, mutation-kill below threshold)
+    "laziness.violated",
 ]
 
 
