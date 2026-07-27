@@ -163,7 +163,14 @@ recorded here for the operator to resolve at the [REDACTED] side.
 
 ## v0.5 hardening (from module_08 second pass)
 
-(Placeholder — extended after ALM module_08's Second Pass results land.)
+Module_08's Second Pass surfaced ONE CONCRETE DEFECT (VERSION-vs-tag
+identity check inadequate; fixed in commit `9a0b684`) and TRUNCATED
+BEFORE ANSWERING Q1/Q2/Q4. The following items feed the v0.5 backlog:
+
+- **v0.4.0-final second-pass re-coverage.** Q1 (43-signal distinctness), Q2 (CHANGELOG completeness vs 14 ADRs), and Q4 (ROADMAP compilation completeness) went unanswered because the Google flash_reason response truncated at ~1.2 KB. Self-audit substituted, but a follow-up dispatch (four sequential lightweight prompts) is queued for the v0.4.0-final review cycle so the reviewer's own distinctness/completeness/compilation claims are on the record.
+- **Mistral daily token budget vs single-prompt reasoning size.** ALM modules 05 and 08 both fell back from Mistral `reason_magistral` because the daily token budget (30 000) is smaller than a single reasoning prompt (typically ≥30 000 tokens). Feed into the [REDACTED] endpoints_SKILL scoping table: either raise the Mistral tier before v0.4.0-final OR remove `reason_magistral` from the ALM scoping recommendations.
+- **Dispatcher `finish_reason: length` surfacing.** Each provider dispatcher (`google_dispatch.py`, `nvidia_dispatch.py`, `openrouter_dispatch.py`, `mistral_dispatch.py`) should surface `finish_reason: length` warnings so a truncated review is visible to the caller rather than silent. Queued for the [REDACTED] side.
+- **Version-string spelling unification.** VERSION carries the hyphenated `v0.4.0-rc1` display form; `pyproject.toml` and `__init__.py` carry the PEP 440 canonical `0.4.0rc1`; the two are the same version identity under `packaging.version.Version`, but a v0.5 cleanup could unify to a single spelling everywhere and add a lint enforcing the choice.
 
 ## Previously logged (pre-v0.4) — carried forward
 
