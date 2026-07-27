@@ -25,10 +25,24 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, Literal
+from typing import TYPE_CHECKING, Iterable, Literal, Protocol
 
 if TYPE_CHECKING:
     from ract.trace.events import Event
+
+
+class _RepairIntentSink(Protocol):
+    """Structural type for the object ``force_evidence_or_restore`` writes to.
+
+    The substrate ``LoopController`` exposes ``_repair_intent`` as its
+    next-planning-turn hook. Any object with the same settable attribute
+    satisfies this Protocol; the sycophancy circuit does not import the
+    controller directly so the trace layer stays free of ALM-layer
+    dependencies at import time. Named with a leading underscore to mark
+    it as an internal contract rather than a public API.
+    """
+
+    _repair_intent: str | None
 
 
 # ---------------------------------------------------------------------------
@@ -251,14 +265,16 @@ def scan_trace(
 
 def force_evidence_or_restore(
     reversal: ReversalReport,
-    loop,  # type: ignore[no-untyped-def]
+    loop: _RepairIntentSink,
 ) -> None:
     """Queue a forcing prompt on ``loop`` naming ``reversal``.
 
-    ``loop`` is any object with a ``_repair_intent`` attribute (the
-    substrate ``LoopController``'s next-planning-turn hook). Setting
-    ``_repair_intent`` prepends the string to the next iteration's
-    intent so the primary sees the challenge before speaking again.
+    ``loop`` is any object that satisfies the ``_RepairIntentSink``
+    Protocol above — the substrate ``LoopController`` and any
+    test-double with a settable ``_repair_intent`` attribute qualify.
+    Setting ``_repair_intent`` prepends the string to the next
+    iteration's intent so the primary sees the challenge before
+    speaking again.
 
     The prompt names the two conflicting turns by short id and asks
     for either (a) fresh evidence justifying the change or (b) an
@@ -276,7 +292,7 @@ def force_evidence_or_restore(
         "evidence that justifies the change, or restore the earlier "
         "position. Do not silently continue with the reversed position."
     )
-    setattr(loop, "_repair_intent", prompt)
+    loop._repair_intent = prompt
 
 
 # ---------------------------------------------------------------------------
