@@ -56,16 +56,36 @@ SymbolKind = Literal["function", "class", "method", "import_alias"]
 # (Second Pass adversarial question 4). When ``.gitattributes`` is
 # absent the graph still excludes these well-known generator outputs
 # so absent annotations do not become a false-positive surface.
+#
+# Cycle-2 review expansion: Gemini flash_reason review named three
+# additional shapes worth shipping as defaults so workspaces using
+# OpenAPI / GraphQL / ORM codegen without explicit annotations still
+# get correct closure results. See ``## Second Pass results`` in
+# module_03.md.
 DEFAULT_GENERATED_HEURISTIC_GLOBS: tuple[str, ...] = (
+    # Protobuf (baseline)
     "*_pb2.py",
     "*_pb2_grpc.py",
     "*_pb2.pyi",
     "*_pb2_grpc.pyi",
-    "*.g.dart",  # dart codegen (irrelevant to Python but harmless)
+    # Dart codegen (present as reviewer sanity — harmless in Python)
+    "*.g.dart",
     "*.freezed.dart",
+    # Generic "generated" folders
     "**/generated/**",
     "**/gen/**",
     "**/_generated_*.py",
+    # Cycle-2 review — OpenAPI / GraphQL / schema-driven codegen stubs
+    "*_api.pyi",
+    "*_client.pyi",
+    "*_model.pyi",
+    "*_schema.pyi",
+    # Cycle-2 review — schema-derived Python modules
+    "**/_types.py",
+    "**/_schema.py",
+    # Cycle-2 review — semi-generated Alembic migrations
+    "**/alembic/versions/*.py",
+    "**/_alembic_versions/*.py",
 )
 
 

@@ -22,6 +22,17 @@ from __future__ import annotations
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Iterable
+
+if TYPE_CHECKING:
+    from ract.antilazy.pre_commit import (
+        TestIntegrityGateOutcome,
+        UnderEditGateOutcome,
+    )
+    from ract.antilazy.symgraph import SymbolGraph
+    from ract.core.loop import WorkspaceSnapshot
+    from ract.core.transaction import StepTransaction
+    from ract.security.manifest import TestIntegrityConfig
 
 
 class WorktreeError(RuntimeError):
@@ -326,41 +337,47 @@ class WorktreeManager:
     # inputs; tests drive them without a live worktree.
     def _check_test_integrity(
         self,
-        transaction: object,
-        parent_snapshot: object,
-        child_snapshot: object,
+        transaction: "StepTransaction",
+        parent_snapshot: "WorkspaceSnapshot",
+        child_snapshot: "WorkspaceSnapshot",
         *,
-        config: object | None = None,
+        config: "TestIntegrityConfig | None" = None,
         handshake_approved: bool = False,
-    ) -> object:
+    ) -> "TestIntegrityGateOutcome":
         """Run G5 for ``transaction`` and return the ``TestIntegrityGateOutcome``.
 
         Any hard-block violation not covered by an operator handshake
         surfaces ``should_roll_back=True``; the caller performs the
         actual rollback via ``WorktreeManager.rollback``. See
         ``ract.antilazy.pre_commit.enforce_g5``.
+
+        Second Pass Cycle-2 fix: annotations were loosened to
+        ``object`` in the first-build to avoid the executor→antilazy
+        import cycle. The TYPE_CHECKING guard at the top of this
+        module carries the real types now; mypy sees the shape,
+        runtime imports remain deferred.
         """
         # Local import breaks the executor→antilazy cycle at import time.
         from ract.antilazy.pre_commit import enforce_g5
 
         return enforce_g5(
-            transaction,  # type: ignore[arg-type]
-            parent_snapshot,  # type: ignore[arg-type]
-            child_snapshot,  # type: ignore[arg-type]
-            config=config,  # type: ignore[arg-type]
+            transaction,
+            parent_snapshot,
+            child_snapshot,
+            config=config,
             handshake_approved=handshake_approved,
         )
 
     def _check_under_edit(
         self,
-        transaction: object,
-        graph: object,
-        edited_symbols: object,
+        transaction: "StepTransaction",
+        graph: "SymbolGraph",
+        edited_symbols: "Iterable[str]",
         *,
-        edited_files: object = (),
-        passing_tests_touched: object = (),
-        declared_unaffected: object = (),
-    ) -> object:
+        edited_files: "Iterable[str]" = (),
+        passing_tests_touched: "Iterable[str]" = (),
+        declared_unaffected: "Iterable[str]" = (),
+    ) -> "UnderEditGateOutcome":
         """Run G6 for ``transaction`` and return the ``UnderEditGateOutcome``.
 
         Any uncovered downstream caller not marked declared / covered
@@ -369,12 +386,12 @@ class WorktreeManager:
         from ract.antilazy.pre_commit import enforce_g6
 
         return enforce_g6(
-            transaction,  # type: ignore[arg-type]
-            graph,  # type: ignore[arg-type]
-            edited_symbols,  # type: ignore[arg-type]
-            edited_files=edited_files,  # type: ignore[arg-type]
-            passing_tests_touched=passing_tests_touched,  # type: ignore[arg-type]
-            declared_unaffected=declared_unaffected,  # type: ignore[arg-type]
+            transaction,
+            graph,
+            edited_symbols,
+            edited_files=edited_files,
+            passing_tests_touched=passing_tests_touched,
+            declared_unaffected=declared_unaffected,
         )
 
     def rollback(self, wt: Worktree, *, abandon: bool = False) -> None:

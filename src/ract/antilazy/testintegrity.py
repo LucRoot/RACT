@@ -308,6 +308,15 @@ def _skipif_is_platform_exempt(deco: ast.expr) -> bool:
     return False
 
 
+def _call_target_name_for_escape(func: ast.expr) -> str:
+    """Best-effort name resolver used only by the escape detector."""
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
 def _detect_metaprogramming_escape(
     tree: ast.AST, watch: tuple[str, ...]
 ) -> list[tuple[str, int]]:
@@ -316,9 +325,16 @@ def _detect_metaprogramming_escape(
 
     Second Pass adversarial question 1: a model can bypass a literal
     ``pytest.skip`` denial by calling ``getattr(pytest, 'skip')()``,
-    ``pytest.__dict__['skip']()``, or ``exec("pytest.skip()")``. This
-    detector walks the tree for the metaprogramming shapes and reports
-    a match when the constant argument names any watched symbol.
+    ``pytest.__dict__['skip']()``, ``exec("pytest.skip()")``, or by
+    obtaining the module via ``importlib.import_module('pytest').skip()``
+    or ``type(pytest).__getattribute__(pytest, 'skip')()``. This
+    detector walks the tree for the known metaprogramming shapes and
+    reports a match when the constant argument names any watched
+    symbol.
+
+    Note: static analysis cannot catch data-flow shapes like
+    ``s = pytest.skip; s()`` (they need a def-use walk); those are
+    logged as v0.5 backlog in Flagged gaps.
     """
     escapes: list[tuple[str, int]] = []
     watch_set = set(watch)
@@ -345,6 +361,27 @@ def _detect_metaprogramming_escape(
                         if w in first.value:
                             escapes.append((w, node.lineno))
                             break
+            # type(pytest).__getattribute__(pytest, "skip") — the outer
+            # Attribute's value is itself a Call ``type(x)``; the
+            # attribute chain helper returns "" for that shape because
+            # its base is a Call rather than a Name.
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "__getattribute__"
+                and isinstance(node.func.value, ast.Call)
+                and _call_target_name_for_escape(node.func.value.func) == "type"
+                and len(node.args) >= 2
+            ):
+                obj_arg = node.args[0]
+                name_arg = node.args[1]
+                if (
+                    isinstance(obj_arg, ast.Name)
+                    and isinstance(name_arg, ast.Constant)
+                    and isinstance(name_arg.value, str)
+                ):
+                    ident = f"{obj_arg.id}.{name_arg.value}"
+                    if ident in watch_set:
+                        escapes.append((ident, node.lineno))
         # pytest.__dict__["skip"]() shape via Subscript
         if isinstance(node, ast.Subscript):
             chain = _call_attribute_chain(node.value)
@@ -353,6 +390,24 @@ def _detect_metaprogramming_escape(
                 slc = node.slice
                 if isinstance(slc, ast.Constant) and isinstance(slc.value, str):
                     ident = f"{base}.{slc.value}"
+                    if ident in watch_set:
+                        escapes.append((ident, node.lineno))
+        # importlib.import_module("pytest").skip() shape.
+        # Second Pass Q1 (Cycle-2 fix): the outer Attribute's ``value``
+        # is a Call whose func chain is ``importlib.import_module`` (or
+        # ``import_module``) with a string arg — that string names the
+        # module the outer attribute reaches into.
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            outer_attr = node.func
+            inner = outer_attr.value
+            if isinstance(inner, ast.Call):
+                inner_chain = _call_attribute_chain(inner.func)
+                if inner_chain in ("importlib.import_module", "import_module") and (
+                    inner.args
+                    and isinstance(inner.args[0], ast.Constant)
+                    and isinstance(inner.args[0].value, str)
+                ):
+                    ident = f"{inner.args[0].value}.{outer_attr.attr}"
                     if ident in watch_set:
                         escapes.append((ident, node.lineno))
     return escapes
