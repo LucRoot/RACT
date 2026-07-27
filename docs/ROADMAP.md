@@ -172,6 +172,40 @@ BEFORE ANSWERING Q1/Q2/Q4. The following items feed the v0.5 backlog:
 - **Dispatcher `finish_reason: length` surfacing.** Each provider dispatcher (`google_dispatch.py`, `nvidia_dispatch.py`, `openrouter_dispatch.py`, `mistral_dispatch.py`) should surface `finish_reason: length` warnings so a truncated review is visible to the caller rather than silent. Queued for the operator side.
 - **Version-string spelling unification.** VERSION carries the hyphenated `v0.4.0-rc1` display form; `pyproject.toml` and `__init__.py` carry the PEP 440 canonical `0.4.0rc1`; the two are the same version identity under `packaging.version.Version`, but a v0.5 cleanup could unify to a single spelling everywhere and add a lint enforcing the choice.
 
+## v0.5 hardening (from retroactive audit)
+
+The 2026-07-27 Retroactive Endpoints Audit dispatched the five v0.4.0-rc1
+decisions that had not gone through the two-endpoint review discipline
+during the pipeline. D1 and D6 landed release-surface fixes; the
+following items feed the v0.5 backlog as deeper improvements:
+
+- **Endpoints-SKILL scoping table drift.** D12 (Google flash_reason
+  meta-review of the Second Pass discipline) surfaced that the
+  plan-named reviewer pair for modules 02 and 06 was OpenRouter
+  `reason_r1_latest` against NVIDIA `reason_deep` — both DeepSeek
+  family. That is same-family, not cross-family, contrary to the
+  discipline's stated blind-spot-diversity goal. The Nemotron fallback
+  was actually MORE cross-family than the plan named. Revise the
+  operator-side `endpoints_SKILL.md` scoping table so
+  producer-reviewer pairs are cross-family by construction, not by
+  accident.
+- **Second-Pass reviewer reliability profile.** D12 also flagged that
+  Google `flash_reason` truncated at ~1.2 KB on the module_08 release-
+  close review despite `--max-tokens 8000`. When response-size
+  reliability matters (release-close reviews), plan-time endpoint
+  choice should account for observed truncation patterns, not just
+  family diversity. Add a `reliability_notes` column to the
+  operator-side scoping table listing known truncation events per
+  endpoint.
+- **Executor-held helper enumeration.** D6 landed the fix for four
+  helpers (`LoadBearingGuard`, `DuplicationGuard`, `NoveltyBudget`,
+  `CompressionNoveltyDetector`) via an explicit `_HELPER_ATTRS` tuple
+  in `substrate_adapter.py`. A v0.5 hardening item is to invert this:
+  add a discoverable protocol (`ExecutorHelperWithProjectDir`) so any
+  new helper the Executor accepts automatically joins the rebind set
+  without a manual edit. The current test pins the enumeration; the
+  protocol would remove the manual step.
+
 ## Previously logged (pre-v0.4) — carried forward
 
 Items from the pre-v0.4 roadmap that remain open:
