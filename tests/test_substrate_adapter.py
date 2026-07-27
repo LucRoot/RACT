@@ -230,6 +230,100 @@ def test_substrate_adapter_project_dir_restored_after_closure(tmp_path):
     assert harness.executor.project_dir == original_project_dir
 
 
+def test_substrate_adapter_rebinds_every_captured_helper(tmp_path):
+    """Every executor-held helper that carries a ``project_dir`` attribute
+    must be rebound to the worktree for the duration of the closure and
+    restored afterward. Retroactive audit D6 (2026-07-27) surfaced
+    ``LoadBearingGuard`` as an uncovered case; this test pins the full
+    enumeration so a future helper is a visible test failure rather than
+    a silent invariant break.
+    """
+    from ract.duplication_guard import DuplicationGuard
+    from ract.novelty_budget import NoveltyBudget
+    from ract.compression_novelty_detector import CompressionNoveltyDetector
+
+    _init_git_repo(tmp_path)
+    harness = _build_harness(tmp_path)
+    # Give the executor the full complement of helpers the shim claims
+    # to rebind. Each helper captures project_dir at construction time,
+    # so an uncovered rebind would leave the captured path pointing at
+    # tmp_path (the parent) while the executor writes to the worktree.
+    harness.executor.duplication_guard = DuplicationGuard(project_dir=tmp_path)
+    harness.executor.novelty_budget = NoveltyBudget(project_dir=tmp_path)
+    harness.executor.compression_novelty_detector = CompressionNoveltyDetector(
+        project_dir=tmp_path
+    )
+
+    originals: dict[str, Path] = {
+        "executor": Path(harness.executor.project_dir),
+        "diff_applier": Path(harness.executor.diff_applier.project_dir),
+        "load_bearing_guard": Path(harness.executor.load_bearing_guard.project_dir),
+        "duplication_guard": Path(harness.executor.duplication_guard.project_dir),
+        "novelty_budget": Path(harness.executor.novelty_budget.project_dir),
+        "compression_novelty_detector": Path(
+            harness.executor.compression_novelty_detector.project_dir
+        ),
+    }
+
+    seen_during_closure: dict[str, Path] = {}
+    original_write = harness.executor._write_artifact
+
+    def spy_write(expected_artifact: str, content: str) -> None:
+        seen_during_closure["executor"] = Path(harness.executor.project_dir)
+        seen_during_closure["diff_applier"] = Path(
+            harness.executor.diff_applier.project_dir
+        )
+        seen_during_closure["load_bearing_guard"] = Path(
+            harness.executor.load_bearing_guard.project_dir
+        )
+        seen_during_closure["duplication_guard"] = Path(
+            harness.executor.duplication_guard.project_dir
+        )
+        seen_during_closure["novelty_budget"] = Path(
+            harness.executor.novelty_budget.project_dir
+        )
+        seen_during_closure["compression_novelty_detector"] = Path(
+            harness.executor.compression_novelty_detector.project_dir
+        )
+        original_write(expected_artifact, content)
+
+    harness.executor._write_artifact = spy_write  # type: ignore[assignment]
+
+    plan = _plan_writing("cover.txt")
+    result = run_via_substrate(harness, "cover every helper", plan)
+    assert result.is_ok(), result.error
+
+    # During the closure every helper's project_dir pointed at the
+    # worktree (not tmp_path). Each helper was rebound in lockstep.
+    for name, seen in seen_during_closure.items():
+        assert seen != originals[name], (
+            f"{name}.project_dir was NOT rebound; still pointed at parent tree "
+            f"{originals[name]} during the executor closure. This is the D6 gap."
+        )
+        assert ".git" in seen.parts and "ract-worktrees" in seen.parts, (
+            f"{name}.project_dir was rebound to {seen}, not into the worktree tree"
+        )
+
+    # After the transaction commits, every helper's project_dir is restored.
+    assert Path(harness.executor.project_dir) == originals["executor"]
+    assert Path(harness.executor.diff_applier.project_dir) == originals["diff_applier"]
+    assert (
+        Path(harness.executor.load_bearing_guard.project_dir)
+        == originals["load_bearing_guard"]
+    )
+    assert (
+        Path(harness.executor.duplication_guard.project_dir)
+        == originals["duplication_guard"]
+    )
+    assert (
+        Path(harness.executor.novelty_budget.project_dir) == originals["novelty_budget"]
+    )
+    assert (
+        Path(harness.executor.compression_novelty_detector.project_dir)
+        == originals["compression_novelty_detector"]
+    )
+
+
 def test_substrate_adapter_rollback_on_postcondition_failure(tmp_path, monkeypatch):
     _init_git_repo(tmp_path)
     harness = _build_harness(tmp_path)

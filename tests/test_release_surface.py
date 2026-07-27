@@ -465,8 +465,8 @@ def test_roadmap_compiled_from_all_modules() -> None:
     # share the module_0X numbering).
     for n in range(1, 8):
         assert f"module_0{n}:" in text, f"ROADMAP missing module_0{n}: bullets"
-    # [REDACTED]-side dispatcher gaps section present.
-    assert "[REDACTED]-side dispatcher gaps" in text
+    # Operator-side dispatcher gaps section present.
+    assert "Operator-side dispatcher gaps" in text
     # v0.5 hardening compiled from three sources.
     assert "v0.5 hardening (from substrate close)" in text
     assert "v0.5 hardening (from ALM close)" in text

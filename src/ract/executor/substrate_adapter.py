@@ -58,30 +58,65 @@ if TYPE_CHECKING:  # pragma: no cover
     from ract.harness import Harness
 
 
+# Every executor-held helper that captured project_dir at construction
+# time must be rebound in lockstep with executor.project_dir; otherwise
+# the helper's reads land in the parent tree while the executor's writes
+# land in the worktree, producing a silent invariant break. Retroactive
+# audit D6 (2026-07-27) surfaced LoadBearingGuard as an uncovered case;
+# this list is the enumeration all helpers that hold a project-anchored
+# path attribute the executor consults during a step.
+_HELPER_ATTRS: tuple[str, ...] = (
+    "diff_applier",
+    "load_bearing_guard",
+    "duplication_guard",
+    "novelty_budget",
+    "compression_novelty_detector",
+)
+
+
 @contextmanager
 def _rebind_project_dir(executor: Executor, new_dir: Path) -> Iterator[None]:
-    """Temporarily point ``executor.project_dir`` (and the diff_applier
-    that shares it) at ``new_dir``.
+    """Temporarily point ``executor.project_dir`` and every executor-held
+    helper's ``project_dir`` at ``new_dir``.
 
-    Restores both on exit, even if the wrapped code raises. This is the
-    entire mechanism by which existing per-step Executor writes land
-    inside the worktree without any change to ``Executor.execute``'s
-    internals.
+    Restores every rebound attribute on exit, even if the wrapped code
+    raises. This is the entire mechanism by which existing per-step
+    Executor writes and reads land inside the worktree without any
+    change to ``Executor.execute``'s internals.
+
+    Helpers covered (each holds a project-anchored path attribute the
+    executor consults during a step):
+
+    - ``diff_applier`` (unified-diff apply targets)
+    - ``load_bearing_guard`` (scans annotated files in project_dir)
+    - ``duplication_guard`` (walks project_dir for symbol matches)
+    - ``novelty_budget`` (persists .ract/novelty_budget.json under project_dir)
+    - ``compression_novelty_detector`` (walks project_dir for corpus)
+
+    A helper that does not carry a ``project_dir`` attribute is skipped;
+    if a future helper is added, add its attribute name to
+    ``_HELPER_ATTRS`` above so the shim covers it.
     """
+    new_path = Path(new_dir)
     original_project_dir = executor.project_dir
-    diff_applier = executor.diff_applier
-    original_diff_project_dir = (
-        diff_applier.project_dir if diff_applier is not None else None
-    )
+    originals: list[tuple[Any, Path]] = []
+    for attr in _HELPER_ATTRS:
+        helper = getattr(executor, attr, None)
+        if helper is None:
+            continue
+        original = getattr(helper, "project_dir", None)
+        if original is None:
+            continue
+        originals.append((helper, original))
     try:
-        executor.project_dir = new_dir
-        if diff_applier is not None:
-            diff_applier.project_dir = Path(new_dir)
+        executor.project_dir = new_path
+        for helper, _original in originals:
+            helper.project_dir = new_path
         yield
     finally:
         executor.project_dir = original_project_dir
-        if diff_applier is not None and original_diff_project_dir is not None:
-            diff_applier.project_dir = original_diff_project_dir
+        for helper, original in originals:
+            helper.project_dir = original
 
 
 def _single_step_plan(plan: Plan, step: Step) -> Plan:
