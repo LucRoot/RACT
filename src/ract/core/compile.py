@@ -43,6 +43,7 @@ from ract.core.predicate import (
 )
 
 if TYPE_CHECKING:
+    from ract.antilazy.holdout import DualAcceptanceSuite, HoldoutComposer
     from ract.core.loop import WorkspaceSnapshot
     from ract.handshake_registry import HandshakeRegistry
 
@@ -198,7 +199,8 @@ class IntentCompiler:
         approvals: "HandshakeRegistry | None" = None,
         *,
         inputs: CompilerInputs | None = None,
-    ) -> AcceptanceSuite:
+        companion: "HoldoutComposer | None" = None,
+    ) -> "AcceptanceSuite | DualAcceptanceSuite":
         """Return the frozen ``AcceptanceSuite`` for ``intent_text``.
 
         Sources (SUBSTRATE §2.4):
@@ -320,6 +322,37 @@ class IntentCompiler:
             compiled_from=intent_text.strip(),
             compiler_version=self.version,
         )
+        # ALM module_01 hook: when a HoldoutComposer companion is
+        # supplied, wrap the substrate suite in a DualAcceptanceSuite
+        # whose held-out half is composed by the companion and sealed
+        # under the run's SandboxKey. The seal is a caller concern —
+        # the compiler produces the plaintext dual suite; the caller
+        # invokes ``ract.antilazy.holdout.seal_held_out`` with its own
+        # SandboxKey. Substrate callers pass ``companion=None`` and
+        # continue to get back an ``AcceptanceSuite``.
+        if companion is not None:
+            # Local import breaks the substrate -> antilazy import
+            # cycle at core load time; only the compile call site
+            # pays the import cost.
+            from ract.antilazy.holdout import (
+                DualAcceptanceSuite,
+                compose_held_out,
+            )
+
+            held_out_suite, kind = compose_held_out(
+                suite, ws, companion, touched=tuple(cfg.touched_surface)
+            )
+            dual: DualAcceptanceSuite = DualAcceptanceSuite(
+                visible=suite,
+                held_out=held_out_suite,
+                held_out_digest=held_out_suite.digest(),
+                # Seal deliberately empty at compile time; the loop /
+                # sandbox layer seals with its own SandboxKey via
+                # ``seal_held_out`` before writing the on-disk snapshot.
+                held_out_seal=b"",
+                holdout_kind=kind,
+            )
+            return dual
         # module_05 (SUBSTRATE §6.3): the compiled suite is the first
         # legible artifact of a run; emit ``run.started`` at the site
         # that produces it. A run with no registered writer drops the
@@ -342,6 +375,35 @@ class IntentCompiler:
         except Exception:  # noqa: BLE001 — never fail compile on trace error
             pass
         return suite
+
+    def compile_with_holdout(
+        self,
+        intent_text: str,
+        ws: "WorkspaceSnapshot",
+        approvals: "HandshakeRegistry | None" = None,
+        *,
+        inputs: CompilerInputs | None = None,
+        companion: "HoldoutComposer",
+    ) -> "DualAcceptanceSuite":
+        """Return a ``DualAcceptanceSuite`` — the caller wants both halves.
+
+        Convenience over ``compile(..., companion=...)`` for callers
+        that know they want the dual return; narrows the return type
+        so downstream code does not need an ``isinstance`` check.
+        """
+        result = self.compile(
+            intent_text, ws, approvals, inputs=inputs, companion=companion
+        )
+        # Local import matches the guard used inside ``compile``.
+        from ract.antilazy.holdout import DualAcceptanceSuite
+
+        if not isinstance(result, DualAcceptanceSuite):  # pragma: no cover
+            raise RuntimeError(
+                "compile_with_holdout received a companion but compile "
+                "returned an AcceptanceSuite; this indicates a substrate "
+                "regression."
+            )
+        return result
 
 
 # ---------------------------------------------------------------------------
