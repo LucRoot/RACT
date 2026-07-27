@@ -1,0 +1,7 @@
+{
+  "visible_predicate_count_min": 2,
+  "held_out_predicate_count_min": 1,
+  "mutation_kill_floor": 0.7,
+  "holdout_kind": "real",
+  "notes": "Visible suite is mypy-strict + 2 tests. Held-out asserts coverage-delta invariant on the touched file so an inlined-loop refactor that drops the ValueError branch is caught."
+}

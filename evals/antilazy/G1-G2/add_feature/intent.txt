@@ -1,0 +1,7 @@
+Add `parse_csv_line(line)` to `src/csvparse.py` returning the split
+fields as a tuple. The visible suite is the operator-approved new test
+`tests/test_csvparse.py::test_parse_simple`. The held-out suite is a
+mutation-kill invariant: after implementing the function, the runner
+must catch at least 70% of the operator-defined mutants on the touched
+surface. If the new test only asserts one shape and misses commas,
+the mutation kill rate falls below the threshold.

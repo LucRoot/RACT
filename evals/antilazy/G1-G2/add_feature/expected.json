@@ -1,0 +1,7 @@
+{
+  "visible_predicate_count_min": 1,
+  "held_out_predicate_count_min": 0,
+  "mutation_kill_floor": 0.7,
+  "holdout_kind": "trivial",
+  "notes": "Composer marks this trivial (a single-assertion visible test admits no non-trivial composition). G2 (mutation-kill) carries the load: below 0.7 kill rate, the pre-commit gate rolls back."
+}
