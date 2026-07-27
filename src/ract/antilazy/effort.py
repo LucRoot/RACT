@@ -75,7 +75,7 @@ tokens rarely name a symbol; a real symbol reference has 4+ chars.
 
 
 DEFAULT_KEYWORD_MAX_FILENAME_FRACTION: float = 0.15
-"""Second Pass fix (module_04 Second Pass, NVIDIA reason_deep Q3):
+"""Second Pass fix (module_04 Second Pass, external reviewer Q3):
 tightened from 0.5 to 0.15 so a keyword that appears in more than 15%
 of workspace filenames is dropped as low-signal. The reviewer showed
 that mid-frequency code tokens ("handler", "service", "runner") could
@@ -113,7 +113,7 @@ _STOP_WORDS: frozenset[str] = frozenset(
         "each",
         "must",
         "your",
-        # Second Pass fix (module_04 Second Pass, NVIDIA reason_deep Q3):
+        # Second Pass fix (module_04 Second Pass, external reviewer Q3):
         # common code / directory tokens that satisfy min_length=4 but
         # carry near-zero signal about which parts of the workspace are
         # touched. The reviewer named these as the intent-manipulation
@@ -286,7 +286,7 @@ def _extract_keywords(
 
     Case-insensitive; the returned keywords are lowercase.
     """
-    # Second Pass fix (module_04 Second Pass, NVIDIA reason_deep
+    # Second Pass fix (module_04 Second Pass, external reviewer
     # Additional Defect #1): an empty workspace makes the hit-fraction
     # filter compute 0.0 for every token, so every token passes as
     # "high-signal" and the estimate can be inflated before the
