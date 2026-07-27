@@ -1,0 +1,60 @@
+{
+  "schema_version": "1",
+  "source_repo": "https://github.com/Aider-AI/aider",
+  "source_leaderboard": "https://aider.chat/docs/leaderboards/",
+  "selection_rule": "Enumerate benchmark/, filter to problems whose seed language is python/ or javascript/, sort by id ascending, take first 10.",
+  "pinned_at": "2026-07-26",
+  "adr": "ADR-0018",
+  "problems": [
+    {
+      "id": "acronym",
+      "language": "python",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-python/acronym"
+    },
+    {
+      "id": "allergies",
+      "language": "python",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-python/allergies"
+    },
+    {
+      "id": "anagram",
+      "language": "python",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-python/anagram"
+    },
+    {
+      "id": "atbash-cipher",
+      "language": "python",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-python/atbash-cipher"
+    },
+    {
+      "id": "binary-search",
+      "language": "python",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-python/binary-search"
+    },
+    {
+      "id": "bowling",
+      "language": "javascript",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-javascript/bowling"
+    },
+    {
+      "id": "clock",
+      "language": "python",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-python/clock"
+    },
+    {
+      "id": "collatz-conjecture",
+      "language": "python",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-python/collatz-conjecture"
+    },
+    {
+      "id": "difference-of-squares",
+      "language": "python",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-python/difference-of-squares"
+    },
+    {
+      "id": "etl",
+      "language": "python",
+      "source_url": "https://github.com/Aider-AI/aider/tree/main/benchmark/exercism-python/etl"
+    }
+  ]
+}
