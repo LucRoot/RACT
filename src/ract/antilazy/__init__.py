@@ -18,6 +18,11 @@ and Gate G2 (mutation-kill threshold). See:
 
 from __future__ import annotations
 
+from ract.antilazy.coverage import (
+    CoverageDeltaReport,
+    run_coverage_delta,
+    write_coverage_delta_snapshot,
+)
 from ract.antilazy.holdout import (
     DualAcceptanceSuite,
     HoldoutComposer,
@@ -37,29 +42,68 @@ from ract.antilazy.mutation import (
     run_mutation,
     write_mutation_snapshot,
 )
+from ract.antilazy.patchdiff import (
+    DifferentiatorGenerator,
+    GeneratedTest,
+    Hunk,
+    Patch,
+    PatchDifferentiationReport,
+    RetrievalIndex,
+    TestRunner,
+    check_leakage,
+    generate_differentiators,
+    null_patch,
+    run_patchdiff,
+    shuffle_patch,
+    write_patchdiff_snapshot,
+)
 from ract.antilazy.pre_commit import (
+    CoverageDeltaGateOutcome,
     GateOutcome,
+    PatchDiffGateOutcome,
     enforce_g2,
+    enforce_g3,
+    enforce_g4,
 )
 
 __all__ = [
+    "CoverageDeltaGateOutcome",
+    "CoverageDeltaReport",
+    "DifferentiatorGenerator",
     "DualAcceptanceSuite",
     "EquivalenceDetector",
     "GateOutcome",
+    "GeneratedTest",
     "HoldoutComposer",
     "HoldoutKind",
+    "Hunk",
     "Mutant",
     "MutantSource",
     "MutationReport",
+    "Patch",
+    "PatchDiffGateOutcome",
+    "PatchDifferentiationReport",
+    "RetrievalIndex",
+    "TestRunner",
+    "check_leakage",
     "check_visible_and_held_out",
     "compose_held_out",
     "enforce_g2",
+    "enforce_g3",
+    "enforce_g4",
     "filter_equivalent",
+    "generate_differentiators",
+    "null_patch",
+    "run_coverage_delta",
     "run_mutation",
+    "run_patchdiff",
     "seal_held_out",
+    "shuffle_patch",
     "unseal_held_out",
+    "write_coverage_delta_snapshot",
     "write_dual_suite_snapshot",
     "write_mutation_snapshot",
+    "write_patchdiff_snapshot",
 ]
 
 
