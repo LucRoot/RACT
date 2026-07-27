@@ -115,6 +115,8 @@ class LoopController:
         run_dir: Path | str | None = None,
         require_git_workspace: bool = False,
         require_clean_tracked_tree: bool = False,
+        companion: Any | None = None,
+        effort_estimate: Any | None = None,
     ) -> None:
         self.config_path = Path(config_path)
         self.max_iterations = max(max_iterations, 1)
@@ -186,6 +188,24 @@ class LoopController:
             ensure_git_repo(self.project_dir)
         if require_clean_tracked_tree:
             ensure_clean_tracked_tree(self.project_dir)
+
+        # ------------------------------------------------------------------
+        # ALM module_04 wiring (G7 companion + G8 effort reconciliation).
+        # ------------------------------------------------------------------
+        # ``companion`` is a bundle carrying the companion adapter, config,
+        # runner, and recent-history reader. When None the loop runs the
+        # substrate path unchanged. When present, T1 fires G7 after the
+        # predicate check succeeds; surviving findings queue a resume
+        # intent and emit ``laziness.violated``.
+        # ``effort_estimate`` is the pre-loop static-heuristic estimate
+        # (``ract.antilazy.effort.EffortEstimate``); the loop measures
+        # realized effort on T1 completion and refuses to terminate
+        # COMPLETE while anomalies remain (G8).
+        self.companion = companion
+        self.effort_estimate = effort_estimate
+        self._recent_provider_history: tuple[str, ...] = ()
+        self._effort_suspicion_active: bool = False
+        self._companion_findings_seen: int = 0
 
     def _take_snapshot(self) -> dict[str, str]:
         """Return a snapshot of Python file contents relative to project_dir."""
@@ -529,6 +549,11 @@ class LoopController:
         user-supplied ``done_callback`` still fires — it is AND-ed with the
         suite result so callers can add extra done-signals without being
         able to *soften* the environment gate (SUBSTRATE §11 signal 1).
+
+        ALM module_04: after T1 fires, run the completion-path gates
+        (G7 companion + G8 effort reconciliation). If either gate blocks
+        completion, queue the resume prompt into the next iteration and
+        return False (loop does not terminate COMPLETE).
         """
 
         def _cb(iteration: LoopIteration) -> bool:
@@ -544,15 +569,84 @@ class LoopController:
             )
             cause = check_t1(state.suite, state.workspace)
             suite_done = cause is not None
+            user_cb_result = True
             if user_done is not None:
-                # The user's callback runs even when the suite is not done —
-                # some tests use it purely to record iterations. Its return
-                # value is folded into the AND above.
-                user_cb = bool(user_done(iteration))
-                return suite_done and user_cb
-            return suite_done
+                user_cb_result = bool(user_done(iteration))
+            if not suite_done:
+                return False
+            # ALM module_04: G7 + G8 completion-path gates. Only run
+            # when either was configured; otherwise substrate behaviour
+            # is preserved.
+            if self.companion is not None or self.effort_estimate is not None:
+                gate_outcome = self._run_completion_gates(iteration)
+                if gate_outcome is not None and gate_outcome.blocks_complete:
+                    # Queue the resume prompt for the next iteration —
+                    # `_augment_intent` prepends `_repair_intent` verbatim
+                    # so the primary sees the gate feedback.
+                    if gate_outcome.resume_prompt:
+                        self._repair_intent = gate_outcome.resume_prompt
+                    return False
+            return user_cb_result if user_done is not None else True
 
         return _cb
+
+    def _run_completion_gates(self, iteration: LoopIteration):
+        """Invoke ALM module_04's completion-path gates.
+
+        Kept as a method so tests can monkeypatch it and so the
+        substrate loop does not import ALM at module load time. Returns
+        a ``CompletionGateOutcome`` or ``None`` when neither G7 nor G8
+        was configured.
+        """
+        if self.companion is None and self.effort_estimate is None:
+            return None
+        from ract.antilazy.completion_gate import run_completion_gates
+
+        state = self._loop_state
+        visible_suite = state.suite if state is not None else None
+        # A DualAcceptanceSuite exposes ``.visible``; a plain
+        # AcceptanceSuite is its own visible half.
+        if visible_suite is not None and hasattr(visible_suite, "visible"):
+            visible_suite = visible_suite.visible
+
+        # Extract a Patch from the iteration if one is present. In the
+        # substrate v0.4 shape the ExecutionReport does not directly
+        # produce a Patch; callers passing an effort_estimate typically
+        # inject the diff via the `companion.final_diff_provider`
+        # callback (see completion_gate docstring). Tests inject the
+        # patch through the `_final_diff_for_gates` hook below.
+        final_diff = self._final_diff_for_gates(iteration)
+        if final_diff is None or visible_suite is None:
+            return None
+
+        return run_completion_gates(
+            intent=iteration.intent,
+            final_diff=final_diff,
+            visible_suite=visible_suite,
+            companion_bundle=self.companion,
+            effort_estimate=self.effort_estimate,
+            pre_change_workspace=self._pre_change_workspace_for_gates(),
+            post_change_workspace=self._post_change_workspace_for_gates(),
+        )
+
+    def _final_diff_for_gates(self, iteration: LoopIteration):
+        """Return the final diff (``Patch``) for the completion gates.
+
+        Overridden by tests. Default returns ``None`` (gates skipped).
+        The substrate v0.4 executor does not yet produce a ``Patch``
+        object; a follow-up module (module_08 CLI migration) will wire
+        this to the executor's diff-emitter. Until then the hook makes
+        the gates testable without stubbing the entire executor.
+        """
+        return None
+
+    def _pre_change_workspace_for_gates(self):
+        """Return the pre-change workspace for the runner (test hook)."""
+        return self._baseline_snapshot
+
+    def _post_change_workspace_for_gates(self):
+        """Return the post-change workspace for the runner (test hook)."""
+        return self._previous_snapshot
 
     @property
     def loop_state(self) -> LoopState | None:

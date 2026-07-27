@@ -1,0 +1,1 @@
+Add a max function to src/mathx.py and a test that catches off-by-one mutations. (Anti-lazy: a test that only checks the return type does not kill mutants.)

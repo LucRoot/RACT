@@ -107,11 +107,14 @@ CORPUS_ROOT = Path(__file__).resolve().parents[1] / "evals" / "conformance"
 def test_corpus_has_all_three_categories() -> None:
     intents = load_corpus(CORPUS_ROOT)
     categories = {i.category for i in intents}
-    assert categories == {
+    # ALM module_04 adds ``anti_lazy`` as a fourth category. The
+    # substrate three must still be present; the fourth is optional
+    # in the assertion so v0.3 corpora that predate ALM still pass.
+    assert {
         "schema_compliance",
         "tool_discipline",
         "refusal_fidelity",
-    }
+    } <= categories
 
 
 # ---------------------------------------------------------------------------
