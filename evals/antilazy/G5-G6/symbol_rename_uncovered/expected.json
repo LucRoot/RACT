@@ -1,0 +1,7 @@
+{
+  "gate": "G6",
+  "kind": "under_edit_uncovered_callers",
+  "modified_symbols": ["src.billing.total"],
+  "uncovered": ["src.report.build_summary"],
+  "notes": "The claimed diff renames billing.total to billing.grand_total but leaves src/report.py referencing the stale name. G6's symbol-graph closure surfaces build_summary as an uncovered downstream caller. Expected trace: laziness.violated with kind='under_edit_uncovered_callers' and uncovered=['src.report.build_summary']."
+}

@@ -481,6 +481,112 @@ See ADR-0020 for the design rationale and rejected alternatives, and
 ``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §3.3 and §3.4 for the
 master-spec source.
 
+## Anti-Lazy Gate G5 (test integrity) and Gate G6 (symbol-graph under-edit)
+
+ALM spec §3.5 and §3.6; §13 signals 5 and 6. Two more failure modes
+the substrate suite plus G1-G4 do not close:
+
+- **Test-suite tampering.** A patch that passes the visible suite
+  because the model deleted assertions, inserted ``pytest.skip``,
+  monkey-patched the grader, or edited the conftest that shapes the
+  suite. Any reward channel writable from inside the sandbox is a
+  channel the model can trivially maximize without solving the
+  intent (METR's chess-hacking family).
+- **Under-editing.** A patch that renames a symbol or changes a
+  signature without updating every downstream caller. The visible
+  suite may still pass because the touched call sites were not
+  exercised, but the next step lands on a stale reference.
+
+**Gate G5 — sandbox-enforced test integrity.** ``analyze_diff
+(parent_snapshot, child_snapshot, config)`` walks the diff between
+parent and child workspace snapshots per Python test file. Any hit
+against ``config.denied_ast_patterns`` (net-new ``pytest.skip``,
+``pytest.xfail``, ``pytest.mark.skip*``),
+``config.denied_assertion_transforms`` (``assertion_removal``,
+``assert_true_to_pass``), ``config.denied_file_edits``
+(``tests/**/*grader*.py``, ``tests/**/conftest.py``), or
+``config.monkey_patch_watchlist`` (``sys.modules['grader']``,
+``builtins.__import__``, ``sys.settrace``) is a hard-block
+violation. The AST analyzer also surfaces metaprogramming shapes —
+``getattr(pytest, 'skip')()``, ``pytest.__dict__['skip']()``,
+``exec("pytest.skip()")`` — under the pattern
+``test_integrity_metaprogramming_escape`` (Second Pass Q1).
+``enforce_g5`` rolls the transaction back and emits
+``laziness.violated`` with ``kind="test_hack_denied"``. An operator
+handshake covering a denied pattern flips the gate to
+``passed=True`` and emits the ``handshake.requested`` /
+``handshake.resolved`` pair per SUBSTRATE module_05.
+
+Portability skips (``pytest.skip(reason="only on windows")``,
+``@pytest.mark.skipif(sys.platform == ...)``) are exempt by the
+lateral-branch-A rule — false-positive rollbacks would train the
+operator to disable the gate. Test files in TypeScript, Go, and
+Rust surface a ``test_integrity_unsupported_language`` advisory
+(lateral branch D); the run continues but the coverage gap lands
+in the trace so a reviewer can see what evidence the analyzer
+consulted.
+
+The ``CapabilityManifest`` grows a strict-mode
+``TestIntegrityConfig`` section populated with the §3.5 defaults;
+``ManifestValidator`` refuses a manifest whose
+``denied_ast_patterns`` or ``denied_file_edits`` is empty
+(``code="test_integrity_section_narrowed"``). Narrowing requires a
+signed operator handshake — parallel to the tier-3 compile-time
+hard-off pattern from ADR-0012.
+
+**Gate G6 — symbol graph and under-edit closure.** ``build_graph
+(workspace, cache_db=path)`` parses every Python file in the
+snapshot with the stdlib ``ast`` module and produces a
+``SymbolGraph`` (``symbols``, ``call_edges``, ``import_edges``,
+``generated_files``). The graph persists to
+``${WORKSPACE_META}/symgraph.db`` (SQLite) keyed by workspace
+snapshot digest (lateral branch B); a fresh call with an unchanged
+workspace loads from the cache instead of re-parsing.
+
+``compute_closure(graph, edited_symbols, edited_files,
+passing_tests_touched, declared_unaffected)`` returns the set of
+downstream callers of the edited symbols, partitioned into
+``covered_by_edit`` (caller lives in an edited file),
+``covered_by_test`` (a passing test exercises the caller),
+``covered_by_declaration`` (the acceptance suite explicitly marks
+the caller unaffected), and ``uncovered`` (nothing covers it).
+Generated files (from ``.gitattributes linguist-generated=true``
+plus a per-language heuristic default — ``*_pb2.py``,
+``*_pb2_grpc.py``, ``**/generated/**``, Second Pass Q4) drop from
+the downstream set. Getattr-based references (Second Pass Q2) land
+in ``getattr_advisories`` — an advisory-only channel because
+stdlib ``ast`` cannot see through reflection any more than
+tree-sitter could.
+
+Non-empty ``uncovered`` rolls the transaction back with
+``kind="under_edit_uncovered_callers"`` and the uncovered caller
+list gets injected into the next planning prompt with the message
+"the following call sites depend on symbols you just changed.
+Update them or explicitly declare them unaffected with rationale."
+
+Both gates land as pure-over-inputs helpers so tests exercise them
+without live worktrees. ``WorktreeManager._check_test_integrity``
+and ``WorktreeManager._check_under_edit`` are thin delegators; the
+substrate merge site calls them in front of ``commit``. The trace
+vocabulary gains no new event kind — both emit under
+``laziness.violated`` (with ``kind`` payload discriminators
+``test_hack_denied`` and ``under_edit_uncovered_callers``) and
+under ``predicate.evaluated`` (with
+``kind="test_integrity_advisory"`` for passing runs that had
+advisories).
+
+Design decision (v0.4.0-rc1): stdlib ``ast`` ships as the parser
+rather than tree-sitter. Python-only coverage is what the DoD
+requires; tree-sitter is a v0.5 backlog switch when the language
+expansion pipeline actually needs the wider grammar. Extension
+points for TypeScript, Go, and Rust are declared and
+stub-implemented today; the switch is a parser change, not an
+API change.
+
+See ADR-0021 for the design rationale and rejected alternatives,
+and ``docs/RACT_v0.4.0_ANTILAZY_SPEC.md`` §3.5 and §3.6 for the
+master-spec source.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -497,3 +603,4 @@ master-spec source.
 <!-- RACT 0.4.0: Eval-first — Aider Polyglot + SWE-bench Lite anchors (ADR-0018) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G1 (held-out) + Gate G2 (mutation-kill) (ADR-0019) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G3 (patch differentiation) + Gate G4 (coverage delta) (ADR-0020) -->
+<!-- RACT 0.4.0-rc1: Anti-Lazy Gate G5 (test integrity) + Gate G6 (symbol-graph under-edit) (ADR-0021) -->

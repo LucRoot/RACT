@@ -45,9 +45,23 @@ from ract.antilazy.patchdiff import (
     TestRunner,
     run_patchdiff,
 )
+from ract.antilazy.symgraph import (
+    SymbolGraph,
+    UnderEditReport,
+    compute_closure,
+)
+from ract.antilazy.testintegrity import (
+    TestIntegrityReport,
+    analyze_diff,
+)
+from ract.security.manifest import (
+    TestIntegrityConfig,
+    default_test_integrity_config,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from typing import Iterable
 
     from ract.core.loop import WorkspaceSnapshot
     from ract.core.predicate import AcceptanceSuite
@@ -79,6 +93,31 @@ class CoverageDeltaGateOutcome:
     passed: bool
     should_roll_back: bool
     report: CoverageDeltaReport
+
+
+@dataclass(frozen=True)
+class TestIntegrityGateOutcome:
+    """Result of running G5 on a step transaction.
+
+    The class name starts with ``Test`` because it wraps
+    ``TestIntegrityReport``; the ``__test__ = False`` guard tells
+    pytest not to try to collect it as a test case.
+    """
+
+    __test__ = False
+
+    passed: bool
+    should_roll_back: bool
+    report: TestIntegrityReport
+
+
+@dataclass(frozen=True)
+class UnderEditGateOutcome:
+    """Result of running G6 on a step transaction."""
+
+    passed: bool
+    should_roll_back: bool
+    report: UnderEditReport
 
 
 def enforce_g2(
@@ -261,6 +300,168 @@ def enforce_g4(
     except Exception:  # noqa: BLE001
         pass
     return CoverageDeltaGateOutcome(
+        passed=False, should_roll_back=True, report=report
+    )
+
+
+def enforce_g5(
+    transaction: "StepTransaction",
+    parent_snapshot: "WorkspaceSnapshot",
+    child_snapshot: "WorkspaceSnapshot",
+    *,
+    config: TestIntegrityConfig | None = None,
+    handshake_approved: bool = False,
+) -> TestIntegrityGateOutcome:
+    """Run G5 against the diff between ``parent_snapshot`` and ``child_snapshot``.
+
+    Emits ``laziness.violated`` with ``kind="test_hack_denied"`` when a
+    hard-block violation survives the handshake filter. Advisory
+    violations (unsupported-language files, syntax errors) do not
+    block; they land in the report and, when a trace writer is
+    registered, in ``predicate.evaluated`` with
+    ``kind="test_integrity_advisory"``.
+    """
+    if config is None:
+        config = default_test_integrity_config()
+    report = analyze_diff(
+        parent_snapshot,
+        child_snapshot,
+        config,
+        handshake_approved=handshake_approved,
+    )
+    if report.passed():
+        # Emit advisories if any were logged (so the trace channel sees
+        # the unsupported-language gap even on a passing run).
+        _emit_advisories_if_any(transaction, report)
+        return TestIntegrityGateOutcome(
+            passed=True, should_roll_back=False, report=report
+        )
+    surviving = [
+        v
+        for v in report.violations
+        if v.severity == "hard_block"
+        and not (handshake_approved and v.handshake_allowed)
+    ]
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        # Emit the handshake pair when a signed operator override
+        # covered any denied pattern — trace vocabulary aligns with
+        # SUBSTRATE module_05.
+        if handshake_approved:
+            _emit_event(
+                "handshake.requested",
+                {
+                    "kind": "test_hack_denied",
+                    "step_id": transaction.step_id.hex(),
+                    "reason": "operator handshake to permit denied test pattern",
+                },
+                step_id=transaction.step_id,
+            )
+            _emit_event(
+                "handshake.resolved",
+                {
+                    "kind": "test_hack_denied",
+                    "step_id": transaction.step_id.hex(),
+                    "outcome": "approved",
+                },
+                step_id=transaction.step_id,
+            )
+        _emit_event(
+            "laziness.violated",
+            {
+                "kind": "test_hack_denied",
+                "step_id": transaction.step_id.hex(),
+                "branch": transaction.branch_name,
+                "patterns": sorted({v.pattern for v in surviving}),
+                "sample_file": surviving[0].file if surviving else "",
+                "sample_line": surviving[0].line if surviving else 0,
+                "handshake_approved": handshake_approved,
+                "violations_total": len(surviving),
+            },
+            step_id=transaction.step_id,
+        )
+    except Exception:  # noqa: BLE001 — never fail the gate on trace error
+        pass
+    return TestIntegrityGateOutcome(
+        passed=False, should_roll_back=True, report=report
+    )
+
+
+def _emit_advisories_if_any(
+    transaction: "StepTransaction", report: TestIntegrityReport
+) -> None:
+    """Emit ``predicate.evaluated`` for advisory violations, best-effort."""
+    advisories = report.advisory_violations()
+    if not advisories:
+        return
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            "predicate.evaluated",
+            {
+                "kind": "test_integrity_advisory",
+                "step_id": transaction.step_id.hex(),
+                "patterns": sorted({v.pattern for v in advisories}),
+                "files": sorted({v.file for v in advisories}),
+                "advisory_total": len(advisories),
+                "ok": True,
+            },
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def enforce_g6(
+    transaction: "StepTransaction",
+    graph: SymbolGraph,
+    edited_symbols: "Iterable[str]",
+    *,
+    edited_files: "Iterable[str]" = (),
+    passing_tests_touched: "Iterable[str]" = (),
+    declared_unaffected: "Iterable[str]" = (),
+) -> UnderEditGateOutcome:
+    """Run G6 against ``graph`` and the step's edited symbols.
+
+    Emits ``laziness.violated`` with
+    ``kind="under_edit_uncovered_callers"`` when the closure surfaces
+    any downstream caller not covered by edit, by a passing test, or
+    by an explicit declaration of unaffectedness.
+    """
+    report = compute_closure(
+        graph,
+        edited_symbols,
+        edited_files=edited_files,
+        passing_tests_touched=passing_tests_touched,
+        declared_unaffected=declared_unaffected,
+    )
+    if report.passed():
+        return UnderEditGateOutcome(
+            passed=True, should_roll_back=False, report=report
+        )
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            "laziness.violated",
+            {
+                "kind": "under_edit_uncovered_callers",
+                "step_id": transaction.step_id.hex(),
+                "branch": transaction.branch_name,
+                "modified_symbols": list(report.modified_symbols),
+                "uncovered": list(report.uncovered),
+                "covered_by_test": list(report.covered_by_test),
+                "covered_by_edit": list(report.covered_by_edit),
+                "covered_by_declaration": list(report.covered_by_declaration),
+                "getattr_advisories": list(report.getattr_advisories),
+                "generated_excluded": list(report.generated_excluded),
+            },
+            step_id=transaction.step_id,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    return UnderEditGateOutcome(
         passed=False, should_roll_back=True, report=report
     )
 
