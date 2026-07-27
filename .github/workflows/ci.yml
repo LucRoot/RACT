@@ -52,6 +52,12 @@ jobs:
           if-no-files-found: ignore
 
   eval-smoke:
+    # v0.4 module_07: adds one Aider Polyglot problem + one SWE-bench Lite
+    # instance against the fixture provider (evals/fixtures/providers/*).
+    # Fixtures are synthetic — no live-provider or upstream-registry access
+    # is required on PR CI (Lateral Chain branches A and B, module_07). When
+    # a fixture is missing, the runner reports SKIPPED with a specific
+    # reason and the CI summary counts it (never silently green).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,11 +69,52 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      - name: Run eval smoke
+      - name: Run v0.3 eval smoke (legacy tasks)
         run: |
           python -m ract.eval.runner evals/tasks/refactor-function --provider mock
           python -m ract.eval.runner evals/tasks/fastapi-validation --provider mock
           python -m ract.eval.runner evals/tasks/file-watcher --provider mock
+      - name: Run v0.4 polyglot smoke (fixture provider)
+        run: |
+          python -c "
+          from pathlib import Path
+          from evals.polyglot.runner import RunConfig, run_problem
+          from evals.polyglot.report import build_report, write_report
+          result = run_problem('acronym', RunConfig(
+              workspace=Path('.'),
+              subset_path=Path('evals/polyglot/subset.json'),
+              provider='fake',
+          ))
+          print(f'polyglot smoke result: {result.outcome}')
+          report = build_report('fake', [result])
+          write_report(report, Path('evals/runs'))
+          import sys
+          sys.exit(0 if result.outcome in ('passed', 'skipped') else 1)
+          "
+      - name: Run v0.4 swebench_lite smoke (fixture provider)
+        run: |
+          python -c "
+          from pathlib import Path
+          from evals.swe_bench_lite.runner import RunConfig, run_instance
+          from evals.swe_bench_lite.report import build_report, write_report
+          instance = {
+              'instance_id': 'django__django-11099',
+              'repo': 'django/django',
+              'docker_image': 'docker.io/swebench/sweb.eval.x86_64.django__django-11099:latest',
+          }
+          result = run_instance(instance, RunConfig(
+              workspace=Path('.'),
+              instances_path=Path('evals/swe_bench_lite/instances.json'),
+              provider='fake',
+          ))
+          print(f'swebench smoke result: {result.outcome}')
+          report = build_report('fake', [result])
+          write_report(report, Path('evals/runs'))
+          import sys
+          sys.exit(0 if result.outcome in ('passed', 'skipped') else 1)
+          "
+      - name: Regenerate LEADERBOARD.md (idempotent)
+        run: python -m evals.leaderboard.update --repo-root .
 
   benchmark:
     # v0.3 Module 4: prove the milestone-driven loop beats a naive fixed-iteration
