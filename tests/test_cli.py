@@ -1,0 +1,13 @@
+import pytest
+from ract.cli import toggle_mode
+
+
+def test_toggle_mode():
+    """Test toggle_mode function."""
+    assert toggle_mode("yolo") == "yolo"
+    assert toggle_mode("auto") == "auto"
+    assert toggle_mode("dry-run") == "dry-run"
+    assert toggle_mode("reload") == "reload"
+    assert toggle_mode("resume") == "resume"
+    with pytest.raises(ValueError):
+        toggle_mode("invalid")

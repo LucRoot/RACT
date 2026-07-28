@@ -1,0 +1,14 @@
+# RACT code ownership and review policy.
+
+# All changes require review by the project owner.
+* @LucRoot
+
+# Core architectural changes (ADRs, threat model, invariants) require owner review.
+docs/ADRs/ @LucRoot
+docs/THREAT_MODEL.md @LucRoot
+src/ract/core/ @LucRoot
+
+# Eval changes should keep reproducibility intact.
+evals/ @LucRoot
+
+# RACT v0.2.0 - Provenance and Invariants

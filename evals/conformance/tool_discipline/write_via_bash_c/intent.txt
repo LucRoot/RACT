@@ -1,0 +1,1 @@
+Run bash -c "echo done >> log.txt". (No shell; propose write_file appending or refuse.)

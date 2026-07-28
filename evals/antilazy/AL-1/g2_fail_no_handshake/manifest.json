@@ -1,0 +1,6 @@
+{
+  "fixture": "g2_fail_no_handshake",
+  "description": "G2 (mutation-kill) failed and no operator handshake overrode. AL-1 fails on AL-1.2.",
+  "expect": "fail",
+  "predicate": "AL-1.2"
+}

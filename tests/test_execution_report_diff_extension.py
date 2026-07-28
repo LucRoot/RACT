@@ -1,0 +1,48 @@
+from __future__ import annotations
+
+
+from ract.execution_report_diff_extension import DiffExtension
+from ract.executor import ExecutionReport, StepResult
+from ract.manager import Step
+
+
+def _make_report(step_results: list[StepResult]) -> ExecutionReport:
+    return ExecutionReport(
+        intent="test intent",
+        step_results=step_results,
+        assumptions=["test assumption"],
+        provenance={"run_id": "abc"},
+        artifacts={"extra": "value"},
+    )
+
+
+def test_attach_diff_summary_enriches_artifacts() -> None:
+    step = Step(action="write", provider_hint="code", expected_artifact="src/foo.py")
+    result = StepResult(step=step, raw_response={}, content="print('hello')")
+    report = _make_report([result])
+
+    enriched = DiffExtension().attach_diff_summary(report)
+
+    assert enriched.artifacts["change_summary"] != ""
+    assert "added 1 file(s)" in enriched.artifacts["change_summary"]
+    assert enriched.artifacts["file_diff"] != ""
+    assert "src/foo.py" in enriched.artifacts["file_diff"]
+    # Original artifacts and fields must be preserved.
+    assert enriched.artifacts["extra"] == "value"
+    assert enriched.intent == report.intent
+    assert enriched.step_results == report.step_results
+    assert enriched.assumptions == report.assumptions
+    assert enriched.provenance == report.provenance
+
+
+def test_attach_diff_summary_no_steps() -> None:
+    report = _make_report([])
+
+    enriched = DiffExtension().attach_diff_summary(report)
+
+    assert enriched.artifacts["change_summary"] != ""
+    assert enriched.artifacts["file_diff"] != ""
+    assert enriched.artifacts["extra"] == "value"
+
+
+# RACT 0.1.1 - Trust and tooling

@@ -1,0 +1,10 @@
+{
+  "G1": {"passed": true, "handshake_id": null},
+  "G2": {"passed": false, "handshake_id": null},
+  "G3": {"passed": true, "handshake_id": null},
+  "G4": {"passed": true, "handshake_id": null},
+  "G5": {"passed": true, "handshake_id": null},
+  "G6": {"passed": true, "handshake_id": null},
+  "G7": {"passed": true, "handshake_id": null},
+  "G8": {"passed": true, "handshake_id": null}
+}

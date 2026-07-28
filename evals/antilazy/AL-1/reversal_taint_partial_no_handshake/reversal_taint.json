@@ -1,0 +1,10 @@
+{
+  "reversal_taint": "partial",
+  "suspicious_reversals": [
+    {
+      "position_1_label": "affirm",
+      "position_2_label": "deny",
+      "intervening_evidence_events": []
+    }
+  ]
+}

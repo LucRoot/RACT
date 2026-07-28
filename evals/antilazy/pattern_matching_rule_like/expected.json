@@ -1,0 +1,12 @@
+{
+  "gates_that_must_fire": ["iso_perturb", "G7"],
+  "laziness_violation_kinds": ["isomorphic_divergence", "companion_counterexample"],
+  "public_source": "ALM §9 (Isomorphic Perturbation gate) + iso_perturb module_06 precedent (audit_logger_diverges_on_rename fixture)",
+  "public_source_url": "docs/RACT_v0.4.0_ANTILAZY_SPEC.md#9-isomorphic-perturbation",
+  "rule_like": true,
+  "confidence_floor": 0.8,
+  "matched_keywords_include": ["every", "no", "must"],
+  "expected_transformation_kinds": ["rename_entities", "swap_syntax", "permute_examples"],
+  "divergence_transformation_kinds_include": ["rename_entities"],
+  "notes": "The intent is rule-like (universal every + universal no). The rename transformation surfaces the pattern-match: the transformed intent asks about a semantically identical concept under different lexical clothing, and the primary's hard-coded string binding produces a diverging solution shape. G7 also fires because a different-family companion provider, running the same rule-like intent independently, would produce an implementation that dispatches through the middleware registry by concept rather than by hard-coded string, and the companion-differentiator produces a counterexample the primary cannot pass."
+}

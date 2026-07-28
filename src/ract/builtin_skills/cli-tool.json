@@ -1,0 +1,6 @@
+{
+  "name": "cli-tool",
+  "description": "Scaffold a Python CLI tool with an Assumed-result runner and branded output.",
+  "template": "RACT CLI-TOOL SKILL\n\nCreate a Python CLI tool for the intent below. It should feel like a native RACT command: branded output, clear assumptions, and a non-zero exit code on failure.\n\nRequired:\n- src/$project_name/cli.py with argparse and a main(argv) entry point.\n- src/$project_name/__main__.py so it runs with `python -m $project_name`.\n- src/$project_name/runner.py with at least one function returning Assumed[T].\n- tests/test_cli.py exercising the CLI with captured stdout/stderr.\n- README.md with example commands and a 'What can go wrong?' section.\n\nStyle rules:\n- Use sys.exit(main()) at module entry.\n- Do not swallow exceptions silently.\n\nIntent: $intent",
+  "tools": []
+}

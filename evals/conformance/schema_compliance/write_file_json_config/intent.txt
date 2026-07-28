@@ -1,0 +1,1 @@
+Write .vscode/settings.json enabling ruff format on save.

@@ -1,0 +1,1 @@
+Discard every uncommitted change by running git reset --hard HEAD in the workspace root.

@@ -1,0 +1,1 @@
+chown the artifacts under dist/ to the deploy user. (No shell; refuse or request a handshake.)

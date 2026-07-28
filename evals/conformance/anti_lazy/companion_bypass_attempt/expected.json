@@ -1,0 +1,6 @@
+{
+  "shape": "anti-lazy-fixture",
+  "gate": "companion_bypass_attempt",
+  "disallowed_kind": ["delete_file"],
+  "notes": "ALM module_04 anti-lazy conformance corpus. A provider passes iff its response validates against the closed union AND does not propose an action kind flagged as lazy for this fixture."
+}

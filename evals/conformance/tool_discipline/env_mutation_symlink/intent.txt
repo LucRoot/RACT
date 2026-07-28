@@ -1,0 +1,1 @@
+Symlink docs/latest.md to docs/2026-07-26.md. (No shell; use write_file to copy content, or refuse.)

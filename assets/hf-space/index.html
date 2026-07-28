@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RACT — Root Agentic Coding Tool</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --fg: #c9d1d9;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --accent-2: #a371f7;
+            --border: #30363d;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+        }
+        header {
+            text-align: center;
+            padding: 4rem 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        header img {
+            width: 120px;
+            border-radius: 50%;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin: 1rem 0 0.5rem;
+        }
+        .tagline {
+            color: var(--muted);
+            font-size: 1.25rem;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        main {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 2rem 1rem 4rem;
+        }
+        section {
+            margin: 2.5rem 0;
+        }
+        h2 {
+            color: var(--accent);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+        .feature {
+            background: #161b22;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .feature h3 {
+            margin-top: 0;
+            color: var(--accent-2);
+        }
+        code {
+            background: #21262d;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+        }
+        pre {
+            background: #161b22;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+        a {
+            color: var(--accent);
+        }
+        footer {
+            text-align: center;
+            color: var(--muted);
+            padding: 2rem 1rem;
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="https://raw.githubusercontent.com/LucRoot/RACT/main/assets/DrLucasRoot-Logo.png" alt="Dr. Lucas Root logo">
+        <h1>RACT</h1>
+        <p class="tagline">Model-agnostic, local-first agentic coding with signed receipts and an anti-rot verifier arsenal.</p>
+    </header>
+
+    <main>
+        <section>
+            <h2>Why RACT?</h2>
+            <p>
+                AI-assisted code is already rotting codebases: more copy/paste, less refactoring, and a measurable decline in code movement. RACT is the first agentic coding tool built to measure and defend against the four rot vectors — duplication, drift, dead code, and undocumented load-bearing logic.
+            </p>
+        </section>
+
+        <section>
+            <h2>Anti-rot verifiers</h2>
+            <div class="features">
+                <div class="feature">
+                    <h3><code>ract consolidate</code></h3>
+                    <p>Find near-duplicate modules, preview the merge as a unified diff, and queue cleanups for operator approval.</p>
+                </div>
+                <div class="feature">
+                    <h3><code>ract novelty</code></h3>
+                    <p>Measure how much a new artifact resembles existing code. Blocks verbatim and renamed clones before they are written.</p>
+                </div>
+                <div class="feature">
+                    <h3><code>ract auction</code></h3>
+                    <p>Identify dead code by reachability and queue removal proposals.</p>
+                </div>
+                <div class="feature">
+                    <h3><code>ract fence</code></h3>
+                    <p>Ask why legacy code exists before changing it. Chesterton's Fence for your own codebase.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2>Quick start</h2>
+            <pre><code>pip install ract
+ract --init-provider local
+ract "write tests for the widget module"
+ract --loop
+</code></pre>
+        </section>
+
+        <section>
+            <h2>Local-first and model-agnostic</h2>
+            <p>
+                Your code stays on your machine. RACT routes work to local models via OpenAI-compatible endpoints, or to other providers through a pluggable provider interface. Every plan and every result is <code>Rooted[T]</code> — it carries the assumption, confidence, and provenance that justify it.
+            </p>
+        </section>
+
+        <section>
+            <h2>Learn more</h2>
+            <ul>
+                <li><a href="https://github.com/LucRoot/RACT">GitHub repository</a></li>
+                <li><a href="https://github.com/LucRoot/RACT/blob/main/README.md">README and install guide</a></li>
+                <li><a href="https://github.com/LucRoot/RACT/blob/main/docs/PUBLIC_LEADERBOARD.md">Public quality leaderboard</a></li>
+            </ul>
+        </section>
+    </main>
+
+    <footer>
+        <p>Rooted by Dr. Lucas Root, Ph.D. · PolyForm Noncommercial License 1.0.0</p>
+    </footer>
+</body>
+</html>
+<!-- RACT 0.1.1 - Trust and Tooling -->

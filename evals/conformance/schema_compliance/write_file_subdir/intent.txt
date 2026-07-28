@@ -1,0 +1,1 @@
+Create src/ract/adapters/postgres.py with an empty class PostgresAdapter.

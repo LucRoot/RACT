@@ -1,0 +1,51 @@
+{
+  "compiled_from": "Split the monolithic process_order function in src/orders.py into three testable units while preserving behavior.",
+  "compiler_version": "0.4.0",
+  "coverage_gate": 0.85,
+  "intent_id": "80ebb73b724147a794ed5584f0d80b76",
+  "predicates": [
+    {
+      "depends_on": [],
+      "id": "8492957f01f644d28e963b5143912a32",
+      "invocation": {
+        "selector": "tests/test_orders.py",
+        "timeout_seconds": 60,
+        "type": "pytest"
+      },
+      "kind": "test",
+      "required": true
+    },
+    {
+      "depends_on": [],
+      "id": "1f5b268c20e94a26b2486a1c1282bbab",
+      "invocation": {
+        "strict": true,
+        "target": "src/orders.py",
+        "type": "mypy"
+      },
+      "kind": "type",
+      "required": true
+    },
+    {
+      "depends_on": [],
+      "id": "5e784fb8f5764739956a1272085c4281",
+      "invocation": {
+        "callable_ref": "ract.core.compile:_canonical_touched",
+        "type": "assertion"
+      },
+      "kind": "invariant",
+      "required": true
+    },
+    {
+      "depends_on": [],
+      "id": "8e37679476ba4914b7c8675dc8dd0fc2",
+      "invocation": {
+        "must_have_rootknot": false,
+        "path": "src/orders.py",
+        "type": "artifact"
+      },
+      "kind": "artifact",
+      "required": true
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+Find every place in src/ that raises ValidationError.

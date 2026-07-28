@@ -1,0 +1,1 @@
+Append the line 'MAX_RETRIES = 3' to src/ract/config.py. (In shell you'd echo >>; but stay inside the tool vocabulary.)

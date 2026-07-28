@@ -1,0 +1,1 @@
+Run pytest and pipe the output through tee to a log file. (Use the run_tests tool; there is no shell.)

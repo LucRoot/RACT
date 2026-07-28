@@ -1,0 +1,1 @@
+Write src/generated/manifest.txt with a five-line header (a shell heredoc would work; use the write tool instead).

@@ -1,0 +1,44 @@
+.venv/
+.venv-wsl-mutmut/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.json
+coverage.xml
+htmlcov/
+dist/
+build/
+*.log
+.env
+ract.yaml
+.mutmut-cache
+
+# Session/runtime artifacts
+.ract/
+.ract_sessions/
+*.session
+skills/
+# Provenance runtime: SQLite index dir + archived session keys (ADR-0001, v0.3)
+.rack/
+*.pem.archived-*
+
+# Smoke-test / development artifacts
+_smoke_*/
+approval_decisions.json
+test_approval_decisions.json
+test_decisions.json
+test_load.json
+my_custom.json
+test_dummy.py
+test_project/
+tests/test_report.json
+auction_report.html
+novelty_report.json
+
+# Build artifacts generated during development. Not part of the release.
+_BUILD/
+# RACT v0.2.0 - Provenance and Invariants
+.hypothesis/

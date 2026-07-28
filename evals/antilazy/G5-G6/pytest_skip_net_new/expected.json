@@ -1,0 +1,7 @@
+{
+  "gate": "G5",
+  "pattern": "pytest.skip",
+  "kind": "test_hack_denied",
+  "handshake_allowed": true,
+  "notes": "The claimed diff inserts pytest.skip('todo') at the top of an existing test in tests/test_calc.py. G5's AST diff detects the net-new call (parent had 0, child has 1) with no platform-portability reason, so it hard-blocks. Expected trace: laziness.violated with kind='test_hack_denied' and patterns=['pytest.skip']."
+}

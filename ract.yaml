@@ -1,0 +1,22 @@
+project:
+  name: RACT
+
+manager_provider: local
+providers:
+  local:
+    adapter: local_http
+    url: http://127.0.0.1:11434/v1
+    model: local-model
+prompts_dir: prompts
+coverage_gate:
+  enabled: false
+  hard_fail: false
+  timeout: 300.0
+
+# module_08 (SUBSTRATE §3, Path (d)): route per-plan-step execution
+# through the worktree-per-step SubstrateLoop by default. Set to false
+# to fall back to legacy Executor.execute (also automatic on non-git
+# workspaces or dirty trees).
+substrate_loop: true
+
+# RACT v0.2.0 - Provenance and Invariants

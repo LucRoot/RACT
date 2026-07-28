@@ -1,0 +1,1 @@
+Propose a type-check predicate: mypy src/ract/core must pass strict.

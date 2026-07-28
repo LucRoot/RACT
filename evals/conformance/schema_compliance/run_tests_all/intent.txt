@@ -1,0 +1,1 @@
+Run the whole test suite and report the outcome.

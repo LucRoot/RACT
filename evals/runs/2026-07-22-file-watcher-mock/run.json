@@ -1,0 +1,21 @@
+{
+  "task": "file-watcher",
+  "provider": "mock",
+  "seed": 42,
+  "passed": true,
+  "checks": [
+    {
+      "name": "watch_script_exists",
+      "passed": true
+    },
+    {
+      "name": "rebuild_within_500ms",
+      "passed": true
+    },
+    {
+      "name": "clean_sigint_exit",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

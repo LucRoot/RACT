@@ -1,0 +1,6 @@
+1. **Missing validation of merge safety** – The spec does not describe how to verify that merging two modules will not break existing imports, circular dependencies, or runtime behavior; without this, merges could introduce subtle bugs.  
+2. **No handling of name collisions or module identity** – Consolidation may require renaming the target module; the spec mentions SymbolRenamer but does not specify conflict‑resolution rules or guarantees that new names won’t clash with existing modules.  
+3. **Insufficient error‑propagation strategy** – While failures from DiffApplier or SymbolRenamer are mentioned, there is no concrete plan for rolling back partially applied merges, notifying the operator, or preserving a consistent state in the SymbolGraph.  
+4. **Clustering algorithm details are underspecified** – The agglomerative merging process uses “average similarity” and a “secondary merge threshold” but provides no concrete formulas, tie‑breaking rules, or performance guarantees, making implementation and testing ambiguous.  
+5. **Configuration exposure and default values** – The spec calls for configurable thresholds but does not list which command‑line flags should expose them, their default settings, or validation ranges, risking inconsistent behavior across environments.
+<!-- RACT 0.1.1 - Trust and Tooling -->

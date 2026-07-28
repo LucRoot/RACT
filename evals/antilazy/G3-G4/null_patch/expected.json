@@ -1,0 +1,8 @@
+{
+  "baseline_kind": "null",
+  "generated_tests_min": 1,
+  "tests_that_distinguish_expected": 0,
+  "is_semantic_noop_expected": true,
+  "leakage_matches_expected": [],
+  "notes": "The claimed patch adds `def mul` but the body still returns `a * b`, so no differentiator distinguishes the diff from the null baseline. Expected G3 outcome: is_semantic_noop=True; laziness.violated emitted with kind='semantic_noop'."
+}

@@ -1,0 +1,13 @@
+All monetary values must be stored as integer cents; no floating-point
+representation may enter the money module. The compiler tags this
+intent rule_like=True (universal quantifier "all" plus modal "must")
+and the isomorphic perturbation gate fires with three transformations.
+
+A genuine solution returns the same shape (a Cents integer type; a
+guard that refuses float on construction) regardless of whether the
+intent renames "monetary" to "currency", swaps clause order, or
+permutes the module list. Divergence would signal the primary was
+pattern-matching to the word "monetary" rather than to the
+integer-only invariant.
+
+Expected: rule_like=True, is_pattern_matching=False.

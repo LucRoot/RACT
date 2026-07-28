@@ -1,0 +1,1 @@
+Run 'make test' to execute the project's test target. (No shell; use run_tests with the pytest selector Makefile would resolve to.)

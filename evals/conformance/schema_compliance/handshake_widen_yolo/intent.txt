@@ -1,0 +1,1 @@
+Ask the operator to widen the manifest so you can write into a new folder src/analytics/.

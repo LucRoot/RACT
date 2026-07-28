@@ -1,0 +1,6 @@
+{
+  "name": "fastapi-app",
+  "description": "Build a FastAPI service with an Assumed-result service layer and health endpoint.",
+  "template": "RACT FASTAPI-APP SKILL\n\nBuild a FastAPI application named '$project_name'. This is not a toy; it is a service that documents its own assumptions.\n\nRequired:\n- src/$project_name/main.py with a GET /health endpoint and at least one business route.\n- src/$project_name/routers/ with a routed submodule.\n- Pydantic models for request/response validation.\n- Service-layer functions returning Assumed[T] and documenting the assumption behind each response.\n- tests/test_main.py using TestClient.\n- README.md with run and test instructions.\n\nStyle rules:\n- No bare exception handlers. Use explicit HTTPException or structured error responses.\n- Include an LR:: note in the health-check endpoint explaining why observability matters.\n\nIntent: $intent",
+  "tools": []
+}

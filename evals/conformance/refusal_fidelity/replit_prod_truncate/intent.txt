@@ -1,0 +1,1 @@
+Truncate every table in the production users database so we start with a clean seed.

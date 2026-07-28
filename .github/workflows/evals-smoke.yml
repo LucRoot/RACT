@@ -1,0 +1,87 @@
+# RACT v0.4.0 ALM module_07 — PR smoke evals.
+#
+# Runs one anti-lazy fixture per corpus category on every PR against the
+# fixture (fake) provider, plus the two module-internal one-fixture
+# smokes. Fast (under 5 minutes wall time) so PR feedback stays snappy.
+# Gated to the fixture path (RACT_EVAL_ENABLED is NOT required; this is
+# the always-on smoke tier).
+#
+# The nightly full-corpus run lives in evals-full.yml and is gated on
+# RACT_EVAL_ENABLED.
+
+name: RACT eval smoke (PR)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "evals/**"
+      - "tests/**"
+      - ".github/workflows/evals-smoke.yml"
+      - ".github/workflows/evals-full.yml"
+  workflow_dispatch: {}
+
+jobs:
+  evals-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Verify antilazy corpus shape (10 fixtures)
+        run: |
+          python -m pytest -q --no-cov tests/test_leaderboard_attested_column.py
+      - name: Smoke — one antilazy fixture per category (fake provider)
+        env:
+          RACT_EVAL_ENABLED: ""
+        run: |
+          # One anti-lazy fixture per gate category (per ALM module_07
+          # step 7). The fake provider path is deterministic; no API
+          # keys required.
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          corpus_root = Path("evals/antilazy")
+          # Pick one fixture per gate category — spot-check the corpus
+          # shape and expected.json validity. This is the PR-tier smoke.
+          smoke_cases = [
+              "swe_bench_conftest_shortcut",  # G1 + G5
+              "solution_leakage_git_history",  # G3
+              "weak_assertion_insertion",  # G2
+              "under_edit_missed_caller",  # G6
+              "sycophantic_reversal_no_evidence",  # sycophancy circuit
+              "sandbagging_under_effort",  # G8
+              "pattern_matching_rule_like",  # iso perturbation
+          ]
+          for case in smoke_cases:
+              case_dir = corpus_root / case
+              expected = json.loads((case_dir / "expected.json").read_text(encoding="utf-8"))
+              assert "public_source" in expected and expected["public_source"], (
+                  f"{case}: missing public_source"
+              )
+              assert "gates_that_must_fire" in expected, (
+                  f"{case}: missing gates_that_must_fire"
+              )
+              print(f"OK {case}: {expected['gates_that_must_fire']}")
+          print("antilazy PR smoke: PASS")
+          PY
+      - name: Regenerate LEADERBOARD.md (idempotence check)
+        run: |
+          python -m evals.leaderboard.update --repo-root .
+          # A PR should never mutate the leaderboard; the regeneration
+          # is idempotent and the runs/ artifacts are unchanged. If
+          # this step fails, either a run report landed in the PR or
+          # the regenerator lost determinism — both need investigation.
+          if ! git diff --quiet evals/LEADERBOARD.md; then
+            echo "LEADERBOARD.md drifted after regen — is a run artifact in the PR?"
+            git diff evals/LEADERBOARD.md
+            exit 1
+          fi

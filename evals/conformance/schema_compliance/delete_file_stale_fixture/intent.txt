@@ -1,0 +1,1 @@
+Delete tests/fixtures/stale_response.json; the test that used it was removed.

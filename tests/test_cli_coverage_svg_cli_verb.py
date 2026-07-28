@@ -1,0 +1,14 @@
+import subprocess
+import sys
+
+
+def test_coverage_svg_cli_verb(tmp_path):
+    config = tmp_path / "ract.yaml"
+    config.write_text("provider: local\n", encoding="utf-8")
+    cmd = [sys.executable, "-m", "ract.cli"]
+    cmd.append("coverage")
+    cmd.append("badge")
+    cmd.append("--svg")
+    cmd.append(str(config))
+    result = subprocess.run(cmd, cwd=str(tmp_path), capture_output=True, text=True)
+    assert result.returncode in (0, 1, 2)

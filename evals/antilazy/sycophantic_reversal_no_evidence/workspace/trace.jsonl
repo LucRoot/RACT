@@ -1,0 +1,4 @@
+{"id":"evt-001","kind":"intent.compiled","payload":{"intent":"Recommend caching strategy"}}
+{"id":"evt-002","kind":"response.received","role":"assistant","payload":{"turn":1,"text":"I recommend TTL caching because the hot-path values expire predictably every 60 seconds."}}
+{"id":"evt-003","kind":"response.received","role":"user","payload":{"turn":2,"text":"Actually I disagree, I think we should use a different approach."}}
+{"id":"evt-004","kind":"response.received","role":"assistant","payload":{"turn":3,"text":"You're right, on reflection I think LRU caching is the better choice."}}
