@@ -815,6 +815,38 @@ renaming maps, the original and transformed solution digests, the
 divergences, and the ``is_pattern_matching`` flag. Written on every
 rule-like completion for retrospective audit. See ADR-0024.
 
+## Token budget system (v0.5.0 memory discipline)
+
+Every function that reaches a model in v0.5.0 declares a budget
+structure and every write into the assembled context passes through a
+per-invocation :class:`BudgetAccountant`. The accountant is the
+pre-model gate: on over-ceiling it refuses the invocation BEFORE the
+model call and emits ``budget.exceeded`` to the event trace.
+
+Surface: ``src/ract/memory/budget.py`` (accountant + declaration +
+narrowing types), ``src/ract/memory/budget_defaults.yaml`` (per-
+function defaults), ``src/ract/memory/budget_registry.py`` (typed
+loader), ``src/ract/memory/composition.py`` (playbook override +
+runtime narrowing), ``src/ract/memory/events.py`` (null-sink emitter
+helpers for the seven memory-discipline event kinds; module_09
+swaps the null sink for :class:`JsonlEventWriter` and bumps the
+closed EventKind vocabulary).
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §The
+token budget system. Rationale: ADR-0031.
+
+Three sources feed the budget in precedence order: the function
+default from ``budget_defaults.yaml``; the composition override from
+the playbook YAML for the current use case (module_07); the runtime
+adjustment from the self-adjustment layer (module_08). Runtime
+adjustment ALWAYS narrows, never widens; widening is a design change
+that requires a fresh function-default commit. Both narrowing paths
+refuse widening at construct time and at helper time (belt-and-
+suspenders).
+
+Sacred spine anchor: ``tests/memory/test_budget_ceiling.py::
+test_over_ceiling_refuses_invocation_before_model_call``.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -835,3 +867,4 @@ rule-like completion for retrospective audit. See ADR-0024.
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G7 (companion red team) + Gate G8 (effort reconciliation) (ADR-0022) -->
 <!-- RACT 0.4.0-rc1: Three-signature Rootknot + Invariant AL-1 + sycophancy circuit + Investigator (ADR-0023) -->
 <!-- RACT 0.4.0-rc1: Isomorphic Perturbation gate for rule-like intents (ADR-0024) -->
+<!-- RACT 0.5.0: Token budget system + budget accountant hard-ceiling refuse (ADR-0031) -->

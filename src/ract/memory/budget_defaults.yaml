@@ -1,0 +1,66 @@
+# Per-function budget defaults (v0.5.0 memory discipline).
+#
+# Registry read by ract.memory.budget_registry.load_defaults. The four
+# top-level keys are the four v0.5.0 function contracts (intake, research,
+# plan, edit). Each entry is a full BudgetDeclaration payload.
+#
+# Invariant re-check: hard_ceiling >= input.max + output.max + reasoning_headroom.
+# The intake / plan ceilings ship above module_01.md's illustrative numbers
+# to keep the invariant strictly true across the four defaults; the
+# illustrative numbers preserve the ordering (intake < plan < research <
+# edit) which is what §Function contracts calls for.
+#
+# Reference: docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md §The token
+# budget system + §Function contracts (intake/research/plan/edit).
+
+schema_version: 1
+
+functions:
+  intake:
+    # §intake — narrow scope; user request in, structured objective out.
+    input:
+      min: 200
+      target: 2000
+      max: 3000
+    output:
+      min: 100
+      target: 500
+      max: 500
+    reasoning_headroom: 500
+    hard_ceiling: 4000
+  research:
+    # §research — retrieval-heavy; symbol/graph/semantic bundle in.
+    input:
+      min: 500
+      target: 3000
+      max: 4000
+    output:
+      min: 500
+      target: 3000
+      max: 3000
+    reasoning_headroom: 3000
+    hard_ceiling: 10000
+  plan:
+    # §plan — synthesizes research + intake into a step-by-step contract.
+    input:
+      min: 500
+      target: 4000
+      max: 5000
+    output:
+      min: 200
+      target: 1000
+      max: 1000
+    reasoning_headroom: 3000
+    hard_ceiling: 9000
+  edit:
+    # §edit — widest budget; carries the diff proposal + validation loop.
+    input:
+      min: 1000
+      target: 8000
+      max: 12000
+    output:
+      min: 500
+      target: 3000
+      max: 3000
+    reasoning_headroom: 3000
+    hard_ceiling: 18000
