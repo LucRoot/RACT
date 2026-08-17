@@ -148,9 +148,10 @@ def run_completion_gates(
 
     # G8 — effort reconciliation.
     if effort_estimate is not None:
-        realized: EffortActual = measure_actual_effort(
-            final_diff, graph=None if symgraph is None else symgraph
-        )  # type: ignore[arg-type]
+        # symgraph is typed ``object | None`` on the outer signature so
+        # this module does not need to import SymbolGraph; the effort
+        # reconciler accepts it and defaults gracefully when unset.
+        realized: EffortActual = measure_actual_effort(final_diff, graph=symgraph)  # type: ignore[arg-type]
         effort_recon = reconcile_effort(effort_estimate, realized)
         if effort_recon.anomalies:
             blocks_complete = True

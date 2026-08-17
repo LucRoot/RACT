@@ -19,6 +19,7 @@ Import-clean on non-macOS: the module imports pure-Python stdlib only;
 from __future__ import annotations
 
 import fnmatch
+import os.path
 import platform
 import shutil
 from contextlib import contextmanager
@@ -125,7 +126,16 @@ class MacosSandbox:
 
     @staticmethod
     def _matches(target: str, patterns: tuple[str, ...]) -> bool:
-        return any(fnmatch.fnmatch(target, p) for p in patterns)
+        """Return True when the normalized target matches any pattern.
+
+        Path-traversal literals like ``/workspace/../../etc/passwd``
+        are collapsed with ``os.path.normpath`` before glob matching so
+        the surface refuses them at pre-flight rather than smuggling
+        them through a Seatbelt allowlist that only knew about
+        ``/workspace/*``. Parallels the Linux backend's ``_path_allowed``.
+        """
+        normalized = os.path.normpath(target).replace("\\", "/")
+        return any(fnmatch.fnmatch(normalized, p) for p in patterns)
 
     @classmethod
     def would_refuse_write(cls, manifest: CapabilityManifest, target: str) -> bool:
