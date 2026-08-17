@@ -223,6 +223,18 @@ def test_ract_auction_reports_zero_dead_modules():
     # of existing callsites (module_07 Flagged gap 9, v0.5 consumer-site
     # design). Allowlist mirrors the transitional-substrate pattern.
     allowlist.add("sentinels.py")
+    # v0.5 memory-discipline module_01: the budget accountant helpers at
+    # ``ract.memory.{budget_registry,composition,events}`` land under a
+    # pre-wired public surface. All three are re-exported from
+    # ``ract.memory.__init__`` and consumed by ``tests/memory/``; the
+    # shipped-CLI call site lands in memory-discipline module_09 (the
+    # SubstrateLoop assembly-to-dispatch wiring). Allowlist mirrors the
+    # transitional-substrate pattern used above until module_09 lands
+    # the live wiring. (``budget.py`` is imported by all three helpers,
+    # so it is not dead.)
+    allowlist.add("budget_registry.py")
+    allowlist.add("composition.py")
+    allowlist.add("events.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
