@@ -148,6 +148,7 @@ class OtlpExporter:
 
     def as_sink(self) -> Any:
         """Return a sink callable suitable for ``JsonlEventWriter.add_mirror``."""
+
         def _sink(event: "Event") -> None:
             self.mirror(event)
 

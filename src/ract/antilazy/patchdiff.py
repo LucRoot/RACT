@@ -336,9 +336,7 @@ class _RenameNormalizer(ast.NodeTransformer):
         return self._names[original]
 
     def visit_Name(self, node: ast.Name) -> ast.AST:  # noqa: N802
-        return ast.copy_location(
-            ast.Name(id=self._rename(node.id), ctx=node.ctx), node
-        )
+        return ast.copy_location(ast.Name(id=self._rename(node.id), ctx=node.ctx), node)
 
     def visit_arg(self, node: ast.arg) -> ast.AST:  # noqa: N802
         return ast.copy_location(
@@ -408,9 +406,7 @@ def _hunk_qualifies_for_leakage(hunk: Hunk) -> bool:
     )
 
 
-def _search_git_history(
-    hunk: Hunk, workspace_root: Path
-) -> tuple[str, ...]:
+def _search_git_history(hunk: Hunk, workspace_root: Path) -> tuple[str, ...]:
     """Return git refs where ``hunk``'s added-line block matches.
 
     Two scans. The primary scan uses the first non-empty added line
@@ -438,9 +434,7 @@ def _search_git_history(
             anchor = candidate
             break
     if anchor:
-        matches.extend(
-            _git_log_S(anchor, hunk.path, workspace_root, cap=25)
-        )
+        matches.extend(_git_log_S(anchor, hunk.path, workspace_root, cap=25))
     # Secondary scan (Second Pass finding 1): AST-normalized signature
     # for Python hunks. A full tree-normalized scan across every
     # historical file is v0.5 work; the ``--grep`` scan here catches
@@ -460,9 +454,7 @@ def _search_git_history(
     return tuple(ordered)
 
 
-def _git_log_S(
-    anchor: str, path: str, workspace_root: Path, *, cap: int
-) -> list[str]:
+def _git_log_S(anchor: str, path: str, workspace_root: Path, *, cap: int) -> list[str]:
     """Wrapper around ``git log --all -S <anchor> -- <path>``."""
     try:
         result = subprocess.run(
@@ -491,9 +483,7 @@ def _git_log_S(
     return hits[:cap]
 
 
-def _git_log_grep(
-    pattern: str, workspace_root: Path, *, cap: int
-) -> list[str]:
+def _git_log_grep(pattern: str, workspace_root: Path, *, cap: int) -> list[str]:
     """Wrapper around ``git log --all --grep=<pattern>`` for the leakage
     marker convention.
     """
@@ -556,9 +546,7 @@ def check_leakage(
             if normalized_fp is not None:
                 synthetic = Hunk(
                     path=hunk.path,
-                    added_lines=(
-                        f"# ract.antilazy.leakage:{normalized_fp}",
-                    ),
+                    added_lines=(f"# ract.antilazy.leakage:{normalized_fp}",),
                     removed_lines=hunk.removed_lines,
                     start_line=hunk.start_line,
                 )
@@ -676,9 +664,7 @@ def generate_differentiators(
         # nothing to differentiate at the function level; return empty
         # so the orchestrator falls back to the leakage signal alone.
         return ()
-    allocation = _proportional_budget(
-        functions, total_budget, per_function_cap
-    )
+    allocation = _proportional_budget(functions, total_budget, per_function_cap)
     kept: list[GeneratedTest] = []
     for fn, budget in allocation.items():
         if budget <= 0:
@@ -780,15 +766,10 @@ def run_patchdiff(
     leakage_matches, retrieval_absent = check_leakage(
         patch, workspace_root, retrieval_index
     )
-    below_floor = sum(
-        1 for h in patch.hunks if not _hunk_qualifies_for_leakage(h)
-    )
+    below_floor = sum(1 for h in patch.hunks if not _hunk_qualifies_for_leakage(h))
     if leakage_matches:
         baseline_kind = "commit_leak"
-    is_noop = (
-        patch.touched_functions() != ()
-        and len(distinguishing) == 0
-    )
+    is_noop = patch.touched_functions() != () and len(distinguishing) == 0
     return PatchDifferentiationReport(
         patch_digest=patch.digest(),
         baseline_kind=baseline_kind,
@@ -830,9 +811,7 @@ def _filter_distinguishing(
 # ---------------------------------------------------------------------------
 
 
-def write_patchdiff_snapshot(
-    run_dir: Path, report: PatchDifferentiationReport
-) -> Path:
+def write_patchdiff_snapshot(run_dir: Path, report: PatchDifferentiationReport) -> Path:
     """Persist the report to ``<run_dir>/patchdiff.json`` and return the path."""
     run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / "patchdiff.json"

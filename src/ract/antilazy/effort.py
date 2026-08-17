@@ -382,9 +382,7 @@ def estimate_effort(
                 break
     # Cap at half of the workspace so a wide keyword match cannot
     # blow past the realistic modification surface.
-    files_touched_expected = max(
-        1, min(len(matched_files), max(1, file_count // 2))
-    )
+    files_touched_expected = max(1, min(len(matched_files), max(1, file_count // 2)))
 
     # 2) symbols_modified_expected via symbol-graph fanout of matched
     # entry points. The graph maps qualified names to nodes; a
@@ -419,11 +417,7 @@ def estimate_effort(
     )
 
     # 3) tests_added_or_updated_expected via existing test-to-symbol ratio.
-    test_file_count = sum(
-        1
-        for path in workspace.files
-        if _looks_like_test_file(path)
-    )
+    test_file_count = sum(1 for path in workspace.files if _looks_like_test_file(path))
     if graph is not None and graph.symbols:
         symbol_count = max(1, len(graph.symbols))
         test_symbol_ratio = test_file_count / symbol_count
@@ -444,9 +438,7 @@ def estimate_effort(
         # (Second Pass Q2), large enough that a real refactor above 30%
         # threshold requires more than a token change.
         median_per_symbol = 8
-    lines_changed_expected = max(
-        1, symbols_modified_expected * median_per_symbol
-    )
+    lines_changed_expected = max(1, symbols_modified_expected * median_per_symbol)
 
     return EffortEstimate(
         files_touched_expected=files_touched_expected,
@@ -494,11 +486,7 @@ def measure_actual_effort(
     """
     touched_files = final_diff.touched_files
     touched_functions = final_diff.touched_functions()
-    tests_added = sum(
-        1
-        for h in final_diff.hunks
-        if _looks_like_test_file(h.path)
-    )
+    tests_added = sum(1 for h in final_diff.hunks if _looks_like_test_file(h.path))
     # Symbol union via graph short-name match.
     if graph is not None and graph.symbols and touched_functions:
         touched_short = {name for name in touched_functions}
@@ -610,9 +598,7 @@ def suspicion_prompt_text(reconciliation: EffortReconciliation) -> str:
     lines.append("Per-dimension comparison (realized / expected):")
     for name in reconciliation.anomalies:
         r = reconciliation.ratio.get(name, 0.0)
-        exp = getattr(
-            reconciliation.estimate, f"{name}_expected"
-        )
+        exp = getattr(reconciliation.estimate, f"{name}_expected")
         real = getattr(reconciliation.realized, f"{name}_realized")
         lines.append(
             f"- {name}: {real} realized vs {exp} expected "

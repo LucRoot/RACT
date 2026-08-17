@@ -22,9 +22,7 @@ def _make_manifest() -> CapabilityManifest:
     return CapabilityManifest(
         run_id="widen-run",
         filesystem=FilesystemPolicy(write=("/workspace/*",)),
-        network=NetworkPolicy(
-            allow_hosts=("staging.example.com",), deny_default=True
-        ),
+        network=NetworkPolicy(allow_hosts=("staging.example.com",), deny_default=True),
         yolo_widen=YoloWiden(
             extra_write=("/tmp/build/*",),
             extra_hosts=("cdn.example.com",),

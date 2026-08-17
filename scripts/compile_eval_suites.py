@@ -32,8 +32,8 @@ def _load_workspace(task_dir: Path) -> WorkspaceSnapshot:
         if "__pycache__" in path.parts:
             continue
         try:
-            files[str(path.relative_to(task_dir)).replace("\\", "/")] = (
-                path.read_text(encoding="utf-8")
+            files[str(path.relative_to(task_dir)).replace("\\", "/")] = path.read_text(
+                encoding="utf-8"
             )
         except (UnicodeDecodeError, OSError):
             # Skip binary blobs; the compiler discovers tests by file name.

@@ -22,7 +22,9 @@ def _make_executor(tmp_path: Path) -> tuple[Executor, ProvenanceIndex, SessionKe
     key = SessionKey.load_or_create(b"\x10" * 16, state_dir=tmp_path / "state")
     router = MagicMock()
     return (
-        Executor(router=router, project_dir=tmp_path, provenance_index=index, session_key=key),
+        Executor(
+            router=router, project_dir=tmp_path, provenance_index=index, session_key=key
+        ),
         index,
         key,
     )
@@ -55,7 +57,9 @@ def test_write_artifact_emits_sidecar(tmp_path: Path) -> None:
     assert payload["workspace_path"].endswith("src/hello.py")
 
 
-def test_executor_without_provenance_config_writes_without_indexing(tmp_path: Path) -> None:
+def test_executor_without_provenance_config_writes_without_indexing(
+    tmp_path: Path,
+) -> None:
     """An executor with no provenance wiring must not create any index/sidecar.
 
     Guards the default behavior: existing callers (and all pre-v0.3 tests) get

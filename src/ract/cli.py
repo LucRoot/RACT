@@ -3520,12 +3520,22 @@ def _session_substrate_command(parsed: argparse.Namespace) -> int:
 
     if parsed.action == "diff":
         branch = f"rootact/step/{parsed.step_id}"
-        parent = parsed.parent or _sp.run(
-            [
-                "git", "-C", str(repo), "merge-base", "HEAD", branch,
-            ],
-            capture_output=True, text=True, check=False,
-        ).stdout.strip()
+        parent = (
+            parsed.parent
+            or _sp.run(
+                [
+                    "git",
+                    "-C",
+                    str(repo),
+                    "merge-base",
+                    "HEAD",
+                    branch,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            ).stdout.strip()
+        )
         if not parent:
             print(
                 f"[ract] could not resolve parent snapshot for {branch}; "
@@ -3535,7 +3545,9 @@ def _session_substrate_command(parsed: argparse.Namespace) -> int:
             return 1
         diff = _sp.run(
             ["git", "-C", str(repo), "diff", parent, branch],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if diff.returncode != 0:
             print(
@@ -3620,11 +3632,15 @@ def _session_command(args: list[str]) -> int:
         ),
     )
     ls_parser.add_argument(
-        "--repo", type=Path, default=Path("."),
+        "--repo",
+        type=Path,
+        default=Path("."),
         help="Repository root (default: current directory).",
     )
     ls_parser.add_argument(
-        "--json", action="store_true", dest="json_output",
+        "--json",
+        action="store_true",
+        dest="json_output",
         help="Emit JSON instead of a human-readable table.",
     )
 
@@ -3637,7 +3653,9 @@ def _session_command(args: list[str]) -> int:
         help="Step id in hex (matches rootact/step/<step_id>).",
     )
     diff_parser.add_argument(
-        "--repo", type=Path, default=Path("."),
+        "--repo",
+        type=Path,
+        default=Path("."),
         help="Repository root (default: current directory).",
     )
     diff_parser.add_argument(
@@ -3649,7 +3667,9 @@ def _session_command(args: list[str]) -> int:
         ),
     )
     diff_parser.add_argument(
-        "--json", action="store_true", dest="json_output",
+        "--json",
+        action="store_true",
+        dest="json_output",
         help="Emit a structured patch record instead of a git-format diff.",
     )
 

@@ -93,9 +93,7 @@ def test_validator_flags_yolo_widen_conflicts_with_denied():
         yolo_widen=YoloWiden(extra_write=("/etc/passwd",)),
     )
     violations = ManifestValidator.validate(m)
-    assert any(
-        v.code == "yolo_widen_conflicts_with_denied" for v in violations
-    )
+    assert any(v.code == "yolo_widen_conflicts_with_denied" for v in violations)
 
 
 def test_validator_passes_on_minimal_manifest():

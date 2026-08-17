@@ -71,9 +71,7 @@ def test_transaction_admits_fenced_delete_once() -> None:
 
 def test_transaction_permits_non_delete_action_without_ticket() -> None:
     """The gate only fires on DeleteFileAction; other actions are free-pass."""
-    write_action = WriteFileAction(
-        path="new.py", content="", rationale="new module"
-    )
+    write_action = WriteFileAction(path="new.py", content="", rationale="new module")
     txn = open_transaction(
         step_id=new_step_id(),
         parent_snapshot="d" * 40,

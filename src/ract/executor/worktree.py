@@ -89,9 +89,7 @@ def ensure_clean_tracked_tree(root: Path) -> None:
         check=False,
     )
     if result.returncode != 0:
-        raise WorktreeError(
-            f"`git status` failed for {root}: {result.stderr.strip()}"
-        )
+        raise WorktreeError(f"`git status` failed for {root}: {result.stderr.strip()}")
     dirty: list[str] = []
     for line in result.stdout.splitlines():
         if len(line) < 3:
@@ -242,9 +240,7 @@ class WorktreeManager:
             check=False,
         )
         if result.returncode != 0:
-            raise WorktreeError(
-                f"git branch --list failed: {result.stderr.strip()}"
-            )
+            raise WorktreeError(f"git branch --list failed: {result.stderr.strip()}")
         branches: list[str] = []
         for line in result.stdout.splitlines():
             branch = line.strip().lstrip("*").strip()
@@ -261,9 +257,7 @@ class WorktreeManager:
             check=False,
         )
         if result.returncode != 0:
-            raise WorktreeError(
-                f"git worktree list failed: {result.stderr.strip()}"
-            )
+            raise WorktreeError(f"git worktree list failed: {result.stderr.strip()}")
         records: list[dict[str, str]] = []
         current: dict[str, str] = {}
         for line in result.stdout.splitlines():
@@ -289,9 +283,7 @@ class WorktreeManager:
             check=False,
         )
         if add.returncode != 0:
-            raise WorktreeError(
-                f"git add failed in {wt.path}: {add.stderr.strip()}"
-            )
+            raise WorktreeError(f"git add failed in {wt.path}: {add.stderr.strip()}")
         commit = subprocess.run(
             [
                 "git",

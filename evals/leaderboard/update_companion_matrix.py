@@ -85,10 +85,7 @@ class ProviderRow:
         schema_min: float = DEFAULT_SCHEMA_MIN,
     ) -> bool:
         """True iff the row's scores meet the companion floor."""
-        return (
-            self.anti_lazy_score >= anti_lazy_min
-            and self.schema_score >= schema_min
-        )
+        return self.anti_lazy_score >= anti_lazy_min and self.schema_score >= schema_min
 
 
 def _latest_report_per_provider(results_root: Path) -> dict[str, Path]:
@@ -162,9 +159,7 @@ def _render_matrix(
     )
     lines: list[str] = [header]
     if not sorted_rows:
-        lines.append(
-            "| _(none)_ | _(no scored providers)_ | - | - | 0 |\n"
-        )
+        lines.append("| _(none)_ | _(no scored providers)_ | - | - | 0 |\n")
     else:
         for row in sorted_rows:
             companion_count = sum(
@@ -250,9 +245,7 @@ def regenerate_companion_matrix(
         if row is None:
             continue
         rows.append(row)
-    body = _render_matrix(
-        rows, anti_lazy_min=anti_lazy_min, schema_min=schema_min
-    )
+    body = _render_matrix(rows, anti_lazy_min=anti_lazy_min, schema_min=schema_min)
     changed = _write_if_changed(output_path, body)
     return changed, rows
 

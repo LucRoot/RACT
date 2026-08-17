@@ -373,7 +373,9 @@ class Executor:
             assumption_digest = digest_bytes(
                 str(full_path.relative_to(self.project_dir)).encode("utf-8")
             )
-            workspace_path = str(full_path.relative_to(self.project_dir)).replace("\\", "/")
+            workspace_path = str(full_path.relative_to(self.project_dir)).replace(
+                "\\", "/"
+            )
             knot = make_rootknot(
                 self.session_key,
                 workspace_path=workspace_path,

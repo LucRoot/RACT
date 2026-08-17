@@ -30,9 +30,7 @@ def test_windows_refuses_without_escape_hatch():
 
 
 def test_windows_returns_stub_with_escape_hatch(tmp_path: Path):
-    backend = resolve_backend(
-        platform_override="Windows", allow_unenforced=True
-    )
+    backend = resolve_backend(platform_override="Windows", allow_unenforced=True)
     assert isinstance(backend, UnenforcedSandbox)
     assert backend.enforced is False
     assert backend.name == "stub"

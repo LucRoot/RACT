@@ -722,9 +722,7 @@ class LoopController:
             run_id=run_id,
         )
 
-    def _iso_perturb_original_solution(
-        self, iteration: LoopIteration
-    ) -> str | None:
+    def _iso_perturb_original_solution(self, iteration: LoopIteration) -> str | None:
         """Return the original solution text for the iso-perturbation gate.
 
         Overridden by tests. Default reads ``iteration.metrics`` for a

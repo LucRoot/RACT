@@ -239,8 +239,8 @@ def scan_trace(
             evidence_ids: list[bytes] = [
                 e.id for e in between if e.kind in _EVIDENCE_KINDS
             ]
-            is_suspicious = (
-                len(evidence_ids) == 0 and not _is_investigator_chain(between)
+            is_suspicious = len(evidence_ids) == 0 and not _is_investigator_chain(
+                between
             )
             reports.append(
                 ReversalReport(

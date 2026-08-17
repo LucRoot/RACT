@@ -49,10 +49,7 @@ def about_lines() -> tuple[str, ...]:
             "  Free for personal use, research, education, and noncommercial "
             "organizations."
         ),
-        (
-            f"  Commercial use requires a separate agreement with "
-            f"{__root_author__}"
-        ),
+        (f"  Commercial use requires a separate agreement with {__root_author__}"),
     )
 
 

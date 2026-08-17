@@ -183,9 +183,7 @@ class WhispererContract:
             return ()
         if proc.returncode != 0:
             return ()
-        return tuple(
-            line.strip() for line in proc.stdout.splitlines() if line.strip()
-        )
+        return tuple(line.strip() for line in proc.stdout.splitlines() if line.strip())
 
 
 # RACT 0.4.0

@@ -128,7 +128,7 @@ def run_completion_gates(
                 resume_parts.append(
                     f"[COMPANION COLLISION] {exc}. Register a different "
                     "companion provider or opt into "
-                    "``deployment_mode=\"single_provider_advisory\"``. G7 "
+                    '``deployment_mode="single_provider_advisory"``. G7 '
                     "did not run this iteration."
                 )
         if companion_report is not None:
@@ -148,7 +148,9 @@ def run_completion_gates(
 
     # G8 — effort reconciliation.
     if effort_estimate is not None:
-        realized: EffortActual = measure_actual_effort(final_diff, graph=None if symgraph is None else symgraph)  # type: ignore[arg-type]
+        realized: EffortActual = measure_actual_effort(
+            final_diff, graph=None if symgraph is None else symgraph
+        )  # type: ignore[arg-type]
         effort_recon = reconcile_effort(effort_estimate, realized)
         if effort_recon.anomalies:
             blocks_complete = True
@@ -175,9 +177,7 @@ def _emit_effort_anomaly_event(recon: EffortReconciliation) -> None:
                 "kind": "effort_below_expected",
                 "anomalies": list(recon.anomalies),
                 "tau_effort": recon.tau_effort,
-                "ratio": {
-                    k: round(v, 4) for k, v in recon.ratio.items()
-                },
+                "ratio": {k: round(v, 4) for k, v in recon.ratio.items()},
                 "estimate_source": recon.estimate.estimate_source,
             },
         )

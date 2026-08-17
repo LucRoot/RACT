@@ -92,9 +92,7 @@ def test_property_al1_2_gate_results_independent(
     AL-1.3 is neutralised (every partial taint is accepted) so the
     outcome depends solely on AL-1.2.
     """
-    workspace, sandbox_key, alm_key, suite_digest, manifest_digest = _fresh_env(
-        b"g"
-    )
+    workspace, sandbox_key, alm_key, suite_digest, manifest_digest = _fresh_env(b"g")
     artifact = workspace / "artifact.txt"
     artifact.write_bytes(b"payload-g")
 
@@ -136,12 +134,9 @@ def test_property_al1_2_gate_results_independent(
         strict=True,
     )
 
-    expect_ok = all(
-        gr.passed or (gr.handshake_id is not None) for gr in gate_results
-    )
+    expect_ok = all(gr.passed or (gr.handshake_id is not None) for gr in gate_results)
     assert result.is_ok() == expect_ok, (
-        f"result={result} expect_ok={expect_ok} "
-        f"gates={gate_results} taint={taint}"
+        f"result={result} expect_ok={expect_ok} gates={gate_results} taint={taint}"
     )
     if not expect_ok:
         assert result.unwrap_err().predicate == "AL-1.2"
@@ -167,9 +162,7 @@ def test_property_al1_1_signature_bitflip_fails(
     Gates are all-PASS + taint is clean so AL-1.2 and AL-1.3 are
     neutralised; a failure surfaces at AL-1.1 exclusively.
     """
-    workspace, sandbox_key, alm_key, suite_digest, manifest_digest = _fresh_env(
-        b"s"
-    )
+    workspace, sandbox_key, alm_key, suite_digest, manifest_digest = _fresh_env(b"s")
     artifact = workspace / "artifact.txt"
     artifact.write_bytes(b"payload-s")
 
@@ -218,9 +211,7 @@ def test_property_al1_1_signature_bitflip_fails(
     result = verify_workspace(
         index,
         active_plans={flipped_knot.plan_id: [flipped_knot.step_id]},
-        registered_assumptions=_assumption_registry(
-            flipped_knot.assumption_digest
-        ),
+        registered_assumptions=_assumption_registry(flipped_knot.assumption_digest),
         generator_pubkey=lambda _g: _SESSION.public_key_bytes(),
         sandbox_pubkey=lambda _k: sandbox_key.public,
         alm_pubkey=lambda _k: alm_key.public,
@@ -257,9 +248,7 @@ def test_property_al1_3_partial_taint_requires_accept(
     signature is the freshly signed one, so AL-1.1 and AL-1.2 are
     neutralised and any failure surfaces at AL-1.3 exclusively.
     """
-    workspace, sandbox_key, alm_key, suite_digest, manifest_digest = _fresh_env(
-        b"t"
-    )
+    workspace, sandbox_key, alm_key, suite_digest, manifest_digest = _fresh_env(b"t")
     artifact = workspace / "artifact.txt"
     artifact.write_bytes(b"payload-t")
 

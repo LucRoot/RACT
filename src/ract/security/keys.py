@@ -93,9 +93,7 @@ class SandboxKey:
         return cls(priv, key_path)
 
     @classmethod
-    def load_archived(
-        cls, run_id: bytes, workspace_root: Path
-    ) -> "SandboxKey | None":
+    def load_archived(cls, run_id: bytes, workspace_root: Path) -> "SandboxKey | None":
         """Load an archived key for ``run_id`` from ``.rack/sandbox/archive/``.
 
         Returns ``None`` if no archived key exists — the caller then falls
@@ -103,7 +101,11 @@ class SandboxKey:
         module_06 lateral chain branch C).
         """
         archive = (
-            Path(workspace_root) / ".rack" / "sandbox" / "archive" / f"{run_id.hex()}.key"
+            Path(workspace_root)
+            / ".rack"
+            / "sandbox"
+            / "archive"
+            / f"{run_id.hex()}.key"
         )
         if not archive.exists():
             return None

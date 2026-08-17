@@ -263,9 +263,7 @@ def evaluate_related_file_coverage(
 
     return PredicateResult(
         ok=True,
-        reason=(
-            f"coupling satisfied: touched {source_hits!r} and {target_hits!r}"
-        ),
+        reason=(f"coupling satisfied: touched {source_hits!r} and {target_hits!r}"),
         evidence={
             "source_glob": invocation.source_glob,
             "must_also_touch_glob": invocation.must_also_touch_glob,

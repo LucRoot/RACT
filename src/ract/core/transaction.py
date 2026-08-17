@@ -200,9 +200,7 @@ def open_transaction(
         if getattr(action, "kind", None) == "delete_file":
             from ract.contracts.fence import FenceGate  # local import breaks cycles
 
-            if fence_ticket_id is None or not FenceGate.consume_ticket(
-                fence_ticket_id
-            ):
+            if fence_ticket_id is None or not FenceGate.consume_ticket(fence_ticket_id):
                 raise UnfencedDeleteError(
                     f"DeleteFileAction on {getattr(action, 'path', '<unknown>')!r} "
                     "requires a valid fence_ticket_id (SUBSTRATE §8, module_06). "

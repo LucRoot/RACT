@@ -63,7 +63,9 @@ def test_analyze_plan_with_manifest_downgrades_within_tier() -> None:
     with_manifest = analyze_plan(plan, manifest=manifest)
     without_manifest = analyze_plan(plan, manifest=None)
     tier_hits_w = [
-        s for s in with_manifest.high_risk_steps if s.risk_kind == "high_capability_tier"
+        s
+        for s in with_manifest.high_risk_steps
+        if s.risk_kind == "high_capability_tier"
     ]
     tier_hits_wo = [
         s

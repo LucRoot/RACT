@@ -55,9 +55,9 @@ def _events_up_to_step(events: list[Event], step_hex: str) -> list[Event]:
     kept: list[Event] = []
     for ev in events:
         kept.append(ev)
-        if (
-            ev.step_id == step_bytes
-            and ev.kind in ("step.committed", "step.rolled_back")
+        if ev.step_id == step_bytes and ev.kind in (
+            "step.committed",
+            "step.rolled_back",
         ):
             break
     return kept
@@ -195,9 +195,7 @@ def cmd_fork(args: argparse.Namespace) -> int:
     if len(prefix) == len(events):
         # Fork point not found — the step id never terminated in the log.
         # Surface it explicitly rather than silently forking at the tail.
-        step_seen = any(
-            ev.step_id == bytes.fromhex(step_hex) for ev in events
-        )
+        step_seen = any(ev.step_id == bytes.fromhex(step_hex) for ev in events)
         if not step_seen:
             print(
                 f"[ract] step {step_hex!r} not found in run {args.run_id!r}",
@@ -271,8 +269,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
     counts_b = _counts_by_kind(events_b)
     kinds = sorted(set(counts_a) | set(counts_b))
     per_kind = {
-        kind: {"a": counts_a.get(kind, 0), "b": counts_b.get(kind, 0)}
-        for kind in kinds
+        kind: {"a": counts_a.get(kind, 0), "b": counts_b.get(kind, 0)} for kind in kinds
     }
 
     result = {
@@ -294,9 +291,7 @@ def cmd_diff(args: argparse.Namespace) -> int:
             print(f"    b: {divergence.get('b', {})}")
         print("  counts by kind:")
         for kind in kinds:
-            print(
-                f"    {kind}: a={per_kind[kind]['a']} b={per_kind[kind]['b']}"
-            )
+            print(f"    {kind}: a={per_kind[kind]['a']} b={per_kind[kind]['b']}")
     return 0
 
 
@@ -447,12 +442,8 @@ def _trace_command(argv: list[str]) -> int:
     )
     replay_parser.add_argument("run_id")
     replay_parser.add_argument("--until", default=None)
-    replay_parser.add_argument(
-        "--repo", type=Path, default=Path(".")
-    )
-    replay_parser.add_argument(
-        "--json", action="store_true", dest="json_output"
-    )
+    replay_parser.add_argument("--repo", type=Path, default=Path("."))
+    replay_parser.add_argument("--json", action="store_true", dest="json_output")
 
     fork_parser = subparsers.add_parser(
         "fork",
@@ -461,9 +452,7 @@ def _trace_command(argv: list[str]) -> int:
     fork_parser.add_argument("run_id")
     fork_parser.add_argument("--at", required=True)
     fork_parser.add_argument("--with", dest="with_intent", required=True)
-    fork_parser.add_argument(
-        "--json", action="store_true", dest="json_output"
-    )
+    fork_parser.add_argument("--json", action="store_true", dest="json_output")
 
     diff_parser = subparsers.add_parser(
         "diff",
@@ -471,9 +460,7 @@ def _trace_command(argv: list[str]) -> int:
     )
     diff_parser.add_argument("run_id_a")
     diff_parser.add_argument("run_id_b")
-    diff_parser.add_argument(
-        "--json", action="store_true", dest="json_output"
-    )
+    diff_parser.add_argument("--json", action="store_true", dest="json_output")
 
     to_test_parser = subparsers.add_parser(
         "to-test",
@@ -481,9 +468,7 @@ def _trace_command(argv: list[str]) -> int:
     )
     to_test_parser.add_argument("run_id")
     to_test_parser.add_argument("--out", type=Path, required=True)
-    to_test_parser.add_argument(
-        "--json", action="store_true", dest="json_output"
-    )
+    to_test_parser.add_argument("--json", action="store_true", dest="json_output")
 
     parsed = parser.parse_args(argv)
     if parsed.verb == "replay":

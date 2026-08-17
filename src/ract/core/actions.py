@@ -73,18 +73,14 @@ def _reject_path_traversal(path: str) -> str:
         raise ValueError("path must be a non-empty string")
     # Windows-style drive letters (``C:``) as well as posix ``/``.
     if path.startswith(("/", "\\")):
-        raise ValueError(
-            f"path {path!r} is absolute; workspace-relative paths only"
-        )
+        raise ValueError(f"path {path!r} is absolute; workspace-relative paths only")
     if len(path) >= 2 and path[1] == ":":
         raise ValueError(
             f"path {path!r} carries a drive letter; workspace-relative paths only"
         )
     for marker in _TRAVERSAL_MARKERS:
         if marker in path:
-            raise ValueError(
-                f"path {path!r} contains traversal marker {marker!r}"
-            )
+            raise ValueError(f"path {path!r} contains traversal marker {marker!r}")
     return path
 
 

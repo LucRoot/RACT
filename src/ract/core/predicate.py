@@ -58,6 +58,7 @@ def _redacted_predicate_id(raw: bytes) -> str:
     """
     return "redacted:" + hashlib.sha256(raw).hexdigest()[:16]
 
+
 # Canonical form for the compiled suite. Reader dispatches on this value; an
 # unknown value halts, per the same policy as ADR-0008 (`ract.yaml`
 # versioning).
@@ -293,9 +294,7 @@ class AcceptanceSuite:
         if len(self.intent_id) != 16:
             raise ValueError("intent_id must be a 16-byte UUID")
         if not 0.0 <= self.coverage_gate <= 1.0:
-            raise ValueError(
-                f"coverage_gate out of [0.0, 1.0]: {self.coverage_gate}"
-            )
+            raise ValueError(f"coverage_gate out of [0.0, 1.0]: {self.coverage_gate}")
         if self.compiler_version not in _KNOWN_COMPILER_VERSIONS:
             raise ValueError(
                 f"unknown compiler_version {self.compiler_version!r}; "
@@ -334,16 +333,12 @@ class AcceptanceSuite:
 
     def digest(self) -> str:
         """Return the SHA-256 digest of the canonical serialization."""
-        payload = json.dumps(
-            self.to_canonical(), sort_keys=True, separators=(",", ":")
-        )
+        payload = json.dumps(self.to_canonical(), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def to_json(self) -> str:
         """Return the canonical JSON form (sorted keys, trailing newline)."""
-        return (
-            json.dumps(self.to_canonical(), sort_keys=True, indent=2) + "\n"
-        )
+        return json.dumps(self.to_canonical(), sort_keys=True, indent=2) + "\n"
 
 
 # ---------------------------------------------------------------------------

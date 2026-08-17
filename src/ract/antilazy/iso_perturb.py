@@ -59,9 +59,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-TransformationKind = Literal[
-    "rename_entities", "swap_syntax", "permute_examples"
-]
+TransformationKind = Literal["rename_entities", "swap_syntax", "permute_examples"]
 """Names of the three isomorphic transformations the gate applies."""
 
 
@@ -527,9 +525,7 @@ def _split_intent_tokens(intent: str) -> list[str]:
     return result
 
 
-def rename_map_degeneracy_ratio(
-    intent: str, rename_map: Mapping[str, str]
-) -> float:
+def rename_map_degeneracy_ratio(intent: str, rename_map: Mapping[str, str]) -> float:
     """Return the fraction of renameable alpha tokens that were renamed.
 
     Second Pass finding (Q1): a rename transformation whose map is
@@ -739,9 +735,7 @@ def compare_solutions(
         ).ratio()
         cutoff = 1.0 if similarity_threshold is None else similarity_threshold
         return similarity, (
-            "string_similarity_below_threshold"
-            if similarity < cutoff
-            else None
+            "string_similarity_below_threshold" if similarity < cutoff else None
         )
     if original_norm is None:
         return 0.0, "parse_failure_original"
@@ -749,9 +743,7 @@ def compare_solutions(
         return 0.0, "parse_failure_transformed"
     if original_norm == transformed_norm:
         return 1.0, None
-    similarity = difflib.SequenceMatcher(
-        None, original_norm, transformed_norm
-    ).ratio()
+    similarity = difflib.SequenceMatcher(None, original_norm, transformed_norm).ratio()
     return similarity, "ast_dump_mismatch"
 
 
@@ -910,9 +902,7 @@ def _emit_rename_degeneracy_advisory(ratio: float, floor: float) -> None:
         pass
 
 
-def _emit_producer_error_advisory(
-    transformation_kind: str, exc: BaseException
-) -> None:
+def _emit_producer_error_advisory(transformation_kind: str, exc: BaseException) -> None:
     """Emit ``laziness.violated`` advisory when the primary producer errors.
 
     Second Pass finding (Additional #4). Distinguishing a producer

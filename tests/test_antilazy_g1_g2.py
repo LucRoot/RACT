@@ -128,10 +128,7 @@ def _held_out_suite(intent_id: bytes) -> AcceptanceSuite:
 def _workspace_with_calc() -> WorkspaceSnapshot:
     return WorkspaceSnapshot(
         files={
-            "src/calc.py": (
-                "def add(a: int, b: int) -> int:\n"
-                "    return a + b\n"
-            ),
+            "src/calc.py": ("def add(a: int, b: int) -> int:\n    return a + b\n"),
         },
         timestamp=1.0,
     )
@@ -194,8 +191,7 @@ def test_held_out_seal_refused_by_model_capability(tmp_path: Path) -> None:
     )
     denied_globs = manifest.filesystem.denied
     assert any(
-        str(seal_path).startswith(g.rstrip("*").rstrip("/"))
-        for g in denied_globs
+        str(seal_path).startswith(g.rstrip("*").rstrip("/")) for g in denied_globs
     ), "the seal path must be under a denied glob on the model-facing manifest"
 
 
@@ -407,9 +403,7 @@ def _visible_ok_predicate() -> AcceptancePredicate:
     return AcceptancePredicate(
         id=new_predicate_id(),
         kind="invariant",
-        invocation=AssertionInvocation(
-            callable_ref="test_antilazy_g1_g2:_always_true"
-        ),
+        invocation=AssertionInvocation(callable_ref="test_antilazy_g1_g2:_always_true"),
         required=True,
     )
 
@@ -450,9 +444,7 @@ def test_worked_example_visible_passes_holdout_fails(tmp_path: Path) -> None:
     snapshot = WorkspaceSnapshot(files={}, timestamp=0.0)
     # ALM check_t1: dual detected via duck typing.
     cause = check_t1(dual, snapshot)  # type: ignore[arg-type]
-    assert cause is None, (
-        "T1 must not fire COMPLETE when the held-out suite is red"
-    )
+    assert cause is None, "T1 must not fire COMPLETE when the held-out suite is red"
     # A gap should have been emitted; wire a writer and re-run to observe.
     writer = JsonlEventWriter(
         path=tmp_path / "events.jsonl",

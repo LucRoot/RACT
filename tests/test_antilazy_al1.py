@@ -96,7 +96,11 @@ def _sample_v3(
         gate_results
         if gate_results is not None
         else tuple(
-            GateResult(gate_id=f"G{i}", passed=True, evidence_digest=digest_bytes(f"g{i}".encode()))
+            GateResult(
+                gate_id=f"G{i}",
+                passed=True,
+                evidence_digest=digest_bytes(f"g{i}".encode()),
+            )
             for i in range(1, 9)
         )
     )
@@ -133,7 +137,9 @@ def test_antilazy_signature_verifies_under_alm_pubkey(
     assert knot.verify_antilazy(alm_key.public)
 
     # Negative case: a bit-flip in the signature must fail verify.
-    flipped_sig = bytes([knot.antilazy_signature[0] ^ 0xFF]) + knot.antilazy_signature[1:]
+    flipped_sig = (
+        bytes([knot.antilazy_signature[0] ^ 0xFF]) + knot.antilazy_signature[1:]
+    )
     forged = Rootknot(
         plan_id=knot.plan_id,
         step_id=knot.step_id,
@@ -202,7 +208,11 @@ def test_gate_result_fail_without_handshake_al1_fails(
     sandbox_key = SandboxKey.generate(b"\x14" * 16, workspace_root=fresh_workspace)
     alm_key = AlmVerifierKey.generate(b"\x15" * 16, workspace_root=fresh_workspace)
     grs = tuple(
-        GateResult(gate_id=f"G{i}", passed=(i != 2), evidence_digest=digest_bytes(f"g{i}".encode()))
+        GateResult(
+            gate_id=f"G{i}",
+            passed=(i != 2),
+            evidence_digest=digest_bytes(f"g{i}".encode()),
+        )
         for i in range(1, 9)
     )
     knot, suite_digest, manifest_digest = _sample_v3(
@@ -464,9 +474,7 @@ def test_investigator_finding_feeds_g6_uncovered() -> None:
             line=1,
         ),
     )
-    graph = SymbolGraph(
-        symbols=symbols, call_edges=calls, import_edges=imports
-    )
+    graph = SymbolGraph(symbols=symbols, call_edges=calls, import_edges=imports)
 
     touched = (Path("app/core.py"),)
     selected = select_investigation_files(graph, touched, max_files=5)

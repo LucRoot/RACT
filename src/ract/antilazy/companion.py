@@ -146,11 +146,7 @@ class CompanionRedTeamReport:
         they log to the report but do not trigger the loop-resume
         pathway.
         """
-        return tuple(
-            f
-            for f in self.findings
-            if f.surviving() and not f.advisory
-        )
+        return tuple(f for f in self.findings if f.surviving() and not f.advisory)
 
     def advisory_findings(self) -> tuple[CounterexampleFinding, ...]:
         """Return findings marked advisory (single-provider mode)."""
@@ -186,9 +182,7 @@ class CompanionConfig:
     """
 
     provider: "Provider"
-    sandbox_backend: SandboxBackend = field(
-        default_factory=_default_sandbox_backend
-    )
+    sandbox_backend: SandboxBackend = field(default_factory=_default_sandbox_backend)
     read_only: bool = True
     time_budget_seconds: int = 120
     deployment_mode: DeploymentMode = "multi_provider"
@@ -412,7 +406,11 @@ def run_companion(
     is_advisory = config.deployment_mode == "single_provider_advisory"
     evaluated: list[CounterexampleFinding] = []
     for finding in proposed:
-        if runner is None or pre_change_workspace is None or post_change_workspace is None:
+        if (
+            runner is None
+            or pre_change_workspace is None
+            or post_change_workspace is None
+        ):
             evaluated.append(
                 CounterexampleFinding(
                     test_id=finding.test_id,
@@ -440,9 +438,7 @@ def run_companion(
             )
         )
 
-    survivors_count = sum(
-        1 for f in evaluated if f.surviving() and not f.advisory
-    )
+    survivors_count = sum(1 for f in evaluated if f.surviving() and not f.advisory)
     total_elapsed_seconds = max(0.0, _time.monotonic() - start)
     total_elapsed_int = int(total_elapsed_seconds)
     # Budget check runs against the SAME measurement as the report so

@@ -278,7 +278,9 @@ def _classify_rootknot(path: Path) -> tuple[str | None, bool]:
     if not isinstance(provider, str):
         return None, False
 
-    signatures = data.get("signatures") if isinstance(data.get("signatures"), dict) else {}
+    signatures = (
+        data.get("signatures") if isinstance(data.get("signatures"), dict) else {}
+    )
     rk1 = bool(signatures.get("generator_valid", False))
     rk3 = bool(signatures.get("environment_valid", False))
     al1 = bool(signatures.get("antilazy_valid", False))
@@ -349,7 +351,11 @@ def compute_attestation_summaries(runs_root: Path) -> dict[str, AttestationSumma
     # to report).
     for marker in runs_root.rglob("MISSING_ROOTKNOT.txt"):
         try:
-            lines = [ln for ln in marker.read_text(encoding="utf-8").splitlines() if ln.strip()]
+            lines = [
+                ln
+                for ln in marker.read_text(encoding="utf-8").splitlines()
+                if ln.strip()
+            ]
         except OSError:
             continue
         for line in lines:
@@ -490,9 +496,7 @@ def render_leaderboard(
             f"{_gap_cell(claimed, attested)} | {last_updated} |"
         )
     if not providers:
-        lines.append(
-            "| _no reports yet_ | - | - | - | - | - | - | - | - |"
-        )
+        lines.append("| _no reports yet_ | - | - | - | - | - | - | - | - |")
     return LeaderboardTable(
         markdown="\n".join(lines) + "\n", provider_count=len(providers)
     )

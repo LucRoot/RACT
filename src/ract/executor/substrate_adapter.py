@@ -291,14 +291,11 @@ def run_via_substrate(
             # step so ``Harness.run``'s failure path is uniform.
             return Rooted(
                 value=None,
-                assumption=(
-                    "each substrate step commits on post-condition success."
-                ),
+                assumption=("each substrate step commits on post-condition success."),
                 confidence=0.0,
                 provenance=["harness.substrate_adapter", f"step:{index + 1}"],
                 error=(
-                    f"Step {index + 1} rolled back after execution: "
-                    f"{record.reason}"
+                    f"Step {index + 1} rolled back after execution: {record.reason}"
                 ),
             )
 

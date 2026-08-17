@@ -28,7 +28,9 @@ def _sidecar_path(artifact_path: Path) -> Path:
     return artifact_path.parent / f".{artifact_path.name}.rootknot.json"
 
 
-def verify_artifact(artifact_path: Path, workspace_root: Path | None = None) -> tuple[bool, str]:
+def verify_artifact(
+    artifact_path: Path, workspace_root: Path | None = None
+) -> tuple[bool, str]:
     """Verify the Rootknot for ``artifact_path``.
 
     Returns ``(ok, message)``. Checks:
@@ -149,12 +151,18 @@ def _resolve_pubkey(knot) -> bytes | None:
     if not key_dir.is_dir():
         return None
     target_id = knot.generator.public_key_id
-    for pem_path in list(key_dir.glob("*.pem")) + list(key_dir.glob("*.pem.archived-*")):
+    for pem_path in list(key_dir.glob("*.pem")) + list(
+        key_dir.glob("*.pem.archived-*")
+    ):
         try:
             from cryptography.hazmat.primitives import serialization
-            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+                Ed25519PrivateKey,
+            )
 
-            priv = serialization.load_pem_private_key(pem_path.read_bytes(), password=None)
+            priv = serialization.load_pem_private_key(
+                pem_path.read_bytes(), password=None
+            )
             if not isinstance(priv, Ed25519PrivateKey):
                 continue
             pub_bytes = priv.public_key().public_bytes(

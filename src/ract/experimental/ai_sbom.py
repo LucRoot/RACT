@@ -56,7 +56,9 @@ def _quality_from_test_results(test_results: Any) -> float | None:
 def _project_current_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
     """Project a current-shape ``Receipt`` dict into the v0.1 SBOM record shape."""
     plan_hash = str(receipt.get("plan_hash", ""))
-    file_id = f"plan:{plan_hash[:12]}" if plan_hash else f"run:{receipt.get('run_id', '')}"
+    file_id = (
+        f"plan:{plan_hash[:12]}" if plan_hash else f"run:{receipt.get('run_id', '')}"
+    )
     return {
         "file": file_id,
         "model_provider": receipt.get("signer_id", ""),

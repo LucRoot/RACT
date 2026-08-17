@@ -113,7 +113,7 @@ def test_loop_entry_refuses_dirty_tracked_tree(tmp_path: Path) -> None:
     ):
         subprocess.run(cmd, cwd=tmp_path, check=True, capture_output=True, env=env)
     # Now mutate the tracked config so the tree is dirty.
-    config.write_text("providers: [\"broken\"]\n", encoding="utf-8")
+    config.write_text('providers: ["broken"]\n', encoding="utf-8")
     with pytest.raises(Exception) as excinfo:
         LoopController(
             config,

@@ -23,10 +23,23 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-cov>=5.0", "hypothesis>=6.0", "respx>=0.21", "ruff>=0.5", "mypy>=1.11", "types-PyYAML>=6.0", "fastapi>=0.100", "email-validator>=2.0", "mutmut>=2.4"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "hypothesis>=6.0", "respx>=0.21", "ruff>=0.5", "mypy>=1.11", "types-PyYAML>=6.0", "fastapi>=0.100", "email-validator>=2.0", "mutmut>=2.4", "jsonschema>=4.0"]
 
 [project.scripts]
 ract = "ract.cli:main"
+
+[tool.ruff]
+# Anti-lazy evaluation harness ships intentionally-hostile fixture code
+# (workspaces under evals/antilazy/*/workspace/ and evals/benchmarks/*/)
+# which is designed to trip the gates the harness is testing. The lint
+# violations there are load-bearing to the fixtures' purpose; do not
+# treat them as project-wide style debt.
+extend-exclude = [
+    "evals/antilazy/*/workspace",
+    "evals/antilazy/*/workspace/**",
+    "evals/benchmarks/refactor-token-usage",
+    "evals/benchmarks/refactor-token-usage/**",
+]
 
 [tool.ruff.lint]
 # E402 is disabled project-wide to allow module-level docstrings and re-exports

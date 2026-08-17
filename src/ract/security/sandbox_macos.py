@@ -89,13 +89,13 @@ class MacosSandbox:
             "(allow process-exec)",
             "(allow process-fork)",
             # Standard shim allowances a POSIX runtime needs.
-            "(allow file-read* (literal \"/dev/null\") (literal \"/dev/zero\"))",
-            "(allow file-read* (regex #\"^/System/.*\"))",
-            "(allow file-read* (regex #\"^/usr/lib/.*\"))",
-            "(allow file-read* (regex #\"^/usr/share/.*\"))",
+            '(allow file-read* (literal "/dev/null") (literal "/dev/zero"))',
+            '(allow file-read* (regex #"^/System/.*"))',
+            '(allow file-read* (regex #"^/usr/lib/.*"))',
+            '(allow file-read* (regex #"^/usr/share/.*"))',
             # The worktree is bind-equivalent — read + write.
-            f"(allow file-read* (subpath \"{worktree}\"))",
-            f"(allow file-write* (subpath \"{worktree}\"))",
+            f'(allow file-read* (subpath "{worktree}"))',
+            f'(allow file-write* (subpath "{worktree}"))',
         ]
 
         for path in manifest.filesystem.read:
@@ -111,9 +111,7 @@ class MacosSandbox:
 
         if manifest.network.deny_default:
             for host in manifest.network.allow_hosts:
-                lines.append(
-                    f'(allow network-outbound (remote ip "{host}:*"))'
-                )
+                lines.append(f'(allow network-outbound (remote ip "{host}:*"))')
         else:
             lines.append("(allow network-outbound)")
 
@@ -130,17 +128,13 @@ class MacosSandbox:
         return any(fnmatch.fnmatch(target, p) for p in patterns)
 
     @classmethod
-    def would_refuse_write(
-        cls, manifest: CapabilityManifest, target: str
-    ) -> bool:
+    def would_refuse_write(cls, manifest: CapabilityManifest, target: str) -> bool:
         if cls._matches(target, manifest.filesystem.denied):
             return True
         return not cls._matches(target, manifest.filesystem.write)
 
     @classmethod
-    def would_refuse_read(
-        cls, manifest: CapabilityManifest, target: str
-    ) -> bool:
+    def would_refuse_read(cls, manifest: CapabilityManifest, target: str) -> bool:
         if cls._matches(target, manifest.filesystem.denied):
             return True
         if cls._matches(target, manifest.filesystem.read):
@@ -150,9 +144,7 @@ class MacosSandbox:
         return True
 
     @classmethod
-    def would_refuse_network(
-        cls, manifest: CapabilityManifest, host: str
-    ) -> bool:
+    def would_refuse_network(cls, manifest: CapabilityManifest, host: str) -> bool:
         if not manifest.network.deny_default:
             return False
         for allowed in manifest.network.allow_hosts:

@@ -44,11 +44,18 @@ def _init_repo(root: Path) -> str:
         subprocess.run(cmd, cwd=root, check=True, capture_output=True, env=env)
     (root / "seed.txt").write_text("initial\n", encoding="utf-8")
     subprocess.run(
-        ["git", "add", "-A"], cwd=root, check=True, capture_output=True, env=env,
+        ["git", "add", "-A"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        env=env,
     )
     subprocess.run(
-        ["git", "commit", "-q", "-m", "initial"], cwd=root, check=True,
-        capture_output=True, env=env,
+        ["git", "commit", "-q", "-m", "initial"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        env=env,
     )
     return resolve_head_sha(root)
 
@@ -92,7 +99,10 @@ def committed_repo(tmp_path: Path) -> tuple[Path, bytes]:
 def _run_cli(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "ract.cli", "session", *args],
-        capture_output=True, text=True, check=False, cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=cwd,
     )
 
 
@@ -109,16 +119,29 @@ def test_session_diff_prints_patch(committed_repo: tuple[Path, bytes]) -> None:
     repo, sid = committed_repo
     # Use the initial commit as the parent — the merge-base fallback also
     # works, but pinning ``--parent`` keeps the assertion deterministic.
-    parent = subprocess.run(
-        ["git", "-C", str(repo), "rev-parse", "HEAD~1"],
-        capture_output=True, text=True, check=False,
-    ).stdout.strip() or subprocess.run(
-        ["git", "-C", str(repo), "rev-list", "--max-parents=0", "HEAD"],
-        capture_output=True, text=True, check=False,
-    ).stdout.strip()
+    parent = (
+        subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "HEAD~1"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+        or subprocess.run(
+            ["git", "-C", str(repo), "rev-list", "--max-parents=0", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+    )
     result = _run_cli(
-        "diff", sid.hex(), "--repo", str(repo), "--parent", parent,
-        "--json", cwd=repo,
+        "diff",
+        sid.hex(),
+        "--repo",
+        str(repo),
+        "--parent",
+        parent,
+        "--json",
+        cwd=repo,
     )
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
@@ -130,7 +153,9 @@ def test_session_ls_help_registers() -> None:
     """The DoD leaf: `ract session ls --help` is discoverable."""
     result = subprocess.run(
         [sys.executable, "-m", "ract.cli", "session", "ls", "--help"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0
     assert "worktree" in result.stdout.lower()
@@ -139,7 +164,9 @@ def test_session_ls_help_registers() -> None:
 def test_session_diff_help_registers() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "ract.cli", "session", "diff", "--help"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0
     assert "step_id" in result.stdout.lower()

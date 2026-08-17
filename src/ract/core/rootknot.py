@@ -320,9 +320,7 @@ class Rootknot:
         """Verify the anti-lazy signature against ``alm_pubkey`` (AL-1.1)."""
         if not self.antilazy_signature:
             return False
-        return verify(
-            self.canonical_bytes(), self.antilazy_signature, alm_pubkey
-        )
+        return verify(self.canonical_bytes(), self.antilazy_signature, alm_pubkey)
 
 
 def make_rootknot(

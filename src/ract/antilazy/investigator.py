@@ -180,9 +180,7 @@ def select_investigation_files(
         remainder = sorted(
             path
             for path in all_files
-            if not _is_touched(path)
-            and path not in generated
-            and path not in picked
+            if not _is_touched(path) and path not in generated and path not in picked
         )
         needed = max_files - len(picked)
         picked.extend(remainder[:needed])
@@ -288,9 +286,7 @@ def _emit_investigator_report(report: InvestigatorReport) -> None:
                     }
                     for f in report.findings
                 ],
-                "no_finding_explicit": [
-                    str(p) for p in report.no_finding_explicit
-                ],
+                "no_finding_explicit": [str(p) for p in report.no_finding_explicit],
             },
         )
     except Exception:  # noqa: BLE001

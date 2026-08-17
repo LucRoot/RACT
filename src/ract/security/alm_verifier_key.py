@@ -105,11 +105,7 @@ class AlmVerifierKey:
         chain-of-custody design).
         """
         archive = (
-            Path(workspace_root)
-            / ".rack"
-            / "alm"
-            / "archive"
-            / f"{run_id.hex()}.key"
+            Path(workspace_root) / ".rack" / "alm" / "archive" / f"{run_id.hex()}.key"
         )
         if not archive.exists():
             return None

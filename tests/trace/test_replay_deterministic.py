@@ -68,9 +68,7 @@ def test_replay_reconstructs_reel(tmp_path: Path) -> None:
 
     buf = io.StringIO()
     with redirect_stdout(buf):
-        rc = main(
-            ["trace", "--runs-root", str(runs), "replay", "r1", "--json"]
-        )
+        rc = main(["trace", "--runs-root", str(runs), "replay", "r1", "--json"])
     assert rc == 0
 
     out = json.loads(buf.getvalue())

@@ -289,9 +289,7 @@ class RunReporter:
                     {
                         "index": idx,
                         "decision": ev.payload.get("outcome", ""),
-                        "test_returncode": (
-                            0 if ev.kind == "step.committed" else 1
-                        ),
+                        "test_returncode": (0 if ev.kind == "step.committed" else 1),
                         "quality_score": None,
                         "reflection": ev.payload.get("reason", ""),
                         "duration_ns": duration_ns,
@@ -307,9 +305,7 @@ class RunReporter:
                 break
             if ev.kind == "run.aborted":
                 final_decision = "aborted"
-                termination_cause = str(
-                    ev.payload.get("termination_cause", "")
-                )
+                termination_cause = str(ev.payload.get("termination_cause", ""))
                 break
 
         # Handshakes: pending set is (requested - resolved).

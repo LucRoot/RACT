@@ -41,11 +41,18 @@ def _init_repo(root: Path) -> str:
         subprocess.run(cmd, cwd=root, check=True, capture_output=True, env=env)
     (root / "seed.txt").write_text("initial\n", encoding="utf-8")
     subprocess.run(
-        ["git", "add", "-A"], cwd=root, check=True, capture_output=True, env=env,
+        ["git", "add", "-A"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        env=env,
     )
     subprocess.run(
-        ["git", "commit", "-q", "-m", "initial"], cwd=root, check=True,
-        capture_output=True, env=env,
+        ["git", "commit", "-q", "-m", "initial"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        env=env,
     )
     return resolve_head_sha(root)
 

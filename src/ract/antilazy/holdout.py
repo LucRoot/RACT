@@ -118,9 +118,7 @@ def enforce_trivial_rate_ceiling(
     if not composer_history:
         return
     recent = composer_history[-window:] if window > 0 else composer_history
-    trivial_count = sum(
-        1 for r in recent if r.holdout_kind == "trivial"
-    )
+    trivial_count = sum(1 for r in recent if r.holdout_kind == "trivial")
     total = len(recent)
     if total == 0:
         return
@@ -152,6 +150,8 @@ def enforce_trivial_rate_ceiling(
         "Investigate the composer that keeps producing trivial suites "
         "(module_01 flagged gap closed by module_04)."
     )
+
+
 """Whether the held-out suite carries composed predicates.
 
 ``"real"``: the companion produced at least one non-trivial held-out
@@ -247,9 +247,7 @@ class DualAcceptanceSuite:
         if self.holdout_kind not in ("real", "trivial"):
             raise ValueError(f"unknown holdout_kind: {self.holdout_kind!r}")
         if self.holdout_kind == "trivial" and self.held_out.predicates:
-            raise ValueError(
-                "holdout_kind='trivial' requires held_out.predicates=()"
-            )
+            raise ValueError("holdout_kind='trivial' requires held_out.predicates=()")
 
     def required(self) -> tuple[AcceptancePredicate, ...]:
         """Return required predicates from visible + held_out concatenated.
@@ -592,7 +590,9 @@ def write_dual_suite_snapshot(run_dir: Path, dual: DualAcceptanceSuite) -> Path:
     run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / "suite.json"
     payload = dual.to_canonical()
-    path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+    )
     return path
 
 

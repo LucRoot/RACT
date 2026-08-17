@@ -27,8 +27,7 @@ def _widen_for_yolo(manifest: CapabilityManifest) -> CapabilityManifest:
         update={
             "filesystem": manifest.filesystem.model_copy(
                 update={
-                    "read": manifest.filesystem.read
-                    + manifest.yolo_widen.extra_read,
+                    "read": manifest.filesystem.read + manifest.yolo_widen.extra_read,
                     "write": manifest.filesystem.write
                     + manifest.yolo_widen.extra_write,
                 }

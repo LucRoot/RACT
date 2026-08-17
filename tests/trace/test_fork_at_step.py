@@ -85,7 +85,7 @@ def test_fork_at_step_three_replays_prefix_only(tmp_path: Path) -> None:
 def test_fork_unknown_step_errors(tmp_path: Path) -> None:
     runs = tmp_path / "runs"
     _write_five_step_run(runs, "fork2")
-    bogus = ("f" * 32)
+    bogus = "f" * 32
 
     buf = io.StringIO()
     with redirect_stdout(buf):

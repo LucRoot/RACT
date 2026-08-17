@@ -214,12 +214,8 @@ def enforce_g3(
         flakiness_runs=flakiness_runs,
     )
     if not report.is_semantic_noop and not report.leakage_matches:
-        return PatchDiffGateOutcome(
-            passed=True, should_roll_back=False, report=report
-        )
-    kind = (
-        "solution_leakage" if report.leakage_matches else "semantic_noop"
-    )
+        return PatchDiffGateOutcome(passed=True, should_roll_back=False, report=report)
+    kind = "solution_leakage" if report.leakage_matches else "semantic_noop"
     try:
         from ract.trace.sink import emit as _emit_event
 
@@ -241,9 +237,7 @@ def enforce_g3(
         )
     except Exception:  # noqa: BLE001
         pass
-    return PatchDiffGateOutcome(
-        passed=False, should_roll_back=True, report=report
-    )
+    return PatchDiffGateOutcome(passed=False, should_roll_back=True, report=report)
 
 
 def enforce_g4(
@@ -299,9 +293,7 @@ def enforce_g4(
         )
     except Exception:  # noqa: BLE001
         pass
-    return CoverageDeltaGateOutcome(
-        passed=False, should_roll_back=True, report=report
-    )
+    return CoverageDeltaGateOutcome(passed=False, should_roll_back=True, report=report)
 
 
 def enforce_g5(
@@ -383,9 +375,7 @@ def enforce_g5(
         )
     except Exception:  # noqa: BLE001 — never fail the gate on trace error
         pass
-    return TestIntegrityGateOutcome(
-        passed=False, should_roll_back=True, report=report
-    )
+    return TestIntegrityGateOutcome(passed=False, should_roll_back=True, report=report)
 
 
 def _emit_advisories_if_any(
@@ -437,9 +427,7 @@ def enforce_g6(
         declared_unaffected=declared_unaffected,
     )
     if report.passed():
-        return UnderEditGateOutcome(
-            passed=True, should_roll_back=False, report=report
-        )
+        return UnderEditGateOutcome(passed=True, should_roll_back=False, report=report)
     try:
         from ract.trace.sink import emit as _emit_event
 
@@ -461,9 +449,7 @@ def enforce_g6(
         )
     except Exception:  # noqa: BLE001
         pass
-    return UnderEditGateOutcome(
-        passed=False, should_roll_back=True, report=report
-    )
+    return UnderEditGateOutcome(passed=False, should_roll_back=True, report=report)
 
 
 # RACT 0.4.0

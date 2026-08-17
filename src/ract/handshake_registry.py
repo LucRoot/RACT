@@ -146,9 +146,7 @@ class HandshakeRegistry:
         pending_ids = {item.id for item in self.pending()}
         return [hid for hid in handshake_ids if hid in pending_ids]
 
-    def widen_manifest_for(
-        self, manifest_widen: object, milestone_id: str
-    ) -> object:
+    def widen_manifest_for(self, manifest_widen: object, milestone_id: str) -> object:
         """Apply an approved handshake's widen to the run's capability manifest.
 
         SUBSTRATE §4.3 + module_03 step 6. A handshake widens the manifest
@@ -172,11 +170,7 @@ class HandshakeRegistry:
                 f"{type(manifest_widen).__name__}"
             )
         # Verify the handshake is approved before applying any widen.
-        approved = {
-            item.id
-            for item in self.entries()
-            if item.status == "approved"
-        }
+        approved = {item.id for item in self.entries() if item.status == "approved"}
         if milestone_id not in approved:
             return manifest_widen
         # Apply the widen: union filesystem read + write, union network hosts.
@@ -219,9 +213,7 @@ class HandshakeRegistry:
                 self._save(items)
                 # module_05: emit at the resolve site so the log carries
                 # every terminal transition.
-                _emit_handshake_event(
-                    "handshake.resolved", items[i], reason=""
-                )
+                _emit_handshake_event("handshake.resolved", items[i], reason="")
                 return items[i]
         raise KeyError(f"Handshake not found: {milestone_id}")
 

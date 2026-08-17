@@ -141,9 +141,7 @@ def _score_step_content(text: str) -> tuple[list[HighRiskStep], list[str]]:
                 step_id="",
                 risk_kind="irreversible",
                 score=0.6,
-                rationale=(
-                    "step text contains irreversible verbs (publish/deploy/…)"
-                ),
+                rationale=("step text contains irreversible verbs (publish/deploy/…)"),
             )
         )
         suggestions.append(
@@ -155,14 +153,10 @@ def _score_step_content(text: str) -> tuple[list[HighRiskStep], list[str]]:
                 step_id="",
                 risk_kind="external_state",
                 score=0.5,
-                rationale=(
-                    "step text touches external state (email/send/api/…)"
-                ),
+                rationale=("step text touches external state (email/send/api/…)"),
             )
         )
-        suggestions.append(
-            "confirm external-state step is rate-limited and audited"
-        )
+        suggestions.append("confirm external-state step is rate-limited and audited")
     return flags, suggestions
 
 

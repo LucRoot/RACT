@@ -851,11 +851,7 @@ def _classify_violation(
                 predicate="AL-1.2",
                 detail=(
                     f"gate {gr.gate_id} failed without approved handshake"
-                    + (
-                        f" (handshake_id={gr.handshake_id})"
-                        if gr.handshake_id
-                        else ""
-                    )
+                    + (f" (handshake_id={gr.handshake_id})" if gr.handshake_id else "")
                 ),
             )
         if knot.reversal_taint != "clean":

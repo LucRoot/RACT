@@ -372,7 +372,9 @@ def test_gate_config_can_override_max_age(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_cli_conformance_run_fake(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_conformance_run_fake(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # Copy the corpus into tmp_path so the CLI writes its report under
     # tmp_path/results/ without touching the real evals tree.
     import shutil

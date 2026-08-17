@@ -117,9 +117,7 @@ class ChainBrokenError(RuntimeError):
 # reproducible: sorted keys, no whitespace, UTF-8.
 def canonical_payload_bytes(payload: dict[str, Any]) -> bytes:
     """Return the canonical JSON bytes of ``payload`` for hashing."""
-    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
-    )
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 def hash_event(
@@ -213,9 +211,7 @@ class Event:
             "id": self.id.hex(),
             "run_id": self.run_id.hex(),
             "step_id": self.step_id.hex() if self.step_id is not None else None,
-            "parent_id": (
-                self.parent_id.hex() if self.parent_id is not None else None
-            ),
+            "parent_id": (self.parent_id.hex() if self.parent_id is not None else None),
             "timestamp_ns": self.timestamp_ns,
             "kind": self.kind,
             "payload": self.payload,
@@ -229,9 +225,7 @@ class Event:
         return cls(
             id=bytes.fromhex(raw["id"]),
             run_id=bytes.fromhex(raw["run_id"]),
-            step_id=(
-                bytes.fromhex(raw["step_id"]) if raw.get("step_id") else None
-            ),
+            step_id=(bytes.fromhex(raw["step_id"]) if raw.get("step_id") else None),
             parent_id=(
                 bytes.fromhex(raw["parent_id"]) if raw.get("parent_id") else None
             ),

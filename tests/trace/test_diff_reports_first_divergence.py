@@ -37,9 +37,7 @@ def test_diff_identical_runs_reports_no_divergence(tmp_path: Path) -> None:
 
     buf = io.StringIO()
     with redirect_stdout(buf):
-        rc = main(
-            ["trace", "--runs-root", str(runs), "diff", "a", "b", "--json"]
-        )
+        rc = main(["trace", "--runs-root", str(runs), "diff", "a", "b", "--json"])
     assert rc == 0
     result = json.loads(buf.getvalue())
     assert result["diverged"] is False
@@ -53,9 +51,7 @@ def test_diff_diverging_runs_surfaces_first_divergence(tmp_path: Path) -> None:
 
     buf = io.StringIO()
     with redirect_stdout(buf):
-        rc = main(
-            ["trace", "--runs-root", str(runs), "diff", "a", "b", "--json"]
-        )
+        rc = main(["trace", "--runs-root", str(runs), "diff", "a", "b", "--json"])
     assert rc == 0
     result = json.loads(buf.getvalue())
     assert result["diverged"] is True

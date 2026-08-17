@@ -72,8 +72,7 @@ def test_every_cli_verb_is_accepted() -> None:
 
     extra = accepted_titles - verb_set
     assert not extra, (
-        f"accepted USE_CASES.jsonl entries without a matching CLI verb: "
-        f"{sorted(extra)}"
+        f"accepted USE_CASES.jsonl entries without a matching CLI verb: {sorted(extra)}"
     )
 
 
@@ -134,13 +133,11 @@ def test_cli_verbs_matches_dispatch_table() -> None:
     # declared without appearing as a compare literal.
     missing_from_declared = dispatch_verbs - declared
     assert not missing_from_declared, (
-        f"dispatch branches without a CLI_VERBS entry: "
-        f"{sorted(missing_from_declared)}"
+        f"dispatch branches without a CLI_VERBS entry: {sorted(missing_from_declared)}"
     )
     missing_from_dispatch = declared - dispatch_verbs - {"run"}
     assert not missing_from_dispatch, (
-        f"CLI_VERBS entries without a dispatch branch: "
-        f"{sorted(missing_from_dispatch)}"
+        f"CLI_VERBS entries without a dispatch branch: {sorted(missing_from_dispatch)}"
     )
 
 

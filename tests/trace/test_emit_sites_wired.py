@@ -60,7 +60,9 @@ def test_intent_compile_emits_run_started(writer: JsonlEventWriter) -> None:
     assert "run.started" in kinds
 
 
-def test_transaction_open_emits_step_started(writer: JsonlEventWriter, tmp_path: Path) -> None:
+def test_transaction_open_emits_step_started(
+    writer: JsonlEventWriter, tmp_path: Path
+) -> None:
     open_transaction(
         step_id=new_step_id(),
         parent_snapshot="deadbeef",
@@ -70,7 +72,9 @@ def test_transaction_open_emits_step_started(writer: JsonlEventWriter, tmp_path:
     assert "step.started" in kinds
 
 
-def test_predicate_evaluate_emits_event(writer: JsonlEventWriter, tmp_path: Path) -> None:
+def test_predicate_evaluate_emits_event(
+    writer: JsonlEventWriter, tmp_path: Path
+) -> None:
     predicate = AcceptancePredicate(
         id=new_predicate_id(),
         kind="artifact",

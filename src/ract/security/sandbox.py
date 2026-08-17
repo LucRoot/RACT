@@ -109,11 +109,7 @@ def _default_sink(event: SandboxEvent) -> None:
                 "reason": event.reason,
                 "details": event.details,
             },
-            step_id=(
-                bytes.fromhex(event.step_id_hex)
-                if event.step_id_hex
-                else None
-            ),
+            step_id=(bytes.fromhex(event.step_id_hex) if event.step_id_hex else None),
         )
     except Exception:  # noqa: BLE001
         pass

@@ -238,9 +238,7 @@ class PodmanBackend:
         if result.returncode != 0 and "no such container" not in (
             result.stderr + result.stdout
         ):
-            raise RuntimeError(
-                f"{cli} rm failed for {ref.id}: {result.stderr.strip()}"
-            )
+            raise RuntimeError(f"{cli} rm failed for {ref.id}: {result.stderr.strip()}")
 
     def _start_cmd(
         self,

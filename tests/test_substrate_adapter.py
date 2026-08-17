@@ -201,12 +201,16 @@ def test_substrate_adapter_runs_step_inside_worktree(tmp_path):
         assert ".git" in d.parts and "ract-worktrees" in d.parts
 
     # After the transaction commits, the write is visible on the step branch.
-    branches = subprocess.run(
-        ["git", "-C", str(tmp_path), "branch", "--list", "rootact/step/*"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip().splitlines()
+    branches = (
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "branch", "--list", "rootact/step/*"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .splitlines()
+    )
     assert branches, "expected at least one rootact/step/* branch after commit"
 
 
@@ -352,9 +356,7 @@ def test_substrate_adapter_rollback_on_postcondition_failure(tmp_path, monkeypat
         kwargs["predicates"] = (_FailingPredicate(),)
         return real_spec_cls(**kwargs)
 
-    monkeypatch.setattr(
-        "ract.executor.substrate_adapter.SubstrateStepSpec", _wrap_spec
-    )
+    monkeypatch.setattr("ract.executor.substrate_adapter.SubstrateStepSpec", _wrap_spec)
 
     parent_before = subprocess.run(
         ["git", "-C", str(tmp_path), "rev-parse", "HEAD"],

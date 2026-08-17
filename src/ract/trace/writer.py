@@ -185,9 +185,7 @@ class EventReader:
         """
         events = list(EventReader.iter_events(path))
         if not events:
-            raise ChainBrokenError(
-                f"event log {path!s} is empty; cannot infer run_id"
-            )
+            raise ChainBrokenError(f"event log {path!s} is empty; cannot infer run_id")
         chain = EventChain(run_id=events[0].run_id)
         for event in events:
             # ``EventChain.append`` re-hashes the payload and validates

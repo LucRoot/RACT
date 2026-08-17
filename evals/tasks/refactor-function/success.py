@@ -46,7 +46,11 @@ def verify(workspace: Path) -> dict:
             if isinstance(node, ast.FunctionDef):
                 score = _cyclomatic_complexity(node)
                 result["checks"].append(
-                    {"name": f"complexity_{node.name}", "score": score, "passed": score < 8}
+                    {
+                        "name": f"complexity_{node.name}",
+                        "score": score,
+                        "passed": score < 8,
+                    }
                 )
                 if score >= 8:
                     complexity_ok = False

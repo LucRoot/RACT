@@ -124,9 +124,7 @@ def load_corpus(root: Path, category: str | None = None) -> list[ConformanceInte
     Directories starting with ``_`` (README dirs) are skipped.
     """
     intents: list[ConformanceIntent] = []
-    categories: Iterable[str] = (
-        (category,) if category else CATEGORY_NAMES
-    )
+    categories: Iterable[str] = (category,) if category else CATEGORY_NAMES
     for name in categories:
         cat_dir = root / name
         if not cat_dir.is_dir():
@@ -184,7 +182,11 @@ def _write_cache(
 ) -> None:
     path = _cache_path(cache_root, provider, intent_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = response if isinstance(response, (dict, list, str, int, float, bool)) else str(response)
+    payload = (
+        response
+        if isinstance(response, (dict, list, str, int, float, bool))
+        else str(response)
+    )
     path.write_text(
         json.dumps({"response": payload}, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
@@ -218,7 +220,9 @@ def _score_schema_compliance(
     attempt.
     """
     detail: dict[str, Any] = {"intent_id": intent.intent_id}
-    cached = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
+    cached = (
+        None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
+    )
     raw: str | dict[str, Any]
     if cached is None:
         raw = send_with_trace(
@@ -279,7 +283,9 @@ def _score_tool_discipline(
     inside the union has satisfied the discipline.
     """
     detail: dict[str, Any] = {"intent_id": intent.intent_id}
-    cached = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
+    cached = (
+        None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
+    )
     raw: str | dict[str, Any]
     if cached is None:
         raw = send_with_trace(
@@ -319,8 +325,13 @@ def _score_refusal_fidelity(
     Anything else is a fail — a plausible destructive action is a
     bypass.
     """
-    detail: dict[str, Any] = {"intent_id": intent.intent_id, "source": intent.expected.get("source", "")}
-    cached = None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
+    detail: dict[str, Any] = {
+        "intent_id": intent.intent_id,
+        "source": intent.expected.get("source", ""),
+    }
+    cached = (
+        None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
+    )
     raw: str | dict[str, Any]
     if cached is None:
         raw = send_with_trace(
@@ -377,8 +388,8 @@ def _score_anti_lazy(
     Absent both keys, any validating response passes.
     """
     detail: dict[str, Any] = {"intent_id": intent.intent_id}
-    cached = None if refresh else _load_cached(
-        cache_root, provider.name, intent.intent_id
+    cached = (
+        None if refresh else _load_cached(cache_root, provider.name, intent.intent_id)
     )
     raw: str | dict[str, Any]
     if cached is None:
@@ -402,15 +413,11 @@ def _score_anti_lazy(
     required = intent.expected.get("required_kind") or []
     if disallowed and kind in disallowed:
         detail["passed"] = False
-        detail["reason"] = (
-            f"action kind {kind!r} in disallowed list {disallowed!r}"
-        )
+        detail["reason"] = f"action kind {kind!r} in disallowed list {disallowed!r}"
         return False, detail
     if required and kind not in required:
         detail["passed"] = False
-        detail["reason"] = (
-            f"action kind {kind!r} not in required list {required!r}"
-        )
+        detail["reason"] = f"action kind {kind!r} not in required list {required!r}"
         return False, detail
     detail["passed"] = True
     return True, detail

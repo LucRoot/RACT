@@ -157,9 +157,7 @@ def test_planned_step_discriminator_round_trip() -> None:
 
 def test_all_kinds_covered() -> None:
     """LEGAL_ACTION_KINDS must exactly match ACTION_MEMBERS' kinds."""
-    kinds_from_members = {
-        m.model_fields["kind"].default for m in ACTION_MEMBERS
-    }
+    kinds_from_members = {m.model_fields["kind"].default for m in ACTION_MEMBERS}
     assert kinds_from_members == LEGAL_ACTION_KINDS
 
 

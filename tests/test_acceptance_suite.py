@@ -352,9 +352,7 @@ def test_metadata_channel_evaluators_read_snapshot_recorded_results():
     )
     ws_ok = WorkspaceSnapshot(
         metadata={
-            "pytest": {
-                "tests/test_x.py::test_ok": {"ok": True, "reason": "passed"}
-            },
+            "pytest": {"tests/test_x.py::test_ok": {"ok": True, "reason": "passed"}},
             "mypy": {"src/ract": {"ok": True, "reason": "no issues"}},
             "hypothesis": {
                 "ract.core.predicate:roundtrip": {"ok": True, "reason": "50 examples"}

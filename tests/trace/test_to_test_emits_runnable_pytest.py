@@ -91,8 +91,7 @@ def test_to_test_emits_runnable_pytest(tmp_path: Path) -> None:
         cwd=str(tmp_path),
     )
     assert proc.returncode == 0, (
-        f"pytest --collect-only failed:\nSTDOUT:\n{proc.stdout}\n"
-        f"STDERR:\n{proc.stderr}"
+        f"pytest --collect-only failed:\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
     )
 
     # Running the emitted test must produce a green result.

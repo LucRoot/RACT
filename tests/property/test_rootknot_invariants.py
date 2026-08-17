@@ -278,13 +278,17 @@ def test_tampered_sidecar_fails_verification(
     # digest-check succeeds by confirming the failure message is NOT a digest
     # mismatch).
     ok_before, msg_before = verify_artifact(artifact)
-    assert "digest mismatch" not in msg_before, "untouched artifact must not fail digest"
+    assert "digest mismatch" not in msg_before, (
+        "untouched artifact must not fail digest"
+    )
 
     # Tamper with the artifact content; the recorded digest no longer matches.
     artifact.write_text("def f():\n    return 2  # tampered\n", encoding="utf-8")
     ok_after, msg_after = verify_artifact(artifact)
     assert ok_after is False
-    assert "digest mismatch" in msg_after, "tampered artifact must report digest mismatch"
+    assert "digest mismatch" in msg_after, (
+        "tampered artifact must report digest mismatch"
+    )
 
 
 # RACT 0.3.0

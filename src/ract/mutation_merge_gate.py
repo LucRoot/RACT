@@ -149,9 +149,7 @@ class MutationMergeGateEngine:
         if metric_type == "coverage":
             current_val = delta_coverage if wants_delta else current_coverage
         elif metric_type == "mutation":
-            current_val = (
-                delta_mutation if wants_delta else current_mutation_score
-            )
+            current_val = delta_mutation if wants_delta else current_mutation_score
         else:
             return GateResult(
                 passed=False,

@@ -88,7 +88,9 @@ REBUILD_SIGNALS: list[tuple[str, str, callable]] = [
     (
         "R05",
         "evals/benchmarks/ contains reproducible baseline report",
-        lambda: _file_exists("evals", "benchmarks", "refactor-token-usage", "report.md"),
+        lambda: _file_exists(
+            "evals", "benchmarks", "refactor-token-usage", "report.md"
+        ),
     ),
     (
         "R06",
@@ -113,7 +115,9 @@ REBUILD_SIGNALS: list[tuple[str, str, callable]] = [
     (
         "R10",
         "README under 500 words (excluding code blocks)",
-        lambda: _readme_word_count() < 1000,  # softened for v0.4 CLI-index + AL-1 explanation
+        lambda: (
+            _readme_word_count() < 1000
+        ),  # softened for v0.4 CLI-index + AL-1 explanation
     ),
     (
         "R11",
@@ -196,7 +200,9 @@ SUBSTRATE_SIGNALS: list[tuple[str, str, callable]] = [
     (
         "S13",
         "Invariant RK-3 tested",
-        lambda: _file_exists("tests", "property", "test_rk3_environmental_attestation.py"),
+        lambda: _file_exists(
+            "tests", "property", "test_rk3_environmental_attestation.py"
+        ),
     ),
     (
         "S14",
@@ -389,7 +395,9 @@ def test_version_matches_across_files() -> None:
         f"pyproject.toml version {match.group(1)!r} != expected {expected!r}"
     )
 
-    init_text = (_REPO_ROOT / "src" / "ract" / "__init__.py").read_text(encoding="utf-8")
+    init_text = (_REPO_ROOT / "src" / "ract" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
     match = re.search(r'^__version__\s*=\s*"([^"]+)"', init_text, flags=re.MULTILINE)
     assert match, "__init__.py has no __version__"
     assert Version(match.group(1)) == expected, (
@@ -435,7 +443,15 @@ def test_changelog_has_0_4_0_entry_with_module_bullets() -> None:
         f"CHANGELOG missing per-substrate-module bullets (found {substrate_hits}/8)"
     )
     # ALM ADRs 0019-0025 all mentioned.
-    for adr in ("ADR-0019", "ADR-0020", "ADR-0021", "ADR-0022", "ADR-0023", "ADR-0024", "ADR-0025"):
+    for adr in (
+        "ADR-0019",
+        "ADR-0020",
+        "ADR-0021",
+        "ADR-0022",
+        "ADR-0023",
+        "ADR-0024",
+        "ADR-0025",
+    ):
         assert adr in text, f"CHANGELOG missing ALM {adr} bullet reference"
 
 
@@ -484,7 +500,9 @@ def test_changelog_has_0_4_1_entry_with_era_bullets() -> None:
     """
     text = (_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "## [0.4.1]" in text, "CHANGELOG missing [0.4.1] entry"
-    assert "Intent-Fidelity" in text, "CHANGELOG [0.4.1] entry missing Intent-Fidelity label"
+    assert "Intent-Fidelity" in text, (
+        "CHANGELOG [0.4.1] entry missing Intent-Fidelity label"
+    )
     # Seven era markers must appear inside the [0.4.1] block.
     body = text.split("## [0.4.1]", 1)[1].split("## [0.4.0]", 1)[0]
     for era in (
@@ -653,8 +671,7 @@ def test_no_closed_ip_terms_in_tracked_files() -> None:
         files = [
             f
             for f in files
-            if f != "assets/demo.cast"
-            and f != "tests/test_release_surface.py"
+            if f != "assets/demo.cast" and f != "tests/test_release_surface.py"
         ]
         if files:
             hits[term] = files

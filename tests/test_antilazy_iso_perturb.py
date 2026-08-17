@@ -80,9 +80,7 @@ def _blank_workspace() -> WorkspaceSnapshot:
 
 
 def test_detector_fires_on_universal_quantifier() -> None:
-    detection = detect_rule_like_intent(
-        "every user has exactly one primary email"
-    )
+    detection = detect_rule_like_intent("every user has exactly one primary email")
     assert detection.is_rule_like is True
     assert detection.confidence >= 0.7
     # At least one of the universal keywords must appear in the
@@ -135,9 +133,7 @@ def test_transformations_produce_three_variants() -> None:
         "renameable entities (user, email, primary)."
     )
     # Workspace symbols are preserved.
-    variants_preserved = transform_intent(
-        intent, workspace_symbols=frozenset({"user"})
-    )
+    variants_preserved = transform_intent(intent, workspace_symbols=frozenset({"user"}))
     rename_preserved = variants_preserved[0]
     assert "user" not in rename_preserved.renaming_map, (
         "workspace-symbol 'user' should have been preserved on rename"
@@ -213,12 +209,12 @@ def test_divergence_emits_violation_and_resumes_loop(tmp_path: Path) -> None:
     assert outcome.resume_prompt.startswith("[ISOMORPHIC DIVERGENCE]")
     # At least one divergence is on the rename transformation.
     rename_divergences = [
-        d for d in outcome.report.divergences
+        d
+        for d in outcome.report.divergences
         if d.transformation_kind == "rename_entities"
     ]
     assert rename_divergences, (
-        "expected the rename transformation to diverge for the "
-        "pattern-matching primary"
+        "expected the rename transformation to diverge for the pattern-matching primary"
     )
     # The trace file has a laziness.violated event with the
     # isomorphic_divergence kind.
@@ -228,7 +224,8 @@ def test_divergence_emits_violation_and_resumes_loop(tmp_path: Path) -> None:
         if line.strip()
     ]
     violated = [
-        e for e in events
+        e
+        for e in events
         if e.get("kind") == "laziness.violated"
         and e.get("payload", {}).get("kind") == "isomorphic_divergence"
     ]
@@ -308,9 +305,7 @@ def test_report_written_to_run_directory(tmp_path: Path) -> None:
     assert payload["is_pattern_matching"] is False
     assert len(payload["transformations"]) == 3
     assert len(payload["transformed_solution_digests"]) == 3
-    assert payload["original_solution_digest"], (
-        "digest hex should be non-empty"
-    )
+    assert payload["original_solution_digest"], "digest hex should be non-empty"
     # Schema keys per module_06.md step 4 leaf (b).
     assert set(payload.keys()) == {
         "original_intent",
@@ -375,8 +370,15 @@ def test_rename_degeneracy_advisory_fires_when_workspace_symbols_flood(
     # Flood workspace_symbols with the intent's own vocabulary.
     flood = frozenset(
         {
-            "monetary", "values", "integer", "cents", "floating",
-            "point", "representation", "money", "module",
+            "monetary",
+            "values",
+            "integer",
+            "cents",
+            "floating",
+            "point",
+            "representation",
+            "money",
+            "module",
         }
     )
     variants = transform_intent(intent, workspace_symbols=flood)
@@ -397,9 +399,7 @@ def test_rename_degeneracy_advisory_fires_when_workspace_symbols_flood(
             intent=intent,
             workspace=_blank_workspace(),
             original_solution="def cents(x: int) -> int:\n    return int(x)\n",
-            primary=_StaticProducer(
-                "def cents(x: int) -> int:\n    return int(x)\n"
-            ),
+            primary=_StaticProducer("def cents(x: int) -> int:\n    return int(x)\n"),
             workspace_symbols=flood,
         )
     finally:
@@ -410,7 +410,8 @@ def test_rename_degeneracy_advisory_fires_when_workspace_symbols_flood(
         if line.strip()
     ]
     degenerates = [
-        e for e in events
+        e
+        for e in events
         if e.get("kind") == "laziness.violated"
         and e.get("payload", {}).get("kind") == "iso_perturb_rename_degenerate"
     ]
@@ -482,7 +483,8 @@ def test_producer_error_emits_distinct_advisory(tmp_path: Path) -> None:
         if line.strip()
     ]
     producer_errs = [
-        e for e in events
+        e
+        for e in events
         if e.get("kind") == "laziness.violated"
         and e.get("payload", {}).get("kind") == "iso_perturb_producer_error"
     ]
@@ -500,13 +502,13 @@ def test_permute_examples_handles_duplicate_quoted_items() -> None:
     # Reversing ["alice", "bob", "alice"] yields ["alice", "bob", "alice"]
     # — palindrome — so the permutation is a no-op AND no sentinel
     # bleed appears in the output.
-    assert '\x00' not in permuted
-    assert 'ISO_PERM' not in permuted
+    assert "\x00" not in permuted
+    assert "ISO_PERM" not in permuted
     # Sanity: a non-palindrome permutes correctly.
     intent_np = 'Options are "alice", "bob", "carol" for the fixture.'
     permuted_np = _apply_permute_examples(intent_np)
-    assert '\x00' not in permuted_np
-    assert 'ISO_PERM' not in permuted_np
+    assert "\x00" not in permuted_np
+    assert "ISO_PERM" not in permuted_np
     # The original order was alice, bob, carol; the reversed shows
     # carol first.
     assert permuted_np.index('"carol"') < permuted_np.index('"alice"')
@@ -537,6 +539,7 @@ def test_low_confidence_intent_runs_one_transformation(tmp_path: Path) -> None:
     # (The default threshold is 0.7 and confidence is 0.7; equal
     # means at-or-above so full gate runs. Force low with a config.)
     from ract.antilazy.iso_perturb import IsoPerturbConfig
+
     report_low = run_iso_perturbation(
         intent=intent,
         workspace=_blank_workspace(),

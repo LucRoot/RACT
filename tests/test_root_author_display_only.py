@@ -43,11 +43,7 @@ def test_root_author_absent_from_invariant_code() -> None:
     """The grep assertion from module_06 step 6."""
     src_hits = _scan(REPO_ROOT / "src")
     tests_hits = _scan(REPO_ROOT / "tests")
-    violators = [
-        p
-        for p in src_hits + tests_hits
-        if p.name not in ALLOWED_PATH_TAILS
-    ]
+    violators = [p for p in src_hits + tests_hits if p.name not in ALLOWED_PATH_TAILS]
     assert not violators, (
         f"{_MARKER} must appear only in cli.py or _about.py; found: "
         + ", ".join(str(p.relative_to(REPO_ROOT)) for p in violators)
@@ -95,9 +91,7 @@ def test_root_author_is_display_only_via_grep() -> None:
     if proc.returncode not in (0, 1):
         return
     lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-    violators = [
-        line for line in lines if Path(line).name not in ALLOWED_PATH_TAILS
-    ]
+    violators = [line for line in lines if Path(line).name not in ALLOWED_PATH_TAILS]
     assert not violators, violators
 
 

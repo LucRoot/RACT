@@ -50,8 +50,7 @@ def _write_rootknot(
     (root / subdir).mkdir(parents=True, exist_ok=True)
     if gates_all_pass:
         gate_results = [
-            {"name": f"G{i}", "passed": True, "handshake_id": None}
-            for i in range(1, 9)
+            {"name": f"G{i}", "passed": True, "handshake_id": None} for i in range(1, 9)
         ]
     else:
         gate_results = [
@@ -68,9 +67,7 @@ def _write_rootknot(
         "reversal_taint": reversal_taint,
         "gate_results": gate_results,
     }
-    (root / subdir / "rootknot.json").write_text(
-        json.dumps(payload), encoding="utf-8"
-    )
+    (root / subdir / "rootknot.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
 def _write_polyglot_report(
@@ -143,7 +140,9 @@ def test_attested_pass_rate_computed_from_rootknot_signatures(
     assert summary.total_runs_with_rootknot == 10
     assert summary.attested_runs == 7
     assert summary.total_runs_no_rootknot == 0
-    assert summary.attested_runs / summary.total_runs_with_rootknot == pytest.approx(0.7)
+    assert summary.attested_runs / summary.total_runs_with_rootknot == pytest.approx(
+        0.7
+    )
 
 
 # ---------------------------------------------------------------------------

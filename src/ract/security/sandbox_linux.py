@@ -192,18 +192,14 @@ class LinuxSandbox:
         # argv without a target command.
         args += list(argv_to_run)
 
-        return BwrapCommand(
-            argv=tuple(args), env={}, seccomp_profile=seccomp_profile
-        )
+        return BwrapCommand(argv=tuple(args), env={}, seccomp_profile=seccomp_profile)
 
     # -----------------------------------------------------------------
     # Landlock allowlist check (harness-side pre-flight)
     # -----------------------------------------------------------------
 
     @staticmethod
-    def _path_allowed(
-        target: str, allow_patterns: tuple[str, ...]
-    ) -> bool:
+    def _path_allowed(target: str, allow_patterns: tuple[str, ...]) -> bool:
         """Return True when ``target`` matches any allow pattern.
 
         Landlock does the runtime enforcement; this static check is a
@@ -218,9 +214,7 @@ class LinuxSandbox:
         return False
 
     @classmethod
-    def would_refuse_write(
-        cls, manifest: CapabilityManifest, target: str
-    ) -> bool:
+    def would_refuse_write(cls, manifest: CapabilityManifest, target: str) -> bool:
         """Return True when a write to ``target`` would be refused.
 
         This is the pre-flight the tests drive. Landlock does the same
@@ -243,9 +237,7 @@ class LinuxSandbox:
         return False
 
     @classmethod
-    def would_refuse_read(
-        cls, manifest: CapabilityManifest, target: str
-    ) -> bool:
+    def would_refuse_read(cls, manifest: CapabilityManifest, target: str) -> bool:
         """Return True when a read of ``target`` would be refused."""
         for denied in manifest.filesystem.denied:
             if fnmatch.fnmatch(target, denied):
@@ -259,9 +251,7 @@ class LinuxSandbox:
         return True
 
     @classmethod
-    def would_refuse_network(
-        cls, manifest: CapabilityManifest, host: str
-    ) -> bool:
+    def would_refuse_network(cls, manifest: CapabilityManifest, host: str) -> bool:
         """Return True when a network connect to ``host`` would be refused."""
         if not manifest.network.deny_default:
             # Guarded by ManifestValidator; keep the check for defence
@@ -273,9 +263,7 @@ class LinuxSandbox:
         return True
 
     @classmethod
-    def would_refuse_syscall(
-        cls, manifest: CapabilityManifest, syscall: str
-    ) -> bool:
+    def would_refuse_syscall(cls, manifest: CapabilityManifest, syscall: str) -> bool:
         """Return True when a syscall would be refused by the seccomp profile."""
         profile = manifest.syscalls.seccomp_profile
         if profile == "strict":
@@ -329,8 +317,7 @@ class LinuxSandbox:
                     manifest_digest=digest_hex,
                     step_id_hex=step_id.hex(),
                     reason=(
-                        "unknown seccomp profile "
-                        f"{manifest.syscalls.seccomp_profile!r}"
+                        f"unknown seccomp profile {manifest.syscalls.seccomp_profile!r}"
                     ),
                 )
             )

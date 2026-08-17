@@ -123,14 +123,10 @@ class TestIntegrityReport:
     handshake_approved: bool = False
 
     def hard_block_violations(self) -> tuple[TestIntegrityViolation, ...]:
-        return tuple(
-            v for v in self.violations if v.severity == "hard_block"
-        )
+        return tuple(v for v in self.violations if v.severity == "hard_block")
 
     def advisory_violations(self) -> tuple[TestIntegrityViolation, ...]:
-        return tuple(
-            v for v in self.violations if v.severity == "advisory"
-        )
+        return tuple(v for v in self.violations if v.severity == "advisory")
 
     def passed(self) -> bool:
         """A report passes iff no hard-block violation survives the handshake filter."""
@@ -206,9 +202,7 @@ def _iter_decorators(tree: ast.AST) -> list[tuple[ast.expr, ast.AST]]:
     """
     pairs: list[tuple[ast.expr, ast.AST]] = []
     for node in ast.walk(tree):
-        if isinstance(
-            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-        ):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             for deco in node.decorator_list:
                 pairs.append((deco, node))
     return pairs
@@ -781,9 +775,7 @@ def analyze_diff(
 # ---------------------------------------------------------------------------
 
 
-def write_test_integrity_snapshot(
-    run_dir: Path, report: TestIntegrityReport
-) -> Path:
+def write_test_integrity_snapshot(run_dir: Path, report: TestIntegrityReport) -> Path:
     """Persist the report to ``<run_dir>/test_integrity.json``."""
     run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / "test_integrity.json"

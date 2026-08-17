@@ -224,8 +224,7 @@ def test_solution_leakage_rolls_back(tmp_path: Path) -> None:
     # matching retrieval index returns a ref; G3 must roll back and
     # emit ``solution_leakage``.
     payload_lines = tuple(
-        f"    line_{i} = {i}  # padding to clear the 100-char floor"
-        for i in range(6)
+        f"    line_{i} = {i}  # padding to clear the 100-char floor" for i in range(6)
     )
     patch = Patch(
         hunks=(

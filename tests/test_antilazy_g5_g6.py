@@ -100,10 +100,7 @@ def _load_events(events_path: Path) -> list[dict]:
 
 def test_net_new_pytest_skip_hard_blocks(tmp_path: Path) -> None:
     parent_source = (
-        "import pytest\n"
-        "\n"
-        "def test_divide_by_zero():\n"
-        "    assert 1 / 0.0001 > 0\n"
+        "import pytest\n\ndef test_divide_by_zero():\n    assert 1 / 0.0001 > 0\n"
     )
     child_source = (
         "import pytest\n"
@@ -119,9 +116,7 @@ def test_net_new_pytest_skip_hard_blocks(tmp_path: Path) -> None:
     writer = JsonlEventWriter(path=events_path, run_id=bytes.fromhex("aa" * 16))
     set_writer(writer)
     try:
-        outcome: TestIntegrityGateOutcome = enforce_g5(
-            txn, parent, child
-        )
+        outcome: TestIntegrityGateOutcome = enforce_g5(txn, parent, child)
     finally:
         clear_writer()
     assert not outcome.passed
@@ -142,15 +137,8 @@ def test_net_new_pytest_skip_hard_blocks(tmp_path: Path) -> None:
 
 
 def test_assertion_removal_inside_existing_test_hard_blocks(tmp_path: Path) -> None:
-    parent_source = (
-        "def test_add():\n"
-        "    assert 1 + 1 == 2\n"
-        "    assert 2 + 2 == 4\n"
-    )
-    child_source = (
-        "def test_add():\n"
-        "    assert 1 + 1 == 2\n"
-    )
+    parent_source = "def test_add():\n    assert 1 + 1 == 2\n    assert 2 + 2 == 4\n"
+    child_source = "def test_add():\n    assert 1 + 1 == 2\n"
     parent = WorkspaceSnapshot(files={"tests/test_add.py": parent_source})
     child = WorkspaceSnapshot(files={"tests/test_add.py": child_source})
     txn = _make_transaction(tmp_path)
@@ -178,13 +166,9 @@ def test_assertion_removal_inside_existing_test_hard_blocks(tmp_path: Path) -> N
 
 def test_grader_file_edit_hard_blocks(tmp_path: Path) -> None:
     parent_source = (
-        "def grader_helper(actual, expected):\n"
-        "    return actual == expected\n"
+        "def grader_helper(actual, expected):\n    return actual == expected\n"
     )
-    child_source = (
-        "def grader_helper(actual, expected):\n"
-        "    return True  # bypass\n"
-    )
+    child_source = "def grader_helper(actual, expected):\n    return True  # bypass\n"
     parent = WorkspaceSnapshot(files={"tests/conftest.py": parent_source})
     child = WorkspaceSnapshot(files={"tests/conftest.py": child_source})
     txn = _make_transaction(tmp_path)
@@ -252,9 +236,7 @@ def _rename_graph() -> tuple[SymbolGraph, WorkspaceSnapshot]:
     """
     workspace = WorkspaceSnapshot(
         files={
-            "src/billing.py": (
-                "def total(items):\n    return sum(items)\n"
-            ),
+            "src/billing.py": ("def total(items):\n    return sum(items)\n"),
             "src/report.py": (
                 "from src.billing import total\n"
                 "\n"
@@ -367,10 +349,7 @@ def test_metaprogramming_getattr_escape_detected() -> None:
     miss ``getattr(pytest, 'skip')()``; the escape detector surfaces
     the shape under ``test_integrity_metaprogramming_escape``.
     """
-    parent_source = (
-        "def test_smoke():\n"
-        "    assert True\n"
-    )
+    parent_source = "def test_smoke():\n    assert True\n"
     child_source = (
         "import pytest\n"
         "\n"
@@ -466,10 +445,7 @@ def test_symgraph_db_persisted_on_disk(tmp_path: Path) -> None:
     workspace = WorkspaceSnapshot(
         files={
             "src/a.py": "def foo():\n    return 1\n",
-            "src/b.py": (
-                "from src.a import foo\n"
-                "def bar():\n    return foo()\n"
-            ),
+            "src/b.py": ("from src.a import foo\ndef bar():\n    return foo()\n"),
         }
     )
     db_path = tmp_path / "symgraph.db"
@@ -522,9 +498,7 @@ def test_generated_file_excluded_from_closure() -> None:
     # new version separately.
     workspace = WorkspaceSnapshot(
         files={
-            ".gitattributes": (
-                "src/report.py linguist-generated=true\n"
-            ),
+            ".gitattributes": ("src/report.py linguist-generated=true\n"),
             "src/billing.py": "def total(items):\n    return sum(items)\n",
             "src/report.py": (
                 "from src.billing import total\n"
@@ -579,12 +553,8 @@ def test_platform_skip_is_exempt() -> None:
 
 
 def test_unsupported_language_emits_advisory(tmp_path: Path) -> None:
-    parent = WorkspaceSnapshot(
-        files={"tests/foo.test.ts": "export const x = 1;\n"}
-    )
-    child = WorkspaceSnapshot(
-        files={"tests/foo.test.ts": "export const x = 2;\n"}
-    )
+    parent = WorkspaceSnapshot(files={"tests/foo.test.ts": "export const x = 1;\n"})
+    child = WorkspaceSnapshot(files={"tests/foo.test.ts": "export const x = 2;\n"})
     txn = _make_transaction(tmp_path)
     outcome = enforce_g5(txn, parent, child)
     advisory = outcome.report.advisory_violations()

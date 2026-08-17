@@ -33,6 +33,7 @@ def _recent_date_str(days_back: int = 1) -> str:
     dt = datetime.now(timezone.utc) - timedelta(days=days_back)
     return dt.strftime("%Y-%m-%d")
 
+
 from ract.antilazy.companion import (
     CompanionConfig,
     CompanionProviderCollisionError,
@@ -229,9 +230,7 @@ def test_surviving_counterexample_emits_violation_and_blocks_complete():
         pre_change_pass=False,  # will be overridden by runner
         post_change_pass=True,
     )
-    adapter = _SpyAdapter(
-        provider_name=companion.name, proposals=(finding,)
-    )
+    adapter = _SpyAdapter(provider_name=companion.name, proposals=(finding,))
     # Runner says: passes pre-change, fails post-change (a surviving
     # counterexample).
     runner = _RecordingRunner(verdict=(True, False))
@@ -412,7 +411,9 @@ def test_missing_anti_lazy_category_does_not_refuse_older_reports(
     outcome = check_provider_gate(
         "legacy-provider",
         results_root=results_root,
-        config=GateConfig(anti_lazy_conformance=DEFAULT_ANTI_LAZY_CONFORMANCE_THRESHOLD),
+        config=GateConfig(
+            anti_lazy_conformance=DEFAULT_ANTI_LAZY_CONFORMANCE_THRESHOLD
+        ),
     )
     assert outcome.admitted is True
 
@@ -472,9 +473,7 @@ def test_small_fix_intent_does_not_over_estimate():
 
 def test_intent_manipulation_via_keyword_packing_filtered():
     """Common-in-workspace keywords are dropped as low-signal."""
-    ws = WorkspaceSnapshot(
-        files={f"src/test_module_{i}.py": "x" for i in range(20)}
-    )
+    ws = WorkspaceSnapshot(files={f"src/test_module_{i}.py": "x" for i in range(20)})
     # "test" and "module" appear in every filename — they must be
     # filtered so a model that packs them cannot amplify the estimate.
     kws = _extract_keywords(
@@ -495,7 +494,9 @@ def test_intent_manipulation_via_keyword_packing_filtered():
 
 def test_antilazy_fixtures_dir_has_ten_intents():
     """DoD leaf (b): 10 fixtures with intent.txt / workspace/ / expected.json."""
-    root = Path(__file__).resolve().parent.parent / "evals" / "conformance" / "anti_lazy"
+    root = (
+        Path(__file__).resolve().parent.parent / "evals" / "conformance" / "anti_lazy"
+    )
     fixtures = [p for p in sorted(root.iterdir()) if p.is_dir()]
     assert len(fixtures) == 10
     for fx in fixtures:

@@ -219,9 +219,7 @@ def _module_name_for(path: str) -> str:
 
 def _parse_python_module(
     path: str, source: str, generated: set[str]
-) -> tuple[
-    dict[str, SymbolNode], list[CallEdge], list[ImportEdge], bool
-]:
+) -> tuple[dict[str, SymbolNode], list[CallEdge], list[ImportEdge], bool]:
     """Parse one Python module. Returns (symbols, calls, imports, is_generated)."""
     if path in generated:
         return {}, [], [], True
@@ -323,17 +321,13 @@ def _parse_python_module(
             # Record calls at every scope level. We do NOT recurse into
             # FunctionDef / ClassDef here — those have their own visit
             # methods that push/pop the scope stack.
-            if isinstance(
-                node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-            ):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 return
             if isinstance(node, ast.Call):
                 call_target = _call_target_name(node.func)
                 if call_target:
                     caller_q = (
-                        ".".join(self._scope)
-                        if len(self._scope) > 1
-                        else module_name
+                        ".".join(self._scope) if len(self._scope) > 1 else module_name
                     )
                     calls.append(
                         CallEdge(
@@ -363,10 +357,7 @@ def _parse_python_module(
                         calls.append(
                             CallEdge(
                                 caller=caller_q,
-                                callee=(
-                                    f"getattr:{first_arg.id}."
-                                    f"{node.args[1].value}"
-                                ),
+                                callee=(f"getattr:{first_arg.id}.{node.args[1].value}"),
                                 source_file=path,
                                 line=getattr(node, "lineno", 0),
                             )
@@ -786,9 +777,7 @@ def load_graph(db_path: Path, expected_digest: str) -> SymbolGraph | None:
 # ---------------------------------------------------------------------------
 
 
-def write_under_edit_snapshot(
-    run_dir: Path, report: UnderEditReport
-) -> Path:
+def write_under_edit_snapshot(run_dir: Path, report: UnderEditReport) -> Path:
     """Persist ``report`` to ``<run_dir>/under_edit.json`` and return the path."""
     run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / "under_edit.json"

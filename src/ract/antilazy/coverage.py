@@ -137,9 +137,7 @@ def _line_is_substantive(line: str) -> bool:
     return True
 
 
-def _classify_triviality(
-    added: tuple[str, ...], removed: tuple[str, ...]
-) -> bool:
+def _classify_triviality(added: tuple[str, ...], removed: tuple[str, ...]) -> bool:
     """Return True when the (added, removed) pair is a trivial change.
 
     A change is trivial iff:
@@ -207,9 +205,7 @@ def _count_added_vs_moved(
 # ---------------------------------------------------------------------------
 
 
-def _lines_in_snapshot(
-    snapshot: "WorkspaceSnapshot", path: str
-) -> tuple[str, ...]:
+def _lines_in_snapshot(snapshot: "WorkspaceSnapshot", path: str) -> tuple[str, ...]:
     """Return the lines of ``path`` in ``snapshot`` (or empty tuple)."""
     src = snapshot.files.get(path)
     if src is None:
@@ -217,9 +213,7 @@ def _lines_in_snapshot(
     return tuple(src.splitlines())
 
 
-def _covered_line_numbers(
-    snapshot: "WorkspaceSnapshot", path: str
-) -> frozenset[int]:
+def _covered_line_numbers(snapshot: "WorkspaceSnapshot", path: str) -> frozenset[int]:
     """Return the 1-indexed lines of ``path`` that ``snapshot`` marks covered.
 
     The workspace snapshot's ``metadata`` may carry a
@@ -302,9 +296,7 @@ def run_coverage_delta(
     for hunk in patch.hunks:
         if hunk.path not in python_files:
             continue
-        added_novel, moved = _count_added_vs_moved(
-            hunk.added_lines, hunk.removed_lines
-        )
+        added_novel, moved = _count_added_vs_moved(hunk.added_lines, hunk.removed_lines)
         total_added += added_novel
         total_moved += moved
         all_added.extend(hunk.added_lines)
@@ -313,18 +305,14 @@ def run_coverage_delta(
         # covered. Only novel added lines count — a moved line is
         # already covered on the parent side by assumption.
         novel_lines = _novel_added(hunk.added_lines, hunk.removed_lines)
-        positions = _hunk_added_line_numbers(
-            child_snapshot, hunk.path, novel_lines
-        )
+        positions = _hunk_added_line_numbers(child_snapshot, hunk.path, novel_lines)
         covered = _covered_line_numbers(child_snapshot, hunk.path)
         for pos in positions:
             if pos in covered:
                 lines_new_covered += 1
 
     lines_new = total_added
-    coverage_ratio = (
-        (lines_new_covered / lines_new) if lines_new > 0 else 1.0
-    )
+    coverage_ratio = (lines_new_covered / lines_new) if lines_new > 0 else 1.0
 
     is_trivial = _classify_triviality(tuple(all_added), tuple(all_removed))
 
@@ -373,9 +361,7 @@ def run_coverage_delta(
     return report
 
 
-def _novel_added(
-    added: tuple[str, ...], removed: tuple[str, ...]
-) -> tuple[str, ...]:
+def _novel_added(added: tuple[str, ...], removed: tuple[str, ...]) -> tuple[str, ...]:
     """Return the subset of ``added`` that are not moved (present in
     ``removed``)."""
     removed_multiset = list(removed)
@@ -393,9 +379,7 @@ def _novel_added(
 # ---------------------------------------------------------------------------
 
 
-def write_coverage_delta_snapshot(
-    run_dir: Path, report: CoverageDeltaReport
-) -> Path:
+def write_coverage_delta_snapshot(run_dir: Path, report: CoverageDeltaReport) -> Path:
     """Persist the report to ``<run_dir>/coverage_delta.json`` and return the path."""
     run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / "coverage_delta.json"

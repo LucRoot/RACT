@@ -17,7 +17,12 @@ from pathlib import Path
 
 import pytest
 
-BENCH_DIR = Path(__file__).resolve().parent.parent / "evals" / "benchmarks" / "refactor-token-usage"
+BENCH_DIR = (
+    Path(__file__).resolve().parent.parent
+    / "evals"
+    / "benchmarks"
+    / "refactor-token-usage"
+)
 
 
 def _load_report_module():

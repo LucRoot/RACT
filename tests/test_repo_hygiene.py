@@ -34,9 +34,7 @@ def test_no_tracked_json_fixtures_at_repo_root() -> None:
         text=True,
         check=True,
     )
-    root_level = [
-        f for f in result.stdout.splitlines() if "/" not in f and f
-    ]
+    root_level = [f for f in result.stdout.splitlines() if "/" not in f and f]
     assert not root_level, (
         "Tracked JSON/JSONL files at repo root violate the fixtures convention "
         f"(move to tests/fixtures/ or gitignore): {root_level}"

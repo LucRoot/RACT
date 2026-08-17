@@ -41,8 +41,13 @@ from ract.handshake_registry import HandshakeRegistry
 
 def _init_repo(repo: Path) -> str:
     """Initialize ``repo`` as a git repo and return the initial commit sha."""
-    env = {**os.environ, "GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "t@t",
-           "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "t@t"}
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "test",
+        "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "test",
+        "GIT_COMMITTER_EMAIL": "t@t",
+    }
     for cmd in (
         ["git", "init", "-q", "-b", "main"],
         ["git", "config", "user.email", "t@t"],
@@ -56,7 +61,10 @@ def _init_repo(repo: Path) -> str:
     )
     subprocess.run(
         ["git", "commit", "-q", "-m", "initial"],
-        cwd=repo, check=True, capture_output=True, env=env,
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        env=env,
     )
     return resolve_head_sha(repo)
 
@@ -86,7 +94,8 @@ def _always_fail_predicate() -> AcceptancePredicate:
         id=new_predicate_id(),
         kind="artifact",
         invocation=ArtifactInvocation(
-            path="__never_present_anywhere__", must_have_rootknot=False,
+            path="__never_present_anywhere__",
+            must_have_rootknot=False,
         ),
         required=True,
     )
@@ -132,9 +141,7 @@ def test_no_partial_commit_on_failure(repo: Path) -> None:
         budget=ResourceBudget(wall_seconds=5),
     )
 
-    record = loop.run_step(
-        spec, _writer_runner("scratch.txt", "x", _fail_snapshot())
-    )
+    record = loop.run_step(spec, _writer_runner("scratch.txt", "x", _fail_snapshot()))
 
     assert record.outcome is TransactionOutcome.ROLLED_BACK
     assert loop.parent_snapshot == parent
@@ -163,7 +170,8 @@ def test_worktree_names_are_discoverable(repo: Path) -> None:
             commit_message=f"step {i}",
         )
         record = loop.run_step(
-            spec, _writer_runner(f"step_{i}.txt", "content", _ok_snapshot()),
+            spec,
+            _writer_runner(f"step_{i}.txt", "content", _ok_snapshot()),
         )
         assert record.outcome is TransactionOutcome.COMMITTED
 
@@ -211,9 +219,7 @@ def test_handshake_blocks_dependent_commit(repo: Path, tmp_path: Path) -> None:
         step_id=new_step_id(),
         predicates=(_always_ok_predicate(),),
     )
-    record2 = loop.run_step(
-        open_spec, _writer_runner("open.txt", "o", _ok_snapshot())
-    )
+    record2 = loop.run_step(open_spec, _writer_runner("open.txt", "o", _ok_snapshot()))
     assert record2.outcome is TransactionOutcome.COMMITTED
     assert loop.parent_snapshot != parent
 

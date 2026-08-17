@@ -49,9 +49,7 @@ def test_path_traversal_write_refused(sandbox_cls):
         filesystem=FilesystemPolicy(write=("/workspace/*",)),
     )
     assert sandbox_cls.would_refuse_write(manifest, "/etc/passwd")
-    assert sandbox_cls.would_refuse_write(
-        manifest, "/workspace/../../etc/passwd"
-    )
+    assert sandbox_cls.would_refuse_write(manifest, "/workspace/../../etc/passwd")
 
 
 def test_path_traversal_read_refused(sandbox_cls):

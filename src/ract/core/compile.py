@@ -159,9 +159,7 @@ class IntentCompiler:
             )
         if inputs.property_targets:
             previews.append(
-                CompiledPreview(
-                    kind="property", items=tuple(inputs.property_targets)
-                )
+                CompiledPreview(kind="property", items=tuple(inputs.property_targets))
             )
         if inputs.artifact_requirements:
             previews.append(
@@ -182,9 +180,7 @@ class IntentCompiler:
         return f"{_HANDSHAKE_GROUP_PREFIX}{kind}"
 
     @staticmethod
-    def _group_is_approved(
-        approvals: "HandshakeRegistry | None", kind: str
-    ) -> bool:
+    def _group_is_approved(approvals: "HandshakeRegistry | None", kind: str) -> bool:
         if approvals is None:
             return False
         group_id = IntentCompiler._group_id(kind)
@@ -268,9 +264,7 @@ class IntentCompiler:
 
         # 2) Proposed new tests — grouped handshake per lateral branch A.
         if cfg.proposed_new_tests:
-            preview = CompiledPreview(
-                kind="test", items=tuple(cfg.proposed_new_tests)
-            )
+            preview = CompiledPreview(kind="test", items=tuple(cfg.proposed_new_tests))
             if self._group_is_approved(approvals, "test"):
                 for selector in cfg.proposed_new_tests:
                     predicates.append(
@@ -329,9 +323,10 @@ class IntentCompiler:
             preview = CompiledPreview(
                 kind="artifact", items=tuple(cfg.artifact_requirements)
             )
-            if self._group_is_approved(approvals, "artifact") or len(
-                cfg.artifact_requirements
-            ) <= 1:
+            if (
+                self._group_is_approved(approvals, "artifact")
+                or len(cfg.artifact_requirements) <= 1
+            ):
                 for path in cfg.artifact_requirements:
                     predicates.append(
                         AcceptancePredicate(
