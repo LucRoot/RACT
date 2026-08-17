@@ -35,6 +35,7 @@ Linux-only import failing at parse time.
 from __future__ import annotations
 
 import fnmatch
+import os.path
 import platform
 import shlex
 import shutil
@@ -57,6 +58,30 @@ from ract.security.sandbox import (
 # in a docstring; this block records the refused-under-strict set that
 # the tests assert on. Sources: seccomp-bpf kernel docs (link above)
 # and Bubblewrap's ``--seccomp`` idiom.
+def _is_glob_pattern(path: str) -> bool:
+    """True when ``path`` contains a glob wildcard bwrap will not expand.
+
+    bwrap treats each ``--bind`` src/dst as a literal path; glob shapes
+    are the Landlock allowlist's territory, not bwrap's. Passing a glob
+    to ``--bind-try`` results in a no-op on Linux (the pattern-string
+    file does not exist) but shows up in the rendered argv which
+    obscures the sandbox invariants the tests assert on.
+    """
+    return any(ch in path for ch in ("*", "?", "["))
+
+
+def _is_workspace_subset(path: str) -> bool:
+    """True when ``path`` is ``/workspace`` or nested under it.
+
+    Any path that resolves under /workspace is already covered by the
+    main worktree bind, so re-binding it is redundant and pollutes the
+    rendered argv.
+    """
+    if path == "/workspace":
+        return True
+    return path.startswith("/workspace/")
+
+
 STRICT_REFUSED_SYSCALLS = frozenset(
     {
         "ptrace",
@@ -166,13 +191,19 @@ class LinuxSandbox:
 
         # Read-only bind-mounts for every manifest.filesystem.read
         # pattern. Landlock refines this further inside the sandbox; the
-        # bind is the outer wall.
+        # bind is the outer wall. Glob-shaped patterns are Landlock-only
+        # (bwrap does not glob-expand) and workspace-subset paths are
+        # already covered by the /workspace bind, so skip both.
         for path in manifest.filesystem.read:
+            if _is_glob_pattern(path) or _is_workspace_subset(path):
+                continue
             args += ["--ro-bind-try", path, path]
 
         # Read-write bind-mounts for every manifest.filesystem.write
-        # pattern (in addition to /workspace).
+        # pattern (in addition to /workspace). Same skip rules.
         for path in manifest.filesystem.write:
+            if _is_glob_pattern(path) or _is_workspace_subset(path):
+                continue
             args += ["--bind-try", path, path]
 
         # Env passthrough: allowlist. --setenv sets the value; a missing
@@ -207,9 +238,16 @@ class LinuxSandbox:
         *before* the sandbox is even entered. The manifest is an
         allowlist by design: an empty pattern list means nothing
         matches.
+
+        The target is normalized with ``os.path.normpath`` before glob
+        comparison so a path-traversal literal like
+        ``/workspace/../../etc/passwd`` collapses to ``/etc/passwd``
+        and no longer glob-matches ``/workspace/*`` — the SUBSTRATE
+        §4.2 Ona-incident lesson enforced at pre-flight.
         """
+        normalized = os.path.normpath(target).replace("\\", "/")
         for pattern in allow_patterns:
-            if fnmatch.fnmatch(target, pattern):
+            if fnmatch.fnmatch(normalized, pattern):
                 return True
         return False
 

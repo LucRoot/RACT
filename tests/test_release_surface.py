@@ -549,8 +549,18 @@ def test_intent_fidelity_module_attestations_logged() -> None:
     ``## Intent verification results`` section. The section is the
     audit anchor per module fragment; a module with no attestation
     cannot count as intent-verified for the combined sweep.
+
+    ``_BUILD/`` is gitignored — the module fragments only exist in the
+    operator's local development tree, never on a CI checkout. The
+    attestation invariant is a development-time gate, not a
+    distribution invariant. Skip cleanly when the directory is absent.
     """
     base = _REPO_ROOT / "_BUILD" / "ract_v0.4.1_intent_fidelity"
+    if not base.is_dir():
+        pytest.skip(
+            "_BUILD/ract_v0.4.1_intent_fidelity is gitignored (development-only); "
+            "attestation check runs on the operator's local tree, not on CI checkouts"
+        )
     missing: list[str] = []
     for module_name in _INTENT_FIDELITY_MODULES:
         path = base / module_name

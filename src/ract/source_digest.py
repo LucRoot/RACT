@@ -91,8 +91,13 @@ def _content_bytes_for(path: Path, self_path: Path) -> bytes:
     For ``self_path`` (this module) the pinned hash value is replaced
     with :data:`_SELF_HASH_PLACEHOLDER` so the file's own
     ``GOLDEN_HASH_CONSTANT`` value does not participate.
+
+    Line endings are normalized to LF before hashing so a Windows
+    checkout (CRLF via ``core.autocrlf``) and a Linux checkout (LF)
+    produce the same digest. Without this the golden-hash test flips
+    across platforms even when the tracked content is identical.
     """
-    raw = path.read_bytes()
+    raw = path.read_bytes().replace(b"\r\n", b"\n")
     if path.resolve() != self_path:
         return raw
     return _HASH_ASSIGNMENT_RE_BYTES.sub(
@@ -126,7 +131,7 @@ def compute_golden_hash(repo_root: Path | None = None) -> str:
 
 
 # The pinned value. Update through ``ract source-digest --lock``.
-GOLDEN_HASH_CONSTANT: str = "b145f887b6ffb52c4d351e17b40463886c6012bd714697739ce4a5f32e7ebf72"  # fmt: skip
+GOLDEN_HASH_CONSTANT: str = "b4c16fe52555ca877dc60c7cbbabe81e92f71a97745a86daaad8c5ab71ea45c7"  # fmt: skip
 
 
 def rewrite_golden_hash_constant(new_hash: str) -> Path:
