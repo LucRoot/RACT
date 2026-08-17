@@ -5,7 +5,7 @@ and Anti-Lazy Module (ALM) pipelines with the environment as thorough
 verifier; this file compiles the honest-gaps log from every one of the
 fourteen combined-pipeline modules plus every deferred deeper-improvement
 finding from the ALM Second Passes plus four dispatcher-drift events at
-the operator-side endpoints_SKILL boundary.
+the operator-side dispatcher-scoping boundary.
 
 ## v0.5 hardening (from substrate close)
 
@@ -238,6 +238,135 @@ audit and Lens 3's cross-family first-user simulation.
   test suite. Would have caught the defect without a first-user
   report.
 
+## v0.5 hardening (from intent-fidelity module_01)
+
+- `intent-fidelity module_01`: fence coverage across every deletion path
+  not audited (systematic grep + audit of `os.unlink` / `shutil.rmtree`
+  / `Path.unlink` / `remove` call sites against the FenceGate
+  `consume_ticket` invariant); log each unguarded path as fix or
+  intentional exception.
+- `intent-fidelity module_01`: per-verb stub-detection fixture harness
+  not automated (standing test suite that instantiates every CLI verb
+  in `CLI_VERBS` against a fixture workspace and asserts each returns
+  something a `pass` stub cannot produce).
+- `intent-fidelity module_01`: automated CLI-surface diff across every
+  tag not implemented (CI check that diffs `CLI_VERBS` across every tag
+  would catch silent renames the first commit they land).
+
+## v0.5 hardening (from intent-fidelity module_02)
+
+- `intent-fidelity module_02`: `verify_workspace` not wired into the
+  loop entry (`check_t3(state.provenance_ok)` reads a boolean no code
+  path sets; substrate-era design decision pending — wire per-step
+  provenance evaluation, or remove the dead path). Cross-references
+  `intent-fidelity module_04` gap 5.
+- `intent-fidelity module_02`: provider router selection does not
+  consult health (integrate a health filter into selection, subsume
+  under conformance report, or explicitly retire the v0.2 aspiration).
+  Cross-references `intent-fidelity module_04` scope.
+- `intent-fidelity module_02`: RK-3-extended-field property-test corpus
+  for RK-1/RK-2 coverage — v2/v3 parametrizations that construct
+  extended knots with corrupted RK-1 fields and assert those specific
+  violations fire.
+
+## v0.5 hardening (from intent-fidelity module_03)
+
+- `intent-fidelity module_03`: benchmark report's 80% delta was
+  measured against the v0.3 milestone-driven loop; re-run
+  `evals/benchmarks/refactor-token-usage/report.py` under the v0.4
+  substrate loop and either refresh the report or add a v0.4-specific
+  benchmark task. Cross-references `intent-fidelity module_04` gap 4.
+- `intent-fidelity module_03`: `docs/PROVENANCE.md` is at the 800-word
+  independence-lint cap after fix `fdd7474`; raise cap or split
+  sidecar-schema table into a companion doc before any future
+  attestation-era addition.
+
+## v0.5 hardening (from intent-fidelity module_04)
+
+Root cause: the executor-adapter shim at
+`src/ract/executor/substrate_adapter.py:206-214` constructs
+`SubstrateLoop` without `CapabilityManifest`, `SandboxBackend`, or
+`JsonlEventWriter`. All four SUBSTRATE PARTIAL signals plus the ten
+ALM PARTIAL signals share this root. Cross-references
+`v0.5 hardening (from substrate close)` lines 73-74.
+
+- `intent-fidelity module_04` gap 1: signals 4 + 5 shim upgrade
+  (manifest + OS-enforced sandbox on the SubstrateLoop the shim
+  constructs; run-id + workspace-root propagation for per-run manifest
+  publication).
+- `intent-fidelity module_04` gap 2: signal 9 event-log wiring
+  (`JsonlEventWriter` constructed and registered by the runtime for
+  every real run; `<run_dir>/events.jsonl` non-empty and hash-chained).
+- `intent-fidelity module_04` gap 3: signal 10 OTLP smoke test with a
+  local collector fixture.
+- `intent-fidelity module_04` gap 5: SUBSTRATE-era `check_t3`
+  dead-code path — design decision pending between wiring per-step
+  provenance evaluation (T3 reachable) and removing `check_t3` +
+  `provenance_ok` from the enum. Cross-references
+  `intent-fidelity module_02` gap 1.
+- `intent-fidelity module_04` gap 6: executor legacy-path fence
+  bypass on shell / diff_applier deletions (signal 15 partial in
+  shim path; propagate deletions as `DeleteFileAction` objects OR add
+  a Fence hook to `diff_applier.apply_diff` and the shell tool).
+
+## v0.5 hardening (from intent-fidelity module_05)
+
+- `intent-fidelity module_05` gap 1: ALM signals 1-10 + 16 shim wiring
+  — folds under `intent-fidelity module_04` gap 1-3; when the shim
+  upgrade lands, call `write_mutation_report` / `write_coverage_report`
+  / `run_completion_gates` from the runtime path.
+- `intent-fidelity module_05` gap 2: sycophancy circuit not wired to
+  `LoopController` (signal 9; two-line integration when event log is
+  wired). Cross-references `docs/ROADMAP.md:101`.
+- `intent-fidelity module_05` gap 3: Investigator required-input
+  coupling not enforced at G6 + G7 (signal 10; extend `enforce_g6` to
+  accept optional `investigator_report` and raise
+  `LazinessViolatedError` on absence when under-edit-closure names
+  untouched files).
+- `intent-fidelity module_05` gap 4: `COMPANION_MATRIX` enforcement is
+  name-substring, not family-substring (signal 15 hardening; extend
+  `enforce_different_provider` with a `family_of` callable). Cross-
+  references `docs/ROADMAP.md:132`.
+- `intent-fidelity module_05` gap 5: module_05 spec text drift (three
+  vs four AL-1 sub-clauses; matrix enforcement locus; signal-5
+  "sandbox layer" naming) — either update spec text to name shipped
+  surfaces exactly or land an ADR-note that spec text is aspirational.
+- `intent-fidelity module_05` gap 6: AL-1 fourth all-vary property
+  test (Second Pass Q5) — non-blocking; ordering guarantee is a
+  design property beyond sub-clause-independence invariant.
+
+## v0.5 hardening (from intent-fidelity module_06)
+
+Gaps 1-4 forwarded from `intent-fidelity module_05` unchanged (this
+module is v0.4.0-rc1 audits era, not the code-wiring era).
+
+- `intent-fidelity module_06` gap 7: wordlist-growth review cadence
+  (Second Pass Q1) — extend `_CLOSED_IP_TERMS` on operator confirmation
+  of a growth manifest; add a standing pre-release-tag review that
+  greps operator-side private-name registries against the wordlist for
+  candidate additions.
+- `intent-fidelity module_06` gap 8: helper-enumeration introspection
+  (Second Pass Q2) — replace hand-maintained `_HELPER_ATTRS` with a
+  marker Protocol (`ProjectAnchoredHelper`) helpers explicitly
+  implement; auto-detect on init.
+
+## v0.5 hardening (from intent-fidelity module_07)
+
+Gaps 1-8 forwarded from `intent-fidelity modules 05 and 06` unchanged
+(module_07 is restoration-cluster verification, not the code-wiring
+era). Native gaps:
+
+- `intent-fidelity module_07` gap 9: `MISSING` sentinel consumer
+  migration — primitive holds and is production-ready, but no consumer
+  site in `src/ract/` currently has the None-vs-unpassed ambiguity the
+  sentinel is designed to disambiguate. Adoption triggered by new-
+  surface need, not by mass-migration of existing callsites.
+- `intent-fidelity module_07` gap 11: `demo.cast` freshness gate has a
+  signature-change loophole (verb-name-only regex; an argument-signature
+  change to an existing verb that keeps the verb name would not flip
+  the gate). Extend to hash each `ract <verb> ...` invocation's full
+  argv against the current argparse subparser choices.
+
 ## Previously logged (pre-v0.4) — carried forward
 
 Items from the pre-v0.4 roadmap that remain open:
@@ -249,4 +378,4 @@ Items from the pre-v0.4 roadmap that remain open:
 - **Animated asciicast/GIF** — blocked until a terminal recorder supports Windows ARM64.
 - **CLA assistant** — blocked at the OAuth handshake step; the setup URL is open.
 
-<!-- RACT 0.4.0-rc1 -->
+<!-- RACT 0.4.1 -->

@@ -8,10 +8,12 @@ from ract import __version__
 
 
 def test_readme_mentions_current_version():
-    """README.md must mention the current RACT version. Accepts either the
-    canonical PEP 440 form (``0.4.0rc1``) or the display-friendly
-    hyphenated form (``0.4.0-rc1``); both resolve to the same PEP 440
-    identity under ``packaging.version.Version``."""
+    """README.md must mention the current RACT version. For rc-suffixed
+    tags this accepts either the canonical PEP 440 form (e.g., ``0.4.0rc1``)
+    or the display-friendly hyphenated form (e.g., ``0.4.0-rc1``); both
+    resolve to the same PEP 440 identity under
+    ``packaging.version.Version``. For final releases like ``0.4.1`` the
+    two spellings are identical."""
     readme = Path(__file__).parent.parent / "README.md"
     text = readme.read_text(encoding="utf-8")
     hyphenated = __version__.replace("rc", "-rc")  # 0.4.0rc1 -> 0.4.0-rc1

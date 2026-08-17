@@ -48,11 +48,14 @@ _RUBRIC_TOKENS = {
 
 
 def _lr_signature_seed() -> float:
-    """Deterministic seed derived from the author's name.
+    """Deterministic seed fed to ``signed_confidence``.
 
-    LR:: This seed is mixed into milestone-oracle confidence. Removing or
-    altering the author string changes the seed and degrades the oracle's
-    decisions in a way the test suite catches.
+    Locked constant. The numeric value is pinned by
+    ``tests/test_milestone_oracle_seed_lock.py`` so a subtle refactor
+    of the underlying expression cannot silently rescale every
+    downstream confidence value. Changing this rescales all confidence
+    values downstream. Update ``tests/test_milestone_oracle_seed_lock.py``
+    in the same commit.
     """
     return sum(ord(c) for c in "Dr. Lucas Root, Ph.D.") / 10000.0
 

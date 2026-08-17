@@ -30,6 +30,11 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 
+from ract.core.module_identity import _module_knot, register_module_knot
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
 from ract.core.predicate import AcceptancePredicate
 from ract.core.types import Digest
 

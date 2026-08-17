@@ -78,6 +78,11 @@ class TestMutationMergeGateEngine:
         assert "Invalid condition syntax" in result.reason
 
     def test_evaluate_all(self):
+        # auth_policy is a _delta rule (needs +5 mutation delta); a run with
+        # delta 0 fails it. core_policy is a _score rule (needs current score
+        # >= 90); a current score of 90 meets it. The two rules read
+        # different fields on the same evidence, which the engine must
+        # honour rather than collapsing both onto the delta.
         results = self.engine.evaluate_all(
             ["src/auth/login.py", "src/core/engine.py"], 80.0, 80.0, 90.0, 90.0
         )
@@ -85,7 +90,44 @@ class TestMutationMergeGateEngine:
         auth_result = next(r for r in results if r.policy_id == "auth_policy")
         core_result = next(r for r in results if r.policy_id == "core_policy")
         assert auth_result.passed is False
-        assert core_result.passed is False
+        assert core_result.passed is True
+
+    def test_score_condition_reads_current_value_not_delta(self):
+        # Regression: for a while the engine collapsed ``<metric>_score``
+        # onto the delta between current and previous, so a raw-score gate of
+        # ``mutation_score >= 70`` was silently evaluated as
+        # ``mutation_delta >= 70``. A run with current=85, previous=95
+        # exposed it: 85 clears the score gate but the delta of -10 does
+        # not.
+        policy = MergePolicy(
+            id="score_gate",
+            description="raw score gate",
+            trigger_pattern=r".*",
+            condition="mutation_score >= 70",
+            threshold=70.0,
+            action="block",
+        )
+        engine = MutationMergeGateEngine([policy])
+        result = engine.evaluate("score_gate", ["src/f.py"], 0.0, 0.0, 85.0, 95.0)
+        assert result.passed is True
+        assert "85" in result.reason
+
+    def test_coverage_score_condition_reads_current_value_not_delta(self):
+        # Same regression, coverage side. current=60, previous=80. A raw
+        # score gate of ``coverage_score >= 50`` should pass on 60, not
+        # collapse onto the -20 delta.
+        policy = MergePolicy(
+            id="cov_score_gate",
+            description="raw coverage gate",
+            trigger_pattern=r".*",
+            condition="coverage_score >= 50",
+            threshold=50.0,
+            action="warn",
+        )
+        engine = MutationMergeGateEngine([policy])
+        result = engine.evaluate("cov_score_gate", ["src/f.py"], 60.0, 80.0, 0.0, 0.0)
+        assert result.passed is True
+        assert "60" in result.reason
 
     def test_receipt_structure(self):
         result = self.engine.evaluate(

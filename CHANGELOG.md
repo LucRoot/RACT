@@ -6,6 +6,133 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] - 2026-08-17 — Intent-Fidelity
+
+Patch release for the Intent-Fidelity pipeline
+(`_BUILD/ract_v0.4.1_intent_fidelity/`, patch-versioned per semver since
+the pipeline delivered drift-audit and fix commits only, no new features
+and no breaking changes). This release verifies that seven prior eras' stated
+intents still hold as actual behavior of the current tree and lands fix
+commits for drift the audits found. Tag is `v0.4.1`.
+
+### Verified (intent-fidelity by era)
+
+- **v0.1.x era (module_01).** Nine intent statements: 6 PERSISTS, 2 PARTIAL,
+  1 DRIFTED. Trust and tooling surface (dead-code auction, Fence,
+  consolidation pass, rot report, provider routing) audited against the
+  current tree; drift closed with fix commits. See
+  `_BUILD/ract_v0.4.1_intent_fidelity/module_01.md` for the per-statement
+  verdict rollup.
+- **v0.2.0 REBUILD era (module_02).** Nine intent statements: 7 PERSISTS,
+  2 PARTIAL. Signed Rootknot origin, RK-1 and RK-2 invariants, assumption
+  registry, T1-T7, threat model, versioned plan schema, eval harness first
+  cut audited. Both PARTIAL verdicts routed to ROADMAP with substrate-era
+  owners.
+- **v0.3.0 REBUILD era (module_03).** Ten intent statements: 10 PERSISTS.
+  Auditability and depth surface (`PROVENANCE.md`, independence lint,
+  benchmark harness, `SessionKey.rotate`, provenance verify CLI, executor
+  wiring) audited clean; two fix commits landed for module_02 carry-forward
+  gaps.
+- **v0.4.0 SUBSTRATE era (module_04).** Sixteen §11 signals: 12 PERSISTS,
+  4 PARTIAL (signals 4, 5, 9, 10 sharing one architectural root cause: the
+  executor-adapter shim constructs SubstrateLoop without manifest /
+  sandbox_backend / event writer). One fix commit landed for the v0.3
+  provenance-verify silent-partial gap.
+- **v0.4.0 ALM era (module_05).** Sixteen §13 signals: 6 PERSISTS, 10
+  PARTIAL. All ten PARTIAL share the same architectural root cause as
+  SUBSTRATE 4/5/9/10 (no runtime path plumbs run_id + workspace-root
+  through the loop). One fix commit extended the AL-1 property test to
+  enumerate all three sub-clauses independently.
+- **v0.4.0-rc1 audits era (module_06).** Six intent statements: 5
+  PERSISTS, 1 PARTIAL note-only (CHANGELOG retag-addendum cite stale by 11
+  commits; tag body itself clean). One fix commit generalized two residual
+  filename references and pinned a wordlist regression gate at
+  `tests/test_release_surface.py::test_no_closed_ip_terms_in_tracked_files`.
+- **Restoration clusters 1 + 2 era (module_07).** Eleven intent statements:
+  10 PERSISTS, 1 PARTIAL note-only (primitive lands with 4 green tests but
+  zero consumers; a genuine None-vs-unpassed ambiguity is required at a
+  callsite before adoption is warranted). Zero fix commits — all persistence
+  paths are behavior-gated and hold.
+
+### Fixed (intent-fidelity)
+
+Ten fix commits landed in this pipeline under `intent-fidelity(v0.5): fix`:
+
+- `755578f` intent-fidelity(v0.5): fix — merge-gate `_score` reads current
+  value not delta (module_01).
+- `f4598ed` intent-fidelity(v0.5): fix — restore `ract manifest` alias for
+  `repro-manifest` (module_01).
+- `ceeef12` intent-fidelity(v0.5): source-tree golden hash re-lock after
+  fix commits (module_01).
+- `84ece29` intent-fidelity(v0.5): fix — `ai-sbom` accepts current-shape
+  `Receipt` (module_03, closing module_02 punt gap).
+- `fdd7474` intent-fidelity(v0.5): fix — `PROVENANCE.md` names v0.4
+  extended attestations (module_03).
+- `9e56078` intent-fidelity(v0.5): source-tree golden hash re-lock after
+  module_03 fix commits.
+- `881c5ee` intent-fidelity(v0.5): fix — `provenance verify` names unset
+  v2/v3 extended fields (module_04, closing module_03 gap 2).
+- `b6cc908` intent-fidelity(v0.5): source-tree golden hash re-lock after
+  module_04 fix.
+- `bfecde4` intent-fidelity(v0.5): fix — AL-1 property test enumerates all
+  three sub-clauses independently (module_05).
+- `9e6d0f9` intent-fidelity(v0.5): fix — generalize residual dispatcher-name
+  filename references plus pin wordlist regression gate (module_06).
+
+Plus, at module_08 release close:
+
+- `intent-fidelity(v0.5): fix` — carried-forward gaps + pre-existing test
+  failures (QUICKSTART template scrub, `plan analyze` vs. spec `plan risk`
+  naming drift, CHANGELOG retag-addendum cite refresh, four pre-existing
+  test failures triaged: two G7/G8 date-drift fixtures refreshed, one
+  dead-code allowlist entry for `sentinels.py`, one README `evals/README.md`
+  reference).
+- `release(v0.5.0)` — initial release-close commit: VERSION triple bump,
+  release-surface test refresh, initial `[0.5.0]` CHANGELOG entry, README
+  refresh, ROADMAP compiled from every era. Version was corrected to
+  `0.4.1` by the pivot commit below per semver (drift-audit plus fix
+  commits, no new features and no breaking changes → patch, not minor).
+- `release(v0.4.1)` — semver pivot: VERSION triple `0.5.0` → `0.4.1`,
+  CHANGELOG heading `[0.5.0]` → `[0.4.1]`, ROADMAP labels
+  `v0.6 hardening` → `v0.5 hardening`, tag `v0.5.0` retagged as
+  `v0.4.1` on the pivot commit.
+
+### Verify
+
+- 43-signal sweep: 11 REBUILD + 16 SUBSTRATE + 16 ALM. Every signal
+  evaluates true at the tag commit via
+  `pytest -q tests/test_release_surface.py`.
+- Per-module intent-fidelity attestations: seven modules, one
+  `## Intent verification results` section per module fragment. Test
+  gate: `test_intent_fidelity_module_attestations_logged`.
+- Closed-IP wordlist scan: 25 terms, zero hits outside the two documented
+  deferrals in `assets/demo.cast`. Test gate:
+  `test_no_closed_ip_terms_in_tracked_files`.
+- Version triple: `VERSION`, `pyproject.toml [project].version`, and
+  `src/ract/__init__.py __version__` all equal `0.4.1`; `ract --version`
+  prints `RACT 0.4.1`. Test gate: `test_version_matches_across_files` and
+  `test_ract_version_cli_reports_aligned_identity`.
+
+### Known limitations (carried to the v0.5 hardening backlog)
+
+- **Ten ALM PARTIAL signals share one shim-wiring root cause.** ALM signals
+  1-10 plus signal 16 (module_05) and SUBSTRATE signals 4, 5, 9, 10
+  (module_04) all lack the same architectural piece: the executor-adapter
+  shim constructs `SubstrateLoop` without a `CapabilityManifest`, a
+  `SandboxBackend`, or a `JsonlEventWriter`, so no runtime path plumbs
+  `run_id` + workspace-root through the loop and the ten anti-lazy report
+  files never land under `evals/runs/<run_id>/`. Fixture-only coverage
+  holds; the runtime side is v0.5 hardening scope (see
+  `docs/ROADMAP.md::v0.5 hardening (from substrate close)` and
+  `::v0.5 hardening (from intent-fidelity module_04/05)`).
+- **`sentinels.py` primitive holds without a consumer callsite** (module_07
+  statement 5 PARTIAL). The `MISSING` sentinel is production-ready but no
+  current API surface has the None-vs-unpassed ambiguity that motivates
+  adoption. Consumer-site migration is v0.5 scope, gated on new-surface
+  need.
+- **11 Flagged gaps carried forward from intent-fidelity modules 01-07.**
+  See `docs/ROADMAP.md` v0.5 hardening sections.
+
 ## [0.4.0] - 2026-07-26 — Substrate + Anti-Lazy (v0.4.0-rc1)
 
 Combined release close for the SUBSTRATE pipeline (`_BUILD/ract_v0.4.0_substrate/`)
@@ -244,24 +371,24 @@ option added by either pipeline appears in the bullets below.
   module_08); `anti_lazy_conformance` threshold in
   `check_provider_gate` (default 0.7, ALM module_04); `AuctionConfig`
   block; `test_integrity` section in `CapabilityManifest`.
-- **Retag addendum (2026-07-27).** The `v0.4.0-rc1` tag was first cut on
-  commit `1fd764d` (2026-07-26). A retroactive endpoints audit on
-  2026-07-27 landed two release-surface fix commits and the tag was
-  moved to commit `8b0a6c5`:
-  - `2856ef0` audit(v0.4.0-rc1): fix — remove operator-project name
-    from shipped docs (D1: grep of tracked files found the operator's
-    project name and one absolute Windows path leaked into
-    `docs/ROADMAP.md` and `CHANGELOG.md`; replaced with neutral
-    "operator-side" terminology).
-  - `8b0a6c5` audit(v0.4.0-rc1): fix — substrate adapter rebinds every
-    captured helper (D6: NVIDIA Qwen3 Coder review of
-    `src/ract/executor/substrate_adapter.py` found `LoadBearingGuard`
-    and three other executor-held helpers captured `project_dir` at
-    construction time and were not covered by `_rebind_project_dir`;
-    extended the rebind to an enumerated `_HELPER_ATTRS` set and added
-    a regression test).
-  Version identity, 43-signal count, and every other release-surface
-  claim are unchanged.
+- **Retag addendum (2026-07-27, refreshed 2026-08-17).** The
+  `v0.4.0-rc1` tag was first cut on commit `1fd764d` (2026-07-26). Two
+  audit sweeps have force-moved the tag since:
+  1. **2026-07-27 retroactive endpoints audit** landed two initial
+     release-surface fix commits, moving the tag to `8b0a6c5`:
+     - `0c853a9` audit(v0.4.0-rc1): fix — remove operator-project name
+       from shipped docs.
+     - `8b0a6c5` audit(v0.4.0-rc1): fix — substrate adapter rebinds
+       every captured helper (enumerated `_HELPER_ATTRS` set plus
+       regression test).
+  2. **2026-07-27 through 2026-08-17 content-hygiene + functionality
+     audits** landed nine more `audit(v0.4.0-rc1)` fix commits and the
+     tag rests today at `dafab9a`. The eleven audit commits past the
+     initial `1fd764d` tag position, in chronological order:
+     `0c853a9`, `8f8b03f`, `c88ddc9`, `224fd90`, `0eed92d`, `2a11bef`,
+     `17a4794`, `2fb5715`, `9b63094`, `3577149`, `dafab9a`. Version
+     identity, 43-signal count, and every other release-surface claim
+     are unchanged.
 
 ### Known limitations (carried to the v0.5 hardening backlog)
 

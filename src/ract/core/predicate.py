@@ -27,7 +27,14 @@ if TYPE_CHECKING:
     from ract.core.loop import WorkspaceSnapshot
 
 
-PredicateKind = Literal["test", "type", "property", "invariant", "artifact"]
+PredicateKind = Literal[
+    "test",
+    "type",
+    "property",
+    "invariant",
+    "artifact",
+    "related_file_coverage",
+]
 
 
 # ALM module_01 second-pass fix: when a caller is evaluating held-out
@@ -139,12 +146,46 @@ class ArtifactInvocation:
         }
 
 
+@dataclass(frozen=True)
+class RelatedFileCoverageInvocation:
+    """Verify that a coupled file was touched whenever a source file was touched.
+
+    Coupling-map enforcement: when a change lands in a file matching
+    ``source_glob``, the same change must also touch at least one file
+    matching ``must_also_touch_glob``. The classic instance is
+    "arch changes require ARCHITECTURE.md update", but the shape covers
+    any docs-when-code-changes / test-when-module-changes coupling the
+    project wants to enforce.
+
+    Evaluation reads the workspace's diff (files changed since the
+    parent snapshot) from ``ws.metadata['changed_files']``. When no
+    ``source_glob`` file is touched, the coupling is vacuously
+    satisfied. When the diff channel is missing entirely, the predicate
+    resolves to ``ok=False`` — an unrecorded diff cannot be treated as
+    a pass.
+    """
+
+    source_glob: str
+    must_also_touch_glob: str
+    rationale: str = ""
+    kind: ClassVar[PredicateKind] = "related_file_coverage"
+
+    def to_canonical(self) -> dict[str, Any]:
+        return {
+            "type": "related_file_coverage",
+            "source_glob": self.source_glob,
+            "must_also_touch_glob": self.must_also_touch_glob,
+            "rationale": self.rationale,
+        }
+
+
 PredicateInvocation = Union[
     PytestInvocation,
     MypyInvocation,
     HypothesisInvocation,
     AssertionInvocation,
     ArtifactInvocation,
+    RelatedFileCoverageInvocation,
 ]
 
 
@@ -332,6 +373,12 @@ def _invocation_from_canonical(data: dict[str, Any]) -> PredicateInvocation:
         return ArtifactInvocation(
             path=str(data["path"]),
             must_have_rootknot=bool(data.get("must_have_rootknot", False)),
+        )
+    if kind == "related_file_coverage":
+        return RelatedFileCoverageInvocation(
+            source_glob=str(data["source_glob"]),
+            must_also_touch_glob=str(data["must_also_touch_glob"]),
+            rationale=str(data.get("rationale", "")),
         )
     raise ValueError(f"unknown invocation type: {kind!r}")
 

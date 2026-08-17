@@ -42,3 +42,11 @@ novelty_report.json
 _BUILD/
 # RACT v0.2.0 - Provenance and Invariants
 .hypothesis/
+
+# Contributor-local editor / assistant settings (never shipped)
+.claude/
+
+# evals/conformance runtime artifacts (per-run outputs, not source)
+evals/conformance/RESULTS.md
+evals/conformance/cache/
+evals/conformance/results/

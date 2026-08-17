@@ -21,8 +21,14 @@ binds an artifact to six things:
 
 The signature is produced by `Rootknot.sign(key)` and checked by
 `Rootknot.verify(pubkey)`. The signing primitive is `cryptography`'s ed25519
-(`src/ract/core/keys.py`, `SessionKey`) — a public, audited library. There is
+(`src/ract/core/keys.py`, `SessionKey`), a public, audited library. There is
 no proprietary crypto anywhere in the chain.
+
+**Extended attestations (v0.4).** v0.4 substrate sidecars add
+`environment_signature`, `acceptance_suite_digest`, `predicate_results`,
+`manifest_digest` (RK-3); v0.4-ALM adds `antilazy_signature`, `gate_results`,
+`reversal_taint` (AL-1). Both extend the same signed binding; see the
+Sidecar schemas table below.
 
 ## How RACT stays independent of private systems
 
@@ -102,18 +108,17 @@ Reader dispatches on the top-level `schema` field.
   base64 raw ALM verifier pubkey (`alm_pubkey_b64`) so AL-1 can be
   verified from the sidecar plus an out-of-sidecar registry check.
 
-**Offline verification.** v2 sidecars embed the raw sandbox pubkey
-(`sandbox_pubkey_b64`) for RK-3.1. v3 sidecars also embed the raw ALM
-verifier pubkey (`alm_pubkey_b64`) for AL-1.1. Save sites may also
-embed `generator_pubkey_b64`. Recompute canonical bytes, ed25519-verify
-against embedded pubkeys, check digest fields against the registered
-set.
+**Offline verification.** v2 sidecars embed `sandbox_pubkey_b64` for
+RK-3.1; v3 sidecars also embed `alm_pubkey_b64` for AL-1.1; save sites
+may embed `generator_pubkey_b64`. Recompute canonical bytes,
+ed25519-verify against embedded pubkeys, check digest fields against
+the registered set.
 
-**Authorship bound.** The sidecar proves its own *consistency*. Whether
+**Authorship bound.** The sidecar proves its own consistency. Whether
 the embedded pubkeys are the ones the operator expected is out-of-band
-work. For the ALM verifier pubkey the v0.4-ALM design REQUIRES a
-cross-check against `.rack/alm/archive/` or an operator registry (see
-ADR-0023 for the chain-of-custody rationale).
+work. The v0.4-ALM design REQUIRES cross-checking the ALM verifier
+pubkey against `.rack/alm/archive/` or an operator registry (see
+ADR-0023).
 
 | Sidecar | RK-1 | RK-2 | RK-3 | AL-1 | `--strict` |
 |---|---|---|---|---|---|

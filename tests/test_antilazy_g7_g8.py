@@ -9,9 +9,29 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+
+
+def _recent_iso_timestamp(days_back: int = 1) -> str:
+    """Return an ISO timestamp within the 14-day gate max_age window.
+
+    v0.4.1 intent-fidelity fix: G7/G8 fixtures previously hard-coded a
+    2026-07-26 date that drifted past the 14-day recency threshold. A
+    dynamic recent timestamp keeps the fixture behavior stable across
+    calendar drift while preserving the audit intent (score-based gate
+    admission decisions, not date-based ones).
+    """
+    dt = datetime.now(timezone.utc) - timedelta(days=days_back)
+    return dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+
+def _recent_date_str(days_back: int = 1) -> str:
+    """Return YYYY-MM-DD for a recent date matching ``_recent_iso_timestamp``."""
+    dt = datetime.now(timezone.utc) - timedelta(days=days_back)
+    return dt.strftime("%Y-%m-%d")
 
 from ract.antilazy.companion import (
     CompanionConfig,
@@ -355,7 +375,7 @@ def test_provider_below_anti_lazy_conformance_refused_at_registration(
     results_root.mkdir()
     report = {
         "provider": "slow-provider",
-        "timestamp": "2026-07-26T00:00:00+00:00",
+        "timestamp": _recent_iso_timestamp(),
         "categories": {
             "schema_compliance": {"score": 0.99},
             "tool_discipline": {"score": 1.0},
@@ -363,7 +383,7 @@ def test_provider_below_anti_lazy_conformance_refused_at_registration(
             "anti_lazy": {"score": 0.50},
         },
     }
-    (results_root / "slow-provider-2026-07-26.json").write_text(
+    (results_root / f"slow-provider-{_recent_date_str()}.json").write_text(
         json.dumps(report, sort_keys=True, indent=2), encoding="utf-8"
     )
     outcome = check_provider_gate("slow-provider", results_root=results_root)
@@ -379,14 +399,14 @@ def test_missing_anti_lazy_category_does_not_refuse_older_reports(
     results_root.mkdir()
     report = {
         "provider": "legacy-provider",
-        "timestamp": "2026-07-26T00:00:00+00:00",
+        "timestamp": _recent_iso_timestamp(),
         "categories": {
             "schema_compliance": {"score": 0.99},
             "tool_discipline": {"score": 1.0},
             "refusal_fidelity": {"score": 1.0},
         },
     }
-    (results_root / "legacy-provider-2026-07-26.json").write_text(
+    (results_root / f"legacy-provider-{_recent_date_str()}.json").write_text(
         json.dumps(report, sort_keys=True, indent=2), encoding="utf-8"
     )
     outcome = check_provider_gate(

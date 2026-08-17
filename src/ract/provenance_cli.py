@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from ract.core.provenance import ProvenanceIndex, _knot_from_json
+from ract.core.rootknot import _ZERO_DIGEST
 from ract.core.types import digest_bytes
 
 
@@ -92,7 +93,46 @@ def _check_knot(knot, artifact_path: Path) -> tuple[bool, str]:
         )
     if not knot.verify(pubkey):
         return False, "signature does not verify against the generator public key"
+    # 3. Partial-attestation detection for v2/v3 sidecars (module_04, closes
+    # module_03 Flagged gap #2 — silent-valid on unset extended fields).
+    # A v2 sidecar promises the SUBSTRATE-era RK-3 bindings and a v3
+    # sidecar adds the ALM-era AL-1 bindings; a rootknot at those schemas
+    # whose extended digests / signatures are default (all-zero digests or
+    # empty signature bytes) has skipped the environmental attestation the
+    # sidecar shape claims to carry. The core digest+signature verified,
+    # so the report is still ``valid`` — but the caller sees an explicit
+    # ``partial:`` line naming every unset field so silent-partial is not
+    # possible.
+    partial_fields = _partial_extended_fields(knot)
+    if partial_fields:
+        joined = ", ".join(partial_fields)
+        return True, f"valid (partial: {joined} unset)"
     return True, "valid"
+
+
+def _partial_extended_fields(knot) -> list[str]:
+    """Return the names of unset extended fields on a v2+/v3 rootknot.
+
+    The v1 schema has no extended fields, so returns an empty list on any
+    v1 knot. On v2 (SUBSTRATE) and v3 (ALM) knots, a default-value binding
+    (all-zero digest or empty signature bytes) is treated as unset —
+    the sidecar shape claimed the binding but the writer did not populate
+    it, so the CLI names the specific field(s) rather than printing bare
+    ``valid``.
+    """
+    if getattr(knot, "schema_version", 1) < 2:
+        return []
+    unset: list[str] = []
+    if not knot.environment_signature:
+        unset.append("environment_signature")
+    if knot.acceptance_suite_digest == _ZERO_DIGEST:
+        unset.append("acceptance_suite_digest")
+    if knot.manifest_digest == _ZERO_DIGEST:
+        unset.append("manifest_digest")
+    if knot.schema_version >= 3:
+        if not getattr(knot, "antilazy_signature", b""):
+            unset.append("antilazy_signature")
+    return unset
 
 
 def _resolve_pubkey(knot) -> bytes | None:
@@ -152,7 +192,15 @@ def _provenance_command(args: list[str]) -> int:
         artifact = Path(parsed.file).resolve()
         ws = Path(parsed.workspace).resolve() if parsed.workspace else None
         ok, message = verify_artifact(artifact, workspace_root=ws)
-        print("valid" if ok else "invalid")
+        # Module_04: a v2/v3 sidecar with unset extended fields returns
+        # ok=True with a ``valid (partial: … unset)`` message. The header
+        # print reflects the message rather than a hardcoded ``valid`` so
+        # the partial state is visible on the first line.
+        if ok:
+            header = "partial" if message.startswith("valid (partial:") else "valid"
+        else:
+            header = "invalid"
+        print(header)
         print(message)
         return 0 if ok else 1
     return 1

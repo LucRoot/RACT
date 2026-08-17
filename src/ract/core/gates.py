@@ -18,6 +18,7 @@ See ``docs/ADRs/ADR-0010-acceptance-predicates.md`` for design rationale.
 
 from __future__ import annotations
 
+import fnmatch
 import importlib
 import time
 from typing import TYPE_CHECKING, Any
@@ -30,6 +31,7 @@ from ract.core.predicate import (
     PredicateInvocation,
     PredicateResult,
     PytestInvocation,
+    RelatedFileCoverageInvocation,
 )
 
 if TYPE_CHECKING:
@@ -195,6 +197,86 @@ def evaluate_artifact(
     )
 
 
+def evaluate_related_file_coverage(
+    invocation: RelatedFileCoverageInvocation, ws: "WorkspaceSnapshot"
+) -> PredicateResult:
+    """Verify a coupling-map link between two file globs against the diff.
+
+    Reads ``ws.metadata['changed_files']`` — an iterable of forward-slash
+    POSIX paths modified since the parent snapshot. When any file
+    matching ``source_glob`` was touched, at least one file matching
+    ``must_also_touch_glob`` must also be present. When no source file
+    was touched, the coupling is vacuously satisfied. When the diff
+    channel is missing, the predicate resolves to ``ok=False``.
+    """
+    started = time.perf_counter_ns()
+    metadata = getattr(ws, "metadata", None) or {}
+    if "changed_files" not in metadata:
+        return PredicateResult(
+            ok=False,
+            reason=(
+                "no ws.metadata['changed_files'] channel; cannot evaluate "
+                "related_file_coverage"
+            ),
+            evidence={
+                "source_glob": invocation.source_glob,
+                "must_also_touch_glob": invocation.must_also_touch_glob,
+            },
+            duration_ns=time.perf_counter_ns() - started,
+        )
+    raw = metadata.get("changed_files") or ()
+    changed = [str(p).replace("\\", "/") for p in raw]
+
+    source_hits = _fnmatch_hits(changed, invocation.source_glob)
+    if not source_hits:
+        return PredicateResult(
+            ok=True,
+            reason=(
+                f"no changes matching source_glob {invocation.source_glob!r}; "
+                "coupling vacuously satisfied"
+            ),
+            evidence={
+                "source_glob": invocation.source_glob,
+                "must_also_touch_glob": invocation.must_also_touch_glob,
+                "source_hits": [],
+                "target_hits": [],
+            },
+            duration_ns=time.perf_counter_ns() - started,
+        )
+
+    target_hits = _fnmatch_hits(changed, invocation.must_also_touch_glob)
+    if not target_hits:
+        return PredicateResult(
+            ok=False,
+            reason=(
+                f"modified {source_hits!r} but not {invocation.must_also_touch_glob!r}"
+            ),
+            evidence={
+                "source_glob": invocation.source_glob,
+                "must_also_touch_glob": invocation.must_also_touch_glob,
+                "source_hits": source_hits,
+                "target_hits": [],
+                "rationale": invocation.rationale,
+            },
+            duration_ns=time.perf_counter_ns() - started,
+        )
+
+    return PredicateResult(
+        ok=True,
+        reason=(
+            f"coupling satisfied: touched {source_hits!r} and {target_hits!r}"
+        ),
+        evidence={
+            "source_glob": invocation.source_glob,
+            "must_also_touch_glob": invocation.must_also_touch_glob,
+            "source_hits": source_hits,
+            "target_hits": target_hits,
+            "rationale": invocation.rationale,
+        },
+        duration_ns=time.perf_counter_ns() - started,
+    )
+
+
 def evaluate_invocation(
     invocation: PredicateInvocation, ws: "WorkspaceSnapshot"
 ) -> PredicateResult:
@@ -209,6 +291,8 @@ def evaluate_invocation(
         return evaluate_assertion(invocation, ws)
     if isinstance(invocation, ArtifactInvocation):
         return evaluate_artifact(invocation, ws)
+    if isinstance(invocation, RelatedFileCoverageInvocation):
+        return evaluate_related_file_coverage(invocation, ws)
     # Unreachable when the invocation union stays closed.
     raise TypeError(f"unknown invocation type: {type(invocation).__name__}")
 
@@ -237,6 +321,56 @@ def _resolve_callable(ref: str) -> Any:
         module_path, _, attr = ref.rpartition(".")
     module = importlib.import_module(module_path)
     return getattr(module, attr)
+
+
+def _fnmatch_hits(paths: list[str], glob: str) -> list[str]:
+    """Return the sorted subset of ``paths`` matching ``glob``.
+
+    Handles brace groups ``{a,b}`` via :func:`_expand_braces` and the
+    globstar ``**/`` via a simple rewrite: ``**/`` is dropped so the
+    pattern still matches when zero intermediate segments are present,
+    and fnmatch's plain ``*`` (which also matches ``/``) covers the
+    remainder — including intermediate-segment cases.
+    """
+    expanded = _expand_braces(glob)
+    hits: set[str] = set()
+    for pattern in expanded:
+        candidates = _globstar_variants(pattern)
+        for path in paths:
+            if any(fnmatch.fnmatchcase(path, cand) for cand in candidates):
+                hits.add(path)
+    return sorted(hits)
+
+
+def _globstar_variants(pattern: str) -> list[str]:
+    """Return fnmatch-safe variants of ``pattern`` covering ``**/`` globstar.
+
+    fnmatch has no globstar. Two variants cover the zero-or-many-segment
+    semantics of ``**/``: one with ``**/`` dropped (zero segments) and
+    one with ``**/`` rewritten to ``*/`` (one-or-many segments; fnmatch
+    ``*`` matches ``/``).
+    """
+    if "**/" not in pattern:
+        return [pattern]
+    return [pattern.replace("**/", ""), pattern.replace("**/", "*/")]
+
+
+def _expand_braces(pattern: str) -> list[str]:
+    """Expand a single ``{a,b,c}`` group in ``pattern``; return the branches."""
+    open_i = pattern.find("{")
+    if open_i == -1:
+        return [pattern]
+    close_i = pattern.find("}", open_i)
+    if close_i == -1:
+        return [pattern]
+    prefix = pattern[:open_i]
+    suffix = pattern[close_i + 1 :]
+    branches = pattern[open_i + 1 : close_i].split(",")
+    result: list[str] = []
+    for branch in branches:
+        for expanded in _expand_braces(prefix + branch.strip() + suffix):
+            result.append(expanded)
+    return result
 
 
 def _sidecar_path(path: str) -> str:

@@ -31,6 +31,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable, Protocol, runtime_checkable
 
+from ract.core.module_identity import _module_knot, register_module_knot
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
 if TYPE_CHECKING:
     from ract.core.loop import WorkspaceSnapshot
     from ract.core.predicate import AcceptanceSuite

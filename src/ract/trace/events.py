@@ -84,6 +84,9 @@ EventKind = Literal[
     # ALM module_05 (sycophancy circuit + Investigator pre-completion contract)
     "reversal.suspicious",
     "investigator.report",
+    # Plan mutation + pre-execution advisory (cluster 2 findings 4 + 3)
+    "plan.rewritten",
+    "plan.risk_assessed",
 ]
 
 

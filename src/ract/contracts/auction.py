@@ -22,6 +22,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ract.core.module_identity import _module_knot, register_module_knot
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
 
 # ---------------------------------------------------------------------------
 # Config + proposal

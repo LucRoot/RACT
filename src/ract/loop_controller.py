@@ -207,6 +207,9 @@ class LoopController:
         self._recent_provider_history: tuple[str, ...] = ()
         self._effort_suspicion_active: bool = False
         self._companion_findings_seen: int = 0
+        # Cluster 2 finding 4: track prior iteration's plan so a mutation
+        # between iterations surfaces as a plan.rewritten event.
+        self._prev_iteration_plan: Any | None = None
 
         # ------------------------------------------------------------------
         # ALM module_06 wiring (isomorphic-perturbation gate).
@@ -340,6 +343,11 @@ class LoopController:
             result = self._run_with_timeout(iteration_intent)
 
             report = result.unwrap() if result.is_ok() else None
+            # Cluster 2 finding 4: emit plan.rewritten when the new
+            # iteration's plan differs from the previous iteration's
+            # plan. First iteration has no prior plan, so nothing to
+            # diff against.
+            self._maybe_emit_plan_rewritten(report)
             error = result.error if not result.is_ok() else None
             assumptions: list[str] = []
             if isinstance(report, ExecutionReport):
@@ -550,6 +558,40 @@ class LoopController:
             summary=f"Reached max iterations ({self.max_iterations}).",
             handshake_milestones=list(self.handshake_milestones),
         )
+
+    def _maybe_emit_plan_rewritten(self, report: Any) -> None:
+        """Emit ``plan.rewritten`` when the report carries a mutated plan.
+
+        Cluster 2 finding 4. Diffs the incoming iteration's plan
+        against the previous iteration's plan; an empty diff (identical
+        step content, position-preserved) emits nothing. When a diff is
+        present, publishes to the module-level trace sink so any run
+        that registered a writer captures the mutation. First iteration
+        has no prior plan, so the emit is skipped there.
+        """
+        plan_candidate: Any | None = None
+        if isinstance(report, ExecutionReport):
+            plan_candidate = report.plan
+        elif isinstance(report, Plan):
+            plan_candidate = report
+        if plan_candidate is None:
+            return
+
+        prev = self._prev_iteration_plan
+        self._prev_iteration_plan = plan_candidate
+        if prev is None:
+            return
+
+        try:
+            from ract.core.plan import diff_manager_plans
+            from ract.trace.sink import emit as _emit_event
+
+            diff = diff_manager_plans(prev, plan_candidate)
+            if diff.is_empty():
+                return
+            _emit_event("plan.rewritten", diff.to_payload())
+        except Exception:  # noqa: BLE001 — trace failures never break the loop
+            pass
 
     def _make_suite_done_callback(
         self,

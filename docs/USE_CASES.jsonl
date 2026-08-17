@@ -1,0 +1,60 @@
+{"title": "run", "description": "Execute an intent as a planned-and-verified RACT run.", "status": "accepted", "rationale": "Canonical execute-an-intent verb; every downstream flag applies."}
+{"title": "skills", "description": "List and inspect builtin and installed skills.", "status": "accepted", "rationale": "Skill registry surface exposed to operators."}
+{"title": "mcp", "description": "Manage and invoke MCP tools registered with RACT.", "status": "accepted", "rationale": "MCP adapter surface for external tool servers."}
+{"title": "retrieval", "description": "Query the retrieval adapter over the current workspace.", "status": "accepted", "rationale": "Retrieval adapter operator surface."}
+{"title": "diff", "description": "Show and apply RACT-authored diffs against the workspace.", "status": "accepted", "rationale": "Diff apply and inspection surface."}
+{"title": "explain", "description": "Explain a plan, step, or artifact with its provenance chain.", "status": "accepted", "rationale": "Provenance-first explanation surface."}
+{"title": "report", "description": "Render run reports in markdown or HTML.", "status": "accepted", "rationale": "Run reporter surface."}
+{"title": "handshakes", "description": "List, approve, reject, defer, or review pending operator handshakes.", "status": "accepted", "rationale": "Deferred-approval operator surface (ADR-0006)."}
+{"title": "refactor", "description": "Run a scoped refactor over a named target.", "status": "accepted", "rationale": "Refactor mode surface."}
+{"title": "rename", "description": "Rename a symbol project-wide through the symbol renamer.", "status": "accepted", "rationale": "Symbol renamer surface."}
+{"title": "docs", "description": "Generate or regenerate documentation for the workspace.", "status": "accepted", "rationale": "Documentation generator surface."}
+{"title": "init", "description": "Initialize a new RACT project from a template.", "status": "accepted", "rationale": "Project initializer surface."}
+{"title": "openapi", "description": "Generate an OpenAPI client or server scaffold.", "status": "accepted", "rationale": "OpenAPI generator surface."}
+{"title": "plan", "description": "Load, save, or replay a serialized plan.", "status": "accepted", "rationale": "Plan serializer and replay surface."}
+{"title": "doctor", "description": "Diagnose RACT installation, config, and workspace state.", "status": "accepted", "rationale": "Health-check surface."}
+{"title": "audit", "description": "Audit a workspace or run for anti-rot and provenance issues.", "status": "accepted", "rationale": "Anti-rot audit surface."}
+{"title": "load-bearing", "description": "Inspect or manage load-bearing annotations across the workspace.", "status": "accepted", "rationale": "Load-bearing guard surface."}
+{"title": "novelty", "description": "Report novelty budget usage and scan for overruns.", "status": "accepted", "rationale": "Novelty budget surface."}
+{"title": "coverage", "description": "Report coverage deltas and status.", "status": "accepted", "rationale": "Coverage delta surface."}
+{"title": "quality", "description": "Compute the plan quality scorecard.", "status": "accepted", "rationale": "Quality scorecard surface."}
+{"title": "mutation", "description": "Run the mutation test suite and report kill counts.", "status": "accepted", "rationale": "Mutation runner surface."}
+{"title": "whisper", "description": "Run the Legacy Whisperer over a target module.", "status": "accepted", "rationale": "Legacy whisperer contract surface (ADR-0017)."}
+{"title": "auction", "description": "Run the Dead Code Auction sweep and inspect proposals.", "status": "accepted", "rationale": "Dead code auction contract surface (ADR-0017)."}
+{"title": "fence", "description": "Enforce or inspect Chesterton's Fence records over the workspace.", "status": "accepted", "rationale": "Chesterton's Fence contract surface (ADR-0017)."}
+{"title": "marketplace", "description": "Browse and install skills from the skills marketplace.", "status": "accepted", "rationale": "Skill marketplace surface."}
+{"title": "consolidate", "description": "Scan, apply, or rollback consolidation proposals over the workspace.", "status": "accepted", "rationale": "Consolidation scanner surface."}
+{"title": "release", "description": "Prepare and publish a GitHub release for the current tag.", "status": "accepted", "rationale": "GitHub release client surface."}
+{"title": "merge-gate", "description": "Evaluate the merge gate over pending changes.", "status": "accepted", "rationale": "Mutation-merge-gate surface."}
+{"title": "rot-report", "description": "Render the anti-rot report.", "status": "accepted", "rationale": "Anti-rot reporting surface."}
+{"title": "receipt-export", "description": "Export a bundle of signed receipts for downstream verification.", "status": "accepted", "rationale": "Receipt export surface."}
+{"title": "rot", "description": "Run anti-rot scans and inspect results.", "status": "accepted", "rationale": "Anti-rot scanner surface."}
+{"title": "operator-queue", "description": "Inspect the operator queue of pending requests.", "status": "accepted", "rationale": "Operator queue surface."}
+{"title": "receipt", "description": "Load, verify, or inspect a signed receipt or receipt chain.", "status": "accepted", "rationale": "Receipt verification surface."}
+{"title": "policy-gate", "description": "Evaluate the policy gate against pending changes.", "status": "accepted", "rationale": "Policy gate surface."}
+{"title": "run-fingerprint", "description": "Compute or diff run fingerprints for reproducibility checks.", "status": "accepted", "rationale": "Run fingerprint surface."}
+{"title": "ai-sbom", "description": "Emit an AI-SBOM for the current run.", "status": "accepted", "rationale": "AI-SBOM emission surface."}
+{"title": "calibrate", "description": "Run the experimental calibration harness.", "status": "accepted", "rationale": "Experimental calibration surface."}
+{"title": "infer", "description": "Run the experimental inference harness.", "status": "accepted", "rationale": "Experimental inference surface."}
+{"title": "repro-manifest", "description": "Emit an experimental reproducibility manifest.", "status": "accepted", "rationale": "Experimental reproducibility surface."}
+{"title": "config", "description": "Inspect, diff, or validate the ract.yaml configuration.", "status": "accepted", "rationale": "Configuration surface."}
+{"title": "provider", "description": "Inspect provider presets and routing.", "status": "accepted", "rationale": "Provider routing surface."}
+{"title": "cost", "description": "Report cost accumulation across a run or session.", "status": "accepted", "rationale": "Cost accounting surface."}
+{"title": "router", "description": "Inspect provider router state and complexity routing.", "status": "accepted", "rationale": "Router surface."}
+{"title": "self-audit", "description": "Run RACT's self-audit checks over its own installation.", "status": "accepted", "rationale": "Self-audit surface."}
+{"title": "status", "description": "Report current session status and outstanding blockers.", "status": "accepted", "rationale": "Session status surface."}
+{"title": "leaderboard", "description": "Render the public leaderboard rollup.", "status": "accepted", "rationale": "Public leaderboard surface."}
+{"title": "session", "description": "List, resume, rollback, or inspect saved sessions.", "status": "accepted", "rationale": "Session store surface."}
+{"title": "conformance", "description": "Run the closed-action-union conformance suite (ADR-0014).", "status": "accepted", "rationale": "Conformance harness surface."}
+{"title": "trace", "description": "Inspect the hash-chained event log for a run (ADR-0015).", "status": "accepted", "rationale": "Event log inspection surface."}
+{"title": "provenance", "description": "Inspect and verify Rootknot-signed provenance sidecars.", "status": "accepted", "rationale": "Provenance verification surface."}
+{"title": "source-digest", "description": "Compute or lock the source-tree golden hash over src/ract.", "status": "accepted", "rationale": "Golden hash lock surface; see src/ract/source_digest.py."}
+{"title": "authorship as identity invariant", "description": "Embedding operator names in module source as a load-bearing identity marker.", "status": "rejected", "rationale": "Identity attestation is decoupled from author names; the module-knot registry (src/ract/core/module_identity.py) provides load-time attestation without coupling module identity to any person's name."}
+{"title": "operator-machine training pipeline", "description": "Training a first-party model inside the RACT toolchain from operator interaction traces.", "status": "rejected", "rationale": "Out of scope; RACT is a claim-and-verify agentic coding tool, not a model-training platform."}
+{"title": "declarative script-first workflow layer", "description": "A YAML- or DSL-driven workflow engine that replaces the plan-and-execute loop.", "status": "rejected", "rationale": "Plans stay first-class; workflow-DSL would obscure assumption, confidence, and provenance which are the load-bearing invariants."}
+{"title": "package-registry publish without handshake", "description": "Publishing to PyPI, npm, or crates.io from a RACT run without an operator-signed handshake.", "status": "rejected", "rationale": "Refused by ADR-0007 threat model; requires --allow-tier-3 and an operator handshake."}
+{"title": "workspace escape", "description": "Writing or modifying files outside the configured workspace root.", "status": "rejected", "rationale": "Refused by ADR-0007 threat model; sandbox refuses at the executor boundary."}
+{"title": "bulk workspace exfiltration", "description": "Sending the full workspace to a remote provider in a single request above the chunk threshold.", "status": "rejected", "rationale": "Refused by ADR-0007 threat model; default 1 MiB chunk threshold prevents whole-tree upload."}
+{"title": "sensitive-file read", "description": "Reading credential files like .env, *.pem, id_rsa, or ~/.ssh/** during a run.", "status": "rejected", "rationale": "Refused by ADR-0007 threat model; path patterns denied at the executor boundary."}
+{"title": "model as done-decider", "description": "Letting the management LM choose the moment to stop iterating and mark a milestone complete.", "status": "rejected", "rationale": "Refused by v0.4.0 SUBSTRATE + ALM; the environment (not the model) evaluates predicates against the final snapshot before 'done' is spoken."}
+{"title": "manifest", "description": "v0.1.2-era alias for repro-manifest; emits an experimental reproducibility manifest.", "status": "accepted", "rationale": "CHANGELOG 0.1.2 named this verb explicitly; the alias restores the historical surface."}

@@ -18,6 +18,11 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ract.core.module_identity import _module_knot, register_module_knot
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
 from ract.core.assumption_registry import AssumptionRegistry
 from ract.core.predicate import AcceptanceSuite
 from ract.handshake_registry import HandshakeRegistry

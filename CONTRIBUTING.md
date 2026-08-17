@@ -30,6 +30,7 @@ Thank you for considering a contribution to RACT.
 - **Fixtures live in `tests/fixtures/`.** Never commit a `*.json` / `*.jsonl` fixture at the repo root. A lint test (`tests/test_repo_hygiene.py`) fails the build if one appears.
 - **Runtime state is never committed.** Sessions, the provenance SQLite index (`.rack/`), approval queues, coverage data, and benchmark scratch all live under XDG state/cache or a gitignored `_BUILD/` directory. The `.gitignore` covers `.ract/`, `.ract_sessions/`, `.rack/`, `_BUILD/`, and archived session keys (`*.pem.archived-*`).
 - **New third-party dependencies are a conscious act.** Adding an import root not in `tests/test_public_provenance.py::ALLOWED_IMPORT_ROOTS` fails the independence lint. To add a dep: declare it in `pyproject.toml` *and* add its root to the allowlist in the same PR.
+- **`docs/USE_CASES.jsonl` is the release-surface record** of accepted goals and refused non-goals. Adding a CLI verb without a matching accepted entry fails CI (see `tests/test_use_cases_catalog.py`). Removing a rejected entry requires an ADR. The verb source of truth is `ract.cli.CLI_VERBS`.
 
 ## Branch protection (required GitHub settings)
 

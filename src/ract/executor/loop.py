@@ -31,6 +31,19 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ract.core.module_identity import (
+    _module_knot,
+    is_registered_knot,
+    register_module_knot,
+)
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+import logging
+
+_KNOT_LOGGER = logging.getLogger(__name__)
+
 from ract.contracts.auction import AuctionSweep
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.transaction import (
@@ -140,7 +153,11 @@ class SubstrateLoop:
     # ---- one step -------------------------------------------------------
 
     def run_step(
-        self, spec: SubstrateStepSpec, step_runner: StepRunner
+        self,
+        spec: SubstrateStepSpec,
+        step_runner: StepRunner,
+        *,
+        caller_knot: object | None = None,
     ) -> StepRecord:
         """Open the transaction, run the step, evaluate post-conditions, commit
         or roll back.
@@ -148,7 +165,20 @@ class SubstrateLoop:
         ``step_runner(worktree, container_ref)`` performs the actual work
         inside the worktree and returns a ``WorkspaceSnapshot`` used to
         evaluate the post-conditions.
+
+        ``caller_knot`` is an optional module-identity attestation from
+        the calling module. When provided, it must be a knot registered
+        in ``ract.core.module_identity.MODULE_KNOT_REGISTRY``; an
+        unregistered object trips ``AssertionError``. When omitted the
+        loop logs a debug warning rather than raising, so v0.3 callers
+        that predate the attestation continue to work.
         """
+        if caller_knot is not None:
+            assert is_registered_knot(caller_knot), (
+                "caller_knot is not a registered module knot"
+            )
+        else:
+            _KNOT_LOGGER.debug("caller did not present a module knot")
         parent_before = self.parent_snapshot
 
         # ---- depends_on gate ----------------------------------------------

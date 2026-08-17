@@ -17,9 +17,9 @@ def _version_file_value() -> str:
 def test_package_version_is_release() -> None:
     """The package version must be a PEP 440 release identifier — a final
     ``MAJOR.MINOR.PATCH`` triplet OR a ``MAJOR.MINOR.PATCHrcN`` release
-    candidate. v0.4.0-rc1 is a release candidate; the ALM module_08 close
-    tags ``v0.4.0-rc1`` before the ``v0.4.0`` final tag, so `rc` in the
-    version string is a legal release-close state — not a bit-rot signal.
+    candidate. v0.4.1 is a final release (no rc suffix); prior tag
+    ``v0.4.0-rc1`` was a release candidate. Both spellings pass this
+    predicate, and PEP 440 normalization keeps identity holding.
     """
     version = ract.__version__
     # Final MAJOR.MINOR.PATCH OR MAJOR.MINOR.PATCHrcN (PEP 440 canonical).
@@ -33,10 +33,12 @@ def test_package_version_is_release() -> None:
 
 def test_package_version_matches_version_file() -> None:
     """``__version__`` must resolve to the same PEP 440 version identity as
-    the VERSION file's parseable version token (accepts either the
-    hyphenated ``0.4.0-rc1`` display form or the canonical ``0.4.0rc1``
-    form; ``packaging.version.Version`` normalises both to the same
-    identity)."""
+    the VERSION file's parseable version token. v0.4.1 carries the
+    literal string ``0.4.1`` across VERSION, pyproject.toml, and
+    ``__init__.py`` (no rc suffix, no normalization needed). The regex
+    still accepts an optional ``rcN`` token so prior tag-close forms
+    like ``0.4.0-rc1`` remain parseable when the harness is exercised
+    on historical tags."""
     from packaging.version import Version
 
     file_value = _version_file_value()

@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 
 from ract.providers.base import ProviderAdapter
+from ract.providers.rate_limit import TokenBucket
 from ract.retry_policy import RetryConfig, RetryPolicy
 from ract.rooted import Rooted
 
@@ -58,6 +59,23 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 jitter=False,
             )
         )
+        # Optional client-side rate limiter (module_05 finding 5). Omit
+        # the ``rate_limit`` config block entirely to disable — the
+        # provider then makes calls at the network's natural cadence.
+        rl_cfg = config.get("rate_limit")
+        self._rate_bucket: TokenBucket | None = None
+        self._rate_acquire_timeout: float = 30.0
+        if isinstance(rl_cfg, dict):
+            capacity = int(rl_cfg.get("capacity", 0) or 0)
+            refill = float(rl_cfg.get("refill_rate_per_sec", 0.0) or 0.0)
+            if capacity > 0 and refill > 0.0:
+                self._rate_bucket = TokenBucket(
+                    capacity=capacity,
+                    refill_rate_per_sec=refill,
+                )
+                self._rate_acquire_timeout = float(
+                    rl_cfg.get("acquire_timeout_seconds", 30.0)
+                )
 
     @property
     def name(self) -> str:
@@ -113,6 +131,8 @@ class OpenAICompatibleProvider(ProviderAdapter):
 
     def _post_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send a single chat-completions request and return parsed JSON."""
+        if self._rate_bucket is not None:
+            self._rate_bucket.acquire(1, timeout=self._rate_acquire_timeout)
         response = self.client.post(
             f"{self.url}/chat/completions",
             headers={

@@ -130,6 +130,13 @@ def test_provenance_doc_is_concise() -> None:
         "verify_workspace",
         "RK-1",
         "RK-2",
+        # module_03 (v0.4.1 intent-fidelity Second Pass Q2): the public
+        # attestation surface must name the v0.4 extended attestations so
+        # readers do not conclude Rootknots stop at the v0.2/v0.3 shape.
+        "RK-3",
+        "AL-1",
+        "environment_signature",
+        "antilazy_signature",
     ],
 )
 def test_provenance_doc_names_real_symbols(phrase: str) -> None:

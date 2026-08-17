@@ -26,6 +26,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
+from ract.core.module_identity import _module_knot, register_module_knot
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
 from ract.core.predicate import (
     _REDACT_PREDICATE_ID,
     AcceptancePredicate,

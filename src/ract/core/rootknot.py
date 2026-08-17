@@ -28,6 +28,11 @@ import warnings
 from dataclasses import dataclass, field
 from typing import Literal
 
+from ract.core.module_identity import _module_knot, register_module_knot
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
 from ract.core.keys import SessionKey, verify
 from ract.core.types import Digest, PlanId, StepId, make_plan_id, make_step_id
 

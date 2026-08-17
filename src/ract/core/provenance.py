@@ -34,6 +34,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from ract.core.module_identity import _module_knot, register_module_knot
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
 from ract.core.rootknot import GateResult, GeneratorRef, Rootknot
 from ract.core.types import Digest, PlanId, Result, StepId, digest_bytes
 

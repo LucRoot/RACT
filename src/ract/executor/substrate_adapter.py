@@ -41,6 +41,11 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ract.core.module_identity import _module_knot, register_module_knot
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.transaction import ResourceBudget, TransactionOutcome
 from ract.executor.loop import SubstrateLoop, SubstrateStepSpec

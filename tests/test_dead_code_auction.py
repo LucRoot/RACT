@@ -211,6 +211,18 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("sycophancy.py")
     allowlist.add("investigator.py")
     allowlist.add("alm_verifier_key.py")
+    # v0.5 restoration cluster 2 / intent-fidelity module_07: the typed
+    # ``MISSING`` sentinel primitive at ``ract.core.sentinels`` lands as
+    # a production-ready design tool for new APIs where a caller
+    # legitimately needs to pass ``None`` as a distinct explicit value
+    # AND a caller-omitted default is meaningfully different from
+    # ``None``. Every ``X | None = None`` default in the current tree
+    # treats ``None`` as the semantic sentinel already, so forced
+    # migration would break callsites without semantic improvement.
+    # Adoption is triggered by new-surface need, not by mass-migration
+    # of existing callsites (module_07 Flagged gap 9, v0.5 consumer-site
+    # design). Allowlist mirrors the transitional-substrate pattern.
+    allowlist.add("sentinels.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},

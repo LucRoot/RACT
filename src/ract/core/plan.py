@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -82,6 +84,147 @@ class PlanSchema:
             raise ValueError(f"Unsupported schema version: {self.schema_version}")
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError(f"Confidence out of range: {self.confidence}")
+
+
+@dataclass(frozen=True)
+class PlanDiff:
+    """Difference between two plans, keyed by ``step_id``.
+
+    ``added_step_ids`` and ``removed_step_ids`` name steps present in
+    exactly one of the two plans. ``modified_step_ids`` names steps
+    present in both whose content_digest differs — a rewording, tier
+    change, tool_call swap, or parent-list edit all count as "modified".
+
+    The three sets are pairwise disjoint. Ordering does not participate:
+    two plans with the same step ids in different positions produce an
+    empty diff, matching the intended "did the plan mutate?" question
+    (loop reorderings are noise, additions and content changes are the
+    signal).
+    """
+
+    added_step_ids: tuple[str, ...] = ()
+    removed_step_ids: tuple[str, ...] = ()
+    modified_step_ids: tuple[str, ...] = ()
+
+    def is_empty(self) -> bool:
+        return not (
+            self.added_step_ids or self.removed_step_ids or self.modified_step_ids
+        )
+
+    def to_payload(self) -> dict[str, Any]:
+        """Return a canonical JSON-serialisable dict for the event payload."""
+        return {
+            "added_step_ids": list(self.added_step_ids),
+            "removed_step_ids": list(self.removed_step_ids),
+            "modified_step_ids": list(self.modified_step_ids),
+        }
+
+
+def step_content_digest(step: StepSchema) -> str:
+    """Return a stable SHA-256 hex digest of a step's semantic content.
+
+    Deliberately excludes ``step_id`` — otherwise every rebuilt plan
+    would appear "modified". Includes every other field so a rewording,
+    tier change, tool_call swap, or dependency-list edit surfaces as a
+    modification.
+    """
+    payload = {
+        "action": step.action,
+        "provider_hint": step.provider_hint,
+        "expected_artifact": step.expected_artifact,
+        "tier": step.tier,
+        "assumption_ids": list(step.assumption_ids),
+        "parent_step_ids": list(step.parent_step_ids),
+        "tool_call": step.tool_call,
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def diff_plans(old: PlanSchema, new: PlanSchema) -> PlanDiff:
+    """Return the :class:`PlanDiff` between ``old`` and ``new``.
+
+    Two plans are compared by their ``steps`` collection; milestones,
+    budget, and assumption text do not participate. Same-id steps whose
+    content_digest changes are recorded in ``modified_step_ids``. The
+    result's three lists are individually sorted so replay is stable.
+    """
+    old_by_id = {s.step_id: s for s in old.steps}
+    new_by_id = {s.step_id: s for s in new.steps}
+    old_ids = set(old_by_id)
+    new_ids = set(new_by_id)
+    added = sorted(new_ids - old_ids)
+    removed = sorted(old_ids - new_ids)
+    modified: list[str] = []
+    for step_id in sorted(new_ids & old_ids):
+        if step_content_digest(old_by_id[step_id]) != step_content_digest(
+            new_by_id[step_id]
+        ):
+            modified.append(step_id)
+    return PlanDiff(
+        added_step_ids=tuple(added),
+        removed_step_ids=tuple(removed),
+        modified_step_ids=tuple(modified),
+    )
+
+
+def diff_manager_plans(old: Any, new: Any) -> PlanDiff:
+    """Diff two ``ract.manager.Plan`` values by step content (order-insensitive).
+
+    The manager's ``Plan`` type predates ``PlanSchema`` and does not
+    carry ``step_id`` per step. Content-hash stands in for identity so
+    a re-plan that reorders identical steps produces an empty diff and
+    a genuine content mutation surfaces as removed + added (the
+    manager plan has no persistent step identity to preserve, so
+    "modified" collapses into that pair).
+
+    Duplicate-content steps disambiguate by occurrence index so a plan
+    dropping one of two identical steps still surfaces the removal.
+
+    Cluster 2 second-pass fix — was position-keyed; reordered identical
+    plans generated false-positive plan.rewritten events.
+    """
+
+    def _content_keyed_steps(plan: Any) -> list[StepSchema]:
+        steps = getattr(plan, "steps", ()) or ()
+        seen_counts: dict[str, int] = {}
+        keyed: list[StepSchema] = []
+        for s in steps:
+            temp = StepSchema(
+                step_id="",
+                action=str(getattr(s, "action", "")),
+                provider_hint=str(getattr(s, "provider_hint", "")),
+                expected_artifact=str(getattr(s, "expected_artifact", "")),
+                tool_call=getattr(s, "tool_call", None),
+            )
+            digest = step_content_digest(temp)
+            occurrence = seen_counts.get(digest, 0)
+            seen_counts[digest] = occurrence + 1
+            keyed.append(
+                StepSchema(
+                    step_id=f"{digest}-{occurrence}",
+                    action=temp.action,
+                    provider_hint=temp.provider_hint,
+                    expected_artifact=temp.expected_artifact,
+                    tool_call=temp.tool_call,
+                )
+            )
+        return keyed
+
+    dummy_old = PlanSchema(
+        schema_version=CURRENT_SCHEMA_VERSION,
+        assumption="",
+        confidence=1.0,
+        steps=_content_keyed_steps(old),
+    )
+    dummy_new = PlanSchema(
+        schema_version=CURRENT_SCHEMA_VERSION,
+        assumption="",
+        confidence=1.0,
+        steps=_content_keyed_steps(new),
+    )
+    return diff_plans(dummy_old, dummy_new)
 
 
 def plan_to_dict(plan: PlanSchema) -> dict[str, Any]:

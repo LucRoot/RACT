@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ract.core.predicate import (
     CANONICAL_COMPILER_VERSION,
@@ -38,6 +38,7 @@ from ract.core.predicate import (
     HypothesisInvocation,
     MypyInvocation,
     PytestInvocation,
+    RelatedFileCoverageInvocation,
     new_intent_id,
     new_predicate_id,
 )
@@ -52,6 +53,30 @@ if TYPE_CHECKING:
 # proposed predicates (lateral chain branch A). Grouping is by predicate
 # kind so the operator resolves one handshake per group.
 _HANDSHAKE_GROUP_PREFIX: str = "acceptance.compiler.group."
+
+
+@dataclass(frozen=True)
+class CouplingMap:
+    """One coupling-map entry — source glob paired to a must-also-touch glob."""
+
+    source_glob: str
+    must_also_touch_glob: str
+    rationale: str = ""
+
+
+# Default coupling maps injected by the compiler when the corresponding
+# source area is present in the workspace. Each entry becomes a
+# ``RelatedFileCoverageInvocation`` in the compiled suite. Callers may
+# supply additional entries through ``CompilerInputs.coupling_maps``;
+# ``ract.yaml``'s optional ``[coupling_maps]`` section can also feed
+# entries in via the CLI layer (schema is optional — omit for no gate).
+_DEFAULT_COUPLING_MAPS: tuple[CouplingMap, ...] = (
+    CouplingMap(
+        source_glob="src/ract/{core,executor}/**/*.py",
+        must_also_touch_glob="docs/ARCHITECTURE.md",
+        rationale="arch changes require ARCHITECTURE.md update",
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -70,6 +95,13 @@ class CompilerInputs:
     property_targets: tuple[str, ...] = ()
     coverage_gate: float = 0.85
     tests_root: str = "tests"
+    coupling_maps: tuple[CouplingMap, ...] = ()
+    include_default_coupling_maps: bool = True
+    # Cluster 2 finding 3: optional plan to analyse for the
+    # ``plan.risk_assessed`` advisory. Substrate callers that don't
+    # want the advisory omit both fields; the risk pass then skips.
+    plan_for_risk: Any = None
+    manifest_for_risk: Any = None
 
 
 @dataclass(frozen=True)
@@ -314,6 +346,32 @@ class IntentCompiler:
             else:
                 self._request_group_handshake(approvals, preview)
 
+        # 7) Coupling maps — RelatedFileCoverageInvocation entries.
+        # Explicit ``coupling_maps`` from the caller are always
+        # attached. The default coupling map (arch changes require
+        # ARCHITECTURE.md update) is attached only when the intent's
+        # touched_surface actually intersects the source_glob's area,
+        # so intents unrelated to core/executor pay no evaluation cost.
+        maps: list[CouplingMap] = list(cfg.coupling_maps)
+        if cfg.include_default_coupling_maps:
+            for entry in _DEFAULT_COUPLING_MAPS:
+                if _touched_surface_matches(cfg.touched_surface, entry.source_glob):
+                    if entry not in maps:
+                        maps.append(entry)
+        for entry in maps:
+            predicates.append(
+                AcceptancePredicate(
+                    id=new_predicate_id(),
+                    kind="related_file_coverage",
+                    invocation=RelatedFileCoverageInvocation(
+                        source_glob=entry.source_glob,
+                        must_also_touch_glob=entry.must_also_touch_glob,
+                        rationale=entry.rationale,
+                    ),
+                    required=True,
+                )
+            )
+
         coverage = float(cfg.coverage_gate or self.coverage_gate_default)
         suite = AcceptanceSuite(
             intent_id=new_intent_id(),
@@ -374,6 +432,25 @@ class IntentCompiler:
             )
         except Exception:  # noqa: BLE001 — never fail compile on trace error
             pass
+
+        # Cluster 2 finding 3: emit a plan.risk_assessed advisory when
+        # ``inputs.plan_for_risk`` is supplied. Substrate callers that
+        # only supply an intent skip this — the report needs a plan to
+        # analyse and the compile pass does not construct one itself.
+        plan_for_risk = getattr(cfg, "plan_for_risk", None)
+        if plan_for_risk is not None:
+            try:
+                from ract.core.plan_risk import analyze_plan
+                from ract.trace.sink import emit as _emit_event
+
+                report = analyze_plan(
+                    plan_for_risk,
+                    manifest=getattr(cfg, "manifest_for_risk", None),
+                    plan_id=suite.intent_id,
+                )
+                _emit_event("plan.risk_assessed", report.to_payload())
+            except Exception:  # noqa: BLE001 — never fail compile on trace error
+                pass
         return suite
 
     def compile_and_detect_rule_like(
@@ -462,6 +539,14 @@ def _discover_test_files(ws: "WorkspaceSnapshot", tests_root: str) -> list[str]:
 def _canonical_touched(paths: tuple[str, ...]) -> tuple[str, ...]:
     """Return ``paths`` normalized to forward-slash form and sorted."""
     return tuple(sorted(p.replace("\\", "/") for p in paths))
+
+
+def _touched_surface_matches(paths: tuple[str, ...], glob: str) -> bool:
+    """Return True iff any normalized path in ``paths`` matches ``glob``."""
+    from ract.core.gates import _fnmatch_hits  # local import breaks cycle
+
+    canonical = list(_canonical_touched(paths))
+    return bool(_fnmatch_hits(canonical, glob))
 
 
 # RACT 0.4.0

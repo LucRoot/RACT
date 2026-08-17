@@ -364,19 +364,18 @@ def test_combined_signal_count_matches_documented_total() -> None:
 
 def test_version_matches_across_files() -> None:
     """VERSION + pyproject + __init__ + `ract --version` all resolve to
-    the same PEP 440 version identity (Second Pass CONCRETE DEFECT: the
-    original substring-only check would not have caught a divergence
-    between `0.4.0rc1` and, say, `0.4.0rc2`; now we assert semantic
-    identity via ``packaging.version.Version`` AND actually invoke the
-    CLI to verify its output matches).
+    the same PEP 440 version identity. v0.4.1 has no rc suffix so all
+    three files carry the literal string ``0.4.1`` (module_08 Lateral
+    Chain branch B). Identity holds under ``packaging.version.Version``
+    across the three files AND against the CLI-reported string.
     """
     from packaging.version import Version
 
-    expected = Version("0.4.0-rc1")
+    expected = Version("0.4.1")
 
     version_text = (_REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip()
     # Extract the semver token from the VERSION file's human-friendly
-    # `RACT v0.4.0-rc1 - Substrate + Anti-Lazy` shape.
+    # `RACT v0.4.1 - Intent-Fidelity` shape.
     match = re.search(r"v?(\d+\.\d+\.\d+(?:[-.]?rc\d+)?)", version_text)
     assert match, f"VERSION file has no parseable version token: {version_text!r}"
     assert Version(match.group(1)) == expected, (
@@ -401,24 +400,22 @@ def test_version_matches_across_files() -> None:
 def test_ract_version_cli_reports_aligned_identity() -> None:
     """`ract --version` (via ``python -m ract.cli --version``) prints a
     version string that resolves under ``packaging.version.Version`` to
-    the same identity as VERSION/pyproject/__init__. Second Pass CONCRETE
-    DEFECT fix: the original release-surface tests did not exercise the
-    CLI. The CHANGELOG's Verify section claims the CLI reports
-    ``0.4.0-rc1``; PEP 440 normalises that to ``0.4.0rc1`` which is what
-    the CLI actually prints — the two are the same version identity even
-    though the string spelling differs.
+    the same identity as VERSION/pyproject/__init__. v0.4.1 has no rc
+    suffix so the literal string ``0.4.1`` and the PEP 440 canonical
+    form ``0.4.1`` are identical — no normalization needed (module_08
+    Lateral Chain branch B).
     """
     from packaging.version import Version
 
     import ract
 
     module_version = Version(ract.__version__)
-    expected = Version("0.4.0-rc1")
+    expected = Version("0.4.1")
     assert module_version == expected, (
         f"ract.__version__ {ract.__version__!r} != expected {expected!r}"
     )
-    # And the aligned PEP 440 canonical form is `0.4.0rc1`.
-    assert str(expected) == "0.4.0rc1"
+    # And the aligned PEP 440 canonical form is the literal `0.4.1`.
+    assert str(expected) == "0.4.1"
 
 
 def test_changelog_has_0_4_0_entry_with_module_bullets() -> None:
@@ -473,6 +470,102 @@ def test_roadmap_compiled_from_all_modules() -> None:
     assert "v0.5 hardening (from second-pass deferrals)" in text
 
 
+# ---------------------------------------------------------------------------
+# v0.4.1 intent-fidelity release-surface tests. Module_08 close (2026-08-17).
+# ---------------------------------------------------------------------------
+
+
+def test_changelog_has_0_4_1_entry_with_era_bullets() -> None:
+    """CHANGELOG carries a ``## [0.4.1] - 2026-08-17`` entry with a bullet per
+    era covered by the intent-fidelity pipeline plus a bullet per fix commit
+    landed under ``intent-fidelity(v0.5): fix``. Seven era bullets: v0.1.x,
+    v0.2.0, v0.3.0, v0.4.0 SUBSTRATE, v0.4.0 ALM, v0.4.0-rc1 audits,
+    restoration clusters 1+2.
+    """
+    text = (_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## [0.4.1]" in text, "CHANGELOG missing [0.4.1] entry"
+    assert "Intent-Fidelity" in text, "CHANGELOG [0.4.1] entry missing Intent-Fidelity label"
+    # Seven era markers must appear inside the [0.4.1] block.
+    body = text.split("## [0.4.1]", 1)[1].split("## [0.4.0]", 1)[0]
+    for era in (
+        "v0.1.x",
+        "v0.2.0",
+        "v0.3.0",
+        "SUBSTRATE",
+        "ALM",
+        "v0.4.0-rc1 audits",
+        "Restoration clusters",
+    ):
+        assert era in body, f"CHANGELOG [0.4.1] entry missing era bullet: {era!r}"
+    # Fix-commit bullets: at least the 10 known intent-fidelity fix commit
+    # short SHAs are named in the [0.4.1] body.
+    fix_shas = (
+        "755578f",
+        "f4598ed",
+        "ceeef12",
+        "84ece29",
+        "fdd7474",
+        "9e56078",
+        "881c5ee",
+        "b6cc908",
+        "bfecde4",
+        "9e6d0f9",
+    )
+    missing = [sha for sha in fix_shas if sha not in body]
+    assert not missing, f"CHANGELOG [0.4.1] entry missing fix-commit SHAs: {missing}"
+
+
+_INTENT_FIDELITY_MODULES: tuple[str, ...] = (
+    "module_01.md",
+    "module_02.md",
+    "module_03.md",
+    "module_04.md",
+    "module_05.md",
+    "module_06.md",
+    "module_07.md",
+)
+
+
+def test_intent_fidelity_module_attestations_logged() -> None:
+    """Every intent-fidelity module (01-07) carries a
+    ``## Intent verification results`` section. The section is the
+    audit anchor per module fragment; a module with no attestation
+    cannot count as intent-verified for the combined sweep.
+    """
+    base = _REPO_ROOT / "_BUILD" / "ract_v0.4.1_intent_fidelity"
+    missing: list[str] = []
+    for module_name in _INTENT_FIDELITY_MODULES:
+        path = base / module_name
+        assert path.is_file(), f"Intent-fidelity module fragment missing: {module_name}"
+        content = path.read_text(encoding="utf-8", errors="ignore")
+        if "## Intent verification results" not in content:
+            missing.append(module_name)
+    assert not missing, (
+        "Intent-fidelity modules missing ## Intent verification results section: "
+        f"{missing}"
+    )
+
+
+def test_roadmap_carries_intent_fidelity_module_gaps() -> None:
+    """`docs/ROADMAP.md` carries a ``v0.5 hardening (from intent-fidelity ...``
+    section anchoring every one of the seven intent-fidelity modules' Flagged
+    gaps. Ensures the compilation step did not silently skip a module.
+    """
+    text = (_REPO_ROOT / "docs" / "ROADMAP.md").read_text(encoding="utf-8")
+    # Single umbrella section OR per-module sections both satisfy the DoD;
+    # this test asserts at least the umbrella anchor plus one mention per
+    # intent-fidelity module fragment id.
+    assert "intent-fidelity" in text.lower(), (
+        "ROADMAP missing an intent-fidelity gap section"
+    )
+    for module_name in _INTENT_FIDELITY_MODULES:
+        # Strip the .md extension when checking references.
+        stub = module_name.removesuffix(".md")
+        assert stub in text, (
+            f"ROADMAP missing a reference to intent-fidelity {stub} (no gaps carried?)"
+        )
+
+
 def test_no_prior_v0_4_0_tag_conflict() -> None:
     """Substrate did NOT tag; ALM module_08 lands the first v0.4-family
     tag as v0.4.0-rc1. Verify no stray v0.4.0 tag already exists that
@@ -489,4 +582,85 @@ def test_no_prior_v0_4_0_tag_conflict() -> None:
     assert result.stdout.strip() != "v0.4.0", (
         "A bare v0.4.0 tag exists and would conflict with the v0.4.0-final "
         "future release. This ALM module_08 lands v0.4.0-rc1 only."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Closed-IP wordlist regression gate. Intent-Fidelity module_06 (2026-08-17)
+# extends the v0.4.0-rc1 audit's six-category grep pattern to a persistent
+# test so a leaked closed-IP term cannot re-enter the tracked tree silently.
+# The wordlist mirrors the operator's private-name discipline plus the
+# specific dispatcher-function and operator-path patterns the v0.4.0-rc1
+# audit generalized. Two deferred hits in ``assets/demo.cast`` at lines 53
+# and 76 are documented in ``assets/README.md``; the test allows exactly
+# those two hits and refuses every other leak.
+# ---------------------------------------------------------------------------
+
+_CLOSED_IP_TERMS: tuple[str, ...] = (
+    "[REDACTED]",
+    "kronos",
+    "prismml",
+    "nemotron",
+    "grove_forge",
+    "grove-forge",
+    "snapdragon",
+    "strix halo",
+    "cognify",
+    "overnight_dt",
+    "never_idle",
+    "temporal_kg",
+    "x elite",
+    "rootclaw",
+    "reason_deep",
+    "reason_magistral",
+    "reason_r1_latest",
+    "flash_reason",
+    "flash_lite",
+    "reason_nemotron_ultra",
+    "openrouter_dispatch",
+    "google_dispatch",
+    "nvidia_dispatch",
+    "mistral_dispatch",
+    "endpoints_skill",
+)
+
+
+def test_no_closed_ip_terms_in_tracked_files() -> None:
+    """Grep every tracked file (via ``git grep -Iil``) for each closed-IP
+    term in ``_CLOSED_IP_TERMS`` (case-insensitive). Zero hits allowed
+    except the two documented deferrals in ``assets/demo.cast``.
+
+    Regression anchor: the v0.4.0-rc1 audit generalized dispatcher-function
+    names, operator-project names, and operator absolute paths across the
+    tracked tree. Intent-Fidelity module_06 verifies the fix still holds
+    and pins it here so a re-leak becomes a red test.
+    """
+
+    hits: dict[str, list[str]] = {}
+    for term in _CLOSED_IP_TERMS:
+        result = subprocess.run(
+            ["git", "-C", str(_REPO_ROOT), "grep", "-Iil", term],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        files = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        # ``assets/demo.cast`` carries two operator-path lines that require
+        # a live asciinema re-record to purge. Tolerated because the
+        # deferral is documented in ``assets/README.md`` and separately
+        # covered by ``test_demo_cast_freshness``. ``tests/test_release_surface.py``
+        # necessarily names the wordlist itself; excluded from its own scan.
+        files = [
+            f
+            for f in files
+            if f != "assets/demo.cast"
+            and f != "tests/test_release_surface.py"
+        ]
+        if files:
+            hits[term] = files
+    assert not hits, (
+        "Closed-IP wordlist regression: one or more terms re-entered the "
+        f"tracked tree. Hits: {hits}. If the term is intentional (e.g., a "
+        "public model catalog URL in an inline citation), narrow the "
+        "wordlist. Otherwise, generalize the leaking text."
     )

@@ -195,7 +195,7 @@ ract skills install python-package
 ract skills install-all
 ```
 
-Available templates include `python-package`, `fastapi-app`, `react-component`, `test-generation`, `documentation-update`, `cli-tool`, `library-refactor`, `api-client`, `data-pipeline`, and `config-driven-service`.
+Shipped project templates: `python-package`, `cli-tool`. Skill packages under `ract skills` are catalogued separately from the `ract init --template` project scaffolds; run `ract skills list` for the shipped skill set.
 
 ## View run reports
 

@@ -4,42 +4,39 @@
 ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LucRoot/RACT/main/docs/coverage-badge.json)
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
-![Version](https://img.shields.io/badge/version-0.4.0--rc1-blue)
+![Version](https://img.shields.io/badge/version-0.4.1-blue)
 
 RACT is a model-agnostic, local-first agentic coding tool built around three ideas: signed provenance capabilities (*rootknots*) on every artifact, explicit assumptions for every plan step, and milestone-halting recursion instead of fixed iteration counts.
 
-## What v0.4.0-rc1 changes
+## What v0.4.1 changes
 
-v0.4.0-rc1 is the first release where **the environment decides**, not the
-model. Two combined pipelines land in this tag:
+v0.4.1 is the Intent-Fidelity patch release. No new features and no
+breaking changes. The pipeline
+(`_BUILD/ract_v0.4.1_intent_fidelity/`) walked seven prior eras (v0.1.x,
+v0.2.0, v0.3.0, v0.4.0 SUBSTRATE, v0.4.0 ALM, v0.4.0-rc1 audits,
+restoration clusters 1+2) and verified each era's stated intent still
+holds as actual tree behavior. Drift became fix commits with regression
+tests; unresolvable drift became a `docs/ROADMAP.md` entry.
 
-- **Substrate.** Every plan step runs in its own git worktree under an
-  OS-enforced sandbox derived from a `CapabilityManifest`. Every model
-  action is a member of a closed Pydantic union validated at the provider
-  boundary. Every run emits a hash-chained event log at
-  `evals/runs/<run_id>/events.jsonl` and (optionally) OpenTelemetry
-  spans. Termination T1 reads: *every required predicate in the
-  `AcceptanceSuite` evaluates true against the final snapshot* — the
-  model does not say "done". Rootknot carries a second signature
-  (`environment_signature`) attesting the environment, not just the
-  author (**Invariant RK-3**).
-- **Anti-Lazy Module (ALM).** Eight gates (G1-G8) run at the pre-commit
-  boundary: held-out predicate suite, mutation-kill, patch differentiation,
-  coverage delta, test-integrity AST diff, symbol-graph under-edit,
-  companion red-team from a distinct provider, and effort reconciliation.
-  A sycophancy circuit forces evidence on suspicious reversals. An
-  Investigator probes flagged files with the companion. Rootknot gains a
-  third signature (`antilazy_signature`) held by an ALM-verifier key
-  distinct from the sandbox key, and **Invariant AL-1 (Anti-Lazy
-  Attestation)** raises the verification bar: a workspace only verifies
-  under `strict=True` when every gate passed (or its handshake was
-  approved) AND the run's `reversal_taint` is clean.
+Verify: `pytest -q tests/test_release_surface.py` runs the 43-signal
+sweep (11 REBUILD + 16 SUBSTRATE + 16 ALM) plus per-module attestations
+plus the closed-IP wordlist gate. See `CHANGELOG.md` `[0.4.1]`.
 
-The word **attested** appears in a run report only when all three
-signatures land. The word **done** is no longer the model's to say.
+## What v0.4.0 landed
 
-See `CHANGELOG.md` `[0.4.0]` for the exhaustive change list; see
-`docs/ROADMAP.md` for what v0.5 hardens.
+v0.4.0 was the first release where **the environment decides**, not the
+model. Substrate: every plan step runs in its own git worktree under an
+OS-enforced sandbox derived from a `CapabilityManifest`; every model
+action is a member of a closed Pydantic union; every run emits a
+hash-chained event log at `evals/runs/<run_id>/events.jsonl` and
+optionally OpenTelemetry spans; termination T1 reads: every required
+predicate in the `AcceptanceSuite` evaluates true against the final
+snapshot (the model does not say "done"). Rootknot gained
+`environment_signature` (**Invariant RK-3**). ALM: eight pre-commit
+gates (G1-G8), a sycophancy circuit, an Investigator, and a third
+Rootknot signature (`antilazy_signature`) held by a separate key
+(**Invariant AL-1**). See `CHANGELOG.md` `[0.4.0]` for the exhaustive
+change list; see `docs/ROADMAP.md` for the v0.5 hardening backlog.
 
 ## Install
 
@@ -85,6 +82,7 @@ ract run "refactor the greeting module" --config ract.yaml --loop --max-iteratio
 - `ract trace diff <run_a> <run_b>` — diff two traces event-by-event.
 - `ract trace to-test <run>` — materialize the trace's provider prompts and responses as pinned test fixtures.
 - `ract provenance verify <path>` — verify a file's `Rootknot` (RK-1 + RK-2 always; RK-3 when the sidecar is v2+; AL-1 when the sidecar is v3 and the workspace is in strict mode).
+- `ract plan analyze <session>` — print the `PlanRiskReport` advisory for a session (restoration cluster 2; reads the `plan.risk_assessed` event out of `events.jsonl`).
 
 Anti-lazy gates (G1-G8) are pre-commit helpers rather than top-level CLI verbs.
 A run's `evals/runs/<run_id>/` directory gains one report per gate:
@@ -106,7 +104,7 @@ Core modules live in `src/ract/core/`: `rootknot.py` (signed provenance), `assum
 
 ## Evals & Benchmark
 
-Three reproducible tasks under `evals/tasks/` (reports in `evals/runs/`). `evals/benchmarks/refactor-token-usage/` compares the milestone-driven loop against a naive baseline on tokens-to-pass; reproduce with `python evals/benchmarks/refactor-token-usage/report.py`.
+Three reproducible tasks under `evals/tasks/` (reports in `evals/runs/`). See [`evals/README.md`](evals/README.md) for the eval-tree tour. `evals/benchmarks/refactor-token-usage/` compares the milestone-driven loop against a naive baseline on tokens-to-pass; reproduce with `python evals/benchmarks/refactor-token-usage/report.py`.
 
 ## Verify
 
@@ -118,7 +116,7 @@ ract trace replay evals/runs/<run_id>    # replay a hash-chained event log
 pytest -q                                # full suite (includes tests/test_release_surface.py)
 ```
 
-RACT v0.4.0-rc1 enforces four invariants at verify time:
+RACT v0.4.1 enforces four invariants at verify time:
 
 - **RK-1 (Author Attestation, v0.2).** `Rootknot.generator_signature` verifies
   under the resolved generator pubkey.
@@ -155,4 +153,4 @@ License: PolyForm Noncommercial 1.0.0. Measurements: take them as one data point
 
 **Author:** Dr. Lucas Root, Ph.D. — [info@lucasroot.com](mailto:info@lucasroot.com)
 
-<!-- RACT 0.4.0-rc1 -->
+<!-- RACT 0.4.1 -->

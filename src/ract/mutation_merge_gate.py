@@ -136,10 +136,22 @@ class MutationMergeGateEngine:
             "<": lambda a, b: a < b,
         }
 
+        # Natural-language conditions come in two shapes:
+        #   ``<metric>_delta <op> <threshold>`` compares the change between the
+        #   previous and current values against the threshold; and
+        #   ``<metric>_score <op> <threshold>`` compares the raw current value
+        #   against the threshold. The prior implementation collapsed both
+        #   shapes onto the delta, so a policy of ``mutation_score >= 70`` was
+        #   silently evaluated as ``mutation_delta >= 70`` and passed or
+        #   failed on the wrong number.
+        condition_suffix = policy.condition.split(metric_type, 1)[1].lstrip()
+        wants_delta = condition_suffix.startswith("_delta")
         if metric_type == "coverage":
-            current_val = delta_coverage
+            current_val = delta_coverage if wants_delta else current_coverage
         elif metric_type == "mutation":
-            current_val = delta_mutation
+            current_val = (
+                delta_mutation if wants_delta else current_mutation_score
+            )
         else:
             return GateResult(
                 passed=False,

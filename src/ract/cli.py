@@ -72,6 +72,109 @@ def toggle_mode(mode: str) -> str:
     raise ValueError(f"unknown toggle mode: {mode}")
 
 
+# Single source of truth for the CLI's subcommand verb set.
+#
+# The default ``ract --help`` output enumerates flags only (the intent
+# parser owns the base surface); subcommands are dispatched by argv[0]
+# match in ``main``. ``docs/USE_CASES.jsonl`` is the release-surface
+# record of what these verbs do and what non-goals RACT refuses.
+# ``tests/test_use_cases_catalog.py`` gates that catalog against this
+# constant. Adding a verb here without a matching accepted catalog
+# entry fails CI.
+CLI_VERBS: tuple[str, ...] = (
+    "run",
+    "skills",
+    "mcp",
+    "retrieval",
+    "diff",
+    "explain",
+    "report",
+    "handshakes",
+    "refactor",
+    "rename",
+    "docs",
+    "init",
+    "openapi",
+    "plan",
+    "doctor",
+    "audit",
+    "load-bearing",
+    "novelty",
+    "coverage",
+    "quality",
+    "mutation",
+    "whisper",
+    "auction",
+    "fence",
+    "marketplace",
+    "consolidate",
+    "release",
+    "merge-gate",
+    "rot-report",
+    "receipt-export",
+    "rot",
+    "operator-queue",
+    "receipt",
+    "policy-gate",
+    "run-fingerprint",
+    "ai-sbom",
+    "calibrate",
+    "infer",
+    "repro-manifest",
+    "manifest",
+    "config",
+    "provider",
+    "cost",
+    "router",
+    "self-audit",
+    "status",
+    "leaderboard",
+    "session",
+    "conformance",
+    "trace",
+    "provenance",
+    "source-digest",
+)
+
+
+def _source_digest_command(args: list[str]) -> int:
+    """Handle 'ract source-digest [--lock]'.
+
+    Without --lock: print the current computed hash, the locked hash,
+    and whether they match. Exit 0 on match, 1 on drift.
+
+    With --lock: rewrite ``GOLDEN_HASH_CONSTANT`` in
+    ``src/ract/source_digest.py`` to the current computed value.
+    """
+    parser = argparse.ArgumentParser(prog="ract source-digest")
+    parser.add_argument(
+        "--lock",
+        action="store_true",
+        help="Rewrite GOLDEN_HASH_CONSTANT to the current computed hash.",
+    )
+    parsed = parser.parse_args(args)
+
+    from ract.source_digest import (
+        GOLDEN_HASH_CONSTANT,
+        compute_golden_hash,
+        rewrite_golden_hash_constant,
+    )
+
+    current = compute_golden_hash()
+    if parsed.lock:
+        target = rewrite_golden_hash_constant(current)
+        print(f"[ract] locked GOLDEN_HASH_CONSTANT to {current}")
+        print(f"[ract] rewrote {target}")
+        return 0
+    print(f"current: {current}")
+    print(f"locked:  {GOLDEN_HASH_CONSTANT}")
+    if current == GOLDEN_HASH_CONSTANT:
+        print("matches")
+        return 0
+    print("differs")
+    return 1
+
+
 def _handshake_item_to_dict(item: Any) -> dict[str, Any]:
     """Serialize a HandshakeItem to a plain dict."""
     from dataclasses import asdict
@@ -1010,6 +1113,53 @@ def _openapi_command(args: list[str]) -> int:
     return 0
 
 
+def _plan_analyze(parsed: argparse.Namespace) -> int:
+    """Handle 'ract plan analyze <session>' (cluster 2 finding 3).
+
+    Reads events from ``<runs-dir>/<session>/events.jsonl``, finds the
+    most recent ``plan.risk_assessed`` event, and prints the report.
+    """
+    from ract.core.plan_risk import PlanRiskReport
+    from ract.trace.writer import EventReader
+
+    events_path = parsed.runs_dir / parsed.session / "events.jsonl"
+    if not events_path.is_file():
+        print(
+            f"[ract] failed: events file not found: {events_path}",
+            file=sys.stderr,
+        )
+        return 1
+    latest_payload: dict | None = None
+    for event in EventReader.iter_events(events_path):
+        if event.kind == "plan.risk_assessed":
+            latest_payload = event.payload
+    if latest_payload is None:
+        print(
+            f"[ract] failed: no plan.risk_assessed event in {events_path}",
+            file=sys.stderr,
+        )
+        return 1
+    report = PlanRiskReport.from_payload(latest_payload)
+    if parsed.json_output:
+        print(json.dumps(report.to_payload(), indent=2))
+        return 0
+    print(f"Plan risk report — session {parsed.session}")
+    print(f"  plan_id: {report.plan_id.hex() if report.plan_id else '(none)'}")
+    print(f"  risk_score: {report.risk_score:.3f}")
+    if report.high_risk_steps:
+        print("  high-risk steps:")
+        for step in report.high_risk_steps:
+            print(
+                f"    - {step.step_id} [{step.risk_kind}] "
+                f"score={step.score:.2f} — {step.rationale}"
+            )
+    if report.suggestions:
+        print("  suggestions:")
+        for suggestion in report.suggestions:
+            print(f"    - {suggestion}")
+    return 0
+
+
 def _plan_command(args: list[str]) -> int:
     """Handle 'ract plan export|replay'.
 
@@ -1037,6 +1187,27 @@ def _plan_command(args: list[str]) -> int:
     diff = subparsers.add_parser("diff", help="Compare two saved plans by their steps.")
     diff.add_argument("before", type=Path, help="First plan JSON file.")
     diff.add_argument("after", type=Path, help="Second plan JSON file.")
+
+    analyze = subparsers.add_parser(
+        "analyze",
+        help="Print the plan.risk_assessed advisory for a session's plan.",
+    )
+    analyze.add_argument(
+        "session",
+        help="Session id whose events.jsonl carries the plan.risk_assessed event.",
+    )
+    analyze.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit the report as JSON instead of human-readable text.",
+    )
+    analyze.add_argument(
+        "--runs-dir",
+        type=Path,
+        default=Path("evals/runs"),
+        help="Directory containing the session subdirectories.",
+    )
 
     parsed = parser.parse_args(args)
     if parsed.action is None:
@@ -1086,6 +1257,9 @@ def _plan_command(args: list[str]) -> int:
             )
         )
         return 0
+
+    if parsed.action == "analyze":
+        return _plan_analyze(parsed)
 
     # replay
     plan = load_plan(parsed.plan)
@@ -3748,6 +3922,17 @@ def main(argv: list[str] | None = None) -> int:
         from ract.experimental.cli_repro_manifest import _repro_manifest_command
 
         return _repro_manifest_command(argv[1:])
+    if argv and argv[0] == "manifest":
+        # ``ract manifest`` is the v0.1.2-era alias for
+        # ``ract repro-manifest``. The CHANGELOG bullet for the v0.1 AI
+        # provenance manifest surface names both verbs; a rename during
+        # the v0.4 rebuild left only ``repro-manifest`` on the surface and
+        # the older name silently resolved as an unknown positional
+        # intent. The alias restores the older verb without changing the
+        # shipped semantics.
+        from ract.experimental.cli_repro_manifest import _repro_manifest_command
+
+        return _repro_manifest_command(argv[1:])
     if argv and argv[0] == "config":
         return _config_command(argv[1:])
     if argv and argv[0] == "provider":
@@ -3774,6 +3959,8 @@ def main(argv: list[str] | None = None) -> int:
         from ract.provenance_cli import _provenance_command
 
         return _provenance_command(argv[1:])
+    if argv and argv[0] == "source-digest":
+        return _source_digest_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="ract",
         description=(
