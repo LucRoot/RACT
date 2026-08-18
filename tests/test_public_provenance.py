@@ -107,6 +107,21 @@ ALLOWED_IMPORT_ROOTS = {
     # ``DeprecationWarning`` via stdlib ``warnings``; provenance.py
     # emits the same at RK-3-skipped-for-v1 sites. Both stdlib.
     "warnings",
+    # v0.5 memory-discipline module_02: symbol_index uses stdlib
+    # ``types`` for the read-only-mapping proxy.
+    "types",
+    # v0.5 memory-discipline module_02 (ADR-0032): symbol-index parsers
+    # depend on tree-sitter core + per-language grammar packages; the
+    # walker uses pathspec for gitignore parity; the watcher uses
+    # watchdog observers/events. All four are runtime deps declared in
+    # pyproject.toml [project].dependencies (with pinned upper bounds).
+    "tree_sitter",
+    "tree_sitter_python",
+    "tree_sitter_typescript",
+    "tree_sitter_rust",
+    "tree_sitter_go",
+    "pathspec",
+    "watchdog",
 }
 
 
