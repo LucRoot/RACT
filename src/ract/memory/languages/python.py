@@ -155,6 +155,12 @@ def _classify_module_assignment(source: bytes, node: Any) -> tuple[str, str] | N
 
     Returns ``None`` for shapes we skip (tuple targets, chained
     assignments, augmented assignments).
+
+    An annotated assignment carries an explicit type annotation on the
+    ``type`` field. When the annotation is exactly ``TypeAlias`` the
+    row is emitted as ``type`` regardless of the LHS casing (Second
+    Pass Q1: ``X: TypeAlias = int`` where LHS ``X`` is lower-case
+    would otherwise be skipped by the uppercase-first heuristic).
     """
     lhs = _child_by_field(node, "left")
     rhs = _child_by_field(node, "right")
@@ -164,6 +170,11 @@ def _classify_module_assignment(source: bytes, node: Any) -> tuple[str, str] | N
         return None
     name = _node_text(source, lhs)
     rhs_text = _node_text(source, rhs)
+    annotation = _child_by_field(node, "type")
+    if annotation is not None:
+        annotation_text = _node_text(source, annotation).strip()
+        if annotation_text == "TypeAlias" or annotation_text.endswith(".TypeAlias"):
+            return name, "type"
     # ALL_CAPS_WITH_UNDERSCORES is the Python constant convention and
     # takes precedence over the uppercase-first heuristic below (which
     # is meant for mixed-case type aliases like ``MyType``).
@@ -172,6 +183,33 @@ def _classify_module_assignment(source: bytes, node: Any) -> tuple[str, str] | N
     if name[:1].isupper() or _looks_like_type_alias_rhs(rhs_text):
         return name, "type"
     return None
+
+
+def _pep695_type_alias(source: bytes, node: Any) -> tuple[str, str] | None:
+    """Return ``(name, kind)`` for a PEP 695 ``type X = ...`` statement.
+
+    The tree-sitter-python 0.23+ grammar exposes the shape as a
+    ``type_alias_statement`` node with the alias name as the first
+    ``type`` field child holding an ``identifier``. Second Pass Q1
+    (CONFIRMED): the parser previously walked only ``assignment`` at
+    module scope and dropped every PEP 695 alias silently.
+    """
+    # The alias name lives at the first ``type`` field child that
+    # wraps an ``identifier``. Structurally: type_alias_statement ->
+    # (keyword `type`, type[name=identifier], `=`, type[value]).
+    alias_name: str | None = None
+    for child in node.children:
+        if child.type != "type":
+            continue
+        for grand in child.children:
+            if grand.type == "identifier":
+                alias_name = _node_text(source, grand)
+                break
+        if alias_name is not None:
+            break
+    if alias_name is None:
+        return None
+    return alias_name, "type"
 
 
 def _is_all_caps(name: str) -> bool:
@@ -273,6 +311,20 @@ def parse(source: bytes, path: Path) -> list[SymbolRow]:
                             source=source,
                         )
                     )
+        elif child.type == "type_alias_statement":
+            got = _pep695_type_alias(source, child)
+            if got is None:
+                continue
+            name, kind = got
+            rows.append(
+                _row(
+                    name=name,
+                    kind=kind,
+                    file_path=file_path,
+                    node=child,
+                    source=source,
+                )
+            )
     return rows
 
 

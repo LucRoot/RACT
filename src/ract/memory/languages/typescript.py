@@ -156,7 +156,23 @@ def _method_rows(source: bytes, file_path: str, class_body: Any) -> list[SymbolR
 
 
 def _handle_lexical(source: bytes, file_path: str, node: Any) -> list[SymbolRow]:
-    """A ``const foo = ...`` at module scope. Emit iff RHS is arrow_function."""
+    """A ``const foo = ...`` at module scope. Emit iff RHS is arrow_function.
+
+    The tree-sitter-typescript grammar folds ``const`` and ``let`` into
+    the same ``lexical_declaration`` node; the keyword itself is the
+    first non-anonymous child (``const`` or ``let``). Only ``const``
+    is spec-legal per master spec section ``Chunk discipline / AST
+    chunking rules``. Second Pass Q2 (CONFIRMED): the prior
+    implementation accepted every ``lexical_declaration`` and
+    incorrectly surfaced ``let foo = () => {}`` as a top-level symbol.
+    """
+    keyword: str | None = None
+    for child in node.children:
+        if child.type in ("const", "let"):
+            keyword = child.type
+            break
+    if keyword != "const":
+        return []
     out: list[SymbolRow] = []
     for child in node.children:
         if child.type != "variable_declarator":

@@ -67,6 +67,34 @@ def test_python_nested_function_does_not_surface() -> None:
     assert [r.name for r in rows] == ["outer"]
 
 
+def test_python_pep695_type_alias_statement_surfaces() -> None:
+    # Second Pass Q1 fix: ``type X = ...`` (PEP 695) at module scope
+    # emits a row with kind=type, name=X. Before the fix the parser
+    # walked only ``assignment`` nodes and dropped the whole
+    # ``type_alias_statement`` node silently.
+    from ract.memory.languages.python import parse
+
+    src = b"type Alias1 = int\ntype Alias2 = list[str]\n"
+    rows = parse(src, Path("mod.py"))
+    kinds = [(r.kind, r.name) for r in rows]
+    assert ("type", "Alias1") in kinds
+    assert ("type", "Alias2") in kinds
+
+
+def test_python_annotated_typealias_surfaces_regardless_of_case() -> None:
+    # Second Pass Q1 fix: ``x: TypeAlias = int`` at module scope
+    # emits kind=type even though ``x`` is lower-case. Before the fix
+    # the classifier fell through the uppercase-first heuristic and
+    # skipped the row.
+    from ract.memory.languages.python import parse
+
+    src = b"from typing import TypeAlias\n\nx: TypeAlias = int\ny: TypeAlias = list[str]\n"
+    rows = parse(src, Path("mod.py"))
+    kinds = [(r.kind, r.name) for r in rows]
+    assert ("type", "x") in kinds
+    assert ("type", "y") in kinds
+
+
 def test_python_decorated_class_emits_class_kind() -> None:
     from ract.memory.languages.python import parse
 
@@ -102,6 +130,22 @@ def test_typescript_interface_and_type_alias() -> None:
     assert ("class", "Point") in kinds
     # Constructor + method both surface as ``method``.
     assert ("method", "distance") in kinds
+
+
+def test_typescript_let_arrow_does_not_surface_but_const_does() -> None:
+    # Second Pass Q2 fix: only ``const foo = () => ...`` at module
+    # scope is spec-legal; ``let`` and ``var`` must NOT surface. The
+    # tree-sitter-typescript grammar folds ``const`` and ``let`` into
+    # a shared ``lexical_declaration`` node, so the prior code emitted
+    # both. The fix discriminates on the keyword child.
+    from ract.memory.languages.typescript import parse
+
+    src = b"const good = () => 1;\nlet bad = () => 2;\nvar worse = () => 3;\n"
+    rows = parse(src, Path("mod.ts"))
+    names = {r.name for r in rows}
+    assert "good" in names
+    assert "bad" not in names
+    assert "worse" not in names
 
 
 def test_typescript_nested_arrow_does_not_surface() -> None:
