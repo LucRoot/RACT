@@ -128,6 +128,23 @@ ALLOWED_IMPORT_ROOTS = {
     # the fallback path do not pay the import cost. Runtime dep in
     # pyproject.toml.
     "multilspy",
+    # v0.5 memory-discipline module_04 (ADR-0034): semantic index
+    # depends on lancedb + pyarrow for the vector store (both
+    # runtime deps in pyproject.toml). sentence_transformers is an
+    # OPTIONAL extra (``embedding``) and is imported lazily inside
+    # ``ract.memory.embedding._SentenceTransformerBase._ensure_loaded``;
+    # offline / CI runs use SyntheticHashEmbedding and never touch
+    # it. All three roots are allowlisted here because the AST scan
+    # sees the lazy imports regardless of runtime execution.
+    "lancedb",
+    "pyarrow",
+    "sentence_transformers",
+    # stdlib helpers first surfaced by module_04 that were not
+    # previously imported anywhere under src/ract: ``struct`` for
+    # the synthetic-hash embedder's byte-to-float unpack, ``math``
+    # for norms + tanh compression, ``types`` already listed under
+    # module_02.
+    "struct",
 }
 
 

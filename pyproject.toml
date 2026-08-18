@@ -33,10 +33,22 @@ dependencies = [
     # 0.0.15 and has been observed to shift across 0.0.x releases;
     # a version bump requires a fresh ADR.
     "multilspy>=0.0.15,<0.1",
+    # v0.5.0 memory-discipline (module_04 semantic index). ADR-0034.
+    # LanceDB is the vector store; pyarrow is its arrow-schema
+    # dependency. Both are hard runtime deps because
+    # :class:`~ract.memory.semantic_index.SemanticIndex` cannot open
+    # without LanceDB. sentence-transformers is an optional extra
+    # (``embedding``) because a caller can run the synthetic
+    # fallback (:class:`~ract.memory.embedding.SyntheticHashEmbedding`)
+    # for offline / CI paths without torch; it becomes required
+    # only when a caller loads a real BGE / Nomic model.
+    "lancedb>=0.20,<1.0",
+    "pyarrow>=14.0,<26",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "hypothesis>=6.0", "respx>=0.21", "ruff>=0.5,<0.16", "mypy>=1.11", "types-PyYAML>=6.0", "fastapi>=0.100", "email-validator>=2.0", "mutmut>=2.4", "jsonschema>=4.0"]
+embedding = ["sentence-transformers>=3.0,<6.0"]
 
 [project.scripts]
 ract = "ract.cli:main"

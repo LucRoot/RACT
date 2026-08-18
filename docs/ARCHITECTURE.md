@@ -938,6 +938,86 @@ Recommended LSP installs (per-platform):
 - Rust: ``rustup component add rust-analyzer``.
 - Go: ``go install golang.org/x/tools/gopls@latest``.
 
+## Semantic index (v0.5.0 memory discipline)
+
+The third of the three memory-discipline indexes. LanceDB-backed
+vector store at ``.rack/index/semantic/`` with one embedding per
+AST chunk. Chunks derive from the module_02
+:class:`~ract.memory.symbol_index.SymbolRow` records; small symbols
+produce one chunk, symbols over the 500-token cap split at logical
+boundaries (blank-line groups + line-count fallback) with the parent
+signature prepended to every sub-chunk.
+
+Surface: ``src/ract/memory/semantic_index.py``
+(:class:`SemanticIndex` store + :class:`ChunkRow` value type + query
+API), ``src/ract/memory/embedding.py``
+(:class:`~ract.memory.embedding.EmbeddingModel` protocol +
+:class:`~ract.memory.embedding.BgeSmallEmbedding` /
+:class:`~ract.memory.embedding.NomicEmbedTextEmbedding` real
+wrappers + :class:`~ract.memory.embedding.SyntheticHashEmbedding`
+offline / CI fallback + :func:`~ract.memory.embedding.load_embedding`
+dispatch), ``src/ract/memory/chunker.py``
+(:func:`~ract.memory.chunker.chunk_symbol` splitter + oversize
+warning), ``src/ract/memory/semantic_builder.py`` (initial + per-
+symbol build path + parent-symbol linkage helper), and
+``src/ract/memory/cpu_fallback.py``
+(:func:`~ract.memory.cpu_fallback.probe_lancedb` + backend override).
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §The
+three indexes / Semantic index + §Chunk discipline. Rationale:
+ADR-0034.
+
+Query API: :meth:`SemanticIndex.search` (top-k vector search with
+optional filter), :meth:`SemanticIndex.search_by_symbol` (mean-
+vector query over the seed symbol's chunks, excluding the seed
+itself), :meth:`SemanticIndex.search_with_budget` (returns as many
+top-k results as fit under a caller-supplied token cap; skips
+individual chunks that overflow the remaining budget so a later
+smaller chunk can still fit — Second Pass Q1 pack-greedy-by-
+relevance),
+:meth:`SemanticIndex.enrich_with_graph` (one-hop graph enrichment
+on semantic hits with default
+``neighborhood_source='lsp'`` filter — module_03 POST inbound
+constraint 1).
+
+Every write path (:meth:`insert_or_update` / batch variant /
+:meth:`delete_by_symbol` / :meth:`delete_by_file`) validates the
+vector dim against the store's embedder and rejects chunks whose
+``chunk_kind`` is outside the shipped :data:`CHUNK_KINDS`
+vocabulary. Store identity is protected by
+``metadata.json`` alongside the LanceDB directory: a re-open
+under a different embedder raises
+:class:`~ract.memory.semantic_index.EmbeddingModelMismatchError`;
+metadata missing while the ``chunks`` table exists raises
+:class:`~ract.memory.semantic_index.SemanticStoreCorruptError`
+(Second Pass Q4).
+
+Chunk identity joins on module_02
+:attr:`~ract.memory.symbol_index.SymbolRow.content_hash` and the
+``symbols.id`` foreign key; no parallel symbol id space is created
+(module_02 POST inbound constraint 2). The semantic-builder's
+initial pass also populates
+:attr:`~ract.memory.symbol_index.SymbolRow.parent_symbol_id` for
+method-kind rows against their class-container line ranges
+(module_03 POST inbound constraint 2 — the schema column has been
+unused since module_02 and lands its first writer here).
+
+Offline install path: ``sentence-transformers`` is an OPTIONAL
+extra (``pip install ract[embedding]``). Callers who want a real
+BGE / Nomic model set either ``RACT_EMBED_ONLINE=1`` to allow the
+HuggingFace download or point
+``RACT_EMBED_MODEL_ROOT=<dir>`` at a directory containing
+``<dir>/bge-small-en-v1.5/`` weights. Offline / CI paths use
+:class:`~ract.memory.embedding.SyntheticHashEmbedding` which
+produces deterministic (identity-preserving, not semantic) vectors
+per text so the store + query API surface fully under test.
+
+LanceDB availability is probed at open time by
+:func:`~ract.memory.cpu_fallback.probe_lancedb`; the result is on
+the store instance as ``lance_probe`` for diagnostic use. The
+``RACT_LANCEDB_BACKEND`` env var forces GPU or CPU regardless of
+the auto-probe.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.

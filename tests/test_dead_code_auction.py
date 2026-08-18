@@ -258,6 +258,19 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("graph_populator.py")
     allowlist.add("lsp.py")
     allowlist.add("lsp_fallback.py")
+    # v0.5 memory-discipline module_04 (ADR-0034): semantic-index
+    # helpers at ``ract.memory.{semantic_index,embedding,chunker,
+    # semantic_builder,cpu_fallback}`` are consumed by
+    # ``tests/memory/`` and by memory-discipline module_05
+    # (retrieve primitive) + module_09 (SubstrateLoop wiring). The
+    # shipped-CLI call site (``ract memory rebuild``) lands in
+    # module_09. Allowlist mirrors the transitional-substrate
+    # pattern above until module_09 lands the live wiring.
+    allowlist.add("semantic_index.py")
+    allowlist.add("embedding.py")
+    allowlist.add("chunker.py")
+    allowlist.add("semantic_builder.py")
+    allowlist.add("cpu_fallback.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
