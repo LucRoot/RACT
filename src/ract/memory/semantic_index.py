@@ -617,6 +617,16 @@ class SemanticIndex:
         chunk may still fit (Second Pass Q1: honour the budget while
         packing greedily by relevance, not by first-fit-then-stop).
 
+        Packing strategy: greedy relevance-order pack. NOT knapsack-
+        optimal. A pool ordered by relevance ``[95t, 55t, 45t]``
+        under a 100-token cap returns ``[95t]`` even though
+        ``[55t, 45t]`` = 100 would pack the cap exactly at higher
+        joint relevance. A 0/1 knapsack DP over the pool would solve
+        this at O(n*B); deferred to module_05's retrieve primitive
+        (Flagged gap 1) where the four-level cascade owns the
+        budget-aware assembly decision and can pick the packing
+        strategy per level.
+
         When ``budget_accountant`` is supplied, each returned chunk
         is seated as a :class:`~ract.memory.budget.BudgetSection`
         named ``"{section_name}::{chunk_id[:12]}"`` so a caller who

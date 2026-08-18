@@ -237,6 +237,16 @@ def chunk_symbol(row: SymbolRow, source: str | bytes) -> list["ChunkRow"]:
     strict token-cap adherence (module_05 retrieve primitive) should
     consult the ``token_count`` on each chunk rather than assume the
     cap is honoured.
+
+    Split levels: TWO. Level 1 is :func:`_split_semantic_boundaries`
+    (blank-line-group split). Level 2 is :func:`_split_by_line_count`
+    (line-count window). A pathological single-line 4000-token
+    expression survives both levels intact and is emitted with the
+    oversize marker (Second Pass Q3). Recursive re-splitting inside
+    a single logical piece (a giant switch with six statements each
+    over the cap) is Flagged gap 2; the module_05 SUMMARY chunker
+    is the second-line owner of "still too big" bodies per master
+    spec §Chunk overflow item 2.
     """
     if isinstance(source, bytes):
         source_bytes = source

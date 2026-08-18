@@ -1,7 +1,7 @@
 """LanceDB availability probe + backend selection for module_04.
 
 LanceDB ships a pre-built GPU-accelerated wheel on most x86 targets;
-on Windows ARM64 (Snapdragon X) the wheel may lag or be CPU-only.
+on Windows ARM64 the wheel may lag or be CPU-only.
 This module owns the probe surface so
 :class:`~ract.memory.semantic_index.SemanticIndex` can adapt at open
 time and log the backend chosen.
