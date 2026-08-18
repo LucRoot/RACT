@@ -28,6 +28,11 @@ dependencies = [
     "tree-sitter-go>=0.25,<0.26",
     "watchdog>=4.0,<7",
     "pathspec>=0.12,<2",
+    # v0.5.0 memory-discipline (module_03 graph index). ADR-0033.
+    # multilspy pin is load-bearing: the wrapper API stabilised at
+    # 0.0.15 and has been observed to shift across 0.0.x releases;
+    # a version bump requires a fresh ADR.
+    "multilspy>=0.0.15,<0.1",
 ]
 
 [project.optional-dependencies]

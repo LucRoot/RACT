@@ -881,6 +881,63 @@ Sacred spine anchor for FTS mirror consistency:
 ``tests/memory/test_symbol_index.py::
 test_find_by_text_reflects_update_in_same_transaction``.
 
+## Graph index (v0.5.0 memory discipline)
+
+The second of the three memory-discipline indexes. SQLite-backed
+store at ``.rack/index/graph.db`` with an ``edges`` table keyed on
+``(source_symbol_id, target_symbol_id, edge_type, location_file,
+location_line)``. Every edge references ``symbols.id`` from the
+module_02 store; the two stores are separate SQLite databases and
+maintain referential integrity through the graph populator's
+source-file-scoped delete + re-insert path rather than declared
+foreign keys.
+
+Surface: ``src/ract/memory/graph_index.py`` (store + query API +
+:class:`EdgeRow`), ``src/ract/memory/graph_index_schema.sql``
+(canonical schema), ``src/ract/memory/lsp.py`` (multilspy wrapper +
+per-language adapter map + synthetic probe),
+``src/ract/memory/graph_populator.py`` (LSP-driven initial build +
+per-file update + probe-cache), and
+``src/ract/memory/lsp_fallback.py`` (symbol-only degradation with
+``neighborhood_source='symbol_only'`` marker).
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §The
+three indexes / Graph index. Rationale: ADR-0033.
+
+Query API:
+:meth:`GraphIndex.callers_of` /
+:meth:`GraphIndex.callees_of` (1..N hops, exclude symbol-only
+edges from transitive walks), :meth:`GraphIndex.blast_radius`
+(symmetric N-hop reach as :class:`SymbolRow` set),
+:meth:`GraphIndex.path_between` (shortest edge path, BFS with
+``max_hops`` guard), :meth:`GraphIndex.orphans` (dead-code
+candidates; ``exclude_public=True`` by default so the public API
+is not surfaced), :meth:`GraphIndex.hotspots` (edges at or above
+a strength threshold).
+
+Every query helper accepts an optional
+:class:`~ract.memory.budget.BudgetAccountant` so a caller
+building a retrieval bundle for a model call seats the traversal
+cost against the same accountant that gates the invocation
+(memory-discipline axiom 1).
+
+LSP fallback: when :func:`~ract.memory.lsp.probe_lsp` reports a
+language as unavailable, the populator invokes
+:func:`~ract.memory.lsp_fallback.populate_symbol_only` and
+inserts one self-referential edge per symbol under that language;
+edges are marked ``neighborhood_source='symbol_only'`` so
+downstream retrieval (module_05) treats them as "no
+neighborhood" rather than a callback loop.
+
+Recommended LSP installs (per-platform):
+
+- Python: ``pip install jedi-language-server`` (bundled with
+  multilspy default) or ``pip install python-lsp-server``.
+- TypeScript: ``npm install -g typescript-language-server
+  typescript``.
+- Rust: ``rustup component add rust-analyzer``.
+- Go: ``go install golang.org/x/tools/gopls@latest``.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -903,3 +960,4 @@ test_find_by_text_reflects_update_in_same_transaction``.
 <!-- RACT 0.4.0-rc1: Isomorphic Perturbation gate for rule-like intents (ADR-0024) -->
 <!-- RACT 0.5.0: Token budget system + budget accountant hard-ceiling refuse (ADR-0031) -->
 <!-- RACT 0.5.0: Symbol index — SQLite + tree-sitter + FTS5 + incremental file watcher (ADR-0032) -->
+<!-- RACT 0.5.0: Graph index — SQLite edges + multilspy LSP driver + symbol-only fallback (ADR-0033) -->

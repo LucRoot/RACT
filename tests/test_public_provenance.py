@@ -122,6 +122,12 @@ ALLOWED_IMPORT_ROOTS = {
     "tree_sitter_go",
     "pathspec",
     "watchdog",
+    # v0.5 memory-discipline module_03 (ADR-0033): graph-index LSP
+    # wrapper depends on multilspy; import is lazy inside
+    # ``ract.memory.lsp._load_multilspy`` so callers who only want
+    # the fallback path do not pay the import cost. Runtime dep in
+    # pyproject.toml.
+    "multilspy",
 }
 
 

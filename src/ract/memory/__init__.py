@@ -44,6 +44,33 @@ from ract.memory.events import (
     emit_retrieval_requested,
     emit_retrieval_satisfied,
 )
+from ract.memory.graph_index import (
+    EDGE_TYPES,
+    EdgeRow,
+    GraphIndex,
+    GraphIndexError,
+    NEIGHBORHOOD_SOURCES,
+)
+from ract.memory.graph_populator import (
+    BuildReport as GraphBuildReport,
+    GraphPopulator,
+    UpdateReport as GraphUpdateReport,
+)
+from ract.memory.lsp import (
+    LSP_ADAPTERS,
+    LspClient,
+    LspProbeResult,
+    LspReference,
+    LspUnavailableError,
+    available_languages,
+    probe_lsp,
+)
+from ract.memory.lsp_fallback import (
+    clear_symbol_only_edges,
+    has_symbol_only_edges,
+    is_symbol_only,
+    populate_symbol_only,
+)
 from ract.memory.parser import (
     SUPPORTED_EXTENSIONS,
     UnsupportedLanguageError,
@@ -77,7 +104,20 @@ __all__ = [
     "BuildReport",
     "CURRENT_SCHEMA_VERSION",
     "DEFAULT_EXTENSIONS",
+    "EDGE_TYPES",
+    "EdgeRow",
     "EventSink",
+    "GraphBuildReport",
+    "GraphIndex",
+    "GraphIndexError",
+    "GraphPopulator",
+    "GraphUpdateReport",
+    "LSP_ADAPTERS",
+    "LspClient",
+    "LspProbeResult",
+    "LspReference",
+    "LspUnavailableError",
+    "NEIGHBORHOOD_SOURCES",
     "NullEventSink",
     "ParseError",
     "SUPPORTED_EXTENSIONS",
@@ -94,6 +134,8 @@ __all__ = [
     "WideningRefusedError",
     "apply_composition_override",
     "apply_runtime_narrowing",
+    "available_languages",
+    "clear_symbol_only_edges",
     "compute_content_hash",
     "emit_budget_declared",
     "emit_budget_exceeded",
@@ -104,10 +146,14 @@ __all__ = [
     "emit_retrieval_satisfied",
     "estimate_tokens",
     "get",
+    "has_symbol_only_edges",
     "initial_build",
+    "is_symbol_only",
     "load_defaults",
     "narrow",
     "parse_file",
+    "populate_symbol_only",
+    "probe_lsp",
     "walk",
 ]
 

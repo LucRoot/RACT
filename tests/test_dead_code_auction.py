@@ -247,6 +247,17 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("watcher.py")
     for lang in ("python.py", "typescript.py", "rust.py", "go.py"):
         allowlist.add(lang)
+    # v0.5 memory-discipline module_03: graph-index helpers at
+    # ``ract.memory.{graph_index,graph_populator,lsp,lsp_fallback}``
+    # are consumed by ``tests/memory/`` and by memory-discipline
+    # module_05 (retrieve primitive) + module_09 (SubstrateLoop
+    # wiring) — the shipped-CLI call site lands in module_09.
+    # Allowlist mirrors the transitional-substrate pattern above
+    # until module_09 lands the live wiring.
+    allowlist.add("graph_index.py")
+    allowlist.add("graph_populator.py")
+    allowlist.add("lsp.py")
+    allowlist.add("lsp_fallback.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
