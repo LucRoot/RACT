@@ -326,9 +326,23 @@ class GraphIndex:
         """Insert every edge in ``edges`` under a single transaction.
 
         Wraps the batch in BEGIN/COMMIT so a partial failure in the
-        middle of an LSP-populator batch leaves the store in the
-        pre-batch state (Second Pass Q1: mid-build LSP crash does
-        not commit partial edges).
+        middle of one ``insert_edges`` call leaves the store in the
+        pre-batch state. This is BATCH atomicity, not BUILD
+        atomicity: the caller (
+        :meth:`~ract.memory.graph_populator.GraphPopulator.initial_build`)
+        issues one ``insert_edges`` call per source file, so an
+        LSP crash mid-file abandons that file's collected edges,
+        but any prior file whose batch already committed keeps its
+        edges.
+
+        Second Pass Q1 verdict: this per-file atomicity is the
+        actual guarantee. Callers that need per-symbol atomicity
+        must either (a) call ``insert_edges`` once per symbol, or
+        (b) accept that a crash mid-file leaves the graph
+        consistent at the last-committed-file boundary. The
+        populator chose per-file batching for throughput; a
+        v0.6 hardening item plans per-symbol atomicity for the
+        long-run interactive path.
         """
         assigned: list[int] = []
         try:

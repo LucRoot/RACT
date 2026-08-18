@@ -386,6 +386,40 @@ def test_budget_accountant_none_is_no_op():
     assert callers
 
 
+def test_insert_edges_atomicity_documented_as_batch_level():
+    """Second Pass Q1 regression: the docstring names batch atomicity.
+
+    A rollback inside one insert_edges call leaves the store empty;
+    a prior committed insert_edges call keeps its edges. This is
+    the actual per-file atomicity the populator ships (module_03
+    Flagged gap 1 tracks per-symbol atomicity as v0.6 hardening).
+    """
+    with GraphIndex() as g:
+        # First batch commits successfully.
+        g.insert_edges([_row(1, 2), _row(1, 3)])
+        assert g.count() == 2
+        # Second batch fails mid-way and rolls back.
+        with pytest.raises(GraphIndexError):
+            g.insert_edges(
+                [
+                    _row(4, 5),
+                    EdgeRow(
+                        id=None,
+                        source_symbol_id=6,
+                        target_symbol_id=7,
+                        edge_type="not_valid",
+                        location_file="x",
+                        location_line=1,
+                        strength=1,
+                        neighborhood_source="lsp",
+                    ),
+                ]
+            )
+        # First batch's edges survive; second batch's edges do not.
+        assert g.count() == 2
+    # Confirms the docstring claim: batch atomicity, not build atomicity.
+
+
 def test_edges_for_file_ordering_is_insertion_order():
     with GraphIndex() as g:
         g.insert_edge(_row(1, 2, location_file="a.py", location_line=5))

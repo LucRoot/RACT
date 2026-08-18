@@ -61,6 +61,20 @@ def test_lsp_client_rejects_unsupported_language(tmp_path: Path):
         LspClient(tmp_path, "cobol")
 
 
+def test_probe_lsp_uses_dedicated_probe_fixture_per_language():
+    """Second Pass Q3 regression: probe_lsp writes a real fixture
+    file and calls request_references directly (not through
+    references_of, which would silently swallow a
+    capability-not-supported error).
+    """
+    from ract.memory.lsp import _PROBE_FILE
+
+    assert set(_PROBE_FILE) == {"python", "typescript", "rust", "go"}
+    for name, content in _PROBE_FILE.values():
+        assert name.startswith("___ract_lsp_probe___")
+        assert content.strip()
+
+
 @pytest.mark.skipif(
     shutil.which("jedi-language-server") is None
     and shutil.which("pylsp") is None

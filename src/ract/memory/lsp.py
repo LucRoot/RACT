@@ -295,6 +295,12 @@ class LspClient:
         back to the caller symbol's ``symbols.id`` in module_02's
         store. The populator supplies this lookup by pre-loading
         the symbol id-by-line map per file.
+
+        Second Pass Q4 flagged gap: this call has no per-request
+        timeout beyond the LSP handshake budget applied in
+        :meth:`__init__`. A stalled ``request_references`` blocks
+        the sequential build; module_04+ hardening plans a
+        per-request wall-clock guard.
         """
         if symbol.id is None:
             return []
@@ -318,6 +324,24 @@ class LspClient:
                 )
             )
         return edges
+
+
+_PROBE_FILE: dict[str, tuple[str, str]] = {
+    "python": ("___ract_lsp_probe___.py", "def _ract_probe(): return 1\n"),
+    "typescript": (
+        "___ract_lsp_probe___.ts",
+        "export function ract_probe(): number { return 1; }\n",
+    ),
+    "rust": (
+        "___ract_lsp_probe___.rs",
+        "pub fn ract_probe() -> i32 { 1 }\n",
+    ),
+    "go": (
+        "___ract_lsp_probe___.go",
+        "package main\nfunc RactProbe() int { return 1 }\n",
+    ),
+}
+"""Per-language probe fixture: filename + content the probe writes."""
 
 
 def probe_lsp(language: str, repo_root: Path | str | None = None) -> LspProbeResult:
@@ -372,26 +396,25 @@ def probe_lsp(language: str, repo_root: Path | str | None = None) -> LspProbeRes
             ),
         )
     try:
-        # Exercise the references capability, not just initialize.
-        probe_symbol = SymbolRow(
-            id=0,
-            name="__probe__",
-            kind="function",
-            file_path=str(root),
-            start_line=0,
-            end_line=0,
-            signature=None,
-            docstring=None,
-            visibility=None,
-            parent_symbol_id=None,
-            language=language,
-            content_hash=None,
-            token_count=None,
-            updated_at=None,
-        )
-        # We do not care about the count; an empty list is a valid
-        # "capability supported, no matches" answer.
-        _ = client.references_of(probe_symbol)
+        # Exercise the references capability directly, NOT through
+        # LspClient.references_of. references_of catches every
+        # exception and returns [] so a server that answers
+        # "capability not supported" would show as available=True
+        # (Second Pass Q3 verdict). Calling request_references
+        # unwrapped surfaces capability errors as exceptions the
+        # outer try/except turns into available=False with a
+        # specific error_message.
+        rel, content = _PROBE_FILE.get(language, ("___ract_lsp_probe___.tmp", "x\n"))
+        probe_path = root / rel
+        probe_path.write_text(content, encoding="utf-8")
+        try:
+            with client._server.open_file(rel):
+                _ = client._server.request_references(rel, 0, 4)
+        finally:
+            try:
+                probe_path.unlink()
+            except OSError:
+                pass
         elapsed = int((time.perf_counter() - started) * 1000)
         return LspProbeResult(
             language=language,
