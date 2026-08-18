@@ -1,0 +1,303 @@
+"""Incremental file watcher for the symbol index.
+
+Two independent invalidation paths run side by side:
+
+- A ``watchdog`` :class:`Observer` on the repo root fires events on
+  create / modify / delete. Each event is debounced (default 100 ms
+  per path) and then triggers ``parse_file(path)`` + ``replace_file``
+  against the :class:`SymbolIndex`.
+
+- A periodic-scan thread compares filesystem ``mtime`` against the
+  ``symbols.updated_at`` recorded per file. Any file whose ``mtime``
+  is newer gets re-indexed. This closes the missed-save worry on
+  Windows (Lateral Chain branch B): ``watchdog``'s Windows backend
+  occasionally drops events under high write pressure, so the
+  eventual-consistency guarantee lives on an independent thread. The
+  Second Pass Q3 anticipator: the periodic scan runs on its OWN
+  daemon thread, not the watchdog thread, so a slow parse cannot
+  block the fallback.
+
+Debouncing: file editors emit a save flood (e.g., a temp write then
+an atomic rename). Without debounce, one save re-parses the file
+twice. The debouncer batches events for the same path within the
+window and re-parses once.
+"""
+
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Sequence
+
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
+
+from ract.core.module_identity import _module_knot, register_module_knot
+from ract.memory.parser import SUPPORTED_EXTENSIONS, parse_file
+from ract.memory.symbol_index import SymbolIndex
+
+
+LOG = logging.getLogger(__name__)
+
+
+@dataclass
+class WatcherStats:
+    """Counters exposed for tests + operational visibility."""
+
+    events_seen: int = 0
+    reindex_calls: int = 0
+    delete_calls: int = 0
+    periodic_scans: int = 0
+    parse_errors: int = 0
+
+
+class SymbolIndexWatcher:
+    """Watchdog + periodic-scan watcher over a repo root.
+
+    Construction does NOT start the watcher; call :meth:`start` to
+    launch the observer + periodic scan threads. :meth:`stop` joins
+    both. Safe to start / stop more than once.
+
+    The watcher writes into the supplied :class:`SymbolIndex` under
+    a threading lock so concurrent event + periodic-scan writes never
+    collide.
+    """
+
+    def __init__(
+        self,
+        root: Path,
+        index: SymbolIndex,
+        *,
+        extensions: Sequence[str] = SUPPORTED_EXTENSIONS,
+        debounce_seconds: float = 0.1,
+        periodic_scan_seconds: float = 30.0,
+    ) -> None:
+        self.root: Path = root.resolve()
+        self.index: SymbolIndex = index
+        self.extensions: frozenset[str] = frozenset(extensions)
+        self.debounce_seconds: float = debounce_seconds
+        self.periodic_scan_seconds: float = periodic_scan_seconds
+        self.stats: WatcherStats = WatcherStats()
+
+        self._observer: Any = None
+        self._periodic_thread: threading.Thread | None = None
+        self._stop_event: threading.Event = threading.Event()
+        self._index_lock: threading.Lock = threading.Lock()
+        self._pending_lock: threading.Lock = threading.Lock()
+        self._pending: dict[Path, float] = {}
+        self._pending_deleted: dict[Path, bool] = {}
+        self._debounce_thread: threading.Thread | None = None
+
+    # ------------------------------------------------------------------
+    # Public lifecycle
+    # ------------------------------------------------------------------
+
+    def start(self) -> None:
+        """Launch the observer + debounce + periodic-scan threads."""
+        if self._observer is not None:
+            return
+        self._stop_event.clear()
+        handler = _EventHandler(self)
+        self._observer = Observer()
+        self._observer.schedule(handler, str(self.root), recursive=True)
+        self._observer.start()
+        self._debounce_thread = threading.Thread(
+            target=self._debounce_loop, name="ract-symbol-index-debounce", daemon=True
+        )
+        self._debounce_thread.start()
+        self._periodic_thread = threading.Thread(
+            target=self._periodic_loop, name="ract-symbol-index-periodic", daemon=True
+        )
+        self._periodic_thread.start()
+
+    def stop(self, timeout: float | None = 5.0) -> None:
+        """Signal every thread to exit and join them."""
+        self._stop_event.set()
+        if self._observer is not None:
+            try:
+                self._observer.stop()
+                self._observer.join(timeout=timeout)
+            finally:
+                self._observer = None
+        for thread in (self._debounce_thread, self._periodic_thread):
+            if thread is not None:
+                thread.join(timeout=timeout)
+        self._debounce_thread = None
+        self._periodic_thread = None
+        # Flush anything still pending so a stop-then-inspect test path
+        # sees the effect of any event that arrived just before stop.
+        self._flush_pending()
+
+    def __enter__(self) -> "SymbolIndexWatcher":
+        self.start()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: Any,
+    ) -> None:
+        self.stop()
+
+    # ------------------------------------------------------------------
+    # Event pipeline
+    # ------------------------------------------------------------------
+
+    def _accept_path(self, path: Path) -> bool:
+        if path.suffix not in self.extensions:
+            return False
+        try:
+            path.relative_to(self.root)
+        except ValueError:
+            return False
+        return True
+
+    def _queue_event(self, path: Path, deleted: bool) -> None:
+        self.stats.events_seen += 1
+        if not self._accept_path(path):
+            return
+        with self._pending_lock:
+            self._pending[path] = time.monotonic() + (
+                0.0 if deleted else self.debounce_seconds
+            )
+            self._pending_deleted[path] = deleted or self._pending_deleted.get(
+                path, False
+            )
+
+    def _debounce_loop(self) -> None:
+        while not self._stop_event.is_set():
+            self._stop_event.wait(timeout=max(self.debounce_seconds / 2, 0.02))
+            self._flush_pending()
+
+    def _flush_pending(self) -> None:
+        now = time.monotonic()
+        to_process: list[tuple[Path, bool]] = []
+        with self._pending_lock:
+            due = [p for p, at in self._pending.items() if at <= now]
+            for path in due:
+                deleted = self._pending_deleted.pop(path, False)
+                self._pending.pop(path, None)
+                to_process.append((path, deleted))
+        for path, deleted in to_process:
+            try:
+                if deleted or not path.exists():
+                    self._reindex_delete(path)
+                else:
+                    self._reindex_write(path)
+            except Exception as exc:  # pragma: no cover - defensive
+                self.stats.parse_errors += 1
+                LOG.warning("watcher failed on %s: %s", path, exc)
+
+    def _reindex_write(self, path: Path) -> None:
+        rows = parse_file(path)
+        with self._index_lock:
+            self.index.replace_file(str(path), rows)
+        self.stats.reindex_calls += 1
+
+    def _reindex_delete(self, path: Path) -> None:
+        with self._index_lock:
+            self.index.delete_by_file(str(path))
+        self.stats.delete_calls += 1
+
+    # ------------------------------------------------------------------
+    # Periodic scan fallback (Lateral Chain branch B)
+    # ------------------------------------------------------------------
+
+    def _periodic_loop(self) -> None:
+        while not self._stop_event.wait(timeout=self.periodic_scan_seconds):
+            try:
+                self.run_periodic_scan()
+            except Exception as exc:  # pragma: no cover - defensive
+                LOG.warning("periodic scan failed: %s", exc)
+
+    def run_periodic_scan(self) -> int:
+        """Compare filesystem mtime against stored ``updated_at``; reindex diffs.
+
+        Returns the number of files re-indexed on this pass.
+        """
+        self.stats.periodic_scans += 1
+        with self._index_lock:
+            stored = self.index.file_mtimes()
+        reindexed = 0
+        for path_str, stored_mtime in stored.items():
+            path = Path(path_str)
+            if not path.exists():
+                self._reindex_delete(path)
+                reindexed += 1
+                continue
+            try:
+                current = int(path.stat().st_mtime)
+            except OSError:
+                continue
+            if current > stored_mtime:
+                try:
+                    self._reindex_write(path)
+                    reindexed += 1
+                except Exception as exc:  # pragma: no cover - defensive
+                    self.stats.parse_errors += 1
+                    LOG.warning("periodic reindex failed on %s: %s", path, exc)
+        return reindexed
+
+    def flush(self) -> None:
+        """Force the debouncer to process every pending event immediately.
+
+        Test hook: after writing a file and calling ``flush``, the
+        index reflects the write without waiting for the debounce
+        window.
+        """
+        with self._pending_lock:
+            for path in list(self._pending):
+                self._pending[path] = time.monotonic() - 1.0
+        self._flush_pending()
+
+
+class _EventHandler(FileSystemEventHandler):
+    """Watchdog-side glue that pushes into :class:`SymbolIndexWatcher`."""
+
+    def __init__(self, parent: SymbolIndexWatcher) -> None:
+        super().__init__()
+        self._parent = parent
+
+    def _dispatch(self, event: FileSystemEvent, deleted: bool) -> None:
+        if event.is_directory:
+            return
+        raw_path = getattr(event, "src_path", None)
+        if raw_path is None:
+            return
+        path = Path(raw_path)
+        self._parent._queue_event(path, deleted)
+
+    def on_created(self, event: FileSystemEvent) -> None:
+        self._dispatch(event, deleted=False)
+
+    def on_modified(self, event: FileSystemEvent) -> None:
+        self._dispatch(event, deleted=False)
+
+    def on_deleted(self, event: FileSystemEvent) -> None:
+        self._dispatch(event, deleted=True)
+
+    def on_moved(self, event: FileSystemEvent) -> None:
+        # A rename is a delete of the src plus a write of the dest.
+        raw_src = getattr(event, "src_path", None)
+        raw_dest = getattr(event, "dest_path", None)
+        if raw_src is not None:
+            self._parent._queue_event(Path(raw_src), deleted=True)
+        if raw_dest is not None:
+            self._parent._queue_event(Path(raw_dest), deleted=False)
+
+
+__all__ = [
+    "SymbolIndexWatcher",
+    "WatcherStats",
+]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0

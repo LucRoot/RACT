@@ -44,6 +44,28 @@ from ract.memory.events import (
     emit_retrieval_requested,
     emit_retrieval_satisfied,
 )
+from ract.memory.parser import (
+    SUPPORTED_EXTENSIONS,
+    UnsupportedLanguageError,
+    compute_content_hash,
+    estimate_tokens,
+    parse_file,
+)
+from ract.memory.symbol_index import (
+    CURRENT_SCHEMA_VERSION,
+    SqliteMissingFTS5Error,
+    SymbolIndex,
+    SymbolIndexError,
+    SymbolRow,
+)
+from ract.memory.walker import (
+    BuildReport,
+    DEFAULT_EXTENSIONS,
+    ParseError,
+    initial_build,
+    walk,
+)
+from ract.memory.watcher import SymbolIndexWatcher, WatcherStats
 
 
 __all__ = [
@@ -52,14 +74,27 @@ __all__ = [
     "BudgetExceededError",
     "BudgetNarrowing",
     "BudgetSection",
+    "BuildReport",
+    "CURRENT_SCHEMA_VERSION",
+    "DEFAULT_EXTENSIONS",
     "EventSink",
     "NullEventSink",
+    "ParseError",
+    "SUPPORTED_EXTENSIONS",
+    "SqliteMissingFTS5Error",
+    "SymbolIndex",
+    "SymbolIndexError",
+    "SymbolIndexWatcher",
+    "SymbolRow",
     "TokenEstimator",
     "UnknownFunctionError",
+    "UnsupportedLanguageError",
+    "WatcherStats",
     "WhitespaceTokenEstimator",
     "WideningRefusedError",
     "apply_composition_override",
     "apply_runtime_narrowing",
+    "compute_content_hash",
     "emit_budget_declared",
     "emit_budget_exceeded",
     "emit_probe_evaluated",
@@ -67,9 +102,13 @@ __all__ = [
     "emit_retrieval_refused",
     "emit_retrieval_requested",
     "emit_retrieval_satisfied",
+    "estimate_tokens",
     "get",
+    "initial_build",
     "load_defaults",
     "narrow",
+    "parse_file",
+    "walk",
 ]
 
 

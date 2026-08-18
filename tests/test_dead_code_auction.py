@@ -235,6 +235,18 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("budget_registry.py")
     allowlist.add("composition.py")
     allowlist.add("events.py")
+    # v0.5 memory-discipline module_02: the symbol-index helpers at
+    # ``ract.memory.{walker,watcher}`` and the per-language parser
+    # dispatchers at ``ract.memory.languages.{python,typescript,rust,go}``
+    # are consumed by ``ract.memory.symbol_index`` + ``ract.memory.parser``
+    # and by ``tests/memory/``; the shipped-CLI call site lands in
+    # memory-discipline module_09 (SubstrateLoop index-refresh wiring).
+    # Allowlist mirrors the transitional-substrate pattern used above
+    # until module_09 lands the live wiring.
+    allowlist.add("walker.py")
+    allowlist.add("watcher.py")
+    for lang in ("python.py", "typescript.py", "rust.py", "go.py"):
+        allowlist.add(lang)
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},

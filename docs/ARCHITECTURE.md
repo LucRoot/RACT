@@ -847,6 +847,40 @@ suspenders).
 Sacred spine anchor: ``tests/memory/test_budget_ceiling.py::
 test_over_ceiling_refuses_invocation_before_model_call``.
 
+## Symbol index (v0.5.0 memory discipline)
+
+The first of the three memory-discipline indexes. SQLite-backed
+store at ``.rack/index/symbols.db`` with an FTS5 mirror for
+docstring + name full-text search. Tree-sitter parses Python,
+TypeScript, Rust, and Go into a flat symbol list per file; the
+store is language-agnostic so ``find_by_name("User")`` returns
+Python + TypeScript matches in one result set.
+
+Surface: ``src/ract/memory/symbol_index.py`` (store + query API +
+:class:`SymbolRow`), ``src/ract/memory/symbol_index_schema.sql``
+(canonical schema), ``src/ract/memory/parser.py`` (extension
+dispatch + content-hash + token-count helpers),
+``src/ract/memory/languages/{python,typescript,rust,go}.py`` (per-
+language tree-sitter chunking with pinned grammar versions),
+``src/ract/memory/walker.py`` (``.gitignore`` + ``.ractignore``
+respecting file walk + ``initial_build``), and
+``src/ract/memory/watcher.py`` (``watchdog`` observer +
+per-path debouncer + periodic mtime-scan fallback).
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §The
+three indexes / Symbol index. Rationale: ADR-0032.
+
+Grammar pins are load-bearing: each language module refuses to load
+on a mismatched ``tree-sitter-<lang>`` distribution version, so a
+silent AST-node-kind rename cannot degrade the parse. The watcher
+runs two invalidation paths side by side; the periodic mtime scan
+lives on its own daemon thread so a slow parse cannot block
+missed-save recovery on Windows.
+
+Sacred spine anchor for FTS mirror consistency:
+``tests/memory/test_symbol_index.py::
+test_find_by_text_reflects_update_in_same_transaction``.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -868,3 +902,4 @@ test_over_ceiling_refuses_invocation_before_model_call``.
 <!-- RACT 0.4.0-rc1: Three-signature Rootknot + Invariant AL-1 + sycophancy circuit + Investigator (ADR-0023) -->
 <!-- RACT 0.4.0-rc1: Isomorphic Perturbation gate for rule-like intents (ADR-0024) -->
 <!-- RACT 0.5.0: Token budget system + budget accountant hard-ceiling refuse (ADR-0031) -->
+<!-- RACT 0.5.0: Symbol index — SQLite + tree-sitter + FTS5 + incremental file watcher (ADR-0032) -->
