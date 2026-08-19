@@ -271,6 +271,17 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("chunker.py")
     allowlist.add("semantic_builder.py")
     allowlist.add("cpu_fallback.py")
+    # v0.5 memory-discipline module_05 (ADR-0035): retrieve primitive
+    # helpers at ``ract.memory.{retrieve,cache,chunk,query_trace}`` are
+    # consumed by ``tests/memory/`` and by memory-discipline module_06
+    # (four function contracts) + module_09 (SubstrateLoop wiring).
+    # The shipped-CLI call site (``ract memory retrieve``) lands in
+    # module_09. Allowlist mirrors the transitional-substrate pattern
+    # above until module_09 lands the live wiring.
+    allowlist.add("retrieve.py")
+    allowlist.add("cache.py")
+    allowlist.add("chunk.py")
+    allowlist.add("query_trace.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},

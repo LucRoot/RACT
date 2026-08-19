@@ -1018,6 +1018,96 @@ the store instance as ``lance_probe`` for diagnostic use. The
 ``RACT_LANCEDB_BACKEND`` env var forces GPU or CPU regardless of
 the auto-probe.
 
+## Retrieve primitive (v0.5.0 memory discipline)
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §The
+retrieve primitive + §Retrieval cascade + §Cache layer. Rationale:
+ADR-0035.
+
+The retrieve primitive is the composition point over the three
+memory-discipline indexes. It takes a
+:class:`~ract.memory.retrieve.RetrievalQuery` (symbol names,
+keywords, graph seeds, direction, hops, file scope, exclude paths),
+a list of :class:`~ract.memory.retrieve.IndexRef` (one per available
+index), a token :data:`~ract.memory.retrieve.TokenBudget`, a
+:class:`~ract.memory.chunk.ChunkFormat`, and a
+:class:`~ract.memory.retrieve.RetrievalStrategy`; returns a
+:class:`~ract.memory.retrieve.RetrievalBundle` with the chunks that
+fit under budget plus a full query trace.
+
+Surface: ``src/ract/memory/retrieve.py`` (the ``retrieve`` function
++ dataclasses + ``BoundedContextError`` + ``NestedRetrievalError``),
+``src/ract/memory/chunk.py`` (:class:`~ract.memory.chunk.Chunk` +
+:func:`~ract.memory.chunk.format_chunk` +
+:func:`~ract.memory.chunk.chunk_from_symbol` +
+:func:`~ract.memory.chunk.chunk_from_chunk_row`),
+``src/ract/memory/cache.py``
+(:class:`~ract.memory.cache.RetrievalCache` SQLite store with
+per-symbol + per-file invalidation), and
+``src/ract/memory/query_trace.py``
+(:class:`~ract.memory.query_trace.QueryTrace` +
+:class:`~ract.memory.query_trace.IndexHit` +
+:class:`~ract.memory.query_trace.CascadeStep` +
+:func:`~ract.memory.query_trace.to_canonical_json`).
+
+Cascade shape (four levels; per master spec §Retrieval cascade):
+
+1. Level 1. FULL for every match. If under budget, return.
+2. Level 2. FULL for exact and graph; SIGNATURE for keyword and
+   semantic.
+3. Level 3. FULL for exact; SIGNATURE for graph; drop semantic.
+4. Level 4. SIGNATURE for exact; drop everything else. Return with
+   ``dropped_symbols`` populated.
+5. Refuse. If Level 4 still exceeds budget, raise
+   :class:`~ract.memory.retrieve.BoundedContextError` and emit
+   ``retrieval.refused``.
+
+Termination is bounded by construction: the primitive gathers every
+candidate once at entry, then re-renders one fixed pool per level.
+Growth is impossible because the per-level format table only drops
+or shrinks (never adds). ``test_cascade_never_loops_returns_or_refuses``
+is the sacred-spine anchor.
+
+Cache: SQLite at ``.rack/cache/retrieval.db`` (WAL enabled). Key
+digest is SHA-256 over ``canonical_json(query) + repo_commit_hash``.
+Each entry records the referenced symbol id list plus file path list
+so :meth:`~ract.memory.cache.RetrievalCache.invalidate_by_symbol`
+and :meth:`~ract.memory.cache.RetrievalCache.invalidate_by_file`
+drop matching entries on a watcher save. Different commit hashes
+produce distinct cache keys, so a cache hit against the old commit
+can persist under its old key without polluting the new commit's
+answers.
+
+Chunk formats: FULL / BODY_ONLY / SIGNATURE / SUMMARY. SUMMARY
+delegates to a provider ``summarize(chunk)`` call; without a
+provider the returned chunk carries
+``body = "summary unavailable"`` and
+:attr:`~ract.memory.chunk.Chunk.summary_pending` is ``True``. A
+real provider integration lands in module_06 alongside the four
+function contracts.
+
+Inbound-constraint honors:
+
+- Bundle dedup runs on
+  :attr:`~ract.memory.chunk.Chunk.content_hash`, not ``chunk_id``
+  (module_04 POST inbound constraint 3).
+- Oversize chunks are surfaced with a note in
+  :attr:`~ract.memory.retrieve.RetrievalBundle.truncation_notes`
+  rather than silently stripped (module_04 POST constraint 2).
+- The greedy relevance-order per-level pack is intentional; a
+  knapsack-optimal per-level DP (module_04 POST constraint 1) is
+  Flagged gap 1 owned by module_06.
+- Mid-invocation retrieve depth > 1 refuses with
+  :class:`~ract.memory.retrieve.NestedRetrievalError` (Lateral Chain
+  branch B; adversarial reviewer Q4).
+- Cache invalidation is per-symbol; the graph-edge staleness case
+  (reviewer Q2 pre-declared) is Flagged gap 3.
+
+Events emitted (all null-sink until module_09 wires the real sink):
+``retrieval.requested`` at entry, ``retrieval.cascaded`` on every
+downgrade, ``retrieval.satisfied`` on successful return,
+``retrieval.refused`` on cascade exhaustion.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -1041,3 +1131,5 @@ the auto-probe.
 <!-- RACT 0.5.0: Token budget system + budget accountant hard-ceiling refuse (ADR-0031) -->
 <!-- RACT 0.5.0: Symbol index — SQLite + tree-sitter + FTS5 + incremental file watcher (ADR-0032) -->
 <!-- RACT 0.5.0: Graph index — SQLite edges + multilspy LSP driver + symbol-only fallback (ADR-0033) -->
+<!-- RACT 0.5.0: Semantic index via LanceDB + local embedding model (ADR-0034) -->
+<!-- RACT 0.5.0: Retrieve primitive with four-level cascade (ADR-0035) -->
