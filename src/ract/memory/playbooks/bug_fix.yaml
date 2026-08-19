@@ -1,0 +1,16 @@
+name: bug_fix
+version: 1
+description: Reproduce a reported failure, then plan and land a fix with regression coverage.
+phases:
+  - name: intake
+    function: intake
+  - name: research
+    function: research
+  - name: reproduce
+    function: reproduce
+  - name: plan
+    function: plan
+  - name: edit
+    function: edit
+    budget_override:
+      input_target: 8000

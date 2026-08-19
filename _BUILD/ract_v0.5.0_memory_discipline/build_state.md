@@ -3,10 +3,10 @@ guidance_spec: C:\RootClaw\RACT\docs\RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md
 work_dir: C:\RootClaw\RACT\_BUILD\ract_v0.5.0_memory_discipline
 repo_root: C:\RootClaw\RACT
 skills_dir: C:\RootClaw\docs\Skills
-active_module: module_07.md
-completed_modules: [module_01.md, module_02.md, module_03.md, module_04.md, module_05.md, module_06.md]
-pending_modules: [module_07.md, module_08.md, module_09.md, module_10.md]
-current_status: module_06_complete
+active_module: module_08.md
+completed_modules: [module_01.md, module_02.md, module_03.md, module_04.md, module_05.md, module_06.md, module_07.md]
+pending_modules: [module_08.md, module_09.md, module_10.md]
+current_status: module_07_complete
 cadence_mode: per-sub-task
 watchdog: cron
 bar_policy: dod_then_flag_gaps
@@ -295,6 +295,43 @@ The master spec at `guidance_spec` is the truth source. Field names in the front
   module_04 POST constraint (1: knapsack packing) explicitly
   carried forward to module_06 per the ADR "owner sits with the
   decision" principle.
+- **module_07 complete (2026-08-19).** Playbook composition landed.
+  Files (all new):
+  `src/ract/memory/composition_runner.py` (1105 lines),
+  `src/ract/memory/playbooks/__init__.py` (115 lines),
+  `src/ract/memory/playbooks/{refactor_rename,refactor_extract,
+  bug_fix,unit_test}.yaml` (4 YAMLs, 13-19 lines each). Tests:
+  `tests/memory/test_composition_runner.py` (309 lines),
+  `tests/memory/test_playbook_{refactor_rename,refactor_extract,
+  bug_fix,unit_test}.py` (4 files, 116-186 lines each; 22 new
+  test functions net across the 5 test files).
+  Docs: `docs/ADRs/ADR-0037-playbook-composition.md` (181 lines);
+  `docs/ARCHITECTURE.md` gained §Playbook composition section
+  after §Function contracts + ADR-0036/ADR-0037 comment lines.
+  Dead-code auction allowlist gained `composition_runner.py`
+  (loader package `__init__.py` skipped by auction convention).
+  Baseline pre-module_07 memory-suite count 320 + 2 skipped;
+  post-close 342 + 2 skipped (+22 delta). Ruff check + format +
+  mypy src/ract/memory/composition_runner.py + playbooks + memory
+  tests all green at the module_07 tip. Golden hash re-locked
+  `6bb2ec23...` → `653fd3313f06506a28e7b3577dae893d2740f0b03b73277fc08de61ddf53be23`
+  (fixed-point on iter 0; two intermediate re-locks folded into one final value). Judgment calls: (i) YAML schema is
+  strict — unknown fields refuse via `PlaybookSchemaError`;
+  (ii) ambiguity-flag route lands as event + phase-record note
+  without halting (closes module_06 POST inbound constraint 1
+  as a signal-visible + operator-decides shape); (iii) reproduce
+  phase cascades explicit command → phase's own command →
+  WorkOrder success_criteria heuristic, refuses on all-empty or
+  zero-exit; (iv) refactor_extract wraps edit-side
+  `BoundedContextError` as `OversizeTargetError` per Lateral
+  Chain branch C; (v) edit_loop groups load_manifest by file
+  and honors plan `iteration_bound` as hard cap.
+  Pre-existing closed-IP scan failure inherited from module_06
+  close (nemotron / rootclaw / reason_nemotron_ultra /
+  endpoints_skill hits in build_state.md + module_06.md) is
+  NOT introduced by module_07; verified in-turn by stash + rerun.
+  Second Pass pending (dispatch queued). Ledger `current_status`
+  advanced to `module_07_complete`; `active_module` -> `module_08.md`.
 - **module_06 complete (2026-08-19).** Four function contracts
   (intake / research / plan / edit) landed. Files (all new):
   `src/ract/memory/functions/{__init__,contracts,errors,intake,

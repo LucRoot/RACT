@@ -307,6 +307,14 @@ def test_ract_auction_reports_zero_dead_modules():
     # ``errors.py`` is used by ``ract.memory.functions.__init__`` but
     # basename collides with no other tracked module.
     allowlist.add("errors.py")
+    # v0.5 memory-discipline module_07 (ADR-0037): the playbook
+    # composition runner at ``ract.memory.composition_runner`` and
+    # the loader package at ``ract.memory.playbooks`` are consumed by
+    # ``tests/memory/`` + module_09 (SubstrateLoop wiring). The
+    # shipped-CLI call site (``ract memory run <playbook>``) lands in
+    # module_09. Allowlist mirrors the transitional-substrate pattern
+    # above until module_09 lands the live wiring.
+    allowlist.add("composition_runner.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},

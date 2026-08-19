@@ -1,0 +1,14 @@
+name: unit_test
+version: 1
+description: Author a unit test that covers happy path, edge cases, and error cases.
+phases:
+  - name: intake
+    function: intake
+  - name: research
+    function: research
+  - name: plan
+    function: plan
+  - name: edit
+    function: edit
+    budget_override:
+      input_target: 6000

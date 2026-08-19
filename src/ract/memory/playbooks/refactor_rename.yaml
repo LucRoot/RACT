@@ -1,0 +1,18 @@
+name: refactor_rename
+version: 1
+description: Rename a symbol across the tree, one edit per file in the load manifest.
+phases:
+  - name: intake
+    function: intake
+  - name: research
+    function: research
+    retrieval_overrides:
+      graph_direction: both
+      graph_hops: "1"
+  - name: plan
+    function: plan
+    split_threshold: 5
+  - name: edit_loop
+    function: edit
+    per_iteration_budget: 6000
+    max_iterations: 10

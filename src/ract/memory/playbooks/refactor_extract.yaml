@@ -1,0 +1,14 @@
+name: refactor_extract
+version: 1
+description: Extract a method from a larger function under a single edit invocation.
+phases:
+  - name: intake
+    function: intake
+  - name: research
+    function: research
+  - name: plan
+    function: plan
+  - name: edit
+    function: edit
+    budget_override:
+      input_target: 6000

@@ -1166,6 +1166,78 @@ generation via Outlines defers to v0.6.
 The four v0.6 verbs (`verify`, `review`, `commit`, `document`)
 defer per master spec §Bounded scope.
 
+## Playbook composition (v0.5.0 memory discipline)
+
+Four playbook YAMLs at `src/ract/memory/playbooks/` compose the
+four function contracts into named workflows. Master spec
+§Playbooks; ADR-0037.
+
+- `refactor_rename.yaml` — intake, research (graph both hops=1),
+  plan (split_threshold=5), edit_loop (per_iteration_budget=6000,
+  max_iterations=10).
+- `refactor_extract.yaml` — intake, research, plan, edit
+  (budget_override input_target=6000).
+- `bug_fix.yaml` — intake, research, reproduce, plan, edit
+  (budget_override input_target=8000).
+- `unit_test.yaml` — intake, research, plan, edit
+  (budget_override input_target=6000).
+
+The composition runner at `src/ract/memory/composition_runner.py`
+loads the YAML into a frozen `PlaybookSpec`. Each phase is a
+`PhaseSpec` naming the verb (`intake` / `research` / `plan` /
+`edit` / `reproduce`) plus optional overrides (retrieval hints,
+budget narrowings, split threshold, per-iteration budget, max
+iterations, reproduce command). `run_playbook(spec, request,
+repo_root, provider, indexes, ...)` sequences the verbs, threads
+outputs through an optional `SessionMemory`, and returns a
+`PlaybookResult` (`work_order`, `research`, `plan`, `edits`,
+`phase_records`).
+
+Phase types:
+
+- Verb phases (intake / research / plan / edit) call the shipped
+  function contracts from module_06 without reimplementing their
+  logic.
+- The reproduce phase is deterministic (subprocess with wall-clock
+  timeout). Non-zero exit confirms the bug reproduces; zero exit or
+  missing source raises `UnconfirmedBugError` (bug fixes without
+  reproduction are refused).
+- The edit_loop phase iterates over files grouped from
+  `ChangePlan.load_manifest`; a manifest exceeding the plan's
+  `iteration_bound` raises `IterationBoundExceededError` before the
+  first model call.
+
+Error family (all subclass
+`ract.memory.functions.errors.MemoryFunctionError`):
+
+- `UnknownPlaybookError` — requested playbook name is not shipped.
+- `PlaybookSchemaError` — YAML has an unknown field or wrong
+  shape.
+- `UnconfirmedBugError` — bug_fix reproduce phase could not
+  confirm the reported failure.
+- `OversizeTargetError` — refactor_extract target function exceeds
+  edit budget even at FULL format.
+- `IterationBoundExceededError` — edit_loop iteration count would
+  exceed the plan's `iteration_bound`.
+
+Ambiguity route: when intake returns a WorkOrder with non-empty
+`ambiguity_flags`, the runner emits a `budget.declared` event
+carrying the flags and adds an `ambiguity_flag: proceeding with
+risk marker` note to the intake `PhaseRecord`. The runner does
+not halt; the flag is a documented risk marker per master spec
+§intake failure modes and closes module_06 POST inbound
+constraint 1.
+
+Adding a fifth playbook is a one-file change: drop a new YAML
+matching the shipped schema into `src/ract/memory/playbooks/`.
+`list_playbooks()` discovers it via directory scan; no code edit
+is required to compose the existing four verbs.
+
+The eight deferred playbooks (security audit, feature endpoint,
+migration, code review, performance, dead-code, schema migration,
+config change) defer per master spec §Bounded scope; each sits
+downstream of one or more of the v0.6 verbs.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -1191,3 +1263,5 @@ defer per master spec §Bounded scope.
 <!-- RACT 0.5.0: Graph index — SQLite edges + multilspy LSP driver + symbol-only fallback (ADR-0033) -->
 <!-- RACT 0.5.0: Semantic index via LanceDB + local embedding model (ADR-0034) -->
 <!-- RACT 0.5.0: Retrieve primitive with four-level cascade (ADR-0035) -->
+<!-- RACT 0.5.0: Function contracts (ADR-0036) -->
+<!-- RACT 0.5.0: Playbook composition (ADR-0037) -->
