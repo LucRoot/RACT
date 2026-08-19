@@ -367,6 +367,278 @@ era). Native gaps:
   the gate). Extend to hash each `ract <verb> ...` invocation's full
   argv against the current argparse subparser choices.
 
+## v0.6 hardening (from memory-discipline module_01)
+
+Flagged gaps from token-budget system landing. Compiled from
+`_BUILD/ract_v0.5.0_memory_discipline/module_01.md`.
+
+- module_01: `WhitespaceTokenEstimator` under-counts BPE token cost
+  by 20-40 percent on typical code; per-provider `TokenEstimator`
+  adapters ship in module_09 shape but wiring the three-consumer
+  fan-out defers to v0.6.
+- module_01: registry + composition YAML validation ships as
+  hand-written schemas; a Pydantic model would tighten typo-catching
+  and error messages (deferred because module_01 has no other Pydantic
+  dependency at this landing).
+- module_01: runtime narrowing floor `input_target // 2` against the
+  BASE (not the running intermediate) is a Lateral Chain branch B
+  guard, not a measured value. v0.6 calibration against real
+  self-adjustment traces should refine the floor.
+
+## v0.6 hardening (from memory-discipline module_02)
+
+Flagged gaps from symbol-index landing. Compiled from
+`_BUILD/ract_v0.5.0_memory_discipline/module_02.md`.
+
+- module_02: full parse-error recovery per language — mid-file syntax
+  errors are caught as `ParseError` and the offending region is not
+  recovered (rest of file goes un-indexed). Ship path: partial-parse
+  fallback per language, or `tree_sitter.Tree.walk()` incremental
+  strategy that skips the ERROR node subtree.
+- module_02: symbol-index embeddings vs semantic-index vectors
+  consolidation (Lateral Chain branch D deferred). Symbol index stays
+  lean; semantic index (module_04) owns vectors via FK. Consolidation
+  discussion when the FK cost is known.
+- module_02: Rust / Go `type X = ...` parity with the Q1 Python fix —
+  a cross-language parity test comparable to Q1 is v0.6 hardening.
+- module_02: BPE tokenizer bias carries into `SymbolRow.token_count`
+  since the same whitespace-split proxy is used. Downstream consumers
+  (semantic index, retrieve primitive) read this field.
+
+## v0.6 hardening (from memory-discipline module_03)
+
+Flagged gaps from graph-index landing. Compiled from
+`_BUILD/ract_v0.5.0_memory_discipline/module_03.md`.
+
+- module_03: per-symbol transaction atomicity for the LSP populator —
+  a mid-file crash loses that file's collected edges. Ship path:
+  one insert_edges call per symbol, or a checkpoint-and-resume path
+  with a `graph_build_progress` table.
+- module_03: per-request LSP timeout — `request_references` has no
+  per-call wall-clock guard. Wrap in `concurrent.futures.Future` with
+  timeout, or migrate to multilspy's async API with
+  `asyncio.wait_for`.
+- module_03: probe fixture races the module_02 watcher — write+delete
+  spurious create/delete events at `SymbolIndexWatcher`. Ship path:
+  exclude `___ract_lsp_probe___.*` glob, or run against scratch-root.
+- module_03: cross-language edges out of scope (Python service calling
+  a TypeScript worker via HTTP is invisible to LSP). Ship path: a
+  call-graph-across-processes primitive reading OpenAPI schemas or
+  RPC stubs.
+- module_03: per-worker LSP latency histogram in
+  `GraphPopulator.BuildReport` for thermal-throttle detection.
+
+## v0.6 hardening (from memory-discipline module_04)
+
+Flagged gaps from semantic-index landing. Compiled from
+`_BUILD/ract_v0.5.0_memory_discipline/module_04.md`.
+
+- module_04: knapsack-optimal packing for `search_with_budget` —
+  today walks LanceDB top-k pool in relevance order and skips
+  overflow, which beats first-fit-then-stop but is not knapsack-
+  optimal. Deferred to module_05 authorship (cascade owns per-level
+  packing decision) then carried forward through module_06 / 07.
+- module_04: recursive-until-cap sub-chunker — a pathological
+  single-line 4000-token expression survives both `chunk_symbol`
+  levels intact and emits oversize marker. Deferred to module_06
+  where the caller sits closer to the "what to do with oversize"
+  decision.
+- module_04: embedding model download UX (~130 MB `bge-small-en-v1.5`
+  weights) — `ract memory init` should land the download itself.
+  Message today names both fallbacks but does not offer to fetch.
+- module_04: LanceDB GPU probe honesty — `probe_lancedb()` reports
+  `backend='cpu'` unless `RACT_LANCEDB_BACKEND=gpu` is set (LanceDB
+  wheels do not expose a runtime GPU probe today). Ask the wheel
+  when the API lands.
+- module_04: metadata reciprocal case — `metadata deleted, table
+  intact` raises `SemanticStoreCorruptError`; reciprocal `metadata
+  intact, table deleted` correctly falls through to
+  `_create_empty_table` (documented in ADR-0034). Worth an explicit
+  regression test to pin the recovery contract.
+
+## v0.6 hardening (from memory-discipline module_05)
+
+Flagged gaps from retrieve-primitive landing. Compiled from
+`_BUILD/ract_v0.5.0_memory_discipline/module_05.md`.
+
+- module_05: knapsack packing per cascade level — greedy relevance-
+  order today (parity with module_04's `search_with_budget`). 0/1
+  knapsack DP at O(n*B) or k-approximation would pack tighter.
+- module_05: provider-backed SUMMARY chunk format — today returns
+  placeholder `"summary unavailable"` and `summary_pending=True`.
+  Real summarization needs a provider adapter with `summarize(chunk)`.
+- module_05: edge-only cache invalidation — a fully orthogonal edge
+  change (edge inserted/deleted between two symbols whose
+  content_hash both stay unchanged) does not fire invalidation.
+  Ship path: edge fingerprint column + `invalidate_by_edge` helper.
+- module_05: wall-clock guard on interactive `update_file` —
+  Retrieve does not call `GraphIndex.update_file`; module_09's
+  interactive replan flow may. Carried forward from module_03 POST.
+- module_05: `RetrievalStrategy`-aware dropped-count — `CORE_FIRST`
+  dedup by `symbol_id` collapses sub-chunks silently; a
+  `dropped_by_strategy_count` subfield would surface the compression.
+- module_05: traversal-id set unbounded on wide graph fan-out —
+  `bundle.traversal_symbol_ids` grows with `graph_hops *
+  average_fanout`. Wiring layer decides cap vs refuse-cache.
+
+## v0.6 hardening (from memory-discipline module_06)
+
+Flagged gaps from function-contracts landing. Compiled from
+`_BUILD/ract_v0.5.0_memory_discipline/module_06.md`.
+
+- module_06: `IntakeContext.selected_code` shape drift — field
+  documented as "kept out of the assembled prompt" but still a
+  dataclass field. Either drop it or seat its bytes on a separate
+  accountant section so the "kept out" note is enforceable.
+- module_06: `plan.mid_invocation_queries` composition wiring —
+  `plan()` accepts up to `MAX_MID_INVOCATION_RETRIEVES=3` queries
+  at 500-token sub-budgets each, but nothing supplies them until
+  module_07's playbook YAML is wired for it.
+- module_06: `edit._validate_diff` extends master-spec forbidden-
+  token list beyond `TODO`/ellipsis/leave-unchanged prose to include
+  `FIXME`, `XXX`, `pass  # implement`, `raise NotImplementedError`.
+  Defensible hardening; spec should be updated to name the full list.
+- module_06: Outlines grammar-constrained generation for edit —
+  v0.5.0 ships the lightweight post-generation validator; grammar-
+  constrained generation via Outlines defers to v0.6.
+- module_06: `priority_markers` / `verification_criteria.payload`
+  as tuple-of-tuple instead of dict — a contract-builder helper
+  module (v0.6) would smooth the caller surface.
+- module_06: ambiguity-flag route lands as trace-only signal today —
+  Q2 fix emits `ambiguity_flags` on `budget.declared` but the reader
+  composition layer is module_07's playbook runner.
+- module_06: `verify_prompt_coverage` is opt-in — the reverse-drift
+  check is callable but nothing invokes it at startup. Module_09's
+  SubstrateLoop startup or `ract memory init` is the natural home.
+- module_06: knapsack packing across function call sites — carried
+  from module_04 POST + module_05 POST.
+- module_06: SUMMARY provider adapter — carried from module_05 gap 2.
+  `MemoryFunctionProvider` protocol shape fits a wrapping summariser;
+  module_09's provider registry is the natural home.
+
+## v0.6 hardening (from memory-discipline module_07)
+
+Flagged gaps from playbook-composition landing. Compiled from
+`_BUILD/ract_v0.5.0_memory_discipline/module_07.md`.
+
+- module_07: LSP language dispatch delegated to module_09 — the
+  runner groups `load_manifest` entries by `file_path` only; each
+  file group receives an identical `edit_fn` call. Language-aware
+  LSP dispatch (pylsp / tsserver / rust-analyzer / gopls per file
+  suffix) lives with the SubstrateLoop wiring.
+- module_07: `edit_loop` trigger uses two conventions — either
+  `phase.name == "edit_loop"` OR `per_iteration_budget` set. A
+  future maintainer could tighten to a single dedicated flag
+  (`phase.kind: "loop"`).
+- module_07: `_apply_phase_budget_override` return discarded — the
+  narrowed declaration is not passed to the function surface because
+  module_06's four verbs read their own budget inside their call.
+  Module_09's provider adapter is the natural home.
+- module_07: `plan.mid_invocation_queries` playbook wiring — YAML
+  `retrieval_overrides` on the plan phase is parsed but not forwarded
+  as `RetrievalQuery` values to `plan_fn(mid_invocation_queries=...)`.
+- module_07: reproduce phase runs `subprocess.run(..., shell=True)`
+  — every source (explicit arg, YAML, success-criteria pytest
+  command) is operator-contributed today. v0.6 could parse via
+  `shlex.split` and refuse shell metacharacters unless opt-in.
+- module_07: session-memory single-writer per path — two concurrent
+  playbook runs against the same `session_path` race; master spec
+  §Function contracts pins a unique `evals/runs/<run_id>/session.json`
+  per run so out of scope today. Module_09 enforces the unique-path
+  invariant in the shipped CLI.
+- module_07: knapsack packing across function call sites — carried
+  from module_04 POST + module_05 POST + module_06 gap 8.
+- module_07: SUMMARY provider adapter — carried from module_05 gap 2
+  + module_06 gap 9.
+
+## v0.6 hardening (from memory-discipline module_08)
+
+Flagged gaps from self-adjustment-probes landing. Compiled from
+`_BUILD/ract_v0.5.0_memory_discipline/module_08.md`.
+
+- module_08: needle-probe reducer over-narrows on transient noise —
+  `_reduce_usable_context_window` collapses to 0 on any depth miss
+  at the smallest size. v0.6: noise-tolerant reducer behind a config
+  flag (require k-of-n depths per size, or 2 consecutive clean sizes
+  before accepting a new floor).
+- module_08: capability-record tmp file leaks on SIGKILL — cleans on
+  Python exceptions but SIGKILL / power-loss between `mkstemp` and
+  `try` leaves the tmp file orphaned. Target file safe via atomic-
+  replace. v0.6: register an `atexit` handler or sweep orphans at
+  next `write_capability_record` invocation.
+- module_08: aggregator fallback reference inflates upward — when
+  `current_budgets` is `None` the fallback uses max failure-time
+  `input_token_count`, larger than the declared budget that refused.
+  v0.6: make `current_budgets` non-optional or store the DECLARED
+  budget inside `FailureRecord` at emission time (schema bump).
+- module_08: PhaseRecord bridge discards token counts —
+  `failure_from_phase_record` defaults token counts to 0 because
+  `PhaseRecord` does not carry them today. Module_09's provider
+  adapter has the accountant in scope.
+- module_08: coherence probe uses a two-statement contradiction
+  rather than a semantic-diff check — some models "correct" the
+  contradiction silently. v0.6: require the model to name the
+  contradiction category (day / date / room) not just repeat both
+  tokens.
+- module_08: adherence probe places instruction at start only —
+  mid-context and end-context persistence are not tested. v0.6:
+  parametrize instruction placement (start / middle / end) and
+  report per-placement persistence.
+- module_08: `repo_fingerprint.compute` default path calls `git log`
+  and is impure (depends on filesystem `.git`, git binary
+  availability, working-tree staleness). v0.6: extract the git
+  invocation to a small helper the caller injects when purity is
+  required.
+- module_08: Second-Pass prompts must inline source under review
+  (POST-A convention) — first-dispatch response with description-
+  only prompt returned four entirely hallucinated verdicts;
+  re-dispatch with source bundle inline returned four accurate
+  verdicts. Every subsequent module MUST inline the actual source.
+  Documented as inbound constraint to module_09 pipeline dispatch.
+
+## v0.6 hardening (from memory-discipline module_09)
+
+Flagged gaps from integration landing. Compiled from
+`_BUILD/ract_v0.5.0_memory_discipline/module_09.md`. Module_09
+shipped the integration SHAPE; v0.6 ships the polish.
+
+- module_09: Rootknot canonical-bytes ordering audit — reviewer said
+  no fix needed (`sort_keys=True` deterministic across Python
+  versions for ASCII keys). A paranoid v0.6 sweep could add a
+  golden-canonical-bytes fixture pinning a v3-with-attestation
+  knot's bytes across Python 3.11 / 3.12 / 3.13.
+- module_09: broader path-normalization sweep — Q3 fold added
+  `_normalize_file_path` at `enforce_g6_edit`. The same class applies
+  to `symgraph.py` edited_symbols and `patchdiff.py` leakage-match
+  path comparisons. v0.6 audit each site.
+- module_09: atomic init for `ract memory init` semantic stage —
+  a mid-build semantic failure today leaves an empty `semantic_dir/`.
+  v0.6: build in a temp dir and move on success, or add `--rebuild`
+  that clears the target dir before starting.
+- module_09: three-index wiring for `ract retrieval query` — verb
+  returns only a canonical projection today. Full wiring against a
+  live `retrieve()` pipeline (three indexes + cache + query-trace)
+  needs the composition_runner surface to accept a bare query.
+- module_09: provider bridge `MemoryFunctionProvider` →
+  `ProviderAdapter.complete` — thin adapter around the two Protocol
+  surfaces; not shipped because the CLI paths do not invoke a live
+  model call today.
+- module_09: SUMMARY provider adapter — carried from module_05 POST +
+  module_06 POST + module_07 POST inbound constraints.
+- module_09: 19+ additional integration-polish items surfaced by
+  the operator's inbound-constraint list across modules 01-08 POSTs:
+  FTS5 write-cost budgeting, three-consumer TokenEstimator fan-out,
+  `verify_prompt_coverage` at startup, `probe_lancedb` at startup,
+  `current_budgets` from probes, fingerprint-mapper wiring,
+  PhaseRecord token counts, wall-clock-guard interactive
+  `update_file`, traversal-id cap wide fan-out, watcher-glob
+  exclusion for probe fixtures, LSP language-per-suffix dispatch,
+  `composition_runner` as `ract run` verb, ambiguity halt path,
+  playbook budget overrides, `plan.mid_invocation_queries` wiring,
+  `live_current_value` pass-through, unwire-3-basename dead-code
+  allowlist, `accountant.record_narrowing` before
+  `emit_budget_declared`, tmp-file cleanup on SIGKILL.
+
 ## Previously logged (pre-v0.4) — carried forward
 
 Items from the pre-v0.4 roadmap that remain open:
@@ -378,4 +650,4 @@ Items from the pre-v0.4 roadmap that remain open:
 - **Animated asciicast/GIF** — blocked until a terminal recorder supports Windows ARM64.
 - **CLA assistant** — blocked at the OAuth handshake step; the setup URL is open.
 
-<!-- RACT 0.4.1 -->
+<!-- RACT 0.5.0 -->

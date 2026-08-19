@@ -4,9 +4,45 @@
 ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LucRoot/RACT/main/docs/coverage-badge.json)
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
-![Version](https://img.shields.io/badge/version-0.4.1-blue)
+![Version](https://img.shields.io/badge/version-0.5.0-blue)
 
 RACT is a model-agnostic, local-first agentic coding tool built around three ideas: signed provenance capabilities (*rootknots*) on every artifact, explicit assumptions for every plan step, and milestone-halting recursion instead of fixed iteration counts.
+
+## What v0.5.0 changes
+
+v0.5.0 is the Memory Discipline minor release. It installs a new
+memory substrate on top of v0.4.1 without touching the sacred spine
+(Rootknot three-signature schema, AL-1, author-name-free tree). The
+pipeline (`_BUILD/ract_v0.5.0_memory_discipline/`) delivered nine
+substrate modules plus a release-close module:
+
+- **Token budget accountant** with hard-ceiling refusal per function
+  and composition override (`src/ract/memory/budget.py`).
+- **Three query indexes** — the symbol index (tree-sitter + SQLite +
+  FTS5), the graph index (LSP-populated call/type edges), and the
+  semantic index (LanceDB + `bge-small-en-v1.5`). An incremental file
+  watcher keeps them current.
+- **Retrieve primitive** with a four-level cascade (symbol → graph →
+  semantic → best-effort), a query cache keyed on
+  `(query_hash, repo_commit_hash)`, and four chunk formats.
+- **Four function contracts** — `intake`, `research`, `plan`, `edit`
+  — each with a typed contract, a v1 prompt, and a paired test file.
+- **Four playbooks** — `refactor_rename`, `refactor_extract`,
+  `bug_fix`, `unit_test` — composed of those four functions.
+- **Three self-adjustment probes** — `needle`, `coherence`,
+  `adherence` — writing a per-repo capability fingerprint to
+  `.rack/probes/capability.json`.
+- **Integration wiring.** `SubstrateLoop` reads a retrieval bundle
+  off `SubstrateStepSpec.metadata`; `Rootknot` payload carries an
+  optional `retrieval_attestation`; seven new EventKind members;
+  three new CLI subverbs (`ract memory init`,
+  `ract memory apply-narrowings`, `ract retrieval query`).
+
+Verify: `pytest -q tests/test_release_surface.py` runs the 56-signal
+sweep (11 REBUILD + 16 SUBSTRATE + 16 ALM + 13 MEMORY) plus the
+memory-module surface check plus the closed-IP wordlist gate. See
+`CHANGELOG.md` `[0.5.0]` for the exhaustive change list and
+`docs/ROADMAP.md` for v0.6 hardening backlog (deferred polish).
 
 ## What v0.4.1 changes
 
@@ -58,6 +94,7 @@ See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
 
 ```bash
 ract init --template python-package --provider local
+ract memory init                     # build the three memory-discipline indexes for this repo
 ract doctor                          # verify workspace and dependencies
 ract fence inspect --file src/hello.py  # check safety guardrails and threat-model boundaries
 ract run "add a test for the hello-world script" --config ract.yaml --dry-run
@@ -83,6 +120,9 @@ ract run "refactor the greeting module" --config ract.yaml --loop --max-iteratio
 - `ract trace to-test <run>` — materialize the trace's provider prompts and responses as pinned test fixtures.
 - `ract provenance verify <path>` — verify a file's `Rootknot` (RK-1 + RK-2 always; RK-3 when the sidecar is v2+; AL-1 when the sidecar is v3 and the workspace is in strict mode).
 - `ract plan analyze <session>` — print the `PlanRiskReport` advisory for a session (restoration cluster 2; reads the `plan.risk_assessed` event out of `events.jsonl`).
+- `ract memory init` — build the symbol / graph / semantic indexes for the current workspace under `.rack/index/` (v0.5.0 memory discipline).
+- `ract memory apply-narrowings` — apply queued budget-narrowings from the failure record store (v0.5.0 memory discipline).
+- `ract retrieval query <text>` — issue a retrieval query against the memory-discipline three-index cascade (v0.5.0; skeleton — full CLI wiring queued for v0.6).
 
 Anti-lazy gates (G1-G8) are pre-commit helpers rather than top-level CLI verbs.
 A run's `evals/runs/<run_id>/` directory gains one report per gate:
@@ -116,7 +156,11 @@ ract trace replay evals/runs/<run_id>    # replay a hash-chained event log
 pytest -q                                # full suite (includes tests/test_release_surface.py)
 ```
 
-RACT v0.4.1 enforces four invariants at verify time:
+The full release-surface sweep is `pytest -q tests/test_release_surface.py`
+(56 signals: 11 REBUILD + 16 SUBSTRATE + 16 ALM + 13 MEMORY, plus the
+memory-module surface check + the closed-IP wordlist gate).
+
+RACT v0.5.0 enforces four invariants at verify time (unchanged from v0.4.1):
 
 - **RK-1 (Author Attestation, v0.2).** `Rootknot.generator_signature` verifies
   under the resolved generator pubkey.
@@ -153,4 +197,4 @@ License: PolyForm Noncommercial 1.0.0. Measurements: take them as one data point
 
 **Author:** Dr. Lucas Root, Ph.D. — [info@lucasroot.com](mailto:info@lucasroot.com)
 
-<!-- RACT 0.4.1 -->
+<!-- RACT 0.5.0 -->

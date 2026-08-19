@@ -6,6 +6,241 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] - 2026-08-19 — Memory Discipline
+
+Minor release for the Memory Discipline pipeline
+(`_BUILD/ract_v0.5.0_memory_discipline/`). This release installs a new
+memory substrate on top of v0.4.1: a token budget accountant with a
+hard ceiling, three query indexes (symbol / graph / semantic), a
+four-level retrieve primitive with cascade + query cache, four
+function contracts (intake / research / plan / edit), four playbooks
+carrying compositions of those functions, three self-adjustment probes
+(needle / coherence / adherence) with per-repo capability fingerprint,
+and integration wiring into the existing SubstrateLoop and Rootknot
+schema. Tag is `v0.5.0`. Nine ADRs (ADR-0031 through ADR-0039) name
+the load-bearing decisions.
+
+### Per-module surface
+
+- **module_01 — token budget system.** `src/ract/memory/budget.py`
+  ships `BudgetAccountant` + `BudgetDeclaration` with hard-ceiling
+  refusal, composition override, and runtime narrowing;
+  `budget_defaults.yaml` defines defaults for the four v0.5.0
+  functions; ADR-0031 names the ceiling policy.
+- **module_02 — symbol index.** `src/ract/memory/symbol_index.py` with
+  SQLite schema at `symbol_index_schema.sql`, tree-sitter parsers for
+  Python / TypeScript / Rust / Go under `memory/languages/`, and an
+  incremental file watcher at `watcher.py`; ADR-0032.
+- **module_03 — graph index.** `graph_index.py` with SQLite edge
+  schema, `multilspy` LSP client at `lsp.py`, `lsp_fallback.py` for
+  when a language server is not installed, and a query API covering
+  callers / callees / blast_radius / path / orphans / hotspots;
+  ADR-0033.
+- **module_04 — semantic index.** `semantic_index.py` backed by a
+  LanceDB store at `.rack/index/semantic/`, `bge-small-en-v1.5` as the
+  default embedding, and a token-bounded search API; ADR-0034.
+- **module_05 — retrieve primitive.** `retrieve.py` with a four-level
+  cascade (symbol → graph → semantic → best-effort), `cache.py`
+  keyed on `(query_hash, repo_commit_hash)`, `chunk.py` formatter with
+  four formats (FULL / BODY_ONLY / SIGNATURE / SUMMARY), and
+  `query_trace.py` for observability; ADR-0035.
+- **module_06 — function contracts.** `memory/functions/` package
+  ships `intake.py`, `research.py`, `plan.py`, `edit.py` with typed
+  contracts, prompts under `functions/prompts/`, a mock provider under
+  `functions/testing/`, and a session context at `memory/session.py`;
+  ADR-0036.
+- **module_07 — playbook composition.** Four YAML playbooks
+  (`refactor_rename`, `refactor_extract`, `bug_fix`, `unit_test`)
+  under `memory/playbooks/`, `composition_runner.py` orchestrating
+  the four-function stack per playbook step, and `composition.py`
+  primitives; ADR-0037.
+- **module_08 — self-adjustment probes.** Three probes
+  (`needle`, `coherence`, `adherence`) under `memory/probes/` with
+  `scheduler.py` per-repo dispatch, `failure_records.py` aggregation,
+  and `repo_fingerprint.py` for per-repo capability persistence at
+  `.rack/probes/capability.json`; ADR-0038.
+- **module_09 — integration with existing RACT.** Seven new EventKind
+  members (`budget.declared`, `budget.exceeded`, `retrieval.requested`,
+  `retrieval.satisfied`, `retrieval.cascaded`, `retrieval.refused`,
+  `probe.evaluated`) added to `trace/events.py`; `SubstrateLoop`
+  reads `SubstrateStepSpec.metadata["retrieval_bundle"]` and emits a
+  paired `retrieval.satisfied` event; `Rootknot` generator payload
+  gains optional `retrieval_attestation`; ALM `enforce_g6` +
+  `enforce_g7` accept `CandidateDiff | None`; `ract memory init`,
+  `ract memory apply-narrowings`, and `ract retrieval query` land as
+  CLI subverbs; ADR-0039.
+- **module_10 — release close.** This entry, version triple bump
+  0.4.1 → 0.5.0, ROADMAP compilation, combined 56-signal sweep, tag.
+
+### Fixed (memory-discipline)
+
+Fix commits landed in this pipeline (all under
+`memory(v0.5)` and identified by short SHA):
+
+- `86583f2` memory(v0.5): fix module_01 auction allowlist for
+  pre-wired helpers.
+- `5b62a21` memory(v0.5): re-lock golden hash for module_01
+  additions.
+- `9bc0bb6` memory(v0.5): allowlist module_02 imports in
+  public-provenance test.
+- `b38a425` memory(v0.5): fix module_02 SP findings Q1+Q2 —
+  type-alias and let-arrow chunking.
+- `ede85a9` memory(v0.5): fix module_03 SP findings Q1+Q3 —
+  atomicity docstring + probe.
+- `d97d50b` memory(v0.5): fix module_04 SP findings Q1+Q3 +
+  closed-IP scan.
+- `b8bb510` memory(v0.5): fix module_07 SP findings Q2+Q3 + POST
+  chains + hash re-lock.
+- `72a83d3` memory(v0.5): untrack `_BUILD/` pipeline scratch
+  (gitignored per convention).
+
+Modules 04-09 also folded Second-Pass regression tests INTO the
+main landing commit (no separate fix commit) per each module's
+Second Pass log; the module fragments record the fold decisions.
+
+### Added
+
+- **`src/ract/memory/` package** — 30+ Python modules covering budget
+  accountant, three indexes, retrieve primitive, four function
+  contracts, playbook composition, and three self-adjustment probes.
+- **Four playbooks** — `refactor_rename.yaml`, `refactor_extract.yaml`,
+  `bug_fix.yaml`, `unit_test.yaml` under
+  `src/ract/memory/playbooks/`. Eight further playbooks defer to v0.6.
+- **Four function prompts** — `intake_v1.md`, `research_v1.md`,
+  `plan_v1.md`, `edit_v1.md` under
+  `src/ract/memory/functions/prompts/` gated by
+  `verify_prompt_coverage` at import time.
+- **Budget defaults** — `src/ract/memory/budget_defaults.yaml` with a
+  declaration per v0.5.0 function.
+- **Two SQL schemas** — `symbol_index_schema.sql` and
+  `graph_index_schema.sql`.
+- **Seven new event kinds** in `src/ract/trace/events.py::EventKind`:
+  `budget.declared`, `budget.exceeded`, `retrieval.requested`,
+  `retrieval.satisfied`, `retrieval.cascaded`, `retrieval.refused`,
+  `probe.evaluated`.
+- **Nine ADRs** — ADR-0031 through ADR-0039 under `docs/ADRs/`.
+- **Three CLI subverbs** — `ract memory init`,
+  `ract memory apply-narrowings`, `ract retrieval query` (skeleton;
+  full three-index wiring queued for v0.6 polish).
+- **`docs/ARCHITECTURE.md`** — nine new sections describing each
+  memory-discipline surface.
+- **`docs/EVENTS.md`** — schema_version bumped 2 → 3 with the seven
+  new kinds documented.
+- **`tests/memory/`** — 450+ new tests across the memory-discipline
+  surface; five new tests under `tests/contracts/` +
+  `tests/test_release_surface.py` covering the integration wiring.
+
+### Extended
+
+- **`SubstrateLoop.run_step`** reads
+  `SubstrateStepSpec.metadata["retrieval_bundle"]` when present and
+  emits `retrieval.satisfied` per step. Absent metadata is a no-op;
+  existing callers do not need to change.
+- **`Rootknot` generator payload** gains an optional
+  `retrieval_attestation` field; older sidecars continue to verify
+  under the v2 compatibility reader path. No signature added, no
+  schema-version bump.
+- **ALM `enforce_g6` and `enforce_g7`** accept `CandidateDiff | None`;
+  older call sites that pass no diff receive a no-op pass. Path
+  normalization at `_normalize_file_path` closes the backslash /
+  leading-dot-slash Second-Pass finding.
+- **`ract` CLI** learns `memory` and `retrieval` subverbs via the
+  existing dispatch layer; existing verbs untouched.
+- **`docs/ARCHITECTURE.md`** gains nine new sections; every ADR-0031
+  through ADR-0039 named in the ADR comment lines.
+
+### Verified
+
+- **56-signal sweep.** 11 REBUILD + 16 SUBSTRATE + 16 ALM + 13 new
+  MEMORY signals all evaluate true at the tag commit via
+  `pytest -q tests/test_release_surface.py`.
+- **Per-module attestations.** Nine memory-discipline modules each
+  ship a Second Pass log + POST-audit chains + Flagged gaps section.
+  Test gate: `test_roadmap_carries_memory_discipline_module_gaps`.
+- **Sacred spine tests.** Rootknot three-signature schema unchanged;
+  `__root_author__` audit still refuses re-entry; AL-1 property tests
+  green.
+- **Closed-IP wordlist scan.** 25 terms; zero hits outside the two
+  documented `assets/demo.cast` deferrals. Test gate:
+  `test_no_closed_ip_terms_in_tracked_files`.
+- **Version triple.** `VERSION`, `pyproject.toml [project].version`,
+  and `src/ract/__init__.py __version__` all equal `0.5.0`;
+  `ract --version` prints `RACT 0.5.0`. Test gates:
+  `test_version_matches_across_files` and
+  `test_ract_version_cli_reports_aligned_identity`.
+- **Golden hash re-locked** at fixed-point after every landing +
+  Second Pass fold; locked value at tag:
+  `2905a2b789aa9900398de7ce6924d32919dd532618a835c118841c8c3826b8b0`.
+- **Baseline pre-existing failures from v0.4.1 remain fixed** at the
+  v0.5.0 tag (four failures triaged and closed at v0.4.1 release
+  close; verified green here).
+
+### Known limitations (carried to the v0.6 hardening backlog)
+
+Module_09 explicitly deferred 19+ inbound integration constraints
+from modules 01-08 POST chains to v0.6, on the judgment that
+module_09 ships the integration *shape* while v0.6 ships the
+*polish*. The load-bearing deferrals are:
+
+- **Three-index CLI query wiring.** `ract retrieval query` lands as a
+  CLI skeleton; the actual retrieve primitive is invoked programmatically
+  from `SubstrateLoop`. Wiring the CLI subverb to the three indexes
+  end-to-end defers to v0.6.
+- **Provider bridge for MemoryFunctionProvider.** The four function
+  contracts are called via a mock provider in tests; wiring the real
+  provider adapter to production `LlmProvider` defers to v0.6.
+- **SUMMARY chunk-format provider adapter.** Retrieve emits
+  SUMMARY-format placeholder text; a real summarization provider
+  hook defers to v0.6 (module_05 gap #2 / module_06 gap #9).
+- **`verify_prompt_coverage` startup wiring.** The gate runs at
+  import time inside `prompts_loader`; wiring it to a startup-time
+  RACT invocation check defers to v0.6.
+- **`probe_lancedb` startup probe.** LanceDB availability check runs
+  on first index touch; a startup-time probe defers to v0.6.
+- **`current_budgets` from probes.** Probes emit
+  `probe.evaluated` events; feeding probe outcomes back into
+  `current_budgets` per function defers to v0.6.
+- **`PhaseRecord` token counts.** PhaseRecord carries an outcome but
+  not the token counts consumed by each phase; wiring the estimator
+  to write token counts per phase defers to v0.6
+  (module_08 gap #4).
+- **Wall-clock `update_file` guard.** Retrieve's update_file path is
+  guarded by a call-count budget, not a wall-clock budget
+  (module_05 gap #4).
+- **LSP language dispatch.** `composition_runner._run_edit_single`
+  groups by file path; the LSP dispatch per language defers to
+  v0.6 (module_07 gap #1).
+- **`composition_runner` as `ract run`.** Composition is exposed
+  programmatically; wiring it as the default runner behind
+  `ract run` defers to v0.6.
+- **Playbook budget overrides.** Playbooks parse `retrieval_overrides`
+  at YAML load; forwarding full `RetrievalQuery` shape defers to v0.6
+  (module_07 gap #4).
+- **`plan.mid_invocation_queries`.** Plan phase queues mid-invocation
+  retrieval queries; the runner does not yet re-run retrieve on each
+  such query (module_07 gap #4 pair).
+- **Noise-tolerant needle reducer** (module_08 gap #1).
+- **`mkstemp` tmp-file leak on SIGKILL** in atomic-replace paths
+  (module_08 gap #2).
+- **Fallback-reference inflation** in adherence probe when the
+  operator's rejected proposal itself references a fallback
+  (module_08 gap #3).
+- **Coherence-probe semantic-diff** — probe compares hashes not
+  semantic overlap (module_08 gap #5).
+- **Adherence-probe placement variants** — probe accepts the operator's
+  proposal at any position (module_08 gap #6).
+- **Fingerprint git-log purity** — probe reads git log fields that are
+  not strictly deterministic under concurrent commits (module_08 gap #7).
+- **Second-Pass prompt-must-inline-source convention.** Module_08 SP
+  first attempted a description-only prompt and got fully hallucinated
+  verdicts. The convention is now: inline the source bundle in every
+  SP prompt for release-surface changes. Documented as inbound
+  constraint to module_09 pipeline dispatch (module_08 gap #8).
+
+All items compiled into `docs/ROADMAP.md` under
+`## v0.6 hardening (from memory-discipline module_0N)` sections
+per module.
+
 ## [0.4.1] - 2026-08-17 — Intent-Fidelity
 
 Patch release for the Intent-Fidelity pipeline

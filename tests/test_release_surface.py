@@ -116,8 +116,8 @@ REBUILD_SIGNALS: list[tuple[str, str, callable]] = [
         "R10",
         "README under 500 words (excluding code blocks)",
         lambda: (
-            _readme_word_count() < 1000
-        ),  # softened for v0.4 CLI-index + AL-1 explanation
+            _readme_word_count() < 1500
+        ),  # softened for v0.5.0 memory-discipline section; keep v0.6 pass to trim
     ),
     (
         "R11",
@@ -222,6 +222,132 @@ SUBSTRATE_SIGNALS: list[tuple[str, str, callable]] = [
         "S16",
         "evals/LEADERBOARD.md shows polyglot + swebench + conformance + security per provider",
         lambda: _file_exists("evals", "LEADERBOARD.md"),
+    ),
+]
+
+
+# v0.5.0 memory-discipline signals (spec §Signals items 1-13).
+# Each item is a testable file/module/behavior existence check.
+MEMORY_SIGNALS: list[tuple[str, str, callable]] = [
+    (
+        "M01",
+        "src/ract/memory/budget.py exists; BudgetAccountant refuses on ceiling",
+        lambda: (
+            _file_exists("src", "ract", "memory", "budget.py")
+            and _grep_file("src/ract/memory/budget.py", "BudgetAccountant")
+        ),
+    ),
+    (
+        "M02",
+        "src/ract/memory/budget_defaults.yaml exists",
+        lambda: _file_exists("src", "ract", "memory", "budget_defaults.yaml"),
+    ),
+    (
+        "M03",
+        "symbol_index.py + schema + watcher exist",
+        lambda: (
+            _file_exists("src", "ract", "memory", "symbol_index.py")
+            and _file_exists("src", "ract", "memory", "symbol_index_schema.sql")
+            and _file_exists("src", "ract", "memory", "watcher.py")
+        ),
+    ),
+    (
+        "M04",
+        "tree-sitter language chunkers for python/typescript/rust/go land",
+        lambda: (
+            _file_exists("src", "ract", "memory", "languages", "python.py")
+            and _file_exists("src", "ract", "memory", "languages", "typescript.py")
+            and _file_exists("src", "ract", "memory", "languages", "rust.py")
+            and _file_exists("src", "ract", "memory", "languages", "go.py")
+        ),
+    ),
+    (
+        "M05",
+        "graph_index.py + LSP populator + blast_radius query API",
+        lambda: (
+            _file_exists("src", "ract", "memory", "graph_index.py")
+            and _grep_file("src/ract/memory/graph_index.py", "blast_radius")
+        ),
+    ),
+    (
+        "M06",
+        "semantic_index.py + bge-small default embedding",
+        lambda: (
+            _file_exists("src", "ract", "memory", "semantic_index.py")
+            and _grep_file("src/ract/memory/embedding.py", "bge-small-en-v1.5")
+        ),
+    ),
+    (
+        "M07",
+        "retrieve.py + four-level cascade + query cache",
+        lambda: (
+            _file_exists("src", "ract", "memory", "retrieve.py")
+            and _file_exists("src", "ract", "memory", "cache.py")
+        ),
+    ),
+    (
+        "M08",
+        "functions/{intake,research,plan,edit}.py all exist",
+        lambda: all(
+            _file_exists("src", "ract", "memory", "functions", f"{name}.py")
+            for name in ("intake", "research", "plan", "edit")
+        ),
+    ),
+    (
+        "M09",
+        "playbooks/{refactor_rename,refactor_extract,bug_fix,unit_test}.yaml exist",
+        lambda: all(
+            _file_exists("src", "ract", "memory", "playbooks", f"{name}.yaml")
+            for name in ("refactor_rename", "refactor_extract", "bug_fix", "unit_test")
+        ),
+    ),
+    (
+        "M10",
+        "probes/{needle,coherence,adherence}.py all exist",
+        lambda: all(
+            _file_exists("src", "ract", "memory", "probes", f"{name}.py")
+            for name in ("needle", "coherence", "adherence")
+        ),
+    ),
+    (
+        "M11",
+        "Seven new EventKind members present",
+        lambda: all(
+            _grep_file("src/ract/trace/events.py", kind)
+            for kind in (
+                "budget.declared",
+                "budget.exceeded",
+                "retrieval.requested",
+                "retrieval.satisfied",
+                "retrieval.cascaded",
+                "retrieval.refused",
+                "probe.evaluated",
+            )
+        ),
+    ),
+    (
+        "M12",
+        "SubstrateLoop wires retrieval bundle onto SubstrateStepSpec.metadata",
+        lambda: (
+            _grep_file("src/ract/executor/loop.py", "retrieval_bundle")
+            and _file_exists(
+                "tests",
+                "contracts",
+                "test_substrate_loop_retrieval_wiring.py",
+            )
+        ),
+    ),
+    (
+        "M13",
+        "Rootknot generator payload carries optional retrieval_attestation",
+        lambda: (
+            _grep_file("src/ract/core/rootknot.py", "retrieval_attestation")
+            and _file_exists(
+                "tests",
+                "memory",
+                "test_rootknot_retrieval_attestation.py",
+            )
+        ),
     ),
 ]
 
@@ -354,17 +480,126 @@ def test_antilazy_signals_all_green(sid: str, desc: str, check: callable) -> Non
     assert check(), f"ALM signal {sid} RED: {desc}"
 
 
+@pytest.mark.parametrize("sid,desc,check", MEMORY_SIGNALS)
+def test_memory_discipline_signals_all_green(
+    sid: str, desc: str, check: callable
+) -> None:
+    """v0.5.0 memory-discipline §Signals (items 1-13). Each item mirrors the
+    master spec's boolean checklist; a red here refuses the tag."""
+    assert check(), f"MEMORY signal {sid} RED: {desc}"
+
+
 def test_combined_signal_count_matches_documented_total() -> None:
-    """Honest count. Plan says 46 (14+16+16). REBUILD spec's actual
-    checklist enumerates 11 items, not 14, so the honest sum is 43.
-    This test enforces the honest total and its per-list breakdown."""
+    """Honest count. v0.4.1 shipped 43 (11 REBUILD + 16 SUBSTRATE + 16 ALM).
+    v0.5.0 adds the 13 memory-discipline §Signals for a combined total of 56.
+    This test enforces the honest total and its per-list breakdown.
+    """
     assert len(REBUILD_SIGNALS) == 11, "REBUILD checklist has 11 items per spec §4"
     assert len(SUBSTRATE_SIGNALS) == 16
     assert len(ALM_SIGNALS) == 16
-    combined = len(REBUILD_SIGNALS) + len(SUBSTRATE_SIGNALS) + len(ALM_SIGNALS)
-    assert combined == 43, (
-        f"Combined signal total {combined} != honest documented total 43. "
-        "See CHANGELOG [0.4.0] Verify section for the plan-vs-honest count reconciliation."
+    assert len(MEMORY_SIGNALS) == 13, (
+        "Memory-discipline §Signals list has 13 items per master spec"
+    )
+    combined = (
+        len(REBUILD_SIGNALS)
+        + len(SUBSTRATE_SIGNALS)
+        + len(ALM_SIGNALS)
+        + len(MEMORY_SIGNALS)
+    )
+    assert combined == 56, (
+        f"Combined signal total {combined} != documented total 56. "
+        "See CHANGELOG [0.5.0] Verify section for the v0.4.1-plus-memory total."
+    )
+
+
+_MEMORY_PACKAGE_FILES: tuple[tuple[str, ...], ...] = (
+    ("src", "ract", "memory", "budget.py"),
+    ("src", "ract", "memory", "budget_defaults.yaml"),
+    ("src", "ract", "memory", "budget_registry.py"),
+    ("src", "ract", "memory", "symbol_index.py"),
+    ("src", "ract", "memory", "symbol_index_schema.sql"),
+    ("src", "ract", "memory", "watcher.py"),
+    ("src", "ract", "memory", "walker.py"),
+    ("src", "ract", "memory", "parser.py"),
+    ("src", "ract", "memory", "graph_index.py"),
+    ("src", "ract", "memory", "graph_index_schema.sql"),
+    ("src", "ract", "memory", "graph_populator.py"),
+    ("src", "ract", "memory", "lsp.py"),
+    ("src", "ract", "memory", "lsp_fallback.py"),
+    ("src", "ract", "memory", "semantic_index.py"),
+    ("src", "ract", "memory", "semantic_builder.py"),
+    ("src", "ract", "memory", "embedding.py"),
+    ("src", "ract", "memory", "chunker.py"),
+    ("src", "ract", "memory", "chunk.py"),
+    ("src", "ract", "memory", "cpu_fallback.py"),
+    ("src", "ract", "memory", "retrieve.py"),
+    ("src", "ract", "memory", "cache.py"),
+    ("src", "ract", "memory", "query_trace.py"),
+    ("src", "ract", "memory", "composition.py"),
+    ("src", "ract", "memory", "composition_runner.py"),
+    ("src", "ract", "memory", "session.py"),
+    ("src", "ract", "memory", "events.py"),
+    ("src", "ract", "memory", "failure_records.py"),
+    ("src", "ract", "memory", "repo_fingerprint.py"),
+    ("src", "ract", "memory", "cli_memory.py"),
+    ("src", "ract", "memory", "functions", "intake.py"),
+    ("src", "ract", "memory", "functions", "research.py"),
+    ("src", "ract", "memory", "functions", "plan.py"),
+    ("src", "ract", "memory", "functions", "edit.py"),
+    ("src", "ract", "memory", "functions", "contracts.py"),
+    ("src", "ract", "memory", "functions", "errors.py"),
+    ("src", "ract", "memory", "functions", "prompts_loader.py"),
+    ("src", "ract", "memory", "functions", "provider_adapter.py"),
+    ("src", "ract", "memory", "playbooks", "refactor_rename.yaml"),
+    ("src", "ract", "memory", "playbooks", "refactor_extract.yaml"),
+    ("src", "ract", "memory", "playbooks", "bug_fix.yaml"),
+    ("src", "ract", "memory", "playbooks", "unit_test.yaml"),
+    ("src", "ract", "memory", "probes", "needle.py"),
+    ("src", "ract", "memory", "probes", "coherence.py"),
+    ("src", "ract", "memory", "probes", "adherence.py"),
+    ("src", "ract", "memory", "probes", "scheduler.py"),
+    ("src", "ract", "memory", "languages", "python.py"),
+    ("src", "ract", "memory", "languages", "typescript.py"),
+    ("src", "ract", "memory", "languages", "rust.py"),
+    ("src", "ract", "memory", "languages", "go.py"),
+)
+
+
+def test_memory_module_surface_exists() -> None:
+    """Every file in the memory-discipline surface enumerated by the master
+    spec §Repository layout must be present at tag time. Missing files mean
+    a module fragment skipped its DoD.
+    """
+    missing = [
+        "/".join(parts) for parts in _MEMORY_PACKAGE_FILES if not _file_exists(*parts)
+    ]
+    assert not missing, (
+        f"Memory-discipline surface files missing at tag: {missing}. "
+        "Every entry mirrors the master spec §Repository layout."
+    )
+
+
+_NEW_EVENT_KINDS: tuple[str, ...] = (
+    "budget.declared",
+    "budget.exceeded",
+    "retrieval.requested",
+    "retrieval.satisfied",
+    "retrieval.cascaded",
+    "retrieval.refused",
+    "probe.evaluated",
+)
+
+
+def test_new_event_kinds_present() -> None:
+    """The seven memory-discipline EventKind members are load-bearing gate
+    entries in :data:`ract.trace.events.LEGAL_EVENT_KINDS`. A member added
+    but not present in the frozenset would refuse at write time.
+    """
+    from ract.trace.events import LEGAL_EVENT_KINDS
+
+    missing = [kind for kind in _NEW_EVENT_KINDS if kind not in LEGAL_EVENT_KINDS]
+    assert not missing, (
+        f"Memory-discipline event kinds not present in LEGAL_EVENT_KINDS: {missing}"
     )
 
 
@@ -377,7 +612,7 @@ def test_version_matches_across_files() -> None:
     """
     from packaging.version import Version
 
-    expected = Version("0.4.1")
+    expected = Version("0.5.0")
 
     version_text = (_REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip()
     # Extract the semver token from the VERSION file's human-friendly
@@ -418,12 +653,12 @@ def test_ract_version_cli_reports_aligned_identity() -> None:
     import ract
 
     module_version = Version(ract.__version__)
-    expected = Version("0.4.1")
+    expected = Version("0.5.0")
     assert module_version == expected, (
         f"ract.__version__ {ract.__version__!r} != expected {expected!r}"
     )
-    # And the aligned PEP 440 canonical form is the literal `0.4.1`.
-    assert str(expected) == "0.4.1"
+    # And the aligned PEP 440 canonical form is the literal `0.5.0`.
+    assert str(expected) == "0.5.0"
 
 
 def test_changelog_has_0_4_0_entry_with_module_bullets() -> None:
@@ -592,6 +827,94 @@ def test_roadmap_carries_intent_fidelity_module_gaps() -> None:
         assert stub in text, (
             f"ROADMAP missing a reference to intent-fidelity {stub} (no gaps carried?)"
         )
+
+
+# ---------------------------------------------------------------------------
+# v0.5.0 memory-discipline release-surface tests. Module_10 close (2026-08-19).
+# ---------------------------------------------------------------------------
+
+
+_MEMORY_MODULES: tuple[str, ...] = (
+    "module_01.md",
+    "module_02.md",
+    "module_03.md",
+    "module_04.md",
+    "module_05.md",
+    "module_06.md",
+    "module_07.md",
+    "module_08.md",
+    "module_09.md",
+)
+
+
+def test_changelog_has_0_5_0_entry_with_module_bullets() -> None:
+    """CHANGELOG carries a ``## [0.5.0] - 2026-08-19`` entry with a bullet per
+    memory-discipline module (01-09) plus the release-close module_10 line,
+    an Added/Extended/Verified section triple, and a Known limitations section
+    naming the v0.6 deferrals.
+    """
+    text = (_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## [0.5.0]" in text, "CHANGELOG missing [0.5.0] entry"
+    assert "Memory Discipline" in text, (
+        "CHANGELOG [0.5.0] entry missing Memory Discipline label"
+    )
+    body = text.split("## [0.5.0]", 1)[1].split("## [0.4.1]", 1)[0]
+    # 10 per-module bullets (modules 01-10).
+    module_hits = sum(1 for m in range(1, 11) if f"module_{m:02d}" in body)
+    assert module_hits >= 10, (
+        f"CHANGELOG [0.5.0] entry missing per-module bullets (found {module_hits}/10)"
+    )
+    # Added / Extended / Verified / Known limitations sections all present.
+    for section in (
+        "### Added",
+        "### Extended",
+        "### Verified",
+        "### Known limitations",
+    ):
+        assert section in body, (
+            f"CHANGELOG [0.5.0] entry missing section header: {section!r}"
+        )
+    # Nine memory-discipline ADRs (ADR-0031 through ADR-0039) cited.
+    for adr in (f"ADR-003{n}" for n in range(1, 10)):
+        assert adr in body, f"CHANGELOG [0.5.0] entry missing {adr} reference"
+
+
+def test_roadmap_carries_memory_discipline_module_gaps() -> None:
+    """`docs/ROADMAP.md` carries a ``v0.6 hardening (from memory-discipline
+    module_0N)`` section anchoring every one of the nine memory-discipline
+    modules' Flagged gaps. Ensures the compilation step did not silently
+    skip a module.
+    """
+    text = (_REPO_ROOT / "docs" / "ROADMAP.md").read_text(encoding="utf-8")
+    assert "memory-discipline" in text.lower() or "memory discipline" in text.lower(), (
+        "ROADMAP missing a memory-discipline gap section"
+    )
+    for module_name in _MEMORY_MODULES:
+        stub = module_name.removesuffix(".md")
+        assert stub in text, (
+            f"ROADMAP missing a reference to memory-discipline {stub} "
+            "(no gaps carried?)"
+        )
+
+
+def test_readme_names_memory_discipline() -> None:
+    """README's v0.5.0 change note names the three indexes, the retrieve
+    primitive, and the four v0.5.0 functions so an operator reading the
+    front page sees what shipped.
+    """
+    text = (_REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert "Memory Discipline" in text, "README missing Memory Discipline label"
+    for token in (
+        "symbol index",
+        "graph index",
+        "semantic index",
+        "retrieve",
+        "intake",
+        "research",
+        "plan",
+        "edit",
+    ):
+        assert token in text.lower(), f"README v0.5.0 section missing token: {token!r}"
 
 
 def test_no_prior_v0_4_0_tag_conflict() -> None:

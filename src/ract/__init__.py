@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 __author__ = "Dr. Lucas Root, Ph.D."
 
 # Expose the routing/reproducibility modules so they are wired into the
