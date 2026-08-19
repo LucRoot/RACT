@@ -170,6 +170,7 @@ from ract.memory.walker import (
     walk,
 )
 from ract.memory.watcher import SymbolIndexWatcher, WatcherStats
+from ract.memory.session import SessionMemory
 
 
 __all__ = [
@@ -236,6 +237,7 @@ __all__ = [
     "SemanticIndexError",
     "SemanticStoreCorruptError",
     "SemanticUpdateReport",
+    "SessionMemory",
     "SqliteMissingFTS5Error",
     "SymbolIndex",
     "SymbolIndexError",

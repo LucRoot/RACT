@@ -1,0 +1,17 @@
+Q1 CONFIRMED: The four contracts compose transitively without lossy conversion. `ChangePlan` carries `target_symbols` (with `action`/`notes`), `load_manifest` (full `SymbolRef`), `invariants`, `verification_criteria`, `risk_assessment`, and `iteration_bound` — every field `edit` consumes in `_assemble_load_block` (edit.py:200-250) and `state_block` (edit.py:260). `ResearchBundle` carries `relevant_symbols`, `call_neighborhood`, `architectural_context`, `similar_prior_work`, `risk_zones` — every field `plan` serializes into its `state_block` (plan.py:140-145) and uses for mid-invocation queries. No missing fields on either seam.
+Evidence: contracts.py:200-230 (ChangePlan), contracts.py:150-175 (ResearchBundle), edit.py:200-250 (_assemble_load_block), plan.py:140-145 (_state_block).
+Fix path: no fix needed.
+
+Q2 CONFIRMED: `research()` silently proceeds with best-effort scope hints; it never reads `work_order.ambiguity_flags`. The function builds its `RetrievalQuery` solely from `scope_hints.mentioned_symbols`, `keywords`, `mentioned_directories`, `exclude_paths` (research.py:180-195) and does not branch on ambiguity. The intake docstring (intake.py:70) claims "the caller (composition layer) routes to human clarification" but no composition layer code exists in this diff — the flag is produced and then ignored downstream.
+Evidence: intake.py:210-215 (_parse_response writes ambiguity_flags), intake.py:70 (docstring promise), research.py:180-195 (query building without ambiguity check).
+Fix path: add `if work_order.ambiguity_flags: raise AmbiguousWorkOrderError(...)` at research.py:100, or document that composition (module_07) must gate before calling research.
+
+Q3 CONFIRMED: After three failed attempts (initial + `MAX_PARSE_RETRIES=2` retries), `edit` raises `InvalidSyntaxError` with a payload naming the last parse error; it never returns an invalid diff. The raise site is edit.py:305-310.
+Evidence: edit.py:30 (MAX_PARSE_RETRIES=2), edit.py:280-310 (retry loop ending in `raise InvalidSyntaxError(..., payload={"parse_error": last_error, "attempts": 3})`).
+Fix path: no fix needed.
+
+Q4 PARTIAL: `assert_prompt_shipped` (prompts_loader.py:30-45) validates constant→file at import time (each function module calls it, e.g. intake.py:45), so a version bump without a file fails fast. The reverse — a file added to `prompts/` without a matching constant — is not checked; no startup scan compares `PROMPTS_DIR` contents against the four `*_PROMPT_VERSION` constants.
+Evidence: prompts_loader.py:30-45 (assert_prompt_shipped only checks requested version), intake.py:45/research.py:45/plan.py:40/edit.py:45 (import-time calls), no module enumerates `PROMPTS_DIR`.
+Fix path: add a `verify_prompt_coverage()` in prompts_loader that lists `PROMPTS_DIR`, extracts function+version from filenames, and asserts each matches a known `*_PROMPT_VERSION` constant; call it from a test or module_07 entrypoint.
+
+Reviewer notes: The `IntakeContext.selected_code` field is documented as "kept out of the assembled prompt" (intake.py:135) but the field is still carried in the dataclass — consider dropping it or making the exclusion explicit in the type. `plan()` accepts `mid_invocation_queries` but the composition layer has no shown mechanism to supply them; verify module_07 wiring. `edit`'s `_validate_diff` forbids `TODO`/`FIXME`/`XXX` tokens (edit.py:340) but the master spec only listed "no TODO, no ellipsis bodies, no 'leave X unchanged' prose" — the extra tokens are a defensible hardening but should be noted in the spec.

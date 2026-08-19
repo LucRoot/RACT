@@ -1,0 +1,98 @@
+You are performing an adversarial Second Pass review of RACT v0.5.0
+memory-discipline module_06 (four function contracts: intake /
+research / plan / edit). Producer was NVIDIA `code` (Qwen3 Coder
+480B); you are the cross-family reviewer.
+
+## Master spec quote (v0.5.0 §Function contracts)
+
+The four v0.5.0 verbs carry a change from user request through to
+a candidate diff:
+
+- `intake(request, context, provider) -> WorkOrder`. Budget 4k
+  ceiling. Retrieval: recent git log (last 10 commits), README
+  top section, mentioned-symbol signatures. No code bodies.
+- `research(work_order, indexes, provider) -> ResearchBundle`.
+  Budget 10k ceiling. 7-step retrieval pattern (symbol / keyword /
+  semantic / graph / commit-history), SIGNATURE format.
+- `plan(work_order, research_bundle, indexes, provider) ->
+  ChangePlan`. Budget 9k ceiling. May issue up to 3 mid-invocation
+  retrieve calls at 500 tokens each.
+- `edit(change_plan, indexes, provider) -> CandidateDiff`. Budget
+  18k ceiling. Cascade: FULL for targets, SIGNATURE/BODY_ONLY for
+  non-targets; targets alone > input_target raises
+  BoundedContextError. Output discipline: AST validation + retry-
+  on-parse-error up to twice. Grammar-constrained generation
+  (Outlines) defers to v0.6.
+
+Master spec §Bounded scope: `verify / review / commit / document`
+defer to v0.6.
+
+## Adversarial questions (answer each REFUTED / PARTIAL / CONFIRMED
+with concrete file:line evidence from the diff)
+
+**Q1. Transitive composition.** Do the four function contracts
+compose transitively? That is:
+
+- Can `plan`'s ChangePlan be consumed by `edit` without any lossy
+  conversion? Name any field `edit` needs that ChangePlan lacks.
+- Can `research`'s ResearchBundle be consumed by `plan` without
+  missing fields plan needs to compute load_manifest? Name any
+  field.
+
+**Q2. Ambiguity routing.** `intake` writes `ambiguity_flags` on
+ambiguous requests. Does the composition layer read those flags and
+route to human clarification, OR does `research` consume the
+ambiguous WorkOrder and silently proceed with best-effort scope
+hints? Read the shipped `research()` implementation for any
+ambiguity-check.
+
+**Q3. Bounded retry on invalid syntax.** `edit`'s retry-on-parse-
+error is bounded at 2 (so 3 total attempts). If the provider returns
+invalid syntax three times in a row, does the function raise a
+specific error naming the parse issue, OR does it silently return
+the last (invalid) diff? Cite the raise site.
+
+**Q4. Prompt-version silent-drift check.** The prompt version
+constant is a code-level string (e.g. `INTAKE_PROMPT_VERSION =
+"v1"`). If someone ships `intake_v2.md` without bumping
+`INTAKE_PROMPT_VERSION`, the function silently continues using v1.
+Is there a startup check that would flag the mismatch (a file that
+exists in `prompts/` but is not referenced by any constant, or vice
+versa)?
+
+## What has landed
+
+- `src/ract/memory/functions/{__init__,contracts,errors,intake,
+  research,plan,edit,provider_adapter,prompts_loader,session}.py`
+- `src/ract/memory/functions/prompts/{intake,research,plan,edit}_v1.md`
+- `src/ract/memory/functions/testing/{__init__,mock_provider}.py`
+- `src/ract/memory/session.py`
+- `tests/memory/test_{functions_contracts,intake,research,plan,edit}.py`
+- `scripts/memory/smoke_functions.py`
+- `docs/ADRs/ADR-0036-function-contracts.md`
+- `docs/ARCHITECTURE.md` §Function contracts section
+- Golden hash re-locked; dead-code + public-provenance allowlists
+  extended.
+
+## Ship gates all green
+
+- `pytest tests/memory/` — 317 passed, 2 skipped
+- `pytest tests/test_release_surface.py` — 56 passed
+- `pytest tests/test_dead_code_auction.py::test_ract_auction_reports_zero_dead_modules` — passed
+- `pytest tests/test_public_provenance.py` — passed
+- `ruff check src/ tests/ scripts/` — clean
+- `ruff format --check src/ tests/ scripts/` — clean
+- `mypy src` — Success: no issues found in 228 source files
+- Smoke script `scripts/memory/smoke_functions.py` — completes
+  round-trip against MockProvider with 1 hunk emitted.
+
+## Format for your response
+
+For each Q, one paragraph in this shape:
+
+  Q<N> <REFUTED|PARTIAL|CONFIRMED>: <one sentence verdict>.
+  Evidence: <file>:<line-range> — <what the code does or does not do>.
+  Fix path: <what would close the hole, or "no fix needed">.
+
+Then a "Reviewer notes" section for anything else surfaced you did
+not fit into Q1-Q4 (kept short — under 150 words).

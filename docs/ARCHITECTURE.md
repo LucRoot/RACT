@@ -1108,6 +1108,64 @@ Events emitted (all null-sink until module_09 wires the real sink):
 downgrade, ``retrieval.satisfied`` on successful return,
 ``retrieval.refused`` on cascade exhaustion.
 
+## Function contracts (v0.5.0 memory discipline)
+
+Four verbs at `src/ract/memory/functions/` carry a change from user
+request through to a candidate diff. Master spec §Function
+contracts; ADR-0036.
+
+- `intake(request, context, provider)` → `WorkOrder`. Budget 4k.
+  Reads git log, README head, mentioned-symbol signatures. No code
+  bodies.
+- `research(work_order, indexes, provider)` → `ResearchBundle`.
+  Budget 10k. Consumes `retrieve()` at SIGNATURE format with
+  `CORE_FIRST` strategy. Raises `EmptyResearchError` on zero
+  relevant symbols; `OversizedResearchError` if the pool exceeds
+  50 symbols after one recursive narrowing pass.
+- `plan(work_order, research_bundle, indexes, provider)` →
+  `ChangePlan`. Budget 9k. May issue up to three mid-invocation
+  `retrieve()` calls at 500-token sub-budgets each (`depth=1`,
+  bounded by module_05's `NestedRetrievalError`). Raises
+  `InfeasiblePlanError` on empty target_symbols.
+- `edit(change_plan, indexes, provider)` → `CandidateDiff`. Budget
+  18k. Cascade tier 1 loads FULL for every load_manifest entry;
+  tier 2 downgrades non-targets to SIGNATURE; tier 3 to BODY_ONLY;
+  tier 4 attempts target-only. Raises `BoundedContextError` if
+  targets alone exceed input_target. Diff output passes a lazy-token
+  + ellipsis-body + prose-placeholder validator; up to two retries
+  with the validator reasons appended. Raises `InvalidSyntaxError`
+  on third failure.
+
+The four output contracts (`WorkOrder`, `ResearchBundle`,
+`ChangePlan`, `CandidateDiff`) live at
+`src/ract/memory/functions/contracts.py` as frozen dataclasses with
+canonical JSON round-trip via `to_json` / `from_json`.
+
+Shared plumbing:
+
+- `errors.py` — `MemoryFunctionError` base class + six subclasses
+  the composition layer catches once and dispatches per subclass
+  (Lateral Chain branch D).
+- `provider_adapter.py` — `MemoryFunctionProvider.send(prompt,
+  declaration) -> str` protocol; `assemble_prompt` five-section
+  composer per master spec §Context composition;
+  `refuse_over_ceiling` pre-model refuse gate.
+- `prompts_loader.py` — loads `prompts/{function}_v{n}.md`;
+  `assert_prompt_shipped` fires at import time so a version-string
+  bump without a matching prompt file surfaces before the first
+  invocation (Second Pass Q4 defence).
+- `testing/mock_provider.py` — canned-response `MockProvider` for
+  tests (Lateral Chain branch B).
+- `session.py` — `SessionMemory` per-run store; persists to
+  `evals/runs/<run_id>/session.json` after every write.
+
+Structured generation for edit output is a lightweight post-generation
+validator in v0.5.0 (see ADR-0036 §Alternative 3); grammar-constrained
+generation via Outlines defers to v0.6.
+
+The four v0.6 verbs (`verify`, `review`, `commit`, `document`)
+defer per master spec §Bounded scope.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.

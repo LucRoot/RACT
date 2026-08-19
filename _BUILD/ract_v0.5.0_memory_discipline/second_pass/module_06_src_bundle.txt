@@ -1,0 +1,2661 @@
+"""Function contracts package (v0.5.0 memory discipline, module_06).
+
+Four verbs carry a change from user request through to a candidate
+diff:
+
+- :func:`~ract.memory.functions.intake.intake`
+- :func:`~ract.memory.functions.research.research`
+- :func:`~ract.memory.functions.plan.plan`
+- :func:`~ract.memory.functions.edit.edit`
+
+The remaining four verbs (verify / review / commit / document)
+defer to v0.6 per master spec §Bounded scope; ADR-0036 records the
+rationale.
+
+Every function reads its budget from
+:func:`ract.memory.budget_registry.get`, assembles context via the
+:mod:`~ract.memory.functions.provider_adapter` composer + the
+retrieve primitive from module_05, delegates the model call to a
+:class:`MemoryFunctionProvider`, and returns a frozen output contract
+from :mod:`~ract.memory.functions.contracts`.
+
+Composition (module_07) reads the contracts to route between verbs;
+SubstrateLoop (module_09) wires the function calls into
+:class:`~ract.core.substrate.SubstrateStepSpec` instances.
+"""
+
+from __future__ import annotations
+
+from ract.core.module_identity import _module_knot, register_module_knot
+from ract.memory.functions.contracts import (
+    CandidateDiff,
+    ChangePlan,
+    CommitRef,
+    HunkSummary,
+    Invariant,
+    InvariantKind,
+    RequestType,
+    ResearchBundle,
+    RiskAssessment,
+    RiskLevel,
+    ScopeHints,
+    SignatureRow,
+    SymbolRef,
+    SymbolWithRationale,
+    TargetSymbol,
+    VerificationCriterion,
+    WorkOrder,
+    from_json,
+    to_json,
+)
+from ract.memory.functions.edit import (
+    EDIT_FUNCTION_NAME,
+    EDIT_PROMPT_VERSION,
+    EditValidationReport,
+    MAX_PARSE_RETRIES,
+    edit,
+)
+from ract.memory.functions.errors import (
+    BoundedContextError,
+    EmptyResearchError,
+    InfeasiblePlanError,
+    InvalidSyntaxError,
+    MemoryFunctionError,
+    OversizedResearchError,
+    ProviderContractError,
+)
+from ract.memory.functions.intake import (
+    INTAKE_FUNCTION_NAME,
+    INTAKE_PROMPT_VERSION,
+    IntakeContext,
+    intake,
+)
+from ract.memory.functions.plan import (
+    MAX_MID_INVOCATION_RETRIEVES,
+    MID_INVOCATION_RETRIEVE_BUDGET,
+    PLAN_FUNCTION_NAME,
+    PLAN_PROMPT_VERSION,
+    plan,
+)
+from ract.memory.functions.prompts_loader import (
+    PROMPTS_DIR,
+    PromptMissingError,
+    assert_prompt_shipped,
+    load_prompt,
+    prompt_path,
+)
+from ract.memory.functions.provider_adapter import (
+    MemoryFunctionProvider,
+    assemble_prompt,
+    refuse_over_ceiling,
+    seat_prompt_section,
+)
+from ract.memory.functions.research import (
+    IndexBundle,
+    RELEVANT_SYMBOLS_CAP,
+    RESEARCH_FUNCTION_NAME,
+    RESEARCH_PROMPT_VERSION,
+    research,
+)
+
+
+__all__ = [
+    "BoundedContextError",
+    "CandidateDiff",
+    "ChangePlan",
+    "CommitRef",
+    "EDIT_FUNCTION_NAME",
+    "EDIT_PROMPT_VERSION",
+    "EditValidationReport",
+    "EmptyResearchError",
+    "HunkSummary",
+    "INTAKE_FUNCTION_NAME",
+    "INTAKE_PROMPT_VERSION",
+    "IndexBundle",
+    "InfeasiblePlanError",
+    "IntakeContext",
+    "Invariant",
+    "InvariantKind",
+    "InvalidSyntaxError",
+    "MAX_MID_INVOCATION_RETRIEVES",
+    "MAX_PARSE_RETRIES",
+    "MID_INVOCATION_RETRIEVE_BUDGET",
+    "MemoryFunctionError",
+    "MemoryFunctionProvider",
+    "OversizedResearchError",
+    "PLAN_FUNCTION_NAME",
+    "PLAN_PROMPT_VERSION",
+    "PROMPTS_DIR",
+    "PromptMissingError",
+    "ProviderContractError",
+    "RELEVANT_SYMBOLS_CAP",
+    "RESEARCH_FUNCTION_NAME",
+    "RESEARCH_PROMPT_VERSION",
+    "RequestType",
+    "ResearchBundle",
+    "RiskAssessment",
+    "RiskLevel",
+    "ScopeHints",
+    "SignatureRow",
+    "SymbolRef",
+    "SymbolWithRationale",
+    "TargetSymbol",
+    "VerificationCriterion",
+    "WorkOrder",
+    "assemble_prompt",
+    "assert_prompt_shipped",
+    "edit",
+    "from_json",
+    "intake",
+    "load_prompt",
+    "plan",
+    "prompt_path",
+    "refuse_over_ceiling",
+    "research",
+    "seat_prompt_section",
+    "to_json",
+]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0
+"""Shared output contracts for the four v0.5.0 memory-discipline functions.
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §Function
+contracts. Every function in this package returns a frozen dataclass
+declared here. Each dataclass round-trips through canonical JSON so
+the composition layer can persist it under
+``evals/runs/<run_id>/`` between steps.
+
+Design notes:
+
+- Every dataclass is ``frozen=True`` so a downstream reader cannot
+  mutate a shared record. A mutation attempt raises
+  :class:`dataclasses.FrozenInstanceError`.
+- Every field type is either a primitive, an ``enum.Enum``, a nested
+  frozen dataclass, or a ``tuple`` of the above. No mutable
+  containers on the surface (dicts appear only in
+  ``priority_markers`` where the key/value shape is genuinely open;
+  serialisation copies the dict on read).
+- :func:`to_json` and :func:`from_json` handle canonical
+  serialisation. Round-trip is the invariant a caller relies on when
+  persisting to disk between :class:`SessionMemory` writes.
+
+Lateral Chain branches folded here:
+
+- Branch A (provider-adapter mismatch): the contracts are transport-
+  agnostic. The provider adapter at
+  :mod:`ract.memory.functions.provider_adapter` composes each
+  contract into the model prompt.
+- Branch C (prompt versioning): the contracts do not carry a prompt
+  version; the version lives in the function module as a constant
+  (``INTAKE_PROMPT_VERSION`` etc.) and appears in the ``metadata``
+  block of each contract.
+- Branch E (plan-edit recursion bound): :class:`ChangePlan` carries
+  ``iteration_bound: int`` with a default of 3; a runner that would
+  loop more than that must escalate.
+"""
+
+from __future__ import annotations
+
+import enum
+import json
+from dataclasses import dataclass, field, fields, is_dataclass
+from typing import Any
+
+
+# ---------------------------------------------------------------------------
+# Enum vocabularies
+# ---------------------------------------------------------------------------
+
+
+class RequestType(enum.Enum):
+    """Coarse-grained request classification, populated by intake.
+
+    Every playbook (module_07) maps to one or more values here.
+    Unknown user intents fall to :attr:`OTHER` and surface with
+    ``ambiguity_flags`` set.
+    """
+
+    REFACTOR = "refactor"
+    BUG_FIX = "bug_fix"
+    FEATURE = "feature"
+    UNIT_TEST = "unit_test"
+    DOC = "doc"
+    OTHER = "other"
+
+
+class RiskLevel(enum.Enum):
+    """Symbol-level risk classification used inside ChangePlan."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class InvariantKind(enum.Enum):
+    """Invariant category used in ChangePlan.
+
+    Master spec lists two families: ``ast_grep`` and ``test_name``.
+    Additional families defer to v0.6.
+    """
+
+    AST_GREP = "ast_grep"
+    TEST_NAME = "test_name"
+    LINT_RULE = "lint_rule"
+
+
+# ---------------------------------------------------------------------------
+# Shared value types
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ScopeHints:
+    """Coarse locators inside a WorkOrder that narrow the research pass.
+
+    ``mentioned_symbols`` — symbol names the user named verbatim.
+    ``mentioned_files`` — file paths the user named verbatim.
+    ``mentioned_directories`` — directories the user pointed at.
+    ``keywords`` — free-form terms extracted from the request.
+    ``exclude_paths`` — path prefixes to keep out of research.
+    """
+
+    mentioned_symbols: tuple[str, ...] = field(default_factory=tuple)
+    mentioned_files: tuple[str, ...] = field(default_factory=tuple)
+    mentioned_directories: tuple[str, ...] = field(default_factory=tuple)
+    keywords: tuple[str, ...] = field(default_factory=tuple)
+    exclude_paths: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class SymbolRef:
+    """Reference to a symbol by name plus (optionally) resolved id.
+
+    The ``symbol_id`` is populated when research resolved the name
+    against the module_02 symbol index. Consumers that only need the
+    name treat ``symbol_id == -1`` as "unresolved".
+    """
+
+    name: str
+    file_path: str = ""
+    symbol_id: int = -1
+    kind: str = ""
+
+
+@dataclass(frozen=True)
+class SymbolWithRationale:
+    """A relevant symbol plus a one-line rationale for its inclusion.
+
+    Research emits these so plan can weight symbols by rationale
+    without re-reading the retrieval bundle.
+    """
+
+    symbol: SymbolRef
+    rationale: str
+
+
+@dataclass(frozen=True)
+class SignatureRow:
+    """One neighbor's signature for the call_neighborhood block."""
+
+    symbol: SymbolRef
+    signature: str
+    direction: str  # "caller" | "callee"
+
+
+@dataclass(frozen=True)
+class CommitRef:
+    """A commit referenced by research from git log grep."""
+
+    sha: str
+    subject: str
+    files_touched: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class TargetSymbol:
+    """A symbol the edit function will modify.
+
+    ``action`` is the intended change: ``modify`` / ``add`` / ``remove``
+    / ``rename``. Composition layer reads this to route split-plan
+    decisions.
+    """
+
+    symbol: SymbolRef
+    action: str
+    notes: str = ""
+
+
+@dataclass(frozen=True)
+class Invariant:
+    """A property the edit must preserve.
+
+    ``kind`` is one of :class:`InvariantKind`. ``expression`` carries
+    the ast-grep query, test name, or lint rule identifier. The
+    module_09 wiring compiles invariants into
+    :class:`~ract.core.predicate.AcceptancePredicate` values.
+    """
+
+    kind: InvariantKind
+    expression: str
+    description: str = ""
+
+
+@dataclass(frozen=True)
+class VerificationCriterion:
+    """A criterion the plan asks module_09 to compile into an
+    :class:`~ract.core.predicate.AcceptancePredicate`.
+
+    ``predicate_id`` is the id downstream code reads. ``kind`` is the
+    predicate family (``test_passes`` / ``no_regression`` /
+    ``lint_clean`` / ``diff_bounded``). ``payload`` is the family-
+    specific data (test name for ``test_passes``; touched-files list
+    for ``diff_bounded``).
+    """
+
+    predicate_id: str
+    kind: str
+    payload: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class RiskAssessment:
+    """Plan-emitted risk summary.
+
+    ``level`` is the coarse classification; ``rationale`` names the
+    concrete reason; ``blast_radius_symbol_ids`` lists symbols the
+    change is expected to touch beyond the target list.
+    """
+
+    level: RiskLevel
+    rationale: str
+    blast_radius_symbol_ids: tuple[int, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class HunkSummary:
+    """One hunk in a :class:`CandidateDiff`.
+
+    ``file_path`` is the file the hunk edits. ``start_line`` /
+    ``end_line`` name the pre-image range. ``summary`` is a one-line
+    human-readable note the edit function generates alongside the
+    diff body.
+    """
+
+    file_path: str
+    start_line: int
+    end_line: int
+    summary: str
+
+
+# ---------------------------------------------------------------------------
+# The four contracts
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class WorkOrder:
+    """Output of :func:`~ract.memory.functions.intake.intake`.
+
+    Master spec §intake. ``request_type`` classifies the intent;
+    ``scope_hints`` narrows the research pass; ``success_criteria``
+    lists testable conditions from the user text; ``constraints``
+    lists what the change must not do; ``priority_markers`` carries
+    open key/value pairs (e.g. ``{"urgency": "release_blocker"}``);
+    ``ambiguity_flags`` is non-empty when intake could not confidently
+    classify — composition routes to human clarification per Second
+    Pass Q2.
+    """
+
+    request_type: RequestType
+    scope_hints: ScopeHints
+    success_criteria: tuple[str, ...]
+    constraints: tuple[str, ...]
+    priority_markers: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    ambiguity_flags: tuple[str, ...] = field(default_factory=tuple)
+    metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class ResearchBundle:
+    """Output of :func:`~ract.memory.functions.research.research`.
+
+    Master spec §research. Every relevant symbol carries a one-line
+    rationale for its inclusion; the call_neighborhood is one hop of
+    callers + callees as signatures; ``architectural_context`` is a
+    prose paragraph; ``similar_prior_work`` names commit history
+    matches for regression proximity; ``risk_zones`` names symbols
+    the plan should treat conservatively (high blast radius, unclear
+    ownership, missing tests).
+    """
+
+    relevant_symbols: tuple[SymbolWithRationale, ...]
+    call_neighborhood: tuple[SignatureRow, ...]
+    architectural_context: str
+    similar_prior_work: tuple[CommitRef, ...] = field(default_factory=tuple)
+    risk_zones: tuple[SymbolRef, ...] = field(default_factory=tuple)
+    metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class ChangePlan:
+    """Output of :func:`~ract.memory.functions.plan.plan`.
+
+    Master spec §plan. ``target_symbols`` is the closed edit set;
+    ``load_manifest`` names every symbol edit must read (targets +
+    referenced-but-unmodified); ``invariants`` are ast-grep or
+    test-name queries the edit must preserve; ``verification_criteria``
+    compile into :class:`~ract.core.predicate.AcceptancePredicate`
+    values; ``risk_assessment`` is the plan-side risk summary;
+    ``iteration_bound`` caps the plan-edit outer loop (default 3,
+    Lateral Chain E).
+    """
+
+    target_symbols: tuple[TargetSymbol, ...]
+    load_manifest: tuple[SymbolRef, ...]
+    invariants: tuple[Invariant, ...]
+    verification_criteria: tuple[VerificationCriterion, ...]
+    risk_assessment: RiskAssessment
+    iteration_bound: int = 3
+    metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class CandidateDiff:
+    """Output of :func:`~ract.memory.functions.edit.edit`.
+
+    Master spec §edit. ``unified_diff`` is the full patch text;
+    ``hunks`` is one summary per hunk; ``assembled_input_tokens`` is
+    the assembled context cost recorded before the model call;
+    ``output_tokens`` is the whitespace-estimated cost of the diff.
+    ``validator_notes`` records the diff-validator's observations
+    (empty on a first-pass valid diff; carries the retry log on
+    accepted-after-retry outputs).
+    """
+
+    unified_diff: str
+    hunks: tuple[HunkSummary, ...]
+    assembled_input_tokens: int
+    output_tokens: int
+    validator_notes: tuple[str, ...] = field(default_factory=tuple)
+    metadata: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+
+
+# ---------------------------------------------------------------------------
+# Canonical JSON round-trip
+# ---------------------------------------------------------------------------
+
+
+_CONTRACT_TYPES: dict[str, type] = {
+    "WorkOrder": WorkOrder,
+    "ResearchBundle": ResearchBundle,
+    "ChangePlan": ChangePlan,
+    "CandidateDiff": CandidateDiff,
+    "ScopeHints": ScopeHints,
+    "SymbolRef": SymbolRef,
+    "SymbolWithRationale": SymbolWithRationale,
+    "SignatureRow": SignatureRow,
+    "CommitRef": CommitRef,
+    "TargetSymbol": TargetSymbol,
+    "Invariant": Invariant,
+    "VerificationCriterion": VerificationCriterion,
+    "RiskAssessment": RiskAssessment,
+    "HunkSummary": HunkSummary,
+}
+
+_ENUM_TYPES: dict[str, type[enum.Enum]] = {
+    "RequestType": RequestType,
+    "RiskLevel": RiskLevel,
+    "InvariantKind": InvariantKind,
+}
+
+
+def _to_primitive(value: Any) -> Any:
+    """Return a JSON-primitive projection of ``value``.
+
+    Recurses through nested dataclasses, tuples, enums, and dicts.
+    """
+    if is_dataclass(value) and not isinstance(value, type):
+        payload: dict[str, Any] = {"__type__": type(value).__name__}
+        for f in fields(value):
+            payload[f.name] = _to_primitive(getattr(value, f.name))
+        return payload
+    if isinstance(value, enum.Enum):
+        return {"__enum__": type(value).__name__, "value": value.value}
+    if isinstance(value, tuple):
+        return [_to_primitive(item) for item in value]
+    if isinstance(value, list):
+        return [_to_primitive(item) for item in value]
+    if isinstance(value, dict):
+        return {str(k): _to_primitive(v) for k, v in value.items()}
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    raise TypeError(f"cannot serialise value of type {type(value).__name__}")
+
+
+def _from_primitive(value: Any) -> Any:
+    """Inverse of :func:`_to_primitive`."""
+    if isinstance(value, dict) and "__type__" in value:
+        cls = _CONTRACT_TYPES.get(value["__type__"])
+        if cls is None:
+            raise ValueError(f"unknown contract type {value['__type__']!r}")
+        kwargs: dict[str, Any] = {}
+        for f in fields(cls):
+            raw = value.get(f.name)
+            kwargs[f.name] = _reconstruct_field(f.type, raw)
+        return cls(**kwargs)
+    if isinstance(value, dict) and "__enum__" in value:
+        enum_cls = _ENUM_TYPES.get(value["__enum__"])
+        if enum_cls is None:
+            raise ValueError(f"unknown enum type {value['__enum__']!r}")
+        return enum_cls(value["value"])
+    if isinstance(value, list):
+        return tuple(_from_primitive(item) for item in value)
+    return value
+
+
+def _reconstruct_field(type_hint: Any, raw: Any) -> Any:
+    """Rebuild ``raw`` as the declared field type.
+
+    We do not resolve the type hint via ``typing.get_type_hints`` here
+    (that requires a live globals map); we recurse structurally on
+    the primitive form. Tuple-of-tuples stays as tuple, tuple-of-
+    dataclass rehydrates each element.
+    """
+    if isinstance(raw, list):
+        return tuple(_from_primitive(item) for item in raw)
+    return _from_primitive(raw)
+
+
+def to_json(contract: Any) -> str:
+    """Return a canonical JSON string for ``contract``.
+
+    Keys sorted; no whitespace. Byte-stable across Python versions.
+    """
+    payload = _to_primitive(contract)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def from_json(text: str) -> Any:
+    """Rehydrate a contract from :func:`to_json` output."""
+    return _from_primitive(json.loads(text))
+
+
+__all__ = [
+    "CandidateDiff",
+    "ChangePlan",
+    "CommitRef",
+    "HunkSummary",
+    "Invariant",
+    "InvariantKind",
+    "RequestType",
+    "ResearchBundle",
+    "RiskAssessment",
+    "RiskLevel",
+    "ScopeHints",
+    "SignatureRow",
+    "SymbolRef",
+    "SymbolWithRationale",
+    "TargetSymbol",
+    "VerificationCriterion",
+    "WorkOrder",
+    "from_json",
+    "to_json",
+]
+
+
+from ract.core.module_identity import _module_knot, register_module_knot  # noqa: E402
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0
+"""Error hierarchy for the four v0.5.0 memory-discipline functions.
+
+Lateral Chain branch D (module_06 PRE): every function raises specific
+error types (``EmptyResearchError``, ``BoundedContextError``, ...).
+The composition layer wants a single ``try / except`` to route on the
+family. This module lands a common base class
+:class:`MemoryFunctionError` so callers can catch the family and
+dispatch per subclass.
+
+The base subclasses :class:`RuntimeError` (not :class:`Exception`)
+because a memory-function failure is a runtime condition tied to a
+specific invocation; a caller who lets the error propagate out of
+the module is in undefined territory and should crash loudly.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from ract.core.module_identity import _module_knot, register_module_knot
+
+
+class MemoryFunctionError(RuntimeError):
+    """Base class for every error raised by the four function contracts.
+
+    Subclasses carry the failing invocation's ``function`` name and an
+    optional payload dict for downstream composition. Composition layer
+    routes on ``isinstance(err, subtype)`` rather than message parsing.
+    """
+
+    function: str
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        function: str,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        self.function = function
+        self.payload: dict[str, Any] = dict(payload or {})
+        super().__init__(message)
+
+
+class EmptyResearchError(MemoryFunctionError):
+    """Raised by :func:`~ract.memory.functions.research.research` when the
+    retrieve pool returned zero relevant symbols.
+
+    The composition layer decides whether to reindex-and-retry or
+    escalate. The payload carries the WorkOrder ``request_type`` and
+    the ``mentioned_symbols`` list so the retry heuristic has context.
+    """
+
+
+class OversizedResearchError(MemoryFunctionError):
+    """Raised by research when the relevant-symbols pool exceeds the
+    hard cap even after one recursive narrowing pass.
+
+    The narrowing cap is 50 relevant symbols (per module_06 spec step
+    4). A caller that hits this consistently should refine the
+    WorkOrder's ``scope_hints`` before retrying.
+    """
+
+
+class InfeasiblePlanError(MemoryFunctionError):
+    """Raised (rather than returned) by plan when the request cannot be
+    reduced to a bounded ChangePlan.
+
+    Kept as an explicit error so composition can escalate without
+    inspecting a ``status`` field. The payload carries the
+    infeasibility reason and any partial :class:`ChangePlan` for
+    forensic inspection.
+    """
+
+
+class BoundedContextError(MemoryFunctionError):
+    """Raised by :func:`~ract.memory.functions.edit.edit` when the plan's
+    ``target_symbols`` themselves exceed the input budget even after
+    the load_manifest cascade downgrades wider context.
+
+    Distinct from :class:`ract.memory.retrieve.BoundedContextError`:
+    that one fires inside the retrieve primitive; this one fires
+    when the plan's targets do not fit under the edit budget after
+    the cascade has run. Composition splits the plan or escalates.
+    """
+
+
+class InvalidSyntaxError(MemoryFunctionError):
+    """Raised by edit when the provider's response has failed the
+    unified-diff validator on every retry.
+
+    ``payload["parse_error"]`` names the first ast-parse failure so
+    the composition layer surfaces the concrete parser message to
+    the operator rather than "syntax error".
+    """
+
+
+class ProviderContractError(MemoryFunctionError):
+    """Raised when a provider response does not match the JSON contract
+    the prompt declared.
+
+    Distinct from :class:`InvalidSyntaxError`: this one fires on
+    contract violation (missing required field, wrong type, extra
+    key) rather than on downstream code parse failure. Retries here
+    are the caller's decision; the function raises after the first
+    unrecoverable contract violation.
+    """
+
+
+__all__ = [
+    "BoundedContextError",
+    "EmptyResearchError",
+    "InfeasiblePlanError",
+    "InvalidSyntaxError",
+    "MemoryFunctionError",
+    "OversizedResearchError",
+    "ProviderContractError",
+]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0
+"""intake function — user request in, WorkOrder out.
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §intake.
+
+Contract:
+
+- Input: user request text plus optional repo context.
+- Retrieval: last 10 commits (``git log --oneline -n 10``), README
+  top section, any explicitly mentioned files' signatures via the
+  symbol index.
+- No code bodies. Budget ceiling 4k (see budget_defaults.yaml).
+- Output: a :class:`~ract.memory.functions.contracts.WorkOrder`.
+
+The function is transport-agnostic: it composes the assembled
+prompt, refuses over-ceiling, and delegates the model call to a
+:class:`~ract.memory.functions.provider_adapter.MemoryFunctionProvider`.
+Tests supply a mock; module_09 wires the real provider.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from ract.core.module_identity import _module_knot, register_module_knot
+from ract.memory.budget import BudgetAccountant
+from ract.memory.budget_registry import get as budget_get
+from ract.memory.events import EventSink, NullEventSink, emit_budget_declared
+from ract.memory.functions.contracts import (
+    RequestType,
+    ScopeHints,
+    WorkOrder,
+)
+from ract.memory.functions.errors import ProviderContractError
+from ract.memory.functions.provider_adapter import (
+    MemoryFunctionProvider,
+    assemble_prompt,
+    refuse_over_ceiling,
+    seat_prompt_section,
+)
+from ract.memory.functions.prompts_loader import (
+    assert_prompt_shipped,
+    load_prompt,
+)
+from ract.memory.symbol_index import SymbolIndex
+
+
+INTAKE_FUNCTION_NAME: str = "intake"
+INTAKE_PROMPT_VERSION: str = "v1"
+
+# Fail-fast on missing prompt file at import time (Second Pass Q4).
+assert_prompt_shipped(INTAKE_FUNCTION_NAME, INTAKE_PROMPT_VERSION)
+
+
+@dataclass
+class IntakeContext:
+    """Optional context supplied alongside the user request.
+
+    Fields:
+
+    - ``repo_root`` — repository root; used for git log + README
+      reads.
+    - ``symbol_index`` — module_02 index; used to fetch signatures
+      for symbols the user named.
+    - ``current_branch`` — the git branch under work; passed to the
+      prompt for context.
+    - ``open_file`` — file the user has open in an editor, if any.
+    - ``selected_code`` — highlighted code block in the editor.
+    """
+
+    repo_root: Path
+    symbol_index: SymbolIndex | None = None
+    current_branch: str = ""
+    open_file: str = ""
+    selected_code: str = ""
+
+
+def intake(
+    request: str,
+    context: IntakeContext,
+    provider: MemoryFunctionProvider,
+    *,
+    accountant: BudgetAccountant | None = None,
+    sink: EventSink | None = None,
+) -> WorkOrder:
+    """Normalise ``request`` into a :class:`WorkOrder`.
+
+    Sequence:
+
+    1. Load the intake budget from :func:`ract.memory.budget_registry.get`.
+    2. Collect the recent-commits summary, README top section, and
+       explicit-symbol signatures. No code bodies.
+    3. Assemble the five-section prompt via
+       :func:`~ract.memory.functions.provider_adapter.assemble_prompt`.
+    4. Seat every section on a :class:`BudgetAccountant`; refuse if
+       the total exceeds ``hard_ceiling``.
+    5. Delegate the model call to ``provider.send(prompt, declaration)``.
+    6. Parse the response as the JSON contract in
+       ``prompts/intake_v1.md``.
+
+    On ambiguity the returned WorkOrder carries a non-empty
+    ``ambiguity_flags`` tuple; the caller (composition layer) routes
+    to human clarification per Second Pass Q2.
+    """
+    active_sink = sink or NullEventSink()
+    declaration = budget_get(INTAKE_FUNCTION_NAME)
+    active_accountant = accountant or BudgetAccountant(declaration=declaration)
+
+    system = load_prompt(INTAKE_FUNCTION_NAME, INTAKE_PROMPT_VERSION)
+    contract_block = _intake_contract_block()
+    state_block = _intake_state_block(context)
+    bundle_block = _intake_bundle_block(request, context)
+    inputs_block = _intake_inputs_block(request)
+
+    seat_prompt_section(
+        active_accountant,
+        name="system_prompt",
+        content=system,
+        content_hash=_hash(system),
+    )
+    seat_prompt_section(
+        active_accountant,
+        name="contract",
+        content=contract_block,
+        content_hash=_hash(contract_block),
+    )
+    seat_prompt_section(
+        active_accountant,
+        name="state",
+        content=state_block,
+        content_hash=_hash(state_block),
+    )
+    seat_prompt_section(
+        active_accountant,
+        name="retrieved_bundle",
+        content=bundle_block,
+        content_hash=_hash(bundle_block),
+    )
+    seat_prompt_section(
+        active_accountant,
+        name="inputs",
+        content=inputs_block,
+        content_hash=_hash(inputs_block),
+    )
+
+    emit_budget_declared(
+        active_sink,
+        {
+            "function": INTAKE_FUNCTION_NAME,
+            "declaration": _declaration_payload(declaration),
+            "narrowing_log": [],
+            "source": "default",
+        },
+    )
+    refuse_over_ceiling(active_accountant, sink=active_sink)
+
+    prompt = assemble_prompt(
+        system=system,
+        contract=contract_block,
+        state=state_block,
+        bundle=bundle_block,
+        inputs=inputs_block,
+    )
+    response = provider.send(prompt, declaration)
+    return _parse_response(response)
+
+
+# ---------------------------------------------------------------------------
+# Prompt section builders
+# ---------------------------------------------------------------------------
+
+
+def _intake_contract_block() -> str:
+    return (
+        "Return one JSON object matching the schema in the system prompt. "
+        "Do not wrap in markdown."
+    )
+
+
+def _intake_state_block(context: IntakeContext) -> str:
+    lines = [f"repo_root: {context.repo_root}"]
+    if context.current_branch:
+        lines.append(f"current_branch: {context.current_branch}")
+    if context.open_file:
+        lines.append(f"open_file: {context.open_file}")
+    if context.selected_code:
+        lines.append("selected_code: (present, kept out of the assembled prompt)")
+    return "\n".join(lines) if lines else "(no session state)"
+
+
+def _intake_bundle_block(request: str, context: IntakeContext) -> str:
+    parts: list[str] = []
+    commits = _git_recent_commits(context.repo_root)
+    if commits:
+        parts.append("### recent_commits\n" + "\n".join(commits))
+    readme = _readme_top(context.repo_root)
+    if readme:
+        parts.append("### readme_head\n" + readme)
+    signatures = _mentioned_signatures(request, context)
+    if signatures:
+        parts.append("### mentioned_signatures\n" + "\n".join(signatures))
+    return "\n\n".join(parts) if parts else "(no retrieval material)"
+
+
+def _intake_inputs_block(request: str) -> str:
+    return f"request: {request}"
+
+
+# ---------------------------------------------------------------------------
+# Retrieval helpers (no code bodies)
+# ---------------------------------------------------------------------------
+
+
+def _git_recent_commits(repo_root: Path) -> list[str]:
+    """Return the last 10 commits as one-line summaries, or []."""
+    if not repo_root.is_dir():
+        return []
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repo_root), "log", "--oneline", "-n", "10"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if completed.returncode != 0:
+        return []
+    return [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+
+
+def _readme_top(repo_root: Path, max_chars: int = 800) -> str:
+    """Return the head of ``README.md`` (or ``README``) up to ``max_chars``."""
+    for name in ("README.md", "README.MD", "README", "README.rst"):
+        candidate = repo_root / name
+        if candidate.is_file():
+            try:
+                text = candidate.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                return ""
+            return text[:max_chars]
+    return ""
+
+
+_SYMBOL_MENTION_RE = re.compile(
+    r"\b([A-Z][A-Za-z0-9_]{2,})\b|\b([a-z_][a-z0-9_]{2,})\b"
+)
+
+
+def _mentioned_signatures(request: str, context: IntakeContext) -> list[str]:
+    """Return signatures for symbols the user named explicitly.
+
+    Explicit-mention heuristic: any word that looks like an identifier
+    (matches ``_SYMBOL_MENTION_RE``) is looked up in the symbol
+    index. Missing names silently skip; found names emit
+    ``"file_path::signature"``. No bodies are read.
+    """
+    if context.symbol_index is None:
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for match in _SYMBOL_MENTION_RE.finditer(request):
+        name = match.group(1) or match.group(2)
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        try:
+            rows = context.symbol_index.find_by_name(name)
+        except Exception:
+            continue
+        for row in rows[:3]:
+            signature = row.signature or f"(no signature: {name})"
+            out.append(f"{row.file_path}::{signature}")
+        if len(out) >= 20:
+            break
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Response parsing
+# ---------------------------------------------------------------------------
+
+
+def _parse_response(response: str) -> WorkOrder:
+    """Parse ``response`` as the intake JSON contract into a WorkOrder."""
+    try:
+        payload = json.loads(response)
+    except json.JSONDecodeError as exc:
+        raise ProviderContractError(
+            f"intake response is not valid JSON: {exc}",
+            function=INTAKE_FUNCTION_NAME,
+            payload={"response_excerpt": response[:200]},
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ProviderContractError(
+            f"intake response must be a JSON object; got {type(payload).__name__}",
+            function=INTAKE_FUNCTION_NAME,
+        )
+    try:
+        request_type = RequestType(payload.get("request_type", "other"))
+    except ValueError as exc:
+        raise ProviderContractError(
+            f"intake response.request_type invalid: {exc}",
+            function=INTAKE_FUNCTION_NAME,
+        ) from exc
+    hints_raw = payload.get("scope_hints") or {}
+    if not isinstance(hints_raw, dict):
+        raise ProviderContractError(
+            "intake response.scope_hints must be an object",
+            function=INTAKE_FUNCTION_NAME,
+        )
+    scope = ScopeHints(
+        mentioned_symbols=_as_tuple(hints_raw.get("mentioned_symbols")),
+        mentioned_files=_as_tuple(hints_raw.get("mentioned_files")),
+        mentioned_directories=_as_tuple(hints_raw.get("mentioned_directories")),
+        keywords=_as_tuple(hints_raw.get("keywords")),
+        exclude_paths=_as_tuple(hints_raw.get("exclude_paths")),
+    )
+    priority_raw = payload.get("priority_markers") or {}
+    if not isinstance(priority_raw, dict):
+        raise ProviderContractError(
+            "intake response.priority_markers must be an object",
+            function=INTAKE_FUNCTION_NAME,
+        )
+    return WorkOrder(
+        request_type=request_type,
+        scope_hints=scope,
+        success_criteria=_as_tuple(payload.get("success_criteria")),
+        constraints=_as_tuple(payload.get("constraints")),
+        priority_markers=tuple(
+            sorted((str(k), str(v)) for k, v in priority_raw.items())
+        ),
+        ambiguity_flags=_as_tuple(payload.get("ambiguity_flags")),
+        metadata=(("prompt_version", INTAKE_PROMPT_VERSION),),
+    )
+
+
+def _as_tuple(value: Any) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise ProviderContractError(
+            f"expected list, got {type(value).__name__}",
+            function=INTAKE_FUNCTION_NAME,
+        )
+    return tuple(str(item) for item in value)
+
+
+def _hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _declaration_payload(declaration: Any) -> dict[str, Any]:
+    return {
+        "function": declaration.function,
+        "input_min": declaration.input_min,
+        "input_target": declaration.input_target,
+        "input_max": declaration.input_max,
+        "output_min": declaration.output_min,
+        "output_target": declaration.output_target,
+        "output_max": declaration.output_max,
+        "reasoning_headroom": declaration.reasoning_headroom,
+        "hard_ceiling": declaration.hard_ceiling,
+    }
+
+
+__all__ = [
+    "INTAKE_FUNCTION_NAME",
+    "INTAKE_PROMPT_VERSION",
+    "IntakeContext",
+    "intake",
+]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0
+"""research function — WorkOrder in, ResearchBundle out.
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §research.
+
+Contract:
+
+- Input: WorkOrder plus an :class:`IndexBundle` of live indexes.
+- Retrieval: 7-step pattern per master spec (repo map, symbol
+  index for named symbols, FTS on docstrings/comments, semantic
+  top 10 by signature, graph one-hop signatures, git log grep for
+  keywords top 5).
+- Output: :class:`~ract.memory.functions.contracts.ResearchBundle`.
+- On empty relevant_symbols: raise :class:`EmptyResearchError`.
+- On more than 50 relevant_symbols: run one recursive narrowing pass
+  with tighter scope hints; if still oversized, raise
+  :class:`OversizedResearchError`.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass
+from typing import Any
+
+from ract.core.module_identity import _module_knot, register_module_knot
+from ract.memory.budget import BudgetAccountant
+from ract.memory.budget_registry import get as budget_get
+from ract.memory.chunk import ChunkFormat
+from ract.memory.events import EventSink, NullEventSink, emit_budget_declared
+from ract.memory.functions.contracts import (
+    CommitRef,
+    ResearchBundle,
+    ScopeHints,
+    SignatureRow,
+    SymbolRef,
+    SymbolWithRationale,
+    WorkOrder,
+    to_json,
+)
+from ract.memory.functions.errors import (
+    EmptyResearchError,
+    OversizedResearchError,
+    ProviderContractError,
+)
+from ract.memory.functions.provider_adapter import (
+    MemoryFunctionProvider,
+    assemble_prompt,
+    refuse_over_ceiling,
+    seat_prompt_section,
+)
+from ract.memory.functions.prompts_loader import (
+    assert_prompt_shipped,
+    load_prompt,
+)
+from ract.memory.graph_index import GraphIndex
+from ract.memory.retrieve import (
+    GraphDir,
+    IndexKind,
+    IndexRef,
+    RetrievalBundle,
+    RetrievalQuery,
+    RetrievalStrategy,
+    SymbolRef as RetrieveSymbolRef,
+    retrieve,
+)
+from ract.memory.semantic_index import SemanticIndex
+from ract.memory.symbol_index import SymbolIndex
+
+
+RESEARCH_FUNCTION_NAME: str = "research"
+RESEARCH_PROMPT_VERSION: str = "v1"
+RELEVANT_SYMBOLS_CAP: int = 50
+"""Maximum relevant symbols before the recursive narrowing kicks in."""
+
+assert_prompt_shipped(RESEARCH_FUNCTION_NAME, RESEARCH_PROMPT_VERSION)
+
+
+@dataclass
+class IndexBundle:
+    """The three live indexes research composes over.
+
+    A caller supplies whichever indexes are populated; missing ones
+    cause the corresponding retrieval branch to no-op with a
+    ``candidate_count=0`` trace hit.
+    """
+
+    symbol_index: SymbolIndex | None = None
+    graph_index: GraphIndex | None = None
+    semantic_index: SemanticIndex | None = None
+
+    def to_index_refs(self) -> list[IndexRef]:
+        refs: list[IndexRef] = []
+        if self.symbol_index is not None:
+            refs.append(IndexRef(kind=IndexKind.SYMBOL, index=self.symbol_index))
+        if self.graph_index is not None:
+            refs.append(IndexRef(kind=IndexKind.GRAPH, index=self.graph_index))
+        if self.semantic_index is not None:
+            refs.append(IndexRef(kind=IndexKind.SEMANTIC, index=self.semantic_index))
+        return refs
+
+
+def research(
+    work_order: WorkOrder,
+    indexes: IndexBundle,
+    provider: MemoryFunctionProvider,
+    *,
+    accountant: BudgetAccountant | None = None,
+    sink: EventSink | None = None,
+) -> ResearchBundle:
+    """Return a :class:`ResearchBundle` for ``work_order``.
+
+    Sequence:
+
+    1. Load the research budget from the registry.
+    2. Build a :class:`RetrievalQuery` from WorkOrder scope_hints
+       (mentioned_symbols → symbol_names; keywords → keywords +
+       semantic seed; mentioned_directories + exclude_paths → scope
+       filters).
+    3. Compose the retrieve pool (SIGNATURE-format so no code bodies
+       land in the prompt).
+    4. If the retrieval pool exceeds the relevant-symbols cap, re-run
+       one recursive narrowing pass with tighter scope.
+    5. Seat sections + refuse over ceiling.
+    6. Delegate to the provider; parse the response into the bundle.
+    """
+    active_sink = sink or NullEventSink()
+    declaration = budget_get(RESEARCH_FUNCTION_NAME)
+    active_accountant = accountant or BudgetAccountant(declaration=declaration)
+
+    bundle = _run_retrieval(work_order, indexes, sink=active_sink)
+    if len(bundle.chunks) > RELEVANT_SYMBOLS_CAP:
+        narrowed_hints = _narrow_scope(work_order.scope_hints)
+        bundle = _run_retrieval(
+            WorkOrder(
+                request_type=work_order.request_type,
+                scope_hints=narrowed_hints,
+                success_criteria=work_order.success_criteria,
+                constraints=work_order.constraints,
+                priority_markers=work_order.priority_markers,
+                ambiguity_flags=work_order.ambiguity_flags,
+                metadata=work_order.metadata,
+            ),
+            indexes,
+            sink=active_sink,
+        )
+        if len(bundle.chunks) > RELEVANT_SYMBOLS_CAP:
+            raise OversizedResearchError(
+                f"research pool oversized after narrowing "
+                f"({len(bundle.chunks)} > {RELEVANT_SYMBOLS_CAP})",
+                function=RESEARCH_FUNCTION_NAME,
+                payload={"symbol_count": len(bundle.chunks)},
+            )
+
+    system = load_prompt(RESEARCH_FUNCTION_NAME, RESEARCH_PROMPT_VERSION)
+    contract_block = _contract_block()
+    state_block = to_json(work_order)
+    bundle_block = _bundle_block(bundle, indexes)
+    inputs_block = "run research against the WorkOrder above."
+
+    for name, content in (
+        ("system_prompt", system),
+        ("contract", contract_block),
+        ("state", state_block),
+        ("retrieved_bundle", bundle_block),
+        ("inputs", inputs_block),
+    ):
+        seat_prompt_section(
+            active_accountant,
+            name=name,
+            content=content,
+            content_hash=_hash(content),
+        )
+
+    emit_budget_declared(
+        active_sink,
+        {
+            "function": RESEARCH_FUNCTION_NAME,
+            "declaration": _declaration_payload(declaration),
+            "narrowing_log": [],
+            "source": "default",
+        },
+    )
+    refuse_over_ceiling(active_accountant, sink=active_sink)
+
+    prompt = assemble_prompt(
+        system=system,
+        contract=contract_block,
+        state=state_block,
+        bundle=bundle_block,
+        inputs=inputs_block,
+    )
+    response = provider.send(prompt, declaration)
+    parsed = _parse_response(response)
+    if not parsed.relevant_symbols:
+        raise EmptyResearchError(
+            "research returned zero relevant symbols",
+            function=RESEARCH_FUNCTION_NAME,
+            payload={
+                "request_type": work_order.request_type.value,
+                "mentioned_symbols": list(work_order.scope_hints.mentioned_symbols),
+            },
+        )
+    return parsed
+
+
+# ---------------------------------------------------------------------------
+# Retrieval composition
+# ---------------------------------------------------------------------------
+
+
+def _run_retrieval(
+    work_order: WorkOrder,
+    indexes: IndexBundle,
+    *,
+    sink: EventSink,
+) -> RetrievalBundle:
+    query = RetrievalQuery(
+        symbol_names=work_order.scope_hints.mentioned_symbols,
+        keywords=work_order.scope_hints.keywords,
+        graph_seeds=tuple(
+            RetrieveSymbolRef(name=name)
+            for name in work_order.scope_hints.mentioned_symbols
+        ),
+        graph_direction=GraphDir.BOTH,
+        graph_hops=1,
+        file_scope=(
+            work_order.scope_hints.mentioned_directories
+            if work_order.scope_hints.mentioned_directories
+            else None
+        ),
+        exclude_paths=work_order.scope_hints.exclude_paths,
+    )
+    # Research runs at SIGNATURE format — no code bodies.
+    return retrieve(
+        query,
+        indexes.to_index_refs(),
+        budget=3000,
+        format=ChunkFormat.SIGNATURE,
+        strategy=RetrievalStrategy.CORE_FIRST,
+        sink=sink,
+    )
+
+
+def _narrow_scope(hints: ScopeHints) -> ScopeHints:
+    """Return a tightened :class:`ScopeHints` for the second retrieval pass.
+
+    Keeps only the first three mentioned symbols and the first three
+    keywords; excludes any paths already listed. This is a bounded
+    narrowing pass — not a general optimiser.
+    """
+    return ScopeHints(
+        mentioned_symbols=hints.mentioned_symbols[:3],
+        mentioned_files=hints.mentioned_files,
+        mentioned_directories=hints.mentioned_directories,
+        keywords=hints.keywords[:3],
+        exclude_paths=hints.exclude_paths,
+    )
+
+
+def _bundle_block(bundle: RetrievalBundle, indexes: IndexBundle) -> str:
+    """Project the retrieval bundle into a research-prompt block."""
+    lines: list[str] = []
+    lines.append("### signatures")
+    for chunk in bundle.chunks:
+        lines.append(
+            f"{chunk.file_path}::{chunk.symbol_name} :: "
+            f"{chunk.signature or '(no signature)'}"
+        )
+    if bundle.truncation_notes:
+        lines.append("### truncation_notes")
+        lines.extend(bundle.truncation_notes)
+    if bundle.query_trace.error:
+        lines.append(f"### note: {bundle.query_trace.error}")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Response parsing
+# ---------------------------------------------------------------------------
+
+
+def _contract_block() -> str:
+    return (
+        "Return one JSON object matching the research schema. Do not wrap in markdown."
+    )
+
+
+def _parse_response(response: str) -> ResearchBundle:
+    try:
+        payload = json.loads(response)
+    except json.JSONDecodeError as exc:
+        raise ProviderContractError(
+            f"research response is not valid JSON: {exc}",
+            function=RESEARCH_FUNCTION_NAME,
+            payload={"response_excerpt": response[:200]},
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ProviderContractError(
+            "research response must be a JSON object",
+            function=RESEARCH_FUNCTION_NAME,
+        )
+    relevant = tuple(
+        _rehydrate_relevant(entry) for entry in payload.get("relevant_symbols", [])
+    )
+    neighborhood = tuple(
+        _rehydrate_neighborhood(entry) for entry in payload.get("call_neighborhood", [])
+    )
+    prior_work = tuple(
+        _rehydrate_commit(entry)
+        for entry in payload.get("similar_prior_work", []) or []
+    )
+    risk_zones = tuple(
+        _rehydrate_symbol_ref(entry) for entry in payload.get("risk_zones", []) or []
+    )
+    return ResearchBundle(
+        relevant_symbols=relevant,
+        call_neighborhood=neighborhood,
+        architectural_context=str(payload.get("architectural_context", "")),
+        similar_prior_work=prior_work,
+        risk_zones=risk_zones,
+        metadata=(("prompt_version", RESEARCH_PROMPT_VERSION),),
+    )
+
+
+def _rehydrate_relevant(entry: dict[str, Any]) -> SymbolWithRationale:
+    symbol = _rehydrate_symbol_ref(entry)
+    rationale = str(entry.get("rationale", ""))
+    return SymbolWithRationale(symbol=symbol, rationale=rationale)
+
+
+def _rehydrate_neighborhood(entry: dict[str, Any]) -> SignatureRow:
+    return SignatureRow(
+        symbol=_rehydrate_symbol_ref(entry),
+        signature=str(entry.get("signature", "")),
+        direction=str(entry.get("direction", "callee")),
+    )
+
+
+def _rehydrate_symbol_ref(entry: dict[str, Any]) -> SymbolRef:
+    return SymbolRef(
+        name=str(entry.get("name", "")),
+        file_path=str(entry.get("file_path", "")),
+        symbol_id=int(entry.get("symbol_id", -1)),
+        kind=str(entry.get("kind", "")),
+    )
+
+
+def _rehydrate_commit(entry: dict[str, Any]) -> CommitRef:
+    return CommitRef(
+        sha=str(entry.get("sha", "")),
+        subject=str(entry.get("subject", "")),
+        files_touched=tuple(str(p) for p in entry.get("files_touched", []) or []),
+    )
+
+
+def _hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _declaration_payload(declaration: Any) -> dict[str, Any]:
+    return {
+        "function": declaration.function,
+        "input_min": declaration.input_min,
+        "input_target": declaration.input_target,
+        "input_max": declaration.input_max,
+        "output_min": declaration.output_min,
+        "output_target": declaration.output_target,
+        "output_max": declaration.output_max,
+        "reasoning_headroom": declaration.reasoning_headroom,
+        "hard_ceiling": declaration.hard_ceiling,
+    }
+
+
+__all__ = [
+    "IndexBundle",
+    "RELEVANT_SYMBOLS_CAP",
+    "RESEARCH_FUNCTION_NAME",
+    "RESEARCH_PROMPT_VERSION",
+    "research",
+]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0
+"""plan function — WorkOrder + ResearchBundle in, ChangePlan out.
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §plan.
+
+Contract:
+
+- Input: WorkOrder + ResearchBundle + IndexBundle (for optional mid-
+  invocation retrieval calls).
+- Retrieval: initial pass reads the research bundle; may issue up to
+  three mid-invocation :func:`~ract.memory.retrieve.retrieve` calls
+  under 500-token sub-budgets each (bounded by module_05's
+  :class:`NestedRetrievalError`).
+- Output: :class:`~ract.memory.functions.contracts.ChangePlan`.
+- On infeasible request: raise :class:`InfeasiblePlanError`
+  (composition escalates).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from typing import Any
+
+from ract.core.module_identity import _module_knot, register_module_knot
+from ract.memory.budget import BudgetAccountant
+from ract.memory.budget_registry import get as budget_get
+from ract.memory.chunk import ChunkFormat
+from ract.memory.events import EventSink, NullEventSink, emit_budget_declared
+from ract.memory.functions.contracts import (
+    ChangePlan,
+    Invariant,
+    InvariantKind,
+    RiskAssessment,
+    RiskLevel,
+    SymbolRef,
+    TargetSymbol,
+    VerificationCriterion,
+    ResearchBundle,
+    WorkOrder,
+    to_json,
+)
+from ract.memory.functions.errors import (
+    InfeasiblePlanError,
+    ProviderContractError,
+)
+from ract.memory.functions.provider_adapter import (
+    MemoryFunctionProvider,
+    assemble_prompt,
+    refuse_over_ceiling,
+    seat_prompt_section,
+)
+from ract.memory.functions.prompts_loader import (
+    assert_prompt_shipped,
+    load_prompt,
+)
+from ract.memory.functions.research import IndexBundle
+from ract.memory.retrieve import (
+    RetrievalBundle,
+    RetrievalQuery,
+    RetrievalStrategy,
+    retrieve,
+)
+
+
+PLAN_FUNCTION_NAME: str = "plan"
+PLAN_PROMPT_VERSION: str = "v1"
+MID_INVOCATION_RETRIEVE_BUDGET: int = 500
+MAX_MID_INVOCATION_RETRIEVES: int = 3
+
+assert_prompt_shipped(PLAN_FUNCTION_NAME, PLAN_PROMPT_VERSION)
+
+
+def plan(
+    work_order: WorkOrder,
+    research_bundle: ResearchBundle,
+    indexes: IndexBundle,
+    provider: MemoryFunctionProvider,
+    *,
+    accountant: BudgetAccountant | None = None,
+    sink: EventSink | None = None,
+    mid_invocation_queries: tuple[RetrievalQuery, ...] = (),
+) -> ChangePlan:
+    """Return a :class:`ChangePlan` for the request.
+
+    ``mid_invocation_queries`` supplies zero to three
+    :class:`RetrievalQuery` values plan runs before the model call
+    under a scoped 500-token sub-budget each. Cascade nesting depth
+    stays at 1 so module_05's :class:`NestedRetrievalError` cannot
+    fire from here.
+    """
+    active_sink = sink or NullEventSink()
+    declaration = budget_get(PLAN_FUNCTION_NAME)
+    active_accountant = accountant or BudgetAccountant(declaration=declaration)
+
+    if len(mid_invocation_queries) > MAX_MID_INVOCATION_RETRIEVES:
+        raise InfeasiblePlanError(
+            f"plan received {len(mid_invocation_queries)} mid-invocation queries; "
+            f"max is {MAX_MID_INVOCATION_RETRIEVES}",
+            function=PLAN_FUNCTION_NAME,
+        )
+    mid_bundles = tuple(
+        retrieve(
+            query,
+            indexes.to_index_refs(),
+            budget=MID_INVOCATION_RETRIEVE_BUDGET,
+            format=ChunkFormat.SIGNATURE,
+            strategy=RetrievalStrategy.CORE_FIRST,
+            sink=active_sink,
+            depth=1,
+        )
+        for query in mid_invocation_queries
+    )
+
+    system = load_prompt(PLAN_FUNCTION_NAME, PLAN_PROMPT_VERSION)
+    contract_block = _contract_block()
+    state_block = _state_block(work_order, research_bundle)
+    bundle_block = _bundle_block(tuple(mid_bundles))
+    inputs_block = "produce a ChangePlan the edit step can execute."
+
+    for name, content in (
+        ("system_prompt", system),
+        ("contract", contract_block),
+        ("state", state_block),
+        ("retrieved_bundle", bundle_block),
+        ("inputs", inputs_block),
+    ):
+        seat_prompt_section(
+            active_accountant,
+            name=name,
+            content=content,
+            content_hash=_hash(content),
+        )
+
+    emit_budget_declared(
+        active_sink,
+        {
+            "function": PLAN_FUNCTION_NAME,
+            "declaration": _declaration_payload(declaration),
+            "narrowing_log": [],
+            "source": "default",
+        },
+    )
+    refuse_over_ceiling(active_accountant, sink=active_sink)
+
+    prompt = assemble_prompt(
+        system=system,
+        contract=contract_block,
+        state=state_block,
+        bundle=bundle_block,
+        inputs=inputs_block,
+    )
+    response = provider.send(prompt, declaration)
+    parsed = _parse_response(response)
+    if not parsed.target_symbols:
+        raise InfeasiblePlanError(
+            "plan returned empty target_symbols — infeasible under the bundle",
+            function=PLAN_FUNCTION_NAME,
+            payload={"risk_level": parsed.risk_assessment.level.value},
+        )
+    return parsed
+
+
+# ---------------------------------------------------------------------------
+# Prompt section builders
+# ---------------------------------------------------------------------------
+
+
+def _contract_block() -> str:
+    return (
+        "Return one JSON object matching the plan schema. Do not wrap in markdown. "
+        "Ensure load_manifest covers every symbol edit will read."
+    )
+
+
+def _state_block(work_order: WorkOrder, research_bundle: ResearchBundle) -> str:
+    return (
+        "work_order:\n"
+        + to_json(work_order)
+        + "\n\nresearch_bundle:\n"
+        + to_json(research_bundle)
+    )
+
+
+def _bundle_block(mid_bundles: tuple[RetrievalBundle, ...]) -> str:
+    if not mid_bundles:
+        return "(no mid-invocation retrievals)"
+    parts: list[str] = []
+    for i, bundle in enumerate(mid_bundles):
+        parts.append(f"### mid_retrieve[{i}] ({bundle.total_tokens} tokens)")
+        for chunk in bundle.chunks:
+            parts.append(
+                f"- {chunk.file_path}::{chunk.symbol_name}: "
+                f"{chunk.signature or chunk.body[:80]}"
+            )
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Response parsing
+# ---------------------------------------------------------------------------
+
+
+def _parse_response(response: str) -> ChangePlan:
+    try:
+        payload = json.loads(response)
+    except json.JSONDecodeError as exc:
+        raise ProviderContractError(
+            f"plan response is not valid JSON: {exc}",
+            function=PLAN_FUNCTION_NAME,
+            payload={"response_excerpt": response[:200]},
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ProviderContractError(
+            "plan response must be a JSON object",
+            function=PLAN_FUNCTION_NAME,
+        )
+    targets = tuple(
+        _rehydrate_target(entry) for entry in payload.get("target_symbols", []) or []
+    )
+    manifest = tuple(
+        _rehydrate_symbol_ref(entry) for entry in payload.get("load_manifest", []) or []
+    )
+    invariants = tuple(
+        _rehydrate_invariant(entry) for entry in payload.get("invariants", []) or []
+    )
+    criteria = tuple(
+        _rehydrate_criterion(entry)
+        for entry in payload.get("verification_criteria", []) or []
+    )
+    risk = _rehydrate_risk(payload.get("risk_assessment") or {})
+    iteration_bound_raw = payload.get("iteration_bound", 3)
+    try:
+        iteration_bound = int(iteration_bound_raw)
+    except (TypeError, ValueError) as exc:
+        raise ProviderContractError(
+            f"plan response.iteration_bound must be an int; got {iteration_bound_raw!r}",
+            function=PLAN_FUNCTION_NAME,
+        ) from exc
+    if iteration_bound < 1 or iteration_bound > 5:
+        raise ProviderContractError(
+            f"plan response.iteration_bound out of range 1..5: {iteration_bound}",
+            function=PLAN_FUNCTION_NAME,
+        )
+    return ChangePlan(
+        target_symbols=targets,
+        load_manifest=manifest,
+        invariants=invariants,
+        verification_criteria=criteria,
+        risk_assessment=risk,
+        iteration_bound=iteration_bound,
+        metadata=(("prompt_version", PLAN_PROMPT_VERSION),),
+    )
+
+
+def _rehydrate_target(entry: dict[str, Any]) -> TargetSymbol:
+    return TargetSymbol(
+        symbol=_rehydrate_symbol_ref(entry),
+        action=str(entry.get("action", "modify")),
+        notes=str(entry.get("notes", "")),
+    )
+
+
+def _rehydrate_symbol_ref(entry: dict[str, Any]) -> SymbolRef:
+    return SymbolRef(
+        name=str(entry.get("name", "")),
+        file_path=str(entry.get("file_path", "")),
+        symbol_id=int(entry.get("symbol_id", -1)),
+        kind=str(entry.get("kind", "")),
+    )
+
+
+def _rehydrate_invariant(entry: dict[str, Any]) -> Invariant:
+    try:
+        kind = InvariantKind(str(entry.get("kind", "ast_grep")))
+    except ValueError as exc:
+        raise ProviderContractError(
+            f"plan response.invariants.kind invalid: {exc}",
+            function=PLAN_FUNCTION_NAME,
+        ) from exc
+    return Invariant(
+        kind=kind,
+        expression=str(entry.get("expression", "")),
+        description=str(entry.get("description", "")),
+    )
+
+
+def _rehydrate_criterion(entry: dict[str, Any]) -> VerificationCriterion:
+    payload_raw = entry.get("payload") or {}
+    if not isinstance(payload_raw, dict):
+        raise ProviderContractError(
+            "plan response.verification_criteria.payload must be an object",
+            function=PLAN_FUNCTION_NAME,
+        )
+    return VerificationCriterion(
+        predicate_id=str(entry.get("predicate_id", "")),
+        kind=str(entry.get("kind", "")),
+        payload=tuple(sorted((str(k), str(v)) for k, v in payload_raw.items())),
+    )
+
+
+def _rehydrate_risk(entry: dict[str, Any]) -> RiskAssessment:
+    if not isinstance(entry, dict):
+        entry = {}
+    try:
+        level = RiskLevel(str(entry.get("level", "medium")))
+    except ValueError as exc:
+        raise ProviderContractError(
+            f"plan response.risk_assessment.level invalid: {exc}",
+            function=PLAN_FUNCTION_NAME,
+        ) from exc
+    blast = tuple(
+        int(x)
+        for x in entry.get("blast_radius_symbol_ids", []) or []
+        if isinstance(x, int)
+    )
+    return RiskAssessment(
+        level=level,
+        rationale=str(entry.get("rationale", "")),
+        blast_radius_symbol_ids=blast,
+    )
+
+
+def _hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _declaration_payload(declaration: Any) -> dict[str, Any]:
+    return {
+        "function": declaration.function,
+        "input_min": declaration.input_min,
+        "input_target": declaration.input_target,
+        "input_max": declaration.input_max,
+        "output_min": declaration.output_min,
+        "output_target": declaration.output_target,
+        "output_max": declaration.output_max,
+        "reasoning_headroom": declaration.reasoning_headroom,
+        "hard_ceiling": declaration.hard_ceiling,
+    }
+
+
+__all__ = [
+    "MAX_MID_INVOCATION_RETRIEVES",
+    "MID_INVOCATION_RETRIEVE_BUDGET",
+    "PLAN_FUNCTION_NAME",
+    "PLAN_PROMPT_VERSION",
+    "plan",
+]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0
+"""edit function — ChangePlan in, CandidateDiff out.
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §edit.
+
+Contract:
+
+- Input: ChangePlan + IndexBundle.
+- Retrieval: load actual code for symbols in ``plan.load_manifest``.
+  FULL for ``target_symbols``. BODY_ONLY for symbols called by
+  targets. SIGNATURE for wider neighborhood. Cascade downgrades on
+  budget pressure; if targets alone exceed budget, raise
+  :class:`BoundedContextError`.
+- Output: :class:`~ract.memory.functions.contracts.CandidateDiff`
+  under the v0.5.0 output discipline (unified diff format, AST +
+  lazy-token validator, retry-on-parse-error up to twice).
+
+Structured generation: v0.5.0 ships the post-generation validator
+option (b). Grammar-constrained generation via Outlines defers to
+v0.6 per master spec §Bounded scope.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from dataclasses import dataclass
+from typing import Any
+
+from ract.core.module_identity import _module_knot, register_module_knot
+from ract.memory.budget import BudgetAccountant, WhitespaceTokenEstimator
+from ract.memory.budget_registry import get as budget_get
+from ract.memory.chunk import ChunkFormat, format_chunk
+from ract.memory.events import EventSink, NullEventSink, emit_budget_declared
+from ract.memory.functions.contracts import (
+    CandidateDiff,
+    ChangePlan,
+    HunkSummary,
+    to_json,
+)
+from ract.memory.functions.errors import (
+    BoundedContextError,
+    InvalidSyntaxError,
+    ProviderContractError,
+)
+from ract.memory.functions.provider_adapter import (
+    MemoryFunctionProvider,
+    assemble_prompt,
+    refuse_over_ceiling,
+    seat_prompt_section,
+)
+from ract.memory.functions.prompts_loader import (
+    assert_prompt_shipped,
+    load_prompt,
+)
+from ract.memory.functions.research import IndexBundle
+from ract.memory.retrieve import (
+    RetrievalQuery,
+    RetrievalStrategy,
+    SymbolRef as RetrieveSymbolRef,
+    retrieve,
+)
+
+
+EDIT_FUNCTION_NAME: str = "edit"
+EDIT_PROMPT_VERSION: str = "v1"
+MAX_PARSE_RETRIES: int = 2
+"""Master spec §edit output discipline: retry-on-parse-error up to twice."""
+
+# Forbidden tokens the lazy-content validator refuses. Master spec
+# §edit output discipline: no TODO, no ellipsis bodies, no
+# "leave X unchanged" prose.
+_FORBIDDEN_TOKENS: tuple[str, ...] = (
+    "TODO",
+    "FIXME",
+    "XXX",
+    "pass  # implement",
+    "pass # implement",
+    "raise NotImplementedError",
+)
+
+_ELLIPSIS_STATEMENT_RE = re.compile(r"^[+\- ]?\s*\.\.\.\s*$", re.MULTILINE)
+_LAZY_PROSE_RE = re.compile(
+    r"leave\s+\w+\s+unchanged|unchanged\s+region|rest\s+omitted|elided\s+for\s+brevity",
+    re.IGNORECASE,
+)
+
+assert_prompt_shipped(EDIT_FUNCTION_NAME, EDIT_PROMPT_VERSION)
+
+
+@dataclass
+class EditValidationReport:
+    """Result of the lazy-token + diff-shape validator.
+
+    Populated on every :func:`edit` invocation; carried on the returned
+    :class:`CandidateDiff.validator_notes` even when the diff passes,
+    so a downstream reader can inspect how many retries were needed.
+    """
+
+    valid: bool
+    reasons: tuple[str, ...]
+
+    def to_notes(self) -> tuple[str, ...]:
+        if self.valid:
+            return ("diff passed validator",)
+        return tuple(f"validator: {reason}" for reason in self.reasons)
+
+
+def edit(
+    change_plan: ChangePlan,
+    indexes: IndexBundle,
+    provider: MemoryFunctionProvider,
+    *,
+    accountant: BudgetAccountant | None = None,
+    sink: EventSink | None = None,
+) -> CandidateDiff:
+    """Return a :class:`CandidateDiff` implementing ``change_plan``.
+
+    Cascade:
+
+    1. Load FULL for ``target_symbols``. If under budget, keep.
+    2. If over budget, downgrade non-target load_manifest entries to
+       SIGNATURE.
+    3. If still over budget, downgrade non-target entries to
+       BODY_ONLY (removes signatures, keeps bodies).
+    4. If targets themselves exceed budget, raise
+       :class:`BoundedContextError` (composition splits plan or
+       escalates).
+    """
+    active_sink = sink or NullEventSink()
+    declaration = budget_get(EDIT_FUNCTION_NAME)
+    active_accountant = accountant or BudgetAccountant(declaration=declaration)
+
+    load_block, assembled_tokens = _assemble_load_block(
+        change_plan, indexes, declaration.input_target, sink=active_sink
+    )
+
+    system = load_prompt(EDIT_FUNCTION_NAME, EDIT_PROMPT_VERSION)
+    contract_block = _contract_block()
+    state_block = to_json(change_plan)
+    inputs_block = "produce a unified diff implementing the ChangePlan."
+
+    for name, content in (
+        ("system_prompt", system),
+        ("contract", contract_block),
+        ("state", state_block),
+        ("retrieved_bundle", load_block),
+        ("inputs", inputs_block),
+    ):
+        seat_prompt_section(
+            active_accountant,
+            name=name,
+            content=content,
+            content_hash=_hash(content),
+        )
+
+    emit_budget_declared(
+        active_sink,
+        {
+            "function": EDIT_FUNCTION_NAME,
+            "declaration": _declaration_payload(declaration),
+            "narrowing_log": [],
+            "source": "default",
+        },
+    )
+    refuse_over_ceiling(active_accountant, sink=active_sink)
+
+    prompt = assemble_prompt(
+        system=system,
+        contract=contract_block,
+        state=state_block,
+        bundle=load_block,
+        inputs=inputs_block,
+    )
+
+    validator_log: list[str] = []
+    last_error: str = ""
+    diff_text: str = ""
+    hunks: tuple[HunkSummary, ...] = ()
+    for attempt in range(MAX_PARSE_RETRIES + 1):
+        response = provider.send(_retry_prompt(prompt, last_error), declaration)
+        try:
+            diff_text, hunks = _parse_response(response)
+        except ProviderContractError as exc:
+            last_error = str(exc)
+            validator_log.append(f"attempt {attempt}: {last_error}")
+            continue
+        report = _validate_diff(diff_text)
+        validator_log.append(f"attempt {attempt}: valid={report.valid}")
+        validator_log.extend(f"attempt {attempt}: {r}" for r in report.reasons)
+        if report.valid:
+            return CandidateDiff(
+                unified_diff=diff_text,
+                hunks=hunks,
+                assembled_input_tokens=assembled_tokens,
+                output_tokens=WhitespaceTokenEstimator().estimate(diff_text),
+                validator_notes=tuple(validator_log),
+                metadata=(("prompt_version", EDIT_PROMPT_VERSION),),
+            )
+        last_error = "; ".join(report.reasons)
+    raise InvalidSyntaxError(
+        f"edit exhausted {MAX_PARSE_RETRIES + 1} attempts; last error: {last_error}",
+        function=EDIT_FUNCTION_NAME,
+        payload={"parse_error": last_error, "attempts": MAX_PARSE_RETRIES + 1},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Load cascade
+# ---------------------------------------------------------------------------
+
+
+def _assemble_load_block(
+    change_plan: ChangePlan,
+    indexes: IndexBundle,
+    input_target: int,
+    *,
+    sink: EventSink,
+) -> tuple[str, int]:
+    """Return ``(load_block_text, assembled_token_count)`` for the edit prompt.
+
+    Runs three cascade tiers:
+
+    1. FULL for every load_manifest entry.
+    2. SIGNATURE for non-target entries if step 1 busts budget.
+    3. BODY_ONLY for non-target entries if step 2 still busts budget.
+
+    Raises :class:`BoundedContextError` if the target-only set alone
+    exceeds ``input_target``.
+    """
+    target_names = {t.symbol.name for t in change_plan.target_symbols}
+    manifest_names = tuple(sorted({s.name for s in change_plan.load_manifest}))
+    if not manifest_names:
+        manifest_names = tuple(sorted(target_names))
+
+    query = RetrievalQuery(
+        symbol_names=manifest_names,
+        keywords=(),
+        graph_seeds=tuple(RetrieveSymbolRef(name=n) for n in target_names),
+    )
+    refs = indexes.to_index_refs()
+    if not refs:
+        # No indexes wired — return an empty load block and zero cost.
+        return "(no indexes wired; edit runs against plan-only context)", 0
+
+    estimator = WhitespaceTokenEstimator()
+
+    def _render_at(
+        default_format: ChunkFormat, non_target_format: ChunkFormat
+    ) -> tuple[str, int]:
+        bundle = retrieve(
+            query,
+            refs,
+            budget=input_target,
+            format=default_format,
+            strategy=RetrievalStrategy.CORE_FIRST,
+            sink=sink,
+        )
+        lines: list[str] = []
+        total = 0
+        for chunk in bundle.chunks:
+            if chunk.symbol_name in target_names:
+                rendered = chunk
+            else:
+                rendered = format_chunk(chunk, non_target_format)
+            line = f"### {chunk.file_path}::{rendered.symbol_name}\n{rendered.body}"
+            lines.append(line)
+            total += estimator.estimate(line)
+        return "\n\n".join(lines), total
+
+    # Tier 1: FULL for everyone.
+    text, cost = _render_at(ChunkFormat.FULL, ChunkFormat.FULL)
+    if cost <= input_target:
+        return text, cost
+
+    # Tier 2: FULL for targets, SIGNATURE for non-targets.
+    text, cost = _render_at(ChunkFormat.FULL, ChunkFormat.SIGNATURE)
+    if cost <= input_target:
+        return text, cost
+
+    # Tier 3: FULL for targets, BODY_ONLY for non-targets.
+    text, cost = _render_at(ChunkFormat.FULL, ChunkFormat.BODY_ONLY)
+    if cost <= input_target:
+        return text, cost
+
+    # Tier 4: targets alone. If even targets bust budget, raise.
+    target_only_query = RetrievalQuery(
+        symbol_names=tuple(sorted(target_names)),
+    )
+    target_bundle = retrieve(
+        target_only_query,
+        refs,
+        budget=input_target,
+        format=ChunkFormat.FULL,
+        strategy=RetrievalStrategy.CORE_FIRST,
+        sink=sink,
+    )
+    target_cost = sum(estimator.estimate(c.body) for c in target_bundle.chunks)
+    if target_cost > input_target:
+        raise BoundedContextError(
+            f"edit target symbols alone exceed input_target "
+            f"({target_cost} > {input_target})",
+            function=EDIT_FUNCTION_NAME,
+            payload={
+                "target_names": sorted(target_names),
+                "target_cost": target_cost,
+                "input_target": input_target,
+            },
+        )
+    text_lines = [
+        f"### {c.file_path}::{c.symbol_name}\n{c.body}" for c in target_bundle.chunks
+    ]
+    return "\n\n".join(text_lines), target_cost
+
+
+# ---------------------------------------------------------------------------
+# Retry prompt shaping
+# ---------------------------------------------------------------------------
+
+
+def _retry_prompt(base_prompt: str, last_error: str) -> str:
+    if not last_error:
+        return base_prompt
+    retry_note = (
+        "\n\n## Retry\nPrevious response failed validation: "
+        f"{last_error}. Return a corrected JSON object matching the schema."
+    )
+    return base_prompt + retry_note
+
+
+# ---------------------------------------------------------------------------
+# Prompt section builders
+# ---------------------------------------------------------------------------
+
+
+def _contract_block() -> str:
+    return (
+        "Return one JSON object with keys unified_diff (string) and hunks "
+        "(array). unified_diff must be a valid unified diff. Do not wrap "
+        "in markdown."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Response parsing + validation
+# ---------------------------------------------------------------------------
+
+
+def _parse_response(response: str) -> tuple[str, tuple[HunkSummary, ...]]:
+    try:
+        payload = json.loads(response)
+    except json.JSONDecodeError as exc:
+        raise ProviderContractError(
+            f"edit response is not valid JSON: {exc}",
+            function=EDIT_FUNCTION_NAME,
+            payload={"response_excerpt": response[:200]},
+        ) from exc
+    if not isinstance(payload, dict):
+        raise ProviderContractError(
+            "edit response must be a JSON object",
+            function=EDIT_FUNCTION_NAME,
+        )
+    diff_text = payload.get("unified_diff")
+    if not isinstance(diff_text, str):
+        raise ProviderContractError(
+            "edit response.unified_diff must be a string",
+            function=EDIT_FUNCTION_NAME,
+        )
+    hunks_raw = payload.get("hunks") or []
+    if not isinstance(hunks_raw, list):
+        raise ProviderContractError(
+            "edit response.hunks must be a list",
+            function=EDIT_FUNCTION_NAME,
+        )
+    hunks = tuple(_rehydrate_hunk(entry) for entry in hunks_raw)
+    return diff_text, hunks
+
+
+def _rehydrate_hunk(entry: dict[str, Any]) -> HunkSummary:
+    if not isinstance(entry, dict):
+        raise ProviderContractError(
+            "edit response.hunks entry must be an object",
+            function=EDIT_FUNCTION_NAME,
+        )
+    return HunkSummary(
+        file_path=str(entry.get("file_path", "")),
+        start_line=int(entry.get("start_line", 0)),
+        end_line=int(entry.get("end_line", 0)),
+        summary=str(entry.get("summary", "")),
+    )
+
+
+def _validate_diff(diff_text: str) -> EditValidationReport:
+    """Validate ``diff_text`` against the v0.5.0 output discipline.
+
+    Checks:
+
+    1. Non-empty text.
+    2. Has at least one hunk header (``@@``) unless the diff is a
+       new-file / delete-file body (headed by ``+++`` / ``---``).
+    3. No forbidden tokens (TODO / FIXME / etc.).
+    4. No ellipsis-only statement lines.
+    5. No lazy-prose sentences.
+    """
+    reasons: list[str] = []
+    if not diff_text.strip():
+        reasons.append("diff is empty")
+    else:
+        if "@@" not in diff_text and not any(
+            marker in diff_text for marker in ("+++ ", "--- ")
+        ):
+            reasons.append("no hunk header (@@) or file marker present")
+        for token in _FORBIDDEN_TOKENS:
+            if token in diff_text:
+                reasons.append(f"contains forbidden token {token!r}")
+        if _ELLIPSIS_STATEMENT_RE.search(diff_text):
+            reasons.append("contains standalone ... statement body")
+        if _LAZY_PROSE_RE.search(diff_text):
+            reasons.append("contains lazy-prose placeholder")
+    return EditValidationReport(valid=not reasons, reasons=tuple(reasons))
+
+
+def _hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _declaration_payload(declaration: Any) -> dict[str, Any]:
+    return {
+        "function": declaration.function,
+        "input_min": declaration.input_min,
+        "input_target": declaration.input_target,
+        "input_max": declaration.input_max,
+        "output_min": declaration.output_min,
+        "output_target": declaration.output_target,
+        "output_max": declaration.output_max,
+        "reasoning_headroom": declaration.reasoning_headroom,
+        "hard_ceiling": declaration.hard_ceiling,
+    }
+
+
+__all__ = [
+    "EDIT_FUNCTION_NAME",
+    "EDIT_PROMPT_VERSION",
+    "EditValidationReport",
+    "MAX_PARSE_RETRIES",
+    "edit",
+]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0
+"""Provider adapter for the four v0.5.0 memory-discipline functions.
+
+Lateral Chain branch A (module_06 PRE): the existing ``providers/``
+layer at :mod:`ract.providers` speaks a chat-completion protocol
+(``ProviderAdapter.complete(messages, ...)``); the four memory-
+discipline functions want a simpler surface — one prompt in, one
+text-blob out — plus a shared budget-declaration seat check before
+any model call.
+
+This module lands:
+
+- :class:`MemoryFunctionProvider` protocol — the ``send(prompt,
+  declaration) -> str`` shape every function invokes.
+- :func:`assemble_prompt` — the five-section composer per master spec
+  §Context composition (system + contract + state + bundle + input).
+- :func:`refuse_over_ceiling` — the pre-model refuse gate. Every
+  function calls this after assembly and before ``provider.send``.
+
+The adapter is transport-agnostic — it does not know whether the
+downstream ``send`` invokes an HTTP client, a local subprocess, or
+a canned-response fixture. Module_09 wires the real adapter that
+bridges from :class:`MemoryFunctionProvider` to
+:class:`ract.providers.base.ProviderAdapter.complete`; until then,
+tests use :class:`~ract.memory.functions.testing.mock_provider.MockProvider`.
+"""
+
+from __future__ import annotations
+
+from typing import Protocol
+
+from ract.core.module_identity import _module_knot, register_module_knot
+from ract.memory.budget import (
+    BudgetAccountant,
+    BudgetDeclaration,
+    BudgetExceededError,
+    BudgetSection,
+    WhitespaceTokenEstimator,
+)
+from ract.memory.events import EventSink, NullEventSink, emit_budget_exceeded
+
+
+class MemoryFunctionProvider(Protocol):
+    """The simplified provider shape the four functions call.
+
+    A conforming implementation returns a plain string; the caller
+    parses it against the function-specific JSON contract in the
+    matching prompt file.
+    """
+
+    def send(self, prompt: str, declaration: BudgetDeclaration) -> str: ...
+
+
+_ESTIMATOR = WhitespaceTokenEstimator()
+
+
+def assemble_prompt(
+    *,
+    system: str,
+    contract: str,
+    state: str,
+    bundle: str,
+    inputs: str,
+) -> str:
+    """Compose the five-section prompt per master spec §Context composition.
+
+    Sections are joined by two newlines with a section-name header so
+    the model reads a stable structure across every function. The
+    order is fixed:
+
+    1. system — task-independent role framing.
+    2. contract — the function's input / output shape.
+    3. state — persistent session context (WorkOrder, ResearchBundle).
+    4. bundle — the retrieval bundle assembled by the function.
+    5. inputs — the current invocation's inputs.
+    """
+    return (
+        "## System\n" + system.strip() + "\n\n"
+        "## Contract\n" + contract.strip() + "\n\n"
+        "## State\n" + state.strip() + "\n\n"
+        "## Bundle\n" + bundle.strip() + "\n\n"
+        "## Inputs\n" + inputs.strip() + "\n"
+    )
+
+
+def seat_prompt_section(
+    accountant: BudgetAccountant,
+    *,
+    name: str,
+    content: str,
+    content_hash: str,
+) -> BudgetSection:
+    """Seat one section on ``accountant``.
+
+    Returns the seated :class:`BudgetSection` so the caller can record
+    it inside the function's audit trail. The section's token cost
+    comes from the shipped whitespace estimator; a provider adapter
+    with a native tokenizer computes its own count and reseats.
+    """
+    tokens = _ESTIMATOR.estimate(content)
+    section = BudgetSection(name=name, token_count=tokens, content_hash=content_hash)
+    accountant.seat(section)
+    return section
+
+
+def refuse_over_ceiling(
+    accountant: BudgetAccountant,
+    *,
+    sink: EventSink | None = None,
+) -> None:
+    """Pre-model refuse gate.
+
+    Raises :class:`~ract.memory.budget.BudgetExceededError` when the
+    seated total exceeds ``declaration.hard_ceiling``. Emits
+    ``budget.exceeded`` on the sink before the raise so the trace
+    carries the reason.
+
+    Every function must invoke this after final assembly and before
+    ``provider.send``. The pre-model gate is the load-bearing DoD
+    item — no model call can fire under an over-ceiling budget.
+    """
+    active_sink = sink or NullEventSink()
+    if not accountant.over_ceiling():
+        return
+    section_name, delta = accountant._offending_section(
+        accountant.declaration.hard_ceiling
+    )
+    emit_budget_exceeded(
+        active_sink,
+        {
+            "function": accountant.declaration.function,
+            "section_name": section_name,
+            "delta": delta,
+            "boundary": "hard_ceiling",
+        },
+    )
+    raise BudgetExceededError(
+        declaration=accountant.declaration,
+        section_name=section_name,
+        delta=delta,
+        boundary="hard_ceiling",
+    )
+
+
+__all__ = [
+    "MemoryFunctionProvider",
+    "assemble_prompt",
+    "refuse_over_ceiling",
+    "seat_prompt_section",
+]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0
+"""Prompt-file loader for the four v0.5.0 memory-discipline functions.
+
+Lateral Chain branch C (module_06 PRE): each function names its
+prompt version as a module-level constant (``INTAKE_PROMPT_VERSION``
+etc.); this loader reads
+``src/ract/memory/functions/prompts/{function}_{version}.md`` so a
+version bump is a one-line constant edit plus a new prompt file.
+
+Second Pass Q4 (module_06): the loader validates that the requested
+prompt file exists at import-startup via
+:func:`assert_prompt_shipped`. A caller that forgot to add the file
+alongside a version bump gets a specific error rather than a silent
+fallback to the previous version.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from ract.core.module_identity import _module_knot, register_module_knot
+
+
+PROMPTS_DIR: Path = Path(__file__).resolve().parent / "prompts"
+"""Location of the shipped prompt files."""
+
+
+class PromptMissingError(FileNotFoundError):
+    """Raised when a prompt file for a given function+version is absent."""
+
+
+def prompt_path(function: str, version: str) -> Path:
+    """Return the on-disk path for ``{function}_{version}.md``."""
+    if not function or not version:
+        raise ValueError("prompt_path: function and version must be non-empty")
+    return PROMPTS_DIR / f"{function}_{version}.md"
+
+
+def assert_prompt_shipped(function: str, version: str) -> Path:
+    """Return the prompt path; raise if the file is missing.
+
+    Called at import time from every function module so a version-
+    string constant that has no matching file surfaces before the
+    first invocation.
+    """
+    path = prompt_path(function, version)
+    if not path.is_file():
+        raise PromptMissingError(
+            f"prompt file missing for function={function!r} version={version!r}: "
+            f"expected at {path}"
+        )
+    return path
+
+
+def load_prompt(function: str, version: str) -> str:
+    """Return the contents of the prompt file for ``function``+``version``."""
+    path = assert_prompt_shipped(function, version)
+    return path.read_text(encoding="utf-8")
+
+
+__all__ = [
+    "PROMPTS_DIR",
+    "PromptMissingError",
+    "assert_prompt_shipped",
+    "load_prompt",
+    "prompt_path",
+]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0
+"""Per-run session memory for the four function contracts.
+
+Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §Function
+contracts. Every function reads the previous function's output; the
+:class:`SessionMemory` holds the running record and persists to
+``evals/runs/<run_id>/session.json`` after every write.
+
+The store is intentionally file-based (not SQLite): the four
+contracts are small structured records, one per run; a JSON file is
+readable by ``jq`` and diffable in a PR review. Module_09 wires the
+watcher-invalidation callback if the assembly pipeline needs one.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from ract.core.module_identity import _module_knot, register_module_knot
+from ract.memory.functions.contracts import (
+    CandidateDiff,
+    ChangePlan,
+    ResearchBundle,
+    WorkOrder,
+    from_json,
+    to_json,
+)
+
+
+@dataclass
+class SessionMemory:
+    """A per-run container for the four function outputs.
+
+    Constructed empty; each function's setter (:meth:`set_work_order`
+    etc.) persists the full record to ``session_path`` after the
+    write. A reader can rehydrate from disk via
+    :meth:`from_path`.
+    """
+
+    session_path: Path
+    work_order: WorkOrder | None = None
+    research_bundle: ResearchBundle | None = None
+    change_plan: ChangePlan | None = None
+    candidate_diff: CandidateDiff | None = None
+
+    def set_work_order(self, work_order: WorkOrder) -> None:
+        self.work_order = work_order
+        self._persist()
+
+    def set_research_bundle(self, research_bundle: ResearchBundle) -> None:
+        self.research_bundle = research_bundle
+        self._persist()
+
+    def set_change_plan(self, change_plan: ChangePlan) -> None:
+        self.change_plan = change_plan
+        self._persist()
+
+    def set_candidate_diff(self, candidate_diff: CandidateDiff) -> None:
+        self.candidate_diff = candidate_diff
+        self._persist()
+
+    def to_payload(self) -> dict[str, Any]:
+        """Return the JSON-serialisable payload for this session."""
+        return {
+            "work_order": to_json(self.work_order) if self.work_order else None,
+            "research_bundle": (
+                to_json(self.research_bundle) if self.research_bundle else None
+            ),
+            "change_plan": (to_json(self.change_plan) if self.change_plan else None),
+            "candidate_diff": (
+                to_json(self.candidate_diff) if self.candidate_diff else None
+            ),
+        }
+
+    def _persist(self) -> None:
+        self.session_path.parent.mkdir(parents=True, exist_ok=True)
+        self.session_path.write_text(
+            json.dumps(self.to_payload(), sort_keys=True, indent=2),
+            encoding="utf-8",
+        )
+
+    @classmethod
+    def from_path(cls, path: Path) -> "SessionMemory":
+        """Rehydrate a SessionMemory from the on-disk JSON."""
+        if not path.is_file():
+            return cls(session_path=path)
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        session = cls(session_path=path)
+        if payload.get("work_order"):
+            session.work_order = from_json(payload["work_order"])
+        if payload.get("research_bundle"):
+            session.research_bundle = from_json(payload["research_bundle"])
+        if payload.get("change_plan"):
+            session.change_plan = from_json(payload["change_plan"])
+        if payload.get("candidate_diff"):
+            session.candidate_diff = from_json(payload["candidate_diff"])
+        return session
+
+
+__all__ = ["SessionMemory"]
+
+
+_MODULE_KNOT = _module_knot()
+register_module_knot(__name__, _MODULE_KNOT)
+
+
+# RACT 0.5.0

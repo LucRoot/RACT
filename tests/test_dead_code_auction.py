@@ -282,6 +282,31 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("cache.py")
     allowlist.add("chunk.py")
     allowlist.add("query_trace.py")
+    # v0.5 memory-discipline module_06 (ADR-0036): the four function
+    # contracts + shared plumbing at ``ract.memory.functions.*`` +
+    # ``ract.memory.session`` are consumed by ``tests/memory/`` and by
+    # memory-discipline module_07 (playbook composition) + module_09
+    # (SubstrateLoop wiring). The shipped-CLI call site lands in
+    # module_09. Allowlist mirrors the transitional-substrate pattern
+    # above until module_09 lands the live wiring. The prompt-loader
+    # + provider adapter + errors + mock provider are also allowlisted
+    # here (all consumed by tests today; live wiring in module_09).
+    allowlist.add("contracts.py")
+    allowlist.add("intake.py")
+    allowlist.add("plan.py")
+    allowlist.add("edit.py")
+    allowlist.add("provider_adapter.py")
+    allowlist.add("prompts_loader.py")
+    allowlist.add("mock_provider.py")
+    allowlist.add("session.py")
+    # ``research.py`` is also a memory-discipline module_06 file, but
+    # its basename collides with no other tracked module and it is
+    # imported by ``ract.memory.functions.__init__``. Allowlist it
+    # here for parity with the sibling four verbs.
+    allowlist.add("research.py")
+    # ``errors.py`` is used by ``ract.memory.functions.__init__`` but
+    # basename collides with no other tracked module.
+    allowlist.add("errors.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
