@@ -171,6 +171,38 @@ from ract.memory.walker import (
 )
 from ract.memory.watcher import SymbolIndexWatcher, WatcherStats
 from ract.memory.session import SessionMemory
+from ract.memory.failure_records import (
+    AggregateReport as FailureAggregateReport,
+    FailureRecord,
+    NarrowingProposal,
+    aggregate as aggregate_failures,
+    append_applied_narrowing,
+    failure_from_phase_record,
+    read_all as read_all_failures,
+    write as write_failure_record,
+)
+from ract.memory.repo_fingerprint import (
+    RepoFingerprint,
+    RetrievalDefaults,
+    compute as compute_repo_fingerprint,
+    read as read_repo_fingerprint,
+    retrieval_defaults_from_fingerprint,
+    write as write_repo_fingerprint,
+)
+from ract.memory.probes import (
+    AdherenceProbe,
+    AdherenceProbeReport,
+    CoherenceProbe,
+    CoherenceProbeReport,
+    ModelCapability,
+    NeedleProbe,
+    NeedleProbeReport,
+    ProbeReports,
+    ProbeScheduler,
+    read_capability_record,
+    run_all_probes,
+    write_capability_record,
+)
 
 
 __all__ = [
@@ -252,8 +284,34 @@ __all__ = [
     "WatcherStats",
     "WhitespaceTokenEstimator",
     "WideningRefusedError",
+    "AdherenceProbe",
+    "AdherenceProbeReport",
+    "CoherenceProbe",
+    "CoherenceProbeReport",
+    "FailureAggregateReport",
+    "FailureRecord",
+    "ModelCapability",
+    "NarrowingProposal",
+    "NeedleProbe",
+    "NeedleProbeReport",
+    "ProbeReports",
+    "ProbeScheduler",
+    "RepoFingerprint",
+    "RetrievalDefaults",
+    "aggregate_failures",
+    "append_applied_narrowing",
     "apply_composition_override",
     "apply_runtime_narrowing",
+    "compute_repo_fingerprint",
+    "failure_from_phase_record",
+    "read_all_failures",
+    "read_capability_record",
+    "read_repo_fingerprint",
+    "retrieval_defaults_from_fingerprint",
+    "run_all_probes",
+    "write_capability_record",
+    "write_failure_record",
+    "write_repo_fingerprint",
     "available_languages",
     "build_from_files",
     "bundle_file_paths",

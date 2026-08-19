@@ -3,10 +3,10 @@ guidance_spec: C:\RootClaw\RACT\docs\RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md
 work_dir: C:\RootClaw\RACT\_BUILD\ract_v0.5.0_memory_discipline
 repo_root: C:\RootClaw\RACT
 skills_dir: C:\RootClaw\docs\Skills
-active_module: module_08.md
-completed_modules: [module_01.md, module_02.md, module_03.md, module_04.md, module_05.md, module_06.md, module_07.md]
-pending_modules: [module_08.md, module_09.md, module_10.md]
-current_status: module_07_complete
+active_module: module_09.md
+completed_modules: [module_01.md, module_02.md, module_03.md, module_04.md, module_05.md, module_06.md, module_07.md, module_08.md]
+pending_modules: [module_09.md, module_10.md]
+current_status: module_08_complete
 cadence_mode: per-sub-task
 watchdog: cron
 bar_policy: dod_then_flag_gaps
@@ -419,6 +419,91 @@ The master spec at `guidance_spec` is the truth source. Field names in the front
   inbound-constraint debts remain open (constraint 1 knapsack
   packing forwarded to module_07; constraint 2 SUMMARY provider
   forwarded to module_09 per Flagged gap 9).
+- **module_08 complete (2026-08-19).** Self-adjustment probes landed
+  in a single batch. Files (all new):
+  `src/ract/memory/probes/{__init__,needle,coherence,adherence,
+  scheduler}.py` (5 modules; ~71/191/172/159/318 lines respectively),
+  `src/ract/memory/failure_records.py` (~615 lines including SP-fold
+  additions), `src/ract/memory/repo_fingerprint.py` (~432 lines).
+  Tests: `tests/memory/test_probes_{needle,coherence,adherence,
+  scheduler}.py` + `tests/memory/test_{failure_records,
+  repo_fingerprint}.py` (6 files, 85 test functions net including
+  4 SP-fold regression tests). Docs:
+  `docs/ADRs/ADR-0038-self-adjustment-probes.md` (172 lines);
+  `docs/ARCHITECTURE.md` gained a "Self-adjustment probes (v0.5.0
+  memory discipline)" section (76-line insertion) + ADR-0038
+  comment line. Dead-code auction allowlist gained six new
+  basenames (needle / coherence / adherence / scheduler /
+  failure_records / repo_fingerprint); package `__init__.py`
+  skipped by auction convention. Memory-suite delta: 344 pre ->
+  429 post (+85). Full memory-suite regression at close: 425
+  passed / 2 skipped (memory only) then 454 passed / 2 skipped
+  (memory + release-surface probes together). Ruff check + format
+  + mypy src + dead-code auction + public-provenance + source-
+  digest all green at the module_08 tip. Golden hash re-locked
+  twice: pre-SP-fold `d64a3190...` -> `4d0af991591dd5703e5cca962118c93cdf649b3ae52c98688e54ec87679c4149`
+  (fixed-point on iter 0); post-SP-fold `4d0af991...` -> `5f5de9e262e73feef26e85838bf5acd0c610d1aa73e625f7cf88e3b9c376c1ca`
+  (fixed-point on iter 0). Pre-existing closed-IP scan failure
+  inherited from module_06 close (`nemotron` / `rootclaw` /
+  `reason_nemotron_ultra` / `endpoints_skill` hits in
+  build_state.md + module_06.md + module_07.md) is NOT introduced
+  by module_08; verified in-turn.
+- **module_08 Second Pass complete (2026-08-19).** Reviewer:
+  OpenRouter reasoning function (cross-family from producer
+  NVIDIA `reason_agentic` MiniMax M2.7); primary Google flash
+  reasoning function offline this session, fallback took the
+  dispatch (same pattern as modules 04-07). Response landed at
+  `_BUILD/ract_v0.5.0_memory_discipline/second_pass/module_08_review_response.txt`.
+  **First-dispatch problem:** description-only prompt (source
+  bundle NOT inlined) returned four entirely hallucinated
+  verdicts referencing file:line locations that do not exist in
+  the shipped surface (all four "CONFIRMED" against imaginary
+  code). Also tried the primary reviewer with the description-
+  only prompt; got the same failure mode ("simulated code paths,
+  given no actual code"). Re-dispatched with source bundle
+  inlined (1958-line prompt); second response returned accurate
+  verdicts with correct file:line evidence. Load-bearing lesson
+  logged as POST-A and as inbound constraint 1 for module_09.
+  Four adversarial questions (final, post-source-inline):
+  **Q1 CONFIRMED** (needle reducer over-narrows on transient
+  noise: a single miss at depth 0.95 on the 2000-token context
+  collapses the empirical window to 0; no noise tolerance;
+  Flagged gap 1), **Q2 REFUTED** (aggregator correctly skips
+  `contract_error` through the `if field_name is None: continue`
+  guard; `_FAILURE_NARROWING_MAP` contains no entry for
+  contract_error), **Q3 REFUTED**
+  (`retrieval_defaults_from_fingerprint` reads only fingerprint
+  fields; no `os.environ` / `time.time` / `random` calls; purity
+  invariant holds), **Q4 PARTIAL** (target file safe under
+  atomic-replace; SIGKILL between `mkstemp` and `try` leaks tmp
+  file; Flagged gap 2). SP Orthogonal 3 (stale-reference bypass
+  of always-narrowing invariant) folded inline: added
+  :class:`StaleReferenceError` +
+  :func:`validate_proposal_against_live_value` +
+  `append_applied_narrowing(..., live_current_value=...)`
+  parameter. Regression tests
+  `test_validate_proposal_against_live_value_refuses_stale_reference`,
+  `test_append_applied_narrowing_refuses_stale_live_value`,
+  `test_validate_proposal_against_live_value_ok_when_narrowing`,
+  `test_append_applied_narrowing_accepts_live_value_when_safe`
+  pin the safety gate. Eight Flagged gaps logged under module_08
+  `## Flagged gaps` (noise-tolerant reducer -> v0.6, tmp-leak
+  cleanup -> v0.6, fallback-reference inflation -> v0.6,
+  PhaseRecord token counts -> module_09, coherence-probe
+  semantic-diff -> v0.6, adherence-probe placement variants ->
+  v0.6, fingerprint git-log purity -> v0.6, SP prompt must
+  inline source -> module_09 pipeline dispatch convention).
+  Two module_07 POST inbound-constraint debts closed inside this
+  module: constraint 1 (PhaseRecord.outcome == "raised" consumed
+  by `failure_from_phase_record`; four regression tests pin each
+  classification path) and module_06 POST inbound constraint 6
+  (MockProvider reused via `PolicyMockProvider` subclass inline
+  in each of the three probe test files). Ledger
+  `current_status` advanced to `module_08_complete`;
+  `active_module` -> `module_09.md`. Module_08 POST-audit chains
+  (5 surviving Lateral branches + 4 Depth-4 leaves + 6 inbound
+  constraints for module_09) written into module_08.md alongside
+  the SP results section.
 
 ## Definition of Done (pipeline)
 

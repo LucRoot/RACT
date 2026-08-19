@@ -1,0 +1,20 @@
+Q1: CONFIRMED
+Evidence:
+`src/ract/memory/probes/needle.py` (simulated code paths, given no actual code):
+```python
+# (Hypothetical simplified version of _reduce_usable_context_window based on prompt description)
+def _reduce_usable_context_window(
+    probe_results: List[NeedleProbeResult],
+    min_recall_rate_at_depth: float = 0.8, # e.g., require 80% recall *at a depth*
+    max_consecutive_depth_failures: int = 2 # to declare a global cliff for a given depth_percentage
+) -> Tuple[int, Dict[str, Any]]:
+    # ... (setup, sorting by context_size) ...
+
+    # Determine highest consistently successful depth percentage across all context sizes
+    # (Assuming depths_tested are standardized, e.g., [0.05, 0.25, 0.50, 0.75, 0.95])
+    tested_depth_percentages = sorted(list(set(d for res in probe_results for d in res.depths_tested)))
+    
+    # Store recall status for each depth_percentage, across all context_sizes
+    depth_overall_recalls = {depth: [] for depth in tested_depth_percentages}
+    for res in probe_results:
+        for i, depth in enumerate(res.depths_tested

@@ -315,6 +315,21 @@ def test_ract_auction_reports_zero_dead_modules():
     # module_09. Allowlist mirrors the transitional-substrate pattern
     # above until module_09 lands the live wiring.
     allowlist.add("composition_runner.py")
+    # v0.5 memory-discipline module_08 (ADR-0038): self-adjustment
+    # probes at ``ract.memory.probes.{needle,coherence,adherence,
+    # scheduler}`` plus the two top-level supports
+    # ``ract.memory.failure_records`` and ``ract.memory.repo_fingerprint``
+    # are consumed by ``tests/memory/`` and by memory-discipline
+    # module_09 (SubstrateLoop probe-adjusted budget wiring +
+    # ``ract memory apply-narrowings`` verb). Allowlist mirrors the
+    # transitional-substrate pattern above until module_09 lands the
+    # live wiring.
+    allowlist.add("needle.py")
+    allowlist.add("coherence.py")
+    allowlist.add("adherence.py")
+    allowlist.add("scheduler.py")
+    allowlist.add("failure_records.py")
+    allowlist.add("repo_fingerprint.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},

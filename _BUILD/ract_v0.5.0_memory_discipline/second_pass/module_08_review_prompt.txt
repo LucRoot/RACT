@@ -1,0 +1,113 @@
+You are performing an adversarial Second Pass review of RACT v0.5.0
+memory-discipline module_08 (Self-adjustment probes: needle, coherence,
+adherence probes + failure-record aggregator + per-repo fingerprint).
+Producer was NVIDIA `reason_agentic` (MiniMax M2.7); you are the
+cross-family reviewer.
+
+Nightly recompilation and drift detection defer to v0.6 per master
+spec §Bounded scope. This module ships probe suites, the failure-
+record aggregator, the per-repo fingerprint, and an atomic capability
+record.
+
+## Master spec quote (v0.5.0 §Self-adjustment + §Repo fingerprint)
+
+Three probe suites at `src/ract/memory/probes/`:
+
+- Needle probe. Insert a specific fact at various depths in context of
+  increasing size. Ask a question requiring the fact. Measure recall.
+  Establishes empirical usable context window.
+- Coherence probe. Provide long context with subtle inconsistency.
+  Ask the model to identify it. Establishes reasoning quality at
+  length.
+- Instruction adherence probe. Provide long context with specific
+  instruction at beginning. Ask a question requiring the instruction.
+  Establishes instruction persistence.
+
+Probe results feed a `model_capability` record in
+`.rack/probes/capability.json`. Budgets derive from this record, not
+from static defaults, when the record is populated. Default budgets
+ship as fallback for a fresh install.
+
+Every function failure emits a structured record. Aggregated over time,
+patterns emerge. v0.5.0 ships the record shape and the aggregator; the
+automated nightly narrowing job defers to v0.6.
+
+Each repo builds a fingerprint over time: average function length,
+typical import depth, LSP response time distribution, test suite
+runtime. Fingerprint feeds retrieval defaults per repo. Persistence at
+`.rack/fingerprint/repo.json`.
+
+## Shipped surface
+
+- `src/ract/memory/probes/{__init__,needle,coherence,adherence,scheduler}.py`
+- `src/ract/memory/failure_records.py`
+- `src/ract/memory/repo_fingerprint.py`
+- `tests/memory/test_probes_{needle,coherence,adherence,scheduler}.py`
+- `tests/memory/test_failure_records.py`
+- `tests/memory/test_repo_fingerprint.py`
+- `docs/ADRs/ADR-0038-self-adjustment-probes.md`
+- `docs/ARCHITECTURE.md` gains a "Self-adjustment probes (v0.5.0
+  memory discipline)" section.
+
+Full memory suite green (425 passed / 2 skipped, +81 delta on 344
+pre-module_08 baseline). Ruff + mypy + auction + provenance all green;
+source-tree golden hash re-locked on iter 0.
+
+## Adversarial questions (answer each REFUTED / PARTIAL / CONFIRMED
+with concrete file:line evidence from the shipped surface)
+
+**Q1. Needle-probe cliff detection under noise.** Does the needle
+probe's `usable_context_window` reducer distinguish a real capability
+boundary from a transient miss (model noise)? Trace
+`_reduce_usable_context_window` (needle.py) plus the tests in
+`test_probes_needle.py`. Specifically: if the mock provider hits at
+depths [5%, 25%, 50%] but MISSES at [75%, 95%] for EVERY size (i.e.
+the "spec" test scenario in module_08.md `## Tests` step 8, first
+bullet), what does the shipped reducer return, and is that behavior
+what the spec-author intended? Name any code path where one bad
+response at a single depth silently inflates the narrowing proposal
+past what the signal supports.
+
+**Q2. Failure-aggregator attribution.** The `aggregate()` helper
+groups by `(function, failure_type)`. If ONE workflow-invalid failure
+(a WorkOrder with a malformed `request_type` that surfaces as
+`contract_error`) dominates the aggregate for a given function, does
+the shipped narrowing proposal correctly refuse to fire a budget
+narrowing (because contract_error is not in the shipped
+`_FAILURE_NARROWING_MAP`) or does it produce a spurious proposal
+attributing the data-shape issue to a budget issue? Trace
+`_FAILURE_NARROWING_MAP` (failure_records.py) and the aggregation loop
+that consumes it.
+
+**Q3. Fingerprint mapper purity.** The mapper
+`retrieval_defaults_from_fingerprint` feeds retrieval defaults per
+repo. Is the mapping pure (same fingerprint always produces same
+defaults), or does the mapper carry hidden state (module-level cache,
+random.Random, time.time, os.environ read) that could drift results
+run-to-run? Name any impure call.
+
+**Q4. Capability record atomic-write.** `write_capability_record`
+(scheduler.py) writes JSON. If the write is interrupted mid-file
+(process kill, disk full, permission drop between mkstemp and
+os.replace), does the next `read_capability_record` see the OLD file
+intact, a truncated file, or a corrupted file? Trace the tmp-file
+lifecycle, the fsync, the os.replace, and the exception-cleanup
+branch. Also: does the exception branch leak the tmp file when the
+process crashes between mkstemp and the try block?
+
+## Reply format
+
+For each question:
+
+```
+Q1: REFUTED | PARTIAL | CONFIRMED
+Evidence: <file:line references + short quotation of the code path>
+Fix (if PARTIAL / CONFIRMED): <specific code delta or "defer to
+v0.6 as Flagged gap N">
+```
+
+End with an "Orthogonal defects" section naming any additional
+issues the four adversarial questions did not surface. Also comment
+on the choice of always-narrowing invariant (rejects widening at
+construct time) — is there any adversarial path where the shipped
+code could bypass this invariant?

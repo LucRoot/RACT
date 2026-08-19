@@ -1238,6 +1238,63 @@ migration, code review, performance, dead-code, schema migration,
 config change) defer per master spec §Bounded scope; each sits
 downstream of one or more of the v0.6 verbs.
 
+## Self-adjustment probes (v0.5.0 memory discipline)
+
+Three probe suites at `src/ract/memory/probes/` measure provider
+behavior on the actual provider mix. Master spec §Self-adjustment;
+ADR-0038.
+
+- `needle.py` — needle-in-a-haystack recall across depths
+  (5% / 25% / 50% / 75% / 95%) and context sizes (2k / 4k / 8k /
+  16k tokens). Records `recall_at_depth` per pair and reduces to
+  `usable_context_window` (largest size at which every depth still
+  recalled).
+- `coherence.py` — subtle-inconsistency detection at each context
+  size. A hit requires the response to mention BOTH contradictory
+  tokens. Reduces to `reasoning_quality_bound` (largest size at
+  which the model still identified the inconsistency).
+- `adherence.py` — instruction persistence: a `CROW:` prefix
+  instruction seated at the beginning must survive to the response
+  at the end. Reduces to `persistence_bound`.
+
+The scheduler at `src/ract/memory/probes/scheduler.py` invokes the
+three probes with the same provider and sink, then reduces to a
+`ModelCapability` record written atomically to
+`.rack/probes/capability.json` (tmp + fsync + `os.replace`).
+`read_capability_record` returns `None` on missing file (fresh
+install path — module_01 spec defaults fire); malformed JSON or
+unsupported schema version raises `ValueError` so a corrupted file
+never silently reverts.
+
+Failure records (`src/ract/memory/failure_records.py`): every
+function failure appends one `FailureRecord` JSONL line to
+`.rack/failures/records.jsonl`. The record shape excludes prompt /
+response content by design (privacy invariant enforced at the
+type). `aggregate(root, window_days=7, current_budgets=None)` groups
+by `(function, failure_type)` inside the window and emits a
+`NarrowingProposal` per `(function, budget_field)` pair whose count
+reached `REPEATED_FAILURE_THRESHOLD` (3). Proposals refuse widening
+at construct time; `append_applied_narrowing` writes one audit line
+per applied narrowing to `.rack/failures/applied_narrowings.jsonl`.
+`failure_from_phase_record` bridges module_07's `PhaseRecord.outcome
+== "raised"` into the aggregator input (module_07 POST inbound
+constraint 1).
+
+Repo fingerprint (`src/ract/memory/repo_fingerprint.py`):
+`compute(root, symbols, graph, ...)` produces a `RepoFingerprint`
+with average function tokens, average import depth per file, LSP
+response-time percentiles, test-suite runtime, and commit frequency
+per week. Fresh-repo fields (no LSP history, no test runtime)
+carry the `-1` sentinel; the pure-function mapper
+`retrieval_defaults_from_fingerprint` translates the fingerprint
+into `RetrievalDefaults` (cache TTL, neighborhood cap, per-symbol
+target). The mapper is pure over the fingerprint (Second Pass Q3
+invariant): same input always produces the same output.
+
+Nightly recompilation and the drift detector defer to v0.6 per
+master spec §Bounded scope. Module_09 wires the manual
+`ract memory apply-narrowings` verb.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -1265,3 +1322,4 @@ downstream of one or more of the v0.6 verbs.
 <!-- RACT 0.5.0: Retrieve primitive with four-level cascade (ADR-0035) -->
 <!-- RACT 0.5.0: Function contracts (ADR-0036) -->
 <!-- RACT 0.5.0: Playbook composition (ADR-0037) -->
+<!-- RACT 0.5.0: Self-adjustment probes + failure aggregator + repo fingerprint (ADR-0038) -->
