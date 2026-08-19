@@ -1,0 +1,61 @@
+**Q1. Bug-fix reproduce phase correctness — REFUTED**
+
+The reproduce phase **correctly refuses** on unreproducible bugs. No silent-proceed path exists.
+
+Evidence from `src/ract/memory/composition_runner.py`:
+- Lines 383–389: If no command source exists (explicit arg → phase YAML → derived from `success_criteria`), the runner raises `UnconfirmedBugError` with `"reproduce: no command available"`.
+- Lines 407–420: After `subprocess.run`, **`returncode == 0` raises `UnconfirmedBugError`** with `"reproduce: command exited zero: bug did not reproduce"`.
+- Lines 422–428: Only `returncode != 0` yields `outcome="ok"` and proceeds to plan.
+
+The `success_criteria` is **only used to derive a pytest command** (`_reproduce_command_from_success_criteria`, lines 436–448), never as a stand-in for actual reproduction. If derivation yields nothing, the phase refuses (line 389).
+
+---
+
+**Q2. Cross-language rename plan grouping — PARTIAL**
+
+The runner **groups by `file_path` only** and treats all files uniformly. **No LSP language dispatch is invoked in the runner.**
+
+Evidence:
+- `_group_manifest_by_file` (lines 553–562): Groups `SymbolRef` solely by `ref.file_path` string. No language field is consulted.
+- `_run_edit_loop` (lines 485–550): Iterates grouped files, builds a `sub_plan` per file, calls `edit_fn(sub_plan, ...)` identically for every file.
+- The refactor_rename YAML (`src/ract/memory/playbooks/refactor_rename.yaml`) declares no language-aware retrieval overrides or LSP hints.
+
+**Consequence**: A mixed-language rename (Python `User` + TypeScript `User`) *will* produce two file groups and two `edit_fn` calls — but **language-specific reference resolution (LSP) is entirely delegated to `edit_fn`**. The runner itself does not dispatch per language. If `edit_fn` lacks cross-language awareness, one language's references may be missed silently.
+
+---
+
+**Q3. Extract target `OversizeTargetError` boundary — PARTIAL**
+
+The playbook **fails loudly with `OversizeTargetError`** when *any* `BoundedContextError` surfaces during edit for `refactor_extract` — but it **does not distinguish** "target alone exceeds budget" from "target + neighborhood exceeds budget."
+
+Evidence:
+- `_run_edit_single` (lines 352–380): Catches `MemoryFunctionError`, checks `spec.name == "refactor_extract" and _is_bounded_context(exc)` (line 363), then wraps in `OversizeTargetError`.
+- `_is_bounded_context` (line 565): `return type(exc).__name__ == "BoundedContextError"` — fragile string match on exception class name.
+- The edit function (module_06) enforces budget on the **entire composed context** (target + neighborhood). The runner cannot tell which component overflowed.
+
+**Spec gap**: Master spec §Refactor:extract (Lateral Chain branch C) says "refuses cascade for the target function… if FULL doesn't fit, fail with `OversizeTargetError`." The implementation fails on *any* budget overflow during edit, not specifically on target-only overflow. Neighborhood cascade downgrade behavior lives in `retrieve`/`edit` internals, not the runner.
+
+---
+
+**Q4. Directory-scan `list_playbooks` — CONFIRMED**
+
+Adding a fifth `.yaml` in `src/ract/memory/playbooks/` **is discovered automatically** without code changes.
+
+Evidence from `src/ract/memory/playbooks/__init__.py`:
+- Line 21: `PLAYBOOKS_DIR = Path(__file__).resolve().parent`
+- Lines 24–36: `list_playbooks()` scans `PLAYBOOKS_DIR.iterdir()`, filters `suffix.lower() == ".yaml"`, returns sorted stems.
+- Lines 39–62: `load_playbook(name)` calls `list_playbooks()` to get the shipped set (line 48), then loads `PLAYBOOKS_DIR / f"{name}.yaml"`.
+
+**No hard-coded name list exists.** A new `new_playbook.yaml` → `list_playbooks()` returns it → `load_playbook("new_playbook")` loads it.
+
+---
+
+### Orthogonal defects observed
+
+| # | Defect | Location | Severity |
+|---|--------|----------|----------|
+| 1 | `_is_bounded_context` uses `type(exc).__name__ == "BoundedContextError"` — matches any exception with that class name across modules | `composition_runner.py:565` | Medium (fragile cross-module coupling) |
+| 2 | `edit_loop` detection uses phase **name string** (`"edit_loop"`) OR `per_iteration_budget` presence — inconsistent trigger | `composition_runner.py:197` | Medium (naming convention leak) |
+| 3 | `_apply_phase_budget_override` mutates global budget registry, discards returned `BudgetDeclaration` — concurrent playbook runs would race | `composition_runner.py:269–279` | High (global state mutation) |
+| 4 | `_run_edit_loop` applies phase budget override, then **immediately overwrites** `input_target` with `per_iteration_budget` on same registry entry | `composition_runner.py:505–510` | Medium (override ordering undefined) |
+| 5 | `test_refactor_rename_end_to_end` mocks `edit` once but expects 2 diffs — MockProvider likely returns same response twice, not testing per-file diff correctness | `tests/memory/test_playbook_refactor_rename.py:102–122` | Low (test coverage gap) |

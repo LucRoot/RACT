@@ -119,6 +119,15 @@ class OversizeTargetError(MemoryFunctionError):
     exceeds the input budget, the operator must reduce the function
     before extraction is attempted. The runner surfaces this as
     :class:`OversizeTargetError` naming the target.
+
+    Second Pass Q3 (PARTIAL) clarification: this error only surfaces
+    when module_06's ``edit._assemble_load_block`` raises
+    :class:`~ract.memory.functions.errors.BoundedContextError` — a
+    raise that happens ONLY at the target-only cascade tier
+    (edit.py:299-309, after FULL / SIGNATURE / BODY_ONLY non-target
+    downgrades already tried). The wrap therefore names the target-
+    only overflow accurately for the ``refactor_extract`` playbook;
+    neighborhood-only overflows never reach this raise site.
     """
 
 
@@ -916,7 +925,20 @@ def _run_edit_single(
     sink: EventSink,
     phase_records: list[PhaseRecord],
 ) -> CandidateDiff:
-    """Run a single edit call. Wraps :class:`BoundedContextError` for extract."""
+    """Run a single edit call. Wraps :class:`BoundedContextError` for extract.
+
+    Second Pass Q3 (PARTIAL) clarification: the wrap fires on any
+    ``BoundedContextError`` from the edit verb because module_06's
+    ``edit._assemble_load_block`` only raises ``BoundedContextError``
+    at the target-only tier (edit.py:299-309). The three earlier
+    cascade tiers (FULL for everyone, FULL-for-targets +
+    SIGNATURE-for-non-targets, FULL-for-targets +
+    BODY_ONLY-for-non-targets) return a rendered block silently when
+    they fit; a raised ``BoundedContextError`` therefore names the
+    target-only overflow condition exactly. The
+    :class:`OversizeTargetError` message is accurate for the
+    ``refactor_extract`` playbook (Lateral Chain branch C).
+    """
     emit_budget_declared(
         sink,
         {

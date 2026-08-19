@@ -286,6 +286,86 @@ def test_ambiguity_flag_surfaces_in_phase_record(tmp_path: Path) -> None:
     assert any("ambiguity_flag" in note for note in intake_record.notes)
 
 
+def test_edit_loop_groups_by_file_across_languages(tmp_path: Path) -> None:
+    """Second Pass Q2 (PARTIAL) regression: a manifest touching Python +
+    TypeScript files produces one edit per file group. LSP dispatch itself
+    delegates to module_09 wiring (per master spec §Refactor: rename
+    Lateral Chain branch B); the runner grouping stays language-neutral.
+    """
+
+    class RecordingProvider:
+        def __init__(self) -> None:
+            self.edit_calls: list[str] = []
+            self.static: dict[str, str] = {
+                "intake": _canned_intake_clean(),
+                "research": _canned_research(),
+                "plan": _canned_plan(["user.py", "user.ts", "user.rs"]),
+            }
+            self._edit_rotation = ("user.py", "user.ts", "user.rs")
+
+        def send(self, prompt: str, declaration) -> str:
+            function = getattr(declaration, "function", "")
+            if function in self.static:
+                return self.static[function]
+            # Rotate through the three files in edit_loop order; the
+            # runner iterates the manifest in file_path order so each
+            # sub_plan's load_manifest names exactly one file, and the
+            # nth edit call corresponds to the nth grouped file.
+            index = len(self.edit_calls) % len(self._edit_rotation)
+            file_path = self._edit_rotation[index]
+            self.edit_calls.append(file_path)
+            return _canned_edit(file_path)
+
+    provider = RecordingProvider()
+    spec = load_playbook("refactor_rename")
+    result = run_playbook(
+        spec,
+        "rename User across languages",
+        tmp_path,
+        provider,
+        IndexBundle(),
+        intake_context=IntakeContext(repo_root=tmp_path),
+    )
+    assert len(result.edits) == 3
+    assert set(provider.edit_calls) == {"user.py", "user.ts", "user.rs"}
+
+
+def test_extract_wraps_only_at_target_only_tier(tmp_path: Path) -> None:
+    """Second Pass Q3 (PARTIAL) regression: OversizeTargetError only fires
+    when module_06's edit raises BoundedContextError, which happens only at
+    the target-only cascade tier per edit.py:299-309. An
+    :class:`InvalidSyntaxError` (from an invalid diff response) propagates
+    without being misclassified as an oversize target.
+    """
+    from ract.memory.composition_runner import OversizeTargetError
+    from ract.memory.functions import InvalidSyntaxError
+
+    provider = MockProvider(
+        responses_by_function={
+            "intake": _canned_intake_clean(),
+            "research": _canned_research(),
+            "plan": _canned_plan(["greet.py"]),
+            "edit": "not valid json at all",
+        }
+    )
+    spec = load_playbook("refactor_extract")
+    raised: Exception | None = None
+    try:
+        run_playbook(
+            spec,
+            "extract helper from greet",
+            tmp_path,
+            provider,
+            IndexBundle(),
+            intake_context=IntakeContext(repo_root=tmp_path),
+        )
+    except InvalidSyntaxError as exc:
+        raised = exc
+    assert isinstance(raised, InvalidSyntaxError)
+    # And explicitly: OversizeTargetError would NOT be raised here.
+    assert not isinstance(raised, OversizeTargetError)
+
+
 def test_iteration_bound_exceeded_raises(tmp_path: Path) -> None:
     """A plan whose manifest exceeds iteration_bound refuses the loop."""
     file_paths = [f"file_{i}.py" for i in range(5)]

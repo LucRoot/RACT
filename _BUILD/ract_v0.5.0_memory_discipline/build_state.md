@@ -330,8 +330,50 @@ The master spec at `guidance_spec` is the truth source. Field names in the front
   close (nemotron / rootclaw / reason_nemotron_ultra /
   endpoints_skill hits in build_state.md + module_06.md) is
   NOT introduced by module_07; verified in-turn by stash + rerun.
-  Second Pass pending (dispatch queued). Ledger `current_status`
-  advanced to `module_07_complete`; `active_module` -> `module_08.md`.
+  Ledger `current_status` advanced to `module_07_complete`;
+  `active_module` -> `module_08.md`.
+- **module_07 Second Pass complete (2026-08-19).** Reviewer:
+  OpenRouter `reason_nemotron_ultra` NVIDIA 550B (cross-family
+  fallback from Google Gemini flash reasoning function primary,
+  which was offline this session — same dispatch pattern as
+  module_04 / module_05 / module_06). Response landed at
+  `_BUILD/ract_v0.5.0_memory_discipline/second_pass/module_07_review_response.txt`.
+  Four adversarial questions: **Q1 REFUTED** (bug_fix reproduce
+  correctly refuses on unreproducible), **Q2 PARTIAL** (runner
+  groups by file_path only; LSP dispatch delegated downstream),
+  **Q3 PARTIAL** (OversizeTargetError wraps any edit-side
+  BoundedContextError, but module_06's edit only raises at the
+  target-only cascade tier so the wrap is accurate), **Q4
+  CONFIRMED** (directory-scan `list_playbooks` discovers a fifth
+  YAML without code edits). Q2 + Q3 folded inline: docstring
+  clarifications at `_run_edit_single` +
+  `OversizeTargetError.__doc__` naming the module_06 edit.py
+  cascade-tier invariant; two regression tests
+  `test_edit_loop_groups_by_file_across_languages` +
+  `test_extract_wraps_only_at_target_only_tier` pin the fixes.
+  Memory-suite post-fold: 344 passed / 2 skipped (was 342
+  pre-fold; +2 regression tests). Golden hash re-locked
+  `653fd331...` → `d64a3190a32e3427f199d490559009674c8cac1f30e7213cfff1cdea6e4bbbff`
+  (fixed-point on iter 0). Ruff + format + mypy on module_07
+  surface + full memory suite all green post-fold. Reviewer
+  orthogonal defects: (#1 fragile isinstance-bridge) intentional
+  cross-module bridge documented in helper; (#2 edit_loop trigger
+  double convention) Flagged gap 2; (#3/#4 budget-override
+  discard) documented in helper docstring, Flagged gap 3;
+  (#5 rename E2E uniformity) closed by
+  `test_edit_loop_groups_by_file_across_languages`.
+  Module_07 POST-audit chains written (3 surviving Lateral
+  branches A/B/C + 4 Depth-4 leaves against landed code with
+  file:line citations + 6 inbound constraints for modules 08/09).
+  8 Flagged gaps logged under module_07 `## Flagged gaps`
+  (LSP dispatch, edit_loop trigger, budget-override forwarding,
+  plan mid_invocation_queries wiring, reproduce shell hardening,
+  session-memory single-writer, knapsack packing, SUMMARY
+  adapter). Two module_06 POST inbound-constraint debts closed
+  inside this module: constraint 1 (ambiguity-flag route —
+  emits + phase-record note per POST-A) and constraint 2 partial
+  (retrieval_overrides parsed at YAML load; full RetrievalQuery
+  forwarding forwarded to module_09 per Flagged gap 4).
 - **module_06 complete (2026-08-19).** Four function contracts
   (intake / research / plan / edit) landed. Files (all new):
   `src/ract/memory/functions/{__init__,contracts,errors,intake,
