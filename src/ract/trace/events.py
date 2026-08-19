@@ -87,6 +87,17 @@ EventKind = Literal[
     # Plan mutation + pre-execution advisory (cluster 2 findings 4 + 3)
     "plan.rewritten",
     "plan.risk_assessed",
+    # v0.5.0 memory discipline (module_09 §Signals items 11-13).
+    # Seven new kinds bump the closed vocabulary. Producers live in
+    # ``src/ract/memory/events.py`` (mirror-string constants there);
+    # this Literal is the load-bearing gate that closes at write time.
+    "budget.declared",
+    "budget.exceeded",
+    "retrieval.requested",
+    "retrieval.satisfied",
+    "retrieval.cascaded",
+    "retrieval.refused",
+    "probe.evaluated",
 ]
 
 

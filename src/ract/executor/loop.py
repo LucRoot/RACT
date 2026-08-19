@@ -75,6 +75,14 @@ class SubstrateStepSpec:
     for this step (worktree-only). ``handshake_ids`` names any handshakes
     whose resolution this step depends on — the transaction returns
     ``BLOCKED_ON_HANDSHAKE`` if any is unresolved at commit time.
+
+    ``metadata`` is a free-form dict the loop reads for optional wiring.
+    v0.5.0 memory discipline (module_09) reads
+    ``metadata["retrieval_bundle"]`` when present and threads the
+    bundle into the runner's context via a
+    ``retrieval.satisfied`` event at step start. A caller who does not
+    set the key sees today's behavior (deterministic non-model step or
+    a legacy step that pre-dates memory discipline).
     """
 
     step_id: bytes = field(default_factory=new_step_id)
@@ -84,6 +92,7 @@ class SubstrateStepSpec:
     handshake_ids: tuple[str, ...] = ()
     depends_on: tuple[bytes, ...] = ()
     commit_message: str = ""
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -227,6 +236,15 @@ class SubstrateLoop:
                 depends_on=spec.depends_on,
                 manifest=self.manifest,
             )
+
+            # module_09 (v0.5.0 memory discipline §Signals items 11-13):
+            # emit ``retrieval.satisfied`` at step start when the caller
+            # populated ``metadata["retrieval_bundle"]``. The bundle is
+            # passed through the step's context so the runner can
+            # inspect it; the loop's contract is JUST to surface the
+            # signal in the trace. A step without the key proceeds as
+            # today (deterministic non-model step or legacy step).
+            _maybe_emit_retrieval_satisfied(spec)
 
             # module_03: enter the OS-enforced sandbox for this step.
             # A manifest-less loop skips sandbox entry entirely so v0.3
@@ -399,6 +417,46 @@ def _fast_forward_head(repo_root: Path, new_sha: str) -> None:
         text=True,
         check=False,
     )
+
+
+def _maybe_emit_retrieval_satisfied(spec: SubstrateStepSpec) -> None:
+    """Emit ``retrieval.satisfied`` when ``spec.metadata`` carries a bundle.
+
+    Module_09 wiring. The bundle's ``total_tokens`` and
+    ``budget_used_pct`` land in the payload so the trace surface names
+    exactly what the model call consumed. Wrapped so a missing trace
+    writer never fails the step; the emit is a signal, not a gate.
+    """
+    bundle = None
+    try:
+        bundle = spec.metadata.get("retrieval_bundle") if spec.metadata else None
+    except AttributeError:
+        # spec.metadata is a non-dict value (test may pass an arbitrary
+        # object). Fail-quiet — the loop's contract is signal-only here.
+        return
+    if bundle is None:
+        return
+    total_tokens = getattr(bundle, "total_tokens", None)
+    budget_used_pct = getattr(bundle, "budget_used_pct", None)
+    call_id = getattr(bundle, "call_id", "")
+    payload: dict = {
+        "call_id": str(call_id),
+        "total_tokens": int(total_tokens) if total_tokens is not None else 0,
+        "budget_used_pct": (
+            float(budget_used_pct) if budget_used_pct is not None else 0.0
+        ),
+        "step_id": spec.step_id.hex(),
+    }
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            "retrieval.satisfied",  # type: ignore[arg-type]
+            payload,
+            step_id=spec.step_id,
+        )
+    except Exception:  # noqa: BLE001 — never fail the loop on a trace error
+        pass
 
 
 def _emit_step_event(record: StepRecord, kind: str) -> None:

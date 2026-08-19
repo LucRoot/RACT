@@ -3,10 +3,10 @@ guidance_spec: C:\RootClaw\RACT\docs\RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md
 work_dir: C:\RootClaw\RACT\_BUILD\ract_v0.5.0_memory_discipline
 repo_root: C:\RootClaw\RACT
 skills_dir: C:\RootClaw\docs\Skills
-active_module: module_09.md
-completed_modules: [module_01.md, module_02.md, module_03.md, module_04.md, module_05.md, module_06.md, module_07.md, module_08.md]
-pending_modules: [module_09.md, module_10.md]
-current_status: module_08_complete
+active_module: module_10.md
+completed_modules: [module_01.md, module_02.md, module_03.md, module_04.md, module_05.md, module_06.md, module_07.md, module_08.md, module_09.md]
+pending_modules: [module_10.md]
+current_status: module_09_complete
 cadence_mode: per-sub-task
 watchdog: cron
 bar_policy: dod_then_flag_gaps
@@ -504,6 +504,70 @@ The master spec at `guidance_spec` is the truth source. Field names in the front
   (5 surviving Lateral branches + 4 Depth-4 leaves + 6 inbound
   constraints for module_09) written into module_08.md alongside
   the SP results section.
+- **module_09 complete (2026-08-19).** Integration with existing
+  RACT landed in a single batch. Files (all new):
+  `src/ract/memory/cli_memory.py` (~330 lines),
+  `tests/memory/test_rootknot_retrieval_attestation.py` (~180 lines),
+  `tests/memory/test_g6_edit_under_edit_closure.py` (~110 lines),
+  `tests/memory/test_g7_edit_companion_review.py` (~60 lines),
+  `tests/memory/test_cli_memory_verbs.py` (~65 lines),
+  `tests/memory/test_event_kinds_extended.py` (~55 lines),
+  `tests/contracts/test_substrate_loop_retrieval_wiring.py`
+  (~160 lines). Files (extended):
+  `src/ract/trace/events.py` (+7 EventKind members),
+  `src/ract/core/rootknot.py` (+retrieval_attestation optional
+  field + bundle_digest helper),
+  `src/ract/executor/loop.py` (+metadata field on SubstrateStepSpec
+  + _maybe_emit_retrieval_satisfied helper),
+  `src/ract/antilazy/pre_commit.py` (+enforce_g6_edit +
+  enforce_g7_edit + CompanionProvider Protocol +
+  LazinessViolatedError + _normalize_file_path Q3 fold),
+  `src/ract/antilazy/__init__.py` (+exports),
+  `src/ract/cli.py` (+memory dispatch + retrieval query subverb
+  route + memory in CLI_VERBS),
+  `src/ract/memory/events.py` (+_assert_memory_kinds_subset_of_
+  legal Q2 fold). Docs: `docs/ADRs/ADR-0039-memory-discipline-
+  integration.md` (new); `docs/EVENTS.md` schema_version bumped
+  2→3 with seven kind schemas documented; `docs/ARCHITECTURE.md`
+  §Memory-discipline integration section added + ADR-0039
+  comment. Golden hash re-locked `5f5de9e2...` →
+  `2905a2b789aa9900398de7ce6924d32919dd532618a835c118841c8c3826b8b0`
+  (fixed-point on iter 0 after SP fold + ruff format pass).
+  Second Pass reviewer: DeepSeek `deepseek-chat` (further-fallback
+  this session — pipeline's primary and documented fallback
+  external reviewers both offline; no keys in env).
+  Response: 4 PARTIAL verdicts. **Q1 PARTIAL** (canonical-bytes
+  ordering audit — reviewer said no fix needed; deterministic
+  sort claim holds; Flagged gap 1 informative), **Q2 PARTIAL
+  fold landed inline** (MEMORY_EVENT_KINDS ↔ LEGAL_EVENT_KINDS
+  structural sync via import-time subset check at
+  `src/ract/memory/events.py`; regression test
+  `test_memory_kinds_subset_of_legal_kinds` pins the fix),
+  **Q3 PARTIAL fold landed inline** (path separator + prefix
+  normalization via `_normalize_file_path` at
+  `src/ract/antilazy/pre_commit.py`; regression tests
+  `test_backslash_vs_forward_slash_normalized` +
+  `test_leading_dot_slash_normalized` pin the fix), **Q4 PARTIAL
+  logged as Flagged gap 3** (atomic init for `ract memory init`
+  semantic stage; v0.6 audit for atomic-or-none). Memory-suite
+  post-fold: 452 passed / 2 skipped (was 449 pre-fold; +3
+  regression tests). Ruff check + format + mypy src +
+  source-digest + dead-code-auction + public-provenance all green.
+  Pre-existing closed-IP scan failure inherited from module_06
+  close is NOT introduced by module_09; verified by diff-only
+  grep (zero hits in the changed files). Six Flagged gaps
+  logged under module_09 `## Flagged gaps` (SP Q1 informative,
+  SP Q3 broader path-normalization sweep, SP Q4 atomic init,
+  three-index wiring for `ract retrieval query`, provider bridge
+  for MemoryFunctionProvider, SUMMARY provider adapter). 19+
+  additional inbound constraints from modules 01-08 POSTs
+  surveyed as integration polish deferred to v0.6 (judgment
+  call: module_09 ships the integration SHAPE; v0.6 ships the
+  polish). Ledger `current_status` advanced to
+  `module_09_complete`; `active_module` -> `module_10.md`.
+  Module_09 POST-audit chains (5 Lateral branches A-E + 4
+  Depth-4 leaves + 6 inbound constraints for module_10) written
+  into module_09.md alongside the SP results section.
 
 ## Definition of Done (pipeline)
 

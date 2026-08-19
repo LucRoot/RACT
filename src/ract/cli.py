@@ -134,6 +134,11 @@ CLI_VERBS: tuple[str, ...] = (
     "trace",
     "provenance",
     "source-digest",
+    # v0.5.0 memory discipline (module_09 §Integration surface).
+    # Three subverbs land under this: ``ract memory init``,
+    # ``ract memory apply-narrowings``, and ``ract retrieval query``
+    # (the last extends the existing ``retrieval`` verb, not this one).
+    "memory",
 )
 
 
@@ -394,6 +399,15 @@ def _retrieval_command(args: list[str]) -> int:
     invoking the management model. Works with the keyword adapter by default and
     web-search adapters when configured.
     """
+    # v0.5.0 memory discipline (module_09): route ``ract retrieval
+    # query ...`` to the new memory-side handler BEFORE the legacy
+    # search parser eats the argv. The two subverbs coexist under
+    # ``retrieval`` per PRE lateral chain branch E (verb collision
+    # closed by extending the shape, not renaming the verb).
+    if args and args[0] == "query":
+        from ract.memory.cli_memory import retrieval_query_command
+
+        return retrieval_query_command(args[1:])
     parser = argparse.ArgumentParser(prog="ract retrieval")
     parser.add_argument(
         "action",
@@ -3864,6 +3878,10 @@ def main(argv: list[str] | None = None) -> int:
         return _mcp_command(argv[1:])
     if argv and argv[0] == "retrieval":
         return _retrieval_command(argv[1:])
+    if argv and argv[0] == "memory":
+        from ract.memory.cli_memory import memory_command
+
+        return memory_command(argv[1:])
     if argv and argv[0] == "diff":
         return _diff_command(argv[1:])
     if argv and argv[0] == "explain":

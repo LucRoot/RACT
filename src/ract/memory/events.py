@@ -58,6 +58,36 @@ MEMORY_EVENT_KINDS: frozenset[str] = frozenset(
 )
 
 
+# Second Pass Q2 fold (module_09): structural sync between this
+# frozenset and the closed ``EventKind`` Literal in
+# ``ract.trace.events``. The check runs at import time so a future
+# vocabulary bump that forgets to mirror here fails loudly at first
+# import instead of silently rejecting valid emits through the
+# NullEventSink path. The assertion is one-way — every kind this
+# module claims to emit MUST be a member of the closed vocabulary.
+def _assert_memory_kinds_subset_of_legal() -> None:
+    """Refuse import if MEMORY_EVENT_KINDS drifts from LEGAL_EVENT_KINDS.
+
+    A one-way structural check: every kind this module emits must be
+    a legal member of the closed :data:`ract.trace.events.EventKind`
+    vocabulary. Guards against silent divergence where the memory
+    layer emits a kind the JsonlEventWriter later rejects, or vice
+    versa.
+    """
+    from ract.trace.events import LEGAL_EVENT_KINDS
+
+    drift = MEMORY_EVENT_KINDS - LEGAL_EVENT_KINDS
+    if drift:
+        raise RuntimeError(
+            "MEMORY_EVENT_KINDS drift from LEGAL_EVENT_KINDS: "
+            f"{sorted(drift)!r} not in closed vocabulary. "
+            "Bump ract.trace.events.EventKind alongside this module."
+        )
+
+
+_assert_memory_kinds_subset_of_legal()
+
+
 class EventSink(Protocol):
     """Protocol for the event sink an emitter helper writes through.
 

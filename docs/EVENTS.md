@@ -1,5 +1,5 @@
 ---
-schema_version: "2"
+schema_version: "3"
 ---
 
 # RACT event schema
@@ -314,4 +314,59 @@ The profile is intentionally shallow — a first line of defence for
 shared logs, not a data-loss-prevention layer. Deeper redaction is v0.5
 hardening (per ADR-0015).
 
-<!-- schema_version: 2 — module_06 v0.4.0 (added auction.proposal) -->
+## Memory discipline (module_09, v0.5.0)
+
+The seven kinds below extend the closed vocabulary per master spec
+§Signals items 11-13. Producers live in `src/ract/memory/events.py`
+(the module_01-08 helpers) and in `src/ract/executor/loop.py`
+(`retrieval.satisfied` when `SubstrateStepSpec.metadata["retrieval_
+bundle"]` is populated). Payload keys reflect the retrieve / budget
+/ probe surfaces landed in modules 01-08.
+
+### `budget.declared`
+
+Emitted when a memory-discipline function declares its per-invocation
+budget. Fields: `function` (string; intake/research/plan/edit),
+`declaration` (dict; `BudgetDeclaration.asdict`), `narrowing_log`
+(list of `BudgetNarrowing` dicts), `source` (composition | runtime |
+cli | default).
+
+### `budget.exceeded`
+
+Emitted by `refuse_over_ceiling` before the paired
+`BudgetExceededError` raise. Fields: `function` (string),
+`section_name` (string), `delta` (integer), `boundary` (`input_max`
+or `hard_ceiling`).
+
+### `retrieval.requested`
+
+Emitted by `retrieve()` at cascade entry. Fields:
+`canonical_query` (dict; `canonical_query_payload` output),
+`budget` (integer; retrieve-local sub-budget), `call_id` (hex).
+
+### `retrieval.satisfied`
+
+Emitted by `retrieve()` on a returned bundle AND by
+`SubstrateLoop.run_step` when the step's spec carries a bundle in
+`metadata["retrieval_bundle"]`. Fields: `call_id` (hex string),
+`total_tokens` (integer), `budget_used_pct` (float), and `step_id`
+(hex) on the loop-side emission.
+
+### `retrieval.cascaded`
+
+Emitted when the four-level retrieve cascade downgrades a level.
+Fields: `call_id` (hex), `from_level` (integer 1-4), `to_level`
+(integer 1-4), `reason` (string).
+
+### `retrieval.refused`
+
+Emitted when the retrieve cascade exhausts every level and returns
+an empty bundle. Fields: `call_id` (hex), `reason` (string).
+
+### `probe.evaluated`
+
+Emitted by the self-adjustment probe scheduler on each probe
+completion. Fields: `probe` (needle | coherence | adherence),
+`score` (float 0.0-1.0), `repo_fingerprint` (hex), `note` (string).
+
+<!-- schema_version: 3 — module_09 v0.5.0 (added seven memory-discipline kinds) -->

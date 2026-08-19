@@ -142,6 +142,16 @@ class Rootknot:
     # 3 = v0.4 ALM (v3 sidecar). Canonical bytes dispatch on this so a
     # v1 or v2 signature never breaks under v0.4-ALM code load.
     schema_version: int = 1
+    # v0.5.0 memory discipline (module_09): optional retrieval-bundle
+    # attestation. When non-``None`` this is the SHA-256 of the
+    # retrieval bundle the step's model call consumed (see
+    # ``ract.memory.retrieve.RetrievalBundle`` -> the digest is the
+    # ``bundle_digest`` helper below). The field is BACKWARD-COMPATIBLE:
+    # older v1/v2/v3 sidecars without the field verify unchanged
+    # because canonical_bytes() only includes ``retrieval_attestation``
+    # when it is set. See ADR-0040 and the sacred-spine test
+    # ``test_older_sidecar_still_verifies``.
+    retrieval_attestation: Digest | None = None
 
     # ------------------------------------------------------------------
     # Deprecated v0.3 alias for the field renamed by module_06.
@@ -204,6 +214,16 @@ class Rootknot:
             # them, so including it would be a chicken-and-egg loop.
             payload["gate_results"] = [gr.canonical_dict() for gr in self.gate_results]
             payload["reversal_taint"] = self.reversal_taint
+        # v0.5.0 memory discipline (module_09): retrieval_attestation is
+        # OPT-IN. It appears in the canonical bytes ONLY when it is set,
+        # so a sidecar produced before this field existed (or a v3
+        # constructor that does not pass the field) verifies unchanged
+        # under the schema-version dispatch above. The field is a
+        # trailing addition to the sorted-key payload; the sort-key
+        # position ("retrieval_attestation" > "reversal_taint" > ...)
+        # is deterministic under ``json.dumps(sort_keys=True)``.
+        if self.retrieval_attestation is not None:
+            payload["retrieval_attestation"] = self.retrieval_attestation.hex()
         return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
             "utf-8"
         )
@@ -232,6 +252,7 @@ class Rootknot:
             gate_results=self.gate_results,
             reversal_taint=self.reversal_taint,
             schema_version=self.schema_version,
+            retrieval_attestation=self.retrieval_attestation,
         )
 
     def attest_environment(self, sandbox_signer) -> Rootknot:  # type: ignore[no-untyped-def]
@@ -261,6 +282,7 @@ class Rootknot:
             gate_results=self.gate_results,
             reversal_taint=self.reversal_taint,
             schema_version=self.schema_version,
+            retrieval_attestation=self.retrieval_attestation,
         )
 
     def attest_antilazy(self, alm_signer) -> Rootknot:  # type: ignore[no-untyped-def]
@@ -302,6 +324,7 @@ class Rootknot:
             gate_results=self.gate_results,
             reversal_taint=self.reversal_taint,
             schema_version=self.schema_version,
+            retrieval_attestation=self.retrieval_attestation,
         )
 
     def verify(self, pubkey: bytes) -> bool:
@@ -423,6 +446,7 @@ def make_rootknot_v3(
     plan_id: PlanId | None = None,
     step_id: StepId | None = None,
     parent_digests: tuple[Digest, ...] = (),
+    retrieval_attestation: Digest | None = None,
 ) -> Rootknot:
     """Construct, sign, and triple-attest a v3 (v0.4 ALM) Rootknot.
 
@@ -456,12 +480,33 @@ def make_rootknot_v3(
         gate_results=tuple(gate_results),
         reversal_taint=reversal_taint,
         schema_version=3,
+        retrieval_attestation=retrieval_attestation,
     )
     return (
         unsigned.sign(key)
         .attest_environment(sandbox_signer)
         .attest_antilazy(alm_signer)
     )
+
+
+def bundle_digest(bundle_bytes: bytes) -> Digest:
+    """Return the SHA-256 :class:`Digest` of a retrieval bundle's bytes.
+
+    Module_09 helper. Callers hash the canonical projection of a
+    :class:`~ract.memory.retrieve.RetrievalBundle` (e.g. via
+    :func:`ract.memory.retrieve.bundle_to_cache_payload` +
+    ``json.dumps(sort_keys=True)``) and pass the resulting bytes to
+    this helper to build the ``retrieval_attestation`` value that
+    :func:`make_rootknot_v3` binds into the signed canonical bytes.
+
+    Kept as a small, dependency-free helper so
+    :mod:`ract.core.rootknot` does NOT import
+    :mod:`ract.memory.retrieve` — the sacred spine stays independent
+    of the memory-discipline layer.
+    """
+    import hashlib
+
+    return Digest(hashlib.sha256(bundle_bytes).digest())
 
 
 # RACT 0.4.0

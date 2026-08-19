@@ -17,7 +17,7 @@ over its inputs so tests can drive it without a live worktree.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from ract.antilazy.coverage import (
     DEFAULT_DELTA_MUT,
@@ -50,6 +50,7 @@ from ract.antilazy.symgraph import (
     UnderEditReport,
     compute_closure,
 )
+from ract.memory.functions.contracts import CandidateDiff, ChangePlan
 from ract.antilazy.testintegrity import (
     TestIntegrityReport,
     analyze_diff,
@@ -450,6 +451,190 @@ def enforce_g6(
     except Exception:  # noqa: BLE001
         pass
     return UnderEditGateOutcome(passed=False, should_roll_back=True, report=report)
+
+
+# ---------------------------------------------------------------------------
+# v0.5.0 memory discipline — G6 + G7 extensions for the ``edit`` function
+# ---------------------------------------------------------------------------
+#
+# Module_09 wires the four function contracts (module_06) into the ALM
+# gates: G6 (under-edit closure) grows an ``edit``-shaped path that
+# inspects the :class:`CandidateDiff`'s touched files against the
+# :class:`ChangePlan`'s ``load_manifest``; G7 (companion review) hands
+# the diff to a companion provider for a second-pair-of-eyes verdict.
+#
+# The legacy :func:`enforce_g6` above is UNCHANGED — a caller that
+# constructs no CandidateDiff (the v0.3/v0.4 loop, mainline substrate
+# runs that predate module_06's edit function) reaches the legacy
+# closure check exactly as today. The new helpers below are the shape
+# module_06's edit function calls at commit time. Lateral chain PRE
+# branch C: "when None, G6 falls back to its existing under-edit
+# closure check against the workspace snapshot" — that fallback is
+# the legacy :func:`enforce_g6` above; the new helpers require a
+# CandidateDiff by contract.
+
+
+class LazinessViolatedError(RuntimeError):
+    """Raised by the module_09 ALM edit-path gate helpers on failure.
+
+    ``kind`` is the machine-readable failure family the trace channel
+    also emits under ``laziness.violated``. The three module_09 kinds
+    are:
+
+    - ``under_edit_closure_gap`` — G6 on ``edit`` output: the
+      :class:`CandidateDiff` touched a file not named in the
+      :class:`ChangePlan`'s ``load_manifest``.
+    - ``companion_flagged`` — G7 on ``edit`` output: the companion
+      provider returned a negative verdict.
+    - ``diff_without_plan`` — a caller passed a :class:`CandidateDiff`
+      without the paired :class:`ChangePlan`; the gate refuses to
+      guess the manifest and rejects loudly rather than pass.
+    """
+
+    def __init__(self, message: str, *, kind: str) -> None:
+        self.kind = kind
+        super().__init__(message)
+
+
+class CompanionProvider(Protocol):
+    """Companion-provider protocol G7 calls to review a CandidateDiff.
+
+    Kept minimal on purpose. A conforming implementation returns a
+    tuple ``(approved: bool, reason: str)``. ``approved=False`` trips
+    :class:`LazinessViolatedError` with ``kind="companion_flagged"``.
+    Real bridges (module_06's :class:`MemoryFunctionProvider`,
+    :class:`ract.providers.base.ProviderAdapter`) land as thin adapters
+    outside this module.
+    """
+
+    def review(self, diff: CandidateDiff) -> tuple[bool, str]: ...
+
+
+def enforce_g6_edit(
+    diff: CandidateDiff | None,
+    plan: ChangePlan,
+    *,
+    step_id: bytes | None = None,
+) -> None:
+    """Run G6 (under-edit closure) against an ``edit`` output.
+
+    Refuses when ``diff`` touches a file outside ``plan.load_manifest``.
+    ``diff=None`` is the LEGACY-fallback signal — the caller has no
+    :class:`CandidateDiff` and must reach :func:`enforce_g6` above
+    with a :class:`SymbolGraph` / edited-symbol set instead. Passing
+    ``None`` here is a programming error the helper flags loudly so a
+    caller cannot silently bypass the gate.
+
+    Emits ``laziness.violated`` before raising so the trace channel
+    carries the reason.
+    """
+    if diff is None:
+        raise LazinessViolatedError(
+            "enforce_g6_edit: diff is None; the ALM edit-path gate "
+            "requires a CandidateDiff. Legacy callers reach "
+            "enforce_g6(transaction, graph, edited_symbols) instead.",
+            kind="diff_without_plan",
+        )
+    manifest_files = _load_manifest_files(plan)
+    touched = _diff_touched_files(diff)
+    outside = sorted(f for f in touched if f not in manifest_files)
+    if not outside:
+        return
+    payload = {
+        "kind": "under_edit_closure_gap",
+        "step_id": step_id.hex() if step_id is not None else "",
+        "files_outside_manifest": outside,
+        "manifest_size": len(manifest_files),
+        "diff_touched_files": sorted(touched),
+    }
+    _emit_laziness_violated(payload, step_id=step_id)
+    raise LazinessViolatedError(
+        f"under-edit closure gap: files outside load_manifest: {outside!r}",
+        kind="under_edit_closure_gap",
+    )
+
+
+def enforce_g7_edit(
+    diff: CandidateDiff,
+    companion: CompanionProvider,
+    *,
+    step_id: bytes | None = None,
+) -> None:
+    """Run G7 (companion review) against an ``edit`` output.
+
+    Refuses when ``companion.review(diff)`` returns ``(False, reason)``.
+    Emits ``laziness.violated`` before raising so the trace channel
+    carries the reason.
+    """
+    approved, reason = companion.review(diff)
+    if approved:
+        return
+    payload = {
+        "kind": "companion_flagged",
+        "step_id": step_id.hex() if step_id is not None else "",
+        "reason": reason,
+        "hunk_count": len(diff.hunks),
+        "output_tokens": diff.output_tokens,
+    }
+    _emit_laziness_violated(payload, step_id=step_id)
+    raise LazinessViolatedError(
+        f"companion review rejected the diff: {reason}",
+        kind="companion_flagged",
+    )
+
+
+def _normalize_file_path(raw: str) -> str:
+    """Return a canonical string for path-set membership checks.
+
+    Second Pass Q3 fold (module_09): raw ``SymbolRef.file_path`` and
+    ``HunkSummary.file_path`` values may arrive with mixed
+    separators (``\\`` from Windows LSPs, ``/`` from git diffs) or
+    with redundant components (``./foo/../foo/x.py``). Normalize
+    both sides identically so a genuine match is not silently
+    missed. Absolute vs relative paths still trip the check — that
+    is the intent (an absolute path outside the manifest IS an
+    under-edit closure gap).
+    """
+    if not raw:
+        return ""
+    return raw.replace("\\", "/").lstrip("./")
+
+
+def _load_manifest_files(plan: ChangePlan) -> set[str]:
+    """Return the set of normalized file paths named in ``plan.load_manifest``.
+
+    Each :class:`~ract.memory.functions.contracts.SymbolRef` in the
+    manifest carries a ``file_path`` field. The set is used for the
+    G6-edit membership check so a diff hunk against
+    ``foo.py:12`` verifies against the manifest's ``foo.py``.
+    """
+    files: set[str] = set()
+    for ref in plan.load_manifest:
+        file_path = getattr(ref, "file_path", None)
+        if file_path:
+            files.add(_normalize_file_path(str(file_path)))
+    return files
+
+
+def _diff_touched_files(diff: CandidateDiff) -> set[str]:
+    """Return the set of normalized file paths the diff's hunks touch."""
+    return {
+        _normalize_file_path(hunk.file_path) for hunk in diff.hunks if hunk.file_path
+    }
+
+
+def _emit_laziness_violated(payload: dict, *, step_id: bytes | None) -> None:
+    """Best-effort emit of ``laziness.violated`` for the module_09 edit path."""
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        _emit_event(
+            "laziness.violated",
+            payload,
+            step_id=step_id,
+        )
+    except Exception:  # noqa: BLE001 — never fail the gate on a trace error
+        pass
 
 
 # RACT 0.4.0

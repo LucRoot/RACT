@@ -87,7 +87,9 @@ from ract.antilazy.patchdiff import (
 )
 from ract.antilazy.pre_commit import (
     CoverageDeltaGateOutcome,
+    CompanionProvider,
     GateOutcome,
+    LazinessViolatedError,
     PatchDiffGateOutcome,
     TestIntegrityGateOutcome,
     UnderEditGateOutcome,
@@ -96,6 +98,8 @@ from ract.antilazy.pre_commit import (
     enforce_g4,
     enforce_g5,
     enforce_g6,
+    enforce_g6_edit,
+    enforce_g7_edit,
 )
 from ract.antilazy.symgraph import (
     CallEdge,
@@ -178,6 +182,10 @@ __all__ = [
     "enforce_g4",
     "enforce_g5",
     "enforce_g6",
+    "enforce_g6_edit",
+    "enforce_g7_edit",
+    "CompanionProvider",
+    "LazinessViolatedError",
     "enforce_trivial_rate_ceiling",
     "estimate_effort",
     "filter_equivalent",

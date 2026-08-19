@@ -1295,6 +1295,65 @@ Nightly recompilation and the drift detector defer to v0.6 per
 master spec §Bounded scope. Module_09 wires the manual
 `ract memory apply-narrowings` verb.
 
+## Memory-discipline integration (v0.5.0 module_09)
+
+Module_09 plumbs the module_01-08 substrate into the existing
+`SubstrateLoop`, the `Rootknot` provenance capability, the closed
+`EventKind` vocabulary, and the ALM pre-commit gates. Every wiring
+is opt-in per caller so v0.4.x runs see no behavior change.
+
+**SubstrateStepSpec.metadata is the wiring channel.** A caller who
+constructs `SubstrateStepSpec(metadata={"retrieval_bundle": bundle})`
+triggers `SubstrateLoop.run_step` to emit a `retrieval.satisfied`
+event at step start with the bundle's `total_tokens`,
+`budget_used_pct`, and `call_id`. A spec without the key produces no
+such event. The field is a plain `dict` (default empty), so v0.4.x
+constructors that never touch it see no signature change beyond the
+new keyword default.
+
+**Rootknot gains an optional `retrieval_attestation: Digest | None`
+field.** `make_rootknot_v3` accepts the field as a kwarg;
+`canonical_bytes()` includes it in the signed payload ONLY when the
+field is non-None. Older sidecars (v1, v2, v3 without the field)
+verify unchanged — the sacred-spine test
+`test_older_sidecar_still_verifies` pins this compatibility.
+`ract.core.rootknot.bundle_digest(bytes) -> Digest` is a small
+SHA-256 helper the retrieve wiring calls to build the attestation
+value; kept dependency-free so the sacred spine does not import
+`ract.memory.retrieve`.
+
+**Closed EventKind vocabulary grows by seven.** `budget.declared`,
+`budget.exceeded`, `retrieval.requested`, `retrieval.satisfied`,
+`retrieval.cascaded`, `retrieval.refused`, `probe.evaluated`.
+`LEGAL_EVENT_KINDS` auto-recomputes via `typing.get_args`; the
+`ract.memory.events.MEMORY_EVENT_KINDS` frozenset mirrors the new
+names for the module_01-08 helper surface. `docs/EVENTS.md`
+schema_version bumps 2 → 3 with the payload schemas.
+
+**ALM gates G6 + G7 extend to the ``edit`` function.**
+`enforce_g6_edit(diff, plan)` refuses when the diff touches a file
+outside `plan.load_manifest`. `enforce_g7_edit(diff, companion)`
+calls the companion's `.review(diff)` and refuses on `(False,
+reason)`. Both raise `LazinessViolatedError(kind=...)` and emit
+`laziness.violated`. Legacy `enforce_g6(transaction, graph,
+edited_symbols)` above is unchanged so v0.3/v0.4 callers keep
+working. `CompanionProvider` is a Protocol; concrete bridges (the
+`MemoryFunctionProvider` → `ProviderAdapter.complete` adapter) live
+outside `pre_commit.py`.
+
+**Three new CLI verbs.** `ract memory init <path>` runs initial
+builds over the symbol, graph, and semantic indexes for a repo
+(`--skip-semantic` skips the LanceDB build on offline / CI).
+`ract memory apply-narrowings [--dry-run]` invokes the failure-record
+aggregator (module_08) and writes proposed narrowings to
+`.ract/memory/budget_overrides.yaml`. `ract retrieval query <query>`
+extends the existing `ract retrieval` verb; the legacy `search`
+subverb is unchanged. `CLI_VERBS` gains `memory`.
+
+Reference: ADR-0039 for the design decisions and rejected
+alternatives; `_BUILD/ract_v0.5.0_memory_discipline/module_09.md` for
+the module fragment.
+
 ## Verification
 
 - Core invariants are exercised by property tests in `tests/property/`.
@@ -1317,6 +1376,7 @@ master spec §Bounded scope. Module_09 wires the manual
 <!-- RACT 0.4.0-rc1: Isomorphic Perturbation gate for rule-like intents (ADR-0024) -->
 <!-- RACT 0.5.0: Token budget system + budget accountant hard-ceiling refuse (ADR-0031) -->
 <!-- RACT 0.5.0: Symbol index — SQLite + tree-sitter + FTS5 + incremental file watcher (ADR-0032) -->
+<!-- RACT 0.5.0: Memory-discipline integration — SubstrateLoop metadata wiring + Rootknot retrieval_attestation + seven EventKind additions + ALM G6/G7 edit-path extensions + three CLI verbs (ADR-0039) -->
 <!-- RACT 0.5.0: Graph index — SQLite edges + multilspy LSP driver + symbol-only fallback (ADR-0033) -->
 <!-- RACT 0.5.0: Semantic index via LanceDB + local embedding model (ADR-0034) -->
 <!-- RACT 0.5.0: Retrieve primitive with four-level cascade (ADR-0035) -->
