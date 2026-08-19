@@ -140,10 +140,19 @@ Second Pass log; the module fragments record the fold decisions.
   `retrieval_attestation` field; older sidecars continue to verify
   under the v2 compatibility reader path. No signature added, no
   schema-version bump.
-- **ALM `enforce_g6` and `enforce_g7`** accept `CandidateDiff | None`;
-  older call sites that pass no diff receive a no-op pass. Path
-  normalization at `_normalize_file_path` closes the backslash /
-  leading-dot-slash Second-Pass finding.
+- **ALM `enforce_g6_edit` and `enforce_g7_edit`** land as edit-path
+  gate helpers.
+  `enforce_g6_edit(diff: CandidateDiff | None, plan, *, step_id=None)`
+  raises `LazinessViolatedError(kind="diff_without_plan")` when
+  `diff is None`, so a caller cannot silently bypass the under-edit
+  closure gate; legacy callers reach `enforce_g6(transaction, graph,
+  edited_symbols)` instead.
+  `enforce_g7_edit(diff: CandidateDiff, companion, *, step_id=None)`
+  requires a non-Optional `CandidateDiff` and raises
+  `LazinessViolatedError(kind="companion_flagged")` when the companion
+  provider rejects the review.
+  Path normalization at `_normalize_file_path` closes the
+  backslash / leading-dot-slash Second-Pass finding.
 - **`ract` CLI** learns `memory` and `retrieval` subverbs via the
   existing dispatch layer; existing verbs untouched.
 - **`docs/ARCHITECTURE.md`** gains nine new sections; every ADR-0031
@@ -182,6 +191,18 @@ from modules 01-08 POST chains to v0.6, on the judgment that
 module_09 ships the integration *shape* while v0.6 ships the
 *polish*. The load-bearing deferrals are:
 
+- **`retrieval_attestation` run-context binding (deferred to v0.5.1).**
+  The new `retrieval_attestation` field on the Rootknot generator
+  payload binds the retrieval bundle bytes but not the surrounding
+  run context. A valid signed knot can carry a byte-authentic bundle
+  attestation unbound to the `run_id`, `prompt_hash`, or
+  `workspace_snapshot_digest` under which it was produced, so a bundle
+  can be replayed into a different run context. Same replay-attack
+  vector the DeepSeek REVIEW_2 external-review pass identified during
+  Memory Discipline Rootknot review; the new field arrives with the
+  weakness rather than the fix. Unified-payload extension
+  (`run_id` + `prompt_hash` + `workspace_snapshot_digest` folded into
+  the signed surface) is queued as a v0.5.1 blocker.
 - **Three-index CLI query wiring.** `ract retrieval query` lands as a
   CLI skeleton; the actual retrieve primitive is invoked programmatically
   from `SubstrateLoop`. Wiring the CLI subverb to the three indexes
