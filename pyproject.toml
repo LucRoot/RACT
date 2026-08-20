@@ -49,6 +49,19 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "hypothesis>=6.0", "respx>=0.21", "ruff>=0.5,<0.16", "mypy>=1.11", "types-PyYAML>=6.0", "fastapi>=0.100", "email-validator>=2.0", "mutmut>=2.4", "jsonschema>=4.0"]
 embedding = ["sentence-transformers>=3.0,<6.0"]
+# v0.5.1 module_08 -- polyglot G5/G6 via tree-sitter. `tree-sitter`
+# itself is already a hard dep (memory-discipline module_02); the
+# grammar packages below are only needed to enable polyglot dead-code
+# + test-copy-paste detection on JS / TS / Rust / Go files. Absence
+# degrades to a WARN and Python-only behaviour.
+polyglot = [
+    "tree-sitter>=0.23,<0.27",
+    "tree-sitter-python>=0.25,<0.26",
+    "tree-sitter-javascript>=0.23,<0.26",
+    "tree-sitter-typescript>=0.23,<0.24",
+    "tree-sitter-rust>=0.24,<0.25",
+    "tree-sitter-go>=0.25,<0.26",
+]
 
 [project.scripts]
 ract = "ract.cli:main"

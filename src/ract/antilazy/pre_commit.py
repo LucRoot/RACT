@@ -637,4 +637,139 @@ def _emit_laziness_violated(payload: dict, *, step_id: bytes | None) -> None:
         pass
 
 
+# ---------------------------------------------------------------------------
+# module_08 (v0.5.1) — polyglot G5/G6 dispatch shims
+# ---------------------------------------------------------------------------
+#
+# The legacy :func:`enforce_g5` (test-integrity via AST diff) and
+# :func:`enforce_g6` (under-edit closure via SymbolGraph) above are
+# UNCHANGED and remain the loop's default gate wire. The two shims
+# below add polyglot dead-code + test-copy-paste detection as an
+# ADDITIVE surface, wired from the loop by callers that opt in through
+# the ``ract.antilazy`` package re-export. Preserving legacy behaviour
+# bit-for-bit is a hard module_08 constraint (regression: Python-only
+# workspace produces identical legacy-G5/legacy-G6 verdicts pre- and
+# post-module_08 because those code paths are untouched).
+
+
+@dataclass(frozen=True)
+class DeadCodePolyglotGateOutcome:
+    """Result of running the polyglot dead-code gate on a file set."""
+
+    passed: bool
+    should_roll_back: bool
+    # ``report`` typed as ``object`` to avoid a hard import cycle
+    # between ``ract.antilazy.pre_commit`` and the polyglot module at
+    # type-check time; the runtime shape is
+    # :class:`~ract.antilazy.dead_code_polyglot.DeadCodePolyglotReport`.
+    report: object
+
+
+@dataclass(frozen=True)
+class TestCopyPastePolyglotGateOutcome:
+    """Result of running the polyglot copy-paste gate on a file set.
+
+    ``__test__ = False`` keeps pytest from trying to collect this
+    dataclass on account of the ``Test`` prefix.
+    """
+
+    __test__ = False
+
+    passed: bool
+    should_roll_back: bool
+    # See :class:`DeadCodePolyglotGateOutcome`.
+    report: object
+
+
+def enforce_g5_dead_code_polyglot(
+    files: "Iterable[Path]",
+    *,
+    step_id: bytes | None = None,
+    threshold: int = 0,
+) -> DeadCodePolyglotGateOutcome:
+    """Run the polyglot dead-code gate over ``files``.
+
+    ``threshold`` is the maximum candidate count the caller tolerates;
+    default 0 means any dead-code candidate rolls back. Emits
+    ``laziness.violated`` with ``kind="dead_code_polyglot"`` on
+    failure. NEVER fails the loop on unsupported languages — those
+    land in the report's ``unsupported_languages`` field only.
+    """
+    from ract.antilazy.dead_code_polyglot import scan_dead_code  # noqa: PLC0415
+
+    report = scan_dead_code(files)
+    if report.passed(threshold=threshold):
+        return DeadCodePolyglotGateOutcome(
+            passed=True, should_roll_back=False, report=report
+        )
+    payload = {
+        "kind": "dead_code_polyglot",
+        "step_id": step_id.hex() if step_id is not None else "",
+        "candidate_count": len(report.candidates),
+        "sample_file": report.candidates[0].file if report.candidates else "",
+        "sample_identifier": (
+            report.candidates[0].identifier if report.candidates else ""
+        ),
+        "languages": sorted({c.language for c in report.candidates}),
+        "unsupported_languages": list(report.unsupported_languages),
+    }
+    _emit_laziness_violated(payload, step_id=step_id)
+    return DeadCodePolyglotGateOutcome(
+        passed=False, should_roll_back=True, report=report
+    )
+
+
+def enforce_g6_test_copy_paste_polyglot(
+    files: "Iterable[Path]",
+    *,
+    step_id: bytes | None = None,
+    jaccard_threshold: float = 0.85,
+    min_tokens: int = 6,
+    finding_threshold: int = 0,
+) -> TestCopyPastePolyglotGateOutcome:
+    """Run the polyglot test-copy-paste gate over ``files``.
+
+    ``jaccard_threshold`` and ``min_tokens`` tune the fingerprint
+    matcher; ``finding_threshold`` is the caller-tolerated max
+    finding count (default 0). Emits ``laziness.violated`` with
+    ``kind="test_copy_paste_polyglot"`` on failure.
+    """
+    from ract.antilazy.test_copy_paste_polyglot import (  # noqa: PLC0415
+        scan_test_copy_paste,
+    )
+
+    report = scan_test_copy_paste(
+        files,
+        jaccard_threshold=jaccard_threshold,
+        min_tokens=min_tokens,
+    )
+    if report.passed(threshold=finding_threshold):
+        return TestCopyPastePolyglotGateOutcome(
+            passed=True, should_roll_back=False, report=report
+        )
+    payload = {
+        "kind": "test_copy_paste_polyglot",
+        "step_id": step_id.hex() if step_id is not None else "",
+        "finding_count": len(report.findings),
+        "sample_a": (
+            f"{report.findings[0].a_file}:{report.findings[0].a_name}"
+            if report.findings
+            else ""
+        ),
+        "sample_b": (
+            f"{report.findings[0].b_file}:{report.findings[0].b_name}"
+            if report.findings
+            else ""
+        ),
+        "top_jaccard": report.findings[0].jaccard if report.findings else 0.0,
+        "tests_scanned": report.tests_scanned,
+        "languages": sorted({f.language for f in report.findings}),
+        "unsupported_languages": list(report.unsupported_languages),
+    }
+    _emit_laziness_violated(payload, step_id=step_id)
+    return TestCopyPastePolyglotGateOutcome(
+        passed=False, should_roll_back=True, report=report
+    )
+
+
 # RACT 0.4.0
