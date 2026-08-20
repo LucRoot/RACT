@@ -32,7 +32,7 @@ from ract.executor.tool_gate import (
     ToolRegistry,
 )
 from ract.security.sandbox_env import (
-    NEVER_PASSTHROUGH,
+    _is_never_passthrough,
     build_sandbox_env,
 )
 
@@ -210,11 +210,16 @@ def test_env_absent_from_result_unless_allowlisted(
     )
     union = set(passthrough)
     for name in env:
-        if name in union and name not in NEVER_PASSTHROUGH:
+        # SP Q3(a) amendment: predicate widened from exact-name
+        # ``NEVER_PASSTHROUGH`` set to case-insensitive prefix
+        # families via ``_is_never_passthrough``. Property test
+        # follows the same predicate.
+        if name in union and not _is_never_passthrough(name):
             # Present because it was allowlisted.
             assert result.env.get(name) == env[name]
         else:
-            # Absent because it was not on ANY allowlist.
+            # Absent because it was not on ANY allowlist (or was
+            # denied by the widened NEVER_PASSTHROUGH predicate).
             assert name not in result.env
 
 
