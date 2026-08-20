@@ -100,6 +100,14 @@ EventKind = Literal[
     "retrieval.cascaded",
     "retrieval.refused",
     "probe.evaluated",
+    # v0.5.1 module_07 (Historical Manifest Ledger, RK-3 durability).
+    # Emitted every time :class:`ract.security.manifest_ledger.ManifestLedger`
+    # successfully appends a new observation of an RK-3 environment
+    # attestation. Payload carries the ledger entry index, the
+    # manifest_digest observed, the prev_ledger_hash the entry
+    # references, and the number of tool ids invoked at ledger-append
+    # time. See ``_BUILD/ract_v0.5.1_external_review_response/module_07.md``.
+    "manifest.ledger.appended",
 ]
 
 

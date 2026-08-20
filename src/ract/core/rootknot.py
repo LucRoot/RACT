@@ -309,8 +309,17 @@ class Rootknot:
         module_06 step 3). The environment signature is over the same
         canonical bytes as the generator signature; RK-3 verifies both
         under distinct pubkeys.
+
+        v0.5.1 module_07 (Historical Manifest Ledger): after signing,
+        the fresh knot is offered to the ambient
+        :class:`ract.security.manifest_ledger.ManifestLedger` (bound
+        via :func:`ract.security.manifest_ledger.bind_ledger`). The
+        ledger observer is a NO-OP when no ledger is bound (test
+        fixtures, v1/v2/v3 knots, or callers that opt out by not
+        binding). The signed payload is unchanged -- the ledger is a
+        pure observer, not part of the RK-3 signed bytes.
         """
-        return Rootknot(
+        signed = Rootknot(
             plan_id=self.plan_id,
             step_id=self.step_id,
             assumption_digest=self.assumption_digest,
@@ -333,6 +342,24 @@ class Rootknot:
             prompt_digest=self.prompt_digest,
             run_id=self.run_id,
         )
+        # module_07 observer: the ledger consumes the freshly signed
+        # knot and appends an entry when an ambient ledger is bound.
+        # The local import breaks the security<-core cycle at import
+        # time (security.manifest_ledger already imports from core).
+        try:
+            from ract.security.manifest_ledger import (
+                record_environment_attestation,
+            )
+
+            record_environment_attestation(signed)
+        except Exception:  # noqa: BLE001 -- ledger failure never invalidates a signed knot
+            import logging
+
+            logging.getLogger("ract.core.rootknot").debug(
+                "manifest_ledger observer failed on attest_environment",
+                exc_info=True,
+            )
+        return signed
 
     def attest_antilazy(self, alm_signer) -> Rootknot:  # type: ignore[no-untyped-def]
         """Return a new Rootknot whose ``antilazy_signature`` is set.
