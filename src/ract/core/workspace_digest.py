@@ -77,15 +77,44 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
+class MetadataUnserialisableError(TypeError):
+    """Raised when ``WorkspaceSnapshot.metadata`` carries a value the
+    strict-JSON encoder cannot serialise deterministically.
+
+    Module_02 SP Q4 (external reviewer DEFECT verdict): the earlier
+    implementation passed ``default=str`` to :func:`json.dumps`, which
+    coerced ANY non-JSON type via ``str()``. For custom Python objects
+    without a stable ``__str__`` (memory addresses, random ids,
+    unordered sets), this made ``workspace_digest`` non-deterministic
+    — semantically identical snapshots hashed differently across runs.
+
+    The fix strips ``default=str`` and raises this error instead. The
+    caller must sanitise :attr:`ract.core.loop.WorkspaceSnapshot.metadata`
+    to JSON-native types (``str``, ``int``, ``float``, ``bool``,
+    ``list``, ``dict``, ``None``) before it enters the digest path.
+    This turns a silent-non-determinism defect into a loud attest-time
+    failure — the correct trade-off for a sacred-spine primitive.
+    """
+
+
 def _stable_metadata_hash(metadata: dict[str, Any]) -> str:
     """Return a stable hex hash of ``metadata`` values.
 
-    ``ws.metadata`` can carry non-JSON-serialisable side-channel values
-    (e.g. custom objects from evaluator subprocesses). ``default=str``
-    coerces them via ``str()`` — deterministic given a stable repr,
-    which is the invariant every Python callable respects.
+    Strict-JSON: only JSON-native types are accepted. Any other type
+    raises :class:`MetadataUnserialisableError`. This is the fix for
+    module_02 SP Q4 — the earlier ``default=str`` fallback made the
+    digest non-deterministic when metadata carried custom objects.
     """
-    payload = json.dumps(metadata, sort_keys=True, default=str, separators=(",", ":"))
+    try:
+        payload = json.dumps(metadata, sort_keys=True, separators=(",", ":"))
+    except TypeError as exc:
+        raise MetadataUnserialisableError(
+            "WorkspaceSnapshot.metadata carries a value that cannot be "
+            "serialised as strict JSON. workspace_digest requires JSON-native "
+            "types only (str, int, float, bool, list, dict, None). Sanitise "
+            "the metadata before it enters the digest path. Original error: "
+            f"{exc}"
+        ) from exc
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -118,6 +147,50 @@ def workspace_digest(ws: "WorkspaceSnapshot") -> Digest:
 # ---------------------------------------------------------------------------
 # prompt_digest helper
 # ---------------------------------------------------------------------------
+
+
+class PromptDigestMissingError(RuntimeError):
+    """Raised when a security-critical check requires a prompt_digest
+    that is absent from an :class:`ract.core.predicate.AcceptanceSuite`.
+
+    Module_02 SP Q6 (external reviewer DEFECT verdict): the
+    ``prompt_digest`` field on ``AcceptanceSuite`` is optional (default
+    ``None``) so v0.5.0 suites keep constructing. A partial-upgrade
+    window (v0.5.1 emit → v0.5.0 reader drops field → v0.5.1 code
+    receives suite with ``None``) would silently skip the T8
+    PROMPT_DRIFT check if the runtime tolerated ``None``. This helper
+    converts silent bypass into a loud failure — every v0.5.1-aware
+    security check must call :func:`require_prompt_digest` before
+    accepting a suite as legitimate.
+    """
+
+
+def require_prompt_digest(suite: Any) -> bytes:
+    """Return ``suite.prompt_digest``, raising when absent.
+
+    Every v0.5.1 security-critical check (T8 PROMPT_DRIFT in module_04
+    is the primary caller; RK-3 verify may also gate on it in v0.6+)
+    must route the field access through this helper so a
+    partial-upgrade path where the field was silently dropped cannot
+    silently skip the check. Raises
+    :class:`PromptDigestMissingError` when the field is ``None``.
+
+    Kept in :mod:`ract.core.workspace_digest` so it lives next to
+    :func:`compute_prompt_digest` — the two operate on opposite ends
+    of the same primitive (compute at write, require at verify).
+    """
+    digest = getattr(suite, "prompt_digest", None)
+    if digest is None:
+        intent_id = getattr(suite, "intent_id", b"")
+        intent_hex = intent_id.hex() if isinstance(intent_id, (bytes, bytearray)) else ""
+        raise PromptDigestMissingError(
+            f"AcceptanceSuite {intent_hex!r} has no prompt_digest but a "
+            "v0.5.1 security-critical check requires one. This can occur "
+            "when the suite was compiled by a pre-v0.5.1 IntentCompiler "
+            "or when a v0.5.0 reader silently dropped the field during "
+            "a partial-upgrade round-trip. Cannot proceed with the check."
+        )
+    return digest
 
 
 def compute_prompt_digest(intent_text: str) -> Digest:
@@ -329,11 +402,45 @@ class WorkspaceDigestChain:
         A malformed *middle* line raises
         :class:`WorkspaceChainCorruptError` — non-append corruption is
         not tolerable.
+
+        Module_02 SP Q5 fix (external reviewer DEFECT verdict): the
+        read path now takes the same exclusive file lock as the write
+        path for the duration of the snapshot read. This closes the
+        reader-vs-writer race the reviewer identified — a concurrent
+        writer's in-flight ``os.write`` (which is atomic per-write on
+        both POSIX and Windows for short lines) is either fully
+        visible or not present, but the lock guarantees the reader
+        never observes a torn state even under adversarial timing.
+        In-process threading contention is serialised by the same
+        ``self._thread_lock`` the write path uses.
         """
         if not self._chain_path.exists():
             return []
-        with open(self._chain_path, "rb") as fh:
-            raw = fh.read()
+        self._thread_lock.acquire()
+        try:
+            # Take the exclusive lock for the read snapshot too. Opening
+            # the file O_RDONLY is enough for a shared read; the lock
+            # is exclusive to match the write path's discipline (both
+            # branches lock the same 1-byte range at offset 0). Using
+            # ``os.open`` avoids the buffered ``open()`` wrapper so the
+            # fd we lock is the same fd we read from.
+            fd = os.open(self._chain_path, os.O_RDONLY | _BINARY_FLAG)
+            try:
+                _lock_exclusive(fd)
+                try:
+                    chunks: list[bytes] = []
+                    while True:
+                        chunk = os.read(fd, 65536)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                    raw = b"".join(chunks)
+                finally:
+                    _unlock(fd)
+            finally:
+                os.close(fd)
+        finally:
+            self._thread_lock.release()
         if not raw:
             return []
         # Strip a trailing single ``\n`` so we do not manufacture an

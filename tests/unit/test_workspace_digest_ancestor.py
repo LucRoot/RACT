@@ -167,3 +167,137 @@ def test_empty_chain_returns_empty_list(tmp_path: Path) -> None:
     assert chain.edges() == []
     assert chain.parent_of(_d(0xAA)) is None
     assert chain.is_ancestor(_d(0xAA), _d(0xBB)) is False
+
+
+# ---------------------------------------------------------------------------
+# SP-Q5 amendment: read-path holds the exclusive lock
+# ---------------------------------------------------------------------------
+
+
+def test_read_path_takes_exclusive_lock(tmp_path: Path) -> None:
+    """Amendment for SP Q5 DEFECT: edges() acquires the exclusive lock.
+
+    Verifies concurrent writer + reader do not tear the ledger. Two
+    threads: one writes N edges, another reads edges() repeatedly. The
+    reader must never observe a partial line or raise a spurious
+    WorkspaceChainCorruptError.
+    """
+    import threading
+
+    chain = WorkspaceDigestChain(tmp_path)
+    stop = threading.Event()
+    read_errors: list[BaseException] = []
+    reads_completed = [0]
+
+    def writer() -> None:
+        for i in range(50):
+            chain.append(child=_d(i & 0xFF), parent=_d((i - 1) & 0xFF))
+
+    def reader() -> None:
+        while not stop.is_set():
+            try:
+                chain.edges()
+                reads_completed[0] += 1
+            except BaseException as exc:  # noqa: BLE001
+                read_errors.append(exc)
+                return
+
+    r = threading.Thread(target=reader)
+    r.start()
+    w = threading.Thread(target=writer)
+    w.start()
+    w.join()
+    stop.set()
+    r.join()
+
+    assert read_errors == [], f"reader observed torn state: {read_errors!r}"
+    assert reads_completed[0] > 0
+
+
+# ---------------------------------------------------------------------------
+# SP-Q4 amendment: metadata_hash rejects non-JSON-native values
+# ---------------------------------------------------------------------------
+
+
+def test_metadata_unserialisable_raises_loudly() -> None:
+    """Amendment for SP Q4 DEFECT: default=str fallback removed.
+
+    Non-JSON-native metadata values now raise
+    MetadataUnserialisableError instead of silently coercing via str()
+    (which was non-deterministic for custom objects). This turns a
+    latent hash-drift into a loud attest-time failure.
+    """
+    from ract.core.loop import WorkspaceSnapshot
+    from ract.core.workspace_digest import (
+        MetadataUnserialisableError,
+        workspace_digest,
+    )
+
+    class _Opaque:
+        pass
+
+    ws = WorkspaceSnapshot(files={}, timestamp=0.0, metadata={"opaque": _Opaque()})
+    with pytest.raises(MetadataUnserialisableError):
+        workspace_digest(ws)
+
+
+def test_metadata_json_native_values_still_work() -> None:
+    """Amendment for SP Q4: JSON-native metadata values continue to hash."""
+    from ract.core.loop import WorkspaceSnapshot
+    from ract.core.workspace_digest import workspace_digest
+
+    ws = WorkspaceSnapshot(
+        files={"a.py": "x"},
+        timestamp=1.0,
+        metadata={
+            "pytest_returncode": 0,
+            "mypy_ok": True,
+            "coverage": 0.87,
+            "warnings": ["x", "y"],
+            "sub": {"nested": True, "count": 3},
+            "empty_or_null": None,
+        },
+    )
+    # No exception; deterministic.
+    d1 = workspace_digest(ws)
+    d2 = workspace_digest(ws)
+    assert d1 == d2
+
+
+# ---------------------------------------------------------------------------
+# SP-Q6 amendment: require_prompt_digest converts silent skip into loud fail
+# ---------------------------------------------------------------------------
+
+
+def test_require_prompt_digest_raises_on_none() -> None:
+    """Amendment for SP Q6 DEFECT: require_prompt_digest fails loudly."""
+    from ract.core.predicate import AcceptanceSuite
+    from ract.core.workspace_digest import (
+        PromptDigestMissingError,
+        require_prompt_digest,
+    )
+
+    suite = AcceptanceSuite(
+        intent_id=b"\x00" * 16,
+        predicates=(),
+        prompt_digest=None,
+    )
+    with pytest.raises(PromptDigestMissingError):
+        require_prompt_digest(suite)
+
+
+def test_require_prompt_digest_returns_bytes_when_set() -> None:
+    """require_prompt_digest returns the raw bytes when present."""
+    from ract.core.predicate import AcceptanceSuite
+    from ract.core.workspace_digest import (
+        compute_prompt_digest,
+        require_prompt_digest,
+    )
+
+    digest = bytes(compute_prompt_digest("compile me"))
+    suite = AcceptanceSuite(
+        intent_id=b"\x01" * 16,
+        predicates=(),
+        prompt_digest=digest,
+    )
+    assert require_prompt_digest(suite) == digest
