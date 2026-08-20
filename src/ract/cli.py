@@ -3861,6 +3861,115 @@ def _conformance_command(args: list[str]) -> int:
     return 0
 
 
+def _intent_command(args: list[str]) -> int:
+    """``ract intent`` verb group.
+
+    v0.5.1 module_04 landed only the ``recompile`` subcommand. The
+    group exists as a first-class verb so future intent-lifecycle
+    subcommands (``show``, ``history``, ``rollback``) can attach here
+    without another top-level verb.
+    """
+    parser = argparse.ArgumentParser(prog="ract intent")
+    subparsers = parser.add_subparsers(dest="action", required=True)
+
+    recompile_parser = subparsers.add_parser(
+        "recompile",
+        help=(
+            "Operator-signed recompile of a run's intent. Appends a new "
+            "suite version to <run_dir>/suite_chain.jsonl so the loop's "
+            "T8 PROMPT_DRIFT check accepts the new intent text."
+        ),
+    )
+    recompile_parser.add_argument(
+        "run_id",
+        help=(
+            "Run identifier. Either a bare id (resolved to "
+            ".ract/runs/<run_id>) or an explicit path to a run directory."
+        ),
+    )
+    source_group = recompile_parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument(
+        "--intent-file",
+        type=Path,
+        help="Path to a file whose contents become the new intent text.",
+    )
+    source_group.add_argument(
+        "--intent-text",
+        type=str,
+        help="New intent text passed inline (prefer --intent-file for long text).",
+    )
+    recompile_parser.add_argument(
+        "--ract-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Explicit path to the .ract directory holding operator.key. "
+            "Default: walk up from the run directory."
+        ),
+    )
+    recompile_parser.add_argument(
+        "--runs-root",
+        type=Path,
+        default=Path(".ract/runs"),
+        help="Root directory of run dirs (default .ract/runs).",
+    )
+
+    parsed = parser.parse_args(args)
+
+    if parsed.action != "recompile":
+        parser.error(f"unknown intent action: {parsed.action!r}")
+        return 2
+
+    from ract.core.intent_recompile import (
+        IntentRecompileError,
+        OperatorKeyMissingError,
+        recompile_intent,
+    )
+
+    if parsed.intent_file is not None:
+        try:
+            intent_text = parsed.intent_file.read_text(encoding="utf-8")
+        except OSError as exc:
+            print(f"[ract] cannot read --intent-file: {exc}", file=sys.stderr)
+            return 2
+    else:
+        intent_text = parsed.intent_text or ""
+
+    run_arg = Path(parsed.run_id)
+    if run_arg.exists() and run_arg.is_dir():
+        run_dir = run_arg
+    else:
+        run_dir = parsed.runs_root / parsed.run_id
+
+    try:
+        result = recompile_intent(
+            run_dir=run_dir,
+            intent_text=intent_text,
+            ract_dir=parsed.ract_dir,
+        )
+    except OperatorKeyMissingError as exc:
+        print(f"[ract] intent recompile refused: {exc}", file=sys.stderr)
+        return 3
+    except IntentRecompileError as exc:
+        print(f"[ract] intent recompile failed: {exc}", file=sys.stderr)
+        return 2
+
+    print(
+        json.dumps(
+            {
+                "status": "ok",
+                "run_id": result.entry.run_id,
+                "origin": result.entry.origin,
+                "prompt_digest": result.entry.prompt_digest.hex(),
+                "suite_digest": result.entry.suite_digest,
+                "timestamp_ns": result.entry.timestamp_ns,
+                "suite_chain_path": str(result.suite_chain_path),
+            }
+        )
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """RACT CLI entry point."""
     if argv is None:
@@ -3999,6 +4108,11 @@ def main(argv: list[str] | None = None) -> int:
         return _provenance_command(argv[1:])
     if argv and argv[0] == "source-digest":
         return _source_digest_command(argv[1:])
+    # v0.5.1 module_04: operator-signed intent recompile appends a new
+    # suite version to <run_dir>/suite_chain.jsonl so the loop's T8
+    # PROMPT_DRIFT check accepts the new intent text.
+    if argv and argv[0] == "intent":
+        return _intent_command(argv[1:])
     parser = argparse.ArgumentParser(
         prog="ract",
         description=(

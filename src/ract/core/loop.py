@@ -1,13 +1,25 @@
-"""Formal recursion loop with T1–T7 termination conditions.
+"""Formal recursion loop with T1-T8 termination conditions.
 
-v0.4 change (SUBSTRATE §2 and §11 signals 1–2): T1 (Completion) is now a
+v0.4 change (SUBSTRATE §2 and §11 signals 1-2): T1 (Completion) is now a
 fact about the environment. ``LoopState`` carries a frozen
 ``AcceptanceSuite``; ``check_t1`` returns ``COMPLETE`` only when every
 required predicate evaluates ``ok=True`` against the workspace snapshot.
 The milestone-oracle path is retained for scheduling/reporting only; no
 model opinion terminates the loop.
 
-Rationale in ``docs/ADRs/ADR-0010-acceptance-predicates.md``.
+v0.5.1 module_04 change: T8 (PROMPT_DRIFT) joins T1-T7. The loop
+controller recomputes ``compute_prompt_digest(current_intent_text)`` at
+the start of every iteration and compares against
+``state.suite.prompt_digest``. A mismatch fires T8 -- the loop halts
+after emitting a ``run.completed`` event with ``reason:
+"T8_PROMPT_DRIFT"`` and forces a rollback to the last known-good
+workspace snapshot. Legitimate intent evolution goes through the
+operator-signed ``ract intent recompile`` verb which appends a new
+suite version to ``.ract/runs/<run_id>/suite_chain.jsonl`` rather than
+mutating the existing suite in place.
+
+Rationale in ``docs/ADRs/ADR-0010-acceptance-predicates.md`` and
+``docs/ADRs/ADR-T8-prompt-drift.md``.
 """
 
 from __future__ import annotations
@@ -43,6 +55,14 @@ class TerminationCause(Enum):
     BUDGET_EXHAUSTED = auto()  # T5: iteration or wall-time budget exhausted.
     HANDSHAKE_BLOCKED = auto()  # T6: unresolved blocking handshake.
     PROVIDER_TIMEOUT = auto()  # T7: provider timeout twice consecutively.
+    # v0.5.1 module_04: T8 fires when the loop's current intent-text
+    # hash diverges from ``state.suite.prompt_digest``. See
+    # ``docs/ADRs/ADR-T8-prompt-drift.md``. The loop controller emits a
+    # ``run.completed`` event with ``reason: "T8_PROMPT_DRIFT"`` +
+    # evidence (expected + actual digest, iteration index) and forces
+    # a rollback to the last known-good workspace snapshot before
+    # returning.
+    PROMPT_DRIFT = auto()  # T8: prompt hash diverged from suite.prompt_digest.
 
 
 @dataclass
@@ -149,6 +169,17 @@ class LoopState:
     delta_regress: float = 0.1
     assumption_burst_threshold: int = 3
     blocking_handshakes: set[str] | None = None
+    # v0.5.1 module_04: current iteration's raw operator intent text.
+    # Populated by the loop controller BEFORE each iteration runs (see
+    # ``ract.loop_controller.LoopController.run``); ``check_t8`` reads
+    # it to detect prompt drift against ``suite.prompt_digest``. When
+    # ``None`` (pre-v0.5.1 controllers or hermetic property tests that
+    # never wire the field), the T8 check is skipped.
+    current_intent_text: str | None = None
+    # v0.5.1 module_04: last known-good workspace snapshot the controller
+    # rolls back to on T8 halt. Recorded before each iteration writes;
+    # None until the first iteration's pre-write snapshot exists.
+    last_known_good_workspace: WorkspaceSnapshot | None = None
 
     def __post_init__(self) -> None:
         if self.handshake_registry is None:
@@ -274,8 +305,44 @@ def check_t7(record: ProviderTimeoutRecord) -> TerminationCause | None:
     return None
 
 
+def check_t8(
+    suite: AcceptanceSuite, current_intent_text: str
+) -> TerminationCause | None:
+    """T8 (Prompt Drift): current intent hash diverges from suite.prompt_digest.
+
+    v0.5.1 module_04. Backward-compat: when ``suite.prompt_digest is
+    None`` (a pre-v0.5.1 suite), the check is skipped (returns ``None``)
+    and the loop controller emits a WARN so operators see the missing
+    binding. When present, ``compute_prompt_digest(current_intent_text)``
+    is compared bit-exact; on mismatch the loop halts with T8.
+
+    The intent-text argument is the CANONICAL operator intent the loop
+    entered with (the same bytes ``IntentCompiler.compile`` hashed).
+    Callers must pass the raw intent, not the augmented per-iteration
+    intent (which carries loop memory + backlog + milestone prefix).
+    """
+    from ract.core.workspace_digest import compute_prompt_digest
+
+    if suite.prompt_digest is None:
+        return None
+    actual = bytes(compute_prompt_digest(current_intent_text))
+    if actual != suite.prompt_digest:
+        return TerminationCause.PROMPT_DRIFT
+    return None
+
+
 def evaluate_termination(state: LoopState, now: float) -> TerminationCause | None:
-    """Evaluate T1–T7 in order and return the first cause that fires."""
+    """Evaluate T1-T8 in order and return the first cause that fires.
+
+    T8 is checked LAST (after the substrate-level T1-T7) so a legitimate
+    completion (T1) or a budget/handshake halt (T5/T6) still fires under
+    its own cause; T8 only fires when the loop is still live but the
+    intent has drifted. A T8 verdict SHOULD be produced by the loop
+    controller's per-iteration hook (which also handles the rollback +
+    ``run.completed`` emit); ``evaluate_termination`` exposes the check
+    here so property tests and reporting paths see the same decision
+    surface.
+    """
     if cause := check_t1(state.suite, state.workspace):
         return cause
     if cause := check_t2(state.quality_history, state.delta_regress):
@@ -291,6 +358,13 @@ def evaluate_termination(state: LoopState, now: float) -> TerminationCause | Non
             return cause
     if cause := check_t7(state.provider_timeout):
         return cause
+    # T8 fallback: only fires if the loop controller has stored the
+    # current intent text on the state (module_04 wiring). Without the
+    # attribute the check is a no-op so pre-v0.5.1 callers stay green.
+    intent_text = getattr(state, "current_intent_text", None)
+    if intent_text is not None:
+        if cause := check_t8(state.suite, intent_text):
+            return cause
     return None
 
 

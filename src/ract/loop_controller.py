@@ -285,6 +285,185 @@ class LoopController:
                     return True
         return False
 
+    def _check_prompt_drift(
+        self, intent: str, iteration_index: int
+    ) -> LoopIteration | None:
+        """T8 PROMPT_DRIFT per-iteration hook (v0.5.1 module_04).
+
+        Returns ``None`` when no drift is detected. Returns a synthetic
+        :class:`LoopIteration` (with ``decision="regression"`` and a
+        drift-diagnostic reflection) when the intent-text hash does
+        not match the latest suite's ``prompt_digest``. On drift:
+
+        1. Compute expected + actual digests.
+        2. Emit a ``run.completed`` event with the T8 reason payload.
+        3. Force the on-disk tree back to
+           ``LoopState.last_known_good_workspace`` (or the baseline
+           snapshot when no prior iteration has recorded one).
+        4. Store the T8 termination cause on the LoopState so any
+           downstream reporter surfacing terminations sees it.
+
+        Backward-compat: when ``state.suite.prompt_digest is None``
+        (pre-v0.5.1 suite), the check is SKIPPED with a WARN log; the
+        loop continues.
+        """
+        state = self._loop_state
+        if state is None:
+            return None
+        suite_digest = getattr(state.suite, "prompt_digest", None)
+        if suite_digest is None:
+            self._log_prompt_drift_skip(state)
+            return None
+
+        # Publish the current intent text so ``evaluate_termination``'s
+        # T8 branch can be reached from property tests using the same
+        # state without a controller hook.
+        state.current_intent_text = intent
+
+        # Locate the LATEST suite in the chain -- an operator-signed
+        # recompile appends new entries, so the check compares against
+        # the head, not the initial suite.
+        latest_digest = self._latest_suite_prompt_digest(state)
+        expected_digest = latest_digest if latest_digest is not None else suite_digest
+
+        from ract.core.workspace_digest import compute_prompt_digest
+
+        actual_digest = bytes(compute_prompt_digest(intent))
+        if actual_digest == expected_digest:
+            return None
+
+        # DRIFT.
+        expected_hex = expected_digest.hex()
+        actual_hex = actual_digest.hex()
+
+        # 1. Emit the run.completed event with T8 evidence.
+        run_id_str = self._resolve_run_id(state)
+        try:
+            from ract.trace.sink import emit as _emit_event
+
+            _emit_event(
+                "run.completed",
+                {
+                    "reason": "T8_PROMPT_DRIFT",
+                    "expected_prompt_digest": expected_hex,
+                    "actual_prompt_digest": actual_hex,
+                    "iteration": iteration_index,
+                    "run_id": run_id_str,
+                },
+            )
+        except Exception:  # noqa: BLE001 -- trace failures never break halt
+            pass
+
+        # 2. Force rollback to last known-good workspace.
+        self._rollback_to_last_known_good(state)
+
+        # 3. Return a synthetic iteration record so LoopResult carries
+        # the diagnostic. The reflection is the operator-visible
+        # diagnostic; the run summary quotes the same message.
+        reflection = (
+            f"T8 PROMPT_DRIFT at iteration {iteration_index}: expected "
+            f"prompt_digest {expected_hex}, got {actual_hex}. Workspace "
+            "rolled back to last known-good snapshot. To authorise a "
+            "legitimate intent change, run `ract intent recompile "
+            f"{run_id_str}` (requires operator key)."
+        )
+        return LoopIteration(
+            index=iteration_index,
+            intent=intent,
+            report=None,
+            test_returncode=None,
+            test_summary="T8 PROMPT_DRIFT",
+            test_output=reflection,
+            quality_score=0.0,
+            reflection=reflection,
+            decision="regression",
+            error=None,
+            assumptions=[],
+            metrics={"t8_prompt_drift": True},
+            content_snapshot=dict(self._previous_snapshot),
+        )
+
+    def _latest_suite_prompt_digest(self, state: LoopState) -> bytes | None:
+        """Return the latest suite-chain entry's ``prompt_digest`` or ``None``.
+
+        The chain lives at ``<run_dir>/suite_chain.jsonl``. When the
+        chain does not exist yet (no operator recompile has fired),
+        return ``None`` so the caller falls back to the frozen
+        ``state.suite.prompt_digest``.
+        """
+        if self.run_dir is None:
+            return None
+        try:
+            from ract.core.suite_chain import SuiteChain
+
+            chain = SuiteChain(self.run_dir)
+            return chain.latest_prompt_digest()
+        except Exception:  # noqa: BLE001 -- never break the loop on chain read
+            return None
+
+    def _resolve_run_id(self, state: LoopState) -> str:
+        """Return the run identifier string for a T8 diagnostic.
+
+        Prefers ``run_dir/run_id.txt`` when present; falls back to
+        ``run_dir.name`` (per module_02 convention).
+        """
+        if self.run_dir is None:
+            return "unknown"
+        marker = self.run_dir / "run_id.txt"
+        if marker.exists():
+            try:
+                return marker.read_text(encoding="utf-8").strip() or self.run_dir.name
+            except OSError:
+                pass
+        return self.run_dir.name
+
+    def _rollback_to_last_known_good(self, state: LoopState) -> None:
+        """Restore the on-disk tree to ``state.last_known_good_workspace``.
+
+        Best-effort: writes the recorded file contents back. Files
+        that appear in the current tree but not in the snapshot are
+        LEFT ALONE -- we do not delete freshly written files on T8
+        rollback because that would enlarge the rollback surface
+        beyond what the snapshot records. Operators inspecting the
+        run see the diagnostic and can decide whether to keep or
+        discard the drift-era additions.
+
+        Failure to restore a specific file is logged as a WARN via the
+        error memory but does not raise -- T8 halt takes precedence
+        over rollback fidelity.
+        """
+        snapshot = state.last_known_good_workspace
+        if snapshot is None or not snapshot.files:
+            return
+        for rel_path, content in snapshot.files.items():
+            try:
+                target = self.project_dir / rel_path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content, encoding="utf-8")
+            except OSError:
+                continue
+
+    def _log_prompt_drift_skip(self, state: LoopState) -> None:
+        """Log the WARN when T8 is skipped due to a missing prompt_digest.
+
+        Emits ONCE per run to avoid log flooding: subsequent iterations
+        do not re-log because ``_prompt_drift_skip_logged`` gates it.
+        """
+        if getattr(self, "_prompt_drift_skip_logged", False):
+            return
+        self._prompt_drift_skip_logged = True
+        try:
+            import logging
+
+            logging.getLogger("ract.loop_controller").warning(
+                "T8 PROMPT_DRIFT check skipped: suite.prompt_digest is None "
+                "(pre-v0.5.1 AcceptanceSuite). The loop is running without "
+                "runtime prompt-drift protection. Recompile the intent under "
+                "a v0.5.1 IntentCompiler to enable the check."
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
     def run(
         self,
         intent: str,
@@ -330,6 +509,30 @@ class LoopController:
                     handshake_milestones=list(self.handshake_milestones),
                 )
 
+            # v0.5.1 module_04: T8 PROMPT_DRIFT check at the START of
+            # each iteration, BEFORE any augmentation or planning /
+            # execution work. Compare the raw operator ``intent`` (the
+            # bytes ``IntentCompiler.compile`` hashed into
+            # ``suite.prompt_digest``) against the LATEST suite in the
+            # chain (post-operator-recompile awareness). Mismatch =>
+            # halt with T8 + rollback + surfaced diagnostic. See
+            # ``docs/ADRs/ADR-0040-t8-prompt-drift-termination-cause.md``.
+            drift_result = self._check_prompt_drift(intent, index)
+            if drift_result is not None:
+                iterations.append(drift_result)
+                return LoopResult(
+                    iterations=iterations,
+                    final_decision="regression",
+                    summary=(
+                        "T8 PROMPT_DRIFT: current intent hash does not match "
+                        "suite.prompt_digest. Loop halted; workspace rolled "
+                        "back to last known-good snapshot. Use `ract intent "
+                        "recompile <run_id>` (operator key required) to "
+                        "authorise intent evolution."
+                    ),
+                    handshake_milestones=list(self.handshake_milestones),
+                )
+
             iteration_intent = self._augment_intent(
                 intent, iterations, current_milestone
             )
@@ -339,6 +542,21 @@ class LoopController:
                 self._baseline_snapshot = self._take_snapshot()
                 self._previous_snapshot = dict(self._baseline_snapshot)
                 self._snapshot_initialized = True
+
+            # v0.5.1 module_04: record the last-known-good workspace on
+            # the LoopState BEFORE the iteration writes anything. On a
+            # T8 halt in a later iteration, the controller rolls the
+            # tree back to this snapshot's file contents.
+            if self._loop_state is not None:
+                self._loop_state.last_known_good_workspace = WorkspaceSnapshot(
+                    files=dict(self._previous_snapshot),
+                    timestamp=float(index),
+                    metadata=dict(
+                        self._loop_state.last_known_good_workspace.metadata
+                        if self._loop_state.last_known_good_workspace is not None
+                        else {}
+                    ),
+                )
 
             result = self._run_with_timeout(iteration_intent)
 
