@@ -368,12 +368,22 @@ class IntentCompiler:
             )
 
         coverage = float(cfg.coverage_gate or self.coverage_gate_default)
+        # v0.5.1 module_02: bind the compiled suite to the raw intent
+        # text via SHA-256 (module_04 wires the runtime PROMPT_DRIFT
+        # check on top of this field). Uses the raw ``intent_text``
+        # bytes, not the ``.strip()``-ed form that ``compiled_from``
+        # stores, so an injected prompt with only whitespace
+        # differences still trips the drift check.
+        from ract.core.workspace_digest import compute_prompt_digest
+
+        prompt_digest_bytes = bytes(compute_prompt_digest(intent_text))
         suite = AcceptanceSuite(
             intent_id=new_intent_id(),
             predicates=tuple(predicates),
             coverage_gate=coverage,
             compiled_from=intent_text.strip(),
             compiler_version=self.version,
+            prompt_digest=prompt_digest_bytes,
         )
         # ALM module_01 hook: when a HoldoutComposer companion is
         # supplied, wrap the substrate suite in a DualAcceptanceSuite

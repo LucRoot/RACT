@@ -1,7 +1,7 @@
 # RACT v0.5.1 External Review Response Spec
 
 **Ships as:** v0.5.1 (patch bump; response to external reviewer chain)
-**Owner:** [REDACTED] Builder
+**Owner:** Release pipeline author
 **Authored:** 2026-08-20
 **Inputs:** `_BUILD/ract_v0.5.1_external_review/` — DeepSeek rounds 1-5 + REVIEW_4_UNKNOWN_REVIEWER (1086 lines total, triangulated)
 **Governing consolidator:** `DEEPSEEK_REVIEW_5.md` (concrete implementation designs for G1/G2/G3 compaction-continuity gaps)

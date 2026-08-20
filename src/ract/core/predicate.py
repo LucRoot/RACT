@@ -282,13 +282,28 @@ class AcceptancePredicate:
 
 @dataclass(frozen=True)
 class AcceptanceSuite:
-    """A frozen list of predicates that define the environment's exit gate."""
+    """A frozen list of predicates that define the environment's exit gate.
+
+    v0.5.1 module_02 adds an OPTIONAL ``prompt_digest`` field: SHA-256
+    of the operator's intent text at compile time. The T8 PROMPT_DRIFT
+    check (module_04) reads it at each loop iteration. The field is
+    backward-compatible: v0.5.0 suites lack it, and
+    :meth:`to_canonical` emits it only when set so digest bytes stay
+    identical for legacy suites.
+    """
 
     intent_id: bytes
     predicates: tuple[AcceptancePredicate, ...]
     coverage_gate: float = 0.85
     compiled_from: str = ""
     compiler_version: str = CANONICAL_COMPILER_VERSION
+    # v0.5.1 module_02: SHA-256 of the operator's intent text at
+    # compile time. Optional (``None``) for backward-compat with
+    # v0.5.0 suites; :class:`IntentCompiler` populates it on every
+    # v0.5.1 compile. See ``workspace_digest.compute_prompt_digest``
+    # for the hasher and ``tests/unit/test_canonical_bytes_v2.py`` for
+    # the round-trip tests.
+    prompt_digest: bytes | None = None
 
     def __post_init__(self) -> None:
         if len(self.intent_id) != 16:
@@ -299,6 +314,11 @@ class AcceptanceSuite:
             raise ValueError(
                 f"unknown compiler_version {self.compiler_version!r}; "
                 "halting per the same policy as ADR-0008 (ract.yaml versioning)."
+            )
+        if self.prompt_digest is not None and len(self.prompt_digest) != 32:
+            raise ValueError(
+                "prompt_digest must be a 32-byte SHA-256 digest; "
+                f"got {len(self.prompt_digest)} bytes"
             )
         # Detect duplicate ids so digest() is well-defined and the reader can
         # deserialize without ambiguity.
@@ -314,7 +334,7 @@ class AcceptanceSuite:
 
     def to_canonical(self) -> dict[str, Any]:
         """Return the canonical dict form used for JSON serialization and hashing."""
-        return {
+        payload: dict[str, Any] = {
             "compiler_version": self.compiler_version,
             "compiled_from": self.compiled_from,
             "coverage_gate": self.coverage_gate,
@@ -330,6 +350,13 @@ class AcceptanceSuite:
                 for p in self.predicates
             ],
         }
+        # v0.5.1 module_02: opt-in prompt_digest. Emitted ONLY when set
+        # so v0.5.0 suites hash identically. Alphabetical sort-key
+        # placement between "predicates" and (a future) "prompt_source"
+        # is a property of ``json.dumps(sort_keys=True)``.
+        if self.prompt_digest is not None:
+            payload["prompt_digest"] = self.prompt_digest.hex()
+        return payload
 
     def digest(self) -> str:
         """Return the SHA-256 digest of the canonical serialization."""
@@ -399,6 +426,12 @@ def suite_from_canonical(data: dict[str, Any]) -> AcceptanceSuite:
         raise ValueError(
             f"unknown compiler_version {version!r}; refuse to reinterpret."
         )
+    # v0.5.1 module_02: prompt_digest is optional; absent for v0.5.0
+    # payloads. Parse as bytes when present (32-byte SHA-256).
+    prompt_digest_raw = data.get("prompt_digest")
+    prompt_digest = (
+        bytes.fromhex(str(prompt_digest_raw)) if prompt_digest_raw is not None else None
+    )
     return AcceptanceSuite(
         intent_id=bytes.fromhex(str(data["intent_id"])),
         predicates=tuple(
@@ -407,6 +440,7 @@ def suite_from_canonical(data: dict[str, Any]) -> AcceptanceSuite:
         coverage_gate=float(data.get("coverage_gate", 0.85)),
         compiled_from=str(data.get("compiled_from", "")),
         compiler_version=str(version),
+        prompt_digest=prompt_digest,
     )
 
 

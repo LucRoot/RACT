@@ -152,6 +152,28 @@ class Rootknot:
     # when it is set. See ADR-0040 and the sacred-spine test
     # ``test_older_sidecar_still_verifies``.
     retrieval_attestation: Digest | None = None
+    # v0.5.1 external-review response (module_02): three OPT-IN
+    # canonical-bytes extensions binding the Rootknot to the workspace
+    # state, the operator prompt, and the run identifier that produced
+    # it. The spec calls the payload family SCHEMA_VERSION 2 (versus
+    # SCHEMA_VERSION 1 for the v0.5.0 baseline); in the code-level
+    # dispatch this is instance ``schema_version == 4`` (existing
+    # values 1/2/3 remain reserved for v0.3 / v0.4-substrate / v0.4-ALM
+    # payload shapes). Each field is BACKWARD-COMPATIBLE: v1/v2/v3
+    # sidecars produced without them hash byte-identically to the
+    # v0.5.0 baseline because ``canonical_bytes()`` only emits each
+    # field when it is set (same pattern module_09's
+    # ``retrieval_attestation`` established). ``run_id`` is an empty
+    # string (not ``None``) so the field type stays simple; the guard
+    # is a truthy check. See
+    # ``docs/RACT_v0.5.1_EXTERNAL_REVIEW_RESPONSE_SPEC.md`` §4
+    # module_02 and the regression tests
+    # ``tests/unit/test_canonical_bytes_v2.py``,
+    # ``tests/unit/test_schema_version_backread.py``,
+    # ``tests/unit/test_workspace_digest_ancestor.py``.
+    workspace_digest: Digest | None = None
+    prompt_digest: Digest | None = None
+    run_id: str = ""
 
     # ------------------------------------------------------------------
     # Deprecated v0.3 alias for the field renamed by module_06.
@@ -224,6 +246,21 @@ class Rootknot:
         # is deterministic under ``json.dumps(sort_keys=True)``.
         if self.retrieval_attestation is not None:
             payload["retrieval_attestation"] = self.retrieval_attestation.hex()
+        # v0.5.1 module_02: three OPT-IN payload extensions. Each is
+        # emitted ONLY when set, so a v1/v2/v3 knot constructed without
+        # them produces byte-identical canonical bytes to the v0.5.0
+        # baseline (backward-read invariant; see
+        # ``test_schema_version_backread``). Sort-key placement is a
+        # property of ``json.dumps(sort_keys=True)``: the three keys
+        # land alphabetically after ``predicate_results`` /
+        # ``retrieval_attestation`` / ``reversal_taint`` without
+        # per-key ordering logic.
+        if self.workspace_digest is not None:
+            payload["workspace_digest"] = self.workspace_digest.hex()
+        if self.prompt_digest is not None:
+            payload["prompt_digest"] = self.prompt_digest.hex()
+        if self.run_id:
+            payload["run_id"] = self.run_id
         return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
             "utf-8"
         )
@@ -253,6 +290,9 @@ class Rootknot:
             reversal_taint=self.reversal_taint,
             schema_version=self.schema_version,
             retrieval_attestation=self.retrieval_attestation,
+            workspace_digest=self.workspace_digest,
+            prompt_digest=self.prompt_digest,
+            run_id=self.run_id,
         )
 
     def attest_environment(self, sandbox_signer) -> Rootknot:  # type: ignore[no-untyped-def]
@@ -283,6 +323,9 @@ class Rootknot:
             reversal_taint=self.reversal_taint,
             schema_version=self.schema_version,
             retrieval_attestation=self.retrieval_attestation,
+            workspace_digest=self.workspace_digest,
+            prompt_digest=self.prompt_digest,
+            run_id=self.run_id,
         )
 
     def attest_antilazy(self, alm_signer) -> Rootknot:  # type: ignore[no-untyped-def]
@@ -325,6 +368,9 @@ class Rootknot:
             reversal_taint=self.reversal_taint,
             schema_version=self.schema_version,
             retrieval_attestation=self.retrieval_attestation,
+            workspace_digest=self.workspace_digest,
+            prompt_digest=self.prompt_digest,
+            run_id=self.run_id,
         )
 
     def verify(self, pubkey: bytes) -> bool:
@@ -481,6 +527,102 @@ def make_rootknot_v3(
         reversal_taint=reversal_taint,
         schema_version=3,
         retrieval_attestation=retrieval_attestation,
+    )
+    return (
+        unsigned.sign(key)
+        .attest_environment(sandbox_signer)
+        .attest_antilazy(alm_signer)
+    )
+
+
+def make_rootknot_v4(
+    *,
+    key: SessionKey,
+    sandbox_signer,  # type: ignore[no-untyped-def]
+    alm_signer,  # type: ignore[no-untyped-def]
+    workspace_path: str,
+    artifact_digest: Digest,
+    assumption_digest: Digest,
+    acceptance_suite_digest: Digest,
+    predicate_results: tuple[Digest, ...],
+    manifest_digest: Digest,
+    gate_results: tuple[GateResult, ...],
+    workspace_digest: Digest,
+    prompt_digest: Digest,
+    run_id: str,
+    reversal_taint: ReversalTaint = "clean",
+    model_name: str = "unknown",
+    model_version: str = "0",
+    plan_id: PlanId | None = None,
+    step_id: StepId | None = None,
+    parent_digests: tuple[Digest, ...] = (),
+    retrieval_attestation: Digest | None = None,
+) -> Rootknot:
+    """Construct, sign, and triple-attest a v4 (v0.5.1 external-review) Rootknot.
+
+    Extends :func:`make_rootknot_v3` with the three canonical-bytes
+    additions from module_02: ``workspace_digest`` (binds the payload
+    to the workspace state), ``prompt_digest`` (binds it to the
+    operator's compile-time intent text), and ``run_id`` (a stable
+    identifier propagated through every artifact + Rootknot + WAL
+    entry + trace event in a run). All three ride INSIDE the signed
+    canonical bytes, so the three signatures (generator / environment
+    / anti-lazy) all attest over them.
+
+    The spec calls this payload family SCHEMA_VERSION 2 (v0.5.0 was
+    SCHEMA_VERSION 1). At the code level the instance ``schema_version``
+    is 4 — values 1/2/3 remain reserved for v0.3 / v0.4-substrate /
+    v0.4-ALM payload shapes; 4 marks the v0.5.1 extension. A v0.5.0
+    verifier dispatching on ``schema_version`` sees unknown value 4
+    and halts loudly rather than silently trusting under-attested
+    bytes (see ``test_schema_version_backread``).
+
+    All three new fields are REQUIRED at construction: the whole
+    point of v4 is that the signed payload binds them, so passing
+    ``None`` or empty string would defeat the purpose. Callers that
+    do not have all three should use ``make_rootknot_v3`` instead
+    (which keeps the fields absent and hashes byte-identically to
+    v0.5.0 payloads).
+
+    See ``docs/RACT_v0.5.1_EXTERNAL_REVIEW_RESPONSE_SPEC.md`` §4
+    module_02 and
+    ``_BUILD/ract_v0.5.1_external_review_response/module_02.md``.
+    """
+    if workspace_digest is None:
+        raise ValueError("make_rootknot_v4 requires workspace_digest")
+    if prompt_digest is None:
+        raise ValueError("make_rootknot_v4 requires prompt_digest")
+    if not run_id:
+        raise ValueError("make_rootknot_v4 requires a non-empty run_id")
+    session_id = key.public_key_id()[:16]
+    generator = GeneratorRef(
+        model_name=model_name,
+        model_version=model_version,
+        session_id=session_id,
+        public_key_id=key.public_key_id(),
+    )
+    unsigned = Rootknot(
+        plan_id=plan_id or make_plan_id(),
+        step_id=step_id or make_step_id(),
+        assumption_digest=assumption_digest,
+        generator=generator,
+        parent_digests=parent_digests,
+        workspace_path=workspace_path,
+        artifact_digest=artifact_digest,
+        created_at_ns=time.time_ns(),
+        generator_signature=b"",
+        environment_signature=b"",
+        acceptance_suite_digest=acceptance_suite_digest,
+        predicate_results=tuple(predicate_results),
+        manifest_digest=manifest_digest,
+        antilazy_signature=b"",
+        gate_results=tuple(gate_results),
+        reversal_taint=reversal_taint,
+        schema_version=4,
+        retrieval_attestation=retrieval_attestation,
+        workspace_digest=workspace_digest,
+        prompt_digest=prompt_digest,
+        run_id=run_id,
     )
     return (
         unsigned.sign(key)
