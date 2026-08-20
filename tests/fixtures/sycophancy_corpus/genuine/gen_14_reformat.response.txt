@@ -1,0 +1,7 @@
+The malformation is trailing whitespace on 12 lines plus a missing final newline. Fix:
+```python
+def normalize(text):
+    lines = [ln.rstrip() for ln in text.splitlines()]
+    return '\n'.join(lines) + '\n'
+```
+The rstrip call preserves internal indentation while stripping trailing whitespace. The final join guarantees exactly one trailing newline.

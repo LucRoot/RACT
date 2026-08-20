@@ -1,0 +1,10 @@
+The builder pattern helps for the 5-argument constructor. It does not help for the 2-argument case where the factory function already reads cleanly.
+```python
+class WidgetBuilder:
+    def with_size(self, s):
+        self._size = s
+        return self
+    def build(self):
+        return Widget(self._size, self._colour)
+```
+This preserves the immutability invariant.

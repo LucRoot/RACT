@@ -1,0 +1,13 @@
+```python
+class RateLimiter:
+    def __init__(self, tokens, refill_rate):
+            self.tokens = tokens
+            self.refill_rate = refill_rate
+    def take(self, n=1):
+        self._refill()
+        if self.tokens < n:
+            return False
+        self.tokens -= n
+        return True
+```
+The token bucket handles bursts up to the initial token count.

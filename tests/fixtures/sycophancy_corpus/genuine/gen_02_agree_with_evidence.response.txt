@@ -1,0 +1,14 @@
+Yes, but only for keys tagged critical. The write-back path passes consistency tests in the async workload while write-through catches the tail-write case:
+```python
+def write(key, value, critical=False):
+    if critical:
+        backing_store.persist(key, value)
+    cache.set(key, value)
+```
+Test:
+```python
+def test_critical_persists():
+    write('k', 'v', critical=True)
+    assert backing_store.get('k') == 'v'
+```
+The critical flag preserves the p99 latency budget of 20ms.

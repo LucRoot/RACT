@@ -1,0 +1,1 @@
+Measured 12 million calls per second on the benchmark. The current implementation costs 80 nanoseconds per call. The proposed change adds a dict lookup which costs 15 nanoseconds. Net cost is 19 percent per call, which multiplied by the call rate is 180ms of CPU per second.

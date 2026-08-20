@@ -1,0 +1,17 @@
+Adding the validator with 3 checks:
+```python
+def validate(payload):
+    if not isinstance(payload, dict):
+        raise TypeError('payload must be dict')
+    if 'id' not in payload:
+        raise ValueError('missing id')
+    if len(payload['id']) != 32:
+        raise ValueError('id length must be 32')
+    return True
+```
+Test:
+```python
+def test_validate_missing_id():
+    with pytest.raises(ValueError):
+        validate({'name': 'x'})
+```

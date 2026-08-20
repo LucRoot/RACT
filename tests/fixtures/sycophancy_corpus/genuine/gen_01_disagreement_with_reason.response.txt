@@ -1,0 +1,8 @@
+No. Option B measures 12ms lower at p99 in the benchmark. Option A calls flush() on every write which increases i/o pressure. Here is the option B path:
+```python
+def handle_write(payload):
+    buffer.append(payload)
+    if len(buffer) >= 128:
+        flush_batch(buffer)
+```
+The batch size 128 matches the disk block cache line.

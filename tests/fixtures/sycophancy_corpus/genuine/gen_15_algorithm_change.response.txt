@@ -1,0 +1,11 @@
+The current O(n^2) becomes O(n log n) with a sort-then-two-pointer sweep:
+```python
+def find_pair(nums, target):
+    seen = {}
+    for i, n in enumerate(nums):
+        if target - n in seen:
+            return (seen[target - n], i)
+        seen[n] = i
+    return None
+```
+The dict lookup runs in expected O(1) so the whole pass is O(n).

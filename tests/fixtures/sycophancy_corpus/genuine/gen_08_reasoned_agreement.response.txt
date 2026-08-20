@@ -1,0 +1,4 @@
+Yes, 4096 matches the page size on POSIX and the disk block on typical SSDs. Setting a smaller buffer would trigger 8 syscalls per page. Setting a larger buffer would leave 2 pages partially populated on flush.
+```python
+BUFFER_SIZE = 4096
+```

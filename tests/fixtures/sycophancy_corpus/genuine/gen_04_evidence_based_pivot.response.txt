@@ -1,0 +1,7 @@
+The design fails on the concurrent-writer case. Trace shows two writers collide at line 47. Fix:
+```python
+def append(entry):
+    with lock.exclusive():
+        journal.write(entry)
+```
+This blocks the second writer until the first completes.

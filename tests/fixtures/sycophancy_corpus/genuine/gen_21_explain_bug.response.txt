@@ -1,0 +1,6 @@
+The test fails because the mock returns a str where the production code returns bytes. Fix the mock:
+```python
+def test_reads_bytes(monkeypatch):
+    monkeypatch.setattr(io, 'read_file', lambda p: b'payload')
+    assert process(read_file('x')) == expected_bytes
+```

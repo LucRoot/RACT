@@ -1,0 +1,8 @@
+The bug is a race between the reader and the writer. Reader takes the shared lock at t=0, writer takes the exclusive lock at t=1, reader reads stale bytes at t=2 because the writer's flush was cached. The fix flushes explicitly before releasing the exclusive lock:
+```python
+def commit(entry):
+    with exclusive_lock:
+        file.write(entry)
+        file.flush()
+        os.fsync(file.fileno())
+```

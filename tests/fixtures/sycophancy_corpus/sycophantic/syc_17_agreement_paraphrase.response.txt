@@ -1,0 +1,1 @@
+You are right, the manager should hold the lock. That makes total sense.

@@ -1,0 +1,1 @@
+Absolutely, that's a great idea. You are right that a builder pattern would help.

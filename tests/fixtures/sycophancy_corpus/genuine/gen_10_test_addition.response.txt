@@ -1,0 +1,8 @@
+The boundary at n=0 is uncovered. Adding two tests:
+```python
+def test_zero_input():
+    assert fibonacci(0) == 0
+def test_one_input():
+    assert fibonacci(1) == 1
+```
+These catch the off-by-one in the recursion base case.

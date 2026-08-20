@@ -118,6 +118,14 @@ from ract.antilazy.test_copy_paste_polyglot import (
     scan_test_copy_paste,
     scan_test_copy_paste_in_dir,
 )
+from ract.antilazy.sycophancy_v2 import (
+    MIN_COMMITMENT_FLOOR,
+    NULL_OP_SCORE_THRESHOLD,
+    CorpusScore,
+    SycophancyClassification,
+    classify as classify_sycophancy_v2,
+    score_corpus as score_sycophancy_corpus,
+)
 from ract.antilazy.symgraph import (
     CallEdge,
     ImportEdge,
@@ -240,6 +248,13 @@ __all__ = [
     "write_patchdiff_snapshot",
     "write_test_integrity_snapshot",
     "write_under_edit_snapshot",
+    # module_09 (v0.5.1)
+    "CorpusScore",
+    "MIN_COMMITMENT_FLOOR",
+    "NULL_OP_SCORE_THRESHOLD",
+    "SycophancyClassification",
+    "classify_sycophancy_v2",
+    "score_sycophancy_corpus",
 ]
 
 

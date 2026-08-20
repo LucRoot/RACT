@@ -1,0 +1,1 @@
+The read path is safe because it only reads immutable state. The write path is not safe because two writers can race on the list append. Fix: guard the write with a Lock, and prefer collections.deque which has atomic append semantics for the single-append single-pop case.

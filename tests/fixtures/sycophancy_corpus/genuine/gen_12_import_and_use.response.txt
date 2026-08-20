@@ -1,0 +1,6 @@
+```python
+import hashlib
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+```
+sha256 preserves collision resistance at the 128-bit security level.

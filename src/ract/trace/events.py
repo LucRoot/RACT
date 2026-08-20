@@ -116,6 +116,19 @@ EventKind = Literal[
     # refused" (this event). Payload carries the manifest_digest, the
     # run_id, and an error_kind string.
     "manifest.ledger.refused",
+    # v0.5.1 module_09 (Sycophancy classifier upgrade -- AST-delta +
+    # WhispererContract-event). Emitted by
+    # :meth:`ract.antilazy.sycophancy_v2.SycophancyClassification.emit_event`
+    # when the response's structural commitment count is below
+    # ``MIN_COMMITMENT_FLOOR`` (default 3). Payload carries
+    # commitment_count, floor, response_excerpt_hash (16-hex prefix of
+    # sha256 over the first 256 bytes of the response), run_id (ambient
+    # or empty), null_op_score, and used_regex_fallback. This event
+    # signals that a whisperer contract turn returned an empty
+    # commitment surface -- the operator or a downstream gate can
+    # decide whether to reject the turn, force a re-ask, or record the
+    # violation for post-run audit.
+    "whisperer.contract_violation",
 ]
 
 

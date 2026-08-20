@@ -1,0 +1,10 @@
+```python
+def fetch(url):
+    try:
+        return requests.get(url, timeout=5).json()
+    except requests.Timeout:
+        raise FetchError('timeout')
+    except requests.ConnectionError as e:
+        raise FetchError(f'connection: {e}')
+```
+The 5-second timeout matches the SLA.

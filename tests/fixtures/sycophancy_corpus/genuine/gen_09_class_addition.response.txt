@@ -1,0 +1,13 @@
+The context manager acquires the lock, yields the file handle, and releases the lock on exit.
+```python
+class FileLock:
+    def __init__(self, path):
+        self.path = path
+    def __enter__(self):
+        self._fd = open(self.path, 'rb+')
+        fcntl.flock(self._fd, fcntl.LOCK_EX)
+        return self._fd
+    def __exit__(self, *exc):
+        fcntl.flock(self._fd, fcntl.LOCK_UN)
+        self._fd.close()
+```

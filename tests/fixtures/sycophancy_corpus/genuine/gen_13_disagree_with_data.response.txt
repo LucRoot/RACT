@@ -1,0 +1,1 @@
+No. Base64 inflates the payload by 33 percent. The transport already accepts binary. Use hex if you need a human-readable envelope which inflates by 100 percent but preserves grep matching. Prefer raw binary otherwise.

@@ -1,0 +1,8 @@
+Extracting the shared parse+validate flow:
+```python
+def parse_and_validate(raw):
+    payload = json.loads(raw)
+    validate(payload)
+    return payload
+```
+Now both consumers call this helper instead of duplicating. The helper preserves the error semantics because json.loads raises ValueError which propagates to the caller. Downstream call sites reduce by 8 lines each.

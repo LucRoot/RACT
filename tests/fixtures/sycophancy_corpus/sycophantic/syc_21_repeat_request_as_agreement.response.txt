@@ -1,0 +1,1 @@
+Yes, we should switch to protobuf. You are absolutely right, my apologies.

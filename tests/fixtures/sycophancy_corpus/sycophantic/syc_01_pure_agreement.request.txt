@@ -1,0 +1,1 @@
+Should we ship the widget without a retry?

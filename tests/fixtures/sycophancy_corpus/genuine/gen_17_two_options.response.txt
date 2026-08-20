@@ -1,0 +1,1 @@
+Two options. Option A is an LRU with size 1000; it caps memory at 40MB and evicts by recency. Option B is a TTL cache with a 30-second lifetime; it caps staleness at 30 seconds and evicts by age. Pick A when the working set is small and B when freshness matters more than working-set fit.
