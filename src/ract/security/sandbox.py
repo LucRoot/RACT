@@ -179,6 +179,11 @@ class UnenforcedSandbox:
     ``StepTransaction.open`` has something to invoke on Windows without
     forking the caller code on ``sys.platform``. The run report stamps
     ``sandbox_enforced=False`` when the stub is active.
+
+    v0.5.1 module_05: even the unenforced stub now emits a
+    ``sandbox.env_scrubbed`` event that names the count of environ
+    variables that WOULD have been scrubbed under a strict allowlist,
+    so the audit surface exists on every platform (D1 defense).
     """
 
     name = "stub"
@@ -206,6 +211,32 @@ class UnenforcedSandbox:
                 details={"platform": platform.system(), "worktree": str(worktree)},
             )
         )
+        # v0.5.1 module_05 -- surface env-allowlist audit even on stub.
+        try:
+            from ract.security.sandbox_env import build_sandbox_env
+
+            allowlist_file = worktree / ".ract" / "sandbox_env.allowlist"
+            result = build_sandbox_env(
+                manifest_passthrough=tuple(manifest.env.passthrough),
+                allowlist_file=allowlist_file if allowlist_file.exists() else None,
+            )
+            emit(
+                SandboxEvent(
+                    name="sandbox.granted",
+                    manifest_digest=digest_hex,
+                    step_id_hex=step_id.hex(),
+                    reason="env_allowlist_computed",
+                    details={
+                        "env_scrubbed_count": result.scrubbed_count,
+                        "env_allowlist_source": result.allowlist_source,
+                        "env_never_passthrough_denied": (
+                            result.never_passthrough_denied
+                        ),
+                    },
+                )
+            )
+        except Exception:  # noqa: BLE001 -- stub must never fail entry
+            pass
         yield
 
 

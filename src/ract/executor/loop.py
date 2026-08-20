@@ -54,7 +54,16 @@ from ract.core.transaction import (
     new_step_id,
     open_transaction,
 )
+from ract.executor.commit_compensator import (
+    CompensatorStack,
+    build_compensator,
+)
 from ract.executor.runtime import ContainerBackend
+from ract.executor.tool_gate import (
+    ToolBudget,
+    ToolInvocationGate,
+    ToolRegistry,
+)
 from ract.executor.worktree import Worktree, WorktreeManager
 from ract.handshake_registry import HandshakeRegistry
 from ract.security.manifest import CapabilityManifest
@@ -132,6 +141,9 @@ class SubstrateLoop:
         manifest: CapabilityManifest | None = None,
         sandbox_backend: SandboxBackend | None = None,
         auction_sweep: AuctionSweep | None = None,
+        tool_registry: ToolRegistry | None = None,
+        tool_declared_ids: frozenset[str] | None = None,
+        tool_budget: ToolBudget | None = None,
     ) -> None:
         self.repo_root = Path(repo_root)
         self.parent_snapshot = parent_snapshot
@@ -158,6 +170,28 @@ class SubstrateLoop:
         # Track committed step_ids so ``depends_on`` can gate downstream
         # commits without leaking the plan graph into git.
         self._committed_step_ids: set[bytes] = set()
+
+        # v0.5.1 module_05 -- tool-invocation gate (SUBSTRATE §5). The
+        # loop owns the gate; individual steps invoke tools through
+        # ``self.invoke_tool``. A loop constructed without a registry
+        # runs in legacy mode (no gate; ``invoke_tool`` refuses on
+        # first call so the migration is loud).
+        self.tool_registry = tool_registry
+        # Prefer explicit declared_ids; else read registry ids as the
+        # declared surface (test-friendly). ``frozenset()`` = tool
+        # calls always refuse (gate strictly denies).
+        if tool_declared_ids is not None:
+            self._tool_declared_ids = frozenset(tool_declared_ids)
+        elif tool_registry is not None:
+            self._tool_declared_ids = tool_registry.declared_ids()
+        else:
+            self._tool_declared_ids = frozenset()
+        self._tool_budget = tool_budget or ToolBudget()
+        self._tool_gates: dict[bytes, ToolInvocationGate] = {}
+        # v0.5.1 module_05 -- commit compensator stack (SUBSTRATE §7).
+        # Every successful commit inside the loop installs a soft-reset
+        # compensator; disposal-other-than-T1 drains the stack LIFO.
+        self.compensator_stack = CompensatorStack()
 
     # ---- one step -------------------------------------------------------
 
@@ -266,6 +300,90 @@ class SubstrateLoop:
             if container is not None and self.container_backend is not None:
                 self.container_backend.stop(container)
 
+    # ---- tool-invocation gate ------------------------------------------
+
+    def invoke_tool(
+        self,
+        tool_id: str,
+        args: dict[str, object] | None = None,
+        *,
+        step_id: bytes | None = None,
+    ) -> object:
+        """Single chokepoint for tool calls (SUBSTRATE §5).
+
+        v0.5.1 module_05. Every tool call inside a substrate step
+        flows through this method; the ``ToolInvocationGate`` for the
+        step is lazily constructed on first invocation and reused for
+        every subsequent call under the same ``step_id``.
+
+        - ``tool_id`` must be in ``self._tool_declared_ids`` (from
+          the manifest or the caller-declared allowlist).
+        - ``args`` is a kwargs-style dict; the gate validates against
+          the registered tool's ``ToolArgSchema``.
+        - ``step_id`` identifies which step's budget is consumed;
+          defaults to a per-loop synthetic id when omitted (a caller
+          driving invoke_tool outside a step still gets a single
+          shared budget).
+
+        Raises ``ToolInvocationRefused`` (imported from
+        ``ract.executor.tool_gate``) on any gate failure.
+        """
+        if self.tool_registry is None:
+            # Import here to avoid a top-level cycle and keep the
+            # refusal structured.
+            from ract.executor.tool_gate import ToolInvocationRefused
+
+            raise ToolInvocationRefused(
+                tool_id=tool_id,
+                gate="registry",
+                reason=(
+                    "SubstrateLoop was constructed without a "
+                    "ToolRegistry; no tool calls admissible"
+                ),
+                details={},
+            )
+        effective_step_id = step_id if step_id is not None else b"\x00" * 16
+        gate = self._tool_gates.get(effective_step_id)
+        if gate is None:
+            gate = ToolInvocationGate(
+                registry=self.tool_registry,
+                declared_tool_ids=self._tool_declared_ids,
+                budget=ToolBudget(
+                    max_invocations=self._tool_budget.max_invocations
+                ),
+                step_id_hex=effective_step_id.hex(),
+            )
+            self._tool_gates[effective_step_id] = gate
+        return gate.invoke(tool_id, dict(args or {}))
+
+    def tool_gate_for(self, step_id: bytes) -> ToolInvocationGate | None:
+        """Return the ``ToolInvocationGate`` used for ``step_id`` (or None)."""
+        return self._tool_gates.get(step_id)
+
+    def _current_branch_name(self) -> str:
+        """Return the loop repo's currently checked-out branch name."""
+        return _current_branch_name_of(self.repo_root)
+
+    # ---- compensator drain ---------------------------------------------
+
+    def dispose(self, *, success: bool, reason: str = "") -> list[tuple]:
+        """Drain or discard the loop's compensator stack.
+
+        Called by the loop controller on loop exit. ``success=True``
+        (T1) discards the stack; ``success=False`` drains it LIFO,
+        undoing every mid-loop commit whose branch has not been
+        pushed. Returns the list of ``(compensator, status)`` from
+        the drain (empty on success or when the stack is empty).
+        """
+        if success:
+            self.compensator_stack.discard(
+                reason=reason or "T1_SUCCESS",
+            )
+            return []
+        return self.compensator_stack.drain(
+            reason=reason or "loop_disposed_unsuccessfully",
+        )
+
     # ---- between-iteration sweep ---------------------------------------
 
     def _maybe_run_auction_sweep(self) -> None:
@@ -363,9 +481,30 @@ class SubstrateLoop:
         # working-tree state we skip the fast-forward (the constructor
         # already refused a dirty tree at loop entry, but tests may build
         # a manager without going through the constructor).
+        head_before = parent_before
         _fast_forward_head(self.repo_root, new_sha)
         self.parent_snapshot = new_sha
         self._committed_step_ids.add(txn.step_id)
+
+        # v0.5.1 module_05 -- install a compensator so a subsequent
+        # unsuccessful loop disposal can undo this commit. We install
+        # only when the HEAD actually advanced (fast-forward
+        # succeeded); when HEAD was refused (divergent branch), the
+        # loop's HEAD did NOT advance and there is nothing for a
+        # compensator to unwind.
+        current_head = _resolve_head_safe(self.repo_root)
+        if current_head == new_sha and head_before and head_before != new_sha:
+            try:
+                comp = build_compensator(
+                    self.repo_root,
+                    branch=self._current_branch_name(),
+                    sha_before=head_before,
+                    sha_after=new_sha,
+                    mode="soft",
+                )
+                self.compensator_stack.install(comp)
+            except Exception:  # noqa: BLE001 -- never fail commit on install error
+                pass
 
         # Committed transaction: prune the worktree tree (branch survives).
         _remove_worktree_only(self.repo_root, wt.path)
@@ -385,6 +524,37 @@ class SubstrateLoop:
 # ---------------------------------------------------------------------------
 # Small git helpers used by SubstrateLoop only
 # ---------------------------------------------------------------------------
+
+
+def _resolve_head_safe(repo_root: Path) -> str:
+    """Return HEAD sha for ``repo_root`` or ``""`` on failure.
+
+    module_05 helper -- used to confirm the fast-forward actually
+    advanced HEAD before installing a compensator. Silent on error;
+    the compensator install skips when this returns ``""``.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def _current_branch_name_of(repo_root: Path) -> str:
+    """Return the currently checked-out branch name (or ``"HEAD"`` on detach)."""
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return "HEAD"
+    return result.stdout.strip() or "HEAD"
 
 
 def _fast_forward_head(repo_root: Path, new_sha: str) -> None:

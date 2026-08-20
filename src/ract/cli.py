@@ -3941,7 +3941,7 @@ def _intent_command(args: list[str]) -> int:
     else:
         run_dir = parsed.runs_root / parsed.run_id
 
-    # v0.5.1 module_04 SP Q6b amendment (Nemotron DEFECT verdict): split
+    # v0.5.1 module_04 SP Q6b amendment (OpenRouter reviewer DEFECT verdict): split
     # exit codes so automation can react differently. Codes:
     # 0 = success (JSON payload to stdout)
     # 2 = usage / invalid arguments (empty intent, unreadable file)

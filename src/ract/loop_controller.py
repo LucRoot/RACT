@@ -234,7 +234,7 @@ class LoopController:
         # v0.5.0 backward-compat; v0.6 flips the default to True.
         self.strict_prompt_digest = strict_prompt_digest
         # Q2: rollback behaviour for orphaned files. Default False
-        # (list + emit event) matches Nemotron's compromise; True
+        # (list + emit event) matches OpenRouter reviewer's compromise; True
         # matches Google's stricter fix.
         self.delete_orphaned_files_on_t8 = delete_orphaned_files_on_t8
 
@@ -475,7 +475,7 @@ class LoopController:
           in the returned list. The caller emits a structured
           ``run.completed`` event listing every orphan so the operator
           cannot miss them (SP Q2 external reviewer PARTIAL verdict --
-          Nemotron's compromise: "emit a structured event listing the
+          OpenRouter reviewer's compromise: "emit a structured event listing the
           leftovers so the operator cannot miss them"; Google's stricter
           fix: "delete them" -- the flag lets operators pick).
         - ``True``: delete the orphan file. Aggressive; operators who

@@ -49,10 +49,19 @@ def test_windows_returns_stub_with_escape_hatch(tmp_path: Path):
 
         set_event_sink(_default_sink)
 
-    assert len(events) == 1
+    # v0.5.1 module_05: UnenforcedSandbox emits BOTH the classic
+    # ``sandbox.unenforced`` event AND a ``sandbox.granted`` event
+    # carrying the env-allowlist audit (D1 defense: env scrubbing
+    # applies even on the unenforced stub). The unenforced event
+    # remains index 0; the granted-with-env-audit event lands next.
+    assert len(events) == 2
     assert events[0].name == "sandbox.unenforced"
     assert "unenforced-sandbox" in events[0].reason
     assert events[0].step_id_hex == ("00" * 16)
+    assert events[1].name == "sandbox.granted"
+    assert events[1].reason == "env_allowlist_computed"
+    assert "env_scrubbed_count" in events[1].details
+    assert events[1].details["env_never_passthrough_denied"] >= 0
 
 
 def test_unknown_platform_also_refuses():

@@ -96,7 +96,7 @@ def _load_operator_key(ract_dir: Path) -> bytes:
     to the ``RACT_OPERATOR_KEY`` env var. Raises
     :class:`OperatorKeyMissingError` when neither yields >= 32 bytes.
 
-    v0.5.1 module_04 SP Q4a amendment (Nemotron DEFECT verdict): the
+    v0.5.1 module_04 SP Q4a amendment (OpenRouter reviewer DEFECT verdict): the
     ract_dir path is resolved through ``Path.resolve(strict=False)``
     so a caller-supplied relative path or a symlink race cannot
     redirect the loader to a decoy operator.key. The resolved path is
@@ -235,7 +235,7 @@ def recompile_intent(
 
     operator_key = _load_operator_key(ract_dir)
 
-    # v0.5.1 module_04 SP Q5a amendment (Nemotron DEFECT verdict): hold
+    # v0.5.1 module_04 SP Q5a amendment (OpenRouter reviewer DEFECT verdict): hold
     # a recompile lock for the ENTIRE read-compile-append-overwrite
     # sequence so two concurrent operator recompiles cannot interleave
     # (the second overwriting suite.json wins on-disk while its chain

@@ -49,7 +49,7 @@ class TerminationCause(Enum):
     """Why the recursion loop stopped.
 
     v0.5.1 module_04 SP Q1 (external reviewer PARTIAL verdict, both
-    Google and Nemotron converged): enum members carry EXPLICIT integer
+    Google and OpenRouter reviewer converged): enum members carry EXPLICIT integer
     values so a serialised value crossing a persistence boundary (e.g.,
     a run report from a v0.5.0 client verifying against a v0.5.1
     report) never shifts silently. New members MUST be appended with a
