@@ -45,6 +45,7 @@ Reference:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 import threading
@@ -52,6 +53,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ContextManager
+
+_LOG = logging.getLogger("ract.core.assumptions_wal")
 
 from ract.core.module_identity import _module_knot, register_module_knot
 
@@ -310,8 +313,19 @@ class AssumptionWal:
                 obj = json.loads(line)
             except json.JSONDecodeError as exc:
                 if tolerate_tail and i == len(lines) - 1:
-                    # Truncated tail — a process kill mid-append. Skip
-                    # silently: the mutation never reached memory.
+                    # Truncated tail — a process kill mid-append. The
+                    # mutation never reached memory (fsync had not
+                    # completed) so dropping the tail is safe. Emit a
+                    # WARN so the operator sees the recovery event in
+                    # logs rather than silently swallowing it (per SP
+                    # module_01 Q1 finding: docstring promised a WARN
+                    # but the code was silent).
+                    _LOG.warning(
+                        "truncated WAL tail at %s line %d (skipped; "
+                        "mutation never reached memory before kill)",
+                        path,
+                        i,
+                    )
                     break
                 raise WalCorruptError(
                     f"malformed WAL line {i} in {path}: {exc}"
@@ -386,9 +400,31 @@ class AssumptionWal:
 
         Steps 1-3 happen inside the WAL byte-0 lock so no concurrent
         writer can inject a line between snapshot-capture and
-        WAL-truncate. A kill during any step leaves either
-        (old snapshot + non-empty WAL) or (new snapshot + empty WAL)
-        recoverable — never a torn pair.
+        WAL-truncate.
+
+        Crash windows (SP module_01 Q2 clarification): a kill after
+        step 2 but before step 3 leaves (new snapshot + non-empty
+        WAL) on disk — the "torn pair" a careless implementation
+        would corrupt on reload. Here that pair is RECOVERABLE
+        because replay is idempotent by design:
+
+        - ``proposed`` overwrites with byte-identical data;
+        - ``accepted`` re-sets the state to ACTIVE (no-op if already
+          ACTIVE via the snapshot's terminal state);
+        - ``discharged`` re-sets state + evidence (identical bytes);
+        - ``violated`` re-marks + re-propagates, and the propagation
+          loop skips dependents already in VIOLATED state.
+
+        So the acceptable end-states after any kill during rotation
+        are: (old snapshot + full WAL), (new snapshot + full WAL —
+        double-apply is safe), or (new snapshot + empty WAL). None
+        lose data; none corrupt the reload.
+
+        Note: directory ``fsync`` is NOT performed on POSIX. Losing
+        the ``os.replace`` after a kernel crash reverts to the old
+        snapshot + full WAL, which is one of the recoverable states
+        above — the cost is a longer WAL replay, not data loss. See
+        Flagged gap: directory-fsync durability, v0.6-scope.
         """
         tmp_path = self._snapshot_path.with_suffix(".json.tmp")
         # Serialize the snapshot body first so a bad payload raises
