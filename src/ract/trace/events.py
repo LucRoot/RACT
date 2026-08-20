@@ -75,6 +75,7 @@ EventKind = Literal[
     "rootknot.verified",
     # Assumptions
     "assumption.proposed",
+    "assumption.accepted",
     "assumption.discharged",
     "assumption.violated",
     # Contracts (module_06 — Auction as scheduled environment sweep)
