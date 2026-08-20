@@ -263,17 +263,37 @@ class AssumptionRegistry:
         edges, and SuiteChain entries by string equality. Payloads that
         already carry a ``run_id`` (explicit caller wiring) are
         preserved verbatim.
+
+        SP Q2 amendment (external reviewer PARTIAL verdict): when the
+        payload already carries a ``run_id`` that DIFFERS from the
+        ambient value, a WARN is emitted so audit tooling can flag the
+        divergence. The explicit value still wins (breaking that would
+        break every test that hand-crafts a WAL payload), but the
+        divergence is no longer silent.
         """
         if self._wal is None:
             return
         if kind not in TRANSITIONS:
             raise ValueError(f"unknown transition kind {kind!r}")
-        if "run_id" not in payload:
-            from ract.runtime import get_current_run_id
+        from ract.runtime import get_current_run_id
 
-            ambient = get_current_run_id()
+        ambient = get_current_run_id()
+        if "run_id" not in payload:
             if ambient is not None:
                 payload = {**payload, "run_id": ambient}
+        else:
+            explicit = payload.get("run_id")
+            if ambient is not None and explicit != ambient:
+                import logging as _logging
+
+                _logging.getLogger("ract.core.assumption_registry").warning(
+                    "WAL %s entry carries explicit run_id %r that differs "
+                    "from bound ambient run_id %r; explicit wins but audit "
+                    "tooling should flag the split (SP Q2 amendment).",
+                    kind,
+                    explicit,
+                    ambient,
+                )
         self._wal.append(kind, payload)
 
     def _reload_from_disk(self) -> None:
@@ -283,6 +303,15 @@ class AssumptionRegistry:
         snapshot entries first, then WAL entries in append order.
         Dependency propagation for ``violated`` transitions is
         recomputed live — the WAL only records the root.
+
+        SP Q5 amendment (external reviewer DEFECT verdict): when the
+        ambient run_id is bound at reload time AND the on-disk WAL
+        carries entries missing a ``run_id`` field, emit a WARN. This
+        surfaces the "mixed with-rid / without-rid" mosaic condition
+        so audit tooling can decide whether to trigger a rid-backfill
+        (v0.6 flagged gap). Silent success on mixed files was the
+        original defect -- the audit trail could not claim
+        "all entries came from run X".
         """
         assert self._wal is not None
         snapshot_entries, wal_entries = self._wal.load_all()
@@ -292,6 +321,29 @@ class AssumptionRegistry:
             self._hydrate_snapshot_entry(entry)
         for entry in wal_entries:
             self._apply_wal_entry(entry)
+        # SP Q5 amendment: mixed-rid detection + WARN.
+        from ract.runtime import get_current_run_id
+
+        ambient = get_current_run_id()
+        if ambient is not None:
+            missing_indices = [
+                idx
+                for idx, entry in enumerate(wal_entries)
+                if "run_id" not in entry.payload
+            ]
+            if missing_indices:
+                import logging as _logging
+
+                _logging.getLogger("ract.core.assumption_registry").warning(
+                    "WAL reload under ambient run_id %r found %d legacy "
+                    "entries without run_id (indices %r). Audit tooling "
+                    "cannot claim 'all entries came from run %r' until a "
+                    "backfill runs (v0.6 flagged gap). SP Q5 amendment.",
+                    ambient,
+                    len(missing_indices),
+                    missing_indices[:5],
+                    ambient,
+                )
 
     def _hydrate_snapshot_entry(self, entry: WalEntry) -> None:
         payload = entry.payload

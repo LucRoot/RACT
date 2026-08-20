@@ -1,5 +1,16 @@
 """Ambient run-context accessors for v0.5.1 module_06.
 
+SP Q1 note: :class:`contextvars.ContextVar` propagates through
+``asyncio.create_task`` and ``asyncio.to_thread`` (Python 3.11+) by
+default, but a bare :class:`concurrent.futures.ThreadPoolExecutor`
+worker does NOT inherit the parent context. Callers submitting work
+into a pool from inside a :func:`bind_run_id` scope must either
+(a) use :func:`asyncio.to_thread` / ``loop.run_in_executor``, or
+(b) wrap the submitted callable via :func:`run_with_ambient` which
+captures the current context and runs the callable under it.
+
+
+
 DeepSeek REVIEW_2 criticism 1 ("fragmented ``run_id``") observed that
 subsystems each fell back to their own defaults when a caller forgot to
 pass ``run_id``: the WAL used its wal_dir basename, the WorkspaceDigestChain
@@ -41,8 +52,8 @@ Reference:
 from __future__ import annotations
 
 from contextlib import contextmanager
-from contextvars import ContextVar, Token
-from typing import Iterator
+from contextvars import ContextVar, Token, copy_context
+from typing import Any, Callable, Iterator, TypeVar
 
 from ract.core.module_identity import _module_knot, register_module_knot
 
@@ -135,6 +146,48 @@ def bind_run_id(run_id: str) -> Iterator[str]:
         yield run_id
     finally:
         _CURRENT_RUN_ID.reset(token)
+
+
+# ---------------------------------------------------------------------------
+# SP Q1 amendment -- executor propagation helper
+# ---------------------------------------------------------------------------
+
+
+_R = TypeVar("_R")
+
+
+def run_with_ambient(
+    fn: Callable[..., _R], /, *args: Any, **kwargs: Any
+) -> Callable[[], _R]:
+    """Return a zero-arg callable that runs ``fn(*args, **kwargs)`` under
+    a snapshot of the CALLER's context.
+
+    SP Q1 amendment (external reviewer DEFECT verdict):
+    :class:`contextvars.ContextVar` does NOT propagate into
+    :class:`concurrent.futures.ThreadPoolExecutor` worker threads by
+    default. The snapshot must be captured in the CALLER's context;
+    calling :func:`contextvars.copy_context` from inside the worker
+    captures the worker's (empty) context instead. This helper
+    captures at call time and returns a closure the pool can invoke::
+
+        with bind_run_id(rid):
+            with ThreadPoolExecutor() as pool:
+                pool.submit(run_with_ambient(subsystem_write, arg1, arg2))
+
+    The returned closure takes no arguments; the pool calls it with
+    no args, and it runs the original ``fn(*args, **kwargs)`` under
+    the captured context, so the worker sees the ambient run_id the
+    caller had bound.
+
+    Kept as a small, dependency-free helper so callers do not need to
+    import :mod:`contextvars` at every submit site.
+    """
+    ctx = copy_context()
+
+    def _bound() -> _R:
+        return ctx.run(fn, *args, **kwargs)
+
+    return _bound
 
 
 # RACT 0.5.1

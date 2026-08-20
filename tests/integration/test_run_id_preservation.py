@@ -584,6 +584,205 @@ def test_loop_controller_mints_run_id_when_marker_absent(
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# 6. SP amendment regression tests
+# ---------------------------------------------------------------------------
+
+
+def test_sp_q1_run_with_ambient_propagates_into_thread_pool(
+    tmp_path: Path,
+) -> None:
+    """SP Q1 amendment: :func:`ract.runtime.run_with_ambient` wraps a
+    callable so it runs under a copy of the caller's context. Without
+    it, a ThreadPoolExecutor worker sees ``get_current_run_id() is
+    None``.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from ract.runtime import run_with_ambient
+
+    rid = run_id_hex()
+    seen: list[str | None] = []
+    seen_wrapped: list[str | None] = []
+
+    def _worker() -> None:
+        seen.append(get_current_run_id())
+
+    def _worker_wrapped() -> None:
+        seen_wrapped.append(get_current_run_id())
+
+    with bind_run_id(rid):
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            # Bare submit: worker does NOT inherit the ambient.
+            pool.submit(_worker).result()
+            # Wrapped submit: worker sees the ambient.
+            # run_with_ambient returns a zero-arg closure that carries
+            # the caller's ContextVar snapshot.
+            pool.submit(run_with_ambient(_worker_wrapped)).result()
+
+    assert seen == [None], (
+        "bare ThreadPoolExecutor worker should NOT inherit ambient run_id "
+        "(this is the pre-amendment gap SP Q1 documents)"
+    )
+    assert seen_wrapped == [rid], (
+        "run_with_ambient-wrapped callable MUST see the ambient run_id"
+    )
+
+
+def test_sp_q2_wal_persist_warns_on_explicit_ambient_mismatch(
+    tmp_path: Path, caplog
+) -> None:
+    """SP Q2 amendment: WAL _persist emits a WARN when an explicit
+    run_id in the payload differs from the bound ambient. Explicit
+    still wins (backward-compat), but the divergence is no longer
+    silent.
+    """
+    wal_dir = tmp_path / ".ract"
+    ambient_rid = run_id_hex()
+    explicit_rid = run_id_hex()
+    assert ambient_rid != explicit_rid
+
+    with bind_run_id(ambient_rid):
+        registry = AssumptionRegistry(wal_dir=wal_dir)
+        # Hand-craft a WAL append with an explicit run_id that differs
+        # from the ambient. Use the AssumptionWal directly since the
+        # public registry API does not surface a run_id kwarg.
+        with caplog.at_level(
+            logging.WARNING, logger="ract.core.assumption_registry"
+        ):
+            registry._persist(
+                "proposed",
+                {
+                    "assumption_id": "aa" * 16,
+                    "digest": "bb" * 32,
+                    "text": "hand-crafted with explicit rid",
+                    "depends_on": [],
+                    "run_id": explicit_rid,
+                },
+            )
+
+    # WARN emitted with both ids.
+    assert any(
+        "differs from bound ambient" in rec.message
+        and explicit_rid in rec.message
+        and ambient_rid in rec.message
+        for rec in caplog.records
+    ), "SP Q2 WARN missing or malformed"
+
+    # Explicit still wins on disk.
+    wal = AssumptionWal(wal_dir)
+    _, entries = wal.load_all()
+    assert entries[-1].payload["run_id"] == explicit_rid
+
+
+def test_sp_q4_marker_mint_double_checked_under_lock(tmp_path: Path) -> None:
+    """SP Q4 amendment: the resolve-or-mint sequence is atomic under
+    an exclusive lock on ``run_id.txt.lock``. Two concurrent
+    controller instances on the same fresh run_dir agree on ONE
+    minted id.
+    """
+    import threading
+
+    from ract.loop_controller import LoopController
+
+    config = tmp_path / "ract.yaml"
+    config.write_text("providers: []\n", encoding="utf-8")
+    run_dir = tmp_path / "run-race"
+
+    results: list[str] = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(4)
+
+    def _worker() -> None:
+        controller = LoopController(config, max_iterations=1, run_dir=run_dir)
+        barrier.wait()  # release all workers together
+        rid = controller._resolve_or_mint_run_id()
+        with lock:
+            results.append(rid)
+
+    threads = [threading.Thread(target=_worker) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(results) == 4
+    # All four workers agree on ONE id (double-checked pattern under lock).
+    assert len(set(results)) == 1, (
+        f"marker mint race: got {len(set(results))} distinct ids "
+        f"{set(results)!r}"
+    )
+    # Marker file agrees.
+    marker = run_dir / "run_id.txt"
+    assert marker.read_text(encoding="utf-8").strip() == results[0]
+
+
+def test_sp_q5_wal_reload_warns_on_mixed_rid_history(
+    tmp_path: Path, caplog
+) -> None:
+    """SP Q5 amendment: WAL reload emits a WARN when the ambient is
+    bound AND the on-disk WAL has legacy entries without run_id.
+    """
+    wal_dir = tmp_path / ".ract"
+    wal = AssumptionWal(wal_dir)
+    # Emulate a legacy write (no run_id in payload).
+    wal.append(
+        "proposed",
+        {
+            "assumption_id": "aa" * 16,
+            "digest": "bb" * 32,
+            "text": "legacy",
+            "depends_on": [],
+        },
+    )
+
+    rid = run_id_hex()
+    with bind_run_id(rid):
+        with caplog.at_level(
+            logging.WARNING, logger="ract.core.assumption_registry"
+        ):
+            AssumptionRegistry(wal_dir=wal_dir)
+
+    assert any(
+        "found 1 legacy entries without run_id" in rec.message
+        and rid in rec.message
+        for rec in caplog.records
+    ), "SP Q5 WARN missing or malformed"
+
+
+def test_sp_q5_wal_reload_silent_without_ambient(
+    tmp_path: Path, caplog
+) -> None:
+    """SP Q5 amendment corollary: no ambient bound => no WARN (the
+    WARN is a mismatch-detection signal, not a legacy-entry alarm).
+    """
+    wal_dir = tmp_path / ".ract"
+    wal = AssumptionWal(wal_dir)
+    wal.append(
+        "proposed",
+        {
+            "assumption_id": "aa" * 16,
+            "digest": "bb" * 32,
+            "text": "legacy",
+            "depends_on": [],
+        },
+    )
+    with caplog.at_level(
+        logging.WARNING, logger="ract.core.assumption_registry"
+    ):
+        AssumptionRegistry(wal_dir=wal_dir)
+
+    assert not any(
+        "legacy entries without run_id" in rec.message
+        for rec in caplog.records
+    ), "SP Q5 WARN fired without ambient bound (should be silent)"
+
+
+# ---------------------------------------------------------------------------
+# 7. Original backward-compat test (moved below amendments)
+# ---------------------------------------------------------------------------
+
+
 def test_pre_v051_wal_entries_verify_silently(
     tmp_path: Path, caplog
 ) -> None:

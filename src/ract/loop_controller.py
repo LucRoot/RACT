@@ -638,13 +638,26 @@ class LoopController:
 
         Whenever a fresh id is minted the marker is also written so
         the next invocation targeting the same run_dir picks up the
-        same id (compaction preserves the identifier). Marker writes
-        are best-effort -- a failing write does not break the loop.
+        same id (compaction preserves the identifier).
+
+        SP Q4 amendment (external reviewer DEFECT verdict): the
+        check-then-mint sequence is atomic under a cross-platform
+        exclusive lock on a ``run_id.txt.lock`` sidecar. Without the
+        lock, two RACT processes racing on the same fresh run_dir
+        could each observe marker-absent, mint different ids, and
+        write both into the ledger -- turning a single run_dir into
+        a mosaic of two run_ids. The lock closes the window by
+        serialising the check + write. Marker writes remain
+        best-effort -- a failing write does not break the loop.
         """
+        import os as _os
+
         from ract.core.workspace_digest import run_id_hex
 
         if self.run_dir is not None:
             marker = self.run_dir / "run_id.txt"
+            # First-chance read outside the lock avoids contention on
+            # the common resolve-existing path.
             if marker.exists():
                 try:
                     existing = marker.read_text(encoding="utf-8").strip()
@@ -652,18 +665,100 @@ class LoopController:
                     existing = ""
                 if existing:
                     return existing
-            # No marker -- prefer the run_dir basename when non-trivial
-            # so callers passing meaningful paths (test fixtures, CLI
-            # invocations) do not silently pick up a random id.
+            try:
+                self.run_dir.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                return run_id_hex()
+            lock_path = self.run_dir / "run_id.txt.lock"
             base = self.run_dir.name.strip()
             candidate = base if base else run_id_hex()
             try:
-                self.run_dir.mkdir(parents=True, exist_ok=True)
-                marker.write_text(candidate, encoding="utf-8")
+                fd = _os.open(
+                    lock_path,
+                    _os.O_WRONLY | _os.O_CREAT,
+                    0o644,
+                )
+            except OSError:
+                try:
+                    marker.write_text(candidate, encoding="utf-8")
+                except OSError:
+                    pass
+                return candidate
+            try:
+                self._acquire_marker_lock(fd)
+                try:
+                    # Re-check marker under lock (double-checked pattern).
+                    if marker.exists():
+                        try:
+                            existing = marker.read_text(encoding="utf-8").strip()
+                        except OSError:
+                            existing = ""
+                        if existing:
+                            return existing
+                    try:
+                        marker.write_text(candidate, encoding="utf-8")
+                    except OSError:
+                        pass
+                    return candidate
+                finally:
+                    self._release_marker_lock(fd)
+            finally:
+                try:
+                    _os.close(fd)
+                except OSError:
+                    pass
+        return run_id_hex()
+
+    @staticmethod
+    def _acquire_marker_lock(fd: int) -> None:
+        """Cross-platform exclusive lock on the marker lock sidecar."""
+        import os as _os
+        import sys as _sys
+        import time as _time
+
+        if _sys.platform == "win32":
+            import msvcrt  # type: ignore[import-not-found]
+
+            _os.lseek(fd, 0, _os.SEEK_SET)
+            for _attempt in range(3):
+                try:
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                    return
+                except OSError:
+                    _time.sleep(0.01)
+        else:
+            import fcntl  # type: ignore[import-not-found,unused-ignore,attr-defined,no-redef]
+
+            for _attempt in range(3):
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # type: ignore[attr-defined]
+                    return
+                except OSError:
+                    _time.sleep(0.01)
+
+    @staticmethod
+    def _release_marker_lock(fd: int) -> None:
+        """Release the exclusive lock acquired via
+        :meth:`_acquire_marker_lock`.
+        """
+        import os as _os
+        import sys as _sys
+
+        if _sys.platform == "win32":
+            import msvcrt  # type: ignore[import-not-found]
+
+            _os.lseek(fd, 0, _os.SEEK_SET)
+            try:
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
             except OSError:
                 pass
-            return candidate
-        return run_id_hex()
+        else:
+            import fcntl  # type: ignore[import-not-found,unused-ignore,attr-defined,no-redef]
+
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)  # type: ignore[attr-defined]
+            except OSError:
+                pass
 
     def _run_bound(
         self,
