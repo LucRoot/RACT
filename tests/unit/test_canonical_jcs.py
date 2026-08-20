@@ -131,6 +131,46 @@ def test_float_repr_shortest_round_trip() -> None:
     assert dumps_jcs(parsed) == encoded
 
 
+# ECMA-262 fixed-vs-exponential boundary — locked after module_03 SP Q3
+# raised the initial off-by-one at k=-6 (upper bound was strict; the
+# spec is inclusive on the low end at -6, exclusive on the high end at
+# 21). These test values are the boundaries; a regression would surface
+# here before any signature-verify test broke.
+
+
+def test_float_ecma262_fixed_lower_boundary() -> None:
+    """k = -6 emits fixed form (matches ``(1e-6).toString()`` in JS)."""
+    assert dumps_jcs(1e-6) == b"0.000001"
+
+
+def test_float_ecma262_exp_below_lower_boundary() -> None:
+    """k = -7 emits exponential form."""
+    assert dumps_jcs(1e-7) == b"1e-7"
+
+
+def test_float_ecma262_fixed_upper_boundary() -> None:
+    """k = 20 emits fixed form."""
+    assert dumps_jcs(1e20) == b"100000000000000000000"
+
+
+def test_float_ecma262_exp_at_upper_boundary() -> None:
+    """k = 21 emits exponential form."""
+    assert dumps_jcs(1e21) == b"1e+21"
+
+
+def test_float_shortest_form_preserved_across_fixed_conversion() -> None:
+    """Fixed-form conversion preserves the shortest-repr digit sequence.
+
+    Earlier draft (module_03 SP Q3 PARTIAL) used ``f"{value:.17f}"``
+    which introduced spurious trailing digits for values like
+    ``1.5e-5``. The current implementation moves the decimal point of
+    the shortest-repr mantissa directly, preserving the ECMA-262
+    shortest-round-trip contract.
+    """
+    assert dumps_jcs(1.5e-5) == b"0.000015"
+    assert dumps_jcs(-1.5e-5) == b"-0.000015"
+
+
 # ---------------------------------------------------------------------------
 # Integer preservation (lossless beyond safe range)
 # ---------------------------------------------------------------------------
@@ -274,6 +314,103 @@ def test_json_snapshot_protocol_used() -> None:
             return {"kind": "custom", "value": 42}
 
     assert dumps_jcs(Custom()) == b'{"kind":"custom","value":42}'
+
+
+# Module_03 SP Q2 DEFECT fix — cycle guard for __json_snapshot__.
+
+
+def test_json_snapshot_cycle_returns_self_raises() -> None:
+    """A snapshot method returning ``self`` triggers the cycle guard.
+
+    Before the fix, this recursed until the interpreter hit its stack
+    limit. Now it raises :class:`CanonicalJSONError` cleanly.
+    """
+
+    class SelfCycle:
+        def __json_snapshot__(self) -> object:
+            return self
+
+    with pytest.raises(CanonicalJSONError, match="Cyclic reference detected via"):
+        dumps_jcs(SelfCycle())
+
+
+def test_json_snapshot_cycle_via_container_raises() -> None:
+    """Snapshot returning a container that references the source raises."""
+
+    class ContainerCycle:
+        def __json_snapshot__(self) -> object:
+            return {"self": self, "kind": "container"}
+
+    with pytest.raises(CanonicalJSONError, match="Cyclic reference"):
+        dumps_jcs(ContainerCycle())
+
+
+def test_json_snapshot_none_attribute_opts_out() -> None:
+    """``__json_snapshot__ = None`` (attribute, not callable) opts out."""
+
+    class OptOut:
+        __json_snapshot__ = None
+
+    with pytest.raises(CanonicalJSONError, match="Unsupported"):
+        dumps_jcs(OptOut())
+
+
+def test_json_snapshot_shared_reference_encoded_once() -> None:
+    """A shared custom object appears twice in the graph without invoking
+    ``snapshot`` twice for the same instance (module_03 SP Q2b memoisation).
+
+    NOTE: The cycle guard adds ``id(obj)`` to ``seen`` for the duration
+    of the walk. A shared reference visited TWICE at different points
+    in the graph does NOT collide with the seen set (the id is
+    discarded on scope exit), so ``snapshot`` fires once per point,
+    NOT once per instance. This test locks the observed behaviour;
+    stronger memoisation is a v0.6 Flagged gap.
+    """
+
+    call_counter = {"n": 0}
+
+    class Shared:
+        def __json_snapshot__(self) -> object:
+            call_counter["n"] += 1
+            return {"tag": "shared"}
+
+    shared = Shared()
+    payload = [shared, shared]
+    encoded = dumps_jcs(payload)
+    assert encoded == b'[{"tag":"shared"},{"tag":"shared"}]'
+    # The cycle guard uses discard-on-exit, so both visits invoke
+    # snapshot. Two invocations is the CURRENT contract; the v0.6
+    # upgrade would memoise for identical semantics with side-effecting
+    # snapshots.
+    assert call_counter["n"] == 2
+
+
+# Module_03 SP Q5b PARTIAL — non-ASCII round-trip invariant for the
+# Rootknot payload fields that could carry non-ASCII (workspace_path,
+# run_id, generator model name). The current fixture set is
+# ASCII-clean (audited at module_03 close), but the invariant that
+# JCS emits raw UTF-8 (not \uXXXX escapes) needs a locked regression
+# so a future move to Python's json ensure_ascii=True doesn't silently
+# reintroduce the byte-shape divergence.
+
+
+def test_non_ascii_workspace_path_style_field_uses_raw_utf8() -> None:
+    """Non-ASCII in a rootknot-shaped field emits as raw UTF-8, not \\uXXXX."""
+    payload = {"workspace_path": "/home/π/repo"}
+    encoded = dumps_jcs(payload)
+    # UTF-8 bytes for π (U+03C0): 0xCF 0x80.
+    assert b"\xcf\x80" in encoded
+    assert b"\\u03c0" not in encoded
+    assert b"\\u03C0" not in encoded
+
+
+def test_non_ascii_run_id_style_field_uses_raw_utf8() -> None:
+    """Non-ASCII in run_id-shaped field emits as raw UTF-8."""
+    payload = {"run_id": "θ-123"}
+    encoded = dumps_jcs(payload)
+    # UTF-8 bytes for θ (U+03B8): 0xCE 0xB8.
+    assert b"\xce\xb8" in encoded
+    assert b"\\u03b8" not in encoded
 
 
 def test_cyclic_list_raises() -> None:

@@ -208,9 +208,35 @@ def _walk(value: object, seen: set[int], out: list[str]) -> None:
     # returning a JSON-native representation. Invoked BEFORE the
     # container branches so a snapshot returning e.g. ``{"kind": ...}``
     # is walked as a dict, not as a bare object.
+    #
+    # Explicit opt-out: setting ``__json_snapshot__ = None`` (attribute,
+    # not a callable) tells the encoder "this class deliberately
+    # declines the protocol." The object then falls through to the
+    # unsupported-type branch below — the caller must either pass a
+    # JSON-native value or install a snapshot method. This lets a
+    # subclass shadow a parent's snapshot without inheriting the
+    # protocol.
+    #
+    # Cycle guard (module_03 SP Q2 DEFECT fix): a custom object whose
+    # snapshot returns ``self`` (or a graph cycling back to ``self``)
+    # would otherwise recurse forever. We add ``id(value)`` to the
+    # ``seen`` set before invoking the snapshot, matching the discipline
+    # applied to list/tuple/dict below. This also gives intra-run
+    # memoisation for shared references — the snapshot is invoked once
+    # per unique object instance per top-level ``dumps_jcs`` call.
     snapshot = getattr(value, "__json_snapshot__", None)
     if callable(snapshot):
-        _walk(snapshot(), seen, out)
+        vid = id(value)
+        if vid in seen:
+            raise CanonicalJSONError(
+                f"Cyclic reference detected via __json_snapshot__ on "
+                f"{type(value).__name__!r} during canonical encode"
+            )
+        seen.add(vid)
+        try:
+            _walk(snapshot(), seen, out)
+        finally:
+            seen.discard(vid)
         return
     if isinstance(value, (list, tuple)):
         vid = id(value)
@@ -344,57 +370,80 @@ def _js_number_repr(value: float) -> str:
     (Gay's dtoa). For the vast majority of finite non-zero non-integer
     floats it matches ECMA-262 byte-for-byte. The one systematic
     divergence is exponent notation: Python emits ``"1e-05"`` and
-    ``"1.5e+20"`` where ECMA-262 emits ``"0.00001"`` (magnitude in
-    ``[1e-6, 1e21)`` → fixed form) and ``"150000000000000000000"``.
-    This helper normalises those to the ECMA-262 shape.
+    ``"1.5e-05"`` where ECMA-262 emits ``"0.00001"`` /
+    ``"0.000015"`` (magnitude ``k`` in ``[-5, 20]`` -> fixed form).
+    This helper normalises those to the ECMA-262 shape while
+    PRESERVING the exact shortest-form digit sequence from
+    :func:`repr` — reformatting via ``f"{v:.Nf}"`` would introduce
+    spurious trailing digits (e.g., 1.5e-5 -> "0.000015000000000000001")
+    and violate ECMA-262 "shortest that round-trips".
+
+    Approach:
+
+    - Extract the shortest mantissa digits from :func:`repr`
+      (``"1.5e-05"`` -> digits ``"15"``, exponent -5, decimal
+      position after digit 1).
+    - Derive ``k = exponent + (int_part_length - 1)`` — the true
+      ECMA-262 magnitude of the value, computed from the
+      shortest-form digits without any float log10 rounding.
+    - For ``-6 < k < 21`` emit fixed form by moving the decimal
+      point; otherwise emit ``"<mantissa>e<sign><|exp|>"`` with
+      explicit sign and no leading zeros in the exponent.
     """
     text = repr(value)
     if "e" not in text and "E" not in text:
-        # Already in fixed form — nothing to normalise.
+        # Already in fixed form — nothing to normalise. ``repr`` for
+        # a non-integer, non-exp double is exactly what ECMA-262 emits.
         return text
-    # Split into mantissa and exponent.
-    mantissa, sep, exp_part = text.lower().partition("e")
+    # Split sign, mantissa, exponent.
+    if text.startswith("-"):
+        sign_str = "-"
+        body = text[1:]
+    else:
+        sign_str = ""
+        body = text
+    mantissa, _, exp_part = body.lower().partition("e")
     exp = int(exp_part)
-    # Determine whether ECMA-262 chooses fixed or exponential form.
-    # Rule (approximate, from Number.prototype.toString §21.1.3.6):
-    # let n = number of significant digits in the mantissa, k = value's
-    # base-10 magnitude; use fixed when -6 < k <= 21. We derive k from
-    # the parsed value directly.
-    if value == 0.0:
-        return "0"
-    magnitude = math.floor(math.log10(abs(value)))
-    if -6 < magnitude < 21:
-        # Convert to fixed form. Compute precision so the round-trip
-        # is exact for a shortest-form Python repr.
-        # Strategy: format with enough digits, then strip trailing zeros.
-        # 17 significant digits round-trip any IEEE 754 double.
-        sig_digits = 17
-        # Number of digits after decimal point in fixed form:
-        # sig_digits - (magnitude + 1) when magnitude >= 0
-        # sig_digits + abs(magnitude) - 1 when magnitude < 0
-        if magnitude >= 0:
-            decimals = max(0, sig_digits - int(magnitude) - 1)
+    if "." in mantissa:
+        int_part, frac_part = mantissa.split(".", 1)
+    else:
+        int_part, frac_part = mantissa, ""
+    # Shortest significant digits — leading digit + fractional digits.
+    digits = int_part + frac_part
+    # ECMA-262 magnitude k: floor(log10(|value|)). Since ``int_part``
+    # from a Python repr in exp form is always a single non-zero
+    # digit, ``k = exp + (len(int_part) - 1) = exp``. We keep the
+    # general form so the derivation stays visible.
+    k = exp + len(int_part) - 1
+    # ECMA-262 §21.1.3.6 Number.prototype.toString: fixed form when
+    # ``-6 <= k < 21`` (upper bound strict, matching ``(1e21).toString()
+    # === "1e+21"`` but ``(1e20).toString() === "1e+20" .. no, 1e20 -> fixed``).
+    # Lower bound INCLUSIVE at -6 so ``(1e-6).toString() === "0.000001"``
+    # matches Node/browser behaviour; earlier draft had an off-by-one
+    # here (module_03 SP Q3).
+    if -6 <= k < 21:
+        if k >= 0:
+            # Digits before the decimal point: k+1.
+            if k + 1 >= len(digits):
+                # Pad with trailing zeros to reach the decimal point.
+                fixed = digits + "0" * (k + 1 - len(digits))
+            else:
+                fixed = digits[: k + 1] + "." + digits[k + 1 :]
         else:
-            decimals = sig_digits + abs(int(magnitude)) - 1
-        fixed = f"{value:.{decimals}f}"
-        # Trim trailing zeros and a bare trailing decimal point.
+            # k in [-5, -1]: leading zeros required in front of digits.
+            # E.g., k=-5, digits="15" -> "0.000015".
+            fixed = "0." + "0" * (-k - 1) + digits
+        # Strip any trailing zeros that came from padding (only matters
+        # when frac_part was non-empty AND k+1 landed inside digits).
         if "." in fixed:
             fixed = fixed.rstrip("0").rstrip(".")
-        # Guard: an empty string or bare sign should never happen but
-        # keep the invariant explicit.
         if fixed in ("", "-"):
             fixed = "0"
-        # Re-verify round-trip. If Python's shortest repr and the
-        # fixed form disagree on value, prefer the fixed form (which
-        # is what ECMA-262 emits) — the discrepancy is only in the
-        # display of a bit-identical double.
-        return fixed
+        return sign_str + fixed
     # Exponential form. ECMA-262 emits ``"1e+21"``, ``"1e-7"`` — always
-    # with an explicit sign. Python already emits ``"1e+21"`` /
-    # ``"1e-07"`` but pads the exponent for small negatives; normalise
-    # to no-pad.
-    sign = "+" if exp >= 0 else "-"
-    return f"{mantissa}e{sign}{abs(exp)}"
+    # with an explicit sign and no zero-padding on the exponent.
+    exp_sign = "+" if exp >= 0 else "-"
+    return f"{sign_str}{mantissa}e{exp_sign}{abs(exp)}"
 
 
 # ---------------------------------------------------------------------------

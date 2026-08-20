@@ -152,10 +152,15 @@ def _find_offending_lines(path: Path) -> list[int]:
         if _INLINE_PATTERN.search(line):
             offending.append(idx)
             continue
-        # Multiline: sort_keys=True on this line, look back up to 8
+        # Multiline: sort_keys=True on this line, look back up to 50
         # lines for a json.dumps( with no closing paren in between.
+        # Window widened from 8 -> 50 per module_03 SP Q6(b) PARTIAL:
+        # a pretty-printed inline dict literal could span more than 8
+        # lines. Fifty lines covers every realistic call and keeps the
+        # scan bounded. A stricter AST-based check is queued as a v0.6
+        # Flagged gap (module_03.md).
         if _KWARG_PATTERN.search(line):
-            window_start = max(0, idx - 8)
+            window_start = max(0, idx - 50)
             window = "\n".join(lines[window_start:idx])
             if _JSON_DUMPS_OPEN.search(window):
                 # Count parens between the last json.dumps( and this line.
