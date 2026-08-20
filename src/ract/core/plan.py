@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, field
 from typing import Any
+
+from ract.canonical import dumps_jcs
 
 
 CURRENT_SCHEMA_VERSION: str = "1.0.0"
@@ -137,9 +138,8 @@ def step_content_digest(step: StepSchema) -> str:
         "parent_step_ids": list(step.parent_step_ids),
         "tool_call": step.tool_call,
     }
-    return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    # v0.5.1 module_03: RFC 8785 JCS canonical bytes.
+    return hashlib.sha256(dumps_jcs(payload)).hexdigest()
 
 
 def diff_plans(old: PlanSchema, new: PlanSchema) -> PlanDiff:

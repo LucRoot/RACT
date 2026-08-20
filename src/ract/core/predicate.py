@@ -23,6 +23,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Union
 
+from ract.canonical import dumps_jcs
+
 if TYPE_CHECKING:
     from ract.core.loop import WorkspaceSnapshot
 
@@ -359,9 +361,13 @@ class AcceptanceSuite:
         return payload
 
     def digest(self) -> str:
-        """Return the SHA-256 digest of the canonical serialization."""
-        payload = json.dumps(self.to_canonical(), sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        """Return the SHA-256 digest of the canonical serialization.
+
+        v0.5.1 module_03: canonical bytes are RFC 8785 JCS (strict-JSON,
+        NFC-normalised, codepoint-sorted keys). See
+        ``_BUILD/ract_v0.5.1_external_review_response/module_03.md``.
+        """
+        return hashlib.sha256(dumps_jcs(self.to_canonical())).hexdigest()
 
     def to_json(self) -> str:
         """Return the canonical JSON form (sorted keys, trailing newline)."""

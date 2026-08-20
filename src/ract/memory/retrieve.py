@@ -1190,10 +1190,10 @@ def query_digest(query: RetrievalQuery) -> str:
     Used for a short-form cache-key surface exposed to diagnostics.
     """
     projection = canonical_query_payload(query)
-    import json as _json
+    # v0.5.1 module_03: RFC 8785 JCS canonical bytes.
+    from ract.canonical import dumps_jcs as _dumps_jcs
 
-    body = _json.dumps(projection, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+    return hashlib.sha256(_dumps_jcs(projection)).hexdigest()
 
 
 __all__ = [

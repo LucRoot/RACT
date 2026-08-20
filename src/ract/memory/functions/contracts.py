@@ -42,6 +42,8 @@ import json
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any
 
+from ract.canonical import dumps_jcs
+
 
 # ---------------------------------------------------------------------------
 # Enum vocabularies
@@ -413,7 +415,8 @@ def to_json(contract: Any) -> str:
     Keys sorted; no whitespace. Byte-stable across Python versions.
     """
     payload = _to_primitive(contract)
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    # v0.5.1 module_03: RFC 8785 JCS canonical bytes.
+    return dumps_jcs(payload).decode("utf-8")
 
 
 def from_json(text: str) -> Any:

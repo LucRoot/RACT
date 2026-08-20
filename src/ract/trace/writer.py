@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
+from ract.canonical import dumps_jcs
+
 from ract.trace.events import (
     ChainBrokenError,
     Event,
@@ -154,7 +156,10 @@ class JsonlEventWriter:
 
     def _write_line(self, event: Event) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        line = json.dumps(event.to_canonical_dict(), sort_keys=True)
+        # v0.5.1 module_03: JSONL trace lines are RFC 8785 JCS bytes
+        # so a hash re-verification path can bytes-compare the on-disk
+        # line to :func:`canonical_payload_bytes` output.
+        line = dumps_jcs(event.to_canonical_dict()).decode("utf-8")
         with self.path.open("a", encoding="utf-8") as fh:
             fh.write(line)
             fh.write("\n")

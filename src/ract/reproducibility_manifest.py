@@ -9,15 +9,20 @@ proven equivalent.
 """
 
 import hashlib
-import json
 import platform
 import sys
 from typing import Any, Dict
 
+from ract.canonical import dumps_jcs
+
 
 def _canonical_json(obj: Any) -> str:
-    """Return a stable, sorted JSON representation for hashing."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    """Return a stable, sorted JSON representation for hashing.
+
+    v0.5.1 module_03: RFC 8785 JCS canonical bytes decoded to str for
+    downstream callers that concatenate it into str-space contexts.
+    """
+    return dumps_jcs(obj).decode("utf-8")
 
 
 def _sha256_hex(data: str) -> str:

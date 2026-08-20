@@ -56,6 +56,7 @@ from typing import Any, ContextManager
 
 _LOG = logging.getLogger("ract.core.assumptions_wal")
 
+from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 _MODULE_KNOT = _module_knot()
@@ -184,13 +185,11 @@ else:
 def _canonical_line(payload: dict[str, Any]) -> bytes:
     """Return one canonical JSONL line for ``payload``.
 
-    Keys are sorted; separators are compact; UTF-8; trailing newline.
-    Stable across Python builds so replay of a WAL written by one
-    process is byte-identical to what a re-serialisation of the same
-    payload would produce.
+    v0.5.1 module_03: canonical bytes are RFC 8785 JCS. Determinism is
+    cross-Python-version and cross-platform; the trailing newline is
+    JSONL framing, not part of the canonical byte sequence.
     """
-    text = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return (text + "\n").encode("utf-8")
+    return dumps_jcs(payload) + b"\n"
 
 
 # ---------------------------------------------------------------------------

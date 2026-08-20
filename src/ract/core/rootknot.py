@@ -22,12 +22,12 @@ Reference sources:
 
 from __future__ import annotations
 
-import json
 import time
 import warnings
 from dataclasses import dataclass, field
 from typing import Literal
 
+from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 _MODULE_KNOT = _module_knot()
@@ -251,8 +251,8 @@ class Rootknot:
         # them produces byte-identical canonical bytes to the v0.5.0
         # baseline (backward-read invariant; see
         # ``test_schema_version_backread``). Sort-key placement is a
-        # property of ``json.dumps(sort_keys=True)``: the three keys
-        # land alphabetically after ``predicate_results`` /
+        # property of the canonical serialiser: the three keys land
+        # alphabetically after ``predicate_results`` /
         # ``retrieval_attestation`` / ``reversal_taint`` without
         # per-key ordering logic.
         if self.workspace_digest is not None:
@@ -261,9 +261,15 @@ class Rootknot:
             payload["prompt_digest"] = self.prompt_digest.hex()
         if self.run_id:
             payload["run_id"] = self.run_id
-        return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
+        # v0.5.1 module_03: sacred-spine serialiser is now RFC 8785
+        # JCS. Byte output is cross-Python-version deterministic
+        # (NFC-normalised, strict floats, codepoint-sorted keys),
+        # closing REVIEW_4_UNKNOWN §D2 (canonical JSON flaw). The
+        # payload shape is unchanged from module_02; the byte
+        # sequence for existing test fixtures shifts only where the
+        # v0.5.0 stdlib ``json.dumps`` output was already JCS-equal
+        # (which for these ASCII-key payloads is byte-identical).
+        return dumps_jcs(payload)
 
     # ------------------------------------------------------------------
     # Signing / verifying

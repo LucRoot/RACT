@@ -2,9 +2,12 @@ import hashlib
 import json
 from pathlib import Path
 
+from ract.canonical import dumps_jcs
+
 
 def _hash(receipt: dict, prev_hash: str) -> str:
-    payload = json.dumps(receipt, sort_keys=True) + prev_hash
+    # v0.5.1 module_03: RFC 8785 JCS canonical form for chain hashing.
+    payload = dumps_jcs(receipt).decode("utf-8") + prev_hash
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

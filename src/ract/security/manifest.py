@@ -34,9 +34,10 @@ ADR-0012 for the design rationale.
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass
 from typing import Any, Literal
+
+from ract.canonical import dumps_jcs
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -492,9 +493,8 @@ class ManifestDigest:
     @staticmethod
     def canonical_bytes(manifest: CapabilityManifest) -> bytes:
         payload: dict[str, Any] = manifest.model_dump(mode="json")
-        return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
+        # v0.5.1 module_03: RFC 8785 JCS canonical bytes.
+        return dumps_jcs(payload)
 
     @staticmethod
     def of(manifest: CapabilityManifest) -> Digest:

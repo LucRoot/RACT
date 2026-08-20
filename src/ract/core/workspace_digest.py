@@ -61,6 +61,7 @@ from typing import TYPE_CHECKING, Any
 
 _LOG = logging.getLogger("ract.core.workspace_digest")
 
+from ract.canonical import CanonicalJSONError, dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 _MODULE_KNOT = _module_knot()
@@ -105,9 +106,14 @@ def _stable_metadata_hash(metadata: dict[str, Any]) -> str:
     module_02 SP Q4 — the earlier ``default=str`` fallback made the
     digest non-deterministic when metadata carried custom objects.
     """
+    # v0.5.1 module_03: canonical bytes are RFC 8785 JCS. The strict-JSON
+    # discipline that module_02 SP Q4 installed (no ``default=str``
+    # fallback) is preserved and reinforced — the JCS encoder raises
+    # :class:`CanonicalJSONError` (a ``TypeError`` subclass) for any
+    # unsupported type, matching the historical error surface.
     try:
-        payload = json.dumps(metadata, sort_keys=True, separators=(",", ":"))
-    except TypeError as exc:
+        payload = dumps_jcs(metadata)
+    except (CanonicalJSONError, TypeError) as exc:
         raise MetadataUnserialisableError(
             "WorkspaceSnapshot.metadata carries a value that cannot be "
             "serialised as strict JSON. workspace_digest requires JSON-native "
@@ -115,7 +121,7 @@ def _stable_metadata_hash(metadata: dict[str, Any]) -> str:
             "the metadata before it enters the digest path. Original error: "
             f"{exc}"
         ) from exc
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return hashlib.sha256(payload).hexdigest()
 
 
 def workspace_digest(ws: "WorkspaceSnapshot") -> Digest:
@@ -140,8 +146,9 @@ def workspace_digest(ws: "WorkspaceSnapshot") -> Digest:
         "timestamp": ws.timestamp,
         "metadata_hash": _stable_metadata_hash(ws.metadata),
     }
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return Digest(hashlib.sha256(canonical.encode("utf-8")).digest())
+    # v0.5.1 module_03: RFC 8785 JCS output; cross-Python-version
+    # deterministic. Same ``ws`` → same digest on every runtime.
+    return Digest(hashlib.sha256(dumps_jcs(payload)).digest())
 
 
 # ---------------------------------------------------------------------------
@@ -315,9 +322,12 @@ else:
 
 
 def _canonical_edge_line(payload: dict[str, Any]) -> bytes:
-    """Return one canonical JSONL line for a chain edge."""
-    text = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return (text + "\n").encode("utf-8")
+    """Return one canonical JSONL line for a chain edge.
+
+    v0.5.1 module_03: canonical bytes are RFC 8785 JCS. The trailing
+    newline is JSONL framing, not part of the canonical byte sequence.
+    """
+    return dumps_jcs(payload) + b"\n"
 
 
 @dataclass(frozen=True)

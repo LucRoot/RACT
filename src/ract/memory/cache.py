@@ -40,6 +40,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any
 
+from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 
@@ -53,11 +54,11 @@ class RetrievalCacheError(RuntimeError):
 def _canonical_query_json(query_payload: dict[str, Any]) -> str:
     """Return a canonical JSON string for the query payload.
 
-    Sorted keys, no whitespace between separators; empty containers
-    preserved so ``symbol_names=[]`` and no ``symbol_names`` produce
-    distinct keys.
+    v0.5.1 module_03: canonical bytes are RFC 8785 JCS decoded to str
+    for downstream SQLite string-column storage. Sorted keys, no
+    whitespace, NFC-normalised.
     """
-    return json.dumps(query_payload, sort_keys=True, separators=(",", ":"))
+    return dumps_jcs(query_payload).decode("utf-8")
 
 
 def _cache_key(query_payload: dict[str, Any], repo_commit_hash: str) -> str:
@@ -181,7 +182,8 @@ class RetrievalCache:
         symbol_csv = ",".join(str(int(sid)) for sid in sorted(set(symbol_ids)))
         file_csv = "\x1f".join(sorted(set(file_paths)))
         query_json = _canonical_query_json(query_payload)
-        bundle_json = json.dumps(bundle_payload, sort_keys=True, separators=(",", ":"))
+        # v0.5.1 module_03: RFC 8785 JCS canonical bytes.
+        bundle_json = dumps_jcs(bundle_payload).decode("utf-8")
         with self._lock:
             self._conn.execute(
                 """

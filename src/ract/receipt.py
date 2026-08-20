@@ -4,6 +4,8 @@ import base64
 import hmac
 from dataclasses import dataclass, asdict
 
+from ract.canonical import dumps_jcs
+
 
 @dataclass
 class Receipt:
@@ -22,7 +24,9 @@ class Receipt:
             "test_results": self.test_results,
             "signer_id": self.signer_id,
         }
-        return json.dumps(data, sort_keys=True, separators=(",", ":"))
+        # v0.5.1 module_03: RFC 8785 JCS canonical form so a receipt
+        # signed by one runtime verifies byte-identically on another.
+        return dumps_jcs(data).decode("utf-8")
 
 
 def sign_receipt(receipt: Receipt, private_key_pem: bytes) -> Receipt:

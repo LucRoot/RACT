@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List
 
+from ract.canonical import dumps_jcs
 from ract.coverage_delta import CoverageDelta
 
 
@@ -205,8 +206,10 @@ class MutationMergeGateEngine:
         # Simple hash-based signature for demonstration
         import hashlib
 
-        raw = json.dumps(receipt_data, sort_keys=True)
-        signature = hashlib.sha256(raw.encode()).hexdigest()
+        # v0.5.1 module_03: RFC 8785 JCS canonical form for the signed
+        # receipt byte-string.
+        raw = dumps_jcs(receipt_data)
+        signature = hashlib.sha256(raw).hexdigest()
         receipt_data["signature"] = signature
         return json.dumps(receipt_data)
 

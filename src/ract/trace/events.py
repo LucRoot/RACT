@@ -29,11 +29,12 @@ Reference sources:
 from __future__ import annotations
 
 import hashlib
-import json
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Literal, get_args
+
+from ract.canonical import dumps_jcs
 
 
 # ---------------------------------------------------------------------------
@@ -125,11 +126,11 @@ class ChainBrokenError(RuntimeError):
 # ---------------------------------------------------------------------------
 
 
-# The canonical JSON form is stable across Python builds so the hash is
-# reproducible: sorted keys, no whitespace, UTF-8.
+# v0.5.1 module_03: canonical bytes are RFC 8785 JCS — stable across
+# CPython minor versions, PyPy, and Windows/POSIX line endings.
 def canonical_payload_bytes(payload: dict[str, Any]) -> bytes:
     """Return the canonical JSON bytes of ``payload`` for hashing."""
-    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return dumps_jcs(payload)
 
 
 def hash_event(

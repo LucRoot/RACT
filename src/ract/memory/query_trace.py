@@ -18,8 +18,9 @@ the trace through :func:`to_canonical_json`.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
+
+from ract.canonical import dumps_jcs
 
 
 @dataclass(frozen=True)
@@ -126,7 +127,8 @@ def to_canonical_json(trace: QueryTrace) -> str:
         ],
         "parent_call_id": trace.parent_call_id,
     }
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    # v0.5.1 module_03: RFC 8785 JCS canonical bytes.
+    return dumps_jcs(payload).decode("utf-8")
 
 
 __all__ = [

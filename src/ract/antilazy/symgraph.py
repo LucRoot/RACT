@@ -45,6 +45,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable, Literal
 
+from ract.canonical import dumps_jcs
+
 if TYPE_CHECKING:
     from ract.core.loop import WorkspaceSnapshot
 
@@ -149,9 +151,8 @@ def snapshot_digest_of(snapshot: "WorkspaceSnapshot") -> str:
     to a file's contents (or the file set) produces a fresh digest,
     which is the cache-invalidation signal for ``build_graph``.
     """
-    payload = json.dumps(
-        {"files": snapshot.files}, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    # v0.5.1 module_03: RFC 8785 JCS canonical bytes.
+    payload = dumps_jcs({"files": snapshot.files})
     return hashlib.sha256(payload).hexdigest()
 
 
