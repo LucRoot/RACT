@@ -234,6 +234,52 @@ def test_cli_intent_recompile_no_operator_key_refuses(
     assert "operator key" in stderr.getvalue().lower()
 
 
+def test_sp_q4a_ract_dir_resolves_to_realpath(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """SP Q4a amendment: caller-supplied ract_dir goes through
+    Path.resolve(strict=False) so a relative path or symlink race
+    cannot redirect the loader to a decoy operator.key.
+    """
+    real_dir = tmp_path / "real-ract"
+    real_dir.mkdir()
+    (real_dir / "operator.key").write_bytes(secrets.token_bytes(64))
+
+    # Pass a NON-normalised relative-style path (with ".." mid-path).
+    weird_path = tmp_path / "real-ract" / ".." / "real-ract"
+    # Should still resolve to real_dir and load the key.
+    monkeypatch.delenv(OPERATOR_KEY_ENV, raising=False)
+    key = _load_operator_key(weird_path)
+    assert len(key) >= 32
+
+
+def test_sp_q6b_exit_code_4_missing_suite(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """SP Q6b: missing suite.json => exit code 4 (was 2)."""
+    ract_dir = tmp_path / ".ract-for-4"
+    ract_dir.mkdir()
+    (ract_dir / "operator.key").write_bytes(secrets.token_bytes(64))
+    run_dir = tmp_path / "run-no-suite"
+    run_dir.mkdir()  # empty -- no suite.json
+
+    monkeypatch.delenv(OPERATOR_KEY_ENV, raising=False)
+    stderr = io.StringIO()
+    with redirect_stderr(stderr):
+        rc = cli_main(
+            [
+                "intent",
+                "recompile",
+                str(run_dir),
+                "--intent-text",
+                "x",
+                "--ract-dir",
+                str(ract_dir),
+            ]
+        )
+    assert rc == 4
+
+
 def test_cli_intent_recompile_intent_file_source(
     run_tree: dict[str, Path], tmp_path: Path
 ) -> None:

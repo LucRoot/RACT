@@ -118,6 +118,8 @@ class LoopController:
         companion: Any | None = None,
         effort_estimate: Any | None = None,
         iso_perturb: Any | None = None,
+        strict_prompt_digest: bool = False,
+        delete_orphaned_files_on_t8: bool = False,
     ) -> None:
         self.config_path = Path(config_path)
         self.max_iterations = max(max_iterations, 1)
@@ -224,6 +226,18 @@ class LoopController:
         # True. Divergence blocks COMPLETE and queues a resume prompt.
         self.iso_perturb = iso_perturb
 
+        # ------------------------------------------------------------------
+        # v0.5.1 module_04 SP amendments
+        # ------------------------------------------------------------------
+        # Q4b: opt-in strict mode. When True and suite.prompt_digest is
+        # None, T9 PROMPT_DIGEST_MISSING fires. Default preserves
+        # v0.5.0 backward-compat; v0.6 flips the default to True.
+        self.strict_prompt_digest = strict_prompt_digest
+        # Q2: rollback behaviour for orphaned files. Default False
+        # (list + emit event) matches Nemotron's compromise; True
+        # matches Google's stricter fix.
+        self.delete_orphaned_files_on_t8 = delete_orphaned_files_on_t8
+
     def _take_snapshot(self) -> dict[str, str]:
         """Return a snapshot of Python file contents relative to project_dir."""
         snapshot: dict[str, str] = {}
@@ -310,15 +324,22 @@ class LoopController:
         state = self._loop_state
         if state is None:
             return None
-        suite_digest = getattr(state.suite, "prompt_digest", None)
-        if suite_digest is None:
-            self._log_prompt_drift_skip(state)
-            return None
-
         # Publish the current intent text so ``evaluate_termination``'s
         # T8 branch can be reached from property tests using the same
         # state without a controller hook.
         state.current_intent_text = intent
+
+        suite_digest = getattr(state.suite, "prompt_digest", None)
+        if suite_digest is None:
+            # SP Q4b amendment: opt-in strict mode fires T9
+            # PROMPT_DIGEST_MISSING; default preserves v0.5.0 behaviour
+            # (skip with WARN).
+            if getattr(state, "strict_prompt_digest", False):
+                return self._build_missing_digest_iteration(
+                    intent, iteration_index, state
+                )
+            self._log_prompt_drift_skip(state)
+            return None
 
         # Locate the LATEST suite in the chain -- an operator-signed
         # recompile appends new entries, so the check compares against
@@ -336,7 +357,13 @@ class LoopController:
         expected_hex = expected_digest.hex()
         actual_hex = actual_digest.hex()
 
-        # 1. Emit the run.completed event with T8 evidence.
+        # 1. Force rollback to last known-good workspace. Capture the
+        # orphan-file list (SP Q2 amendment).
+        orphans = self._rollback_to_last_known_good(state)
+
+        # 2. Emit the run.completed event with T8 evidence + orphan
+        # list. SP Q2 (external reviewer): the orphan-file surface
+        # MUST land in a structured event so operators cannot miss it.
         run_id_str = self._resolve_run_id(state)
         try:
             from ract.trace.sink import emit as _emit_event
@@ -349,23 +376,41 @@ class LoopController:
                     "actual_prompt_digest": actual_hex,
                     "iteration": iteration_index,
                     "run_id": run_id_str,
+                    "orphaned_files": list(orphans),
+                    "orphaned_files_deleted": bool(
+                        self.delete_orphaned_files_on_t8 and orphans
+                    ),
                 },
             )
         except Exception:  # noqa: BLE001 -- trace failures never break halt
             pass
 
-        # 2. Force rollback to last known-good workspace.
-        self._rollback_to_last_known_good(state)
-
         # 3. Return a synthetic iteration record so LoopResult carries
         # the diagnostic. The reflection is the operator-visible
-        # diagnostic; the run summary quotes the same message.
+        # diagnostic; the run summary quotes the same message. SP Q2
+        # amendment: the orphan-file list is inline in the reflection
+        # so an operator reading the CLI output sees which files were
+        # written under the drifted intent.
+        if orphans:
+            orphan_line = (
+                f" Orphaned files (present but not in snapshot): "
+                f"{orphans}. "
+                + (
+                    "These files were DELETED (delete_orphaned_files_on_t8=True). "
+                    if self.delete_orphaned_files_on_t8
+                    else "These files were LEFT ALONE; inspect via `git status` "
+                    "and delete manually or re-run with "
+                    "delete_orphaned_files_on_t8=True. "
+                )
+            )
+        else:
+            orphan_line = ""
         reflection = (
             f"T8 PROMPT_DRIFT at iteration {iteration_index}: expected "
             f"prompt_digest {expected_hex}, got {actual_hex}. Workspace "
-            "rolled back to last known-good snapshot. To authorise a "
-            "legitimate intent change, run `ract intent recompile "
-            f"{run_id_str}` (requires operator key)."
+            f"rolled back to last known-good snapshot.{orphan_line} "
+            "To authorise a legitimate intent change, run `ract intent "
+            f"recompile {run_id_str}` (requires operator key)."
         )
         return LoopIteration(
             index=iteration_index,
@@ -417,24 +462,36 @@ class LoopController:
                 pass
         return self.run_dir.name
 
-    def _rollback_to_last_known_good(self, state: LoopState) -> None:
+    def _rollback_to_last_known_good(self, state: LoopState) -> list[str]:
         """Restore the on-disk tree to ``state.last_known_good_workspace``.
 
-        Best-effort: writes the recorded file contents back. Files
-        that appear in the current tree but not in the snapshot are
-        LEFT ALONE -- we do not delete freshly written files on T8
-        rollback because that would enlarge the rollback surface
-        beyond what the snapshot records. Operators inspecting the
-        run see the diagnostic and can decide whether to keep or
-        discard the drift-era additions.
+        Restores every file recorded in the snapshot. Files that appear
+        in the current tree but NOT in the snapshot are ORPHANED --
+        they were written under the drifted intent. The controller's
+        ``delete_orphaned_files_on_t8`` flag controls what happens to
+        them:
 
-        Failure to restore a specific file is logged as a WARN via the
-        error memory but does not raise -- T8 halt takes precedence
-        over rollback fidelity.
+        - ``False`` (default): leave the file, return its relative path
+          in the returned list. The caller emits a structured
+          ``run.completed`` event listing every orphan so the operator
+          cannot miss them (SP Q2 external reviewer PARTIAL verdict --
+          Nemotron's compromise: "emit a structured event listing the
+          leftovers so the operator cannot miss them"; Google's stricter
+          fix: "delete them" -- the flag lets operators pick).
+        - ``True``: delete the orphan file. Aggressive; operators who
+          share workspace paths with attackers should set this.
+
+        Failure to restore or delete a specific file is silently
+        swallowed -- T8 halt takes precedence over rollback fidelity.
+
+        Returns the list of orphan file relative paths (present in the
+        current tree but not in the snapshot). Empty list when snapshot
+        is absent or the tree matches the snapshot.
         """
         snapshot = state.last_known_good_workspace
-        if snapshot is None or not snapshot.files:
-            return
+        if snapshot is None:
+            return []
+        # Restore recorded content.
         for rel_path, content in snapshot.files.items():
             try:
                 target = self.project_dir / rel_path
@@ -442,6 +499,73 @@ class LoopController:
                 target.write_text(content, encoding="utf-8")
             except OSError:
                 continue
+
+        # Enumerate orphans: files present in the current tree that
+        # are absent from the snapshot. Scan the same way ``_take_snapshot``
+        # scans so the orphan set is comparable to the snapshot's file
+        # set (Python files only, __pycache__ excluded).
+        current = self._take_snapshot()
+        recorded = set(snapshot.files.keys())
+        orphans = sorted(set(current.keys()) - recorded)
+
+        # Optional delete.
+        if orphans and self.delete_orphaned_files_on_t8:
+            for rel_path in orphans:
+                try:
+                    (self.project_dir / rel_path).unlink()
+                except OSError:
+                    continue
+
+        return orphans
+
+    def _build_missing_digest_iteration(
+        self, intent: str, iteration_index: int, state: LoopState
+    ) -> LoopIteration:
+        """T9 PROMPT_DIGEST_MISSING halt (SP Q4b amendment, strict mode).
+
+        Emits a ``run.completed`` event with reason
+        ``"T9_PROMPT_DIGEST_MISSING"`` + returns a synthetic
+        regression iteration so the loop halts. Operator must run
+        ``ract intent recompile`` to bind a digest before re-running.
+        """
+        run_id_str = self._resolve_run_id(state)
+        try:
+            from ract.trace.sink import emit as _emit_event
+
+            _emit_event(
+                "run.completed",
+                {
+                    "reason": "T9_PROMPT_DIGEST_MISSING",
+                    "iteration": iteration_index,
+                    "run_id": run_id_str,
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        reflection = (
+            f"T9 PROMPT_DIGEST_MISSING at iteration {iteration_index}: "
+            "the AcceptanceSuite has no prompt_digest (pre-v0.5.1 "
+            "compile). strict_prompt_digest=True refuses to run without "
+            "the binding. Run `ract intent recompile "
+            f"{run_id_str} --intent-text ...` to bind a digest, or "
+            "start the controller with strict_prompt_digest=False to "
+            "revert to permissive-with-warn mode."
+        )
+        return LoopIteration(
+            index=iteration_index,
+            intent=intent,
+            report=None,
+            test_returncode=None,
+            test_summary="T9 PROMPT_DIGEST_MISSING",
+            test_output=reflection,
+            quality_score=0.0,
+            reflection=reflection,
+            decision="regression",
+            error=None,
+            assumptions=[],
+            metrics={"t9_prompt_digest_missing": True},
+            content_snapshot=dict(self._previous_snapshot),
+        )
 
     def _log_prompt_drift_skip(self, state: LoopState) -> None:
         """Log the WARN when T8 is skipped due to a missing prompt_digest.
@@ -491,6 +615,7 @@ class LoopController:
                 suite=self.acceptance_suite,
                 run_dir=self.run_dir,
                 handshake_registry=self.handshake_registry,
+                strict_prompt_digest=self.strict_prompt_digest,
             )
             user_done = done_callback
             done_callback = self._make_suite_done_callback(user_done)

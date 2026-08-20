@@ -317,3 +317,152 @@ def test_evaluate_termination_surfaces_t8() -> None:
     )
     cause = evaluate_termination(state, now=0.0)
     assert cause is TerminationCause.PROMPT_DRIFT
+
+
+# ---------------------------------------------------------------------------
+# SP amendment tests
+# ---------------------------------------------------------------------------
+
+
+def test_sp_q2_orphan_files_listed_in_reflection(
+    controller_with_suite,
+) -> None:
+    """SP Q2 amendment: orphan files (present but absent from snapshot)
+    are listed inline in the T8 diagnostic reflection.
+    """
+    controller = controller_with_suite["controller"]
+    # Attacker writes a new file post-snapshot.
+    orphan = controller.project_dir / "src" / "attacker.py"
+    orphan.parent.mkdir(parents=True, exist_ok=True)
+    orphan.write_text("# planted under drifted intent\n", encoding="utf-8")
+
+    drift_iteration = controller._check_prompt_drift(
+        DRIFT_INTENT, iteration_index=1
+    )
+    assert drift_iteration is not None
+    # Orphan filename appears in reflection.
+    assert "attacker.py" in drift_iteration.reflection or "attacker" in drift_iteration.reflection
+    # Default: file NOT deleted (delete_orphaned_files_on_t8=False).
+    assert orphan.exists()
+
+
+def test_sp_q2_delete_orphaned_files_flag_deletes(
+    tmp_path: Path,
+) -> None:
+    """SP Q2 amendment: opt-in delete mode removes orphan files on T8."""
+    import secrets as _secrets
+
+    config = tmp_path / "ract.yaml"
+    config.write_text("providers: []\n", encoding="utf-8")
+    ract_dir = tmp_path / ".ract"
+    ract_dir.mkdir()
+    (ract_dir / "operator.key").write_bytes(_secrets.token_bytes(64))
+    run_dir = tmp_path / "run-delete-orphans"
+    run_dir.mkdir()
+
+    suite = _suite_for(CANONICAL_INTENT)
+    controller = LoopController(
+        config,
+        max_iterations=2,
+        acceptance_suite=suite,
+        run_dir=run_dir,
+        delete_orphaned_files_on_t8=True,
+    )
+    from ract.core.loop import build_loop_state
+
+    controller._loop_state = build_loop_state(
+        plan=Plan(assumption=CANONICAL_INTENT, confidence=1.0, steps=[]),
+        workspace=WorkspaceSnapshot(
+            files={"src/foo.py": "print(1)\n"}, timestamp=0.0
+        ),
+        suite=suite,
+        run_dir=run_dir,
+    )
+    controller._loop_state.last_known_good_workspace = WorkspaceSnapshot(
+        files={"src/foo.py": "print(1)\n"}, timestamp=0.0
+    )
+    controller._previous_snapshot = {"src/foo.py": "print(1)\n"}
+
+    # Seed the on-disk state: foo.py plus an orphan attacker file.
+    (controller.project_dir / "src").mkdir(parents=True, exist_ok=True)
+    (controller.project_dir / "src" / "foo.py").write_text("print(1)\n")
+    orphan = controller.project_dir / "src" / "attacker.py"
+    orphan.write_text("# planted\n", encoding="utf-8")
+
+    drift_iteration = controller._check_prompt_drift(
+        DRIFT_INTENT, iteration_index=1
+    )
+    assert drift_iteration is not None
+    # Orphan deleted.
+    assert not orphan.exists()
+
+
+def test_sp_q4b_strict_mode_fires_t9_on_missing_digest(
+    tmp_path: Path,
+) -> None:
+    """SP Q4b amendment: strict_prompt_digest=True + legacy suite fires T9."""
+    config = tmp_path / "ract.yaml"
+    config.write_text("providers: []\n", encoding="utf-8")
+    run_dir = tmp_path / "run-strict-legacy"
+    run_dir.mkdir()
+
+    predicate = AcceptancePredicate(
+        id=new_predicate_id(),
+        kind="artifact",
+        invocation=ArtifactInvocation(
+            path="__never_present__", must_have_rootknot=False
+        ),
+        required=True,
+    )
+    legacy_suite = AcceptanceSuite(
+        intent_id=new_intent_id(),
+        predicates=(predicate,),
+        compiled_from="legacy",
+    )
+
+    controller = LoopController(
+        config,
+        max_iterations=2,
+        acceptance_suite=legacy_suite,
+        run_dir=run_dir,
+        strict_prompt_digest=True,
+    )
+    from ract.core.loop import build_loop_state
+
+    controller._loop_state = build_loop_state(
+        plan=Plan(assumption="legacy", confidence=1.0, steps=[]),
+        workspace=WorkspaceSnapshot(),
+        suite=legacy_suite,
+        run_dir=run_dir,
+        strict_prompt_digest=True,
+    )
+    controller._previous_snapshot = {}
+
+    result = controller._check_prompt_drift("anything", iteration_index=1)
+    assert result is not None
+    assert "T9 PROMPT_DIGEST_MISSING" in result.test_summary
+    assert result.metrics.get("t9_prompt_digest_missing") is True
+
+
+def test_sp_q5b_eager_init_entry_recorded_at_build_time(
+    tmp_path: Path,
+) -> None:
+    """SP Q5b amendment: build_loop_state eagerly records the initial
+    suite as chain entry 0 so a run that never recompiles still has
+    an immutable audit trail.
+    """
+    from ract.core.loop import build_loop_state
+
+    run_dir = tmp_path / "run-eager"
+    suite = _suite_for(CANONICAL_INTENT)
+    build_loop_state(
+        plan=Plan(assumption=CANONICAL_INTENT, confidence=1.0, steps=[]),
+        workspace=WorkspaceSnapshot(),
+        suite=suite,
+        run_dir=run_dir,
+    )
+    chain = SuiteChain(run_dir)
+    entries = chain.entries()
+    assert len(entries) == 1
+    assert entries[0].origin == "initial"
+    assert entries[0].prompt_digest == suite.prompt_digest

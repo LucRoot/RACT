@@ -49,6 +49,10 @@ from ract.core.predicate import AcceptanceSuite
 from ract.core.suite_chain import SuiteChain, SuiteChainEntry
 from ract.core.workspace_digest import compute_prompt_digest
 
+# ``O_BINARY`` on Windows; no-op flag on POSIX. Same lesson as the
+# workspace-chain + WAL modules: binary-mode fds under the lock.
+_BINARY_FLAG = getattr(os, "O_BINARY", 0)
+
 
 OPERATOR_KEY_FILENAME = "operator.key"
 OPERATOR_KEY_ENV = "RACT_OPERATOR_KEY"
@@ -91,7 +95,16 @@ def _load_operator_key(ract_dir: Path) -> bytes:
     Prefers the marker file ``<ract_dir>/operator.key``; falls back
     to the ``RACT_OPERATOR_KEY`` env var. Raises
     :class:`OperatorKeyMissingError` when neither yields >= 32 bytes.
+
+    v0.5.1 module_04 SP Q4a amendment (Nemotron DEFECT verdict): the
+    ract_dir path is resolved through ``Path.resolve(strict=False)``
+    so a caller-supplied relative path or a symlink race cannot
+    redirect the loader to a decoy operator.key. The resolved path is
+    what actually gets joined with ``operator.key`` -- any
+    symlink-following happens at OS filesystem level and is bounded
+    by the resolved parent directory.
     """
+    ract_dir = ract_dir.resolve(strict=False)
     key_path = ract_dir / OPERATOR_KEY_FILENAME
     if key_path.exists():
         try:
@@ -205,12 +218,6 @@ def recompile_intent(
     if not run_dir.exists():
         raise IntentRecompileError(f"run directory {run_dir} does not exist")
 
-    # Deferred imports: `compile` pulls in a large surface (planner,
-    # assumption seed, coupling maps) that the CLI verb should NOT
-    # pay to import unless the recompile is actually happening.
-    from ract.core.compile import IntentCompiler
-    from ract.core.loop import load_suite_from_run_dir
-
     if ract_dir is None:
         # Walk up from run_dir until we find a .ract directory; default
         # to the run_dir's ract_dir sibling if none found.
@@ -227,6 +234,55 @@ def recompile_intent(
         ract_dir = ract_dir_found or (run_dir.parent.parent / ".ract")
 
     operator_key = _load_operator_key(ract_dir)
+
+    # v0.5.1 module_04 SP Q5a amendment (Nemotron DEFECT verdict): hold
+    # a recompile lock for the ENTIRE read-compile-append-overwrite
+    # sequence so two concurrent operator recompiles cannot interleave
+    # (the second overwriting suite.json wins on-disk while its chain
+    # entry references the first's base suite, leaving the pointer file
+    # inconsistent with the chain). We use a dedicated ``.recompile_lock``
+    # file in run_dir with the same cross-platform lock idiom the chain
+    # itself uses, so acquiring it does not deadlock with the chain's
+    # per-append lock.
+    from ract.core.suite_chain import _lock_exclusive as _sc_lock
+    from ract.core.suite_chain import _unlock as _sc_unlock
+
+    lock_path = run_dir / ".recompile_lock"
+    lock_path.touch(exist_ok=True)
+    lock_flags = os.O_RDWR | _BINARY_FLAG
+    lock_fd = os.open(lock_path, lock_flags)
+    try:
+        _sc_lock(lock_fd)
+        try:
+            return _recompile_intent_locked(
+                run_dir=run_dir,
+                intent_text=intent_text,
+                operator_key=operator_key,
+                run_dir_arg=run_dir,
+            )
+        finally:
+            _sc_unlock(lock_fd)
+    finally:
+        os.close(lock_fd)
+
+
+def _recompile_intent_locked(
+    *,
+    run_dir: Path,
+    intent_text: str,
+    operator_key: bytes,
+    run_dir_arg: Path,
+) -> RecompileResult:
+    """Locked-scope body of :func:`recompile_intent`.
+
+    Only :func:`recompile_intent` calls this; the split exists so the
+    outer function owns the recompile-lock lifecycle explicitly.
+    """
+    # Deferred imports here (not in module scope) so the CLI verb's
+    # ``argparse`` dispatch does not pull ``IntentCompiler`` unless
+    # the recompile is actually happening.
+    from ract.core.compile import IntentCompiler
+    from ract.core.loop import load_suite_from_run_dir
 
     # Load the previous suite to pull the run_id from its canonical
     # serialisation. The run_id lives on the associated Rootknot chain

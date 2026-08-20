@@ -3941,6 +3941,13 @@ def _intent_command(args: list[str]) -> int:
     else:
         run_dir = parsed.runs_root / parsed.run_id
 
+    # v0.5.1 module_04 SP Q6b amendment (Nemotron DEFECT verdict): split
+    # exit codes so automation can react differently. Codes:
+    # 0 = success (JSON payload to stdout)
+    # 2 = usage / invalid arguments (empty intent, unreadable file)
+    # 3 = operator key missing (OperatorKeyMissingError)
+    # 4 = missing suite.json (run directory has never been compiled)
+    # 5 = compile-time failure (IntentCompiler raised)
     try:
         result = recompile_intent(
             run_dir=run_dir,
@@ -3951,6 +3958,13 @@ def _intent_command(args: list[str]) -> int:
         print(f"[ract] intent recompile refused: {exc}", file=sys.stderr)
         return 3
     except IntentRecompileError as exc:
+        msg = str(exc)
+        if "has no suite.json" in msg:
+            print(f"[ract] intent recompile failed (missing suite): {exc}", file=sys.stderr)
+            return 4
+        if "IntentCompiler.compile failed" in msg:
+            print(f"[ract] intent recompile failed (compile error): {exc}", file=sys.stderr)
+            return 5
         print(f"[ract] intent recompile failed: {exc}", file=sys.stderr)
         return 2
 

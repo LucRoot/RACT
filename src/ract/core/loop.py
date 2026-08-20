@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -46,23 +46,41 @@ if TYPE_CHECKING:
 
 
 class TerminationCause(Enum):
-    """Why the recursion loop stopped."""
+    """Why the recursion loop stopped.
 
-    COMPLETE = auto()  # T1: all required predicates evaluate ok against the snapshot.
-    REGRESSED = auto()  # T2: quality regressed twice consecutively.
-    PROVENANCE_FAILURE = auto()  # T3: RK-1 or RK-2 violated.
-    ASSUMPTION_BURST = auto()  # T4: too many assumptions violated.
-    BUDGET_EXHAUSTED = auto()  # T5: iteration or wall-time budget exhausted.
-    HANDSHAKE_BLOCKED = auto()  # T6: unresolved blocking handshake.
-    PROVIDER_TIMEOUT = auto()  # T7: provider timeout twice consecutively.
+    v0.5.1 module_04 SP Q1 (external reviewer PARTIAL verdict, both
+    Google and Nemotron converged): enum members carry EXPLICIT integer
+    values so a serialised value crossing a persistence boundary (e.g.,
+    a run report from a v0.5.0 client verifying against a v0.5.1
+    report) never shifts silently. New members MUST be appended with a
+    fresh integer; the guard test
+    ``tests/unit/test_termination_cause_t8.py::test_enum_values_pinned``
+    fails any re-numbering.
+    """
+
+    COMPLETE = 1  # T1: all required predicates evaluate ok against the snapshot.
+    REGRESSED = 2  # T2: quality regressed twice consecutively.
+    PROVENANCE_FAILURE = 3  # T3: RK-1 or RK-2 violated.
+    ASSUMPTION_BURST = 4  # T4: too many assumptions violated.
+    BUDGET_EXHAUSTED = 5  # T5: iteration or wall-time budget exhausted.
+    HANDSHAKE_BLOCKED = 6  # T6: unresolved blocking handshake.
+    PROVIDER_TIMEOUT = 7  # T7: provider timeout twice consecutively.
     # v0.5.1 module_04: T8 fires when the loop's current intent-text
     # hash diverges from ``state.suite.prompt_digest``. See
-    # ``docs/ADRs/ADR-T8-prompt-drift.md``. The loop controller emits a
-    # ``run.completed`` event with ``reason: "T8_PROMPT_DRIFT"`` +
-    # evidence (expected + actual digest, iteration index) and forces
-    # a rollback to the last known-good workspace snapshot before
-    # returning.
-    PROMPT_DRIFT = auto()  # T8: prompt hash diverged from suite.prompt_digest.
+    # ``docs/ADRs/ADR-0040-t8-prompt-drift-termination-cause.md``. The
+    # loop controller emits a ``run.completed`` event with ``reason:
+    # "T8_PROMPT_DRIFT"`` + evidence (expected + actual digest,
+    # iteration index) and forces a rollback to the last known-good
+    # workspace snapshot before returning.
+    PROMPT_DRIFT = 8  # T8: prompt hash diverged from suite.prompt_digest.
+    # v0.5.1 module_04 SP Q4b (external reviewer DEFECT verdict, both
+    # reviewers agreed): pre-v0.5.1 suites lacking prompt_digest are
+    # a control-bypass; a controller with ``strict_prompt_digest=True``
+    # (opt-in for v0.5.1, default in v0.6+) fires T9 instead of
+    # skipping the check, forcing the operator to run
+    # ``ract intent recompile`` to bind a digest before the loop
+    # continues.
+    PROMPT_DIGEST_MISSING = 9  # T9: strict mode + suite.prompt_digest is None.
 
 
 @dataclass
@@ -169,6 +187,10 @@ class LoopState:
     delta_regress: float = 0.1
     assumption_burst_threshold: int = 3
     blocking_handshakes: set[str] | None = None
+    # v0.5.1 module_04 SP Q4b amendment: opt-in strict mode. When True
+    # and ``suite.prompt_digest is None``, T8 fires as PROMPT_DIGEST_MISSING
+    # (T9). Default False preserves v0.5.0 compatibility.
+    strict_prompt_digest: bool = False
     # v0.5.1 module_04: current iteration's raw operator intent text.
     # Populated by the loop controller BEFORE each iteration runs (see
     # ``ract.loop_controller.LoopController.run``); ``check_t8`` reads
@@ -306,15 +328,26 @@ def check_t7(record: ProviderTimeoutRecord) -> TerminationCause | None:
 
 
 def check_t8(
-    suite: AcceptanceSuite, current_intent_text: str
+    suite: AcceptanceSuite,
+    current_intent_text: str,
+    *,
+    strict: bool = False,
 ) -> TerminationCause | None:
     """T8 (Prompt Drift): current intent hash diverges from suite.prompt_digest.
 
     v0.5.1 module_04. Backward-compat: when ``suite.prompt_digest is
-    None`` (a pre-v0.5.1 suite), the check is skipped (returns ``None``)
-    and the loop controller emits a WARN so operators see the missing
-    binding. When present, ``compute_prompt_digest(current_intent_text)``
-    is compared bit-exact; on mismatch the loop halts with T8.
+    None`` (a pre-v0.5.1 suite) and ``strict`` is False (default), the
+    check is skipped (returns ``None``) and the loop controller emits
+    a WARN so operators see the missing binding. When present,
+    ``compute_prompt_digest(current_intent_text)`` is compared bit-exact;
+    on mismatch the loop halts with T8.
+
+    v0.5.1 module_04 SP Q4b (external reviewer DEFECT verdict): when
+    ``strict=True`` and ``suite.prompt_digest is None``, the check
+    returns ``TerminationCause.PROMPT_DIGEST_MISSING`` (T9) so the loop
+    halts and the operator MUST run ``ract intent recompile`` to bind
+    a digest before continuing. The default False preserves v0.5.0
+    compatibility; v0.6 will flip the default to True.
 
     The intent-text argument is the CANONICAL operator intent the loop
     entered with (the same bytes ``IntentCompiler.compile`` hashed).
@@ -324,6 +357,8 @@ def check_t8(
     from ract.core.workspace_digest import compute_prompt_digest
 
     if suite.prompt_digest is None:
+        if strict:
+            return TerminationCause.PROMPT_DIGEST_MISSING
         return None
     actual = bytes(compute_prompt_digest(current_intent_text))
     if actual != suite.prompt_digest:
@@ -358,12 +393,14 @@ def evaluate_termination(state: LoopState, now: float) -> TerminationCause | Non
             return cause
     if cause := check_t7(state.provider_timeout):
         return cause
-    # T8 fallback: only fires if the loop controller has stored the
+    # T8/T9 fallback: only fires if the loop controller has stored the
     # current intent text on the state (module_04 wiring). Without the
     # attribute the check is a no-op so pre-v0.5.1 callers stay green.
+    # Strict mode gate: SP Q4b amendment.
     intent_text = getattr(state, "current_intent_text", None)
+    strict = getattr(state, "strict_prompt_digest", False)
     if intent_text is not None:
-        if cause := check_t8(state.suite, intent_text):
+        if cause := check_t8(state.suite, intent_text, strict=strict):
             return cause
     return None
 
@@ -396,6 +433,40 @@ def build_loop_state(
         run_path.mkdir(parents=True, exist_ok=True)
         suite_path = run_path / "suite.json"
         suite_path.write_text(suite.to_json(), encoding="utf-8")
+        # v0.5.1 module_04 SP Q5b amendment (external reviewer DEFECT
+        # verdict, both agreed): eagerly record the initial suite as
+        # chain entry 0 at build time so a run that never recompiles
+        # still leaves an immutable audit trail. Without this, an
+        # attacker who mutates ``suite.json`` directly (bypassing the
+        # compiler) leaves no chain evidence -- the drift check would
+        # fall back to the mutated ``state.suite.prompt_digest`` and
+        # accept the attacker's intent.
+        prompt_digest = getattr(suite, "prompt_digest", None)
+        if prompt_digest is not None:
+            try:
+                from ract.core.suite_chain import SuiteChain
+
+                chain = SuiteChain(run_path)
+                if not chain.entries():
+                    # Best-effort run_id: prefer marker file, fall back
+                    # to the run_dir's basename.
+                    marker = run_path / "run_id.txt"
+                    if marker.exists():
+                        try:
+                            run_id = marker.read_text(encoding="utf-8").strip()
+                        except OSError:
+                            run_id = run_path.name
+                    else:
+                        run_id = run_path.name
+                    chain.append(
+                        prompt_digest=prompt_digest,
+                        suite_digest=suite.digest(),
+                        run_id=run_id or run_path.name,
+                        origin="initial",
+                        rootknot_signature=None,
+                    )
+            except Exception:  # noqa: BLE001 -- chain write must never break loop entry
+                pass
     return LoopState(plan=plan, workspace=workspace, suite=suite, **kwargs)
 
 

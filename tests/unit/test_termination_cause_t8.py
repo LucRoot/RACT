@@ -79,8 +79,13 @@ def test_t8_enum_member_present() -> None:
     assert TerminationCause.PROMPT_DRIFT.name == "PROMPT_DRIFT"
 
 
-def test_t1_through_t8_all_present() -> None:
-    """The closed vocabulary now covers eight causes (T1-T8)."""
+def test_t1_through_t9_all_present() -> None:
+    """The closed vocabulary now covers nine causes (T1-T9).
+
+    T9 (PROMPT_DIGEST_MISSING) landed in the module_04 SP Q4b
+    amendment: opt-in strict mode fires it instead of skipping the
+    check on pre-v0.5.1 suites.
+    """
     expected = {
         "COMPLETE",
         "REGRESSED",
@@ -90,6 +95,7 @@ def test_t1_through_t8_all_present() -> None:
         "HANDSHAKE_BLOCKED",
         "PROVIDER_TIMEOUT",
         "PROMPT_DRIFT",
+        "PROMPT_DIGEST_MISSING",
     }
     actual = {member.name for member in TerminationCause}
     assert expected <= actual
@@ -97,6 +103,55 @@ def test_t1_through_t8_all_present() -> None:
     # them here so ADRs stay in sync.
     unexpected = actual - expected
     assert not unexpected, f"unexpected TerminationCause members: {unexpected}"
+
+
+def test_enum_values_pinned() -> None:
+    """SP Q1 amendment: enum values are pinned integers, not auto().
+
+    Any reordering that shifts a member's integer value fails this
+    test -- a serialised value from a v0.5.0 report must decode to
+    the same TerminationCause on a v0.5.1 client.
+    """
+    expected_values = {
+        "COMPLETE": 1,
+        "REGRESSED": 2,
+        "PROVENANCE_FAILURE": 3,
+        "ASSUMPTION_BURST": 4,
+        "BUDGET_EXHAUSTED": 5,
+        "HANDSHAKE_BLOCKED": 6,
+        "PROVIDER_TIMEOUT": 7,
+        "PROMPT_DRIFT": 8,
+        "PROMPT_DIGEST_MISSING": 9,
+    }
+    for name, value in expected_values.items():
+        member = TerminationCause[name]
+        assert member.value == value, (
+            f"TerminationCause.{name} shifted to {member.value}; expected "
+            f"{value}. Reordering the enum breaks cross-version "
+            "serialisation."
+        )
+
+
+def test_check_t8_strict_mode_fires_t9_on_missing() -> None:
+    """SP Q4b amendment: strict mode returns T9 instead of None."""
+    predicate = AcceptancePredicate(
+        id=new_predicate_id(),
+        kind="artifact",
+        invocation=ArtifactInvocation(
+            path="__never_present__", must_have_rootknot=False
+        ),
+        required=True,
+    )
+    legacy_suite = AcceptanceSuite(
+        intent_id=new_intent_id(),
+        predicates=(predicate,),
+        compiled_from="legacy",
+    )  # prompt_digest=None
+    assert (
+        check_t8(legacy_suite, "anything", strict=True)
+        is TerminationCause.PROMPT_DIGEST_MISSING
+    )
+    assert check_t8(legacy_suite, "anything", strict=False) is None
 
 
 # ---------------------------------------------------------------------------
