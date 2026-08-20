@@ -346,6 +346,10 @@ class Rootknot:
         # knot and appends an entry when an ambient ledger is bound.
         # The local import breaks the security<-core cycle at import
         # time (security.manifest_ledger already imports from core).
+        # SP Q5 amendment: the observer helper handles its own append
+        # failures internally (WARN + manifest.ledger.refused event);
+        # we still guard against exotic import-time / TypeError paths
+        # so a malformed installation cannot invalidate a signed knot.
         try:
             from ract.security.manifest_ledger import (
                 record_environment_attestation,
@@ -356,7 +360,7 @@ class Rootknot:
             import logging
 
             logging.getLogger("ract.core.rootknot").debug(
-                "manifest_ledger observer failed on attest_environment",
+                "manifest_ledger observer import or dispatch failed",
                 exc_info=True,
             )
         return signed

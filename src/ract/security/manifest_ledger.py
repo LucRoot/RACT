@@ -443,13 +443,29 @@ class ManifestLedger:
         Callers passing arbitrary bytes get a valid CAS entry but the
         stored bytes will not compare byte-exact to what a re-hash of
         the manifest would produce.
+
+        SP Q3 amendment (external reviewer PARTIAL): two processes
+        racing on the same digest key hit ``if not path.exists()``
+        concurrently -- both would open the same ``.json.tmp`` and one
+        writer's payload would truncate the other. Even for the
+        common "same bytes" case (benign because contents are
+        identical) the wasted fsync + torn write on Windows could
+        interleave. The amendment adds a per-process suffix to the tmp
+        path so racing writers own distinct tmp files, then
+        ``os.replace`` promotes the last writer's file to the CAS
+        target -- both writers wrote the same bytes so the final CAS
+        entry is byte-exact whichever wins.
         """
         digest_hex = hashlib.sha256(manifest_bytes).hexdigest()
         path = self.snapshot_path_for(digest_hex)
         if not path.exists():
-            # Write atomically via tmp + os.replace so a mid-write kill
-            # never leaves a partial snapshot at the CAS key.
-            tmp_path = path.with_suffix(".json.tmp")
+            # Per-process + per-thread tmp path avoids the race the SP
+            # Q3 reviewer flagged. Two writers on the same digest each
+            # own their own tmp; ``os.replace`` publishes the last
+            # writer's byte-identical body.
+            tmp_path = path.with_suffix(
+                f".json.tmp.{os.getpid()}.{threading.get_ident()}"
+            )
             fd = os.open(
                 tmp_path,
                 os.O_WRONLY | os.O_CREAT | os.O_TRUNC | _BINARY_FLAG,
@@ -754,10 +770,27 @@ class ManifestLedger:
         - ``tail_valid_count`` = N when the break is at index N; N
           equals the total count when the chain is fully valid.
 
+        SP Q1 amendment (external reviewer DEFECT): an attacker who
+        knows the ledger format can craft a raw JSONL line whose
+        ``prev_ledger_hash`` correctly links to the current tail --
+        the Merkle chain would accept it even though the well-behaved
+        append path never wrote it. The amendment adds mandatory-
+        field + shape validation: each entry MUST carry a valid
+        ``manifest_digest`` (64-char lowercase hex),
+        ``rootknot_signature`` (valid base64), ``rootknot_run_id``
+        (non-empty string), and ``tool_trace_summary`` (dict). An
+        entry that fails ANY schema check produces the same
+        ``first_break_at`` outcome as a hash mismatch -- the caller
+        cannot tell the difference from ``LedgerVerifyResult``
+        alone, but every well-formed append satisfies the schema
+        automatically so the amendment does not narrow the accept
+        surface for legitimate writers.
+
         A truncated tail (dropped last entry after export/tampering)
         surfaces as a chain that verifies cleanly but with fewer
         entries -- the caller compares ``tail_valid_count`` to the
-        expected length to detect that class of tamper.
+        expected length to detect that class of tamper (see SP Q4
+        note in module_07 fragment).
         """
         entries = self.load()
         if not entries:
@@ -765,6 +798,16 @@ class ManifestLedger:
                 valid=True, first_break_at=None, tail_valid_count=0
             )
         for i, entry in enumerate(entries):
+            # Schema-field check (SP Q1 amendment). A rogue writer
+            # bypassing the OS lock can craft the prev_ledger_hash
+            # correctly, but the mandatory-field shape check catches
+            # any entry that does not match the append-time schema.
+            if not _entry_schema_valid(entry):
+                return LedgerVerifyResult(
+                    valid=False,
+                    first_break_at=i,
+                    tail_valid_count=i,
+                )
             expected_prev: str
             if i == 0:
                 expected_prev = GENESIS
@@ -828,31 +871,42 @@ class ManifestLedger:
         proof: MerkleProof,
         loader: Callable[[str], dict[str, Any]] | None = None,
     ) -> bool:
-        """Return True when ``proof`` is internally consistent.
+        """Return True when ``proof`` is a valid proof of inclusion.
 
-        Without a ``loader`` the check is limited to the invariants
-        computable from the proof alone:
+        Requires a ``loader(hash_hex) -> dict`` callable that resolves
+        each hash in ``forward_hashes`` to the corresponding entry
+        body. For each hash H the verifier confirms:
 
-        - The target entry's canonical hash matches ``target_hash``.
-        - When ``forward_hashes`` is empty, ``target_hash == tail_hash``.
-        - When ``forward_hashes`` is non-empty, its last element equals
-          ``tail_hash``.
+        - ``loader(H)`` returns an entry whose canonical hash equals H
+          (byte-integrity of the resolved entry);
+        - the loaded entry's ``prev_ledger_hash`` equals the previous
+          hash in the walk (or ``target_hash`` for the first element)
+          (Merkle-chain link);
+        - after walking every element, ``forward_hashes[-1] ==
+          tail_hash`` (or, for an empty forward, ``target_hash ==
+          tail_hash``).
 
-        Passing a ``loader(hash_hex) -> dict`` lets the verifier walk
-        the full chain: for each hash in ``forward_hashes``, load the
-        entry with that canonical hash and confirm its ``prev_ledger_hash``
-        equals the previous element (or ``target_hash`` for the first
-        element). Loader-based verification is stricter and closer to
-        the real "proof of inclusion" property.
+        SP Q6 amendment (external reviewer DEFECT): the prior
+        no-loader mode accepted any well-shaped proof without
+        confirming that the referenced entries EXISTED. An attacker
+        could forge a proof for a non-existent entry by picking any
+        ``tail_hash``, empty ``forward_hashes``, and any
+        ``target_entry`` that hashes to that ``tail_hash``. The
+        amendment REQUIRES ``loader``; callers wanting the prior
+        structural-shape-only check must use
+        :meth:`verify_proof_shape_only` (renamed for honesty).
+
+        Raises ``ValueError`` when ``loader`` is None.
         """
+        if loader is None:
+            raise ValueError(
+                "verify_proof requires a loader callable; use "
+                "verify_proof_shape_only for the structural-only check "
+                "(SP Q6 amendment: the loader-less mode is not a "
+                "proof of inclusion)"
+            )
         if _hash_entry(proof.target_entry) != proof.target_hash:
             return False
-        if not proof.forward_hashes:
-            return proof.target_hash == proof.tail_hash
-        if proof.forward_hashes[-1] != proof.tail_hash:
-            return False
-        if loader is None:
-            return True
         prev_hash = proof.target_hash
         for h in proof.forward_hashes:
             try:
@@ -861,12 +915,36 @@ class ManifestLedger:
                 return False
             if not isinstance(next_entry, dict):
                 return False
-            if next_entry.get("prev_ledger_hash") != prev_hash:
-                return False
             if _hash_entry(next_entry) != h:
                 return False
+            if next_entry.get("prev_ledger_hash") != prev_hash:
+                return False
             prev_hash = h
-        return True
+        if not proof.forward_hashes:
+            return proof.target_hash == proof.tail_hash
+        return proof.forward_hashes[-1] == proof.tail_hash
+
+    @staticmethod
+    def verify_proof_shape_only(proof: MerkleProof) -> bool:
+        """Return True when ``proof``'s internal shape is self-consistent.
+
+        SP Q6 amendment: this is the renamed successor to the prior
+        no-loader ``verify_proof`` mode. It is NOT a proof of
+        inclusion -- it only confirms that
+        ``target_hash == hash(target_entry)`` and that
+        ``forward_hashes[-1] == tail_hash`` (or, for an empty
+        forward, ``target_hash == tail_hash``). Use this when the
+        caller wants a cheap sanity check on a proof they already
+        trust to reference real entries (e.g., they retrieved the
+        proof from a signed source). For inclusion verification
+        against a live ledger, use :meth:`verify_proof` with a
+        loader.
+        """
+        if _hash_entry(proof.target_entry) != proof.target_hash:
+            return False
+        if not proof.forward_hashes:
+            return proof.target_hash == proof.tail_hash
+        return proof.forward_hashes[-1] == proof.tail_hash
 
 
 # ---------------------------------------------------------------------------
@@ -927,6 +1005,78 @@ def _normalise_tool_trace(summary: dict[str, Any]) -> dict[str, Any]:
         "first_invoke_at": first if first is not None else None,
         "last_invoke_at": last if last is not None else None,
     }
+
+
+def _entry_schema_valid(entry: dict[str, Any]) -> bool:
+    """Return True iff ``entry`` matches the append-time ledger schema.
+
+    SP Q1 amendment. A well-behaved append via :meth:`ManifestLedger.append`
+    always produces an entry that satisfies these checks; a rogue writer
+    who bypasses the OS lock (POSIX advisory-lock class) and hand-crafts
+    a raw JSONL line with a correctly-linking ``prev_ledger_hash`` gets
+    caught here because the shape-check surface is orthogonal to the
+    hash-chain surface.
+
+    Checks:
+
+    - ``manifest_digest`` present, str, 64 lowercase hex chars.
+    - ``rootknot_signature`` present, str, valid base64.
+    - ``rootknot_run_id`` present, non-empty str.
+    - ``tool_trace_summary`` present, dict.
+    - ``prev_ledger_hash`` present, str (either :data:`GENESIS` or 64
+      lowercase hex).
+    - Optional ``manifest_snapshot_ref``: when present, must be a str
+      shaped as ``"manifest_snapshots/{digest_hex}.json"``.
+    - Optional ``wal_cross_link``: when present, must be a dict with
+      integer ``first_wal_seq`` and ``last_wal_seq``.
+    """
+    md = entry.get("manifest_digest")
+    if not isinstance(md, str) or len(md) != 64:
+        return False
+    try:
+        int(md, 16)
+    except ValueError:
+        return False
+    sig = entry.get("rootknot_signature")
+    if not isinstance(sig, str):
+        return False
+    try:
+        base64.b64decode(sig, validate=True)
+    except (ValueError, TypeError):
+        return False
+    rid = entry.get("rootknot_run_id")
+    if not isinstance(rid, str) or not rid:
+        return False
+    tts = entry.get("tool_trace_summary")
+    if not isinstance(tts, dict):
+        return False
+    prev = entry.get("prev_ledger_hash")
+    if not isinstance(prev, str):
+        return False
+    if prev != GENESIS:
+        if len(prev) != 64:
+            return False
+        try:
+            int(prev, 16)
+        except ValueError:
+            return False
+    snap = entry.get("manifest_snapshot_ref")
+    if snap is not None:
+        if not isinstance(snap, str):
+            return False
+        if not snap.startswith(f"{ManifestLedger.SNAPSHOT_DIR_NAME}/"):
+            return False
+        if not snap.endswith(".json"):
+            return False
+    xlink = entry.get("wal_cross_link")
+    if xlink is not None:
+        if not isinstance(xlink, dict):
+            return False
+        for key in ("first_wal_seq", "last_wal_seq"):
+            v = xlink.get(key)
+            if not isinstance(v, int):
+                return False
+    return True
 
 
 def _validate_digest_hex(value: str, field_name: str) -> None:
@@ -1080,15 +1230,52 @@ def record_environment_attestation(
         seq = count_wal_entries(wal)
         first_wal_seq = seq
         last_wal_seq = seq
-    return ledger.append(
-        manifest_digest=bytes(manifest_digest).hex(),
-        rootknot_signature=bytes(environment_signature),
-        rootknot_run_id=str(run_id),
-        manifest_bytes=manifest_bytes,
-        tool_trace_summary=tool_trace_summary,
-        first_wal_seq=first_wal_seq,
-        last_wal_seq=last_wal_seq,
-    )
+    manifest_digest_hex = bytes(manifest_digest).hex()
+    run_id_str = str(run_id)
+    try:
+        return ledger.append(
+            manifest_digest=manifest_digest_hex,
+            rootknot_signature=bytes(environment_signature),
+            rootknot_run_id=run_id_str,
+            manifest_bytes=manifest_bytes,
+            tool_trace_summary=tool_trace_summary,
+            first_wal_seq=first_wal_seq,
+            last_wal_seq=last_wal_seq,
+        )
+    except Exception as exc:  # noqa: BLE001 -- observer must never invalidate the signed knot
+        # SP Q5 amendment (external reviewer DEFECT): silent DEBUG log
+        # was operationally invisible. When the ledger IS bound but
+        # the append refuses (disk full, permission change, lock
+        # contention, malformed payload) the operator MUST see the
+        # signal. Promote to WARN + emit a structured
+        # ``manifest.ledger.refused`` event so ``ract verify`` can
+        # distinguish "ledger was never bound" (no event) from
+        # "ledger refused" (this event). Returning None preserves the
+        # caller's "no ledger entry produced" semantics.
+        _LOG.warning(
+            "manifest_ledger append refused (manifest_digest=%s, "
+            "run_id=%s): %s",
+            manifest_digest_hex,
+            run_id_str,
+            exc,
+        )
+        try:
+            from ract.trace.sink import emit as _emit_event
+
+            _emit_event(
+                "manifest.ledger.refused",
+                {
+                    "manifest_digest": manifest_digest_hex,
+                    "run_id": run_id_str,
+                    "error_kind": type(exc).__name__,
+                    "error_message": str(exc)[:512],
+                },
+            )
+        except Exception:  # noqa: BLE001 -- trace failure never masks the WARN log
+            _LOG.debug(
+                "manifest.ledger.refused emit failed", exc_info=True
+            )
+        return None
 
 
 # RACT 0.5.1

@@ -455,8 +455,8 @@ def test_proof_of_out_of_range(tmp_path: Path) -> None:
         ledger.proof_of(5)
 
 
-def test_verify_proof_without_loader(tmp_path: Path) -> None:
-    """Structural verification passes for a well-formed proof."""
+def test_verify_proof_without_loader_now_raises(tmp_path: Path) -> None:
+    """SP Q6 amendment: verify_proof without a loader raises (see amendment tests)."""
     ledger = _mk_ledger(tmp_path)
     for i in range(3):
         ledger.append(
@@ -465,7 +465,8 @@ def test_verify_proof_without_loader(tmp_path: Path) -> None:
             rootknot_run_id=_mk_run_id(i),
         )
     proof = ledger.proof_of(0)
-    assert ManifestLedger.verify_proof(proof) is True
+    with pytest.raises(ValueError, match="verify_proof requires a loader"):
+        ManifestLedger.verify_proof(proof)
 
 
 def test_verify_proof_with_loader(tmp_path: Path) -> None:
@@ -484,7 +485,7 @@ def test_verify_proof_with_loader(tmp_path: Path) -> None:
 
 
 def test_verify_proof_detects_tampered_target(tmp_path: Path) -> None:
-    """Mutating target_entry breaks the target_hash invariant."""
+    """Mutating target_entry breaks the target_hash invariant (loader mode)."""
     ledger = _mk_ledger(tmp_path)
     ledger.append(
         manifest_digest=_mk_digest(1),
@@ -497,7 +498,9 @@ def test_verify_proof_detects_tampered_target(tmp_path: Path) -> None:
     from dataclasses import replace
 
     tampered = replace(proof, target_entry=tampered_entry)
-    assert ManifestLedger.verify_proof(tampered) is False
+    # Provide a trivial loader; the target-hash mismatch is caught
+    # BEFORE the loader is walked.
+    assert ManifestLedger.verify_proof(tampered, loader=lambda _: {}) is False
 
 
 # ---------------------------------------------------------------------------
@@ -764,6 +767,207 @@ def test_subprocess_kill_before_fsync_is_tolerated(tmp_path: Path) -> None:
     fresh = ManifestLedger(ledger._root)
     entries = fresh.load()
     assert len(entries) == 2
+
+
+# ---------------------------------------------------------------------------
+# SP Q1 amendment -- verify_chain now also checks entry schema
+# ---------------------------------------------------------------------------
+
+
+def test_sp_q1_verify_chain_rejects_schema_invalid_entry(tmp_path: Path) -> None:
+    """A rogue writer injecting a schema-invalid entry breaks verify_chain.
+
+    Emulates the SP Q1 attacker: bypass the OS lock (which is advisory
+    on POSIX), craft a JSON line with a CORRECTLY-linking
+    ``prev_ledger_hash`` but a missing mandatory field. The prior
+    verify_chain accepted this line; the amendment rejects it via
+    ``_entry_schema_valid``.
+    """
+    ledger = _mk_ledger(tmp_path)
+    ledger.append(
+        manifest_digest=_mk_digest(0),
+        rootknot_signature=_mk_signature(0),
+        rootknot_run_id=_mk_run_id(0),
+    )
+    # Compute correct prev hash and craft a schema-invalid entry.
+    entries = ledger.load()
+    prev_hash = _hash_entry(entries[-1])
+    rogue = {
+        # Missing rootknot_run_id + tool_trace_summary -- schema-invalid.
+        "manifest_digest": _mk_digest(1),
+        "rootknot_signature": base64.b64encode(_mk_signature(1)).decode("ascii"),
+        "prev_ledger_hash": prev_hash,
+    }
+    with ledger.ledger_path.open("ab") as fh:
+        fh.write(dumps_jcs(rogue) + b"\n")
+    result = ledger.verify_chain()
+    assert result.valid is False
+    assert result.first_break_at == 1
+
+
+def test_sp_q1_verify_chain_rejects_bad_base64_signature(tmp_path: Path) -> None:
+    """A rogue entry with garbage base64 for rootknot_signature is rejected."""
+    ledger = _mk_ledger(tmp_path)
+    ledger.append(
+        manifest_digest=_mk_digest(0),
+        rootknot_signature=_mk_signature(0),
+        rootknot_run_id=_mk_run_id(0),
+    )
+    entries = ledger.load()
+    prev_hash = _hash_entry(entries[-1])
+    rogue = {
+        "manifest_digest": _mk_digest(1),
+        "rootknot_signature": "!!!not-base64!!!",
+        "rootknot_run_id": _mk_run_id(1),
+        "tool_trace_summary": {
+            "tool_ids_invoked": [],
+            "invocation_count": 0,
+            "first_invoke_at": None,
+            "last_invoke_at": None,
+        },
+        "prev_ledger_hash": prev_hash,
+    }
+    with ledger.ledger_path.open("ab") as fh:
+        fh.write(dumps_jcs(rogue) + b"\n")
+    result = ledger.verify_chain()
+    assert result.valid is False
+    assert result.first_break_at == 1
+
+
+# ---------------------------------------------------------------------------
+# SP Q3 amendment -- CAS tmp path is per-process/thread
+# ---------------------------------------------------------------------------
+
+
+def test_sp_q3_cas_race_uses_per_process_tmp(tmp_path: Path) -> None:
+    """Two writers racing on the same digest do not corrupt the CAS file."""
+    ledger = _mk_ledger(tmp_path)
+    payload = dumps_jcs({"version": 1, "run_id": "abc"})
+    barrier = threading.Barrier(4)
+    results: list[str] = []
+
+    def _writer() -> None:
+        barrier.wait()
+        results.append(ledger.store_snapshot(payload))
+
+    threads = [threading.Thread(target=_writer) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    import hashlib
+
+    expected_digest = hashlib.sha256(payload).hexdigest()
+    assert all(r == expected_digest for r in results)
+    assert ledger.snapshot_path_for(expected_digest).read_bytes() == payload
+
+
+# ---------------------------------------------------------------------------
+# SP Q5 amendment -- append refusal emits WARN + manifest.ledger.refused
+# ---------------------------------------------------------------------------
+
+
+class _CountingSink:
+    """Test sink capturing (kind, payload) tuples for assertion."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[str, dict]] = []
+
+    def __call__(
+        self,
+        kind: str,
+        payload: dict,
+        *,
+        step_id: bytes | None = None,
+        parent_id: bytes | None = None,
+        timestamp_ns: int | None = None,
+    ) -> None:
+        self.events.append((kind, dict(payload)))
+
+
+def test_sp_q5_observer_emits_refused_event_on_append_failure(
+    tmp_path: Path, caplog, monkeypatch
+) -> None:
+    """A ledger append failure emits manifest.ledger.refused + WARN log."""
+    from ract.trace import sink as _sink_module
+
+    sink = _CountingSink()
+    orig_sink = _sink_module._sink
+    _sink_module._sink = sink
+    try:
+        ledger = _mk_ledger(tmp_path)
+
+        def _boom(*args, **kwargs):  # type: ignore[no-untyped-def]
+            raise OSError("disk full")
+
+        monkeypatch.setattr(ledger, "append", _boom)
+        knot = _StubKnot(
+            manifest_digest=bytes.fromhex(_mk_digest(1)),
+            environment_signature=_mk_signature(1),
+            run_id=_mk_run_id(1),
+        )
+        with caplog.at_level("WARNING", logger="ract.security.manifest_ledger"):
+            result = record_environment_attestation(knot, ledger=ledger)
+        assert result is None
+        assert any(
+            "manifest_ledger append refused" in rec.message
+            for rec in caplog.records
+        )
+        refused = [e for e in sink.events if e[0] == "manifest.ledger.refused"]
+        assert len(refused) == 1
+        payload = refused[0][1]
+        assert payload["manifest_digest"] == _mk_digest(1)
+        assert payload["run_id"] == _mk_run_id(1)
+        assert payload["error_kind"] == "OSError"
+    finally:
+        _sink_module._sink = orig_sink
+
+
+# ---------------------------------------------------------------------------
+# SP Q6 amendment -- verify_proof requires a loader
+# ---------------------------------------------------------------------------
+
+
+def test_sp_q6_verify_proof_requires_loader(tmp_path: Path) -> None:
+    """verify_proof without a loader now raises ValueError."""
+    ledger = _mk_ledger(tmp_path)
+    ledger.append(
+        manifest_digest=_mk_digest(1),
+        rootknot_signature=_mk_signature(1),
+        rootknot_run_id=_mk_run_id(1),
+    )
+    proof = ledger.proof_of(0)
+    with pytest.raises(ValueError, match="verify_proof requires a loader"):
+        ManifestLedger.verify_proof(proof)
+
+
+def test_sp_q6_verify_proof_shape_only_still_available(tmp_path: Path) -> None:
+    """The structural-only check remains available under the honest name."""
+    ledger = _mk_ledger(tmp_path)
+    ledger.append(
+        manifest_digest=_mk_digest(1),
+        rootknot_signature=_mk_signature(1),
+        rootknot_run_id=_mk_run_id(1),
+    )
+    proof = ledger.proof_of(0)
+    assert ManifestLedger.verify_proof_shape_only(proof) is True
+
+
+def test_sp_q6_verify_proof_shape_only_detects_target_tamper(tmp_path: Path) -> None:
+    """Shape-only mode still catches target-entry tamper."""
+    ledger = _mk_ledger(tmp_path)
+    ledger.append(
+        manifest_digest=_mk_digest(1),
+        rootknot_signature=_mk_signature(1),
+        rootknot_run_id=_mk_run_id(1),
+    )
+    proof = ledger.proof_of(0)
+    from dataclasses import replace
+
+    tampered = replace(
+        proof, target_entry={**proof.target_entry, "rootknot_run_id": "z" * 32}
+    )
+    assert ManifestLedger.verify_proof_shape_only(tampered) is False
 
 
 # RACT 0.5.1

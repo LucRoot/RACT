@@ -108,6 +108,14 @@ EventKind = Literal[
     # references, and the number of tool ids invoked at ledger-append
     # time. See ``_BUILD/ract_v0.5.1_external_review_response/module_07.md``.
     "manifest.ledger.appended",
+    # v0.5.1 module_07 SP Q5 amendment: signals a ledger observer that
+    # was BOUND (ambient ledger available) but failed to append -- disk
+    # full, permission change, lock contention, or malformed payload.
+    # Downstream ``ract verify`` uses this event to distinguish
+    # "ledger was never bound" (no event) from "ledger was bound but
+    # refused" (this event). Payload carries the manifest_digest, the
+    # run_id, and an error_kind string.
+    "manifest.ledger.refused",
 ]
 
 
