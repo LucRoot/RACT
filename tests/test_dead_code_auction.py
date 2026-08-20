@@ -330,6 +330,17 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("scheduler.py")
     allowlist.add("failure_records.py")
     allowlist.add("repo_fingerprint.py")
+    # v0.5.1 external-review response (module_05 SubstrateLoop shim
+    # closure + module_09 sycophancy v2). Both modules ship additive
+    # surfaces whose live wire lands via SubstrateLoop internals
+    # (process_group) and via ``ract.antilazy`` re-export
+    # (sycophancy_v2). Neither has an unqualified import inside src/
+    # yet -- process_group is imported lazily in the executor path,
+    # sycophancy_v2 is re-exported from ``ract.antilazy`` but the
+    # dead-code auction scans by unqualified module name. Allowlist
+    # mirrors the transitional-substrate pattern above.
+    allowlist.add("process_group.py")
+    allowlist.add("sycophancy_v2.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},

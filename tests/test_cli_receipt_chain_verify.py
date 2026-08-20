@@ -8,9 +8,14 @@ import json
 import subprocess
 import sys
 
+from ract.canonical import dumps_jcs
+
 
 def _entry(receipt: dict, prev_hash: str) -> dict:
-    payload = json.dumps(receipt, sort_keys=True) + prev_hash
+    # v0.5.1: hash-input path migrated from json.dumps(sort_keys=True) to
+    # RFC 8785 JCS via dumps_jcs (module_03). Fixture builder must match
+    # the CLI's canonical-bytes formatter or the chain-head hash diverges.
+    payload = dumps_jcs(receipt).decode("utf-8") + prev_hash
     entry_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
     return {"receipt": receipt, "prev_hash": prev_hash, "entry_hash": entry_hash}
 

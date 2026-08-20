@@ -6,6 +6,372 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.1] - 2026-08-20 — External Review Response
+
+Patch release for the External Review Response pipeline
+(`_BUILD/ract_v0.5.1_external_review_response/`). This release closes
+the trust-chain gap opened at the 200-compaction boundary that DeepSeek
+rounds 1-5 + REVIEW_4_UNKNOWN_REVIEWER surfaced against v0.5.0: the
+Rootknot signed surface is extended (not broken) with workspace, prompt,
+and run-id digests; the assumption ledger crash-consistent; every hashed
+byte-string travels through RFC 8785 JCS; a new PROMPT_DRIFT termination
+cause plus operator-signed intent-recompile CLI verb close the intent-
+mutation loophole; the SubstrateLoop shim closes its four SUBSTRATE
+§4-§7 gaps (tool-invocation gate, process-group tree-kill, environ
+allowlist, git-commit compensator); an ambient run_id ContextVar
+preserves identity end-to-end across compaction; a historical Manifest
+Ledger with Merkle chain adds tamper-detectable durability to RK-3;
+G5/G6 laziness enforcement expands from Python-only to five polyglot
+languages via tree-sitter; the sycophancy classifier gains an AST-delta
+signal + WhispererContract event scoring F1=1.000 on a 48-sample
+regression corpus. Tag is `v0.5.1`. Ten ADRs added (ADR-0040 through
+ADR-0041 for T8 and SubstrateLoop shim closure — six more surfaces
+carry inline ADR-style module docstrings).
+
+### Per-module surface
+
+- **module_01 — RootknotWAL crash-consistency (G1).** New
+  `src/ract/core/assumptions_wal.py` (~475 lines) with append-only
+  JSONL write-ahead log at `.ract/assumptions.wal`, cross-platform
+  exclusive file lock, fsync per append, truncated-tail tolerance
+  with WARN, middle-corruption refusal, and `AssumptionRegistry` wire
+  so accepted assumptions durably replay across restart. New
+  `EventKind.assumption_accepted` in the closed vocabulary. Primary
+  `3e98e9d`; SP amendment `07a8ff0` (WARN emission on truncated tail
+  + rotation-atomicity docstring correction).
+
+- **module_02 — Rootknot canonical-bytes extension (G2 + G3 +
+  REVIEW_4_UNKNOWN A2).** Three new opt-in fields on the Rootknot
+  dataclass — `workspace_digest`, `prompt_digest`, `run_id` — plus
+  `make_rootknot_v4()` factory bumping `schema_version` 3→4. New
+  `src/ract/core/workspace_digest.py` with pure-hash
+  `workspace_digest()` + `compute_prompt_digest()` + `run_id_hex()` +
+  `WorkspaceDigestChain` ancestor ledger. `AcceptanceSuite.prompt_digest`
+  optional field populated by `IntentCompiler.compile()`. Sacred spine
+  preserved — the three signed byte-strings extend, nothing removed.
+  Primary `62659bf`; SP amendment `3d70823` (strict-JSON metadata_hash
+  + `MetadataUnserialisableError`, exclusive-lock on chain read path,
+  `require_prompt_digest()` helper).
+
+- **module_03 — RFC 8785 JCS canonical JSON.** New `src/ract/canonical.py`
+  (462 lines) with `dumps_jcs`/`loads_jcs`/`is_canonical`/
+  `CanonicalJSONError` implementing strict-JSON NFC-normalised codepoint-
+  sorted ECMA-262-conformant serialiser. 15-file migration of every
+  hash-input path: `rootknot.py`, `predicate.py`, `workspace_digest.py`,
+  `assumptions_wal.py`, `plan.py`, `security/manifest.py`,
+  `trace/events.py` + `writer.py`, `receipt.py`, `receipt_chain.py`,
+  `run_fingerprint.py`, `reproducibility_manifest.py`,
+  `mutation_merge_gate.py`, `antilazy/symgraph.py`, `memory/cache.py`,
+  `memory/query_trace.py`, `memory/functions/contracts.py`,
+  `memory/retrieve.py`. Grep-gate at
+  `tests/architecture/test_no_sort_keys_in_canonical_paths.py` (tokenize-
+  based comment/string blanking + stale-allowlist sanity + 20-entry
+  allowlist). Primary `1546577`; SP amendment `fd494c0`
+  (`__json_snapshot__` cycle guard + explicit opt-out, shortest-repr
+  number encoding replacing initial log10 + `.17f`, non-ASCII invariant
+  tests, look-back window widened 8→50).
+
+- **module_04 — T8 PROMPT_DRIFT + T9 PROMPT_DIGEST_MISSING + `intent
+  recompile` CLI verb.** New termination causes T8 (mutation-detected)
+  and T9 (opt-in strict-prompt-digest missing) added to the closed
+  `TerminationCause` enum with pinned integer values. New
+  `src/ract/core/suite_chain.py` (~340 lines) append-only JSONL ledger
+  of AcceptanceSuite versions per run with cross-platform file lock,
+  fsync per append, tail-truncation tolerance, and middle-corruption
+  refusal. New `src/ract/core/intent_recompile.py` (~280 lines)
+  operator-signed recompile action loading key from `.ract/operator.key`
+  OR `RACT_OPERATOR_KEY` env var, HMAC-SHA256-signed recompile bytes,
+  and initial-entry lazy record. `LoopController._check_prompt_drift`
+  per-iteration hook with chain-head comparison, initial fallback, T8
+  halt, and rollback to `last_known_good_workspace`. New ADR-0040. New
+  `ract intent recompile <run_id>` CLI verb (mutually-exclusive
+  `--intent-file` / `--intent-text`). Primary `5bf24a4`; SP amendment
+  `74bfa5d` (Q1 pinned enum values, Q2 orphan-file enumeration + opt-in
+  `delete_orphaned_files_on_t8`, Q4a resolved key path, Q4b T9 +
+  `strict_prompt_digest`, Q5a `.recompile_lock`, Q5b eager initial
+  entry, Q6b split exit codes 2/3/4/5).
+
+- **module_05 — SubstrateLoop shim-wiring closure (SUBSTRATE §4-§7 +
+  B3 + D1).** Four new modules close the executor gap. New
+  `src/ract/executor/tool_gate.py` (549 lines) with four-gate
+  `ToolInvocationGate` + closed-type `ToolArgSchema` + frozen
+  `ToolRegistry` + `ToolInvocationRefused` structured shape + bounded
+  `args_repr` for privacy + `tool.invocation.pre|post|refused` events.
+  New `src/ract/executor/process_group.py` (460 lines) with POSIX
+  `setsid` via `start_new_session` + Windows `CREATE_NEW_PROCESS_GROUP`
+  + Job Object with kill-on-close + `killpg`/`TerminateJobObject` reap
+  + `taskkill /F /T` fallback + optional SIGTERM grace period. New
+  `src/ract/security/sandbox_env.py` (370 lines) with `DEFAULT_ALLOWLIST`
+  (44 POSIX+Windows+locale names) + `NEVER_PASSTHROUGH` (17 credential
+  names) + `build_sandbox_env` with count-only WARN + JSONL loader that
+  refuses malformed configs. New `src/ract/executor/commit_compensator.py`
+  (346 lines) with `CommitCompensator` (soft-reset default) +
+  `CompensatorStack` LIFO drain + `check_pushed` via
+  `git branch -r --contains` + refusal-of-pushed-commits +
+  install/discard/apply/refused events. ADR-0041 names four decisions
+  + five rejected alternatives. Primary `2d00888`; SP amendments
+  `f933674` (Q2 CREATE_SUSPENDED + `_resume_thread`, Q3a
+  NEVER_PASSTHROUGH_PREFIXES + case-insensitive + glob refusal, Q3b
+  `_redact_name_for_log`, Q3d utf-8-sig read + per-line BOM strip,
+  Q4c `_resolve_branch` + `_current_branch` + `git update-ref`, Q5b
+  HEAD-read post-fast-forward gates `parent_snapshot`, Q5c
+  `dispose(success=False)` resyncs) + `20afce4` + `402a5a2`.
+
+- **module_06 — ambient run_id ContextVar + end-to-end preservation
+  smoke.** New `src/ract/runtime.py` (140 lines) with ContextVar-
+  backed `run_id` accessor + `bind_run_id` context manager +
+  `set/reset` primitives + type/empty guards. WAL `_persist` stamps
+  ambient into payload when caller omits `run_id`.
+  `WorkspaceDigestChain.append` accepts explicit `run_id` kwarg +
+  falls back to ambient + `ChainEdge.run_id` optional field for
+  backward-compat. `JsonlEventWriter` and `make_rootknot_v4` accept
+  `run_id=None` and decode ambient hex→bytes, refusing when no
+  ambient bound (control-bypass guard). `LoopController.run()` binds
+  ambient at entry via `_resolve_or_mint_run_id` (marker file →
+  basename → mint fresh 32-hex + write marker for compaction
+  survival). Primary `8f2b93c`; SP amendment `151e66e` (Q1
+  `run_with_ambient(fn,*args,**kwargs)` closure pattern, Q2 WAL WARN
+  on explicit-vs-ambient divergence, Q4 cross-platform exclusive
+  lock on `run_id.txt.lock` sidecar, Q5 WAL reload WARN on
+  bound-ambient with legacy no-rid entries).
+
+- **module_07 — Historical Manifest Ledger (RK-3 durability).** New
+  `src/ract/security/manifest_ledger.py` (~1000 lines) with
+  `ManifestLedger` append-only JSONL at `.ract/manifest_ledger.jsonl`
+  + content-addressable snapshot store at
+  `.ract/manifest_snapshots/{digest_hex}.json` (idempotent CAS via
+  tmp+os.replace) + Merkle chain via `prev_ledger_hash` (GENESIS
+  sentinel for first entry) + cross-platform file lock mirroring
+  `assumptions_wal.py` (msvcrt.locking Windows + fcntl.flock POSIX,
+  3-attempt/10ms backoff, LedgerLockContended) + `verify_chain`
+  returning `LedgerVerifyResult{valid, first_break_at,
+  tail_valid_count}` detecting middle-tamper AND surfacing truncated-
+  tail via reduced count + `proof_of`/`verify_proof` with loader-based
+  full-chain mode + idempotence by `(run_id, manifest_digest)` within
+  run + ambient ledger accessor + WAL cross-link via
+  `count_wal_entries`. New EventKind `manifest.ledger.appended` in
+  closed vocabulary. `Rootknot.attest_environment` wired to call
+  `record_environment_attestation` post-signing via local import
+  breaking security→core cycle — signed RK-3 payload unchanged.
+  Primary `6dba937`; SP amendment `66194f1` (Q1 `_entry_schema_valid`
+  mandatory-field shape check, Q3 per-process/per-thread CAS tmp path
+  `.json.tmp.{pid}.{tid}`, Q5 `manifest.ledger.refused` EventKind +
+  WARN wrap in observer, Q6 `verify_proof` now REQUIRES loader +
+  raises ValueError when None + new `verify_proof_shape_only` static
+  method).
+
+- **module_08 — Polyglot G5/G6 via tree-sitter.** New
+  `src/ract/parsers/tree_sitter_backend.py` (~340 lines) with
+  `Language` enum (PYTHON/JAVASCRIPT/TYPESCRIPT/TSX/RUST/GO) +
+  `LANGUAGE_BY_EXTENSION` map covering 10 MVP extensions +
+  `ParseTree`/`ParseError` dataclasses + cached `_load_grammar` per
+  language + `parse(file_path, source_bytes)→ParseTree|None`
+  byte-oriented hot path + `parse_file` convenience +
+  `iter_nodes`/`node_text`/`field_named` walk helpers +
+  `tree_sitter_available` probe. New
+  `src/ract/antilazy/dead_code_polyglot.py` (~440 lines) with
+  `DeadCodeCandidate`/`DeadCodePolyglotReport` +
+  `scan_dead_code`/`scan_dead_code_in_dir` public APIs +
+  Python-parity via stdlib `ast` (never routed through tree-sitter) +
+  per-language dispatch for JS/TS/Rust/Go. New
+  `src/ract/antilazy/test_copy_paste_polyglot.py` (~450 lines) with
+  token-normalised Jaccard fingerprint (`jaccard_threshold=0.85`,
+  `min_tokens=6`) + per-language test-body extractors (Python pytest
+  `test_*`, JS/TS/TSX `call_expression it/test/describe/t`, Rust
+  `#[test]` via `_collect_scope`, Go `func Test*` in `*_test.go`).
+  `enforce_g5_dead_code_polyglot` + `enforce_g6_test_copy_paste_polyglot`
+  wired in `pre_commit.py`; legacy `enforce_g5`/`enforce_g6` untouched
+  (additive-only preservation). `pyproject.toml [polyglot]` optional-
+  dep group. Primary `ce715ec`; SP amendment `bb6259e` (Q1 public
+  `reset_grammar_caches()`, Q2 `visit_AnnAssign` for `x: SomeType = 1`,
+  Q3 destructuring `object_pattern`/`array_pattern` in
+  `_collect_declarator_decls`, Q4 `_extract_rust._collect_scope`
+  resets `prev_attr_text`, Q5 `iter_nodes` `DEFAULT_MAX_STACK_DEPTH`
+  = 10_000 + `max_stack_depth=None` opt-out, Q6 `_lang_group_key`
+  folds typescript+tsx into one Jaccard group).
+
+- **module_09 — Sycophancy classifier v2 (AST-delta + WhispererContract-
+  event).** New `src/ract/antilazy/sycophancy_v2.py` (~640 lines) with
+  two-signal classifier: Signal 1 AST-delta null-op score over fenced-
+  block-extracted request/response with identifier-name intersection to
+  distinguish verbatim-echo from new-structural, Signal 2
+  `commitment_count = ast_new_commitments + factual_claims` (sentences
+  carrying distinguishing predicates: numbers, backtick tokens,
+  snake_case, camelCase, file paths, ~50 measurement/operational
+  verbs), combined as `is_sycophantic = (null_op_score > 0.7) OR
+  (commitment_count < 3)`. New EventKind
+  `whisperer.contract_violation` in closed vocabulary emitted via
+  best-effort emit on composed verdict. Legacy
+  `ract.antilazy.sycophancy` reversal-scan preserved unchanged for its
+  own trace-scanning use case. New `tests/fixtures/sycophancy_corpus/`
+  ships 48 samples (23 sycophantic + 25 genuine); F1 = 1.000 (P=1.000
+  R=1.000) vs target ≥0.85, stable across operator-tuning sweep band
+  `threshold ∈ {0.6, 0.7, 0.75, 0.85} × floor ∈ {2, 3}`. Primary
+  `0d58744`; SP amendment `b0c3d4a` (Q1 `_PREDICATE_PATTERNS`
+  extended with 14 causal/diagnostic verbs, Q3 runtime tunable
+  overrides on `classify()` + `score_corpus()` with `effective_*`
+  fields, Q4a `emit_event()` gate lifted to composed verdict, Q4b
+  `response_full_hash` (SHA-256 64-hex) added as first-class field,
+  Q5 `_STATEMENT_WEIGHT_CAP = 2`, Q6 `_AstStats.func_body_shapes` +
+  `corrective_same_name` count).
+
+- **module_10 — release close.** This entry, version triple bump
+  0.5.0 → 0.5.1, golden hash re-lock, annotated tag, handshake
+  push-commands file. `ract --version` prints `RACT 0.5.1`.
+
+### Added
+
+- **Two new ADRs** — ADR-0040 (T8 PROMPT_DRIFT termination cause +
+  operator-signed intent-recompile) and ADR-0041 (SubstrateLoop shim
+  closure four-decision bundle). Six further modules carry inline
+  docstring-style ADRs in their primary source files.
+- **New EventKinds** in `src/ract/trace/events.py::EventKind` closed
+  vocabulary — `assumption.accepted` (module_01),
+  `tool.invocation.pre`, `tool.invocation.post`, `tool.invocation.refused`
+  (module_05), `manifest.ledger.appended`, `manifest.ledger.refused`
+  (module_07), `whisperer.contract_violation` (module_09), plus
+  module_05 sandbox `unenforced_sandbox` env-audit surface.
+- **`TerminationCause.PROMPT_DRIFT` (T8)** and
+  **`TerminationCause.PROMPT_DIGEST_MISSING` (T9)** with pinned integer
+  values 1-9 (module_04).
+- **`ract intent recompile <run_id>`** CLI verb with mutually-exclusive
+  `--intent-file` XOR `--intent-text` and split exit codes 2/3/4/5.
+- **Rootknot schema_version 4** carrying opt-in `workspace_digest` +
+  `prompt_digest` + `run_id` fields; older sidecars continue to verify
+  under the v3 compatibility reader path.
+- **RFC 8785 JCS canonical JSON** — `src/ract/canonical.py` public
+  surface, importable as `from ract.canonical import dumps_jcs,
+  loads_jcs, is_canonical, CanonicalJSONError`.
+- **Ambient run_id ContextVar** at `src/ract/runtime.py` — importable
+  as `from ract.runtime import bind_run_id, get_current_run_id,
+  run_with_ambient`.
+- **Historical Manifest Ledger** at `.ract/manifest_ledger.jsonl` +
+  `.ract/manifest_snapshots/`; `src/ract/security/manifest_ledger.py`
+  public API `ManifestLedger`, `verify_chain`, `proof_of`,
+  `verify_proof`, `LedgerVerifyResult`, `MerkleProof`.
+- **Tree-sitter polyglot backend** at
+  `src/ract/parsers/tree_sitter_backend.py` with the six-language
+  MVP surface and `[polyglot]` optional-dep group in `pyproject.toml`.
+- **Sycophancy classifier v2** public API `classify_sycophancy_v2`,
+  `score_sycophancy_corpus`, `SycophancyClassification`, `CorpusScore`,
+  `MIN_COMMITMENT_FLOOR`, `NULL_OP_SCORE_THRESHOLD` re-exported from
+  `ract.antilazy`.
+- **~500 new tests** across `tests/unit/`, `tests/integration/`,
+  `tests/property/`, `tests/security/`, `tests/architecture/`
+  covering the eight closure modules.
+
+### Extended
+
+- **`SubstrateLoop.invoke_tool`** enforces four gates (schema, registry
+  membership, arg-cap, budget) with structured `ToolInvocationRefused`;
+  ambient WAL/ledger observers wired at loop entry.
+- **`AssumptionRegistry`** now persists accepted assumptions to a
+  crash-consistent WAL replayed on restart; existing in-memory API
+  unchanged.
+- **`AcceptanceSuite.digest`** and every hashed payload across
+  `plan.py`, `receipt.py`, `run_fingerprint.py`,
+  `reproducibility_manifest.py`, `mutation_merge_gate.py`,
+  `memory/cache.py`, `memory/query_trace.py`,
+  `memory/functions/contracts.py`, `memory/retrieve.py`,
+  `antilazy/symgraph.py` route through `dumps_jcs` instead of
+  `json.dumps(sort_keys=True)`. Grep-gate installed to prevent
+  regression.
+- **`LoopController.run()`** binds ambient `run_id` at entry, runs
+  the T8 `_check_prompt_drift` hook per iteration, rolls back to
+  `last_known_good_workspace` on drift detection, and emits
+  `run.completed` with orphan-file enumeration.
+- **`enforce_g5` / `enforce_g6`** now have polyglot counterparts
+  `enforce_g5_dead_code_polyglot` / `enforce_g6_test_copy_paste_polyglot`
+  that emit `laziness.violated` with
+  `kind=dead_code_polyglot|test_copy_paste_polyglot` payload
+  discriminators. Legacy Python-only paths untouched.
+
+### Verified
+
+- **Version triple.** `VERSION`, `pyproject.toml [project].version`,
+  and `src/ract/__init__.py __version__` all equal `0.5.1`;
+  `ract --version` prints `RACT 0.5.1`. Test gates:
+  `test_version_matches_across_files` and
+  `test_ract_version_cli_reports_aligned_identity`.
+- **Golden hash re-locked** at fixed-point after all module landings +
+  SP-amendment folds; locked value at tag:
+  `7ba823c90711e517f954a65dcbef705f8df94eae460e6b2899d1fb15bba5f4d9`
+  (was `74929aa977b717567c39de1216cbe831c5239e48ebab09f38d763102b4bddf3d`
+  at v0.5.0). Shift is legitimate — canonical-bytes extension,
+  JCS migration, WAL / suite-chain / ledger additions, executor
+  shim closure, ambient runtime, polyglot backend, sycophancy v2 all
+  land under `src/ract/` inside the digest scope.
+- **Sacred spine.** Rootknot three-signature schema unchanged
+  (extended, not broken — schema_version 4 carries opt-in fields
+  older readers ignore). `__root_author__` audit still refuses re-
+  entry. AL-1 property tests green (`tests/test_antilazy_al1.py`).
+- **Closed-IP wordlist scan.** Zero hits outside the two documented
+  `assets/demo.cast` deferrals. Test gate:
+  `test_no_closed_ip_terms_in_tracked_files`.
+- **JCS grep-gate.** Zero `json.dumps(sort_keys=True)` and zero
+  `json.dumps(..., sort_keys=True)` on hash-input paths outside the
+  20-entry documented allowlist. Test gate:
+  `tests/architecture/test_no_sort_keys_in_canonical_paths.py`.
+- **Full suite.** Green modulo known skips (see per-module gate
+  scorecards in `_BUILD/ract_v0.5.1_external_review_response/`).
+
+### Known limitations (carried to the v0.6 hardening backlog)
+
+The nine external-review-response modules each queued their own
+`## Flagged gaps` roll to v0.6. The load-bearing items:
+
+- **POSIX dir-fsync + one-instance-per-dir enforcement for WAL
+  rotation** (module_01). Rotation is atomic within a single instance;
+  concurrent-writer safety across `os.replace` boundary defers to v0.6.
+- **UTF-16 code-unit sort upgrade for JCS.** RFC 8785 specifies
+  UTF-16 code-unit sort; current implementation uses codepoint sort.
+  Byte-identical output on the ASCII path; non-BMP disagreement
+  surfaces on v0.6 fuzz corpus (module_03).
+- **Merkle-of-JCS-lines for JSONL ledgers** (module_03). JSONL ledgers
+  hash each line under JCS but no per-line Merkle summary; a v0.6 rot
+  audit reads the whole file.
+- **HMAC operator key → Ed25519 with revocation ceremony**
+  (module_04). Current HMAC-SHA256 matches the stated threat model
+  (possession-only); Ed25519 upgrade + revocation flow defer to v0.6.
+- **Push-time compensator escalation** (module_05). `check_pushed`
+  refuses compensation on pushed commits; the operator-facing
+  escalation path (RFC-signed override) defers to v0.6.
+- **Env allowlist Merkle attestation** (module_05). Env passthrough
+  logged count-only; per-name attestation defers to v0.6.
+- **EventChain prev_hash reset on fresh writer** (module_06). A
+  freshly-instantiated writer resets the chain-head pointer; the
+  pre-existing invariant is exposed by the ambient path but was not
+  introduced by v0.5.1.
+- **Ledger rotation with roll-forward Merkle tie** (module_07). The
+  ledger is single-file append-only; rotation-with-roll-forward-
+  hash-tie defers to v0.6.
+- **Ed25519-signed ledger appends** (module_07). Current appends
+  are covered by the run_id + manifest_digest binding in the signed
+  Rootknot canonical bytes; a per-append signature defers to v0.6.
+- **Consolidate two Python dead-code detectors** (module_08). Legacy
+  `enforce_g5` and new `dead_code_polyglot` both cover Python; a
+  single detector routed by extension defers to v0.6.
+- **Grammar-version pin ADR** (module_08). Tree-sitter grammars pin
+  via `pyproject.toml` version specifiers; an ADR documenting the
+  pin policy defers to v0.6.
+- **Dense one-liner boundary case** (module_09). Pure single-liner
+  function response with no prose lands at floor 1; adding a
+  "function body non-empty AND response body non-empty" bump
+  defers to v0.6.
+- **`retrieval_attestation` run-context binding.** Carried from the
+  v0.5.0 CHANGELOG "Known limitations" section. Module_02's
+  Rootknot canonical-bytes extension partially closes it (the new
+  `run_id` field is now bound into the signed surface); a unified
+  payload that folds `prompt_digest` + `workspace_digest` INTO the
+  `retrieval_attestation` bundle-hash context defers to v0.6.
+- **Regex fallback F1 gate for sycophancy v2** (module_09). The
+  regex fallback path lacks its own corpus gate; a "fallback corpus"
+  subset that force-flips `used_regex_fallback` to True defers to
+  v0.6.
+
+Complete Flagged gaps roll per module is preserved in the pipeline
+fragments at `_BUILD/ract_v0.5.1_external_review_response/module_0N.md`.
+
 ## [0.5.0] - 2026-08-19 — Memory Discipline
 
 Minor release for the Memory Discipline pipeline

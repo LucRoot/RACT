@@ -139,6 +139,12 @@ CLI_VERBS: tuple[str, ...] = (
     # ``ract memory apply-narrowings``, and ``ract retrieval query``
     # (the last extends the existing ``retrieval`` verb, not this one).
     "memory",
+    # v0.5.1 external-review response (module_04 T8 PROMPT_DRIFT +
+    # operator-signed recompile). The one subverb landed under this
+    # verb is ``ract intent recompile <run_id>`` with
+    # ``--intent-file`` XOR ``--intent-text``. USE_CASES.jsonl carries
+    # a single accepted entry for the composed ``intent recompile``.
+    "intent",
 )
 
 

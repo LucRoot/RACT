@@ -4,9 +4,42 @@
 ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LucRoot/RACT/main/docs/coverage-badge.json)
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
-![Version](https://img.shields.io/badge/version-0.5.0-blue)
+![Version](https://img.shields.io/badge/version-0.5.1-blue)
 
 RACT is a model-agnostic, local-first agentic coding tool built around three ideas: signed provenance capabilities (*rootknots*) on every artifact, explicit assumptions for every plan step, and milestone-halting recursion instead of fixed iteration counts.
+
+## What v0.5.1 changes
+
+v0.5.1 is the External Review Response patch release. It closes the
+trust-chain gap external review (DeepSeek + REVIEW_4_UNKNOWN) surfaced
+against v0.5.0 without touching the sacred spine (Rootknot three-
+signature schema, AL-1, author-name-free tree). The pipeline
+(`_BUILD/ract_v0.5.1_external_review_response/`) delivered nine
+closure modules plus release close:
+
+- **RootknotWAL crash-consistency (G1)** — WAL-durable assumption
+  replay (`src/ract/core/assumptions_wal.py`).
+- **Rootknot canonical-bytes extension (G2 + G3)** — opt-in
+  `workspace_digest` + `prompt_digest` + `run_id`; schema_version
+  3 → 4; v3 sidecars still verify.
+- **RFC 8785 JCS** — `src/ract/canonical.py` `dumps_jcs` +
+  15-file migration; grep-gate at
+  `tests/architecture/test_no_sort_keys_in_canonical_paths.py`.
+- **T8 PROMPT_DRIFT + T9 PROMPT_DIGEST_MISSING + `intent recompile`** —
+  per-iteration drift hook; HMAC-signed recompile via `.ract/operator.key`
+  OR `RACT_OPERATOR_KEY`.
+- **SubstrateLoop shim closure** — four-gate `ToolInvocationGate`,
+  process-group tree-kill, environ allowlist, git-commit compensator.
+- **Ambient run_id ContextVar** — `src/ract/runtime.py`;
+  `LoopController.run()` binds at entry.
+- **Historical Manifest Ledger** — append-only Merkle-chained JSONL
+  + content-addressable snapshot store.
+- **Polyglot G5/G6 via tree-sitter** — dead-code + test-copy-paste
+  detectors for Python + JS + TS + Rust + Go.
+- **Sycophancy classifier v2** — AST-delta + WhispererContract event;
+  F1 = 1.000.
+
+See `CHANGELOG.md` `[0.5.1]` and `docs/ROADMAP.md` for v0.6 hardening.
 
 ## What v0.5.0 changes
 
@@ -197,4 +230,4 @@ License: PolyForm Noncommercial 1.0.0. Measurements: take them as one data point
 
 **Author:** Dr. Lucas Root, Ph.D. — [info@lucasroot.com](mailto:info@lucasroot.com)
 
-<!-- RACT 0.5.0 -->
+<!-- RACT 0.5.1 -->

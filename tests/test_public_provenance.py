@@ -145,6 +145,36 @@ ALLOWED_IMPORT_ROOTS = {
     # for norms + tanh compression, ``types`` already listed under
     # module_02.
     "struct",
+    # v0.5.1 external-review response (module_03): RFC 8785 JCS
+    # serialiser at ``src/ract/canonical.py`` normalises strings with
+    # NFC via stdlib ``unicodedata``. Stdlib, no runtime dep.
+    "unicodedata",
+    # v0.5.1 external-review response (modules 01/04/06/07): the
+    # cross-platform exclusive-lock helpers in ``assumptions_wal.py``,
+    # ``suite_chain.py``, ``workspace_digest.py``, ``manifest_ledger.py``,
+    # and ``loop_controller._resolve_or_mint_run_id`` use
+    # ``msvcrt.locking`` on Windows and ``fcntl.flock`` on POSIX.
+    # Both are stdlib platform-conditional imports.
+    "msvcrt",
+    "fcntl",
+    # v0.5.1 external-review response (module_06): the ambient-run_id
+    # mint path in ``core/workspace_digest.py`` and the operator-key
+    # HMAC path in ``core/intent_recompile.py`` use stdlib ``secrets``
+    # for cryptographic-quality byte generation.
+    "secrets",
+    # v0.5.1 external-review response (module_05): process-group
+    # tree-kill in ``executor/process_group.py`` uses stdlib ``signal``
+    # for SIGTERM/SIGKILL and stdlib ``ctypes`` for the Windows Job
+    # Object API surface (CreateJobObject, TerminateJobObject).
+    "signal",
+    "ctypes",
+    # v0.5.1 external-review response (module_08): polyglot G5/G6 via
+    # tree-sitter loads three additional grammar packages beyond the
+    # memory-discipline module_02 set. All three are optional-dep
+    # ``[polyglot]`` group members in pyproject.toml; imports live
+    # inside ``ract.parsers.tree_sitter_backend._load_grammar`` and
+    # are gated by ``tree_sitter_available()`` probes at call sites.
+    "tree_sitter_javascript",
 }
 
 
