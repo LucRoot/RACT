@@ -449,9 +449,19 @@ class LoopController:
     def _resolve_run_id(self, state: LoopState) -> str:
         """Return the run identifier string for a T8 diagnostic.
 
-        Prefers ``run_dir/run_id.txt`` when present; falls back to
-        ``run_dir.name`` (per module_02 convention).
+        v0.5.1 module_06 resolution order:
+
+        1. Ambient run_id (:func:`ract.runtime.get_current_run_id`) --
+           set by ``run()`` at entry, so every subsystem the loop
+           reaches sees the same value.
+        2. ``run_dir/run_id.txt`` marker (persists across invocations).
+        3. ``run_dir.name`` basename (pre-module_06 convention).
         """
+        from ract.runtime import get_current_run_id
+
+        ambient = get_current_run_id()
+        if ambient:
+            return ambient
         if self.run_dir is None:
             return "unknown"
         marker = self.run_dir / "run_id.txt"
@@ -595,6 +605,73 @@ class LoopController:
         done_callback: Callable[[LoopIteration], bool] | None = None,
     ) -> LoopResult:
         """Run the loop and return the final result."""
+        # v0.5.1 module_06: bind the ambient run_id for the whole run.
+        # Every subsystem that would otherwise fabricate a default
+        # (WAL entries, WorkspaceDigestChain edges, SuiteChain
+        # initial-entry fallback, Rootknot v4 factory) consults
+        # :func:`ract.runtime.get_current_run_id` first. Resolution
+        # order for THIS scope: (1) ``run_dir/run_id.txt`` marker when
+        # present, (2) ``run_dir.name`` basename, (3) freshly-minted
+        # hex id when no run_dir is set. The marker is written after
+        # resolution so future subprocess-scoped verifiers can read
+        # the same id without an active ambient binding.
+        from ract.runtime import bind_run_id
+
+        resolved_run_id = self._resolve_or_mint_run_id()
+        with bind_run_id(resolved_run_id):
+            return self._run_bound(intent, done_callback=done_callback)
+
+    def _resolve_or_mint_run_id(self) -> str:
+        """Resolve the run_id for this run, minting one if necessary.
+
+        Called once at ``run()`` entry. Resolution order:
+
+        1. ``run_dir/run_id.txt`` marker (persists across invocations
+           targeting the same run_dir — matches
+           :meth:`_resolve_run_id`).
+        2. ``run_dir.name`` when it looks like a fresh identifier
+           (kept for backward-compat with pre-module_06 controllers
+           that never wrote the marker).
+        3. A freshly-minted 32-hex id via
+           :func:`ract.core.workspace_digest.run_id_hex` when neither
+           of the above applies.
+
+        Whenever a fresh id is minted the marker is also written so
+        the next invocation targeting the same run_dir picks up the
+        same id (compaction preserves the identifier). Marker writes
+        are best-effort -- a failing write does not break the loop.
+        """
+        from ract.core.workspace_digest import run_id_hex
+
+        if self.run_dir is not None:
+            marker = self.run_dir / "run_id.txt"
+            if marker.exists():
+                try:
+                    existing = marker.read_text(encoding="utf-8").strip()
+                except OSError:
+                    existing = ""
+                if existing:
+                    return existing
+            # No marker -- prefer the run_dir basename when non-trivial
+            # so callers passing meaningful paths (test fixtures, CLI
+            # invocations) do not silently pick up a random id.
+            base = self.run_dir.name.strip()
+            candidate = base if base else run_id_hex()
+            try:
+                self.run_dir.mkdir(parents=True, exist_ok=True)
+                marker.write_text(candidate, encoding="utf-8")
+            except OSError:
+                pass
+            return candidate
+        return run_id_hex()
+
+    def _run_bound(
+        self,
+        intent: str,
+        *,
+        done_callback: Callable[[LoopIteration], bool] | None = None,
+    ) -> LoopResult:
+        """Body of :meth:`run` executed under the bound ambient run_id."""
         if self.planner is not None and self.backlog is None:
             self.backlog = self._load_or_generate_backlog(intent)
 

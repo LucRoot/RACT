@@ -448,16 +448,27 @@ def build_loop_state(
 
                 chain = SuiteChain(run_path)
                 if not chain.entries():
-                    # Best-effort run_id: prefer marker file, fall back
-                    # to the run_dir's basename.
-                    marker = run_path / "run_id.txt"
-                    if marker.exists():
-                        try:
-                            run_id = marker.read_text(encoding="utf-8").strip()
-                        except OSError:
+                    # v0.5.1 module_06: run_id resolution order --
+                    # (1) ambient run_id (:func:`ract.runtime.get_current_run_id`),
+                    # (2) ``run_dir/run_id.txt`` marker file,
+                    # (3) ``run_dir.name`` basename fallback. The ambient
+                    # takes precedence because it is the value the loop
+                    # controller bound at ``run()`` entry; the marker
+                    # file exists mostly to bootstrap runs from disk
+                    # (e.g., an operator-driven ``intent recompile``
+                    # invoked from a shell without an active loop).
+                    from ract.runtime import get_current_run_id
+
+                    run_id = get_current_run_id() or ""
+                    if not run_id:
+                        marker = run_path / "run_id.txt"
+                        if marker.exists():
+                            try:
+                                run_id = marker.read_text(encoding="utf-8").strip()
+                            except OSError:
+                                run_id = run_path.name
+                        else:
                             run_id = run_path.name
-                    else:
-                        run_id = run_path.name
                     chain.append(
                         prompt_digest=prompt_digest,
                         suite_digest=suite.digest(),

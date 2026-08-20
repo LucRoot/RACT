@@ -555,7 +555,7 @@ def make_rootknot_v4(
     gate_results: tuple[GateResult, ...],
     workspace_digest: Digest,
     prompt_digest: Digest,
-    run_id: str,
+    run_id: str | None = None,
     reversal_taint: ReversalTaint = "clean",
     model_name: str = "unknown",
     model_version: str = "0",
@@ -598,8 +598,21 @@ def make_rootknot_v4(
         raise ValueError("make_rootknot_v4 requires workspace_digest")
     if prompt_digest is None:
         raise ValueError("make_rootknot_v4 requires prompt_digest")
+    # v0.5.1 module_06: run_id resolution -- explicit kwarg wins; when
+    # ``None``, fall back to the ambient
+    # :func:`ract.runtime.get_current_run_id`. The invariant that
+    # every v4 knot carries a non-empty ``run_id`` is preserved --
+    # callers with neither an explicit id nor an ambient one still
+    # trip the ValueError, matching the module_02 contract.
     if not run_id:
-        raise ValueError("make_rootknot_v4 requires a non-empty run_id")
+        from ract.runtime import get_current_run_id
+
+        run_id = get_current_run_id() or ""
+    if not run_id:
+        raise ValueError(
+            "make_rootknot_v4 requires a non-empty run_id; pass explicitly "
+            "or bind one via ract.runtime.bind_run_id() before calling"
+        )
     session_id = key.public_key_id()[:16]
     generator = GeneratorRef(
         model_name=model_name,

@@ -101,10 +101,38 @@ class JsonlEventWriter:
     def __init__(
         self,
         path: Path | str,
-        run_id: bytes,
+        run_id: bytes | None = None,
         *,
         redaction: RedactionProfile | None = None,
     ) -> None:
+        # v0.5.1 module_06: the writer's run_id is the load-bearing
+        # stamp on every emitted event. When the caller passes
+        # ``None`` the ambient run_id
+        # (:func:`ract.runtime.get_current_run_id`, hex string) is
+        # decoded into the 16-byte shape ``EventChain`` requires. When
+        # no ambient is bound the writer refuses -- an event log with
+        # no run_id is a control-bypass, not a valid fallback.
+        if run_id is None:
+            from ract.runtime import get_current_run_id
+
+            ambient_hex = get_current_run_id()
+            if not ambient_hex:
+                raise ValueError(
+                    "JsonlEventWriter requires an explicit run_id or a bound "
+                    "ambient run_id (see ract.runtime.bind_run_id)"
+                )
+            try:
+                run_id = bytes.fromhex(ambient_hex)
+            except ValueError as exc:
+                raise ValueError(
+                    f"ambient run_id {ambient_hex!r} is not a valid hex string; "
+                    "JsonlEventWriter needs 32 hex chars = 16 bytes"
+                ) from exc
+            if len(run_id) != 16:
+                raise ValueError(
+                    f"ambient run_id {ambient_hex!r} decoded to "
+                    f"{len(run_id)} bytes; JsonlEventWriter needs 16"
+                )
         self.path = Path(path)
         self.chain = EventChain(run_id=run_id)
         self._redaction = redaction

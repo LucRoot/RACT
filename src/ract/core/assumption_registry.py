@@ -253,11 +253,27 @@ class AssumptionRegistry:
     # ------------------------------------------------------------------
 
     def _persist(self, kind: str, payload: dict[str, Any]) -> None:
-        """Append one transition to the WAL under fsync. No-op if no WAL."""
+        """Append one transition to the WAL under fsync. No-op if no WAL.
+
+        v0.5.1 module_06: when the ambient run_id
+        (:func:`ract.runtime.get_current_run_id`) is set and the payload
+        does not already carry a ``run_id`` field, the ambient value is
+        stamped in so downstream replay + audit can join WAL entries to
+        the run's Rootknots, event log lines, WorkspaceDigestChain
+        edges, and SuiteChain entries by string equality. Payloads that
+        already carry a ``run_id`` (explicit caller wiring) are
+        preserved verbatim.
+        """
         if self._wal is None:
             return
         if kind not in TRANSITIONS:
             raise ValueError(f"unknown transition kind {kind!r}")
+        if "run_id" not in payload:
+            from ract.runtime import get_current_run_id
+
+            ambient = get_current_run_id()
+            if ambient is not None:
+                payload = {**payload, "run_id": ambient}
         self._wal.append(kind, payload)
 
     def _reload_from_disk(self) -> None:

@@ -336,10 +336,18 @@ class ChainEdge:
 
     ``child`` is the child snapshot's hex digest; ``parent`` is the
     parent's hex digest, or ``None`` for a root snapshot.
+
+    v0.5.1 module_06: ``run_id`` is the ambient run identifier at edge
+    write time (32-hex string, same shape as
+    :attr:`ract.core.rootknot.Rootknot.run_id`). ``None`` on edges
+    written before module_06 landed or when no ambient run_id was bound
+    — backward-compat is preserved by ``get`` on the raw payload with a
+    ``None`` fallback.
     """
 
     child: str
     parent: str | None
+    run_id: str | None = None
 
 
 class WorkspaceDigestChain:
@@ -375,12 +383,24 @@ class WorkspaceDigestChain:
     # Public surface
     # ------------------------------------------------------------------
 
-    def append(self, child: Digest, parent: Digest | None) -> None:
+    def append(
+        self,
+        child: Digest,
+        parent: Digest | None,
+        *,
+        run_id: str | None = None,
+    ) -> None:
         """Record an edge ``child -> parent``.
 
         Parent is ``None`` for a root snapshot. The append is atomic
         under the cross-platform lock: no concurrent writer can inject
         a line between the seek + write.
+
+        v0.5.1 module_06: ``run_id`` is stamped into the edge when the
+        caller passes a value OR when the ambient run_id
+        (:func:`ract.runtime.get_current_run_id`) is set. Explicit
+        kwarg wins. Absence in a legacy edge round-trips as ``None`` on
+        replay (backward-compat with pre-module_06 chains).
         """
         child_hex = child.hex() if isinstance(child, (bytes, bytearray)) else str(child)
         parent_hex = (
@@ -389,6 +409,12 @@ class WorkspaceDigestChain:
             else (None if parent is None else str(parent))
         )
         payload: dict[str, Any] = {"child": child_hex, "parent": parent_hex}
+        if run_id is None:
+            from ract.runtime import get_current_run_id
+
+            run_id = get_current_run_id()
+        if run_id is not None:
+            payload["run_id"] = run_id
         line = _canonical_edge_line(payload)
         self._thread_lock.acquire()
         try:
@@ -490,8 +516,21 @@ class WorkspaceDigestChain:
                     f"workspace_chain.jsonl: malformed middle payload at index {idx} "
                     f"in {self._chain_path}"
                 )
+            # v0.5.1 module_06: ``run_id`` is an OPTIONAL trailing field.
+            # Legacy edges written before module_06 landed have no
+            # ``run_id`` key; ``get`` returns ``None`` and the
+            # ChainEdge default carries the same. New edges emit the
+            # field when the ambient run_id is set (or the caller
+            # passed one explicitly at append time).
+            raw_run_id = payload.get("run_id")
             edges.append(
-                ChainEdge(child=str(payload["child"]), parent=payload.get("parent"))
+                ChainEdge(
+                    child=str(payload["child"]),
+                    parent=payload.get("parent"),
+                    run_id=(
+                        str(raw_run_id) if raw_run_id is not None else None
+                    ),
+                )
             )
         return edges
 
