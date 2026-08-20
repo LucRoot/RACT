@@ -16,6 +16,7 @@ from ract.parsers.tree_sitter_backend import (
     LANGUAGE_BY_EXTENSION,
     language_for,
     parse,
+    reset_grammar_caches,
     tree_sitter_available,
 )
 
@@ -26,5 +27,6 @@ __all__ = [
     "ParseTree",
     "language_for",
     "parse",
+    "reset_grammar_caches",
     "tree_sitter_available",
 ]

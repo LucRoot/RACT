@@ -193,6 +193,24 @@ def _reset_caches_for_tests() -> None:
     _GRAMMAR_UNAVAILABLE.clear()
 
 
+def reset_grammar_caches() -> None:
+    """Public: clear the parser + unavailable-grammar caches.
+
+    Long-running processes (daemons, REPLs, editor integrations) that
+    install a tree-sitter grammar package MID-SESSION must call this
+    after the install to invalidate the "known unavailable" marker set
+    by an earlier failed load. Without it the newly-installed grammar
+    stays permanently blocked for the process lifetime.
+
+    SP Q1 (module_08 v0.5.1) closure: expose the reset that
+    :func:`_reset_caches_for_tests` already implemented so operators
+    are not forced to restart the process to pick up freshly-installed
+    grammar packages.
+    """
+    _PARSER_CACHE.clear()
+    _GRAMMAR_UNAVAILABLE.clear()
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -304,12 +322,32 @@ def parse_file(file_path: Path) -> ParseTree | None:
 # ---------------------------------------------------------------------------
 
 
-def iter_nodes(node: Any, *, node_types: set[str] | None = None) -> Any:
+# SP Q5 (module_08 v0.5.1): iter_nodes uses an explicit stack whose
+# depth is bounded on pathological inputs (100k-deep left-recursive
+# expressions in generated code). The default cap is generous for real
+# hand-written code and prevents unbounded memory use on adversarial or
+# machine-generated inputs. Override with ``max_stack_depth=None`` to
+# opt out; a WARN is emitted when the cap trips and further descent
+# is aborted.
+DEFAULT_MAX_STACK_DEPTH = 10_000
+
+
+def iter_nodes(
+    node: Any,
+    *,
+    node_types: set[str] | None = None,
+    max_stack_depth: int | None = DEFAULT_MAX_STACK_DEPTH,
+) -> Any:
     """Iterate descendants of ``node``, optionally filtered by type.
 
     Depth-first pre-order. Yields the tree-sitter Node instances.
+
+    ``max_stack_depth`` caps the size of the internal stack; when the
+    cap trips the walk stops descending further and a WARN is logged.
+    Pass ``None`` to disable the cap (SP Q5 opt-out).
     """
     stack: list[Any] = [node]
+    capped = False
     while stack:
         n = stack.pop()
         if node_types is None or getattr(n, "type", "") in node_types:
@@ -317,6 +355,16 @@ def iter_nodes(node: Any, *, node_types: set[str] | None = None) -> Any:
         # Push children in reverse so pop() yields them in source order.
         children = list(getattr(n, "children", ()) or ())
         for child in reversed(children):
+            if max_stack_depth is not None and len(stack) >= max_stack_depth:
+                if not capped:
+                    _LOG.warning(
+                        "iter_nodes stack cap reached (max_stack_depth=%d); "
+                        "aborting further descent. Pass max_stack_depth=None "
+                        "to disable the cap.",
+                        max_stack_depth,
+                    )
+                    capped = True
+                break
             stack.append(child)
 
 

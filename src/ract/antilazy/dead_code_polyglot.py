@@ -116,6 +116,20 @@ def _collect_python_identifiers(source: str) -> tuple[list[tuple[str, str, int, 
                     )
             self.generic_visit(node)
 
+        def visit_AnnAssign(self, node: ast.AnnAssign) -> None:  # noqa: N802
+            # SP Q2 (module_08 v0.5.1): annotated targets contribute
+            # BOTH a declaration (the target name) AND a reference
+            # (the annotation type name). Missing this path was the
+            # concrete divergence-from-legacy the reviewer flagged.
+            if isinstance(node.target, ast.Name):
+                decls.append(
+                    (node.target.id, "const", node.lineno - 1, node.col_offset)
+                )
+            # The annotation walks through generic_visit; visit_Name
+            # picks up any bare Name it contains. That handles
+            # `x: SomeType` and `x: list[SomeType]` alike.
+            self.generic_visit(node)
+
         def visit_Name(self, node: ast.Name) -> None:  # noqa: N802
             if isinstance(node.ctx, ast.Load):
                 refs.add(node.id)
@@ -140,6 +154,12 @@ _ID_NODE_TYPES = {
     "property_identifier",
     "scoped_identifier",
     "shorthand_property_identifier",
+    # SP Q3 (module_08 v0.5.1): JS/TS destructuring patterns bind
+    # names via ``shorthand_property_identifier_pattern``. Include it
+    # in the identifier universe so destructured names participate in
+    # both declaration collection and reference dedup rather than
+    # slipping past as unclassified.
+    "shorthand_property_identifier_pattern",
 }
 
 
@@ -251,19 +271,29 @@ def _collect_declarator_decls(
 
     Both JS and TS grammars nest ``variable_declarator`` inside a parent
     ``lexical_declaration`` / ``variable_declaration``. Each declarator
-    contributes ONE identifier the top-level walker misses when using
-    ``child_by_field_name('name')`` on the grouping node.
+    contributes ONE OR MORE identifiers: a plain binding contributes
+    the identifier under the ``name`` field, and a destructuring
+    binding (``const { a, b } = obj;`` /
+    ``const [x, y] = arr;``) contributes each identifier reachable
+    inside the ``object_pattern`` / ``array_pattern`` subtree.
+
+    SP Q3 (module_08 v0.5.1): the previous version only walked the
+    top-level ``name`` field and missed destructured names entirely,
+    which both (a) failed to flag destructured dead code and (b)
+    silently suppressed identically-named declarations elsewhere in
+    the corpus because the destructured names showed up as references
+    without a matching decl entry.
     """
     src = tree.source_bytes
     decls: list[tuple[str, str, int, int]] = []
     decl_id_bytes: set[tuple[int, int]] = set()
+    pattern_id_types = {
+        "identifier",
+        "shorthand_property_identifier_pattern",
+    }
     for node in iter_nodes(tree.root_node, node_types={"variable_declarator"}):
         name_node = field_named(node, "name")
-        if name_node is None:
-            for child in getattr(node, "children", ()) or ():
-                if getattr(child, "type", "") == "identifier":
-                    name_node = child
-                    break
+        # Case A: plain binding -- name is a bare identifier.
         if name_node is not None and getattr(name_node, "type", "") == "identifier":
             name = node_text(name_node, src)
             sp = getattr(name_node, "start_point", (0, 0))
@@ -272,6 +302,26 @@ def _collect_declarator_decls(
                 (
                     getattr(name_node, "start_byte", 0),
                     getattr(name_node, "end_byte", 0),
+                )
+            )
+            continue
+        # Case B: destructuring pattern -- walk pattern subtree.
+        pattern_node = name_node
+        if pattern_node is None:
+            for child in getattr(node, "children", ()) or ():
+                if getattr(child, "type", "") in {"object_pattern", "array_pattern"}:
+                    pattern_node = child
+                    break
+        if pattern_node is None:
+            continue
+        for id_node in iter_nodes(pattern_node, node_types=pattern_id_types):
+            name = node_text(id_node, src)
+            sp = getattr(id_node, "start_point", (0, 0))
+            decls.append((name, kind, sp[0], sp[1]))
+            decl_id_bytes.add(
+                (
+                    getattr(id_node, "start_byte", 0),
+                    getattr(id_node, "end_byte", 0),
                 )
             )
     return decls, decl_id_bytes

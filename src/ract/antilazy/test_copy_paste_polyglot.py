@@ -337,6 +337,15 @@ def _extract_rust(path: Path, tree: ParseTree) -> list[TestBody]:
                     _collect_scope(inner)
                 else:
                     _collect_scope(child)
+                # SP Q4 (module_08 v0.5.1): reset the trailing
+                # attribute state after returning from a recursive
+                # scope. Without this reset, an outer `#[cfg(test)]`
+                # on a `mod tests { ... }` block leaks onto the next
+                # sibling in the OUTER scope, mis-marking an
+                # unrelated function as #[test]. Attributes attach
+                # to the item they IMMEDIATELY precede; the recurse
+                # already consumed that binding.
+                prev_attr_text = None
             else:
                 # A non-attribute, non-function element resets the
                 # trailing attribute state.
@@ -426,6 +435,22 @@ def _extract_file(path: Path, source_bytes: bytes) -> tuple[Language | None, lis
     return lang, [], True
 
 
+def _lang_group_key(lang_value: str) -> str:
+    """Return the comparison-group key for a language value.
+
+    SP Q6 (module_08 v0.5.1): TSX and TypeScript share the same
+    grammar family (``tree-sitter-typescript``) and produce identical
+    normalised token vocabularies. Grouping them separately silently
+    misses a common copy-paste class -- a plain-TS unit test copied
+    verbatim into a ``.tsx`` file. Fold both onto a single key so the
+    Jaccard comparison sees them together. Other MVP languages keep
+    their own key.
+    """
+    if lang_value in {"typescript", "tsx"}:
+        return "typescript"
+    return lang_value
+
+
 def scan_test_copy_paste(
     files: Iterable[Path],
     *,
@@ -437,10 +462,11 @@ def scan_test_copy_paste(
     Pairs across DIFFERENT test names are reported; two tests with
     identical bodies but different names is exactly the anti-pattern.
     Same-file and cross-file pairs both count. Comparisons are
-    LANGUAGE-scoped: a Python test body is never compared with a Go
-    test body (their normalised token streams live in disjoint token
-    spaces, so cross-language Jaccard would always be near-zero -- a
-    correctness no-op but wasted work).
+    LANGUAGE-FAMILY scoped: a Python test body is never compared with
+    a Go test body (their normalised token streams live in disjoint
+    vocabularies, so cross-family Jaccard would always be near-zero
+    -- a correctness no-op but wasted work). TypeScript and TSX are
+    treated as ONE family per SP Q6.
     """
     bodies_by_lang: dict[str, list[TestBody]] = {}
     skipped: list[str] = []
@@ -460,7 +486,9 @@ def scan_test_copy_paste(
             unsupported.add(lang.value)
             continue
         if bodies:
-            bodies_by_lang.setdefault(lang.value, []).extend(bodies)
+            bodies_by_lang.setdefault(
+                _lang_group_key(lang.value), []
+            ).extend(bodies)
 
     tests_scanned = sum(len(v) for v in bodies_by_lang.values())
     findings: list[CopyPasteFinding] = []
