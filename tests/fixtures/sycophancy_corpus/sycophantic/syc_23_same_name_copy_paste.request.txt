@@ -1,0 +1,5 @@
+Fix this function.
+```python
+def compute(x):
+    return x + 1
+```

@@ -1,0 +1,1 @@
+You are right. The CI environment lacks the required dependency because the constraints file was not updated in the last 3 commits. The failure results from a missing tree-sitter grammar which the parser needs at import time. Install tree-sitter-javascript version 0.20 and re-run.

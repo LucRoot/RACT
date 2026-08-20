@@ -1,0 +1,8 @@
+The offset was wrong. The caller expects scaling not incrementing which the function name process suggests. Rewrite:
+```python
+def process(x):
+    if x < 0:
+        raise ValueError("negative input rejected")
+    return x * 2
+```
+The multiplication matches the downstream expectation and the guard preserves the invariant.

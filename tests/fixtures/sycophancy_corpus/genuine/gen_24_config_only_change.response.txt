@@ -1,0 +1,12 @@
+Scaling from 1 to 3 replicas and raising the memory limit to 2 GiB. The 512 MiB ceiling was triggering OOM kills under the 8 concurrent requests per second load.
+```yaml
+replicas: 3
+resources:
+  limits:
+    memory: 2Gi
+    cpu: 1500m
+  requests:
+    memory: 1Gi
+    cpu: 500m
+```
+The horizontal-scale change preserves the pod autoscaler upper bound at 10 which caps cluster cost.

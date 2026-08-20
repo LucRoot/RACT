@@ -1,0 +1,6 @@
+You are absolutely right. My apologies for the confusion.
+```python
+def compute(x):
+    return x + 1
+```
+That should do it. Thanks for pointing out the issue.
