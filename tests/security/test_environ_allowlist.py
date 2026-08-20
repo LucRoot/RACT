@@ -225,4 +225,91 @@ def test_warn_never_carries_secret_value(caplog: pytest.LogCaptureFixture) -> No
         assert "the-actual-secret-value" not in record.getMessage()
 
 
+# ---------------------------------------------------------------------------
+# SP amendments (module_05, OpenRouter DEFECT verdicts)
+# ---------------------------------------------------------------------------
+
+
+def test_sp_q3a_case_variant_secret_blocked() -> None:
+    """SP Q3(a): lowercase / mixed-case credential name still refuses."""
+    seeded = {
+        "PATH": "/x",
+        "aws_access_key_id": "AKIA",
+        "Anthropic_Api_Key": "sk-lower",
+    }
+    result = build_sandbox_env(
+        process_env=seeded,
+        manifest_passthrough=("aws_access_key_id", "Anthropic_Api_Key"),
+    )
+    assert "aws_access_key_id" not in result.env
+    assert "Anthropic_Api_Key" not in result.env
+    assert result.never_passthrough_denied >= 2
+
+
+def test_sp_q3a_prefix_family_blocks_new_aws_variant() -> None:
+    """SP Q3(a): AWS_NEW_TOKEN (not in NEVER_PASSTHROUGH) refused via prefix."""
+    seeded = {"AWS_NEW_TOKEN_2028": "x"}
+    result = build_sandbox_env(
+        process_env=seeded,
+        manifest_passthrough=("AWS_NEW_TOKEN_2028",),
+    )
+    assert "AWS_NEW_TOKEN_2028" not in result.env
+    assert result.never_passthrough_denied == 1
+
+
+def test_sp_q3a_glob_shape_in_manifest_refused() -> None:
+    """SP Q3(a): a manifest entry ``AWS_*`` refuses -- glob is not a name."""
+    seeded = {"AWS_SECRET_ACCESS_KEY": "sk"}
+    result = build_sandbox_env(
+        process_env=seeded,
+        manifest_passthrough=("AWS_*",),
+    )
+    # Neither AWS_* nor any AWS_ var enters the sandbox.
+    assert "AWS_SECRET_ACCESS_KEY" not in result.env
+    assert result.never_passthrough_denied >= 1
+
+
+def test_sp_q3b_warn_log_redacts_credential_name(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """SP Q3(b): WARN log carries a REDACTED family, not the full name."""
+    seeded = {"OPENAI_API_KEY_PROD": "sk"}
+    with caplog.at_level(logging.WARNING, logger="ract.security.sandbox_env"):
+        build_sandbox_env(
+            process_env=seeded,
+            manifest_passthrough=("OPENAI_API_KEY_PROD",),
+        )
+    for record in caplog.records:
+        msg = record.getMessage()
+        if "denied" in msg.lower():
+            assert "OPENAI_API_KEY_PROD" not in msg
+            assert "REDACTED" in msg
+
+
+def test_sp_q3d_bom_at_file_start_stripped(tmp_path: Path) -> None:
+    """SP Q3(d): UTF-8 BOM at file start no longer trips JSONDecodeError."""
+    p = tmp_path / "allowlist"
+    p.write_bytes(b'\xef\xbb\xbf"MY_VAR"\n"OTHER"\n')
+    entries = load_allowlist_file(p)
+    assert entries == ("MY_VAR", "OTHER")
+
+
+def test_sp_q3d_trailing_comma_lenient_recovery(tmp_path: Path) -> None:
+    """SP Q3(d): a single trailing comma per line recovers, not raises."""
+    p = tmp_path / "allowlist"
+    p.write_text('"MY_VAR",\n"OTHER",\n', encoding="utf-8")
+    entries = load_allowlist_file(p)
+    assert entries == ("MY_VAR", "OTHER")
+
+
+def test_sp_q3d_still_refuses_wholly_malformed(tmp_path: Path) -> None:
+    """SP Q3(d): a line that isn't a JSON string still raises."""
+    from ract.security.sandbox_env import AllowlistFileMalformed
+
+    p = tmp_path / "allowlist"
+    p.write_text("not valid at all\n", encoding="utf-8")
+    with pytest.raises(AllowlistFileMalformed):
+        load_allowlist_file(p)
+
+
 # RACT 0.5.1

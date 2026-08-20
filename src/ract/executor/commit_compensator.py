@@ -121,11 +121,17 @@ class CommitCompensator:
                 f"commit {self.sha_after[:12]} on {self.branch} was pushed; "
                 "compensator refuses to force-move a remote ref"
             )
-        # Confirm HEAD is still at sha_after. If a downstream commit
-        # landed since install, we refuse -- the revert would discard
-        # the downstream commit too, which is beyond the compensator's
-        # authority.
-        current = _resolve_head(self.repo_root)
+        # SP Q4(c) amendment (OpenRouter DEFECT verdict): confirm the
+        # COMPENSATOR'S BRANCH tip is still at sha_after, not HEAD.
+        # HEAD may be on a different branch (feature branch checked
+        # out while compensator targets main); resolving HEAD in that
+        # case tripped a false soft-refusal.
+        current = _resolve_branch(self.repo_root, self.branch)
+        if not current:
+            # Fall back to HEAD when the branch has been deleted; a
+            # deleted branch is effectively "downstream moved" and we
+            # soft-refuse rather than resurrect it.
+            current = _resolve_head(self.repo_root)
         if current != self.sha_after:
             _LOG.warning(
                 "compensator on %s: HEAD %s != installed %s; downstream "
@@ -138,19 +144,41 @@ class CommitCompensator:
             return False
 
         flag = "--soft" if self.mode == "soft" else "--hard"
-        result = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(self.repo_root),
-                "reset",
-                flag,
-                self.sha_before,
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        # SP Q4(c) amendment: when the compensator's branch is NOT
+        # currently checked out, target it via ``git update-ref``
+        # instead of ``git reset`` (reset only affects the current
+        # HEAD). ``update-ref`` moves the branch pointer without
+        # touching the working tree.
+        current_branch = _current_branch(self.repo_root)
+        if current_branch == self.branch:
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(self.repo_root),
+                    "reset",
+                    flag,
+                    self.sha_before,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        else:
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(self.repo_root),
+                    "update-ref",
+                    f"refs/heads/{self.branch}",
+                    self.sha_before,
+                    self.sha_after,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
         self.applied = True
         if result.returncode != 0:
             _LOG.warning(
@@ -279,6 +307,37 @@ def _resolve_head(repo_root: Path) -> str:
     if result.returncode != 0:
         return ""
     return result.stdout.strip()
+
+
+def _resolve_branch(repo_root: Path, branch: str) -> str:
+    """Return the tip sha of ``branch`` in ``repo_root`` or ``""`` on failure.
+
+    SP Q4(c) amendment helper -- the compensator checks its own branch
+    tip, not HEAD, so a downstream commit on a DIFFERENT branch does
+    not spuriously refuse the compensator.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "rev-parse", branch],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def _current_branch(repo_root: Path) -> str:
+    """Return the currently checked-out branch (or ``"HEAD"`` if detached)."""
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return "HEAD"
+    return result.stdout.strip() or "HEAD"
 
 
 def check_pushed(repo_root: Path, sha: str) -> bool:

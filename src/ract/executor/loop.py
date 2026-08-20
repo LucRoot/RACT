@@ -374,15 +374,27 @@ class SubstrateLoop:
         undoing every mid-loop commit whose branch has not been
         pushed. Returns the list of ``(compensator, status)`` from
         the drain (empty on success or when the stack is empty).
+
+        SP Q5(c) amendment (OpenRouter DEFECT verdict): after
+        draining, resync ``self.parent_snapshot`` to the actual git
+        HEAD so a subsequent inspection sees the state after the
+        drain (not the pre-drain sha). Reads HEAD once; safe on any
+        drain outcome (some compensators may have refused because
+        their commit was pushed -- the resync reflects reality).
         """
         if success:
             self.compensator_stack.discard(
                 reason=reason or "T1_SUCCESS",
             )
             return []
-        return self.compensator_stack.drain(
+        outcomes = self.compensator_stack.drain(
             reason=reason or "loop_disposed_unsuccessfully",
         )
+        # Resync parent_snapshot to actual git HEAD post-drain.
+        current_head = _resolve_head_safe(self.repo_root)
+        if current_head:
+            self.parent_snapshot = current_head
+        return outcomes
 
     # ---- between-iteration sweep ---------------------------------------
 
@@ -475,15 +487,20 @@ class SubstrateLoop:
             _emit_step_event(record, "step.rolled_back")
             return record
 
-        # Update the loop's canonical HEAD to reference the step-branch
-        # commit. We do this by fast-forwarding the repo's checked-out
-        # branch to the step-branch tip. If the repo has uncommitted
-        # working-tree state we skip the fast-forward (the constructor
-        # already refused a dirty tree at loop entry, but tests may build
-        # a manager without going through the constructor).
+        # SP Q5(b) amendment (OpenRouter DEFECT verdict): read HEAD
+        # AFTER fast-forward attempt. Only advance
+        # ``self.parent_snapshot`` when HEAD actually landed at
+        # new_sha; when fast-forward refused (divergent branch), leave
+        # ``self.parent_snapshot`` at parent_before so loop-state and
+        # git-state do not diverge silently.
         head_before = parent_before
         _fast_forward_head(self.repo_root, new_sha)
-        self.parent_snapshot = new_sha
+        current_head = _resolve_head_safe(self.repo_root)
+        if current_head == new_sha:
+            self.parent_snapshot = new_sha
+        # else: parent_snapshot stays at parent_before -- the loop
+        # still records the step_id as committed (the branch carries
+        # the commit) but the loop's canonical HEAD did not advance.
         self._committed_step_ids.add(txn.step_id)
 
         # v0.5.1 module_05 -- install a compensator so a subsequent
@@ -492,7 +509,6 @@ class SubstrateLoop:
         # succeeded); when HEAD was refused (divergent branch), the
         # loop's HEAD did NOT advance and there is nothing for a
         # compensator to unwind.
-        current_head = _resolve_head_safe(self.repo_root)
         if current_head == new_sha and head_before and head_before != new_sha:
             try:
                 comp = build_compensator(

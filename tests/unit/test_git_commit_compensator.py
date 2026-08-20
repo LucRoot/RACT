@@ -262,4 +262,58 @@ def test_build_compensator_rejects_invalid_mode(tmp_path: Path) -> None:
         )
 
 
+# ---------------------------------------------------------------------------
+# SP amendment: Q4(c) branch-not-HEAD resolution
+# ---------------------------------------------------------------------------
+
+
+def test_sp_q4c_compensator_targets_own_branch_not_head(tmp_path: Path) -> None:
+    """SP Q4(c): compensator on ``main`` applies even when HEAD is on ``feature``.
+
+    Before the amendment, ``_resolve_head`` returned the CURRENT
+    branch's HEAD; a compensator for ``main`` while HEAD sat on
+    ``feature`` compared ``feature`` HEAD to ``main``'s sha_after
+    and soft-refused. Post-amendment the compensator resolves its
+    own branch tip via ``git rev-parse main`` and applies via
+    ``git update-ref`` when the branch is not currently checked out.
+    """
+    repo = tmp_path / "repo"
+    sha_before = _init_repo(repo)
+    sha_after = _add_commit(repo, "main-only.py", "main")
+
+    # Create + check out feature branch off sha_before.
+    _run("git", "checkout", "-q", "-b", "feature", sha_before, cwd=repo)
+    # Modify feature branch so HEAD moves.
+    (repo / "feature.py").write_text("f", encoding="utf-8")
+    _run("git", "add", "-A", cwd=repo)
+    _run("git", "commit", "-q", "-m", "feature", cwd=repo)
+
+    # Now HEAD is on feature. Compensator targets main.
+    comp = build_compensator(
+        repo, branch="main", sha_before=sha_before, sha_after=sha_after
+    )
+    assert comp.apply() is True
+    # main branch tip must have moved back to sha_before.
+    main_tip = _run("git", "rev-parse", "main", cwd=repo)
+    assert main_tip == sha_before
+    # feature branch untouched.
+    feature_tip = _run("git", "rev-parse", "feature", cwd=repo)
+    assert feature_tip != sha_before  # feature has one more commit
+
+
+def test_sp_q4c_soft_refuse_when_branch_moved_since_install(
+    tmp_path: Path,
+) -> None:
+    """SP Q4(c): a downstream commit on the SAME branch still soft-refuses."""
+    repo = tmp_path / "repo"
+    sha_before = _init_repo(repo)
+    sha_after = _add_commit(repo, "one.py", "one")
+    comp = build_compensator(
+        repo, branch="main", sha_before=sha_before, sha_after=sha_after
+    )
+    # Downstream commit on same branch (post-install).
+    _add_commit(repo, "two.py", "two")
+    assert comp.apply() is False
+
+
 # RACT 0.5.1

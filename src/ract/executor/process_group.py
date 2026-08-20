@@ -144,14 +144,15 @@ def spawn(
     cwd_str = str(cwd) if cwd is not None else None
 
     if _IS_WINDOWS:
+        # SP Q2 amendment (OpenRouter DEFECT verdict): between
+        # ``subprocess.Popen`` return and ``AssignProcessToJobObject``
+        # the child was executing untracked -- a grandchild spawned in
+        # that window escaped the Job Object bag. Fix: pass
+        # CREATE_SUSPENDED so the primary thread does not run until
+        # the Job Object is assigned; resume the thread after.
         creationflags = 0
-        # CREATE_NEW_PROCESS_GROUP is defined in the subprocess module
-        # on Windows only; guard the attribute so the reference type
-        # doesn't break linting on POSIX.
         creationflags |= getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        # CREATE_SUSPENDED lets us attach to a Job Object before the
-        # process starts executing. Falls back to unsuspended when the
-        # constant isn't present (older Pythons).
+        creationflags |= getattr(subprocess, "CREATE_SUSPENDED", 0x00000004)
         popen = subprocess.Popen(
             argv_tuple,
             env=env,
@@ -162,6 +163,11 @@ def spawn(
             creationflags=creationflags,
         )
         job_handle = _try_create_job_object(popen.pid)
+        # Resume the primary thread now that the process is (or has
+        # attempted to be) bound to the Job Object. Best-effort:
+        # a resume failure still leaves the process suspended, which
+        # is loud in Task Manager -- preferable to a silent race.
+        _resume_thread(popen)
         return ProcessGroupHandle(
             popen=popen,
             pgid=None,
@@ -192,6 +198,74 @@ def spawn(
 # ---------------------------------------------------------------------------
 # Windows Job Object helper
 # ---------------------------------------------------------------------------
+
+
+def _resume_thread(popen: subprocess.Popen[bytes]) -> None:
+    """Resume a Windows process spawned with CREATE_SUSPENDED.
+
+    ``popen._handle`` on Windows is the process handle; the primary
+    thread's handle is not exposed via subprocess. We use
+    ``OpenThread`` + ``ResumeThread`` on the first thread of the PID.
+    Best-effort; a failure here leaves the process suspended (loud in
+    Task Manager) rather than racing to spawn grandchildren outside
+    the Job Object.
+    """
+    if not _IS_WINDOWS:
+        return
+    try:
+        import ctypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        # Snapshot the process' threads and resume the first one.
+        # CreateToolhelp32Snapshot(dwFlags=0x00000004 /* THREADS */,
+        # th32ProcessID=0).
+        TH32CS_SNAPTHREAD = 0x00000004
+        snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0)
+        if snapshot in (-1, 0, None):
+            return
+
+        class _THREADENTRY32(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", ctypes.c_ulong),
+                ("cntUsage", ctypes.c_ulong),
+                ("th32ThreadID", ctypes.c_ulong),
+                ("th32OwnerProcessID", ctypes.c_ulong),
+                ("tpBasePri", ctypes.c_long),
+                ("tpDeltaPri", ctypes.c_long),
+                ("dwFlags", ctypes.c_ulong),
+            ]
+
+        entry = _THREADENTRY32()
+        entry.dwSize = ctypes.sizeof(_THREADENTRY32)
+
+        thread_first = kernel32.Thread32First
+        thread_first.argtypes = [ctypes.c_void_p, ctypes.POINTER(_THREADENTRY32)]
+        thread_first.restype = ctypes.c_int
+        thread_next = kernel32.Thread32Next
+        thread_next.argtypes = [ctypes.c_void_p, ctypes.POINTER(_THREADENTRY32)]
+        thread_next.restype = ctypes.c_int
+        open_thread = kernel32.OpenThread
+        open_thread.restype = ctypes.c_void_p
+        open_thread.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+        resume = kernel32.ResumeThread
+        resume.argtypes = [ctypes.c_void_p]
+        resume.restype = ctypes.c_ulong
+        close_handle = kernel32.CloseHandle
+
+        THREAD_SUSPEND_RESUME = 0x0002
+        pid = popen.pid
+        ok = thread_first(snapshot, ctypes.byref(entry))
+        while ok:
+            if entry.th32OwnerProcessID == pid:
+                thandle = open_thread(THREAD_SUSPEND_RESUME, False, entry.th32ThreadID)
+                if thandle:
+                    resume(thandle)
+                    close_handle(thandle)
+                    break
+            ok = thread_next(snapshot, ctypes.byref(entry))
+        close_handle(snapshot)
+    except Exception:  # noqa: BLE001 -- best-effort resume
+        pass
 
 
 def _try_create_job_object(pid: int) -> Any | None:

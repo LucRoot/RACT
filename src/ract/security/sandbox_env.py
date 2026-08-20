@@ -144,6 +144,74 @@ NEVER_PASSTHROUGH: frozenset[str] = frozenset(
 )
 
 
+# SP Q3(a) amendment (OpenRouter DEFECT verdict): the frozenset of
+# exact upper-case names above misses lower-case variants and glob
+# shapes. This prefix set catches every credential-shape family so
+# an operator declaring ``aws_access_key_id`` or ``AWS_*`` still
+# gets refused. Match is case-insensitive against the upper form.
+NEVER_PASSTHROUGH_PREFIXES: frozenset[str] = frozenset(
+    {
+        "AWS_",
+        "OPENAI_",
+        "ANTHROPIC_",
+        "GOOGLE_",
+        "OPENROUTER_",
+        "DEEPSEEK_",
+        "NPM_",
+        "PYPI_",
+        "TWINE_",
+        "DOCKER_",
+        "SLACK_",
+        "AZURE_",
+        "GCP_",
+        "STRIPE_",
+    }
+)
+
+
+def _is_never_passthrough(name: str, extra_denied: frozenset[str] = frozenset()) -> bool:
+    """Return True when ``name`` is a hard-denied env var.
+
+    Match is case-insensitive; both the exact-name and prefix-family
+    checks fire against the upper-case form. Glob wildcards (``*``,
+    ``?``) in the manifest allowlist are ALSO refused -- they are
+    typically an attacker's attempt to grep-widen a passthrough
+    surface.
+    """
+    upper = name.upper()
+    # Glob shapes are refused unconditionally -- the allowlist is
+    # supposed to be a set of literal names, not patterns.
+    if any(ch in name for ch in "*?["):
+        return True
+    if upper in NEVER_PASSTHROUGH:
+        return True
+    for prefix in NEVER_PASSTHROUGH_PREFIXES:
+        if upper.startswith(prefix):
+            return True
+    for name_extra in extra_denied:
+        if upper == name_extra.upper():
+            return True
+    return False
+
+
+def _redact_name_for_log(name: str) -> str:
+    """SP Q3(b) amendment -- redact credential-shaped names in WARN log.
+
+    Even the NAME of a credential-shaped var is sensitive (an
+    attacker reading logs learns which secrets the operator has
+    configured). Redact past the underscore-family prefix.
+    """
+    upper = name.upper()
+    for prefix in NEVER_PASSTHROUGH_PREFIXES:
+        if upper.startswith(prefix):
+            return f"{prefix}<REDACTED>"
+    if upper in NEVER_PASSTHROUGH:
+        # Keep first three chars + <REDACTED> so the audit still
+        # attributes the refusal to a family.
+        return f"{name[:3].upper()}<REDACTED>"
+    return name
+
+
 ALLOWLIST_FILE_NAME = "sandbox_env.allowlist"
 
 
@@ -215,9 +283,14 @@ def load_allowlist_file(path: Path) -> tuple[str, ...]:
     if not path.exists():
         return ()
     entries: list[str] = []
-    text = path.read_text(encoding="utf-8")
+    # SP Q3(d) amendment: use utf-8-sig so UTF-8 BOM at file start is
+    # silently stripped (Windows editors love to insert one). Trailing-
+    # comma foot-gun handled per-line below with a lenient recovery.
+    text = path.read_text(encoding="utf-8-sig")
     for lineno, raw in enumerate(text.splitlines(), start=1):
-        stripped = raw.strip()
+        # Per-line BOM strip -- defensive (multi-line concatenation
+        # tools can leave a stray BOM mid-file).
+        stripped = raw.lstrip("﻿").strip()
         if not stripped:
             continue
         if stripped.startswith("#"):
@@ -225,9 +298,19 @@ def load_allowlist_file(path: Path) -> tuple[str, ...]:
         try:
             parsed = json.loads(stripped)
         except json.JSONDecodeError as exc:
-            raise AllowlistFileMalformed(
-                f"{path} line {lineno}: not a JSON string: {exc}"
-            ) from exc
+            # Lenient recovery for a single trailing comma on the line;
+            # everything else still refuses.
+            if stripped.endswith(","):
+                try:
+                    parsed = json.loads(stripped[:-1])
+                except json.JSONDecodeError:
+                    raise AllowlistFileMalformed(
+                        f"{path} line {lineno}: not a JSON string: {exc}"
+                    ) from exc
+            else:
+                raise AllowlistFileMalformed(
+                    f"{path} line {lineno}: not a JSON string: {exc}"
+                ) from exc
         if not isinstance(parsed, str):
             raise AllowlistFileMalformed(
                 f"{path} line {lineno}: allowlist entries must be JSON "
@@ -294,18 +377,24 @@ def build_sandbox_env(
         for name in DEFAULT_ALLOWLIST:
             union.setdefault(name, "default")
 
-    # Apply NEVER_PASSTHROUGH denies.
-    denied_set = NEVER_PASSTHROUGH | frozenset(extra_denied)
+    # Apply NEVER_PASSTHROUGH denies. SP Q3(a) amendment: use
+    # case-insensitive prefix + exact match so a manifest entry like
+    # ``aws_access_key_id`` or ``AWS_*`` still refuses. SP Q3(b)
+    # amendment: log a REDACTED form of the name so audits see the
+    # refusal family without leaking the specific env var name.
+    extra_denied_set = frozenset(extra_denied)
     denied_hits = 0
     scrubbed_env: dict[str, str] = {}
+    denied_names: set[str] = set()
     for name, source in union.items():
-        if name in denied_set:
+        if _is_never_passthrough(name, extra_denied_set):
             denied_hits += 1
+            denied_names.add(name)
             _LOG.warning(
                 "sandbox_env: denied allowlist entry %r (source=%s); "
                 "in NEVER_PASSTHROUGH — the substrate refuses to pass "
                 "credential-shaped names into the sandbox",
-                name,
+                _redact_name_for_log(name),
                 source,
             )
             continue
@@ -315,7 +404,7 @@ def build_sandbox_env(
     # Count names in process env that were NOT allowlisted.
     scrubbed_count = 0
     for name in env_source:
-        if name not in union or name in denied_set:
+        if name not in union or name in denied_names:
             scrubbed_count += 1
 
     if scrubbed_count > 0:
