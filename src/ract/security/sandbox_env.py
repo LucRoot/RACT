@@ -236,6 +236,56 @@ class AllowlistFileMalformed(ValueError):
 # ---------------------------------------------------------------------------
 
 
+# v0.5.1 wiring module_04 SP Q6 amendment (OpenRouter DEFECT verdict):
+# a heuristic detector for credential-shaped names that the operator
+# declared in ``manifest.env.passthrough`` but that the deny surface
+# does NOT catch. Without this signal, a NEW credential family
+# (e.g. ``ANTHROPIC_ORG_TOKEN``, ``CLAUDE_API_KEY``, ``MYCO_SECRET_V3``)
+# would slip through until the deny set was patched, and the
+# ``never_passthrough_denied`` counter would stay at zero -- giving
+# the operator a false sense of safety. The heuristic matches any
+# name whose upper form ends in one of the credential-family suffixes.
+# A match is passed through (backward-compat: heuristic hits are not
+# a hard denial) but is COUNTED and WARN-logged (redacted) so an
+# operator auditing the ``sandbox.env_scrubbed`` event sees the
+# signal and can add the name to
+# ``.ract/never_passthrough_extra.allowlist`` (or upstream to
+# ``NEVER_PASSTHROUGH``).
+_CREDENTIAL_SHAPE_SUFFIXES: tuple[str, ...] = (
+    "_TOKEN",
+    "_KEY",
+    "_SECRET",
+    "_PASSWORD",
+    "_PASSWD",
+    "_CREDENTIALS",
+    "_CREDENTIAL",
+    "_API",
+    "_AUTH",
+    "_ACCESS_KEY_ID",
+    "_ACCESS_KEY",
+    "_ACCESS_TOKEN",
+    "_PRIVATE_KEY",
+    "_BEARER",
+    "_SESSION_TOKEN",
+)
+
+
+def _is_credential_shaped_but_not_denied(
+    name: str, extra_denied: frozenset[str] = frozenset()
+) -> bool:
+    """Return True when ``name`` looks like a credential but is NOT denied.
+
+    Used as a WARN heuristic; does NOT change the pass/deny decision.
+    A name that is already covered by ``NEVER_PASSTHROUGH`` /
+    ``NEVER_PASSTHROUGH_PREFIXES`` / ``extra_denied`` returns False
+    (the deny surface has it).
+    """
+    if _is_never_passthrough(name, extra_denied):
+        return False
+    upper = name.upper()
+    return any(upper.endswith(suffix) for suffix in _CREDENTIAL_SHAPE_SUFFIXES)
+
+
 @dataclass(frozen=True)
 class SandboxEnvResult:
     """The scrubbed environment for one sandbox entry, plus audit info.
@@ -247,6 +297,15 @@ class SandboxEnvResult:
       an allowlist but were denied by ``NEVER_PASSTHROUGH``. Non-zero
       means an operator (or an attacker) tried to route a hard-denied
       name through; the caller SHOULD escalate on non-zero.
+    - ``credential_shaped_unblocked_count`` (SP Q6 amendment) names
+      allowlist entries whose SHAPE looks like a credential (suffix
+      match on ``_TOKEN`` / ``_KEY`` / ``_SECRET`` / etc.) but that
+      the deny surface did NOT catch. These names ARE passed through
+      -- the heuristic is a WARN signal, not a hard denial -- but a
+      non-zero count means the deny surface has a gap the operator
+      should close (extend ``NEVER_PASSTHROUGH`` or add the entry to
+      the extra-denied file). Wired into ``sandbox.env_scrubbed`` so
+      operators see it in trace-line audits.
     - ``allowlist_source`` is one of ``"manifest"``, ``"file"``,
       ``"default"`` -- whichever source contributed the largest set of
       names; ties resolve to the more explicit source.
@@ -255,6 +314,7 @@ class SandboxEnvResult:
     env: dict[str, str]
     scrubbed_count: int = 0
     never_passthrough_denied: int = 0
+    credential_shaped_unblocked_count: int = 0
     allowlist_source: str = "default"
 
 
@@ -382,8 +442,17 @@ def build_sandbox_env(
     # ``aws_access_key_id`` or ``AWS_*`` still refuses. SP Q3(b)
     # amendment: log a REDACTED form of the name so audits see the
     # refusal family without leaking the specific env var name.
+    #
+    # v0.5.1 wiring module_04 SP Q6 amendment: also count (but do NOT
+    # deny) allowlist entries that are credential-SHAPED (suffix
+    # match on _TOKEN, _KEY, _SECRET, etc.) but that the deny surface
+    # did not catch. A non-zero count is a signal to close a deny-set
+    # gap; keep backward-compat by passing the name through (some
+    # legitimate build systems declare ``BUILD_SIGNING_KEY_PATH``, so
+    # a hard deny here would break real users).
     extra_denied_set = frozenset(extra_denied)
     denied_hits = 0
+    credential_shaped_unblocked = 0
     scrubbed_env: dict[str, str] = {}
     denied_names: set[str] = set()
     for name, source in union.items():
@@ -398,6 +467,18 @@ def build_sandbox_env(
                 source,
             )
             continue
+        if _is_credential_shaped_but_not_denied(name, extra_denied_set):
+            credential_shaped_unblocked += 1
+            _LOG.warning(
+                "sandbox_env: allowlist entry %r (source=%s) looks "
+                "credential-shaped but is NOT in NEVER_PASSTHROUGH. "
+                "The name is passed through (backward-compat); if "
+                "this is a credential family the substrate does not "
+                "recognise, add it to NEVER_PASSTHROUGH or to "
+                "``.ract/never_passthrough_extra.allowlist``.",
+                _redact_name_for_log(name),
+                source,
+            )
         if name in env_source:
             scrubbed_env[name] = env_source[name]
 
@@ -435,6 +516,7 @@ def build_sandbox_env(
         env=scrubbed_env,
         scrubbed_count=scrubbed_count,
         never_passthrough_denied=denied_hits,
+        credential_shaped_unblocked_count=credential_shaped_unblocked,
         allowlist_source=primary,
     )
 

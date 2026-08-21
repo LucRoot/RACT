@@ -215,6 +215,48 @@ design (see ADR-0012).
 
 Fields: `manifest_digest` (string), `reason` (string), `details` (dict).
 
+#### `sandbox.env_scrubbed`
+
+**Added in v0.5.1 wiring module_04 (Lens C C-02 + C-10 closure).**
+
+Emitted by every sandbox backend — `LinuxSandbox`, `MacosSandbox`, and
+the Windows `UnenforcedSandbox` stub — on every `enter`. Payload
+carries the environment-allowlist audit for the invocation:
+
+- `backend` (string; one of `"linux-bwrap"`, `"macos-sandbox-exec"`,
+  `"stub"`) — which backend rendered the env scrub.
+- `allowlist_source` (string; one of `"manifest"`, `"file"`,
+  `"default"`) — which source contributed the largest set of surviving
+  names.
+- `scrubbed_count` (int) — count of environment variables present on
+  the harness process that were NOT allowlisted and therefore never
+  reached the sandboxed child. Count-only; the substrate never logs the
+  scrubbed names or values.
+- `never_passthrough_denied` (int) — count of allowlist entries that
+  WERE declared (in `manifest.env.passthrough` or the
+  `.ract/sandbox_env.allowlist` file) but were refused by the
+  `NEVER_PASSTHROUGH` deny surface. **A non-zero value on a production
+  run means the manifest declared a credential-shaped name** — the
+  operator should audit the manifest and remove the entry (the child
+  env will not carry it either way; the counter is the audit signal).
+- `credential_shaped_unblocked_count` (int) — SP Q6 amendment: count
+  of allowlist entries whose SHAPE looks like a credential (suffix
+  match on `_TOKEN` / `_KEY` / `_SECRET` / `_PASSWORD` / `_API` /
+  `_AUTH` / etc.) but that the deny surface did NOT catch. These
+  names ARE passed through (backward-compat: some legitimate build
+  systems declare names like `BUILD_SIGNING_KEY_PATH`), but a
+  non-zero count means the deny surface has a gap the operator
+  should close by extending `NEVER_PASSTHROUGH` upstream or by
+  adding the name to `.ract/never_passthrough_extra.allowlist`
+  (planned v0.6). Distinct from `never_passthrough_denied`:
+  denied-count means the deny surface CAUGHT the name; unblocked-
+  count means the deny surface SHOULD HAVE caught the name and did
+  not.
+
+Producer sites: `src/ract/security/sandbox_linux.py::LinuxSandbox.enter`,
+`src/ract/security/sandbox_macos.py::MacosSandbox.enter`,
+`src/ract/security/sandbox.py::UnenforcedSandbox.enter`.
+
 ### Predicates (module_01)
 
 #### `predicate.evaluated`

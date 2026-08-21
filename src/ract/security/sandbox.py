@@ -67,7 +67,15 @@ class SandboxViolation(RuntimeError):
 # ---------------------------------------------------------------------------
 
 
-EventName = Literal["sandbox.granted", "sandbox.denied", "sandbox.unenforced"]
+EventName = Literal[
+    "sandbox.granted",
+    "sandbox.denied",
+    "sandbox.unenforced",
+    # v0.5.1 wiring module_04 (Lens C C-02 + C-10 closure): every
+    # backend emits this on entry with the env-allowlist audit. See
+    # ``ract.trace.events.EventKind`` for the payload contract.
+    "sandbox.env_scrubbed",
+]
 
 
 @dataclass(frozen=True)
@@ -211,7 +219,14 @@ class UnenforcedSandbox:
                 details={"platform": platform.system(), "worktree": str(worktree)},
             )
         )
-        # v0.5.1 module_05 -- surface env-allowlist audit even on stub.
+        # v0.5.1 wiring module_04 (Lens C C-02 + C-10 closure):
+        # surface env-allowlist audit as a first-class
+        # ``sandbox.env_scrubbed`` event -- the same event kind the
+        # enforced Linux + macOS backends now emit -- so an auditor
+        # can grep one kind across every platform. Historical note:
+        # module_05 emitted this data as ``sandbox.granted`` on the
+        # stub; the wiring pipeline lifted it to a dedicated kind
+        # once the Linux + macOS backends also carried it.
         try:
             from ract.security.sandbox_env import build_sandbox_env
 
@@ -222,15 +237,21 @@ class UnenforcedSandbox:
             )
             emit(
                 SandboxEvent(
-                    name="sandbox.granted",
+                    name="sandbox.env_scrubbed",
                     manifest_digest=digest_hex,
                     step_id_hex=step_id.hex(),
                     reason="env_allowlist_computed",
                     details={
-                        "env_scrubbed_count": result.scrubbed_count,
-                        "env_allowlist_source": result.allowlist_source,
-                        "env_never_passthrough_denied": (
+                        "backend": self.name,
+                        "allowlist_source": result.allowlist_source,
+                        "scrubbed_count": result.scrubbed_count,
+                        "never_passthrough_denied": (
                             result.never_passthrough_denied
+                        ),
+                        # v0.5.1 wiring module_04 SP Q6 amendment:
+                        # heuristic credential-shape detector count.
+                        "credential_shaped_unblocked_count": (
+                            result.credential_shaped_unblocked_count
                         ),
                     },
                 )

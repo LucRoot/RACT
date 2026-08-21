@@ -49,19 +49,24 @@ def test_windows_returns_stub_with_escape_hatch(tmp_path: Path):
 
         set_event_sink(_default_sink)
 
-    # v0.5.1 module_05: UnenforcedSandbox emits BOTH the classic
-    # ``sandbox.unenforced`` event AND a ``sandbox.granted`` event
-    # carrying the env-allowlist audit (D1 defense: env scrubbing
-    # applies even on the unenforced stub). The unenforced event
-    # remains index 0; the granted-with-env-audit event lands next.
+    # v0.5.1 module_05 + wiring module_04: UnenforcedSandbox emits
+    # BOTH the classic ``sandbox.unenforced`` event AND a first-class
+    # ``sandbox.env_scrubbed`` event carrying the env-allowlist audit
+    # (D1 defense: env scrubbing applies even on the unenforced stub).
+    # The unenforced event remains index 0; the env_scrubbed event
+    # lands next. Wiring module_04 promoted the env-audit shape from
+    # ``sandbox.granted`` (overloaded) to a dedicated event kind so
+    # it matches the enforced Linux + macOS backends' emission shape.
     assert len(events) == 2
     assert events[0].name == "sandbox.unenforced"
     assert "unenforced-sandbox" in events[0].reason
     assert events[0].step_id_hex == ("00" * 16)
-    assert events[1].name == "sandbox.granted"
+    assert events[1].name == "sandbox.env_scrubbed"
     assert events[1].reason == "env_allowlist_computed"
-    assert "env_scrubbed_count" in events[1].details
-    assert events[1].details["env_never_passthrough_denied"] >= 0
+    assert events[1].details["backend"] == "stub"
+    assert "scrubbed_count" in events[1].details
+    assert "allowlist_source" in events[1].details
+    assert events[1].details["never_passthrough_denied"] >= 0
 
 
 def test_unknown_platform_also_refuses():

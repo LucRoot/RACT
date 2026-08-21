@@ -302,6 +302,82 @@ def test_sp_q3d_trailing_comma_lenient_recovery(tmp_path: Path) -> None:
     assert entries == ("MY_VAR", "OTHER")
 
 
+# ---------------------------------------------------------------------------
+# v0.5.1 wiring module_04 SP Q6 amendment -- credential-shape heuristic
+# ---------------------------------------------------------------------------
+
+
+def test_sp_wq6_credential_shape_heuristic_counts_new_family(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A new credential family (e.g., MYCO_INTERNAL_TOKEN) is counted.
+
+    SP Q6 (OpenRouter DEFECT verdict): a name shaped like a
+    credential (suffix _TOKEN / _KEY / _SECRET / ...) that is NOT
+    in NEVER_PASSTHROUGH would silently pass through, giving the
+    operator a false impression of safety. The heuristic now bumps
+    ``credential_shaped_unblocked_count`` and WARN-logs a redacted
+    form so trace-log audits catch the miss.
+
+    Backward-compat: the name IS still passed through (some
+    legitimate build systems declare ``BUILD_SIGNING_KEY_PATH``);
+    the counter is the SIGNAL, not a hard denial.
+    """
+    from ract.security.sandbox_env import build_sandbox_env
+
+    seeded = {
+        "PATH": "/usr/bin",
+        # Credential-shape but not in NEVER_PASSTHROUGH:
+        "MYCO_INTERNAL_TOKEN": "sk-x",
+        "CLAUDE_LEGACY_SECRET": "sk-y",
+    }
+    with caplog.at_level(logging.WARNING, logger="ract.security.sandbox_env"):
+        result = build_sandbox_env(
+            process_env=seeded,
+            manifest_passthrough=("MYCO_INTERNAL_TOKEN", "CLAUDE_LEGACY_SECRET", "PATH"),
+        )
+    # Names ARE passed (backward-compat) but heuristic counts them.
+    assert "MYCO_INTERNAL_TOKEN" in result.env
+    assert "CLAUDE_LEGACY_SECRET" in result.env
+    assert result.credential_shaped_unblocked_count == 2
+    # WARN log fired with REDACTED name family.
+    warn_text = " ".join(rec.message for rec in caplog.records)
+    assert "credential-shaped" in warn_text or "credential-shape" in warn_text.lower()
+
+
+def test_sp_wq6_credential_shape_heuristic_ignores_denied_family() -> None:
+    """A name already caught by NEVER_PASSTHROUGH does NOT double-count.
+
+    A name matching both the deny surface AND the credential-shape
+    suffix (e.g., OPENAI_API_KEY -- has _API and _KEY suffixes but
+    is denied) should count under ``never_passthrough_denied``, not
+    under ``credential_shaped_unblocked_count`` (the heuristic is
+    for gaps in the deny surface, not for redundant flagging).
+    """
+    from ract.security.sandbox_env import build_sandbox_env
+
+    seeded = {"OPENAI_API_KEY": "sk-x", "PATH": "/usr/bin"}
+    result = build_sandbox_env(
+        process_env=seeded,
+        manifest_passthrough=("OPENAI_API_KEY", "PATH"),
+    )
+    assert "OPENAI_API_KEY" not in result.env
+    assert result.never_passthrough_denied == 1
+    assert result.credential_shaped_unblocked_count == 0
+
+
+def test_sp_wq6_credential_shape_heuristic_ignores_benign_names() -> None:
+    """A non-credential-shaped name does NOT trip the heuristic."""
+    from ract.security.sandbox_env import build_sandbox_env
+
+    seeded = {"PATH": "/usr/bin", "BUILD_ID": "42", "MY_VAR": "x"}
+    result = build_sandbox_env(
+        process_env=seeded,
+        manifest_passthrough=("BUILD_ID", "MY_VAR", "PATH"),
+    )
+    assert result.credential_shaped_unblocked_count == 0
+
+
 def test_sp_q3d_still_refuses_wholly_malformed(tmp_path: Path) -> None:
     """SP Q3(d): a line that isn't a JSON string still raises."""
     from ract.security.sandbox_env import AllowlistFileMalformed

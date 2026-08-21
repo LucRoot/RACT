@@ -35,12 +35,13 @@ Linux-only import failing at parse time.
 from __future__ import annotations
 
 import fnmatch
+import os
 import os.path
 import platform
 import shlex
 import shutil
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -50,6 +51,17 @@ from ract.security.sandbox import (
     SandboxNotAvailable,
     SandboxViolation,
     emit,
+)
+
+# v0.5.1 wiring module_04 (Lens C C-02 closure): the enforced Linux
+# backend now applies the same NEVER_PASSTHROUGH / allowlist filter
+# the Windows unenforced stub already had. Import at module load so
+# the wiring is a hard dependency (a bwrap render without the filter
+# is a bug -- see tests/architecture/test_all_sandbox_backends_scrub_env.py).
+from ract.security.sandbox_env import (
+    SandboxEnvResult,
+    build_sandbox_env,
+    default_allowlist_path,
 )
 
 
@@ -109,11 +121,23 @@ class BwrapCommand:
     The invocation is what the sandbox would exec; keeping it as a value
     lets adversarial tests inspect the argv shape without needing bwrap
     on PATH.
+
+    ``env`` is the (scrubbed) environment to pass to
+    ``subprocess.Popen(..., env=env)`` when spawning bwrap. bwrap reads
+    ``--setenv-if-set NAME`` from its OWN environment, so pre-scrubbing
+    the parent env here (rather than trusting ``os.environ``) is the
+    load-bearing step that keeps ``NEVER_PASSTHROUGH`` names out of the
+    sandbox even if the operator inadvertently declared one in
+    ``manifest.env.passthrough``. See v0.5.1 wiring module_04.
+
+    ``env_result`` carries the audit trail (source, scrubbed count,
+    denied count) for the ``sandbox.env_scrubbed`` event.
     """
 
     argv: tuple[str, ...]
     env: dict[str, str]
     seccomp_profile: str
+    env_result: SandboxEnvResult | None = field(default=None)
 
     def shell_form(self) -> str:
         """Return the argv joined with shell quoting — for logging only."""
@@ -206,12 +230,38 @@ class LinuxSandbox:
                 continue
             args += ["--bind-try", path, path]
 
-        # Env passthrough: allowlist. --setenv sets the value; a missing
-        # var in the outer env is left unset.
+        # v0.5.1 wiring module_04 (Lens C C-02 closure): route
+        # ``manifest.env.passthrough`` through ``build_sandbox_env``
+        # so ``NEVER_PASSTHROUGH`` credential-shaped names get
+        # stripped BEFORE we emit any ``--setenv-if-set`` arg. Two
+        # load-bearing pieces:
+        #
+        # 1. ``env_result.env`` is what the subprocess spawner passes
+        #    as ``env=`` when it exec's ``bwrap``. This shrinks the
+        #    parent env bwrap inherits so a bug in the ``--setenv``
+        #    iteration cannot regressively leak a credential.
+        # 2. ``--setenv-if-set NAME`` is emitted ONLY for names that
+        #    survived the filter. A name refused by
+        #    ``NEVER_PASSTHROUGH`` never lands in the sandbox even
+        #    if the operator declared it in ``manifest.env.passthrough``.
+        allowlist_file = worktree / ".ract" / "sandbox_env.allowlist"
+        env_result = build_sandbox_env(
+            process_env=dict(os.environ),
+            manifest_passthrough=tuple(manifest.env.passthrough),
+            allowlist_file=(allowlist_file if allowlist_file.exists() else None),
+        )
+        # ``--setenv-if-set`` reads bwrap's OWN environment for the
+        # value; that environment is env_result.env by the time bwrap
+        # is spawned. Iterate manifest.env.passthrough in ORIGINAL
+        # declaration order so the rendered argv is stable for tests,
+        # but skip any name that build_sandbox_env refused. A denied
+        # name is silently absent from --setenv-if-set (build_sandbox_env
+        # already emitted a redacted WARN log + will bump the audit
+        # counter in the sandbox.env_scrubbed event).
+        surviving = set(env_result.env.keys())
         for name in manifest.env.passthrough:
-            # ``bwrap`` reads from the caller's environment via
-            # --setenv; the caller stitches the value in.
-            args += ["--setenv-if-set", name]
+            if name in surviving:
+                args += ["--setenv-if-set", name]
 
         # seccomp profile — deferred to ``enter`` (needs an open fd);
         # we surface the profile name in the rendered command for
@@ -223,7 +273,12 @@ class LinuxSandbox:
         # argv without a target command.
         args += list(argv_to_run)
 
-        return BwrapCommand(argv=tuple(args), env={}, seccomp_profile=seccomp_profile)
+        return BwrapCommand(
+            argv=tuple(args),
+            env=dict(env_result.env),
+            seccomp_profile=seccomp_profile,
+            env_result=env_result,
+        )
 
     # -----------------------------------------------------------------
     # Landlock allowlist check (harness-side pre-flight)
@@ -377,6 +432,36 @@ class LinuxSandbox:
                 },
             )
         )
+
+        # v0.5.1 wiring module_04 (Lens C C-02 + C-10 closure):
+        # emit the env-allowlist audit as a first-class trace event so
+        # auditors can correlate credential scrubbing to a specific
+        # run/step. Payload matches the shape the Windows unenforced
+        # stub emits.
+        if rendered.env_result is not None:
+            emit(
+                SandboxEvent(
+                    name="sandbox.env_scrubbed",
+                    manifest_digest=digest_hex,
+                    step_id_hex=step_id.hex(),
+                    reason="env_allowlist_computed",
+                    details={
+                        "backend": self.name,
+                        "allowlist_source": rendered.env_result.allowlist_source,
+                        "scrubbed_count": rendered.env_result.scrubbed_count,
+                        "never_passthrough_denied": (
+                            rendered.env_result.never_passthrough_denied
+                        ),
+                        # v0.5.1 wiring module_04 SP Q6 amendment:
+                        # heuristic credential-shape detector count;
+                        # non-zero flags a NEW credential family the
+                        # deny surface does not yet recognise.
+                        "credential_shaped_unblocked_count": (
+                            rendered.env_result.credential_shaped_unblocked_count
+                        ),
+                    },
+                )
+            )
 
         try:
             yield rendered

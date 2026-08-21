@@ -19,11 +19,12 @@ Import-clean on non-macOS: the module imports pure-Python stdlib only;
 from __future__ import annotations
 
 import fnmatch
+import os
 import os.path
 import platform
 import shutil
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -35,13 +36,35 @@ from ract.security.sandbox import (
     emit,
 )
 
+# v0.5.1 wiring module_04 (Lens C C-02 closure): the enforced macOS
+# backend previously had ZERO env scrubbing -- Seatbelt filters
+# filesystem + network but sandbox-exec inherits the parent env
+# wholesale. Wire the same allowlist filter every other backend uses.
+from ract.security.sandbox_env import (
+    SandboxEnvResult,
+    build_sandbox_env,
+)
+
 
 @dataclass(frozen=True)
 class SeatbeltProfile:
-    """A rendered ``.sb`` profile plus the ``sandbox-exec`` invocation."""
+    """A rendered ``.sb`` profile plus the ``sandbox-exec`` invocation.
+
+    ``env`` is the scrubbed environment to pass to
+    ``subprocess.Popen(..., env=env)`` when spawning sandbox-exec. macOS
+    Seatbelt has no equivalent of Linux ``--clearenv`` -- the sandboxed
+    process inherits whatever env the parent hands it -- so
+    pre-scrubbing here is the only credential-exfil defense on this
+    backend. See v0.5.1 wiring module_04.
+
+    ``env_result`` carries the audit trail for the
+    ``sandbox.env_scrubbed`` event.
+    """
 
     profile_text: str
     argv: tuple[str, ...]
+    env: dict[str, str] = field(default_factory=dict)
+    env_result: SandboxEnvResult | None = field(default=None)
 
 
 class MacosSandbox:
@@ -118,7 +141,25 @@ class MacosSandbox:
 
         argv: list[str] = [self.sandbox_exec_path, "-p", "\n".join(lines)]
         argv.extend(argv_to_run)
-        return SeatbeltProfile(profile_text="\n".join(lines), argv=tuple(argv))
+
+        # v0.5.1 wiring module_04 (Lens C C-02 closure): compute the
+        # scrubbed env for sandbox-exec. Seatbelt does NOT re-scrub;
+        # what we hand to subprocess is what the sandboxed process
+        # sees. Any NEVER_PASSTHROUGH-family name declared in
+        # manifest.env.passthrough gets stripped here (with a redacted
+        # WARN + counter bump surfaced via sandbox.env_scrubbed).
+        allowlist_file = worktree / ".ract" / "sandbox_env.allowlist"
+        env_result = build_sandbox_env(
+            process_env=dict(os.environ),
+            manifest_passthrough=tuple(manifest.env.passthrough),
+            allowlist_file=(allowlist_file if allowlist_file.exists() else None),
+        )
+        return SeatbeltProfile(
+            profile_text="\n".join(lines),
+            argv=tuple(argv),
+            env=dict(env_result.env),
+            env_result=env_result,
+        )
 
     # -----------------------------------------------------------------
     # harness-side pre-flight (parallels the Linux backend)
@@ -190,6 +231,33 @@ class MacosSandbox:
                 },
             )
         )
+
+        # v0.5.1 wiring module_04 (Lens C C-02 + C-10 closure):
+        # emit the env-allowlist audit as a first-class trace event
+        # so an auditor can correlate credential scrubbing to a
+        # specific run/step on macOS -- same shape as Linux + Windows.
+        if rendered.env_result is not None:
+            emit(
+                SandboxEvent(
+                    name="sandbox.env_scrubbed",
+                    manifest_digest=digest_hex,
+                    step_id_hex=step_id.hex(),
+                    reason="env_allowlist_computed",
+                    details={
+                        "backend": self.name,
+                        "allowlist_source": rendered.env_result.allowlist_source,
+                        "scrubbed_count": rendered.env_result.scrubbed_count,
+                        "never_passthrough_denied": (
+                            rendered.env_result.never_passthrough_denied
+                        ),
+                        # v0.5.1 wiring module_04 SP Q6 amendment:
+                        # heuristic credential-shape detector count.
+                        "credential_shaped_unblocked_count": (
+                            rendered.env_result.credential_shaped_unblocked_count
+                        ),
+                    },
+                )
+            )
         try:
             yield rendered
         except SandboxViolation as exc:

@@ -66,6 +66,16 @@ EventKind = Literal[
     "sandbox.granted",
     "sandbox.denied",
     "sandbox.unenforced",
+    # v0.5.1 wiring module_04 (Lens C C-02 + C-10 closure): every
+    # sandbox backend (Linux bwrap, macOS Seatbelt, Windows stub)
+    # emits this event on entry with the env-allowlist audit. Payload
+    # carries ``backend``, ``allowlist_source`` (manifest/file/default),
+    # ``scrubbed_count`` (env vars stripped from the child), and
+    # ``never_passthrough_denied`` (allowlist entries refused by the
+    # NEVER_PASSTHROUGH deny surface). The event turns credential-
+    # exfil defense from silent WARN-log into a first-class trace
+    # signal an auditor can correlate to a specific run/step.
+    "sandbox.env_scrubbed",
     # Predicates (module_01)
     "predicate.evaluated",
     # Handshakes
