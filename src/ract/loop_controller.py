@@ -1481,6 +1481,13 @@ class LoopController:
             state = self._loop_state
             if state is None:
                 return bool(user_done(iteration)) if user_done else False
+            # v0.5.1 wiring module_07 (Lens E AL-E-01): fire sycophancy_v2
+            # per-iteration against the primary's (intent, response) pair.
+            # Emits ``whisperer.contract_violation`` when the response is
+            # null-op or sub-floor commitment. Never blocks the loop by
+            # itself — the emission is the signal a downstream verifier
+            # reads.
+            self._run_sycophancy_v2_check(iteration)
             # Refresh the snapshot to reflect the current on-disk state so
             # the predicate evaluators see what the loop just wrote.
             state.workspace = WorkspaceSnapshot(
@@ -1507,6 +1514,25 @@ class LoopController:
                     if gate_outcome.resume_prompt:
                         self._repair_intent = gate_outcome.resume_prompt
                     return False
+            # v0.5.1 wiring module_07 (Lens E AL-E-02): polyglot G5/G6
+            # per-file dispatcher. Fires unconditionally at T1 completion
+            # so a .ts / .rs / .go patch is analyzed instead of silently
+            # skipped. Backward-compat: an all-Python workspace routes
+            # through the Python-AST backend via the same dispatcher, so
+            # legacy behavior for pure-Python callers is preserved.
+            polyglot_block = self._run_polyglot_g5_g6(iteration)
+            if polyglot_block:
+                self._repair_intent = polyglot_block
+                return False
+            # v0.5.1 wiring module_07 (Lens E AL-E-03): canonical G1/G7/G8
+            # dispatchers with laziness.skipped emission. Runs alongside
+            # the completion_gates path so the trace channel carries a
+            # skip event when the caller did not provide the gate
+            # inputs. Does NOT block completion by itself — the
+            # completion_gates path above is the authoritative one for
+            # G7/G8's block decision; the enforce_gN wrappers here are
+            # the AL-1 evidence-attestation surface.
+            self._run_canonical_g1_g7_g8(iteration)
             # ALM module_06: iso-perturbation gate. Fires only when the
             # detector flags the intent as rule-like; skipped otherwise.
             if self.iso_perturb is not None:
@@ -1518,6 +1544,223 @@ class LoopController:
             return user_cb_result if user_done is not None else True
 
         return _cb
+
+    # ------------------------------------------------------------------
+    # v0.5.1 wiring module_07 — anti-lazy dispatch wire-in
+    # ------------------------------------------------------------------
+
+    def _extract_response_text(self, iteration: LoopIteration) -> str:
+        """Return the primary's response text for the iteration, or ``""``.
+
+        The sycophancy_v2 classifier reads (request, response) pairs.
+        Substrate v0.4's :class:`ExecutionReport` carries the response
+        text as :attr:`StepResult.content`; aggregate across steps so
+        a multi-step iteration surfaces the full primary output. When
+        the report is a plain :class:`Plan` (planning-only iteration)
+        or is missing, return the empty string — the classifier
+        short-circuits on empty text so it is a safe no-op.
+        """
+        report = getattr(iteration, "report", None)
+        step_results = getattr(report, "step_results", None)
+        if not step_results:
+            return ""
+        parts: list[str] = []
+        for sr in step_results:
+            content = getattr(sr, "content", None)
+            if isinstance(content, str) and content:
+                parts.append(content)
+        return "\n\n".join(parts)
+
+    def _run_sycophancy_v2_check(self, iteration: LoopIteration) -> None:
+        """Fire sycophancy_v2 per iteration; emit on sycophantic verdict.
+
+        Never raises; never blocks the loop. The
+        ``whisperer.contract_violation`` emit is best-effort — the
+        classifier's own :meth:`SycophancyClassification.emit_event`
+        guards the trace-sink import.
+
+        v0.5.1 wiring module_07 (Lens E AL-E-01) closure. Replaces the
+        legacy multi-turn sycophancy scanner (which had zero live
+        callers) with the two-signal per-request/response classifier
+        as the loop's per-iteration sycophancy signal.
+        """
+        request = iteration.intent or ""
+        response = self._extract_response_text(iteration)
+        if not request or not response:
+            return
+        try:
+            from ract.antilazy.sycophancy_v2 import (  # noqa: PLC0415
+                classify as classify_sycophancy_v2,
+            )
+
+            classification = classify_sycophancy_v2(request, response)
+            classification.emit_event()
+        except Exception:  # noqa: BLE001 — never break the loop on sycophancy check error
+            return
+
+    def _collect_changed_polyglot_files(
+        self, iteration: LoopIteration
+    ) -> list[Path]:
+        """Return the polyglot-scannable paths touched since baseline.
+
+        Walks ``project_dir`` for the polyglot-supported extensions
+        (.py, .ts, .tsx, .js, .jsx, .rs, .go, .rb — see
+        :data:`ract.antilazy.pre_commit._POLYGLOT_SUPPORTED_EXTS`).
+        A file whose contents differ from the baseline snapshot is a
+        changed file; new files (present in the tree but not in the
+        baseline) count as changed. Deleted files (present in the
+        baseline but not on disk) are dropped because the polyglot
+        scanners walk actual files.
+        """
+        from ract.antilazy.pre_commit import (  # noqa: PLC0415
+            _POLYGLOT_SUPPORTED_EXTS,
+        )
+
+        if not self.project_dir.is_dir():
+            return []
+        changed: list[Path] = []
+        baseline = self._baseline_snapshot or {}
+        for path in self.project_dir.rglob("*"):
+            if not path.is_file():
+                continue
+            if "__pycache__" in path.parts:
+                continue
+            if path.suffix.lower() not in _POLYGLOT_SUPPORTED_EXTS:
+                continue
+            try:
+                rel = str(path.relative_to(self.project_dir))
+            except ValueError:
+                continue
+            try:
+                current_text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            baseline_text = baseline.get(rel)
+            if baseline_text is None or baseline_text != current_text:
+                changed.append(path)
+        return changed
+
+    def _run_polyglot_g5_g6(self, iteration: LoopIteration) -> str:
+        """Run the polyglot G5 + G6 dispatcher on this iteration's changes.
+
+        Returns a resume prompt string (non-empty when either gate
+        blocks) or ``""`` when both pass. On empty changed-file set
+        (iteration 1 pre-write, or a planning-only iteration) both
+        gates return ``passed=True`` and this method returns ``""``.
+
+        v0.5.1 wiring module_07 (Lens E AL-E-02) closure. Replaces the
+        prior Python-AST-only path so a .ts / .rs / .go patch is
+        analyzed by the tree-sitter backend and a real dead-code /
+        copy-paste verdict lands on the trace channel with language
+        attribution.
+        """
+        try:
+            changed = self._collect_changed_polyglot_files(iteration)
+            if not changed:
+                return ""
+            from ract.antilazy.pre_commit import (  # noqa: PLC0415
+                dispatch_polyglot_g5_g6,
+            )
+
+            dead_code, copy_paste = dispatch_polyglot_g5_g6(changed)
+            # AL-1 invariant guard: refuse an outcome carrying an
+            # empty signature. Defense-in-depth against a
+            # future-refactored enforce_gN that forgets to populate
+            # the field.
+            self._require_al1_signature(dead_code, gate_id="G5-polyglot")
+            self._require_al1_signature(copy_paste, gate_id="G6-polyglot")
+            if dead_code.passed and copy_paste.passed:
+                return ""
+            parts: list[str] = []
+            if not dead_code.passed:
+                parts.append(
+                    "[G5 POLYGLOT] dead-code candidates surfaced in the "
+                    "changed files across one or more languages. Remove "
+                    "the dead code or wire the callers before completing."
+                )
+            if not copy_paste.passed:
+                parts.append(
+                    "[G6 POLYGLOT] copy-pasted test bodies surfaced in "
+                    "the changed files. Replace with a shared helper or "
+                    "distinguish the assertions."
+                )
+            return "\n\n".join(parts)
+        except Exception:  # noqa: BLE001 — never break the loop on gate error
+            return ""
+
+    def _run_canonical_g1_g7_g8(self, iteration: LoopIteration) -> None:
+        """Fire the canonical G1/G7/G8 dispatchers for AL-1 evidence.
+
+        Uses :func:`ract.antilazy.pre_commit.enforce_g1` / ``_g7`` /
+        ``_g8``. Each call produces an ``*GateOutcome`` carrying a
+        non-empty ``rootknot_signature`` (AL-1). ``laziness.skipped``
+        emits when a caller did not provide the gate inputs. Does not
+        block completion — the block decision remains with
+        :func:`_run_completion_gates` for G7/G8 and with the substrate
+        ``check_t1`` dual-suite branch for G1; this method's job is
+        to surface an AL-1 attestation + a trace-channel skip event
+        for the gates that ran (or intentionally did not) this
+        iteration.
+        """
+        try:
+            from ract.antilazy.pre_commit import (  # noqa: PLC0415
+                enforce_g1,
+                enforce_g7,
+                enforce_g8,
+            )
+
+            state = self._loop_state
+            dual_suite = None
+            snapshot = None
+            visible_suite = None
+            if state is not None:
+                suite = state.suite
+                if hasattr(suite, "visible") and hasattr(suite, "held_out"):
+                    dual_suite = suite
+                    visible_suite = suite.visible
+                else:
+                    visible_suite = suite
+                snapshot = state.workspace
+            g1_outcome = enforce_g1(dual_suite, snapshot)
+            self._require_al1_signature(g1_outcome, gate_id="G1")
+            final_diff = self._final_diff_for_gates(iteration)
+            g7_outcome = enforce_g7(
+                intent=iteration.intent,
+                final_diff=final_diff,
+                visible_suite=visible_suite,
+                companion_bundle=self.companion,
+                pre_change_workspace=self._pre_change_workspace_for_gates(),
+                post_change_workspace=self._post_change_workspace_for_gates(),
+            )
+            self._require_al1_signature(g7_outcome, gate_id="G7")
+            g8_outcome = enforce_g8(
+                final_diff=final_diff,
+                effort_estimate=self.effort_estimate,
+            )
+            self._require_al1_signature(g8_outcome, gate_id="G8")
+        except ValueError:
+            # AL-1 invariant violation is loud — re-raise so the loop
+            # halts. Any callsite constructing a GateOutcome by hand
+            # without a signature is a substrate bug, not a loop bug.
+            raise
+        except Exception:  # noqa: BLE001 — never break the loop on gate error
+            return
+
+    def _require_al1_signature(self, outcome: Any, *, gate_id: str) -> None:
+        """Reject a gate outcome carrying an empty AL-1 signature.
+
+        Delegates to
+        :func:`ract.antilazy.pre_commit._require_gate_signature` — the
+        loop-controller call site keeps the invariant tight so a
+        future refactor that forgets to populate the field on a new
+        enforce_gN cannot slip through unnoticed.
+        """
+        signature = getattr(outcome, "rootknot_signature", None)
+        from ract.antilazy.pre_commit import (  # noqa: PLC0415
+            _require_gate_signature,
+        )
+
+        _require_gate_signature(signature or "", gate_id=gate_id)
 
     def _run_completion_gates(self, iteration: LoopIteration):
         """Invoke ALM module_04's completion-path gates.

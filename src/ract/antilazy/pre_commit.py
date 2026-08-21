@@ -16,8 +16,9 @@ over its inputs so tests can drive it without a live worktree.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from ract.antilazy.coverage import (
     DEFAULT_DELTA_MUT,
@@ -69,31 +70,197 @@ if TYPE_CHECKING:
     from ract.core.transaction import StepTransaction
 
 
+# ---------------------------------------------------------------------------
+# AL-1 attestation (v0.5.1 wiring module_07)
+# ---------------------------------------------------------------------------
+#
+# Every ``*GateOutcome`` carries a ``rootknot_signature`` — a hex-encoded
+# content-binding attestation over the canonical projection of the gate
+# result plus the ambient run_id. The Rootknot v4 factory
+# (:func:`ract.core.rootknot.make_rootknot_v4`) later folds each gate's
+# ``evidence_digest`` into ``gate_results``; the field on the outcome
+# projects that same commitment forward one step so an intermediate
+# caller (loop_controller) can refuse a tampered outcome BEFORE it
+# reaches the rootknot factory.
+#
+# The signature is deterministic (SHA-256 over JCS) rather than an
+# ed25519 signature over the same bytes because the gate runners do not
+# yet have access to a run-scoped signing key at their call sites. When
+# a run-scoped signer accessor lands (v0.6), :func:`_compute_gate_signature`
+# swaps the digest for a real ed25519 signature under the same canonical
+# projection; the format ``sha256:<hex>`` vs ``ed25519:<hex>`` is
+# self-describing so verifiers can distinguish. Under the current
+# implementation the field is BOTH tamper-evident (any change to
+# ``gate_id`` / ``passed`` / ``report`` / ``run_id`` invalidates the
+# digest) and cross-run-swap-detectable (the run_id rides inside the
+# signed payload).
+
+
+_GATE_SIGNATURE_ALGO = "sha256"
+
+
+def _canonical_report_projection(report: Any) -> Any:
+    """Return a JCS-safe projection of ``report`` for the signature payload.
+
+    Prefers ``report.canonical_dict()`` when present (as
+    :class:`~ract.core.rootknot.GateResult` uses); falls back to
+    ``dataclasses.asdict``-style extraction of the report's public
+    fields. Unhashable / unrepresentable fields are string-projected
+    so the digest is stable but keeps content-binding.
+    """
+    if report is None:
+        return None
+    canonical = getattr(report, "canonical_dict", None)
+    if callable(canonical):
+        try:
+            return canonical()
+        except Exception:  # noqa: BLE001
+            pass
+    # Best-effort dataclass projection.
+    try:
+        from dataclasses import asdict, is_dataclass
+
+        if is_dataclass(report):
+            return _stringify_leaves(asdict(report))
+    except Exception:  # noqa: BLE001
+        pass
+    # Last resort: str() of the report so the digest is at least
+    # content-derived (a swap changes the string).
+    return {"__repr__": repr(report)}
+
+
+def _stringify_leaves(value: Any) -> Any:
+    """Recursively coerce non-JSON-safe leaves to strings for JCS.
+
+    JCS accepts dict/list/str/int/float/bool/None; bytes, sets, tuples,
+    frozensets, and arbitrary objects get string-projected so the
+    digest is stable across Python runs.
+    """
+    if isinstance(value, dict):
+        return {str(k): _stringify_leaves(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_stringify_leaves(v) for v in value]
+    if isinstance(value, (set, frozenset)):
+        return sorted(_stringify_leaves(v) for v in value)
+    if isinstance(value, bytes):
+        return value.hex()
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return repr(value)
+
+
+def _compute_gate_signature(
+    *,
+    gate_id: str,
+    passed: bool,
+    report: Any,
+    run_id: str | None = None,
+) -> str:
+    """Return the ``rootknot_signature`` string for a gate outcome.
+
+    Format: ``"sha256:<64-hex>"``. Payload is
+    ``dumps_jcs({"algo": "sha256", "gate_id": gate_id, "passed": bool,
+    "report": <canonical projection>, "run_id": <str>})``. When
+    ``run_id`` is ``None`` the ambient value from
+    :func:`ract.runtime.get_current_run_id` is used; the empty string is
+    a valid run_id (an operator running an ad-hoc invocation outside a
+    bound scope) — the digest still content-binds gate_id + passed +
+    report.
+
+    Never raises: a JCS-serialisation failure falls back to a
+    ``repr``-of-payload digest so the field is always populated (the
+    AL-1 invariant is that the field is non-empty; the substrate
+    verifier is what enforces that it VALIDATES).
+    """
+    resolved_run_id = run_id
+    if resolved_run_id is None:
+        try:
+            from ract.runtime import get_current_run_id  # noqa: PLC0415
+
+            resolved_run_id = get_current_run_id() or ""
+        except Exception:  # noqa: BLE001
+            resolved_run_id = ""
+    payload = {
+        "algo": _GATE_SIGNATURE_ALGO,
+        "gate_id": str(gate_id),
+        "passed": bool(passed),
+        "report": _canonical_report_projection(report),
+        "run_id": str(resolved_run_id),
+    }
+    try:
+        from ract.canonical import dumps_jcs  # noqa: PLC0415
+
+        canonical_bytes = dumps_jcs(payload).encode("utf-8")
+    except Exception:  # noqa: BLE001
+        canonical_bytes = repr(payload).encode("utf-8", errors="replace")
+    digest = hashlib.sha256(canonical_bytes).hexdigest()
+    return f"{_GATE_SIGNATURE_ALGO}:{digest}"
+
+
+def _require_gate_signature(signature: str, *, gate_id: str) -> str:
+    """Return ``signature`` unchanged; raise ``ValueError`` if empty/None.
+
+    Called by :class:`~ract.loop_controller.LoopController` (and any
+    other AL-1 verifier) as a structural check that a gate outcome
+    carries the AL-1 attestation. The invariant is enforced at
+    construction: every ``enforce_gN`` produces a non-empty signature
+    via :func:`_compute_gate_signature` so this guard is defense-in-
+    depth against a callsite that constructs an outcome by hand.
+    """
+    if not isinstance(signature, str) or not signature:
+        raise ValueError(
+            f"AL-1 invariant violation: gate {gate_id!r} produced an "
+            f"empty rootknot_signature; every anti-lazy gate outcome "
+            f"must carry a non-empty AL-1 attestation. See "
+            f"docs/RACT_v0.4.0_ANTILAZY_SPEC.md §5 Invariant AL-1 and "
+            f"_BUILD/audit_2026-08-21/lens_E_antilazy_memory.md AL-E-04."
+        )
+    return signature
+
+
 @dataclass(frozen=True)
 class GateOutcome:
-    """Result of running a pre-commit gate on a step transaction."""
+    """Result of running a pre-commit gate on a step transaction.
+
+    AL-1 invariant (v0.5.1 wiring module_07): ``rootknot_signature`` is
+    a non-empty hex-encoded content-binding attestation. Produced by
+    :func:`_compute_gate_signature` from the tuple ``(gate_id, passed,
+    report, run_id)``. Loop-controller refuses an outcome whose
+    signature is empty.
+    """
 
     passed: bool
     should_roll_back: bool
     report: MutationReport
+    rootknot_signature: str = ""
 
 
 @dataclass(frozen=True)
 class PatchDiffGateOutcome:
-    """Result of running G3 on a step transaction."""
+    """Result of running G3 on a step transaction.
+
+    See :class:`GateOutcome` for the AL-1 ``rootknot_signature``
+    invariant (v0.5.1 wiring module_07).
+    """
 
     passed: bool
     should_roll_back: bool
     report: PatchDifferentiationReport
+    rootknot_signature: str = ""
 
 
 @dataclass(frozen=True)
 class CoverageDeltaGateOutcome:
-    """Result of running G4 on a step transaction."""
+    """Result of running G4 on a step transaction.
+
+    See :class:`GateOutcome` for the AL-1 ``rootknot_signature``
+    invariant (v0.5.1 wiring module_07).
+    """
 
     passed: bool
     should_roll_back: bool
     report: CoverageDeltaReport
+    rootknot_signature: str = ""
 
 
 @dataclass(frozen=True)
@@ -103,6 +270,9 @@ class TestIntegrityGateOutcome:
     The class name starts with ``Test`` because it wraps
     ``TestIntegrityReport``; the ``__test__ = False`` guard tells
     pytest not to try to collect it as a test case.
+
+    See :class:`GateOutcome` for the AL-1 ``rootknot_signature``
+    invariant (v0.5.1 wiring module_07).
     """
 
     __test__ = False
@@ -110,15 +280,21 @@ class TestIntegrityGateOutcome:
     passed: bool
     should_roll_back: bool
     report: TestIntegrityReport
+    rootknot_signature: str = ""
 
 
 @dataclass(frozen=True)
 class UnderEditGateOutcome:
-    """Result of running G6 on a step transaction."""
+    """Result of running G6 on a step transaction.
+
+    See :class:`GateOutcome` for the AL-1 ``rootknot_signature``
+    invariant (v0.5.1 wiring module_07).
+    """
 
     passed: bool
     should_roll_back: bool
     report: UnderEditReport
+    rootknot_signature: str = ""
 
 
 def enforce_g2(
@@ -147,7 +323,14 @@ def enforce_g2(
         threshold=threshold,
     )
     if report.passed():
-        return GateOutcome(passed=True, should_roll_back=False, report=report)
+        return GateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G2", passed=True, report=report
+            ),
+        )
     try:
         from ract.trace.sink import emit as _emit_event
 
@@ -174,7 +357,14 @@ def enforce_g2(
         )
     except Exception:  # noqa: BLE001 — never fail the gate on trace error
         pass
-    return GateOutcome(passed=False, should_roll_back=True, report=report)
+    return GateOutcome(
+        passed=False,
+        should_roll_back=True,
+        report=report,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G2", passed=False, report=report
+        ),
+    )
 
 
 def enforce_g3(
@@ -215,7 +405,14 @@ def enforce_g3(
         flakiness_runs=flakiness_runs,
     )
     if not report.is_semantic_noop and not report.leakage_matches:
-        return PatchDiffGateOutcome(passed=True, should_roll_back=False, report=report)
+        return PatchDiffGateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G3", passed=True, report=report
+            ),
+        )
     kind = "solution_leakage" if report.leakage_matches else "semantic_noop"
     try:
         from ract.trace.sink import emit as _emit_event
@@ -238,7 +435,14 @@ def enforce_g3(
         )
     except Exception:  # noqa: BLE001
         pass
-    return PatchDiffGateOutcome(passed=False, should_roll_back=True, report=report)
+    return PatchDiffGateOutcome(
+        passed=False,
+        should_roll_back=True,
+        report=report,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G3", passed=False, report=report
+        ),
+    )
 
 
 def enforce_g4(
@@ -269,7 +473,12 @@ def enforce_g4(
     )
     if report.passed():
         return CoverageDeltaGateOutcome(
-            passed=True, should_roll_back=False, report=report
+            passed=True,
+            should_roll_back=False,
+            report=report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G4", passed=True, report=report
+            ),
         )
     try:
         from ract.trace.sink import emit as _emit_event
@@ -294,7 +503,14 @@ def enforce_g4(
         )
     except Exception:  # noqa: BLE001
         pass
-    return CoverageDeltaGateOutcome(passed=False, should_roll_back=True, report=report)
+    return CoverageDeltaGateOutcome(
+        passed=False,
+        should_roll_back=True,
+        report=report,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G4", passed=False, report=report
+        ),
+    )
 
 
 def enforce_g5(
@@ -327,7 +543,12 @@ def enforce_g5(
         # the unsupported-language gap even on a passing run).
         _emit_advisories_if_any(transaction, report)
         return TestIntegrityGateOutcome(
-            passed=True, should_roll_back=False, report=report
+            passed=True,
+            should_roll_back=False,
+            report=report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G5", passed=True, report=report
+            ),
         )
     surviving = [
         v
@@ -376,7 +597,14 @@ def enforce_g5(
         )
     except Exception:  # noqa: BLE001 — never fail the gate on trace error
         pass
-    return TestIntegrityGateOutcome(passed=False, should_roll_back=True, report=report)
+    return TestIntegrityGateOutcome(
+        passed=False,
+        should_roll_back=True,
+        report=report,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G5", passed=False, report=report
+        ),
+    )
 
 
 def _emit_advisories_if_any(
@@ -428,7 +656,14 @@ def enforce_g6(
         declared_unaffected=declared_unaffected,
     )
     if report.passed():
-        return UnderEditGateOutcome(passed=True, should_roll_back=False, report=report)
+        return UnderEditGateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G6", passed=True, report=report
+            ),
+        )
     try:
         from ract.trace.sink import emit as _emit_event
 
@@ -450,7 +685,14 @@ def enforce_g6(
         )
     except Exception:  # noqa: BLE001
         pass
-    return UnderEditGateOutcome(passed=False, should_roll_back=True, report=report)
+    return UnderEditGateOutcome(
+        passed=False,
+        should_roll_back=True,
+        report=report,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G6", passed=False, report=report
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -654,7 +896,11 @@ def _emit_laziness_violated(payload: dict, *, step_id: bytes | None) -> None:
 
 @dataclass(frozen=True)
 class DeadCodePolyglotGateOutcome:
-    """Result of running the polyglot dead-code gate on a file set."""
+    """Result of running the polyglot dead-code gate on a file set.
+
+    See :class:`GateOutcome` for the AL-1 ``rootknot_signature``
+    invariant (v0.5.1 wiring module_07).
+    """
 
     passed: bool
     should_roll_back: bool
@@ -663,6 +909,7 @@ class DeadCodePolyglotGateOutcome:
     # type-check time; the runtime shape is
     # :class:`~ract.antilazy.dead_code_polyglot.DeadCodePolyglotReport`.
     report: object
+    rootknot_signature: str = ""
 
 
 @dataclass(frozen=True)
@@ -671,6 +918,9 @@ class TestCopyPastePolyglotGateOutcome:
 
     ``__test__ = False`` keeps pytest from trying to collect this
     dataclass on account of the ``Test`` prefix.
+
+    See :class:`GateOutcome` for the AL-1 ``rootknot_signature``
+    invariant (v0.5.1 wiring module_07).
     """
 
     __test__ = False
@@ -679,6 +929,7 @@ class TestCopyPastePolyglotGateOutcome:
     should_roll_back: bool
     # See :class:`DeadCodePolyglotGateOutcome`.
     report: object
+    rootknot_signature: str = ""
 
 
 def enforce_g5_dead_code_polyglot(
@@ -700,7 +951,12 @@ def enforce_g5_dead_code_polyglot(
     report = scan_dead_code(files)
     if report.passed(threshold=threshold):
         return DeadCodePolyglotGateOutcome(
-            passed=True, should_roll_back=False, report=report
+            passed=True,
+            should_roll_back=False,
+            report=report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G5-polyglot", passed=True, report=report
+            ),
         )
     payload = {
         "kind": "dead_code_polyglot",
@@ -715,7 +971,12 @@ def enforce_g5_dead_code_polyglot(
     }
     _emit_laziness_violated(payload, step_id=step_id)
     return DeadCodePolyglotGateOutcome(
-        passed=False, should_roll_back=True, report=report
+        passed=False,
+        should_roll_back=True,
+        report=report,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G5-polyglot", passed=False, report=report
+        ),
     )
 
 
@@ -745,7 +1006,12 @@ def enforce_g6_test_copy_paste_polyglot(
     )
     if report.passed(threshold=finding_threshold):
         return TestCopyPastePolyglotGateOutcome(
-            passed=True, should_roll_back=False, report=report
+            passed=True,
+            should_roll_back=False,
+            report=report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G6-polyglot", passed=True, report=report
+            ),
         )
     payload = {
         "kind": "test_copy_paste_polyglot",
@@ -768,8 +1034,415 @@ def enforce_g6_test_copy_paste_polyglot(
     }
     _emit_laziness_violated(payload, step_id=step_id)
     return TestCopyPastePolyglotGateOutcome(
-        passed=False, should_roll_back=True, report=report
+        passed=False,
+        should_roll_back=True,
+        report=report,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G6-polyglot", passed=False, report=report
+        ),
     )
+
+
+# ---------------------------------------------------------------------------
+# v0.5.1 wiring module_07 — G1 / G7 / G8 dispatchers + polyglot per-file router
+# ---------------------------------------------------------------------------
+#
+# Lens E audit AL-E-03: G1, G7, G8 previously had no ``enforce_gN`` in
+# this module. G1 was reached only through the substrate ``check_t1``
+# dual-suite branch (:func:`ract.core.loop.check_t1`); G7/G8 were
+# reached only through :func:`ract.antilazy.completion_gate.run_completion_gates`
+# which silently returned ``None`` when ``final_diff is None`` — leaving
+# the completion path proceeding as if the gates had passed with no
+# ``laziness.skipped`` or ``laziness.violated`` trace entry.
+#
+# These wrappers give each of G1 / G7 / G8 a canonical
+# ``enforce_gN(context) -> <GateFamily>Outcome`` entry point that
+# every caller can drive uniformly, and each produces a non-empty
+# ``rootknot_signature`` (AL-1 invariant, module_07 item 4). When the
+# input context is missing (a caller running a bare loop without a
+# DualAcceptanceSuite / companion / effort estimate) each enforce_gN
+# emits ``laziness.skipped`` with a ``reason`` so the trace channel
+# carries the skip evidence instead of a silent no-op.
+
+
+@dataclass(frozen=True)
+class HoldoutGateOutcome:
+    """Result of running G1 (held-out predicate enforcement).
+
+    Wraps :class:`~ract.antilazy.holdout.VisibleHoldoutOutcome`.
+    ``blocked_on_holdout_gap`` mirrors :attr:`VisibleHoldoutOutcome.gap`
+    — the laziness signature ALM was written to catch (visible half
+    passing while the held-out half fails). ``passed`` is True iff
+    both halves are ok (the completion-path meaning). ``skipped`` is
+    True when the caller invoked ``enforce_g1`` without a
+    :class:`DualAcceptanceSuite` — the gate then returns
+    ``passed=True`` (so a legacy single-suite run is not artificially
+    blocked) with ``skipped=True`` and a ``laziness.skipped`` trace
+    event.
+    """
+
+    passed: bool
+    should_roll_back: bool
+    report: object
+    rootknot_signature: str = ""
+    skipped: bool = False
+    blocked_on_holdout_gap: bool = False
+
+
+@dataclass(frozen=True)
+class CompanionGateOutcome:
+    """Result of running G7 (companion counterexample review).
+
+    ``passed`` is True when the companion produced no surviving
+    counterexamples. ``skipped`` is True when the caller supplied no
+    :class:`~ract.antilazy.completion_gate.CompanionBundle` OR no
+    ``final_diff`` — the gate emits ``laziness.skipped`` with the
+    reason so the trace channel is not silent.
+    """
+
+    passed: bool
+    should_roll_back: bool
+    report: object
+    rootknot_signature: str = ""
+    skipped: bool = False
+    skip_reason: str = ""
+
+
+@dataclass(frozen=True)
+class EffortGateOutcome:
+    """Result of running G8 (effort reconciliation).
+
+    ``passed`` is True when the effort reconciliation surfaces zero
+    anomalies. ``skipped`` semantics mirror :class:`CompanionGateOutcome`
+    — no ``effort_estimate`` or no ``final_diff`` emits
+    ``laziness.skipped``.
+    """
+
+    passed: bool
+    should_roll_back: bool
+    report: object
+    rootknot_signature: str = ""
+    skipped: bool = False
+    skip_reason: str = ""
+
+
+def _emit_laziness_skipped(*, gate_id: str, reason: str) -> None:
+    """Best-effort emit of ``laziness.skipped`` for a gate that could
+    not run this iteration.
+
+    v0.5.1 wiring module_07 (Lens E AL-E-03 remediation): previously
+    G7/G8 silently returned ``None`` on missing final_diff. Now the
+    skip is surfaced on the trace channel with the reason so an
+    operator reading the audit log sees WHY the gate did not fire.
+    """
+    try:
+        from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+        _emit_event(
+            "laziness.skipped",
+            {"gate_id": gate_id, "reason": reason},
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def enforce_g1(
+    dual: Any | None,
+    snapshot: "WorkspaceSnapshot | None",
+) -> HoldoutGateOutcome:
+    """Run G1 (held-out predicate enforcement) against ``snapshot``.
+
+    ``dual`` is a :class:`~ract.antilazy.holdout.DualAcceptanceSuite`
+    (duck-typed via ``visible`` / ``held_out`` attributes). When
+    ``dual`` is ``None`` OR does not expose the dual-suite shape the
+    gate emits ``laziness.skipped`` (``reason="no_dual_suite"``) and
+    returns ``passed=True, skipped=True`` — a substrate run without
+    a held-out suite is not artificially failed.
+
+    When the dual suite is present the gate delegates to
+    :func:`~ract.antilazy.holdout.check_visible_and_held_out` (which
+    itself emits ``laziness.violated`` with
+    ``kind="visible_holdout_gap"`` on the failure signal) and produces
+    an :class:`HoldoutGateOutcome` carrying the outcome + AL-1
+    rootknot signature.
+    """
+    if dual is None or not (hasattr(dual, "visible") and hasattr(dual, "held_out")):
+        _emit_laziness_skipped(gate_id="G1", reason="no_dual_suite")
+        skip_report = {"kind": "skipped", "reason": "no_dual_suite"}
+        return HoldoutGateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=skip_report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G1", passed=True, report=skip_report
+            ),
+            skipped=True,
+        )
+    if snapshot is None:
+        _emit_laziness_skipped(gate_id="G1", reason="no_workspace_snapshot")
+        skip_report = {"kind": "skipped", "reason": "no_workspace_snapshot"}
+        return HoldoutGateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=skip_report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G1", passed=True, report=skip_report
+            ),
+            skipped=True,
+        )
+    from ract.antilazy.holdout import check_visible_and_held_out  # noqa: PLC0415
+
+    outcome = check_visible_and_held_out(dual, snapshot)
+    both_ok = outcome.visible_ok and outcome.held_out_ok
+    projected = {
+        "visible_ok": outcome.visible_ok,
+        "held_out_ok": outcome.held_out_ok,
+        "gap": outcome.gap,
+        "failing_visible_count": len(outcome.failing_visible),
+        "failing_held_out_count": len(outcome.failing_held_out),
+    }
+    return HoldoutGateOutcome(
+        passed=both_ok,
+        should_roll_back=outcome.gap,
+        report=projected,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G1", passed=both_ok, report=projected
+        ),
+        blocked_on_holdout_gap=outcome.gap,
+    )
+
+
+def enforce_g7(
+    *,
+    intent: str | None,
+    final_diff: Any | None,
+    visible_suite: Any | None,
+    companion_bundle: Any | None,
+    pre_change_workspace: Any | None = None,
+    post_change_workspace: Any | None = None,
+) -> CompanionGateOutcome:
+    """Run G7 (companion counterexample review) against a completion attempt.
+
+    v0.5.1 wiring module_07 (Lens E AL-E-03 remediation): emits
+    ``laziness.skipped`` with a machine-readable ``reason`` when the
+    caller could not supply the gate's inputs — replacing the previous
+    silent no-op. The completion path proceeds when
+    ``passed=True`` regardless of ``skipped``; the operator reads the
+    trace channel for skip evidence.
+    """
+    if companion_bundle is None:
+        _emit_laziness_skipped(gate_id="G7", reason="no_companion_bundle")
+        skip_report = {"kind": "skipped", "reason": "no_companion_bundle"}
+        return CompanionGateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=skip_report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G7", passed=True, report=skip_report
+            ),
+            skipped=True,
+            skip_reason="no_companion_bundle",
+        )
+    if final_diff is None or visible_suite is None:
+        reason = (
+            "no_final_diff"
+            if final_diff is None
+            else "no_visible_suite"
+        )
+        _emit_laziness_skipped(gate_id="G7", reason=reason)
+        skip_report = {"kind": "skipped", "reason": reason}
+        return CompanionGateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=skip_report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G7", passed=True, report=skip_report
+            ),
+            skipped=True,
+            skip_reason=reason,
+        )
+    from ract.antilazy.completion_gate import run_completion_gates  # noqa: PLC0415
+
+    aggregate = run_completion_gates(
+        intent=intent or "",
+        final_diff=final_diff,
+        visible_suite=visible_suite,
+        companion_bundle=companion_bundle,
+        effort_estimate=None,
+        pre_change_workspace=pre_change_workspace,
+        post_change_workspace=post_change_workspace,
+    )
+    survivor_count = 0
+    if aggregate.companion_report is not None:
+        try:
+            survivor_count = len(aggregate.companion_report.surviving_findings())
+        except Exception:  # noqa: BLE001
+            survivor_count = 0
+    passed = survivor_count == 0 and not aggregate.companion_provider_collision
+    projected = {
+        "survivor_count": survivor_count,
+        "companion_provider_collision": aggregate.companion_provider_collision,
+        "blocks_complete": aggregate.blocks_complete,
+    }
+    return CompanionGateOutcome(
+        passed=passed,
+        should_roll_back=not passed,
+        report=projected,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G7", passed=passed, report=projected
+        ),
+    )
+
+
+def enforce_g8(
+    *,
+    final_diff: Any | None,
+    effort_estimate: Any | None,
+    symgraph: Any | None = None,
+) -> EffortGateOutcome:
+    """Run G8 (effort reconciliation) against a completion attempt.
+
+    Emits ``laziness.skipped`` when either ``final_diff`` or
+    ``effort_estimate`` is missing — the skip trace event is the
+    v0.5.1 wiring module_07 (Lens E AL-E-03) closure for the previous
+    silent no-op.
+    """
+    if effort_estimate is None:
+        _emit_laziness_skipped(gate_id="G8", reason="no_effort_estimate")
+        skip_report = {"kind": "skipped", "reason": "no_effort_estimate"}
+        return EffortGateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=skip_report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G8", passed=True, report=skip_report
+            ),
+            skipped=True,
+            skip_reason="no_effort_estimate",
+        )
+    if final_diff is None:
+        _emit_laziness_skipped(gate_id="G8", reason="no_final_diff")
+        skip_report = {"kind": "skipped", "reason": "no_final_diff"}
+        return EffortGateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=skip_report,
+            rootknot_signature=_compute_gate_signature(
+                gate_id="G8", passed=True, report=skip_report
+            ),
+            skipped=True,
+            skip_reason="no_final_diff",
+        )
+    from ract.antilazy.effort import (  # noqa: PLC0415
+        measure_actual_effort,
+        reconcile_effort,
+    )
+
+    realized = measure_actual_effort(final_diff, graph=symgraph)
+    recon = reconcile_effort(effort_estimate, realized)
+    anomalies = tuple(recon.anomalies)
+    passed = not anomalies
+    projected = {
+        "anomalies": list(anomalies),
+        "tau_effort": recon.tau_effort,
+        "ratio": {k: round(v, 4) for k, v in recon.ratio.items()},
+        "estimate_source": recon.estimate.estimate_source,
+    }
+    return EffortGateOutcome(
+        passed=passed,
+        should_roll_back=False,  # G8 warns; G7/G2/... are the hard rollback gates.
+        report=projected,
+        rootknot_signature=_compute_gate_signature(
+            gate_id="G8", passed=passed, report=projected
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Polyglot per-file dispatcher for G5 / G6 (module_07 item 2)
+# ---------------------------------------------------------------------------
+#
+# The polyglot G5/G6 shims accept an iterable of paths and delegate to
+# tree-sitter backends per file (Python via ``ast``, other languages
+# via tree-sitter, unsupported languages land in the report's
+# ``unsupported_languages`` field only). The dispatcher below is what
+# ``LoopController`` calls at each iteration: it partitions the
+# changed-files set by extension, invokes the polyglot backend, and
+# emits a per-file verdict with language attribution — replacing the
+# previous Python-AST-only path that silently skipped .ts/.rs/.go
+# patches.
+
+
+_POLYGLOT_SUPPORTED_EXTS = frozenset(
+    {".py", ".ts", ".tsx", ".js", ".jsx", ".rs", ".go", ".rb"}
+)
+
+
+def dispatch_polyglot_g5_g6(
+    changed_files: "Iterable[Path]",
+    *,
+    step_id: bytes | None = None,
+    dead_code_threshold: int = 0,
+    copy_paste_finding_threshold: int = 0,
+) -> tuple[DeadCodePolyglotGateOutcome, TestCopyPastePolyglotGateOutcome]:
+    """Dispatch polyglot G5 + G6 over ``changed_files`` — module_07 wire.
+
+    Returns ``(dead_code_outcome, copy_paste_outcome)``. The polyglot
+    scanners handle language routing internally; this dispatcher's
+    job is to (a) filter to supported extensions before dispatch (so
+    ``.md`` / ``.json`` are not scanned as code and ``.py`` reaches
+    the Python-AST backend), (b) forward the AL-1 signature via the
+    outcomes, and (c) provide a single call site the loop-controller
+    can wire against instead of two calls the caller must remember to
+    keep in sync.
+
+    Loop-controller wire replaces the prior Python-AST-only G5/G6
+    dispatch, closing Lens E AL-E-02.
+    """
+    filtered: list = []
+    for path in changed_files:
+        if not hasattr(path, "suffix"):
+            continue
+        if path.suffix.lower() in _POLYGLOT_SUPPORTED_EXTS:
+            filtered.append(path)
+    dead_code = enforce_g5_dead_code_polyglot(
+        filtered, step_id=step_id, threshold=dead_code_threshold
+    )
+    copy_paste = enforce_g6_test_copy_paste_polyglot(
+        filtered,
+        step_id=step_id,
+        finding_threshold=copy_paste_finding_threshold,
+    )
+    return dead_code, copy_paste
+
+
+__all__ = [
+    "CompanionGateOutcome",
+    "CoverageDeltaGateOutcome",
+    "CompanionProvider",
+    "DeadCodePolyglotGateOutcome",
+    "EffortGateOutcome",
+    "GateOutcome",
+    "HoldoutGateOutcome",
+    "LazinessViolatedError",
+    "PatchDiffGateOutcome",
+    "TestCopyPastePolyglotGateOutcome",
+    "TestIntegrityGateOutcome",
+    "UnderEditGateOutcome",
+    "dispatch_polyglot_g5_g6",
+    "enforce_g1",
+    "enforce_g2",
+    "enforce_g3",
+    "enforce_g4",
+    "enforce_g5",
+    "enforce_g5_dead_code_polyglot",
+    "enforce_g6",
+    "enforce_g6_edit",
+    "enforce_g6_test_copy_paste_polyglot",
+    "enforce_g7",
+    "enforce_g7_edit",
+    "enforce_g8",
+]
 
 
 # RACT 0.4.0
