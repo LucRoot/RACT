@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -57,6 +57,11 @@ from ract.core.transaction import (
 from ract.executor.commit_compensator import (
     CompensatorStack,
     build_compensator,
+)
+from ract.executor.process_group import (
+    ProcessGroupHandle,
+    kill_tree,
+    spawn,
 )
 from ract.executor.runtime import ContainerBackend
 from ract.executor.tool_gate import (
@@ -194,6 +199,27 @@ class SubstrateLoop:
         # Every successful commit inside the loop installs a soft-reset
         # compensator; disposal-other-than-T1 drains the stack LIFO.
         self.compensator_stack = CompensatorStack()
+        # v0.5.1 wiring module_05 (Lens C C-03 closure): the loop
+        # tracks every process handle spawned via
+        # :meth:`spawn_step_subprocess` so a rollback or unsuccessful
+        # dispose reaps the parent + every descendant via
+        # ``process_group.kill_tree``. SUBSTRATE §7 rollback contract
+        # ("SIGKILL to the entire process group tree") is unmet in the
+        # runtime path today because the primitive has zero production
+        # callers; this list gives it its production surface. Handles
+        # are appended on spawn, removed after ``_reap_active_processes``
+        # or explicit deregistration on natural exit.
+        self._active_process_handles: list[ProcessGroupHandle] = []
+        # v0.5.1 wiring module_05 (module_04 SP Q5 defer closure): the
+        # sandbox backend's :meth:`enter` context yields a rendered
+        # command (``BwrapCommand`` on Linux, ``SeatbeltProfile`` on
+        # macOS, ``None`` on the Windows stub). Its ``env`` field is
+        # the filtered env dict from module_04's ``build_sandbox_env``.
+        # ``run_step`` captures the yielded object into this attribute
+        # for the duration of the step so :meth:`spawn_step_subprocess`
+        # can auto-consume it as ``Popen(env=...)``. Reset to ``None``
+        # after the step's context manager exits.
+        self._current_sandbox_env: dict[str, str] | None = None
 
     # ---- one step -------------------------------------------------------
 
@@ -286,18 +312,39 @@ class SubstrateLoop:
             # A manifest-less loop skips sandbox entry entirely so v0.3
             # tests still pass while the SubstrateLoop-as-default
             # migration is pending (see module_02 flagged gaps).
+            #
+            # v0.5.1 wiring module_05 (module_04 SP Q5 defer closure):
+            # capture the sandbox context's yielded object so
+            # ``spawn_step_subprocess`` can consume its ``env`` field
+            # for every subprocess the step_runner launches. The
+            # backend yields ``BwrapCommand`` (Linux) / ``SeatbeltProfile``
+            # (macOS) whose ``.env`` is module_04's filtered dict; the
+            # Windows stub yields ``None`` and the spawner falls back
+            # to explicit env or parent env.
             if self.manifest is not None and self.sandbox_backend is not None:
                 with self.sandbox_backend.enter(
                     self.manifest,
                     wt.path,
                     container,
                     step_id=spec.step_id,
-                ):
-                    snapshot = step_runner(wt, container)
+                ) as sandbox_ctx:
+                    self._current_sandbox_env = _extract_sandbox_env(sandbox_ctx)
+                    try:
+                        snapshot = step_runner(wt, container)
+                    finally:
+                        self._current_sandbox_env = None
             else:
                 snapshot = step_runner(wt, container)
             record = self._finalize(txn, wt, snapshot, spec)
             return record
+        except BaseException:
+            # v0.5.1 wiring module_05 (Lens C C-03): any uncaught
+            # exception in step_runner or finalize path leaks child
+            # processes past the step boundary. Reap the tree before
+            # unwinding so SUBSTRATE §7 rollback contract holds even
+            # when a step raises unexpectedly.
+            self._reap_active_processes(reason="run_step_exception")
+            raise
         finally:
             if container is not None and self.container_backend is not None:
                 self.container_backend.stop(container)
@@ -503,6 +550,118 @@ class SubstrateLoop:
         """Return the loop repo's currently checked-out branch name."""
         return _current_branch_name_of(self.repo_root)
 
+    # ---- process-group spawn / reap (module_05) ------------------------
+
+    def spawn_step_subprocess(
+        self,
+        argv: Sequence[str],
+        *,
+        cwd: Path | str | None = None,
+        env: dict[str, str] | None = None,
+        stdin: int | None = subprocess.DEVNULL,
+        stdout: int | None = subprocess.PIPE,
+        stderr: int | None = subprocess.PIPE,
+    ) -> ProcessGroupHandle:
+        """Spawn a step subprocess under substrate tree-kill discipline.
+
+        v0.5.1 wiring module_05 (Lens C C-03 closure). Production
+        surface for :func:`ract.executor.process_group.spawn`: every
+        subprocess a step_runner launches inside :meth:`run_step`
+        SHOULD spawn through this method rather than a bare
+        :func:`subprocess.Popen` so a rollback / commit-failure /
+        unsuccessful-dispose path can reap parent + descendants via
+        :func:`process_group.kill_tree`. SUBSTRATE §7 rollback contract
+        ("SIGKILL to the entire process group tree") holds structurally
+        rather than by convention.
+
+        The handle is registered into :attr:`_active_process_handles`;
+        rollback paths iterate + reap via
+        :meth:`_reap_active_processes`. A natural exit (T1 success) can
+        rely on the OS to clean up after the parent Popen; the reap
+        list is cleared on step-boundary success too via
+        :meth:`_deregister_process_handle`.
+
+        Env consumption -- module_04 SP Q5 defer closure:
+
+        - When the caller passes ``env=None`` and this loop is inside a
+          sandbox step whose backend rendered a filtered env (module_04
+          Linux ``BwrapCommand.env`` / macOS ``SeatbeltProfile.env``),
+          the filtered env auto-consumes here. This is the wire that
+          makes NEVER_PASSTHROUGH actually reach the step_runner's
+          subprocess (module_04 built the filter; this method feeds it
+          to ``Popen(env=...)``).
+        - When the caller passes ``env=<explicit dict>``, that overrides
+          the sandbox env; callers who need to inject extra variables
+          on top of the sandbox env should read
+          :attr:`_current_sandbox_env` and merge explicitly.
+        - Outside a sandbox step (or on the Windows unenforced stub
+          which yields no env dict), ``env=None`` falls through to
+          ``subprocess.Popen(env=None)`` which inherits the parent
+          process env -- the pre-module_05 behavior.
+
+        Returns the :class:`ProcessGroupHandle`. Callers can inspect
+        ``.popen`` for stdout/wait; the substrate owns kill.
+        """
+        effective_env = env
+        if effective_env is None and self._current_sandbox_env is not None:
+            effective_env = dict(self._current_sandbox_env)
+        handle = spawn(
+            argv,
+            env=effective_env,
+            cwd=cwd,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+        )
+        self._active_process_handles.append(handle)
+        return handle
+
+    def _deregister_process_handle(self, handle: ProcessGroupHandle) -> None:
+        """Remove ``handle`` from the reap list without killing.
+
+        v0.5.1 wiring module_05. Used when a step_runner has awaited
+        its subprocess to natural exit and does not want the rollback
+        reaper to double-terminate an already-exited handle. Safe to
+        call on a handle not currently in the list (no-op).
+        """
+        try:
+            self._active_process_handles.remove(handle)
+        except ValueError:
+            pass
+
+    def _reap_active_processes(self, *, reason: str) -> int:
+        """SIGKILL every registered handle + descendant tree.
+
+        v0.5.1 wiring module_05 (Lens C C-03). Called from every
+        rollback path (post-condition failed, commit failed, run_step
+        uncaught exception, dispose(success=False)). Iterates
+        :attr:`_active_process_handles`, invokes
+        :func:`process_group.kill_tree` on each (best-effort;
+        failures WARN but never raise -- a leaked descendant is still
+        preferable to a stalled loop), emits ``process.reaped`` per
+        reap into the trace sink, then clears the list.
+
+        Returns the number of handles reaped (for tests + telemetry).
+        """
+        handles = list(self._active_process_handles)
+        if not handles:
+            return 0
+        reaped = 0
+        for handle in handles:
+            try:
+                kill_tree(handle)
+                reaped += 1
+            except Exception:  # noqa: BLE001 -- never fail rollback on reap error
+                _KNOT_LOGGER.warning(
+                    "process_group.kill_tree failed on pid=%s (reason=%s); "
+                    "descendant tree may be leaked",
+                    getattr(handle, "pid", "?"),
+                    reason,
+                )
+            _emit_process_reaped(handle, reason=reason)
+        self._active_process_handles = []
+        return reaped
+
     # ---- compensator drain ---------------------------------------------
 
     def dispose(self, *, success: bool, reason: str = "") -> list[tuple]:
@@ -525,7 +684,21 @@ class SubstrateLoop:
             self.compensator_stack.discard(
                 reason=reason or "T1_SUCCESS",
             )
+            # v0.5.1 wiring module_05: T1 success paths still deregister
+            # any lingering handles the step_runner failed to await.
+            # We do NOT force-kill here (natural exit is the T1
+            # contract) but leaving the list populated across loop
+            # disposal is a foot-gun for reusable loop instances.
+            self._active_process_handles = []
             return []
+        # v0.5.1 wiring module_05 (Lens C C-03): reap the process tree
+        # BEFORE draining the compensator stack -- a running child that
+        # holds a worktree file handle open can block the compensator's
+        # ``git reset``, and a mid-drain SIGKILL leaves no time for the
+        # child to observe the reset.
+        self._reap_active_processes(
+            reason=reason or "dispose_unsuccessful",
+        )
         outcomes = self.compensator_stack.drain(
             reason=reason or "loop_disposed_unsuccessfully",
         )
@@ -571,6 +744,11 @@ class SubstrateLoop:
                 continue
             result = predicate.evaluate(snapshot)
             if not result.ok:
+                # v0.5.1 wiring module_05 (Lens C C-03): rollback
+                # reaps every process handle registered under this
+                # step BEFORE unwinding the worktree, so no leaked
+                # grandchildren hold worktree file handles open.
+                self._reap_active_processes(reason="postcondition_failed")
                 self.worktrees.rollback(wt, abandon=False)
                 record = StepRecord(
                     step_id=txn.step_id,
@@ -613,6 +791,11 @@ class SubstrateLoop:
         try:
             new_sha = self.worktrees.commit(wt, message)
         except Exception as exc:  # noqa: BLE001 — rollback on any commit failure
+            # v0.5.1 wiring module_05 (Lens C C-03): a commit-failure
+            # rollback must reap the tree too (a step_runner that
+            # spawned a background test process before commit still
+            # holds the tree open otherwise).
+            self._reap_active_processes(reason="commit_failed")
             self.worktrees.rollback(wt, abandon=False)
             record = StepRecord(
                 step_id=txn.step_id,
@@ -633,7 +816,23 @@ class SubstrateLoop:
         # ``self.parent_snapshot`` at parent_before so loop-state and
         # git-state do not diverge silently.
         head_before = parent_before
-        _fast_forward_head(self.repo_root, new_sha)
+        # v0.5.1 wiring module_05 (Lens C C-04 closure): when a soft
+        # commit compensator is about to be installed on this
+        # accumulator, advance HEAD via ``git update-ref`` so the
+        # working-tree state the compensator was designed to preserve
+        # for inspectability is not destroyed at the commit boundary.
+        # A ``git reset --hard`` fast-forward defeats the compensator's
+        # ``mode="soft"`` intent entirely -- the tree is already gone
+        # by the time drain runs. The compensator install below uses
+        # ``mode="soft"``, so we always route through the soft path
+        # here; callers wanting the legacy destructive path can flip
+        # ``force_hard=True``.
+        _fast_forward_head(
+            self.repo_root,
+            new_sha,
+            branch=self._current_branch_name(),
+            soft=True,
+        )
         current_head = _resolve_head_safe(self.repo_root)
         if current_head == new_sha:
             self.parent_snapshot = new_sha
@@ -712,13 +911,42 @@ def _current_branch_name_of(repo_root: Path) -> str:
     return result.stdout.strip() or "HEAD"
 
 
-def _fast_forward_head(repo_root: Path, new_sha: str) -> None:
-    """Advance the repo's HEAD-branch tip to ``new_sha`` when it is an ancestor.
+def _fast_forward_head(
+    repo_root: Path,
+    new_sha: str,
+    *,
+    branch: str | None = None,
+    soft: bool = False,
+) -> None:
+    """Advance the repo's HEAD-branch tip to ``new_sha`` when ancestor.
 
     We refuse to force-move HEAD; this only fires when ``new_sha``'s
     history contains the current HEAD. A step that produced a divergent
     branch leaves HEAD alone and the plan graph will surface the
     divergence via ``ract session ls``.
+
+    v0.5.1 wiring module_05 (Lens C C-04 closure). Two advance modes:
+
+    - ``soft=True`` (default in production commit path when a soft
+      compensator is being installed): use ``git reset --soft`` which
+      moves HEAD + branch pointer to ``new_sha`` WITHOUT touching the
+      index or the working tree. The pre-commit tree state stays
+      inspectable on disk -- this is what the compensator's
+      ``mode="soft"`` invariant was designed to guarantee. On a
+      subsequent unsuccessful disposal, the compensator's
+      ``git reset --soft`` back to ``sha_before`` restores loop state
+      atop the same tree, and an operator inspecting the worktree
+      sees the mid-loop state instead of the reflog-only history.
+    - ``soft=False`` (legacy / operator-forced): ``git reset --hard``
+      -- the pre-v0.5.1 wiring behavior. Kept for callers who want
+      the tree scrubbed at every commit boundary and accept the
+      inspectability trade-off.
+
+    ``branch`` is optional metadata; the actual advance uses
+    ``git reset`` which operates on the currently checked-out branch
+    regardless. It is captured in the WARN log message when the
+    advance fails so an operator can correlate a failed fast-forward
+    to a specific branch without a second git call.
     """
     is_ancestor = subprocess.run(
         [
@@ -736,12 +964,21 @@ def _fast_forward_head(repo_root: Path, new_sha: str) -> None:
     )
     if is_ancestor.returncode != 0:
         return
-    subprocess.run(
-        ["git", "-C", str(repo_root), "reset", "--hard", new_sha],
+    reset_mode = "--soft" if soft else "--hard"
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "reset", reset_mode, new_sha],
         capture_output=True,
         text=True,
         check=False,
     )
+    if result.returncode != 0:
+        _KNOT_LOGGER.warning(
+            "_fast_forward_head reset %s to %s failed on branch %r: %s",
+            reset_mode,
+            new_sha[:12],
+            branch or "<unknown>",
+            (result.stderr.strip() or result.stdout.strip()),
+        )
 
 
 def _maybe_emit_retrieval_satisfied(spec: SubstrateStepSpec) -> None:
@@ -781,6 +1018,70 @@ def _maybe_emit_retrieval_satisfied(spec: SubstrateStepSpec) -> None:
             step_id=spec.step_id,
         )
     except Exception:  # noqa: BLE001 — never fail the loop on a trace error
+        pass
+
+
+def _extract_sandbox_env(sandbox_ctx: object) -> dict[str, str] | None:
+    """Return the ``env`` dict from a rendered sandbox context.
+
+    v0.5.1 wiring module_05 (module_04 SP Q5 defer closure). The
+    module_04 backends yield ``BwrapCommand`` (Linux) or
+    ``SeatbeltProfile`` (macOS) whose ``.env`` field is the filtered
+    env from ``build_sandbox_env``. The Windows unenforced stub
+    yields ``None`` (or a shape without ``.env``); in that case
+    ``spawn_step_subprocess`` falls back to parent-env inherit.
+
+    Returns a fresh ``dict`` copy (never a shared reference) so a
+    caller mutating the returned env cannot leak back into the
+    backend's state. Returns ``None`` when the shape carries no
+    non-empty env dict.
+    """
+    if sandbox_ctx is None:
+        return None
+    env_attr = getattr(sandbox_ctx, "env", None)
+    if isinstance(env_attr, dict) and env_attr:
+        # Defensive stringify: sandbox contracts specify dict[str, str]
+        # but a foreign backend might slip in non-string values.
+        return {str(k): str(v) for k, v in env_attr.items()}
+    return None
+
+
+def _emit_process_reaped(handle: object, *, reason: str) -> None:
+    """Emit ``process.reaped`` into the trace sink for a killed handle.
+
+    v0.5.1 wiring module_05 (Lens C C-03). Fires once per
+    handle-kill inside :meth:`SubstrateLoop._reap_active_processes`
+    so an auditor can grep ``process.reaped`` to correlate a
+    rollback to the specific child trees that got SIGKILL'd. Payload
+    intentionally minimal (pid + argv[0] + reason + reap_latency_ms)
+    so the emit is cheap and the trace log stays readable.
+
+    Wrapped so a run without a registered writer (unit tests, ad-hoc
+    loops) still runs.
+    """
+    try:
+        from ract.trace.sink import emit as _emit_event
+
+        pid = getattr(handle, "pid", -1)
+        argv = getattr(handle, "argv", ())
+        spawned_at = getattr(handle, "spawned_at", None)
+        latency_ms = 0
+        if spawned_at is not None:
+            try:
+                latency_ms = int((time.monotonic() - float(spawned_at)) * 1000)
+            except (TypeError, ValueError):
+                latency_ms = 0
+        _emit_event(
+            "process.reaped",  # type: ignore[arg-type]
+            {
+                "pid": int(pid) if isinstance(pid, int) else -1,
+                "argv0": str(argv[0]) if argv else "",
+                "argv_len": len(argv) if isinstance(argv, (list, tuple)) else 0,
+                "reason": str(reason),
+                "reap_latency_ms": latency_ms,
+            },
+        )
+    except Exception:  # noqa: BLE001 -- never fail rollback on trace error
         pass
 
 

@@ -1082,8 +1082,9 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
     added. v0.5.1 module_09 landed
     ``manifest.ledger.appended|refused``,
     ``whisperer.contract_violation``, and
-    ``assumption.accepted``; this test pins schema_version to "4" at
-    the wired-v0.5.1 tree.
+    ``assumption.accepted`` (bumped to "4"). v0.5.1 wiring module_05
+    landed ``process.reaped`` for the Lens C C-03 tree-kill wire-in
+    (bumped to "5").
 
     Regression anchor: Lens B C6 of the 2026-08-21 8-lens audit
     surfaced that schema_version stuck at "3" while six new
@@ -1092,17 +1093,17 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
     the payload sections; this gate refuses a future kind-add that
     forgets the doc bump.
 
-    Also verifies the four v0.5.1 EventKind literals that are
+    Also verifies the five v0.5.1 EventKind literals that are
     load-bearing gate entries are present in ``LEGAL_EVENT_KINDS``.
     """
     text = (_REPO_ROOT / "docs" / "EVENTS.md").read_text(encoding="utf-8")
     match = re.search(r'^schema_version:\s*"(\d+)"', text, flags=re.MULTILINE)
     assert match, "docs/EVENTS.md frontmatter missing schema_version"
     doc_version = match.group(1)
-    assert doc_version == "4", (
-        f"docs/EVENTS.md schema_version {doc_version!r} != expected '4'. "
-        "v0.5.1 module_09 added new EventKinds; bump the frontmatter + "
-        "document the payloads per docs/EVENTS.md's own rule."
+    assert doc_version == "5", (
+        f"docs/EVENTS.md schema_version {doc_version!r} != expected '5'. "
+        "v0.5.1 wiring module_05 added ``process.reaped``; bump the "
+        "frontmatter + document the payload per docs/EVENTS.md's own rule."
     )
 
     # v0.5.1 kinds that must be in the closed literal.
@@ -1113,6 +1114,7 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
         "manifest.ledger.appended",
         "manifest.ledger.refused",
         "whisperer.contract_violation",
+        "process.reaped",
     )
     missing = [k for k in required if k not in LEGAL_EVENT_KINDS]
     assert not missing, (

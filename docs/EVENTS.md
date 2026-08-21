@@ -1,5 +1,5 @@
 ---
-schema_version: "4"
+schema_version: "5"
 ---
 
 # RACT event schema
@@ -256,6 +256,51 @@ carries the environment-allowlist audit for the invocation:
 Producer sites: `src/ract/security/sandbox_linux.py::LinuxSandbox.enter`,
 `src/ract/security/sandbox_macos.py::MacosSandbox.enter`,
 `src/ract/security/sandbox.py::UnenforcedSandbox.enter`.
+
+### Process group reap (v0.5.1 wiring module_05)
+
+#### `process.reaped`
+
+**Added in v0.5.1 wiring module_05 (Lens C C-03 closure).**
+
+Emitted by `SubstrateLoop._reap_active_processes` once per handle SIGKILL'd.
+The wire turns the process-group tree-kill from a silent WARN into a
+first-class trace signal an auditor can `grep process.reaped` to reconstruct
+which descendant trees each rollback path terminated.
+
+Payload:
+
+- `pid` (int) — the parent PID of the reaped tree (as returned by
+  `subprocess.Popen.pid`). `-1` when the handle's `pid` attribute was
+  unreadable (defensive; should never fire in production).
+- `argv0` (string) — the command name (`argv[0]`) as spawned. NOT the whole
+  argv (log-line width discipline). Empty string when the handle carries no
+  argv (defensive).
+- `argv_len` (int) — number of tokens in the spawn argv, so an auditor can
+  correlate against known command shapes without the full argv leaking
+  into the log.
+- `reason` (string) — the rollback path that fired the reap. One of
+  `"postcondition_failed"` (a required predicate returned `ok=False`),
+  `"commit_failed"` (`WorktreeManager.commit` raised), `"run_step_exception"`
+  (an uncaught exception unwound `run_step`), `"dispose_unsuccessful"`
+  (`SubstrateLoop.dispose(success=False)` fired), or a caller-supplied
+  string when the reaper is invoked from a test / custom path.
+- `reap_latency_ms` (int) — monotonic delta from `ProcessGroupHandle.spawned_at`
+  to reap in milliseconds. `0` when the spawn timestamp was unreadable.
+
+**Audit interpretation.** A `reason="dispose_unsuccessful"` event with
+`reap_latency_ms > 0` and `argv0` matching a background test process is
+the fingerprint of a step_runner that spawned a long-running child and
+failed to await it before the rollback. A cluster of `process.reaped`
+events in a single run is not a red flag on its own — the substrate reaps
+every registered handle on rollback; the operational signal is whether the
+argv0 pattern points at a step_runner bug (spawn-and-forget) or a normal
+rollback of a long-running test suite.
+
+Producer site: `src/ract/executor/loop.py::_emit_process_reaped`, called
+per-handle inside `SubstrateLoop._reap_active_processes`. The primitive
+that actually SIGKILL'd the tree lives at
+`src/ract/executor/process_group.py::kill_tree`.
 
 ### Predicates (module_01)
 

@@ -139,6 +139,17 @@ EventKind = Literal[
     # decide whether to reject the turn, force a re-ask, or record the
     # violation for post-run audit.
     "whisperer.contract_violation",
+    # v0.5.1 wiring module_05 (Lens C C-03 closure). Emitted by
+    # :meth:`ract.executor.loop.SubstrateLoop._reap_active_processes`
+    # once per handle killed. Payload carries ``pid``, ``argv0`` (the
+    # command name; not the whole argv to bound log width), ``argv_len``,
+    # ``reason`` (postcondition_failed / commit_failed /
+    # run_step_exception / dispose_unsuccessful), and ``reap_latency_ms``
+    # (monotonic delta from spawn to reap). The event turns the
+    # process-group tree-kill from silent WARN into a first-class trace
+    # signal an auditor can grep to reconstruct which descendant trees
+    # a specific rollback path SIGKILL'd.
+    "process.reaped",
 ]
 
 
