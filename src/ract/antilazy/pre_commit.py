@@ -222,17 +222,24 @@ def _require_gate_signature(signature: str, *, gate_id: str) -> str:
 class GateOutcome:
     """Result of running a pre-commit gate on a step transaction.
 
-    AL-1 invariant (v0.5.1 wiring module_07): ``rootknot_signature`` is
-    a non-empty hex-encoded content-binding attestation. Produced by
-    :func:`_compute_gate_signature` from the tuple ``(gate_id, passed,
-    report, run_id)``. Loop-controller refuses an outcome whose
-    signature is empty.
+    AL-1 invariant (v0.5.1 wiring module_07 + SP Q5 amendment):
+    ``rootknot_signature`` is a non-empty hex-encoded content-binding
+    attestation. Produced by :func:`_compute_gate_signature` from the
+    tuple ``(gate_id, passed, report, run_id)``. Enforced at
+    CONSTRUCTION TIME via ``__post_init__`` (SP Q5 amendment) so a
+    caller that forgets to populate the field cannot slip through —
+    the invariant is substrate, not caller-convention. Loop-controller
+    ``_require_al1_signature`` is defense-in-depth for hand-serialised
+    payloads that skip ``__init__``.
     """
 
     passed: bool
     should_roll_back: bool
     report: MutationReport
     rootknot_signature: str = ""
+
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G2")
 
 
 @dataclass(frozen=True)
@@ -248,6 +255,9 @@ class PatchDiffGateOutcome:
     report: PatchDifferentiationReport
     rootknot_signature: str = ""
 
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G3")
+
 
 @dataclass(frozen=True)
 class CoverageDeltaGateOutcome:
@@ -261,6 +271,9 @@ class CoverageDeltaGateOutcome:
     should_roll_back: bool
     report: CoverageDeltaReport
     rootknot_signature: str = ""
+
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G4")
 
 
 @dataclass(frozen=True)
@@ -282,6 +295,9 @@ class TestIntegrityGateOutcome:
     report: TestIntegrityReport
     rootknot_signature: str = ""
 
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G5")
+
 
 @dataclass(frozen=True)
 class UnderEditGateOutcome:
@@ -295,6 +311,9 @@ class UnderEditGateOutcome:
     should_roll_back: bool
     report: UnderEditReport
     rootknot_signature: str = ""
+
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G6")
 
 
 def enforce_g2(
@@ -911,6 +930,9 @@ class DeadCodePolyglotGateOutcome:
     report: object
     rootknot_signature: str = ""
 
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G5-polyglot")
+
 
 @dataclass(frozen=True)
 class TestCopyPastePolyglotGateOutcome:
@@ -930,6 +952,9 @@ class TestCopyPastePolyglotGateOutcome:
     # See :class:`DeadCodePolyglotGateOutcome`.
     report: object
     rootknot_signature: str = ""
+
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G6-polyglot")
 
 
 def enforce_g5_dead_code_polyglot(
@@ -1088,6 +1113,9 @@ class HoldoutGateOutcome:
     skipped: bool = False
     blocked_on_holdout_gap: bool = False
 
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G1")
+
 
 @dataclass(frozen=True)
 class CompanionGateOutcome:
@@ -1107,6 +1135,9 @@ class CompanionGateOutcome:
     skipped: bool = False
     skip_reason: str = ""
 
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G7")
+
 
 @dataclass(frozen=True)
 class EffortGateOutcome:
@@ -1124,6 +1155,9 @@ class EffortGateOutcome:
     rootknot_signature: str = ""
     skipped: bool = False
     skip_reason: str = ""
+
+    def __post_init__(self) -> None:
+        _require_gate_signature(self.rootknot_signature, gate_id="G8")
 
 
 def _emit_laziness_skipped(*, gate_id: str, reason: str) -> None:

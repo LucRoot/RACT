@@ -120,3 +120,28 @@ def test_check_never_raises_on_classifier_error(tmp_path):
     ):
         # Must not raise.
         controller._run_sycophancy_v2_check(it)
+
+
+def test_check_emits_classifier_error_event_on_crash(tmp_path):
+    """SP Q6.2 amendment: silent swallow becomes an explicit
+    ``whisperer.classifier_error`` event so the audit surface sees
+    the crash instead of a silent "inconclusive" downgrade.
+    """
+    controller = _make_controller(tmp_path)
+    it = _FakeIteration("intent", "response")
+
+    events: list = []
+
+    def _fake_emit(name, payload, **kwargs):
+        events.append((name, payload))
+
+    fake_classify = MagicMock(side_effect=RuntimeError("classifier boom"))
+    with patch("ract.antilazy.sycophancy_v2.classify", fake_classify):
+        with patch("ract.trace.sink.emit", _fake_emit):
+            controller._run_sycophancy_v2_check(it)
+
+    kinds = [name for (name, _) in events]
+    assert "whisperer.classifier_error" in kinds
+    payload = next(p for (n, p) in events if n == "whisperer.classifier_error")
+    assert payload["error_type"] == "RuntimeError"
+    assert "classifier boom" in payload["message"]

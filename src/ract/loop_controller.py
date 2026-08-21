@@ -1595,7 +1595,28 @@ class LoopController:
 
             classification = classify_sycophancy_v2(request, response)
             classification.emit_event()
-        except Exception:  # noqa: BLE001 — never break the loop on sycophancy check error
+        except Exception as exc:  # noqa: BLE001 — never break the loop on sycophancy check error
+            # SP Q6.2 amendment: silent swallow becomes explicit WARN
+            # log + best-effort event so a classifier crash is
+            # visible in the audit surface instead of invisibly
+            # downgrading the iteration's sycophancy signal to
+            # "inconclusive".
+            import logging  # noqa: PLC0415
+
+            logging.getLogger("ract.loop_controller").warning(
+                "sycophancy_v2 check raised %s: %s; treating as inconclusive",
+                type(exc).__name__,
+                exc,
+            )
+            try:
+                from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+                _emit_event(
+                    "whisperer.classifier_error",
+                    {"error_type": type(exc).__name__, "message": str(exc)[:512]},
+                )
+            except Exception:  # noqa: BLE001
+                pass
             return
 
     def _collect_changed_polyglot_files(
@@ -1743,7 +1764,35 @@ class LoopController:
             # halts. Any callsite constructing a GateOutcome by hand
             # without a signature is a substrate bug, not a loop bug.
             raise
-        except Exception:  # noqa: BLE001 — never break the loop on gate error
+        except Exception as exc:  # noqa: BLE001
+            # SP Q6.1 amendment: silent swallow narrowed to explicit
+            # WARN log + best-effort ``laziness.gate_error`` emit so a
+            # crash in one of the canonical enforcers is visible on
+            # the trace channel. The loop still continues (the block
+            # decision for G7/G8 remains with ``_run_completion_gates``
+            # and for G1 with the substrate ``check_t1`` dual-suite
+            # branch) — but the audit log carries the fact that a
+            # canonical enforce_gN raised.
+            import logging  # noqa: PLC0415
+
+            logging.getLogger("ract.loop_controller").warning(
+                "_run_canonical_g1_g7_g8 raised %s: %s; continuing loop",
+                type(exc).__name__,
+                exc,
+            )
+            try:
+                from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+                _emit_event(
+                    "laziness.gate_error",
+                    {
+                        "surface": "_run_canonical_g1_g7_g8",
+                        "error_type": type(exc).__name__,
+                        "message": str(exc)[:512],
+                    },
+                )
+            except Exception:  # noqa: BLE001
+                pass
             return
 
     def _require_al1_signature(self, outcome: Any, *, gate_id: str) -> None:

@@ -112,23 +112,42 @@ def test_require_gate_signature_accepts_valid_hex():
     assert _require_gate_signature(sig, gate_id="G_test") == sig
 
 
-def test_signature_field_default_is_empty_string_but_populated_by_enforce():
-    """The dataclass default is ``""`` — the AL-1 guarantee is that
-    every enforce_gN populates it. A hand-constructed outcome with
-    the default '' would be rejected by ``_require_gate_signature``.
+def test_al1_enforced_at_construction_time_not_just_callsite():
+    """SP Q5 amendment: ``__post_init__`` refuses empty signature.
+
+    Prior module_07 primary landed the guard only at the
+    ``LoopController._require_al1_signature`` callsite. The SP asked
+    to promote to substrate: the ``__post_init__`` on every
+    ``*GateOutcome`` now trips ``ValueError`` at construction so a
+    future gate that forgets to populate cannot slip through
+    unnoticed.
     """
+    from ract.antilazy.pre_commit import GateOutcome
+
+    with pytest.raises(ValueError, match="AL-1 invariant"):
+        GateOutcome(
+            passed=True,
+            should_roll_back=False,
+            report=None,  # type: ignore[arg-type]
+        )
+
+
+def test_al1_enforced_on_every_outcome_class_construction():
+    """The substrate promotion covers every ``*GateOutcome`` class."""
     from ract.antilazy.pre_commit import (
-        GateOutcome,
-        _require_gate_signature,
+        CompanionGateOutcome,
+        DeadCodePolyglotGateOutcome,
+        EffortGateOutcome,
+        HoldoutGateOutcome,
+        TestCopyPastePolyglotGateOutcome,
     )
 
-    # Direct construction with the default is legal at the dataclass
-    # level but would fail the invariant check.
-    hand = GateOutcome(
-        passed=True,
-        should_roll_back=False,
-        report=None,  # type: ignore[arg-type]
-    )
-    assert hand.rootknot_signature == ""
-    with pytest.raises(ValueError, match="AL-1 invariant"):
-        _require_gate_signature(hand.rootknot_signature, gate_id="G_hand")
+    for cls in (
+        HoldoutGateOutcome,
+        CompanionGateOutcome,
+        EffortGateOutcome,
+        DeadCodePolyglotGateOutcome,
+        TestCopyPastePolyglotGateOutcome,
+    ):
+        with pytest.raises(ValueError, match="AL-1 invariant"):
+            cls(passed=True, should_roll_back=False, report=None)

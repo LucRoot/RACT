@@ -97,3 +97,33 @@ def test_run_sycophancy_v2_check_method_exists_on_loop_controller():
 
     assert hasattr(LoopController, "_run_sycophancy_v2_check")
     assert callable(LoopController._run_sycophancy_v2_check)
+
+
+def test_no_production_module_imports_legacy_sycophancy_scanner():
+    """SP Q6.6 amendment: sweep ALL production modules, not just loop_controller.
+
+    A legacy ``scan_trace`` / ``taint_run`` import from
+    ``ract.antilazy.sycophancy`` in any production module would let
+    the legacy multi-turn scanner sneak back into the runtime path
+    outside the loop-controller's callback. This grep-gate refuses
+    such imports across the whole ``src/ract/`` tree. The legacy
+    module itself is exempt (it exports the primitives).
+    """
+    src_root = Path(__file__).resolve().parents[2] / "src" / "ract"
+    legacy_module_file = src_root / "antilazy" / "sycophancy.py"
+    violations: list[str] = []
+    for py_file in src_root.rglob("*.py"):
+        if py_file == legacy_module_file:
+            continue
+        if "__pycache__" in py_file.parts:
+            continue
+        try:
+            source = py_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if _has_legacy_sycophancy_call(source):
+            violations.append(str(py_file.relative_to(src_root)))
+    assert not violations, (
+        "legacy sycophancy scanner imports found in production modules "
+        f"(SP Q6.6): {violations}. Use ract.antilazy.sycophancy_v2 instead."
+    )
