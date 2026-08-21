@@ -121,6 +121,11 @@ class LoopController:
         strict_prompt_digest: bool = False,
         delete_orphaned_files_on_t8: bool = False,
         allow_iter1_delete_orphans: bool = False,
+        composition_runner: Any | None = None,
+        probe_scheduler: Any | None = None,
+        probe_provider: Any | None = None,
+        memory_indexes: Any | None = None,
+        memory_root: Path | str | None = None,
     ) -> None:
         self.config_path = Path(config_path)
         self.max_iterations = max(max_iterations, 1)
@@ -244,6 +249,51 @@ class LoopController:
         # has recorded a real workspace snapshot. Operators who WANT
         # aggressive iter-1 cleanup opt in explicitly.
         self.allow_iter1_delete_orphans = allow_iter1_delete_orphans
+
+        # ------------------------------------------------------------------
+        # v0.5.1 wiring module_08 (Lens E MEM-E-03 + MEM-E-04) closure
+        # ------------------------------------------------------------------
+        # Memory-discipline wire-in. All four fields are OPT-IN --
+        # default None preserves prior LoopController behavior. When
+        # supplied, the loop fires the probe scheduler once at run()
+        # entry (self-adjustment record persisted to
+        # ``.rack/probes/capability.json``), consults the record on
+        # every budget request (see budget_registry.get_with_capability_clamp),
+        # and hands the CompositionRunner + IndexBundle to the
+        # `_run_composed_retrieval` method for use by downstream
+        # verbs that need a composed query.
+        #
+        # - ``composition_runner``: an instance whose
+        #   ``run_playbook(spec, request, repo_root, provider, indexes, ...)``
+        #   matches ``ract.memory.composition_runner.run_playbook``.
+        #   The loop treats a bare function as valid too.
+        # - ``probe_scheduler``: a
+        #   ``ract.memory.probes.scheduler.ProbeScheduler`` instance.
+        # - ``probe_provider``: the provider passed to
+        #   :meth:`ProbeScheduler.run_once`. Required for the
+        #   scheduler to fire; if None the wire-in is a no-op even
+        #   when ``probe_scheduler`` is set.
+        # - ``memory_indexes``: an
+        #   ``ract.memory.functions.IndexBundle`` passed to the
+        #   composition runner. Optional; when None the runner is
+        #   still available but any invocation must pass its own
+        #   indexes.
+        # - ``memory_root``: the repo root under which the capability
+        #   record lives (`root/.rack/probes/capability.json`).
+        #   Defaults to ``self.project_dir`` when a probe scheduler is
+        #   attached and no explicit root is given, so budget clamps
+        #   fire against the same probe artifact the scheduler wrote.
+        self.composition_runner = composition_runner
+        self.probe_scheduler = probe_scheduler
+        self.probe_provider = probe_provider
+        self.memory_indexes = memory_indexes
+        if memory_root is not None:
+            self.memory_root: Path | None = Path(memory_root)
+        elif probe_scheduler is not None:
+            self.memory_root = self.project_dir
+        else:
+            self.memory_root = None
+        self._probes_ran_this_run: bool = False
 
     def _take_snapshot(self) -> dict[str, str]:
         """Return a snapshot of Python file contents relative to project_dir."""
@@ -799,6 +849,15 @@ class LoopController:
         done_callback: Callable[[LoopIteration], bool] | None = None,
     ) -> LoopResult:
         """Body of :meth:`run` executed under the bound ambient run_id."""
+        # v0.5.1 wiring module_08 (Lens E MEM-E-04) closure: fire the
+        # ProbeScheduler once at run() entry so the capability record
+        # persisted at ``memory_root/.rack/probes/capability.json``
+        # reflects the current provider's real bounds. Subsequent
+        # budget requests via ``budget_registry.get_with_capability_clamp``
+        # consult that record and clamp ``input_target`` /
+        # ``input_max`` accordingly. No-op when either the scheduler
+        # or the provider is None.
+        self._run_probe_scheduler_at_start()
         if self.planner is not None and self.backlog is None:
             self.backlog = self._load_or_generate_backlog(intent)
 
@@ -1794,6 +1853,129 @@ class LoopController:
             except Exception:  # noqa: BLE001
                 pass
             return
+
+    # ------------------------------------------------------------------
+    # v0.5.1 wiring module_08 -- memory-discipline dispatch
+    # ------------------------------------------------------------------
+
+    def _run_probe_scheduler_at_start(self) -> None:
+        """Fire the ProbeScheduler once at run() entry.
+
+        No-op when either ``self.probe_scheduler`` or
+        ``self.probe_provider`` is None (opt-in wire-in). Runs at
+        most once per :meth:`run` call (guard: ``_probes_ran_this_run``)
+        so a caller who ``run()`` s multiple times still probes each
+        run but a single run does not re-probe on every iteration.
+
+        Writes the reduced capability record to
+        ``memory_root/.rack/probes/capability.json`` via
+        :func:`~ract.memory.probes.scheduler.write_capability_record`
+        so :func:`~ract.memory.budget_registry.get_with_capability_clamp`
+        reads it on subsequent budget requests. Errors are logged +
+        emitted (``memory.probe_scheduler_error``) and never break
+        the loop.
+
+        v0.5.1 wiring module_08 (Lens E MEM-E-04) closure.
+        """
+        if self.probe_scheduler is None or self.probe_provider is None:
+            return
+        if self._probes_ran_this_run:
+            return
+        self._probes_ran_this_run = True
+        try:
+            from ract.memory.probes.scheduler import (  # noqa: PLC0415
+                write_capability_record,
+            )
+
+            reports = self.probe_scheduler.run_once(self.probe_provider)
+            root = self.memory_root or self.project_dir
+            write_capability_record(reports, Path(root))
+        except Exception as exc:  # noqa: BLE001 -- probe failure never breaks the loop
+            import logging  # noqa: PLC0415
+
+            logging.getLogger("ract.loop_controller").warning(
+                "probe scheduler run_once raised %s: %s; continuing without "
+                "capability clamp",
+                type(exc).__name__,
+                exc,
+            )
+            try:
+                from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+                _emit_event(
+                    "memory.probe_scheduler_error",
+                    {
+                        "error_type": type(exc).__name__,
+                        "message": str(exc)[:512],
+                    },
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+    def _run_composed_retrieval(
+        self,
+        spec: Any,
+        request: str,
+        provider: Any,
+        *,
+        indexes: Any | None = None,
+        **kwargs: Any,
+    ) -> Any | None:
+        """Dispatch a composed retrieval through the attached CompositionRunner.
+
+        Returns the :class:`~ract.memory.composition_runner.PlaybookResult`
+        (or the runner's own return type) on success. Returns None
+        when no composition runner is attached OR when the required
+        ``indexes`` bundle is missing (neither an explicit ``indexes``
+        arg nor ``self.memory_indexes`` supplies one).
+
+        The runner may be a callable (``run_playbook``-shaped
+        function) or an object with a ``run_playbook`` method; both
+        are supported so tests can inject a bare lambda.
+
+        v0.5.1 wiring module_08 (Lens E MEM-E-04) closure.
+        """
+        if self.composition_runner is None:
+            return None
+        active_indexes = indexes if indexes is not None else self.memory_indexes
+        if active_indexes is None:
+            return None
+        runner_call = self.composition_runner
+        if hasattr(runner_call, "run_playbook") and not callable(runner_call):
+            runner_call = runner_call.run_playbook
+        elif hasattr(runner_call, "run_playbook") and callable(runner_call):
+            # Object exposes both -- prefer explicit method to be safe.
+            method = getattr(runner_call, "run_playbook", None)
+            if method is not None:
+                runner_call = method
+        try:
+            return runner_call(
+                spec,
+                request,
+                self.memory_root or self.project_dir,
+                provider,
+                active_indexes,
+                **kwargs,
+            )
+        except Exception as exc:  # noqa: BLE001
+            import logging  # noqa: PLC0415
+
+            logging.getLogger("ract.loop_controller").warning(
+                "composition_runner raised %s: %s", type(exc).__name__, exc
+            )
+            try:
+                from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+                _emit_event(
+                    "memory.composition_runner_error",
+                    {
+                        "error_type": type(exc).__name__,
+                        "message": str(exc)[:512],
+                    },
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            return None
 
     def _require_al1_signature(self, outcome: Any, *, gate_id: str) -> None:
         """Reject a gate outcome carrying an empty AL-1 signature.

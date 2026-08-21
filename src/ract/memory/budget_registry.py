@@ -237,12 +237,129 @@ def get(function: str, *, path: Path | None = None) -> BudgetDeclaration:
     return cast(BudgetDeclaration, cache[function])
 
 
+def get_with_capability_clamp(
+    function: str,
+    root: Path | None = None,
+    *,
+    path: Path | None = None,
+) -> BudgetDeclaration:
+    """Return :func:`get` clamped by the persisted capability record.
+
+    v0.5.1 wiring module_08 (Lens E MEM-E-03) closure. Reads the
+    reduced :class:`~ract.memory.probes.scheduler.ModelCapability`
+    record persisted by
+    :func:`~ract.memory.probes.scheduler.write_capability_record` at
+    ``root / .rack / probes / capability.json``. If present and its
+    ``usable_context_window`` is smaller than the base declaration's
+    ``input_target`` / ``input_max``, the declaration is narrowed via
+    :func:`~ract.memory.composition.apply_runtime_narrowing` so the
+    caller's model call actually respects the probed capability.
+
+    Backward-compat: ``root=None`` skips the read and returns the
+    un-clamped declaration. A missing capability file returns the
+    un-clamped declaration too (fresh install path). A malformed
+    file raises loudly via :func:`read_capability_record`.
+
+    Emits ``budget.adjusted_by_probes`` on clamp with the reduced
+    fields so an operator can see which functions the probes shrunk.
+    """
+    base = get(function, path=path)
+    if root is None:
+        return base
+    # Imported inline to keep the module-load graph free of a cycle
+    # via ``probes.scheduler`` -> ``memory.events`` -> registry.
+    from ract.memory.probes.scheduler import (  # noqa: PLC0415
+        read_capability_record,
+    )
+
+    try:
+        capability = read_capability_record(root)
+    except ValueError:
+        # Malformed file surfaces as a hard failure at read time so a
+        # corrupted probe artifact does not silently defeat the
+        # clamp. Callers who catch this can fall back to ``get()``.
+        raise
+    if capability is None:
+        return base
+
+    usable = int(capability.usable_context_window)
+    if usable <= 0:
+        return base
+    narrowings = []
+    from ract.memory.budget import BudgetNarrowing  # noqa: PLC0415
+
+    # input_target has a runaway-narrowing floor at base.input_target // 2
+    # (see ``composition.apply_runtime_narrowing``). Respect it: shrink
+    # to the probed window only when doing so stays at or above the
+    # floor; otherwise clamp to the floor so the clamp is honored as
+    # far as policy permits and does not raise RuntimeNarrowingFloorError.
+    # input_max must remain >= new_target to keep the BudgetDeclaration
+    # invariant, so both fields land at max(usable, floor) when the
+    # probed window is smaller than the floor.
+    floor = base.input_target // 2
+    new_target = base.input_target
+    if usable < base.input_target:
+        new_target = max(usable, floor)
+    new_max = base.input_max
+    if usable < base.input_max:
+        new_max = max(usable, new_target)
+
+    if new_max < base.input_max:
+        narrowings.append(
+            BudgetNarrowing(
+                function=function,
+                field_name="input_max",
+                old=base.input_max,
+                new=new_max,
+                source="runtime",
+            )
+        )
+    if new_target < base.input_target:
+        narrowings.append(
+            BudgetNarrowing(
+                function=function,
+                field_name="input_target",
+                old=base.input_target,
+                new=new_target,
+                source="runtime",
+            )
+        )
+    if not narrowings:
+        return base
+    from ract.memory.composition import apply_runtime_narrowing  # noqa: PLC0415
+
+    clamped = apply_runtime_narrowing(base, narrowings)
+    # Best-effort emit so the audit surface sees the probe-driven
+    # clamp. Import guarded so a caller wired without the trace sink
+    # never breaks the call.
+    try:
+        from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+        _emit_event(
+            "budget.adjusted_by_probes",
+            {
+                "function": function,
+                "usable_context_window": usable,
+                "reasoning_quality_bound": int(capability.reasoning_quality_bound),
+                "persistence_bound": int(capability.persistence_bound),
+                "old_input_target": int(base.input_target),
+                "new_input_target": int(clamped.input_target),
+                "old_input_max": int(base.input_max),
+                "new_input_max": int(clamped.input_max),
+            },
+        )
+    except Exception:  # noqa: BLE001 -- trace failure must not break the call
+        pass
+    return clamped
+
+
 __all__ = [
     "BudgetSchemaError",
     "DEFAULTS_PATH",
     "SUPPORTED_SCHEMA_VERSIONS",
     "UnknownFunctionError",
     "get",
+    "get_with_capability_clamp",
     "load_defaults",
 ]
 

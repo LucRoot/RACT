@@ -27,6 +27,7 @@ from ract.memory.budget import (
 from ract.memory.budget_registry import (
     UnknownFunctionError,
     get,
+    get_with_capability_clamp,
     load_defaults,
 )
 from ract.memory.composition import (
@@ -72,6 +73,7 @@ from ract.memory.lsp_fallback import (
     populate_symbol_only,
 )
 from ract.memory.cache import (
+    DEFAULT_TTL_SECONDS as CACHE_DEFAULT_TTL_SECONDS,
     RetrievalCache,
     RetrievalCacheError,
 )
@@ -215,6 +217,7 @@ __all__ = [
     "BudgetNarrowing",
     "BudgetSection",
     "BuildReport",
+    "CACHE_DEFAULT_TTL_SECONDS",
     "CHUNK_KINDS",
     "CURRENT_SCHEMA_VERSION",
     "CascadeStep",
@@ -304,6 +307,7 @@ __all__ = [
     "apply_runtime_narrowing",
     "compute_repo_fingerprint",
     "failure_from_phase_record",
+    "get_with_capability_clamp",
     "read_all_failures",
     "read_capability_record",
     "read_repo_fingerprint",

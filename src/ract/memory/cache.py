@@ -8,6 +8,17 @@ the module_02 watcher publishes an invalidation via
 :meth:`RetrievalCache.invalidate_by_symbol` so bundles that reference
 that symbol drop out of the cache.
 
+v0.5.1 wiring module_08 (Lens E MEM-E-01) closure: TTL enforcement.
+Every entry records a ``created_at`` timestamp; :meth:`lookup` now
+consults ``ttl_seconds`` (default 3600s = 1h; configurable per
+instance) and drops the row on miss when it has aged past the TTL.
+The v0.5.0 shape recorded ``created_at`` but never read it -- a
+long-lived process could serve indefinitely-old bundles between
+watcher invalidations. Wired paired with
+:class:`~ract.memory.watcher.SymbolIndexWatcher` cascading to
+:meth:`invalidate_by_file` on every source change so an in-place
+edit and an idle bundle both drop stale entries in production.
+
 The cache lives at ``.rack/cache/retrieval.db`` in a real repo; tests
 open a temp path. Schema is created idempotently at open time so a
 loader is safe against an existing store.
@@ -46,6 +57,16 @@ from ract.core.module_identity import _module_knot, register_module_knot
 
 CURRENT_SCHEMA_VERSION: str = "v1"
 
+DEFAULT_TTL_SECONDS: int = 3600
+"""Default TTL for cached bundles (1 hour).
+
+v0.5.1 wiring module_08 (Lens E MEM-E-01) closure. Overridable per
+:class:`RetrievalCache` instance via the ``ttl_seconds`` constructor
+argument. Set to ``0`` (or a negative value) to disable TTL
+enforcement -- a caller that wants "cache forever, invalidate only
+on source change" opts in explicitly.
+"""
+
 
 class RetrievalCacheError(RuntimeError):
     """Raised on caller-side misuse of the retrieval cache API."""
@@ -80,7 +101,12 @@ class RetrievalCache:
     via :meth:`close`.
     """
 
-    def __init__(self, store_path: Path | str) -> None:
+    def __init__(
+        self,
+        store_path: Path | str,
+        *,
+        ttl_seconds: int = DEFAULT_TTL_SECONDS,
+    ) -> None:
         self._store_path: Path = Path(store_path).resolve()
         self._store_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn: sqlite3.Connection = sqlite3.connect(
@@ -92,7 +118,18 @@ class RetrievalCache:
         self._conn.execute("PRAGMA journal_mode = WAL")
         self._conn.execute("PRAGMA synchronous = NORMAL")
         self._lock = threading.Lock()
+        # v0.5.1 wiring module_08 (Lens E MEM-E-01) closure: TTL is a
+        # per-instance setting so tests can pin a short TTL
+        # deterministically while production runs at DEFAULT_TTL_SECONDS.
+        # A zero-or-negative value disables the TTL check (unbounded
+        # cache, invalidate-on-source-change only).
+        self._ttl_seconds: int = int(ttl_seconds)
         self._create_schema()
+
+    @property
+    def ttl_seconds(self) -> int:
+        """Return the configured TTL in seconds."""
+        return self._ttl_seconds
 
     def __enter__(self) -> "RetrievalCache":
         return self
@@ -153,15 +190,51 @@ class RetrievalCache:
         the caller re-hydrates :class:`Chunk` instances (this module
         stays free of a chunk import so the cache can land without a
         cycle).
+
+        v0.5.1 wiring module_08 (Lens E MEM-E-01) closure: TTL
+        enforcement. An entry whose ``created_at + ttl_seconds`` is in
+        the past is treated as a miss AND deleted so the cache does
+        not accumulate expired rows over a long-lived process. TTL
+        <= 0 disables the check (v0.5.0-compat: cache-forever mode).
         """
         key = _cache_key(query_payload, repo_commit_hash)
         cur = self._conn.execute(
-            "SELECT bundle_json FROM retrieval_cache WHERE cache_key = ?", (key,)
+            "SELECT bundle_json, created_at FROM retrieval_cache "
+            "WHERE cache_key = ?",
+            (key,),
         )
         row = cur.fetchone()
         if row is None:
             return None
+        if self._ttl_seconds > 0:
+            now = int(time.time())
+            created_at = int(row["created_at"])
+            if created_at + self._ttl_seconds < now:
+                # Expired: delete the stale row and treat as a miss.
+                with self._lock:
+                    self._conn.execute(
+                        "DELETE FROM retrieval_cache WHERE cache_key = ?",
+                        (key,),
+                    )
+                return None
         return json.loads(row["bundle_json"])
+
+    def invalidate_expired(self) -> int:
+        """Drop every entry whose TTL has passed. Returns rows deleted.
+
+        v0.5.1 wiring module_08 (Lens E MEM-E-01) closure. TTL <= 0
+        disables the check and returns 0 (nothing to do). The watcher's
+        periodic-scan thread invokes this on each tick so a cache
+        that never sees a matching ``lookup`` still ages.
+        """
+        if self._ttl_seconds <= 0:
+            return 0
+        cutoff = int(time.time()) - self._ttl_seconds
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM retrieval_cache WHERE created_at < ?", (cutoff,)
+            )
+        return cur.rowcount
 
     def store(
         self,
@@ -254,6 +327,7 @@ class RetrievalCache:
 
 __all__ = [
     "CURRENT_SCHEMA_VERSION",
+    "DEFAULT_TTL_SECONDS",
     "RetrievalCache",
     "RetrievalCacheError",
 ]
