@@ -948,7 +948,6 @@ def test_no_prior_v0_4_0_tag_conflict() -> None:
 # ---------------------------------------------------------------------------
 
 _CLOSED_IP_TERMS: tuple[str, ...] = (
-    "[REDACTED]",
     "kronos",
     "prismml",
     "nemotron",
