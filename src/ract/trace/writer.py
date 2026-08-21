@@ -187,13 +187,13 @@ class JsonlEventWriter:
         writer's hot construction path would add O(N) startup on
         every reopen, which is a real cost for long-running loops.
         """
+        # SP Q6 [NIT] amendment: collapse the stat() + read_bytes()
+        # TOCTOU pair into a single read_bytes() call; a concurrent
+        # writer growing/shrinking the file between the two syscalls
+        # cannot then mislead the seed decision. A missing file
+        # (post-stat unlink) surfaces as FileNotFoundError; a permission
+        # flip surfaces as PermissionError. Both are handled below.
         if not self.path.is_file():
-            return
-        try:
-            size = self.path.stat().st_size
-        except OSError:
-            return
-        if size == 0:
             return
         try:
             raw = self.path.read_bytes()
@@ -206,16 +206,25 @@ class JsonlEventWriter:
                 exc,
             )
             return
+        if not raw:
+            return
+        # SP Q6 [DEFECT] amendment: a UTF-8 decode failure on the
+        # events.jsonl file means the on-disk state is unreadable by
+        # the writer. Falling through to GENESIS would silently break
+        # the chain (the new writer would append with prev_hash=0*32
+        # while the file already carries hex-encoded event lines whose
+        # tail hash disagrees). Refuse construction instead -- the
+        # operator inspects and repairs before the writer produces
+        # bytes.
         try:
             text = raw.decode("utf-8", errors="strict")
-        except UnicodeDecodeError:
-            _LOG.warning(
-                "JsonlEventWriter: %s is not valid UTF-8; starting "
-                "from GENESIS. New appends will break the chain if the "
-                "file already carries events.",
-                self.path,
-            )
-            return
+        except UnicodeDecodeError as exc:
+            raise ChainBrokenError(
+                f"JsonlEventWriter: {self.path} is not valid UTF-8 "
+                f"({exc}); refusing to reseed to GENESIS because that "
+                "would silently break the chain. Inspect the file and "
+                "repair (or delete + restart the run) before reopening."
+            ) from exc
         lines = [line for line in text.split("\n") if line.strip()]
         if not lines:
             return

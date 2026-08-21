@@ -513,9 +513,14 @@ def build_loop_state(
                 raise
             except SuiteChainLockContended as exc:
                 # Another writer is landing an entry; tolerate.
+                # v0.5.1 module_09 SP Q4 [NIT] amendment: promoted to
+                # WARN so operators see the contention alongside the
+                # ``_last_chain_load_error`` surface. Prior INFO was
+                # too quiet given the state is also being written to
+                # the LoopState observability field.
                 import logging
 
-                logging.getLogger("ract.core.loop").info(
+                logging.getLogger("ract.core.loop").warning(
                     "build_loop_state: SuiteChain lock contended at "
                     "entry-0 append; deferring to concurrent writer."
                 )

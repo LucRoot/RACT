@@ -96,6 +96,25 @@ def test_reopen_ignores_missing_file(tmp_path: Path) -> None:
     assert writer.chain.tip_hash == _GENESIS_HASH
 
 
+def test_reopen_on_invalid_utf8_refuses_construction(tmp_path: Path) -> None:
+    """SP Q6 [DEFECT] amendment: a UTF-8 decode failure on the
+    events.jsonl file MUST raise :class:`ChainBrokenError`, not
+    silently fall through to a GENESIS reseed. Falling through would
+    let the writer append a first event with ``prev_hash = 0*32``
+    while the file already carries hex-encoded events whose tail hash
+    disagrees -- the chain would silently break on the next full-file
+    verify.
+    """
+    from ract.trace.events import ChainBrokenError
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_bytes(b"\xff\xfe\x00\x00 not valid UTF-8 \x80\x81\n")
+    import pytest as _pytest
+
+    with _pytest.raises(ChainBrokenError):
+        JsonlEventWriter(events_path, run_id=_RUN_ID)
+
+
 def test_reopen_uses_ambient_run_id(tmp_path: Path) -> None:
     """The reseed path must work when the writer resolves run_id from
     the ambient binding (module_06 wire-in) rather than an explicit arg.

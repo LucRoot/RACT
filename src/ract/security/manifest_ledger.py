@@ -792,6 +792,39 @@ class ManifestLedger:
         entries -- the caller compares ``tail_valid_count`` to the
         expected length to detect that class of tamper (see SP Q4
         note in module_07 fragment).
+
+        v0.5.1 module_09 SP Q3 [PARTIAL] documentation amendment: the
+        ``entry_index`` stamp added in module_09 detects a NAIVE
+        middle-excise (attacker removes middle entries + recomputes
+        ``prev_ledger_hash`` on the survivors but leaves each
+        surviving entry's own stamped ``entry_index`` intact -- the
+        physical-vs-stamped position check fires). The stamp does
+        NOT close every excision surface:
+
+        - **Full recomputation**: an attacker who ALSO renumbers each
+          surviving entry (rewriting stamped ``entry_index`` to match
+          the new physical position) AND recomputes every downstream
+          ``prev_ledger_hash`` produces a chain that verifies cleanly.
+          This requires far more effort than a naive excise but is
+          possible with file-write access alone.
+        - **Tail truncation**: dropping the last N entries leaves a
+          shorter chain that verifies as ``valid=True`` for the
+          prefix (the ``entry_index`` density is still dense from 0).
+          Detection requires comparing ``tail_valid_count`` to an
+          expected count carried out of band (event log, receipt
+          chain, external anchor).
+        - **Pre-module_09 entries**: entries without an
+          ``entry_index`` stamp skip the density check for backward
+          compat. A ledger consisting entirely of pre-module_09
+          entries is vulnerable to the naive excise the stamp closes
+          for new entries. As the ledger churns and new entries land
+          with stamps, the exposed prefix shrinks.
+
+        Closing the "attacker with write access is also the attacker"
+        surface completely requires external anchoring (a checkpoint
+        signed by an operator key OR a periodic tail-hash publication
+        into the event log / receipt chain / transparency log). That
+        work is a v0.6 gap tracked in module_09.md.
         """
         entries = self.load()
         if not entries:
