@@ -15,8 +15,12 @@ from unittest.mock import patch
 from ract.cli import main
 
 
-def test_auto_on_headless_stdin_refuses_with_exit_two() -> None:
-    """``ract --auto "..."`` on a non-TTY stdin exits 2 with a diagnostic."""
+def test_auto_on_headless_stdin_refuses_with_exit_three() -> None:
+    """``ract --auto "..."`` on a non-TTY stdin exits 3 with a diagnostic.
+
+    SP Q7 [NIT] amendment: distinct exit code (3) so CI scripts can tell
+    "runtime precondition failed" apart from argparse's usage exit 2.
+    """
     stderr = io.StringIO()
     stdout = io.StringIO()
     with (
@@ -26,7 +30,7 @@ def test_auto_on_headless_stdin_refuses_with_exit_two() -> None:
     ):
         fake_stdin.isatty.return_value = False
         code = main(["--auto", "some intent"])
-    assert code == 2, f"expected exit 2 on headless --auto; got {code}"
+    assert code == 3, f"expected exit 3 on headless --auto; got {code}"
     combined = stderr.getvalue() + stdout.getvalue()
     assert "TTY" in combined or "yolo" in combined.lower()
 

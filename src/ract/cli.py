@@ -4481,6 +4481,11 @@ def main(argv: list[str] | None = None) -> int:
         # loudly instead. Operators wanting headless approval
         # semantics should use ``--yolo`` (approve-all) or wire a
         # non-console callback via the library API.
+        #
+        # SP Q7 [NIT] amendment: exit 3 (not 2). Argparse uses exit 2
+        # for usage errors; a distinct code lets CI scripts
+        # distinguish "invocation was well-formed but the runtime
+        # precondition (a TTY) is not met" from "user typo".
         if not sys.stdin.isatty():
             print(
                 "[ract] --auto requires a TTY (stdin is not a terminal). "
@@ -4488,7 +4493,7 @@ def main(argv: list[str] | None = None) -> int:
                 "real terminal for interactive approval.",
                 file=sys.stderr,
             )
-            return 2
+            return 3
         console.direct("auto mode: approval required per step")
     if args.reload:
         console.direct("reload mode: re-run after success")

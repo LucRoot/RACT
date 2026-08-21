@@ -122,16 +122,54 @@ def manifest_ledger_command(args: list[str]) -> int:
 
 
 def _verify(ledger, json_output: bool) -> int:
+    """Run verify_chain and print result.
+
+    SP Q10 [NIT] amendment (external reviewer): distinct exit codes so
+    CI scripts can tell "verifier ran and detected tamper" apart from
+    "verifier itself crashed":
+
+    - 0 -- chain valid.
+    - 1 -- chain broken (tamper detected; expected failure mode).
+    - 2 -- verifier crashed (LedgerCorruptError, unexpected error).
+
+    Both non-zero codes are still non-zero (so ``if ! ract manifest
+    ledger verify`` in a shell script continues to detect any
+    failure), but ``$?`` disambiguates the two.
+    """
     from ract.security.manifest_ledger import LedgerCorruptError
 
     try:
         result = ledger.verify_chain()
     except LedgerCorruptError as exc:
         if json_output:
-            print(json.dumps({"valid": False, "error": str(exc)}, indent=2))
+            print(
+                json.dumps(
+                    {"valid": False, "error": str(exc), "error_kind": "corrupt"},
+                    indent=2,
+                )
+            )
         else:
             print(f"[ract] manifest ledger verify: corrupt: {exc}", file=sys.stderr)
-        return 1
+        return 2
+    except Exception as exc:  # noqa: BLE001 -- surface the crash class distinctly
+        if json_output:
+            print(
+                json.dumps(
+                    {
+                        "valid": False,
+                        "error": str(exc),
+                        "error_kind": type(exc).__name__,
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(
+                f"[ract] manifest ledger verify: verifier error "
+                f"({type(exc).__name__}): {exc}",
+                file=sys.stderr,
+            )
+        return 2
     payload = {
         "valid": result.valid,
         "first_break_at": result.first_break_at,

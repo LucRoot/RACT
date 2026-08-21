@@ -110,15 +110,26 @@ def migrate_rack_to_ract(root: Path | str) -> str:
     legacy_exists = legacy.exists()
 
     if modern_exists and legacy_exists:
-        _LOG.warning(
-            "workspace state migration: BOTH %s and %s exist at %s; "
-            "preferring %s. Move any %s content by hand and delete "
-            "the legacy directory to silence this warning.",
-            WORKSPACE_STATE_DIR_NAME,
-            LEGACY_STATE_DIR_NAME,
-            root_path,
-            WORKSPACE_STATE_DIR_NAME,
-            LEGACY_STATE_DIR_NAME,
+        # SP Q2 [PARTIAL] amendment: the WARN alone is easy to miss
+        # in noisy CI logs, and silent divergence is the exact
+        # failure mode Lens A C2 flagged. Emit an ALLCAPS stderr
+        # one-liner in addition to the logger so any operator eye
+        # on the shell notices immediately. The migration still
+        # refuses to touch either directory automatically -- merging
+        # blindly could delete real state.
+        msg = (
+            f"workspace state migration: BOTH {WORKSPACE_STATE_DIR_NAME} "
+            f"and {LEGACY_STATE_DIR_NAME} exist at {root_path}; "
+            f"preferring {WORKSPACE_STATE_DIR_NAME}. Move any "
+            f"{LEGACY_STATE_DIR_NAME} content by hand and delete the "
+            "legacy directory to silence this warning."
+        )
+        _LOG.warning(msg)
+        import sys as _sys
+
+        print(
+            f"[ract] WARN: {msg}",
+            file=_sys.stderr,
         )
         return "warned_both"
 
