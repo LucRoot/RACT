@@ -321,13 +321,41 @@ else:
             pass
 
 
+# v0.5.1 wiring module_02 SP Q4 amendment: the lock-free reader
+# relies on ``os.write`` single-write atomicity. POSIX guarantees
+# atomicity up to ``PIPE_BUF`` (>= 512 bytes; typically 4096 on Linux
+# for regular files under O_APPEND); Windows ``WriteFile`` on NTFS
+# atomicity is bounded by a similar per-call ceiling. A chain-edge
+# payload today is a two-hex-digest struct with an optional 32-hex
+# run_id -- around 200 bytes canonical -- but a caller passing an
+# unbounded payload could exceed the atomicity envelope and let a
+# concurrent reader observe a torn line. Enforce a conservative
+# 512-byte cap at write time; any writer that would exceed it
+# raises loudly rather than silently exposing the reader to torn
+# reads.
+_MAX_EDGE_LINE_BYTES = 512
+
+
 def _canonical_edge_line(payload: dict[str, Any]) -> bytes:
     """Return one canonical JSONL line for a chain edge.
 
     v0.5.1 module_03: canonical bytes are RFC 8785 JCS. The trailing
     newline is JSONL framing, not part of the canonical byte sequence.
+
+    v0.5.1 wiring module_02 SP Q4: enforces the ``_MAX_EDGE_LINE_BYTES``
+    cap so the lock-free reader's atomicity assumption stays valid.
+    A caller producing a payload above the cap surfaces the defect at
+    the writer -- never at the reader with a partially-materialised
+    JSON fragment.
     """
-    return dumps_jcs(payload) + b"\n"
+    line = dumps_jcs(payload) + b"\n"
+    if len(line) > _MAX_EDGE_LINE_BYTES:
+        raise ValueError(
+            f"chain edge payload {len(line)} bytes exceeds "
+            f"{_MAX_EDGE_LINE_BYTES}-byte atomicity cap; lock-free "
+            "reader would observe torn state under concurrent write"
+        )
+    return line
 
 
 @dataclass(frozen=True)
@@ -383,6 +411,10 @@ class WorkspaceDigestChain:
     # Public surface
     # ------------------------------------------------------------------
 
+    # TODO(D7, v0.5.2): reject duplicate ``child`` in ``append`` --
+    # the docstring at line 366 promises "a snapshot digest may
+    # appear at most once as a child" but the writer does not
+    # enforce it, allowing silent re-parent injection.
     def append(
         self,
         child: Digest,
@@ -439,40 +471,39 @@ class WorkspaceDigestChain:
         :class:`WorkspaceChainCorruptError` — non-append corruption is
         not tolerable.
 
-        Module_02 SP Q5 fix (external reviewer DEFECT verdict): the
-        read path now takes the same exclusive file lock as the write
-        path for the duration of the snapshot read. This closes the
-        reader-vs-writer race the reviewer identified — a concurrent
-        writer's in-flight ``os.write`` (which is atomic per-write on
-        both POSIX and Windows for short lines) is either fully
-        visible or not present, but the lock guarantees the reader
-        never observes a torn state even under adversarial timing.
-        In-process threading contention is serialised by the same
-        ``self._thread_lock`` the write path uses.
+        v0.5.1 wiring module_02 (Lens D D5): the read path is
+        lock-free. The earlier implementation opened the fd
+        ``O_RDONLY`` then called ``_lock_exclusive`` which on Windows
+        ends up as ``msvcrt.locking(fd, LK_NBLCK, 1)`` -- that
+        primitive requires WRITE permission on the handle and errors
+        ``EACCES`` on read-only fds. Every non-empty chain read on
+        Windows tripped ``WorkspaceChainLockContended`` after the
+        three-retry window. Writers use ``O_APPEND`` + single
+        ``os.write`` under the exclusive lock, which is atomic
+        per-write on both POSIX and Windows for short lines. A
+        concurrent reader thus sees either the complete line or
+        not-yet-visible bytes; a torn-tail line remains possible on
+        an unclean crash mid-write, and the existing tail-tolerance
+        below handles that identically for read-during-write and
+        read-after-crash.
         """
         if not self._chain_path.exists():
             return []
         self._thread_lock.acquire()
         try:
-            # Take the exclusive lock for the read snapshot too. Opening
-            # the file O_RDONLY is enough for a shared read; the lock
-            # is exclusive to match the write path's discipline (both
-            # branches lock the same 1-byte range at offset 0). Using
-            # ``os.open`` avoids the buffered ``open()`` wrapper so the
-            # fd we lock is the same fd we read from.
+            # Lock-free read: rely on POSIX/Windows single-write
+            # atomicity for the writer's short JSONL lines. Opening
+            # via ``os.open`` (not the buffered ``open``) keeps the
+            # binary-mode discipline the rest of the module uses.
             fd = os.open(self._chain_path, os.O_RDONLY | _BINARY_FLAG)
             try:
-                _lock_exclusive(fd)
-                try:
-                    chunks: list[bytes] = []
-                    while True:
-                        chunk = os.read(fd, 65536)
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-                    raw = b"".join(chunks)
-                finally:
-                    _unlock(fd)
+                chunks: list[bytes] = []
+                while True:
+                    chunk = os.read(fd, 65536)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                raw = b"".join(chunks)
             finally:
                 os.close(fd)
         finally:

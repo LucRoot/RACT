@@ -374,6 +374,25 @@ class AssumptionRegistry:
         from ract.core.types import Digest
 
         if kind == "proposed":
+            # v0.5.1 wiring module_02 (Lens D D3): torn-pair recovery
+            # invariant. ``rotate_snapshot``'s crash-window (snapshot
+            # replaced but WAL not yet truncated) can re-play a
+            # historic ``proposed`` line after the snapshot has already
+            # hydrated the assumption at a TERMINAL state (DISCHARGED
+            # or VIOLATED) or the ACTIVE intermediate state. The
+            # earlier writer unconditionally overwrote the state to
+            # PROPOSED, silently regressing the terminal record.
+            # Guard: skip the write when ``aid`` is already at a
+            # non-PROPOSED state; the earlier terminal record wins
+            # and the WAL replay stays idempotent for re-propose of
+            # a never-terminalised id.
+            existing = self._assumptions.get(aid)
+            if existing is not None and existing.state in (
+                AssumptionState.ACTIVE,
+                AssumptionState.DISCHARGED,
+                AssumptionState.VIOLATED,
+            ):
+                return
             digest = Digest(bytes.fromhex(payload["digest"]))
             depends_on = tuple(
                 AssumptionId(bytes.fromhex(h)) for h in payload.get("depends_on", ())

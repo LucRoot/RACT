@@ -335,3 +335,67 @@ def test_v4_sign_preserves_new_fields(session_key: SessionKey) -> None:
     assert signed.workspace_digest == wd
     assert signed.prompt_digest == pd
     assert signed.run_id == "preserve-me"
+
+
+# ---------------------------------------------------------------------------
+# v4 sidecar round-trip -- Lens D D1
+# ---------------------------------------------------------------------------
+
+
+def test_v4_sidecar_json_round_trip_preserves_signature(
+    tmp_path,
+    session_key: SessionKey,
+    sandbox: _KeyStub,
+    alm: _KeyStub,
+) -> None:
+    """A v4 knot survives ProvenanceIndex save/load with signature intact.
+
+    Lens D D1: the pre-fix ``_knot_to_json`` dropped
+    ``workspace_digest`` + ``prompt_digest`` + ``run_id`` +
+    ``retrieval_attestation`` on v4 knots, silently rebuilding a v3
+    payload on load. Every v4 verify() then failed.
+    """
+    from ract.core.provenance import ProvenanceIndex, _knot_from_json, _knot_to_json
+    from ract.core.rootknot import bundle_digest
+
+    ws = WorkspaceSnapshot(files={"a.py": "x = 1"}, timestamp=1.0)
+    knot = make_rootknot_v4(
+        key=session_key,
+        sandbox_signer=sandbox,
+        alm_signer=alm,
+        workspace_path="/tmp/round",
+        artifact_digest=Digest(b"\x33" * 32),
+        assumption_digest=Digest(b"\x44" * 32),
+        acceptance_suite_digest=Digest(b"\x55" * 32),
+        predicate_results=(),
+        manifest_digest=Digest(b"\x66" * 32),
+        gate_results=(),
+        workspace_digest=workspace_digest(ws),
+        prompt_digest=compute_prompt_digest("roundtrip intent"),
+        run_id="rid-roundtrip-001",
+        retrieval_attestation=bundle_digest(b"bundle-bytes"),
+    )
+    # Sanity: this knot verifies before the round-trip.
+    assert knot.verify(session_key.public_key_bytes())
+
+    # In-memory serialiser round-trip.
+    payload = _knot_to_json(knot)
+    assert '"sidecar/v4"' in payload
+    reloaded = _knot_from_json(payload)
+    assert reloaded.schema_version == 4
+    assert reloaded.workspace_digest == knot.workspace_digest
+    assert reloaded.prompt_digest == knot.prompt_digest
+    assert reloaded.run_id == knot.run_id
+    assert reloaded.retrieval_attestation == knot.retrieval_attestation
+    assert reloaded.canonical_bytes() == knot.canonical_bytes()
+    assert reloaded.verify(session_key.public_key_bytes())
+
+    # ProvenanceIndex end-to-end: save, load, verify.
+    index = ProvenanceIndex(tmp_path)
+    artifact_path = tmp_path / "artifact.txt"
+    artifact_path.write_text("noop content", encoding="utf-8")
+    index.save(knot, artifact_path)
+    loaded = index.load(artifact_path)
+    assert loaded is not None
+    assert loaded.canonical_bytes() == knot.canonical_bytes()
+    assert loaded.verify(session_key.public_key_bytes())

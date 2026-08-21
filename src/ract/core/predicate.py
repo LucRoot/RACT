@@ -369,6 +369,13 @@ class AcceptanceSuite:
         """
         return hashlib.sha256(dumps_jcs(self.to_canonical())).hexdigest()
 
+    # TODO(D10, v0.5.2): document explicitly that ``to_json`` is a
+    # non-canonical human-readable form; the signing input is
+    # ALWAYS ``digest()`` (which routes through ``dumps_jcs``).
+    # ``to_json`` uses ``indent=2`` for display and can diverge from
+    # ``digest()`` under non-BMP characters -- the divergence is
+    # intentional (JCS has no ``indent=2``) but needs to be
+    # documented so a future maintainer does not "unify" them.
     def to_json(self) -> str:
         """Return the canonical JSON form (sorted keys, trailing newline)."""
         return json.dumps(self.to_canonical(), sort_keys=True, indent=2) + "\n"

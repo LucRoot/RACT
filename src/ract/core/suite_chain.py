@@ -220,7 +220,17 @@ class SuiteChain:
             "suite_digest": suite_digest,
             "timestamp_ns": ts,
         }
+        # v0.5.1 wiring module_02 SP Q4 amendment: enforce atomicity
+        # cap so the lock-free reader stays safe. Chain entries today
+        # are a few hundred bytes (two hex digests + hex signature +
+        # run_id + short strings); the 1024-byte cap has ~2x headroom
+        # over typical entries.
         line = dumps_jcs(payload) + b"\n"
+        if len(line) > 1024:
+            raise ValueError(
+                f"suite chain entry {len(line)} bytes exceeds 1024-byte "
+                "atomicity cap; lock-free reader would observe torn state"
+            )
         self._thread_lock.acquire()
         try:
             fd = os.open(self._chain_path, _CHAIN_OPEN_FLAGS_APPEND, 0o644)
@@ -245,24 +255,32 @@ class SuiteChain:
         )
 
     def entries(self) -> list[SuiteChainEntry]:
-        """Return the parsed entries in append order."""
+        """Return the parsed entries in append order.
+
+        v0.5.1 wiring module_02 (Lens D D5): lock-free read. The
+        earlier code called ``_lock_exclusive`` on an ``O_RDONLY`` fd,
+        which on Windows requires a WRITE-capable handle for
+        ``msvcrt.locking(..., LK_NBLCK, ...)`` and errored ``EACCES``
+        every non-empty read -- ``SuiteChainLockContended`` after the
+        three-retry window. Writers use ``O_APPEND`` + single
+        ``os.write`` under the exclusive lock; per-write is atomic on
+        POSIX and Windows for short JSONL lines. Torn-tail tolerance
+        below handles reader-vs-writer overlaps identically to
+        crash-recovery.
+        """
         if not self._chain_path.exists():
             return []
         self._thread_lock.acquire()
         try:
             fd = os.open(self._chain_path, os.O_RDONLY | _BINARY_FLAG)
             try:
-                _lock_exclusive(fd)
-                try:
-                    chunks: list[bytes] = []
-                    while True:
-                        chunk = os.read(fd, 65536)
-                        if not chunk:
-                            break
-                        chunks.append(chunk)
-                    raw = b"".join(chunks)
-                finally:
-                    _unlock(fd)
+                chunks: list[bytes] = []
+                while True:
+                    chunk = os.read(fd, 65536)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                raw = b"".join(chunks)
             finally:
                 os.close(fd)
         finally:

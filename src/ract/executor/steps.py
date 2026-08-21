@@ -85,6 +85,13 @@ class Executor:
         handshake_registry: HandshakeRegistry | None = None,
         provenance_index: Any = None,
         session_key: Any = None,
+        sandbox_signer: Any = None,
+        alm_signer: Any = None,
+        workspace_snapshot_provider: Callable[[], Any] | None = None,
+        prompt_digest_provider: Callable[[], bytes | None] | None = None,
+        acceptance_suite_provider: Callable[[], Any] | None = None,
+        manifest_digest_provider: Callable[[], Any] | None = None,
+        gate_results_provider: Callable[[], tuple] | None = None,
     ) -> None:
         self.router = router
         self.hook_manager = hook_manager
@@ -106,7 +113,78 @@ class Executor:
         # (the default, preserving prior behavior), writes are untracked.
         self.provenance_index = provenance_index
         self.session_key = session_key
+        # v0.5.1 wiring module_02 (Lens D D2): v4 Rootknot deps. When
+        # ``sandbox_signer`` + ``alm_signer`` + all four providers are
+        # supplied, :meth:`_record_provenance` builds a v4 Rootknot
+        # binding the workspace snapshot, prompt digest, and ambient
+        # run_id into the signed canonical bytes. When any dep is
+        # absent the write-site emits a diagnostic and skips
+        # provenance (rather than silently downgrading to v1 -- the
+        # entire point of the wire-in is that production Rootknots
+        # bind the module_02 fields).
+        self.sandbox_signer = sandbox_signer
+        self.alm_signer = alm_signer
+        self.workspace_snapshot_provider = workspace_snapshot_provider
+        self.prompt_digest_provider = prompt_digest_provider
+        self.acceptance_suite_provider = acceptance_suite_provider
+        self.manifest_digest_provider = manifest_digest_provider
+        self.gate_results_provider = gate_results_provider
         self.provenance = ProvenanceTracker()
+
+    def install_v4_provenance_deps(
+        self,
+        *,
+        session_key: Any,
+        sandbox_signer: Any,
+        alm_signer: Any,
+        workspace_snapshot_provider: Callable[[], Any],
+        prompt_digest_provider: Callable[[], bytes | None],
+        acceptance_suite_provider: Callable[[], Any],
+        manifest_digest_provider: Callable[[], Any],
+        gate_results_provider: Callable[[], tuple] | None = None,
+        provenance_index: Any = None,
+    ) -> None:
+        """Install the six v4 Rootknot deps after Executor construction.
+
+        v0.5.1 wiring module_02 SP Q2/Q6 amendment (external reviewer
+        DEFECT verdict). The pre-v0.5.1 ``Harness.__init__`` constructs
+        the Executor before ``LoopController`` has materialised its
+        loop state (workspace snapshot, acceptance suite, manifest
+        digest) and before per-run signer lifecycle (SandboxKey +
+        AlmVerifierKey) has been established. Rather than force the
+        Harness to eagerly build stub providers -- and rather than
+        block the wire-in on a full harness-plumbing pass (v0.5.2
+        scope) -- this setter lets the loop entry install the deps
+        exactly once, at the moment the run begins.
+
+        Contract: the setter overwrites any prior wiring. Passing a
+        value of ``None`` leaves the corresponding attribute unset,
+        which trips the "any dep missing" guard in
+        :meth:`_record_provenance` and skips provenance -- callers
+        wanting v4 emission must supply ALL six deps (the seventh,
+        gate_results_provider, is optional and defaults to an empty
+        tuple). ``provenance_index`` is passed through as the
+        SQLite/sidecar sink; supply the run's
+        :class:`ract.core.provenance.ProvenanceIndex` here.
+
+        A callable-based wire (rather than a value snapshot) is
+        chosen so the loop's workspace / suite / manifest state
+        evolves per-iteration without re-invoking the setter.
+
+        Full production plumbing (harness -> Executor -> setter)
+        remains a v0.5.2 follow-up; the setter is the architectural
+        affordance the follow-up snaps into.
+        """
+        self.session_key = session_key
+        self.sandbox_signer = sandbox_signer
+        self.alm_signer = alm_signer
+        self.workspace_snapshot_provider = workspace_snapshot_provider
+        self.prompt_digest_provider = prompt_digest_provider
+        self.acceptance_suite_provider = acceptance_suite_provider
+        self.manifest_digest_provider = manifest_digest_provider
+        self.gate_results_provider = gate_results_provider
+        if provenance_index is not None:
+            self.provenance_index = provenance_index
         self.artifact_store = ArtifactStore()
         self.artifact_tracker = ArtifactTracker()
         self.guardrail = SafetyGuardrail(
@@ -355,6 +433,23 @@ class Executor:
         Failures here are logged, not raised: a provenance recording error must
         not corrupt the artifact write itself. The loop's ``verify_workspace``
         step will catch any artifact that ended up without a valid rootknot.
+
+        v0.5.1 wiring module_02 (Lens D D2): the write-site now emits
+        v4 Rootknots via :func:`ract.core.rootknot.make_rootknot_v4`.
+        v4 binds ``workspace_digest``, ``prompt_digest``, and
+        ``run_id`` into the signed canonical bytes so every artifact
+        the executor produces attests over the workspace snapshot +
+        operator prompt + run identifier in force at write time. The
+        four v0.5.1 provider callables (``workspace_snapshot_provider``,
+        ``prompt_digest_provider``, ``acceptance_suite_provider``,
+        ``manifest_digest_provider``) plus ``sandbox_signer`` +
+        ``alm_signer`` must ALL be supplied for v4 to fire; the
+        harness wires them from the ``LoopController``. When any dep
+        is absent, provenance is skipped -- silently downgrading to
+        v1/v3 would defeat the wire-in's whole purpose (a v4-shipping
+        executor whose fallback fires a v1 knot is worse than one
+        that emits nothing, because the audit can no longer trust the
+        "every knot is v4" invariant).
         """
         if (
             self.provenance_index is None
@@ -362,9 +457,32 @@ class Executor:
             or self.project_dir is None
         ):
             return
+        # v4 dep-completeness check: all six providers/signers must be
+        # populated. Missing any one is a wiring gap upstream and we
+        # decline to sign rather than emit a weaker attestation.
+        if (
+            self.sandbox_signer is None
+            or self.alm_signer is None
+            or self.workspace_snapshot_provider is None
+            or self.prompt_digest_provider is None
+            or self.acceptance_suite_provider is None
+            or self.manifest_digest_provider is None
+        ):
+            print(
+                f"[executor] provenance skipped for {full_path}: "
+                "v4 Rootknot deps not fully wired "
+                "(sandbox_signer/alm_signer/workspace/prompt/suite/manifest "
+                "providers); see wiring module_02 harness plumbing.",
+                flush=True,
+            )
+            return
         try:
-            from ract.core.rootknot import make_rootknot
+            from ract.core.rootknot import make_rootknot_v4
             from ract.core.types import digest_bytes
+            from ract.core.workspace_digest import (
+                workspace_digest as _workspace_digest,
+            )
+            from ract.runtime import get_current_run_id
 
             artifact_digest = digest_bytes(content.encode("utf-8"))
             # The assumption digest is opaque at the write layer; use a stable
@@ -376,16 +494,73 @@ class Executor:
             workspace_path = str(full_path.relative_to(self.project_dir)).replace(
                 "\\", "/"
             )
-            knot = make_rootknot(
-                self.session_key,
+            # v4 field materialisation.
+            ws_snapshot = self.workspace_snapshot_provider()
+            ws_digest = _workspace_digest(ws_snapshot)
+            prompt_digest_raw = self.prompt_digest_provider()
+            if prompt_digest_raw is None:
+                raise ValueError(
+                    "prompt_digest_provider returned None; suite.prompt_digest "
+                    "must be populated for a v4 attestation"
+                )
+            from ract.core.types import Digest as _Digest2
+
+            prompt_digest = _Digest2(
+                bytes(prompt_digest_raw)
+                if not isinstance(prompt_digest_raw, bytes)
+                else prompt_digest_raw
+            )
+            suite = self.acceptance_suite_provider()
+            acceptance_suite_digest_hex = suite.digest()
+            # ``AcceptanceSuite.digest()`` returns the SHA-256 hex string
+            # of the canonical serialisation; decode to a 32-byte
+            # :class:`Digest` for the Rootknot field.
+            from ract.core.types import Digest as _Digest
+
+            acceptance_suite_digest = _Digest(
+                bytes.fromhex(acceptance_suite_digest_hex)
+                if isinstance(acceptance_suite_digest_hex, str)
+                else bytes(acceptance_suite_digest_hex)
+            )
+            manifest_digest_raw = self.manifest_digest_provider()
+            from ract.core.types import Digest as _Digest3
+
+            manifest_digest = (
+                manifest_digest_raw
+                if isinstance(manifest_digest_raw, bytes)
+                and len(manifest_digest_raw) == 32
+                else _Digest3(bytes(manifest_digest_raw))
+            )
+            gate_results = (
+                self.gate_results_provider()
+                if self.gate_results_provider is not None
+                else ()
+            )
+            run_id = get_current_run_id() or ""
+            if not run_id:
+                raise ValueError(
+                    "no ambient run_id bound; call ract.runtime.bind_run_id() "
+                    "in the loop entry before writing artifacts"
+                )
+            knot = make_rootknot_v4(
+                key=self.session_key,
+                sandbox_signer=self.sandbox_signer,
+                alm_signer=self.alm_signer,
                 workspace_path=workspace_path,
                 artifact_digest=artifact_digest,
                 assumption_digest=assumption_digest,
+                acceptance_suite_digest=acceptance_suite_digest,
+                predicate_results=(),
+                manifest_digest=manifest_digest,
+                gate_results=tuple(gate_results),
+                workspace_digest=ws_digest,
+                prompt_digest=prompt_digest,
+                run_id=run_id,
             )
             self.provenance_index.save(knot, full_path)
         except Exception as exc:  # noqa: BLE001 - log and continue (see docstring)
             print(
-                f"[executor] provenance recording failed for {full_path}: {exc}",
+                f"[executor] v4 provenance recording failed for {full_path}: {exc}",
                 flush=True,
             )
 

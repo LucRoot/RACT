@@ -45,9 +45,14 @@ from ract.core.module_identity import _module_knot, register_module_knot
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
 
+from typing import TYPE_CHECKING
+
 from ract.core.predicate import AcceptanceSuite
 from ract.core.suite_chain import SuiteChain, SuiteChainEntry
 from ract.core.workspace_digest import compute_prompt_digest
+
+if TYPE_CHECKING:
+    from ract.core.loop import WorkspaceSnapshot
 
 # ``O_BINARY`` on Windows; no-op flag on POSIX. Same lesson as the
 # workspace-chain + WAL modules: binary-mode fds under the lock.
@@ -160,6 +165,13 @@ class RecompileResult:
     suite_chain_path: Path
 
 
+# TODO(D9, v0.5.2): produce a real v4 Rootknot for the recompile
+# action so ``SuiteChainEntry.rootknot_signature`` matches the
+# suite_chain.py:19-21 docstring ("hex generator signature of the
+# v4 Rootknot recording the recompile action"). Today the field
+# carries HMAC-SHA256 hex; either plumb session_key + sandbox_signer
+# + alm_signer through the CLI verb OR align the docstring to the
+# HMAC-only reality.
 def _sign_recompile(
     operator_key: bytes, suite_digest: str, prompt_digest: bytes, run_id: str
 ) -> bytes:
@@ -184,11 +196,102 @@ def _sign_recompile(
     return mac.digest()
 
 
+def _scan_workspace_snapshot(project_dir: Path) -> "WorkspaceSnapshot":
+    """Return a :class:`WorkspaceSnapshot` covering ``project_dir``.
+
+    v0.5.1 wiring module_02 (Lens D D4): the previous recompile
+    passed an EMPTY ``WorkspaceSnapshot`` to
+    :meth:`IntentCompiler.compile`, so ``_discover_test_files`` found
+    zero tests and the fresh suite carried zero required predicates.
+    ``build_loop_state`` then rejected the recompiled run (T1's
+    "suite has zero required predicates" post-init check) and the
+    next iteration's ``check_t1`` gate became a silent pass -- an
+    operator refine flow that legitimately unlocks T8 also silently
+    disabled T1.
+
+    Scan discipline (deterministic, bounded):
+
+    - Sources: ``**/*.py`` under ``project_dir``, plus every file
+      under a top-level ``tests/`` tree if one exists.
+    - Skip: hidden dirs (``.git``, ``.ract``, ``.rack``, ``.venv``,
+      ``__pycache__``, ``.mypy_cache``, ``.pytest_cache``,
+      ``node_modules``).
+    - Skip: files above 512 KB (source-only floor -- avoids pulling
+      built artifacts, packed archives, or generated JSON blobs
+      into the digest input; matches ``loop_controller._take_snapshot``
+      selection heuristics).
+    - Content: read as UTF-8 with ``errors="replace"`` so a binary
+      hit does not raise; the snapshot is used for predicate
+      discovery + workspace_digest, not for exact-byte replay.
+    """
+    from ract.core.loop import WorkspaceSnapshot
+
+    files: dict[str, str] = {}
+    skip_dirs = {
+        ".git",
+        ".ract",
+        ".rack",
+        ".venv",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+        "node_modules",
+        "_BUILD",
+    }
+    max_bytes = 512 * 1024
+    for candidate in project_dir.rglob("*"):
+        try:
+            if not candidate.is_file():
+                continue
+        except OSError:
+            continue
+        rel_parts = candidate.relative_to(project_dir).parts
+        if any(part in skip_dirs for part in rel_parts):
+            continue
+        # Focus on source + tests -- the two selectors the compiler
+        # actually walks. Broader coverage is v0.6 territory.
+        if candidate.suffix != ".py" and "tests" not in rel_parts:
+            continue
+        try:
+            if candidate.stat().st_size > max_bytes:
+                continue
+            files[str(candidate.relative_to(project_dir)).replace("\\", "/")] = (
+                candidate.read_text(encoding="utf-8", errors="replace")
+            )
+        except OSError:
+            continue
+    return WorkspaceSnapshot(files=files, timestamp=0.0)
+
+
+def _resolve_project_dir(run_dir: Path, ract_dir: Path | None) -> Path | None:
+    """Return the workspace root, or ``None`` when it cannot be located.
+
+    Walks up from ``run_dir`` looking for the ``.ract`` sibling that
+    marks the workspace root; falls back to the parent of
+    ``ract_dir`` when supplied. ``None`` means "the recompile is
+    running outside a discoverable workspace" -- the caller preserves
+    prev_suite predicates in that case.
+    """
+    if ract_dir is not None:
+        parent = ract_dir.resolve(strict=False).parent
+        if parent.exists() and parent.is_dir():
+            return parent
+    candidate = run_dir
+    for _ in range(6):
+        if (candidate / ".ract").exists():
+            return candidate
+        if candidate.parent == candidate:
+            break
+        candidate = candidate.parent
+    return None
+
+
 def recompile_intent(
     *,
     run_dir: Path,
     intent_text: str,
     ract_dir: Path | None = None,
+    workspace: "WorkspaceSnapshot | None" = None,
 ) -> RecompileResult:
     """Recompile a run's intent under an operator-signed suite-chain entry.
 
@@ -210,6 +313,17 @@ def recompile_intent(
 
     The run's ``run_id`` is preserved -- a recompile is a mutation
     of the intent, not the creation of a new run.
+
+    v0.5.1 wiring module_02 (Lens D D4): ``workspace`` is an optional
+    :class:`WorkspaceSnapshot`. When omitted, the recompiler scans the
+    workspace root (the parent of ``.ract``) for source + tests so
+    :meth:`IntentCompiler.compile` sees a NON-EMPTY snapshot and the
+    fresh suite carries real predicates. The earlier behaviour
+    (empty-snapshot compile) silently stripped every required
+    predicate and turned the next iteration's ``check_t1`` into a
+    silent pass. When the workspace root cannot be located, the
+    recompile preserves ``prev_suite.predicates`` verbatim rather
+    than emitting a zero-predicate suite.
     """
     if not intent_text.strip():
         raise IntentRecompileError("intent_text must be non-empty")
@@ -251,6 +365,17 @@ def recompile_intent(
     lock_path.touch(exist_ok=True)
     lock_flags = os.O_RDWR | _BINARY_FLAG
     lock_fd = os.open(lock_path, lock_flags)
+    # v0.5.1 wiring module_02 (Lens D D4): materialise the workspace
+    # snapshot BEFORE the compile-and-append critical section. When
+    # the caller supplies one, use it verbatim (test fixtures + CLI
+    # callers with a pre-built snapshot). Otherwise resolve the
+    # workspace root from ``.ract`` ancestry and scan.
+    resolved_workspace = workspace
+    if resolved_workspace is None:
+        project_dir = _resolve_project_dir(run_dir, ract_dir)
+        if project_dir is not None:
+            resolved_workspace = _scan_workspace_snapshot(project_dir)
+
     try:
         _sc_lock(lock_fd)
         try:
@@ -259,6 +384,7 @@ def recompile_intent(
                 intent_text=intent_text,
                 operator_key=operator_key,
                 run_dir_arg=run_dir,
+                workspace=resolved_workspace,
             )
         finally:
             _sc_unlock(lock_fd)
@@ -272,6 +398,7 @@ def _recompile_intent_locked(
     intent_text: str,
     operator_key: bytes,
     run_dir_arg: Path,
+    workspace: "WorkspaceSnapshot | None" = None,
 ) -> RecompileResult:
     """Locked-scope body of :func:`recompile_intent`.
 
@@ -303,18 +430,21 @@ def _recompile_intent_locked(
             "a run that has not been compiled at least once"
         ) from exc
 
-    # The compiler requires a WorkspaceSnapshot for T1 predicate
-    # discovery. A recompile intentionally does NOT re-scan the
-    # workspace (the run's on-disk state is already in progress);
-    # pass an empty snapshot so the compiler produces a minimal
-    # suite whose ``prompt_digest`` is the only load-bearing bit
-    # for T8. Callers who want a full re-compilation of predicates
-    # should launch a fresh ``ract run`` invocation.
+    # v0.5.1 wiring module_02 (Lens D D4): compile against a real
+    # snapshot when one is available so ``_discover_test_files``
+    # returns the actual test corpus and the fresh suite carries
+    # required predicates. Callers supply ``workspace`` for tests +
+    # deterministic runs; the outer scope materialises one from
+    # disk when omitted. When we STILL land here with no snapshot
+    # (workspace root unresolvable) we preserve the prior suite's
+    # predicates verbatim so ``build_loop_state``'s zero-predicate
+    # post-init check does not fire and T1 is not silently disabled.
     from ract.core.loop import WorkspaceSnapshot
 
+    scan_ws = workspace if workspace is not None else WorkspaceSnapshot()
     try:
         compiler = IntentCompiler()
-        compiled = compiler.compile(intent_text, WorkspaceSnapshot())
+        compiled = compiler.compile(intent_text, scan_ws)
         # A DualAcceptanceSuite (companion path) exposes ``visible``
         # as the substrate suite; the raw ``AcceptanceSuite`` path
         # is the recompile default.
@@ -326,6 +456,34 @@ def _recompile_intent_locked(
         raise IntentRecompileError(
             f"IntentCompiler.compile failed for the new intent text: {exc}"
         ) from exc
+
+    # D4 second-line defence (SP Q5 amendment): the empty-snapshot
+    # fallthrough is the ORIGINAL defect scenario -- fresh compile
+    # produces ZERO required predicates and T1 becomes a silent
+    # pass. Guard ONLY that case. A non-zero shrinkage (operator
+    # legitimately retires a test) is honored -- otherwise the
+    # defence would over-preserve and block a valid recompile flow.
+    # SP feedback: an unconditional "smaller-than-prev" preserve
+    # blocks legitimate operator removal; scope the guard to the
+    # bright-line "zero required predicates" symptom.
+    prev_required = tuple(p for p in prev_suite.predicates if getattr(p, "required", False))
+    new_required = tuple(p for p in new_suite.predicates if getattr(p, "required", False))
+    if len(new_required) == 0 and len(prev_required) > 0:
+        _LOG.warning(
+            "intent recompile: new compile yielded ZERO required predicates "
+            "(prior suite had %d); preserving prior predicate set to keep "
+            "T1 armed. This defends against the D4 empty-snapshot "
+            "fallthrough; a legitimate removal path is a v0.6 CLI feature.",
+            len(prev_required),
+        )
+        new_suite = AcceptanceSuite(
+            intent_id=prev_suite.intent_id,
+            predicates=prev_suite.predicates,
+            coverage_gate=prev_suite.coverage_gate,
+            compiled_from=new_suite.compiled_from,
+            compiler_version=new_suite.compiler_version,
+            prompt_digest=new_suite.prompt_digest,
+        )
 
     if new_suite.prompt_digest is None:
         # Belt-and-suspenders: the compiler must populate this per

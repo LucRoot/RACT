@@ -227,6 +227,17 @@ class ProvenanceIndex:
 # ---------------------------------------------------------------------------
 
 
+# v0.5.1 wiring module_02 SP Q8 amendment: adjacent Lens D findings
+# tracked as TODO markers so a future grep surfaces them:
+#   TODO(D6, v0.5.2): route sidecar writer through ``dumps_jcs`` --
+#     the sidecar bytes are NOT signed, but a JCS pass closes the
+#     non-BMP escape-drift risk between Python minor versions.
+#   TODO(D11, v0.5.2): narrow ``except Exception`` in
+#     ``executor/steps.py::_record_provenance`` and emit a structured
+#     ``rootknot.provenance_recording_failed`` trace event with the
+#     narrowed exception class + full_path context.
+
+
 def _knot_to_json(
     knot: Rootknot,
     *,
@@ -245,7 +256,65 @@ def _knot_to_json(
     offline verification of AL-1 is possible from the sidecar alone
     (subject to the chain-of-custody caveat documented in
     ``load_sidecar_alm_pubkey``).
+
+    v4 (``schema_version == 4``, v0.5.1 wiring module_02): extends v3
+    with ``workspace_digest``, ``prompt_digest``, ``run_id``, and (when
+    set) ``retrieval_attestation``. These four fields ride inside the
+    v4 Rootknot's signed canonical bytes; dropping them on the sidecar
+    round-trip would rebuild a v3-shaped payload and every ed25519
+    verify would fail. Lens D D1.
     """
+    if knot.schema_version >= 4:
+        data: dict[str, Any] = {
+            "schema": "sidecar/v4",
+            "plan_id": knot.plan_id.hex(),
+            "step_id": knot.step_id.hex(),
+            "assumption_digest": knot.assumption_digest.hex(),
+            "generator": {
+                "model_name": knot.generator.model_name,
+                "model_version": knot.generator.model_version,
+                "session_id": knot.generator.session_id.hex(),
+                "public_key_id": knot.generator.public_key_id.hex(),
+            },
+            "parent_digests": [d.hex() for d in knot.parent_digests],
+            "workspace_path": knot.workspace_path,
+            "artifact_digest": knot.artifact_digest.hex(),
+            "created_at_ns": knot.created_at_ns,
+            "generator_signature": knot.generator_signature.hex(),
+            "environment_signature": knot.environment_signature.hex(),
+            "acceptance_suite_digest": knot.acceptance_suite_digest.hex(),
+            "predicate_results": [d.hex() for d in knot.predicate_results],
+            "manifest_digest": knot.manifest_digest.hex(),
+            "antilazy_signature": knot.antilazy_signature.hex(),
+            "gate_results": [gr.canonical_dict() for gr in knot.gate_results],
+            "reversal_taint": knot.reversal_taint,
+            "schema_version": knot.schema_version,
+            # v4 canonical-bytes additions -- these MUST be preserved on
+            # round-trip so verify() recomputes the same canonical bytes
+            # the sender signed. Emit them as ``None`` when unset so
+            # the reader can distinguish "absent" from "empty".
+            "workspace_digest": (
+                knot.workspace_digest.hex()
+                if knot.workspace_digest is not None
+                else None
+            ),
+            "prompt_digest": (
+                knot.prompt_digest.hex()
+                if knot.prompt_digest is not None
+                else None
+            ),
+            "run_id": knot.run_id or "",
+        }
+        if knot.retrieval_attestation is not None:
+            data["retrieval_attestation"] = knot.retrieval_attestation.hex()
+        if sandbox_pubkey is not None:
+            data["sandbox_pubkey_b64"] = base64.b64encode(sandbox_pubkey).decode(
+                "ascii"
+            )
+        if alm_pubkey is not None:
+            data["alm_pubkey_b64"] = base64.b64encode(alm_pubkey).decode("ascii")
+        return json.dumps(data, sort_keys=True, indent=2)
+
     if knot.schema_version >= 3:
         data: dict[str, Any] = {
             "schema": "sidecar/v3",
@@ -342,13 +411,79 @@ def _knot_to_json(
 def _knot_from_json(payload: str) -> Rootknot:
     """Rebuild a Rootknot from an on-disk sidecar payload.
 
-    Dispatches on the ``schema`` field: ``"sidecar/v3"`` builds a v3
-    knot; ``"sidecar/v2"`` builds a v2 knot; anything else (including the
-    absent-field v0.3 shape) builds a v1 knot.
+    Dispatches on the ``schema`` field: ``"sidecar/v4"`` builds a v4
+    knot; ``"sidecar/v3"`` builds a v3 knot; ``"sidecar/v2"`` builds a v2
+    knot; anything else (including the absent-field v0.3 shape) builds a
+    v1 knot. v0.5.1 wiring module_02 (Lens D D1) adds the v4 branch --
+    the previous reader silently dropped ``workspace_digest``,
+    ``prompt_digest``, ``run_id`` (and ``retrieval_attestation`` on v4
+    sidecars) and every v4 verify() failed on the shorter canonical
+    bytes.
     """
     data = json.loads(payload)
     generator = data["generator"]
     schema = data.get("schema")
+    if schema == "sidecar/v4":
+        gate_results_raw = data.get("gate_results", [])
+        gate_results: list[GateResult] = []
+        for gr in gate_results_raw:
+            gate_results.append(
+                GateResult(
+                    gate_id=str(gr["gate_id"]),
+                    passed=bool(gr["passed"]),
+                    evidence_digest=Digest(bytes.fromhex(gr["evidence_digest"])),
+                    handshake_id=gr.get("handshake_id"),
+                )
+            )
+        workspace_digest_hex = data.get("workspace_digest")
+        prompt_digest_hex = data.get("prompt_digest")
+        retrieval_hex = data.get("retrieval_attestation")
+        return Rootknot(
+            plan_id=PlanId(bytes.fromhex(data["plan_id"])),
+            step_id=StepId(bytes.fromhex(data["step_id"])),
+            assumption_digest=Digest(bytes.fromhex(data["assumption_digest"])),
+            generator=GeneratorRef(
+                model_name=generator["model_name"],
+                model_version=generator["model_version"],
+                session_id=bytes.fromhex(generator["session_id"]),
+                public_key_id=Digest(bytes.fromhex(generator["public_key_id"])),
+            ),
+            parent_digests=tuple(
+                Digest(bytes.fromhex(d)) for d in data["parent_digests"]
+            ),
+            workspace_path=data["workspace_path"],
+            artifact_digest=Digest(bytes.fromhex(data["artifact_digest"])),
+            created_at_ns=data["created_at_ns"],
+            generator_signature=bytes.fromhex(data["generator_signature"]),
+            environment_signature=bytes.fromhex(data["environment_signature"]),
+            acceptance_suite_digest=Digest(
+                bytes.fromhex(data["acceptance_suite_digest"])
+            ),
+            predicate_results=tuple(
+                Digest(bytes.fromhex(d)) for d in data.get("predicate_results", [])
+            ),
+            manifest_digest=Digest(bytes.fromhex(data["manifest_digest"])),
+            antilazy_signature=bytes.fromhex(data.get("antilazy_signature", "")),
+            gate_results=tuple(gate_results),
+            reversal_taint=str(data.get("reversal_taint", "clean")),  # type: ignore[arg-type]
+            schema_version=int(data.get("schema_version", 4)),
+            retrieval_attestation=(
+                Digest(bytes.fromhex(retrieval_hex))
+                if retrieval_hex is not None
+                else None
+            ),
+            workspace_digest=(
+                Digest(bytes.fromhex(workspace_digest_hex))
+                if workspace_digest_hex is not None
+                else None
+            ),
+            prompt_digest=(
+                Digest(bytes.fromhex(prompt_digest_hex))
+                if prompt_digest_hex is not None
+                else None
+            ),
+            run_id=str(data.get("run_id", "") or ""),
+        )
     if schema == "sidecar/v3":
         gate_results_raw = data.get("gate_results", [])
         gate_results: list[GateResult] = []
