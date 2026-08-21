@@ -38,7 +38,7 @@ You now have:
 ## Step 2: Run your first intent
 
 ```bash
-ract "add a greet(name) function that returns Hello, name and add a test" --config ract.yaml
+ract run "add a greet(name) function that returns Hello, name and add a test" --config ract.yaml
 ```
 
 RACT will:
@@ -65,7 +65,7 @@ python -m pytest -q
 If a test fails, run the self-recursing loop so RACT can repair it:
 
 ```bash
-ract "fix the failing test" --config ract.yaml --loop --max-iterations 5
+ract run "fix the failing test" --config ract.yaml --loop --max-iterations 5
 ```
 
 ## Step 4: Generate API documentation

@@ -1,6 +1,15 @@
 # RACT CLI JSON Cheat Sheet
 
-Every RACT command that can emit structured JSON output, as of v0.1.2.
+Every RACT command that can emit structured JSON output, as of v0.5.1.
+
+**Scope note.** This sheet covers structured-output verbs only.
+The complete CLI verb index (60+ subverbs including memory,
+retrieval, session, trace, intent recompile, provenance verify)
+lives in README.md; see the "CLI Verb Index" section there. v0.5.1
+adds `ract intent recompile`; a fuller `retrieval query` wiring
++ `manifest ledger` verbs are queued behind the v0.5.1 wiring
+completion pipeline (`docs/RACT_v0.5.1_WIRING_COMPLETION_SPEC.md`
+module_10).
 
 ## Commands with `--json`
 

@@ -97,7 +97,7 @@ See `PROVIDER_SETUP.md` for more provider configurations.
 ## Run your first task
 
 ```bash
-ract "write a hello-world Python script" --config ract.yaml
+ract run "write a hello-world Python script" --config ract.yaml
 ```
 
 RACT will:
@@ -113,7 +113,7 @@ RACT will:
 To see the plan without executing it:
 
 ```bash
-ract "add a test for the hello-world script" --config ract.yaml --dry-run
+ract run "add a test for the hello-world script" --config ract.yaml --dry-run
 ```
 
 The output includes the assumption, confidence, steps, and quality score.
@@ -123,8 +123,8 @@ The output includes the assumption, confidence, steps, and quality score.
 Sessions let RACT remember prior work across runs.
 
 ```bash
-ract "write a hello-world Python script" --config ract.yaml --session demo
-ract "add a test for it" --config ract.yaml --session demo --resume
+ract run "write a hello-world Python script" --config ract.yaml --session demo
+ract run "add a test for it" --config ract.yaml --session demo --resume
 ```
 
 The second call loads the memory arena from the first run and prepends a replay block to the prompt.
@@ -143,7 +143,7 @@ Create `project.json`:
 Then run:
 
 ```bash
-ract "implement the greeting tool" --config ract.yaml --project-doc project.json
+ract run "implement the greeting tool" --config ract.yaml --project-doc project.json
 ```
 
 ## Run modes
@@ -153,8 +153,8 @@ ract "implement the greeting tool" --config ract.yaml --project-doc project.json
 - **git**: stage and commit produced artifacts after a successful run.
 
 ```bash
-ract "document the greeting tool" --config ract.yaml --mode documentation
-ract "commit the greeting tool" --config ract.yaml --mode git
+ract run "document the greeting tool" --config ract.yaml --mode documentation
+ract run "commit the greeting tool" --config ract.yaml --mode git
 ```
 
 ## Other useful commands
@@ -180,7 +180,7 @@ ract "commit the greeting tool" --config ract.yaml --mode git
 For tasks that need multiple iterations of plan/execute/verify, use `--loop`. The loop plans milestones, executes one per iteration, runs your test command, and continues until the work is done, a regression is detected, or the iteration limit is reached.
 
 ```bash
-ract "add input validation to the login endpoint" --config ract.yaml --loop --max-iterations 10
+ract run "add input validation to the login endpoint" --config ract.yaml --loop --max-iterations 10
 ```
 
 If a provider call hangs, the loop enforces a per-iteration timeout (default 900s, configurable in code) and feeds the previous iteration's error, test output, and any missing Rootknot sidecars into the next prompt.

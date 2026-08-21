@@ -243,7 +243,11 @@ class Rootknot:
         # under the schema-version dispatch above. The field is a
         # trailing addition to the sorted-key payload; the sort-key
         # position ("retrieval_attestation" > "reversal_taint" > ...)
-        # is deterministic under ``json.dumps(sort_keys=True)``.
+        # is deterministic under ``ract.canonical.dumps_jcs()`` (RFC
+        # 8785 JCS -- codepoint-sorted keys, NFC-normalised strings,
+        # strict-JSON floats). v0.5.1 module_03 replaced the legacy
+        # ``json.dumps(sort_keys=True)`` serialiser with JCS; the
+        # sort order is unchanged on the ASCII path.
         if self.retrieval_attestation is not None:
             payload["retrieval_attestation"] = self.retrieval_attestation.hex()
         # v0.5.1 module_02: three OPT-IN payload extensions. Each is
@@ -687,9 +691,13 @@ def bundle_digest(bundle_bytes: bytes) -> Digest:
     Module_09 helper. Callers hash the canonical projection of a
     :class:`~ract.memory.retrieve.RetrievalBundle` (e.g. via
     :func:`ract.memory.retrieve.bundle_to_cache_payload` +
-    ``json.dumps(sort_keys=True)``) and pass the resulting bytes to
-    this helper to build the ``retrieval_attestation`` value that
+    :func:`ract.canonical.dumps_jcs`) and pass the resulting bytes
+    to this helper to build the ``retrieval_attestation`` value that
     :func:`make_rootknot_v3` binds into the signed canonical bytes.
+    v0.5.1 module_03 replaced the legacy
+    ``json.dumps(sort_keys=True)`` canonicalisation with RFC 8785
+    JCS; the digest input for retrieval bundles now routes through
+    ``dumps_jcs`` on the memory-side migration path.
 
     Kept as a small, dependency-free helper so
     :mod:`ract.core.rootknot` does NOT import
@@ -701,4 +709,4 @@ def bundle_digest(bundle_bytes: bytes) -> Digest:
     return Digest(hashlib.sha256(bundle_bytes).digest())
 
 
-# RACT 0.4.0
+# RACT 0.5.1

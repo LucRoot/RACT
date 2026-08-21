@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.5.1] - 2026-08-20 — External Review Response
 
+> **Wiring gap disclaimer.** The 2026-08-21 8-lens audit
+> (`_BUILD/audit_2026-08-21/AUDIT_SUMMARY.md`) found that several
+> v0.5.1 modules shipped clean-tested API surfaces with zero
+> production callers. This release ships the primitive surface;
+> production wire-in is completed by the v0.5.1 wiring completion
+> pipeline (`docs/RACT_v0.5.1_WIRING_COMPLETION_SPEC.md`, modules
+> 02-10) with the re-tag landing at module_11 close. Per-module
+> "wired: X, Y, Z" addenda land as the wiring pipeline advances.
+
 Patch release for the External Review Response pipeline
 (`_BUILD/ract_v0.5.1_external_review_response/`). This release closes
 the trust-chain gap opened at the 200-compaction boundary that DeepSeek
@@ -24,8 +33,9 @@ Ledger with Merkle chain adds tamper-detectable durability to RK-3;
 G5/G6 laziness enforcement expands from Python-only to five polyglot
 languages via tree-sitter; the sycophancy classifier gains an AST-delta
 signal + WhispererContract event scoring F1=1.000 on a 48-sample
-regression corpus. Tag is `v0.5.1`. Ten ADRs added (ADR-0040 through
-ADR-0041 for T8 and SubstrateLoop shim closure — six more surfaces
+regression corpus. Tag is `v0.5.1`. Three ADRs added (ADR-0040 for
+T8 PROMPT_DRIFT, ADR-0041 for SubstrateLoop shim closure, and
+ADR-0042 for the sycophancy v2 tuning band — six more surfaces
 carry inline ADR-style module docstrings).
 
 ### Per-module surface
@@ -37,7 +47,7 @@ carry inline ADR-style module docstrings).
   with WARN, middle-corruption refusal, and `AssumptionRegistry` wire
   so accepted assumptions durably replay across restart. New
   `EventKind.assumption_accepted` in the closed vocabulary. Primary
-  `3e98e9d`; SP amendment `07a8ff0` (WARN emission on truncated tail
+  `cf829d5`; SP amendment `fcc23af` (WARN emission on truncated tail
   + rotation-atomicity docstring correction).
 
 - **module_02 — Rootknot canonical-bytes extension (G2 + G3 +
@@ -49,7 +59,7 @@ carry inline ADR-style module docstrings).
   `WorkspaceDigestChain` ancestor ledger. `AcceptanceSuite.prompt_digest`
   optional field populated by `IntentCompiler.compile()`. Sacred spine
   preserved — the three signed byte-strings extend, nothing removed.
-  Primary `62659bf`; SP amendment `3d70823` (strict-JSON metadata_hash
+  Primary `88c35a6`; SP amendment `8dbf452` (strict-JSON metadata_hash
   + `MetadataUnserialisableError`, exclusive-lock on chain read path,
   `require_prompt_digest()` helper).
 
@@ -66,7 +76,7 @@ carry inline ADR-style module docstrings).
   `memory/retrieve.py`. Grep-gate at
   `tests/architecture/test_no_sort_keys_in_canonical_paths.py` (tokenize-
   based comment/string blanking + stale-allowlist sanity + 20-entry
-  allowlist). Primary `1546577`; SP amendment `fd494c0`
+  allowlist). Primary `98931c4`; SP amendment `2205309`
   (`__json_snapshot__` cycle guard + explicit opt-out, shortest-repr
   number encoding replacing initial log10 + `.17f`, non-ASCII invariant
   tests, look-back window widened 8→50).
@@ -85,8 +95,8 @@ carry inline ADR-style module docstrings).
   per-iteration hook with chain-head comparison, initial fallback, T8
   halt, and rollback to `last_known_good_workspace`. New ADR-0040. New
   `ract intent recompile <run_id>` CLI verb (mutually-exclusive
-  `--intent-file` / `--intent-text`). Primary `5bf24a4`; SP amendment
-  `74bfa5d` (Q1 pinned enum values, Q2 orphan-file enumeration + opt-in
+  `--intent-file` / `--intent-text`). Primary `1186f8d`; SP amendment
+  `9d4acc6` (Q1 pinned enum values, Q2 orphan-file enumeration + opt-in
   `delete_orphaned_files_on_t8`, Q4a resolved key path, Q4b T9 +
   `strict_prompt_digest`, Q5a `.recompile_lock`, Q5b eager initial
   entry, Q6b split exit codes 2/3/4/5).
@@ -109,13 +119,13 @@ carry inline ADR-style module docstrings).
   `CompensatorStack` LIFO drain + `check_pushed` via
   `git branch -r --contains` + refusal-of-pushed-commits +
   install/discard/apply/refused events. ADR-0041 names four decisions
-  + five rejected alternatives. Primary `2d00888`; SP amendments
-  `f933674` (Q2 CREATE_SUSPENDED + `_resume_thread`, Q3a
+  + five rejected alternatives. Primary `ed62a47`; SP amendments
+  `75eda12` (Q2 CREATE_SUSPENDED + `_resume_thread`, Q3a
   NEVER_PASSTHROUGH_PREFIXES + case-insensitive + glob refusal, Q3b
   `_redact_name_for_log`, Q3d utf-8-sig read + per-line BOM strip,
   Q4c `_resolve_branch` + `_current_branch` + `git update-ref`, Q5b
   HEAD-read post-fast-forward gates `parent_snapshot`, Q5c
-  `dispose(success=False)` resyncs) + `20afce4` + `402a5a2`.
+  `dispose(success=False)` resyncs) + `12d933f` + `968fe64`.
 
 - **module_06 — ambient run_id ContextVar + end-to-end preservation
   smoke.** New `src/ract/runtime.py` (140 lines) with ContextVar-
@@ -129,7 +139,7 @@ carry inline ADR-style module docstrings).
   ambient bound (control-bypass guard). `LoopController.run()` binds
   ambient at entry via `_resolve_or_mint_run_id` (marker file →
   basename → mint fresh 32-hex + write marker for compaction
-  survival). Primary `8f2b93c`; SP amendment `151e66e` (Q1
+  survival). Primary `39789e2`; SP amendment `ab5ecdc` (Q1
   `run_with_ambient(fn,*args,**kwargs)` closure pattern, Q2 WAL WARN
   on explicit-vs-ambient divergence, Q4 cross-platform exclusive
   lock on `run_id.txt.lock` sidecar, Q5 WAL reload WARN on
@@ -153,7 +163,7 @@ carry inline ADR-style module docstrings).
   closed vocabulary. `Rootknot.attest_environment` wired to call
   `record_environment_attestation` post-signing via local import
   breaking security→core cycle — signed RK-3 payload unchanged.
-  Primary `6dba937`; SP amendment `66194f1` (Q1 `_entry_schema_valid`
+  Primary `2cb42b4`; SP amendment `dbd0a73` (Q1 `_entry_schema_valid`
   mandatory-field shape check, Q3 per-process/per-thread CAS tmp path
   `.json.tmp.{pid}.{tid}`, Q5 `manifest.ledger.refused` EventKind +
   WARN wrap in observer, Q6 `verify_proof` now REQUIRES loader +
@@ -182,7 +192,7 @@ carry inline ADR-style module docstrings).
   `enforce_g5_dead_code_polyglot` + `enforce_g6_test_copy_paste_polyglot`
   wired in `pre_commit.py`; legacy `enforce_g5`/`enforce_g6` untouched
   (additive-only preservation). `pyproject.toml [polyglot]` optional-
-  dep group. Primary `ce715ec`; SP amendment `bb6259e` (Q1 public
+  dep group. Primary `c74f717`; SP amendment `da24c63` (Q1 public
   `reset_grammar_caches()`, Q2 `visit_AnnAssign` for `x: SomeType = 1`,
   Q3 destructuring `object_pattern`/`array_pattern` in
   `_collect_declarator_decls`, Q4 `_extract_rust._collect_scope`
@@ -207,7 +217,7 @@ carry inline ADR-style module docstrings).
   ships 48 samples (23 sycophantic + 25 genuine); F1 = 1.000 (P=1.000
   R=1.000) vs target ≥0.85, stable across operator-tuning sweep band
   `threshold ∈ {0.6, 0.7, 0.75, 0.85} × floor ∈ {2, 3}`. Primary
-  `0d58744`; SP amendment `b0c3d4a` (Q1 `_PREDICATE_PATTERNS`
+  `7a4e53b`; SP amendment `dceb2d8` (Q1 `_PREDICATE_PATTERNS`
   extended with 14 causal/diagnostic verbs, Q3 runtime tunable
   overrides on `classify()` + `score_corpus()` with `effective_*`
   fields, Q4a `emit_event()` gate lifted to composed verdict, Q4b
@@ -221,9 +231,12 @@ carry inline ADR-style module docstrings).
 
 ### Added
 
-- **Two new ADRs** — ADR-0040 (T8 PROMPT_DRIFT termination cause +
-  operator-signed intent-recompile) and ADR-0041 (SubstrateLoop shim
-  closure four-decision bundle). Six further modules carry inline
+- **Three new ADRs** — ADR-0040 (T8 PROMPT_DRIFT termination cause +
+  operator-signed intent-recompile), ADR-0041 (SubstrateLoop shim
+  closure four-decision bundle), and ADR-0042 (sycophancy v2
+  tuning band -- `NULL_OP_SCORE_THRESHOLD = 0.7` +
+  `MIN_COMMITMENT_FLOOR = 3` with runtime-tunable overrides and an
+  eight-cell sweep test). Six further modules carry inline
   docstring-style ADRs in their primary source files.
 - **New EventKinds** in `src/ract/trace/events.py::EventKind` closed
   vocabulary — `assumption.accepted` (module_01),

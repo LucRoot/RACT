@@ -52,9 +52,10 @@ Each indexed artifact is stored two ways: a SQLite index at
 `.<artifact>.rootknot.json` beside the artifact.
 
 To verify by hand: read the sidecar, recompute the canonical bytes as
-`Rootknot.canonical_bytes()` does (sorted JSON, `(",", ":")` separators),
-and check the ed25519 signature against the generator's public key. The
-CLI verb
+`Rootknot.canonical_bytes()` does — v0.5.1 module_03 uses
+`ract.canonical.dumps_jcs()` (RFC 8785 JCS, NFC-normalised,
+codepoint-sorted keys, no whitespace) — and check the ed25519
+signature against the generator's public key. The CLI verb
 
 ```
 ract provenance verify <path>
@@ -107,6 +108,11 @@ Reader dispatches on the top-level `schema` field.
   records), `reversal_taint` (`"clean"` or `"partial"`), and the
   base64 raw ALM verifier pubkey (`alm_pubkey_b64`) so AL-1 can be
   verified from the sidecar plus an out-of-sidecar registry check.
+- **`sidecar/v4`** (v0.5.1) — `schema: sidecar/v4`. Adds three
+  OPT-IN fields: `workspace_digest`, `prompt_digest`, `run_id`
+  (see `ract.core.workspace_digest`, `IntentCompiler.compile`,
+  `ract.runtime.get_current_run_id`). Canonical bytes are RFC
+  8785 JCS (module_03).
 
 **Offline verification.** v2 sidecars embed `sandbox_pubkey_b64` for
 RK-3.1; v3 sidecars also embed `alm_pubkey_b64` for AL-1.1; save sites
@@ -125,5 +131,20 @@ ADR-0023).
 | `sidecar/v1` | required | required | skipped (warn) | skipped (warn) | refused |
 | `sidecar/v2` | required | required | required | skipped (warn) | refused |
 | `sidecar/v3` | required | required | required | required | required |
+| `sidecar/v4` | required | required | required | required | required (canonical bytes via JCS; `workspace_digest`, `prompt_digest`, `run_id` bound into the signed surface) |
 
-<!-- RACT 0.4.0 -->
+## v0.5.1 additions
+
+- **Backward-read.** `Rootknot.canonical_bytes()` dispatches on
+  `schema_version`; v0.5.0 sidecars (`sidecar/v3`) verify
+  unchanged. A v0.5.1 knot without the v4 fields produces
+  byte-identical output; with them writes `sidecar/v4`. Test:
+  `tests/unit/test_schema_version_backread`.
+- **Historical Manifest Ledger** (module_07;
+  `.ract/manifest_ledger.jsonl`; details in
+  `docs/THREAT_MODEL.md`). Durability layer for RK-3: sidecar
+  proves point-in-time attestation, ledger proves witness. `ract
+  verify` walks both; missing-entry or broken-chain fails
+  `verify_chain`.
+
+<!-- RACT 0.5.1 -->

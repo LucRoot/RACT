@@ -1383,3 +1383,41 @@ the module fragment.
 <!-- RACT 0.5.0: Function contracts (ADR-0036) -->
 <!-- RACT 0.5.0: Playbook composition (ADR-0037) -->
 <!-- RACT 0.5.0: Self-adjustment probes + failure aggregator + repo fingerprint (ADR-0038) -->
+
+## v0.5.1 boundary additions
+
+- **Canonical serialization boundary.** Every hash-input byte
+  string across the tree routes through
+  `ract.canonical.dumps_jcs` (RFC 8785 JCS). Legacy
+  `json.dumps(sort_keys=True)` is refused on canonical paths
+  by the grep-gate at
+  `tests/architecture/test_no_sort_keys_in_canonical_paths.py`
+  (tokenize-based comment/string blanking + 20-entry documented
+  allowlist). Migration touched 15+ hash-input sites -- rootknot,
+  predicate, WAL, plan, manifest, trace/events, receipt,
+  reproducibility, mutation-merge, antilazy symgraph, memory cache
+  / query_trace / contracts / retrieve. See CHANGELOG `[0.5.1]`
+  module_03 and ADR-adjacent context in
+  `_BUILD/ract_v0.5.1_external_review_response/module_03.md`.
+- **Tool-invocation gate (`src/ract/executor/tool_gate.py`).** A
+  new subsystem box between the executor and the workspace:
+  four-gate `ToolInvocationGate` (manifest / registry / args /
+  budget) with `ToolInvocationRefused` structured refusal +
+  `tool.invocation.pre|post|refused` events. Every tool call in
+  a substrate step routes through
+  `SubstrateLoop.invoke_tool` (v0.5.1 module_05; ADR-0041).
+- **Historical Manifest Ledger
+  (`src/ract/security/manifest_ledger.py`).** A durability
+  subsystem alongside RK-3: append-only Merkle-chained JSONL at
+  `.ract/manifest_ledger.jsonl` + content-addressable snapshot
+  store at `.ract/manifest_snapshots/` + `verify_chain` middle-
+  excise detection + WAL cross-link. Every RK-3 environment
+  attestation lands an entry (v0.5.1 module_07).
+- **Ambient run_id ContextVar (`src/ract/runtime.py`).** A
+  process-scope binding for `run_id` that WAL, ledger, event
+  writer, and `make_rootknot_v4` all read when caller omits an
+  explicit value. `LoopController.run()` binds ambient at entry
+  via `_resolve_or_mint_run_id` (marker file + basename + fresh-
+  mint fallback for compaction survival). See v0.5.1 module_06.
+
+<!-- RACT 0.5.1 -->

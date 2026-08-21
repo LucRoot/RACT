@@ -30,11 +30,14 @@ ract init --template python-package --provider local
 ## Quick links
 
 - [Quickstart](QUICKSTART.md)
+- [CHANGELOG (v0.5.1)](../CHANGELOG.md)
 - [Release notes v0.2.0](RELEASE_NOTES_v0.2.0.md)
 - [Provider setup](PROVIDER_SETUP.md)
 - [Skill authoring](SKILL_AUTHORING.md)
 - [Architecture](ARCHITECTURE.md)
-- [Internal audit notes](internal/AUDIT.md)
+- [Threat model](THREAT_MODEL.md)
+- [Provenance](PROVENANCE.md)
+- [Events schema](EVENTS.md)
 - [Philosophy](PHILOSOPHY.md)
 - [Hugging Face Demo](https://huggingface.co/spaces/LucRoot/RACT)
 
@@ -44,4 +47,4 @@ RACT is licensed under the **PolyForm Noncommercial License 1.0.0** — free for
 
 Commercial use requires a separate agreement. See [`COMMERCIAL.md`](../COMMERCIAL.md) for details.
 
-<!-- RACT v0.2.0 - Provenance and Invariants -->
+<!-- RACT 0.5.1 -->

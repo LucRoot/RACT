@@ -650,4 +650,151 @@ Items from the pre-v0.4 roadmap that remain open:
 - **Animated asciicast/GIF** — blocked until a terminal recorder supports Windows ARM64.
 - **CLA assistant** — blocked at the OAuth handshake step; the setup URL is open.
 
-<!-- RACT 0.5.0 -->
+## Shipped in v0.5.1 (External Review Response, 2026-08-20)
+
+The nine external-review-response modules landed the following
+surfaces. Details in
+`_BUILD/ract_v0.5.1_external_review_response/module_0N.md`
+per module and in CHANGELOG `[0.5.1]`.
+
+- **G1 crash-consistency** -- `RootknotWAL` at `.ract/assumptions.wal`,
+  cross-platform exclusive file lock, fsync per append,
+  truncated-tail WARN + tolerate, middle-corruption refusal,
+  `EventKind.assumption_accepted` (module_01).
+- **G2 workspace binding + G3 prompt binding + REVIEW_4_UNKNOWN A2** --
+  Rootknot schema_version 4 with opt-in
+  `workspace_digest` / `prompt_digest` / `run_id` fields;
+  `make_rootknot_v4` factory;
+  `AcceptanceSuite.prompt_digest` populated by
+  `IntentCompiler.compile`; sacred spine preserved (module_02).
+- **RFC 8785 JCS canonical JSON** --
+  `ract.canonical.dumps_jcs` / `loads_jcs` / `is_canonical`;
+  15-file hash-input migration off `json.dumps(sort_keys=True)`;
+  grep-gate at
+  `tests/architecture/test_no_sort_keys_in_canonical_paths.py`
+  (module_03).
+- **T8 PROMPT_DRIFT + T9 PROMPT_DIGEST_MISSING + `intent recompile`
+  CLI verb** -- per-iteration prompt-drift hook in
+  `LoopController`; rollback to `last_known_good_workspace` on
+  drift; operator-signed intent-recompile action; ADR-0040
+  (module_04).
+- **SubstrateLoop shim closure (SUBSTRATE §4-§7 + B3 + D1)** --
+  `ToolInvocationGate` (four gates), `process_group.spawn` +
+  `kill_tree`, `sandbox_env.NEVER_PASSTHROUGH` allowlist,
+  `CommitCompensator` (soft-reset default) + `CompensatorStack`;
+  ADR-0041 (module_05).
+- **Ambient run_id ContextVar** -- `ract.runtime` with
+  `bind_run_id` + `get_current_run_id` + `run_with_ambient`;
+  end-to-end run_id preservation across compaction
+  (module_06).
+- **Historical Manifest Ledger (RK-3 durability)** --
+  `manifest_ledger.py` append-only Merkle-chained JSONL +
+  content-addressable snapshot store + `verify_chain` middle-
+  excise detection + `manifest.ledger.appended` /
+  `.refused` EventKinds (module_07).
+- **Polyglot G5/G6 via tree-sitter** --
+  `tree_sitter_backend.py` six-language backend +
+  `dead_code_polyglot.py` + `test_copy_paste_polyglot.py`;
+  `pyproject.toml [polyglot]` optional-dep group; legacy
+  `enforce_g5` / `enforce_g6` preserved (module_08).
+- **Sycophancy classifier v2 (AST-delta + WhispererContract-event)**
+  -- `sycophancy_v2.py` two-signal classifier; F1 = 1.000 on the
+  48-sample corpus at
+  `tests/fixtures/sycophancy_corpus/`; runtime-tunable
+  thresholds; `whisperer.contract_violation` EventKind;
+  ADR-0042 (module_09).
+
+## v0.6 hardening (from External Review Response modules 01-09)
+
+Flagged gaps compiled from
+`_BUILD/ract_v0.5.1_external_review_response/module_0N.md` per
+module and from the v0.5.1 CHANGELOG `[0.5.1]` "Known
+limitations" roll. The load-bearing items:
+
+- module_01: POSIX dir-fsync + one-instance-per-dir enforcement for
+  WAL rotation (rotation atomic within a single instance; concurrent-
+  writer safety across the `os.replace` boundary defers to v0.6).
+- module_03: UTF-16 code-unit sort upgrade for JCS (RFC 8785
+  specifies UTF-16 code-unit sort; current impl uses codepoint
+  sort; ASCII path byte-identical, non-BMP disagreement surfaces
+  on v0.6 fuzz corpus).
+- module_03: Merkle-of-JCS-lines for JSONL ledgers -- per-line
+  Merkle summary rather than whole-file rot audit.
+- module_04: HMAC operator key -> Ed25519 with revocation
+  ceremony (current HMAC-SHA256 matches the stated threat model;
+  Ed25519 + revocation defers to v0.6).
+- module_05: push-time compensator escalation (RFC-signed
+  operator override for pushed commits).
+- module_05: env allowlist Merkle attestation (per-name
+  attestation stamped into Rootknot signed surface).
+- module_06: EventChain `prev_hash` reset on fresh writer
+  construction (pre-existing invariant; ambient path exposed it
+  but did not introduce it; module_09 lands the reset-on-tail-
+  replay fix).
+- module_07: ledger rotation with roll-forward Merkle tie
+  (single-file append-only today; rotation + roll-forward
+  defers to v0.6).
+- module_07: Ed25519-signed ledger appends (current appends
+  covered by signed Rootknot binding; per-append signature
+  defers to v0.6).
+- module_08: consolidate two Python dead-code detectors
+  (legacy `enforce_g5` and new `dead_code_polyglot` both cover
+  Python; single detector routed by extension defers to v0.6).
+- module_08: grammar-version pin ADR (tree-sitter grammars pin
+  via pyproject version specifiers; ADR documenting the pin
+  policy defers to v0.6).
+- module_09: dense one-liner boundary case (pure single-liner
+  function response with no prose lands at floor 1; "function
+  body non-empty AND response body non-empty" bump defers to
+  v0.6).
+- module_09: `retrieval_attestation` run-context binding
+  (module_02 partially closes via `run_id` bind; unified
+  payload folding `prompt_digest` + `workspace_digest` into
+  the bundle-hash context defers to v0.6).
+- module_09: regex-fallback F1 gate for sycophancy v2
+  (fallback path lacks its own corpus gate; a "fallback
+  corpus" subset that force-flips `used_regex_fallback` to
+  True defers to v0.6).
+- module_09: sentence-boundary detector upgrade (naive
+  `(?<=[.!?])\s+(?=[A-Z])` fails on abbreviations, markdown
+  lists, and inline URLs).
+- module_09: YAML-config surface for the two sycophancy v2
+  tunables (ADR-0042 flagged gap).
+
+## v0.6 hardening (from 8-lens audit 2026-08-21 wiring gaps)
+
+The 2026-08-21 8-lens audit
+(`_BUILD/audit_2026-08-21/AUDIT_SUMMARY.md`) surfaced a systemic
+wiring gap: v0.5.1's primitives shipped clean-tested as API
+surfaces with ~10 major primitives having zero production
+callers. The v0.5.1 wiring completion pipeline
+(`docs/RACT_v0.5.1_WIRING_COMPLETION_SPEC.md`) is closing the
+gap in-place and re-tagging v0.5.1 at the wired commit; items
+that survive that pipeline as v0.6 work are appended here as
+the pipeline progresses.
+
+- Lens A: `.ract/` vs `.rack/` state-directory drift (load-bearing;
+  addressed in wiring module_10).
+- Lens A: `ract retrieval query` stub verb wired to actual
+  `retrieve()` primitive (wiring module_10).
+- Lens A: `ract manifest ledger` CLI verbs
+  (`verify`/`inspect`/`show`/`proof`) (wiring module_10).
+- Lens F H2: EventChain tail-truncation invert (WARN-and-tolerate
+  vs hard-fail alignment across all ledgers; operator preference
+  decides; wiring module_09).
+- Lens G G-04/G-05/G-03: loop-resume path persistence for
+  `iterations` / `previous_score` / `stagnation_count` /
+  `_rollback_streak` / `_prev_iteration_plan` /
+  `_completed_families` / `repair_attempts_remaining` /
+  `_repair_intent` / `last_known_good_workspace` across
+  restart; `LoopController.on_pause` / `on_resume` / `resume`
+  methods; compaction survival test (wiring module_06).
+- Lens G G-08: iter-1 T8 tree-wipe protection (drift check must
+  run AFTER snapshot init; `delete_orphaned_files_on_t8=True`
+  should require confirmation on iter-1; wiring module_06).
+- Lens H: no `--cov-fail-under` on CI (test suite runs but
+  coverage floor is not enforced).
+- Lens H: Ubuntu-only lint / mypy (Windows / macOS matrix not
+  wired).
+
+<!-- RACT 0.5.1 -->

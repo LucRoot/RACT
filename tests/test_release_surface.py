@@ -1013,3 +1013,153 @@ def test_no_closed_ip_terms_in_tracked_files() -> None:
         "public model catalog URL in an inline citation), narrow the "
         "wordlist. Otherwise, generalize the leaking text."
     )
+
+
+# ---------------------------------------------------------------------------
+# v0.5.1 wiring completion module_01 -- provenance + docs sync gates
+# ---------------------------------------------------------------------------
+
+
+def test_changelog_v051_shas_resolve_in_git() -> None:
+    """Every short SHA cited in the CHANGELOG's ``[0.5.1]`` section must
+    resolve to a real commit under ``git rev-parse --verify``.
+
+    Regression anchor: Lens B C1 of the 2026-08-21 8-lens audit found
+    that all 20 primary/SP short SHAs in the ``[0.5.1]`` bullets were
+    fabricated (post-``git filter-repo`` the pre-rewrite SHAs stopped
+    resolving). Module_01 of the wiring completion pipeline
+    regenerated them; this test pins the fix so a future rewrite
+    trips a red before the release-note bullets go stale silently.
+
+    The gate is per-section: the substring of ``CHANGELOG.md`` between
+    ``## [0.5.1]`` and the next ``## [`` heading is scanned for
+    7-character hex tokens surrounded by backticks (the CHANGELOG's
+    short-SHA convention). Each token is passed to
+    ``git rev-parse --verify <sha>^{commit}``; a non-zero exit is a
+    hard failure.
+    """
+    text = (_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    marker = "## [0.5.1]"
+    start = text.find(marker)
+    assert start != -1, "CHANGELOG missing [0.5.1] entry"
+    next_section = text.find("\n## [", start + len(marker))
+    if next_section == -1:
+        next_section = len(text)
+    section = text[start:next_section]
+
+    # Backticked 7-char hex tokens; CHANGELOG SHA convention.
+    candidates = set(re.findall(r"`([0-9a-f]{7})`", section))
+    assert candidates, "[0.5.1] section carries no `<7-hex>` tokens to verify"
+
+    unresolved: list[str] = []
+    for sha in sorted(candidates):
+        result = subprocess.run(
+            ["git", "-C", str(_REPO_ROOT), "rev-parse", "--verify", f"{sha}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            unresolved.append(sha)
+
+    assert not unresolved, (
+        "CHANGELOG [0.5.1] cites SHA(s) that do not resolve under "
+        f"``git rev-parse --verify``: {unresolved}. Rewrite of history "
+        "(filter-repo, force-push) invalidates cited SHAs; regenerate "
+        "the bullets against the current tree via "
+        "``git log --all --oneline --grep='release(v0.5.1)'``."
+    )
+
+
+def test_events_doc_schema_version_matches_event_kind_count() -> None:
+    """The ``schema_version`` frontmatter in ``docs/EVENTS.md`` must
+    stay aligned with the closed vocabulary in
+    ``src/ract/trace/events.py::EventKind``.
+
+    Rule: the EVENTS.md doc's rule (line ~19) says a new EventKind
+    requires bumping the frontmatter version. v0.5.0 memory
+    discipline landed at ``schema_version: "3"`` with 7 memory kinds
+    added. v0.5.1 module_09 landed
+    ``manifest.ledger.appended|refused``,
+    ``whisperer.contract_violation``, and
+    ``assumption.accepted``; this test pins schema_version to "4" at
+    the wired-v0.5.1 tree.
+
+    Regression anchor: Lens B C6 of the 2026-08-21 8-lens audit
+    surfaced that schema_version stuck at "3" while six new
+    v0.5.1 kinds landed in ``events.py`` and CHANGELOG. Module_01
+    of the wiring completion pipeline bumped the frontmatter + added
+    the payload sections; this gate refuses a future kind-add that
+    forgets the doc bump.
+
+    Also verifies the four v0.5.1 EventKind literals that are
+    load-bearing gate entries are present in ``LEGAL_EVENT_KINDS``.
+    """
+    text = (_REPO_ROOT / "docs" / "EVENTS.md").read_text(encoding="utf-8")
+    match = re.search(r'^schema_version:\s*"(\d+)"', text, flags=re.MULTILINE)
+    assert match, "docs/EVENTS.md frontmatter missing schema_version"
+    doc_version = match.group(1)
+    assert doc_version == "4", (
+        f"docs/EVENTS.md schema_version {doc_version!r} != expected '4'. "
+        "v0.5.1 module_09 added new EventKinds; bump the frontmatter + "
+        "document the payloads per docs/EVENTS.md's own rule."
+    )
+
+    # v0.5.1 kinds that must be in the closed literal.
+    from ract.trace.events import LEGAL_EVENT_KINDS
+
+    required = (
+        "assumption.accepted",
+        "manifest.ledger.appended",
+        "manifest.ledger.refused",
+        "whisperer.contract_violation",
+    )
+    missing = [k for k in required if k not in LEGAL_EVENT_KINDS]
+    assert not missing, (
+        f"v0.5.1 EventKind literal(s) missing from LEGAL_EVENT_KINDS: {missing}"
+    )
+
+    # The four EventKinds must ALSO be documented in EVENTS.md so the
+    # ``payload schema per kind`` invariant holds.
+    for kind in required:
+        assert f"`{kind}`" in text, (
+            f"docs/EVENTS.md missing payload section for `{kind}`"
+        )
+
+
+def test_adr_0042_documented_in_changelog() -> None:
+    """ADR-0042 (sycophancy v2 tuning band) is authored in module_01 of
+    the v0.5.1 wiring completion pipeline. Two anchors must hold at
+    every tag:
+
+    1. `docs/ADRs/ADR-0042-sycophancy-v2-tuning-band.md` exists.
+    2. CHANGELOG `[0.5.1]` section references ADR-0042 (or its
+       human-readable name "sycophancy v2 tuning band").
+
+    Regression anchor: SP module_01 Q7 -- a future CHANGELOG
+    regeneration (e.g. module_11 re-tag) must not silently drop the
+    ADR-0042 cross-reference while the ADR file persists. Closes the
+    ADR <-> release-notes loop.
+    """
+    adr_path = _REPO_ROOT / "docs" / "ADRs" / "ADR-0042-sycophancy-v2-tuning-band.md"
+    assert adr_path.is_file(), (
+        f"ADR-0042 missing at {adr_path}. v0.5.1 wiring completion "
+        "module_01 authored it; re-verify the docs/ADRs/ tree."
+    )
+
+    changelog = (_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    marker = "## [0.5.1]"
+    start = changelog.find(marker)
+    assert start != -1, "CHANGELOG missing [0.5.1] entry"
+    next_section = changelog.find("\n## [", start + len(marker))
+    if next_section == -1:
+        next_section = len(changelog)
+    section = changelog[start:next_section]
+    assert (
+        "ADR-0042" in section
+        or "sycophancy v2 tuning band" in section.lower()
+    ), (
+        "CHANGELOG [0.5.1] does not reference ADR-0042 or its "
+        "'sycophancy v2 tuning band' name. Re-add the reference "
+        "when regenerating the release notes."
+    )

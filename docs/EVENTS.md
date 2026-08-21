@@ -1,5 +1,5 @@
 ---
-schema_version: "3"
+schema_version: "4"
 ---
 
 # RACT event schema
@@ -369,4 +369,140 @@ Emitted by the self-adjustment probe scheduler on each probe
 completion. Fields: `probe` (needle | coherence | adherence),
 `score` (float 0.0-1.0), `repo_fingerprint` (hex), `note` (string).
 
-<!-- schema_version: 3 — module_09 v0.5.0 (added seven memory-discipline kinds) -->
+## v0.5.1 External Review Response (schema_version 4)
+
+The seven kinds below extend the closed vocabulary under
+schema_version 4. Producers:
+
+- `assumption.accepted` — `ract.core.assumptions.AssumptionRegistry.accept`
+  (module_01 -- WAL crash-consistency layer).
+- `tool.invocation.pre|post|refused` —
+  `ract.executor.tool_gate.ToolInvocationGate._emit` /
+  `_refuse` (module_05 -- SubstrateLoop shim closure). The three
+  strings are emitted directly by the gate; the
+  `src/ract/trace/events.py::EventKind` Literal folds them into
+  the closed vocabulary at the write-time gate.
+- `manifest.ledger.appended|refused` —
+  `ract.security.manifest_ledger.ManifestLedger.append` /
+  observer refusal path (module_07 -- Historical Manifest
+  Ledger).
+- `whisperer.contract_violation` —
+  `ract.antilazy.sycophancy_v2.SycophancyClassification.emit_event`
+  (module_09 -- Sycophancy classifier upgrade).
+
+### `assumption.accepted`
+
+Emitted by `AssumptionRegistry.accept` when a proposed assumption
+is durably persisted to the WAL at `.ract/assumptions.wal`. Fields:
+`run_id` (string, hex; ambient or empty), `assumption_id` (string,
+hex UUID), `evidence_digest` (string; SHA-256 of the evidence bytes
+that justified acceptance, canonicalised via
+`ract.canonical.dumps_jcs`).
+
+Example payload:
+
+```json
+{
+  "run_id": "4a1c0f9e6b3d2a5c8f9e1b4d2a7c6f3e",
+  "assumption_id": "d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6",
+  "evidence_digest": "sha256:9f8e7d6c5b4a39281706f5e4d3c2b1a0…"
+}
+```
+
+> **Wiring gap (v0.5.1 module_03 scope).** The three
+> `tool.invocation.pre|post|refused` kinds below are emitted
+> directly by `src/ract/executor/tool_gate.py` as raw string
+> literals; they are documented here as part of the v0.5.1
+> vocabulary but are NOT YET in the closed `EventKind` Literal
+> at `src/ract/trace/events.py` (which today carries the older
+> `tool.called` / `tool.result` / `tool.refused` shape). The
+> wiring completion pipeline's module_03 (tool gate chokepoint
+> wiring) extends the Literal + wires every production tool
+> caller through `SubstrateLoop.invoke_tool`. Consumers can
+> treat the payload shapes below as stable; the type-enforcement
+> gate lands with module_03.
+
+### `tool.invocation.pre`
+
+Emitted by `ToolInvocationGate.invoke` before the tool callable
+runs, after all four gates (manifest / registry / args / budget)
+have accepted. Fields: `run_id` (string, hex; ambient), `tool_id`
+(string), `args_repr` (string; bounded / privacy-safe repr of the
+call arguments), `budget_used` (int; invocations already consumed
+this step), `budget_max` (int; per-step ceiling from
+`InvocationBudget.max_invocations`).
+
+### `tool.invocation.post`
+
+Emitted by `ToolInvocationGate.invoke` after the tool callable
+returns (success) or raises (failure). Fields: `run_id` (string,
+hex), `tool_id` (string), `ok` (bool), `latency_ms` (float);
+on success: `result_size_bytes` (int; approximate serialised
+size of the return value); on failure: `exception` (string;
+`type(exc).__name__` of the raised exception).
+
+### `tool.invocation.refused`
+
+Emitted by `ToolInvocationGate._refuse` when any of the four
+gates rejects a call. Fields: `run_id` (string, hex), `tool_id`
+(string), `gate` (string; one of `manifest` / `registry` /
+`args` / `budget`), `reason` (string; short human-readable
+diagnostic), `details` (dict; gate-specific structured payload
+carrying e.g. the missing schema field name for `args`, the
+ceiling / used counts for `budget`, or the declared-set diff for
+`manifest` / `registry`).
+
+### `manifest.ledger.appended`
+
+Emitted by `ManifestLedger.append` on every successful entry
+write. Fields: `entry_index` (int; the 0-based ledger position
+of the appended entry), `manifest_digest` (string; hex of the
+observed manifest's canonical digest), `prev_ledger_hash`
+(string; hex of the previous entry's chain hash, or GENESIS
+sentinel for the first entry), `tool_ids_invoked_count` (int;
+number of distinct tool ids invoked in the substrate step at
+ledger-append time).
+
+### `manifest.ledger.refused`
+
+Emitted by the ledger observer when a ledger IS bound (an ambient
+ledger accessor returns a live instance) but the append fails
+(disk full, permission change, lock contention, malformed
+payload). Fields: `entry_index` (int; the attempted position;
+`-1` when the position could not be resolved), `reason` (string;
+one of `lock_contended` / `disk_full` / `permission_denied` /
+`malformed_payload` / `chain_mismatch`), `details` (dict;
+free-form structured diagnostic carrying `exception_name`
++ `exception_message` fields plus a `manifest_digest_hex` when
+the ledger reached the entry-shape validation step).
+`ract verify` uses this event to distinguish "ledger was never
+bound" (no event) from "ledger was bound but refused" (this
+event) -- the two failure modes get different exit codes.
+
+### `whisperer.contract_violation`
+
+Emitted by
+`ract.antilazy.sycophancy_v2.SycophancyClassification.emit_event`
+whenever `is_sycophantic` is True (SP Q4a lifted the emit gate
+to the composed verdict, not the commitment-floor branch alone).
+Fields: `run_id` (string, hex; ambient or empty), `commitment_count`
+(int; sum of AST commitments + factual claims), `floor` (int;
+`MIN_COMMITMENT_FLOOR` at classify time, default 3),
+`response_excerpt_hash` (string; 16-hex prefix of SHA-256 over
+the first 256 bytes of the response),
+`response_full_hash` (string; 64-hex SHA-256 over the entire
+response body -- SP Q4b amendment, disambiguates long-prefix
+collisions), `null_op_score` (float 0.0-1.0),
+`null_op_threshold` (float; the `NULL_OP_SCORE_THRESHOLD` in
+effect at classify time, default 0.7 -- SP Q3 exposes runtime
+overrides that land on this payload), `trigger` (string; one of
+`null_op` / `commitment_floor` / `both` -- SP Q4a; names which
+signal fired), `used_regex_fallback` (bool; True when
+grammar-parse failed and the classifier degraded to the
+regex-only fallback path).
+
+See `docs/ADRs/ADR-0042-sycophancy-v2-tuning-band.md` for the
+tuning-band provenance behind the `floor` and `null_op_threshold`
+defaults.
+
+<!-- schema_version: 4 — v0.5.1 External Review Response (added assumption.accepted, tool.invocation.pre|post|refused, manifest.ledger.appended|refused, whisperer.contract_violation) -->
