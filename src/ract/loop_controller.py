@@ -1888,7 +1888,13 @@ class LoopController:
             )
 
             reports = self.probe_scheduler.run_once(self.probe_provider)
+            # SP Q6.7 amendment: defensive guard for the case a caller
+            # sets ``probe_scheduler`` after construction without also
+            # setting ``memory_root`` (constructor auto-fills project_dir
+            # only when the scheduler is passed at __init__ time).
             root = self.memory_root or self.project_dir
+            if root is None:
+                return
             write_capability_record(reports, Path(root))
         except Exception as exc:  # noqa: BLE001 -- probe failure never breaks the loop
             import logging  # noqa: PLC0415

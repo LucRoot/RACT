@@ -198,26 +198,35 @@ class RetrievalCache:
         <= 0 disables the check (v0.5.0-compat: cache-forever mode).
         """
         key = _cache_key(query_payload, repo_commit_hash)
-        cur = self._conn.execute(
-            "SELECT bundle_json, created_at FROM retrieval_cache "
-            "WHERE cache_key = ?",
-            (key,),
-        )
-        row = cur.fetchone()
-        if row is None:
-            return None
-        if self._ttl_seconds > 0:
-            now = int(time.time())
-            created_at = int(row["created_at"])
-            if created_at + self._ttl_seconds < now:
-                # Expired: delete the stale row and treat as a miss.
-                with self._lock:
+        # SP Q6.3 amendment: TOCTOU race closure. The read + TTL
+        # check + potential delete run under the write lock so a
+        # concurrent ``invalidate_expired`` or ``invalidate_by_file``
+        # cannot delete the row between the read and the return path
+        # (which would leave the caller reading stale bytes from a
+        # row already dropped). SQLite's per-connection cursor is
+        # itself thread-hostile; the same lock that guards writes
+        # also serialises the TTL-check-then-delete sequence.
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT bundle_json, created_at FROM retrieval_cache "
+                "WHERE cache_key = ?",
+                (key,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                return None
+            if self._ttl_seconds > 0:
+                now = int(time.time())
+                created_at = int(row["created_at"])
+                if created_at + self._ttl_seconds < now:
+                    # Expired: delete the stale row and treat as a miss.
                     self._conn.execute(
                         "DELETE FROM retrieval_cache WHERE cache_key = ?",
                         (key,),
                     )
-                return None
-        return json.loads(row["bundle_json"])
+                    return None
+            payload_json = row["bundle_json"]
+        return json.loads(payload_json)
 
     def invalidate_expired(self) -> int:
         """Drop every entry whose TTL has passed. Returns rows deleted.

@@ -283,13 +283,19 @@ class SymbolIndexWatcher:
         # Graph index update.
         if self.graph_populator is not None:
             try:
-                self.graph_populator.update_file(path)
+                # SP Q6.1 amendment: pass ``path_str`` for type
+                # consistency with :meth:`_cascade_delete` (both sides
+                # of the cascade now hand :meth:`GraphPopulator` /
+                # :meth:`GraphIndex` a plain str). ``update_file``
+                # normalises ``Path | str`` internally.
+                self.graph_populator.update_file(path_str)
                 self.stats.graph_updates += 1
             except Exception as exc:  # noqa: BLE001 -- one index failing must not skip others
                 self.stats.graph_errors += 1
                 LOG.warning(
                     "watcher graph cascade failed on %s: %s", path_str, exc
                 )
+                self._emit_cascade_error(path_str, "graph", "write", exc)
         # Semantic index update: walk the fresh symbols in this file
         # and call update_symbol per-symbol. Import inline to avoid a
         # module-load cycle with semantic_builder.
@@ -326,6 +332,7 @@ class SymbolIndexWatcher:
                     path_str,
                     exc,
                 )
+                self._emit_cascade_error(path_str, "semantic", "write", exc)
         # Cache invalidation LAST so a subsequent lookup sees a miss
         # after the underlying indexes have already been updated.
         if self.cache is not None:
@@ -336,17 +343,36 @@ class SymbolIndexWatcher:
                 LOG.warning(
                     "watcher cache invalidation failed on %s: %s", path_str, exc
                 )
+                self._emit_cascade_error(path_str, "cache", "write", exc)
         self._emit_freshness_gap(path_str, "write")
 
     def _cascade_delete(self, path: Path) -> None:
-        """Cascade a delete event to graph, semantic, and cache handles."""
+        """Cascade a delete event to graph, semantic, and cache handles.
+
+        SP Q6.2 amendment: prefer a public
+        :meth:`GraphPopulator.delete_by_source_file` (when the
+        populator implements one) over reaching into the private
+        ``_graph`` attribute. Falls back to the ``_graph`` traversal
+        for compatibility with the current :mod:`graph_populator`
+        (which does not yet expose a public delete helper). A future
+        refactor that renames ``_graph`` won't silently break the
+        cascade as long as the public method is added at the same
+        time.
+        """
         path_str = str(path)
         if self.graph_populator is not None:
             try:
-                graph = getattr(self.graph_populator, "_graph", None)
-                if graph is not None:
-                    graph.delete_by_source_file(path_str)
+                public_delete = getattr(
+                    self.graph_populator, "delete_by_source_file", None
+                )
+                if callable(public_delete):
+                    public_delete(path_str)
                     self.stats.graph_updates += 1
+                else:
+                    graph = getattr(self.graph_populator, "_graph", None)
+                    if graph is not None:
+                        graph.delete_by_source_file(path_str)
+                        self.stats.graph_updates += 1
             except Exception as exc:  # noqa: BLE001
                 self.stats.graph_errors += 1
                 LOG.warning(
@@ -354,6 +380,7 @@ class SymbolIndexWatcher:
                     path_str,
                     exc,
                 )
+                self._emit_cascade_error(path_str, "graph", "delete", exc)
         if self.semantic_index is not None:
             try:
                 self.semantic_index.delete_by_file(path_str)
@@ -365,6 +392,7 @@ class SymbolIndexWatcher:
                     path_str,
                     exc,
                 )
+                self._emit_cascade_error(path_str, "semantic", "delete", exc)
         if self.cache is not None:
             try:
                 dropped = int(self.cache.invalidate_by_file(path_str) or 0)
@@ -375,7 +403,36 @@ class SymbolIndexWatcher:
                     path_str,
                     exc,
                 )
+                self._emit_cascade_error(path_str, "cache", "delete", exc)
         self._emit_freshness_gap(path_str, "delete")
+
+    def _emit_cascade_error(
+        self, path_str: str, index_kind: str, event_kind: str, exc: Exception
+    ) -> None:
+        """Emit ``memory.cascade_error`` when one index in the cascade fails.
+
+        SP Q6.8 amendment: prior code counted the failure on
+        :class:`WatcherStats` but did not raise a trace-channel event
+        so an operator only saw the incrementing counter. Every
+        cascade failure now surfaces on the events stream too.
+        Best-effort import guarded so a watcher wired without the
+        trace-sink module keeps running silently.
+        """
+        try:
+            from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+            _emit_event(
+                "memory.cascade_error",
+                {
+                    "path": path_str,
+                    "index_kind": index_kind,
+                    "event_kind": event_kind,
+                    "error_type": type(exc).__name__,
+                    "message": str(exc)[:512],
+                },
+            )
+        except Exception:  # noqa: BLE001 -- trace failure must not break the watcher
+            pass
 
     def _emit_freshness_gap(self, path_str: str, kind: str) -> None:
         """Emit ``memory.freshness_gap`` with the per-index attachment status.

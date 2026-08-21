@@ -326,9 +326,44 @@ def get_with_capability_clamp(
         )
     if not narrowings:
         return base
-    from ract.memory.composition import apply_runtime_narrowing  # noqa: PLC0415
+    from ract.memory.composition import (  # noqa: PLC0415
+        RuntimeNarrowingFloorError,
+        apply_runtime_narrowing,
+    )
 
-    clamped = apply_runtime_narrowing(base, narrowings)
+    # SP Q6.4 amendment: defense-in-depth against a future refactor
+    # of the composition-layer floor policy that would raise for a
+    # narrowing this helper thought was safe. The computation above
+    # already respects the current floor
+    # (``base.input_target // 2``); a raise here means the invariant
+    # drifted. Log + emit + return base so the clamp is honest about
+    # not landing rather than crashing the caller.
+    try:
+        clamped = apply_runtime_narrowing(base, narrowings)
+    except RuntimeNarrowingFloorError as exc:
+        import logging  # noqa: PLC0415
+
+        logging.getLogger(__name__).warning(
+            "get_with_capability_clamp: apply_runtime_narrowing refused "
+            "narrowings for function %r (%s); returning un-clamped base",
+            function,
+            exc,
+        )
+        try:
+            from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+            _emit_event(
+                "budget.clamp_refused",
+                {
+                    "function": function,
+                    "error_type": type(exc).__name__,
+                    "message": str(exc)[:512],
+                    "usable_context_window": usable,
+                },
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return base
     # Best-effort emit so the audit surface sees the probe-driven
     # clamp. Import guarded so a caller wired without the trace sink
     # never breaks the call.
