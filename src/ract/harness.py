@@ -337,6 +337,44 @@ class Harness:
             compression_novelty_detector=self.compression_novelty_detector,
             handshake_registry=self.handshake_registry,
         )
+        # v0.5.1 wiring module_03 (Lens C C-01) production wire-in.
+        # Construct a lightweight SubstrateLoop bound to the project
+        # dir and install it on the Executor. This makes every MCP
+        # tool_call step (executor/steps.py ~line 890) route through
+        # the four-gate chokepoint (manifest, registry, args, budget)
+        # in the production run path -- closing the audit's
+        # "no production caller" finding at the harness boundary
+        # rather than deferring to test-only wiring.
+        #
+        # The loop's ``wire_mcp_registry`` call inside
+        # ``install_substrate_loop`` walks the MCP registry and
+        # auto-declares every tool as ``mcp:<qualified_name>`` on
+        # the manifest surface. A run with no MCP servers configured
+        # gets a zero-tool registry and skips the wire entirely.
+        try:
+            from ract.executor.loop import SubstrateLoop
+            from ract.executor.tool_gate import ToolRegistry
+
+            self.substrate_loop = SubstrateLoop(
+                repo_root=self.project_dir,
+                parent_snapshot="0" * 40,
+                tool_registry=ToolRegistry(),
+            )
+            self.executor.install_substrate_loop(self.substrate_loop)
+        except Exception:  # noqa: BLE001
+            # Best-effort wire; a broken substrate loop must not
+            # crash harness construction. The fallback path in
+            # Executor.execute logs + emits a
+            # ``tool.invocation.bypassed`` event so the audit
+            # surface still catches the gap.
+            import logging as _logging
+
+            _logging.getLogger(__name__).warning(
+                "harness: substrate_loop install failed; "
+                "MCP tool_call will use direct-MCP fallback",
+                exc_info=True,
+            )
+            self.substrate_loop = None
 
     def _run_mutation_gate(
         self, report_rooted: Rooted[ExecutionReport]

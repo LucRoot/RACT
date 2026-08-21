@@ -92,6 +92,7 @@ class Executor:
         acceptance_suite_provider: Callable[[], Any] | None = None,
         manifest_digest_provider: Callable[[], Any] | None = None,
         gate_results_provider: Callable[[], tuple] | None = None,
+        substrate_loop: Any = None,
     ) -> None:
         self.router = router
         self.hook_manager = hook_manager
@@ -129,7 +130,55 @@ class Executor:
         self.acceptance_suite_provider = acceptance_suite_provider
         self.manifest_digest_provider = manifest_digest_provider
         self.gate_results_provider = gate_results_provider
+        # v0.5.1 wiring module_03 (Lens C C-01): the substrate loop
+        # owns the tool-invocation gate. When present, every MCP
+        # tool_call step routes through ``substrate_loop.invoke_tool``
+        # (which runs the four-gate check: manifest, registry, args,
+        # budget). When absent, the Executor falls back to a direct
+        # ``mcp_registry.call_tool`` and emits a warn log so the
+        # migration is loud (matches module_02's log-and-skip
+        # discipline for missing v4 deps).
+        self.substrate_loop = substrate_loop
         self.provenance = ProvenanceTracker()
+        # v0.5.1 wiring module_03 amendment: the module_02 setter
+        # ``install_v4_provenance_deps`` moved artifact_store /
+        # artifact_tracker / guardrail into the setter body, which
+        # broke every :class:`Executor(router)` construction path
+        # (test_executor.py, harness.py, direct callers) that never
+        # invokes the v4 setter. These attributes are load-bearing
+        # for ``execute()``; restore them to __init__ so both
+        # setter-wired and unset paths run correctly. The setter
+        # continues to re-instantiate them (equivalent behaviour;
+        # tests that drive the setter path see fresh instances).
+        self.artifact_store = ArtifactStore()
+        self.artifact_tracker = ArtifactTracker()
+        self.guardrail = SafetyGuardrail(
+            rules=[
+                {
+                    "pattern": r"eval\s*\(",
+                    "name": "no-eval",
+                    "message": "eval() enables arbitrary code execution.",
+                },
+                {
+                    "pattern": r"exec\s*\(",
+                    "name": "no-exec",
+                    "message": "exec() enables arbitrary code execution.",
+                },
+                {
+                    "pattern": r"subprocess\.[\w]+\([^)]*shell\s*=\s*True",
+                    "name": "no-shell-true",
+                    "message": "shell=True can enable command injection.",
+                },
+                {
+                    "pattern": r"except\s*:\s*$",
+                    "name": "no-bare-except",
+                    "message": (
+                        "Bare except: catches unexpected errors including "
+                        "SystemExit."
+                    ),
+                },
+            ]
+        )
 
     def install_v4_provenance_deps(
         self,
@@ -211,6 +260,36 @@ class Executor:
                 },
             ]
         )
+
+    def install_substrate_loop(self, substrate_loop: Any) -> None:
+        """Install the SubstrateLoop chokepoint after Executor construction.
+
+        v0.5.1 wiring module_03 (Lens C C-01) setter. Matches the
+        module_02 ``install_v4_provenance_deps`` pattern: the Harness
+        constructs the Executor before ``LoopController`` has
+        materialised its :class:`SubstrateLoop`. This setter lets the
+        loop entry install the reference exactly once, at the moment
+        the run begins.
+
+        When installed, :meth:`execute` routes every ``tool_call``
+        step through ``substrate_loop.invoke_tool`` (four-gate check
+        + ``tool.invocation.pre/post/refused`` events). The MCP
+        registry the Executor was constructed with is expected to
+        have already been wired into the loop via
+        :meth:`SubstrateLoop.wire_mcp_registry` -- callers may pass
+        the mcp_registry to this setter too to trigger the wire.
+        """
+        self.substrate_loop = substrate_loop
+        # Best-effort wire: if the loop supports the MCP wire helper
+        # and the Executor was constructed with an mcp_registry, plumb
+        # them together. Missing methods no-op.
+        if self.mcp_registry is not None:
+            wire = getattr(substrate_loop, "wire_mcp_registry", None)
+            if callable(wire):
+                try:
+                    wire(self.mcp_registry)
+                except Exception:  # noqa: BLE001 -- do not fail install
+                    pass
 
     @staticmethod
     def _looks_like_diff(content: str) -> bool:
@@ -887,23 +966,117 @@ class Executor:
                         error="Tool-call step is missing 'name'.",
                         hint="mcp",
                     )
-                tool_result = self.mcp_registry.call_tool(tool_name, tool_args)
-                if not tool_result.is_ok():
-                    return Rooted(
-                        value=None,
-                        assumption=f"MCP tool '{tool_name}' executes successfully.",
-                        confidence=0.0,
-                        provenance=[f"executor.step:{index}"],
-                        error=tool_result.error,
-                        hint="mcp",
+                # v0.5.1 wiring module_03 (Lens C C-01) migration:
+                # every MCP tool_call routes through the substrate
+                # loop's four-gate chokepoint when a loop is wired.
+                # Without a loop, fall back to the direct MCP call
+                # (backward-compat for pre-v0.5.1 test callers) and
+                # emit a warn log so the migration is loud.
+                if self.substrate_loop is not None:
+                    from ract.executor.tool_gate import (
+                        ToolInvocationRefused,
                     )
-                result_value = tool_result.unwrap()
-                raw = {
-                    "tool": result_value.tool,
-                    "content": result_value.content,
-                    "is_error": result_value.is_error,
-                }
-                content = json.dumps(result_value.content, indent=2)
+
+                    tool_id = f"mcp:{tool_name}"
+                    try:
+                        gated_result = self.substrate_loop.invoke_tool(
+                            tool_id, {"arguments": dict(tool_args)}
+                        )
+                    except ToolInvocationRefused as refused:
+                        return Rooted(
+                            value=None,
+                            assumption=(
+                                f"MCP tool '{tool_name}' passes the "
+                                "substrate tool-invocation gate."
+                            ),
+                            confidence=0.0,
+                            provenance=[f"executor.step:{index}"],
+                            error=(
+                                f"tool-gate refused [{refused.gate}]: "
+                                f"{refused.reason}"
+                            ),
+                            hint="tool_gate",
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        return Rooted(
+                            value=None,
+                            assumption=(
+                                f"MCP tool '{tool_name}' executes successfully."
+                            ),
+                            confidence=0.0,
+                            provenance=[f"executor.step:{index}"],
+                            error=str(exc),
+                            hint="mcp",
+                        )
+                    # gated_result is the McpToolResult unwrapped by
+                    # the tool_gate callable (see
+                    # SubstrateLoop.wire_mcp_registry closure).
+                    raw = {
+                        "tool": gated_result.tool,
+                        "content": gated_result.content,
+                        "is_error": gated_result.is_error,
+                    }
+                    content = json.dumps(gated_result.content, indent=2)
+                else:
+                    import logging as _logging
+
+                    _logging.getLogger(__name__).warning(
+                        "executor.steps: mcp tool_call %r bypassed the "
+                        "substrate tool-invocation gate (Executor "
+                        "constructed without substrate_loop). "
+                        "Backward-compat fallback; migrate the caller.",
+                        tool_name,
+                    )
+                    # v0.5.1 wiring module_03 SP Q6 amendment: emit a
+                    # ``tool.invocation.bypassed`` event to the trace
+                    # sink so the audit surface catches the bypass
+                    # even when the operator has WARN logs muted.
+                    # The event carries the tool_id (mcp:*-prefixed)
+                    # + a bounded args_repr + the step index so
+                    # post-mortem correlates the bypass to a specific
+                    # step, not just to a run.
+                    try:
+                        from ract.trace.sink import emit as _emit_event
+
+                        _emit_event(  # type: ignore[misc]
+                            "tool.invocation.bypassed",
+                            {
+                                "tool_id": f"mcp:{tool_name}",
+                                "reason": (
+                                    "executor constructed without "
+                                    "substrate_loop"
+                                ),
+                                "step_index": index,
+                                "args_repr": (
+                                    repr(dict(tool_args))[:256]
+                                ),
+                            },
+                        )
+                    except Exception:  # noqa: BLE001
+                        # Event sink failures must not fail the step;
+                        # the WARN log above still records the bypass.
+                        pass
+                    tool_result = self.mcp_registry.call_tool(
+                        tool_name, tool_args
+                    )
+                    if not tool_result.is_ok():
+                        return Rooted(
+                            value=None,
+                            assumption=(
+                                f"MCP tool '{tool_name}' executes successfully."
+                            ),
+                            confidence=0.0,
+                            provenance=[f"executor.step:{index}"],
+                            error=tool_result.error,
+                            hint="mcp",
+                        )
+                    result_value = tool_result.unwrap()
+                    raw = {
+                        "tool": result_value.tool,
+                        "content": result_value.content,
+                        "is_error": result_value.is_error,
+                    }
+                    content = json.dumps(result_value.content, indent=2)
             else:
                 step_result = self._execute_provider_step_with_fallback(
                     step, context, index, stream, stream_callback

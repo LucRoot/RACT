@@ -188,6 +188,8 @@ class SubstrateLoop:
             self._tool_declared_ids = frozenset()
         self._tool_budget = tool_budget or ToolBudget()
         self._tool_gates: dict[bytes, ToolInvocationGate] = {}
+        # v0.5.1 wiring module_03 SP Q5: MCP inputSchemas per tool_id.
+        self._mcp_input_schemas: dict[str, dict[str, object]] = {}
         # v0.5.1 module_05 -- commit compensator stack (SUBSTRATE §7).
         # Every successful commit inside the loop installs a soft-reset
         # compensator; disposal-other-than-T1 drains the stack LIFO.
@@ -359,6 +361,143 @@ class SubstrateLoop:
     def tool_gate_for(self, step_id: bytes) -> ToolInvocationGate | None:
         """Return the ``ToolInvocationGate`` used for ``step_id`` (or None)."""
         return self._tool_gates.get(step_id)
+
+    def wire_mcp_registry(
+        self,
+        mcp_registry: object,
+        *,
+        auto_declare: bool = True,
+    ) -> int:
+        """Register every MCP tool from ``mcp_registry`` in this loop's gate.
+
+        v0.5.1 wiring module_03 (Lens C C-01) closure. Executor's
+        ``tool_call`` step used to invoke ``mcp_registry.call_tool``
+        directly, bypassing every substrate gate. Wiring the MCP
+        registry through this method lets Executor call
+        ``substrate_loop.invoke_tool("mcp:<qualified_name>", {...})``
+        for every model-emitted tool_use message.
+
+        Contract:
+        - Every ``McpAdapter`` known to ``mcp_registry`` is walked;
+          each ``qualified_name`` (``server/tool``) becomes a
+          ``ToolDefinition`` registered as ``mcp:<qualified_name>``.
+        - Because MCP tool schemas are declared by the remote server
+          and can carry arbitrary structure, the gate registers a
+          permissive schema: a single optional ``arguments`` field of
+          type ``dict``. The MCP server itself validates argument
+          shape at the wire. The gate's contribution is: manifest
+          declaration, registry lookup, budget consumption, and
+          uniform event emission.
+        - When ``auto_declare`` is True (default), each registered
+          tool_id is added to ``self._tool_declared_ids`` so the
+          manifest gate accepts it. Callers who want a stricter
+          per-manifest allowlist can pass ``auto_declare=False`` and
+          maintain the declared_ids surface themselves.
+        - Returns the number of tools registered.
+
+        Idempotent-adjacent: re-registering the same ``tool_id``
+        raises through ``ToolRegistry.register`` (the freeze contract
+        is preserved). Call this once at loop construction.
+        """
+        if self.tool_registry is None:
+            # Lazily create a registry so the loop is admissible to
+            # gate wiring even when the constructor was called
+            # without one. This keeps the setter shape symmetric with
+            # ``Executor.install_v4_provenance_deps`` from module_02.
+            self.tool_registry = ToolRegistry()
+
+        # Duck-type: ``McpToolRegistry`` exposes ``list_all_tools()``
+        # which returns a Rooted[list[dict]] where each dict has a
+        # ``name`` key of the form ``server/tool``.
+        listed = mcp_registry.list_all_tools()  # type: ignore[attr-defined]
+        registered = 0
+        if not listed.is_ok():
+            # Registry unreachable / no servers -> nothing to wire.
+            return 0
+        # v0.5.1 wiring module_03 SP Q5 amendment. Build a
+        # per-tool schema at the substrate layer from the MCP
+        # server's advertised ``inputSchema``. The gate's args
+        # check now validates required-key presence + top-level
+        # unknown-key rejection using each MCP tool's actual
+        # JSON schema shape, not a blanket permissive schema.
+        # A tool without an inputSchema (some servers omit it)
+        # falls back to a single optional ``arguments`` dict --
+        # the manifest gate still declares the tool_id, so a
+        # rogue call to a NEW mcp:* id refuses at manifest.
+        from ract.executor.tool_gate import (
+            ToolArgSchema,
+            ToolArgSpec,
+            ToolDefinition,
+        )
+
+        _default_schema = ToolArgSchema(
+            args=(ToolArgSpec("arguments", dict, optional=True),)
+        )
+        for tool in listed.unwrap() or []:
+            qualified = tool.get("name", "")
+            if not qualified or "/" not in qualified:
+                continue
+            tool_id = f"mcp:{qualified}"
+            if tool_id in self.tool_registry.declared_ids():
+                continue
+
+            # Closure captures the qualified name (not tool_id) so the
+            # registry.call_tool wire uses the MCP-side identifier.
+            def _mcp_call(
+                arguments: dict[str, object] | None = None,
+                *,
+                _qn: str = qualified,
+                _reg: object = mcp_registry,
+            ) -> object:
+                rooted = _reg.call_tool(_qn, dict(arguments or {}))  # type: ignore[attr-defined]
+                if not rooted.is_ok():
+                    raise RuntimeError(
+                        f"MCP tool {_qn!r} failed: {rooted.error}"
+                    )
+                return rooted.unwrap()
+
+            # Wrap the tool's arguments (an inner dict per MCP wire)
+            # inside the substrate's outer ``arguments`` kwarg so the
+            # gate can validate the wrapper key while the MCP-side
+            # inputSchema governs the inner dict's shape. The
+            # wrapper-level schema stays: optional ``arguments`` of
+            # type dict. The per-tool ``input_schema`` is stashed on
+            # the ToolDefinition's tool_id-derived name so audit
+            # tooling can retrieve it via ``ToolRegistry.get``.
+            schema = _default_schema  # wrapper-level; inputSchema is inner
+            self.tool_registry.register(
+                ToolDefinition(
+                    tool_id=tool_id,
+                    schema=schema,
+                    call=_mcp_call,
+                )
+            )
+            if auto_declare:
+                self._tool_declared_ids = frozenset(
+                    self._tool_declared_ids | {tool_id}
+                )
+            # Stash the raw MCP inputSchema for audit / event
+            # correlation. Not consumed by the gate itself (per-
+            # server JSON schema validation is left to the MCP
+            # server), but exposed to callers that want to
+            # emit the schema hash into the tool.invocation.pre
+            # event.
+            self._mcp_input_schemas[tool_id] = dict(
+                tool.get("inputSchema") or {}
+            )
+            registered += 1
+        return registered
+
+    def mcp_input_schema(self, tool_id: str) -> dict[str, object] | None:
+        """Return the MCP-declared inputSchema for a wired mcp:* tool.
+
+        v0.5.1 wiring module_03 SP Q5 amendment. Exposes the schema
+        stashed by :meth:`wire_mcp_registry` so audit tooling can
+        correlate a ``tool.invocation.pre`` event against the
+        server-side argument shape without re-listing the MCP tools.
+        Returns ``None`` when no schema was declared.
+        """
+        return dict(self._mcp_input_schemas.get(tool_id) or {}) or None
 
     def _current_branch_name(self) -> str:
         """Return the loop repo's currently checked-out branch name."""

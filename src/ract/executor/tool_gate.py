@@ -534,6 +534,211 @@ def _default_event_sink(kind: str, payload: dict[str, Any]) -> None:
         pass
 
 
+# ---------------------------------------------------------------------------
+# Exempt-site registry (v0.5.1 wiring module_03)
+# ---------------------------------------------------------------------------
+
+# v0.5.1 wiring module_03 (Lens C C-01) closure. The Lens C audit
+# demanded every production tool invocation route through
+# :meth:`SubstrateLoop.invoke_tool`. Not every ``subprocess.run`` in
+# the source tree is a "tool" in that sense; several are SUBSTRATE
+# INFRASTRUCTURE (the git commands the substrate itself uses to spawn
+# worktrees, commit steps, run compensators, resolve HEAD) or
+# OBSERVABILITY INFRASTRUCTURE (read-only git log/blame for whisperer,
+# fence, memory fingerprint). Migrating those through the gate would
+# require every substrate primitive to hold a live ``SubstrateLoop``
+# handle -- a cyclic-dependency and lifecycle disaster.
+#
+# The compromise the audit's remediation list explicitly authorizes
+# ("at minimum ADR a documented deferral"): the sites that are
+# genuinely tool-shaped (model-invoked or planner-invoked tools) route
+# through :meth:`SubstrateLoop.invoke_tool`; every other
+# ``subprocess.run`` / ``subprocess.Popen`` site is classified into
+# one of five exemption categories below, each with a reason string.
+#
+# The grep-gate at
+# ``tests/architecture/test_no_tool_invocation_bypasses_gate.py``
+# treats this dict as the source of truth: any new ``subprocess.run``
+# / ``subprocess.Popen`` call site under ``src/ract/`` that does NOT
+# route through the gate MUST appear here with an explicit reason
+# (or ship as a migration to the gate). A new tool caller that
+# forgets both is a test-red regression.
+#
+# Categories:
+# - "substrate-internal": git ops the substrate itself performs
+#   (worktree management, commit compensator, HEAD resolution). These
+#   are the mechanism the gate itself runs on; wrapping them in the
+#   gate would be cyclic.
+# - "process-group-primitive": the ``process_group.spawn`` primitive
+#   from module_05 is itself the gate for arbitrary subprocess spawns.
+#   It is a substrate-level tool, not a model-invoked tool.
+# - "observability-git-read": read-only git log/blame for whisperer,
+#   fence, memory fingerprint, historian. Not a tool call in the
+#   security-sense; they never accept model-controlled arguments.
+# - "provider-transport": the LLM provider transport layer
+#   (:mod:`ract.providers.internal_provider`, MCP stdio subprocess in
+#   :mod:`ract.mcp_adapter`). These are the wire layer under a higher-
+#   level gate (Executor MCP tool_call path IS gated); double-gating
+#   would emit two tool.invocation.pre events per call.
+# - "operator-invoked-diagnostic": operator-facing diagnostic /
+#   maintenance tools (lint/format repair, mutation runner, benchmark,
+#   coverage delta, eval runner, patchdiff analyzer, test failure
+#   diagnoser, hook_system, git_mode, CLI mcp verb, loop_controller
+#   one-off git ops). Invoked by the operator directly, not by a
+#   model tool_use message. v0.6 candidate: route these through a
+#   per-verb gate wrapper.
+
+_EXEMPT_SITES: dict[str, str] = {
+    # ---- substrate-internal (mechanism itself) -----------------------
+    "executor/loop.py": (
+        "substrate-internal: SubstrateLoop's own git ops "
+        "(rev-parse HEAD, update-ref, worktree finalize). "
+        "Wrapping these in the gate would be cyclic -- the gate "
+        "runs INSIDE the loop."
+    ),
+    "executor/worktree.py": (
+        "substrate-internal: WorktreeManager git ops for step "
+        "worktree lifecycle (add/list/commit/remove). Part of the "
+        "substrate mechanism the gate itself runs on."
+    ),
+    "executor/commit_compensator.py": (
+        "substrate-internal: commit compensator git ops "
+        "(soft/hard reset, ancestor check, push probe). Module_05 "
+        "primitive; runs to undo mid-loop commits."
+    ),
+    "executor/runtime.py": (
+        "substrate-internal: ContainerBackend._run helper for "
+        "backend probes (dagger/podman/docker version check)."
+    ),
+    "trace/cli_trace.py": (
+        "substrate-internal: trace subsystem HEAD sha read for "
+        "trace-record provenance stamping."
+    ),
+    "loop_controller.py": (
+        "substrate-internal: LoopController one-off git probe. "
+        "v0.6: fold into worktree.py helpers."
+    ),
+    # ---- process-group primitive -------------------------------------
+    "executor/process_group.py": (
+        "process-group-primitive: module_05 process_group.spawn IS "
+        "the substrate-level spawn gate; taskkill /F /T fallback "
+        "for tree reap on Windows."
+    ),
+    # ---- observability-git-read (read-only history) ------------------
+    "contracts/whisperer.py": (
+        "observability-git-read: whisperer reads recent commit "
+        "subjects. Argv is fixed (['git','log','-n5','--pretty=...']); "
+        "no model-controlled arguments. Malicious git-config threat "
+        "(SP Q4) mitigated at manifest.env.passthrough (module_04) + "
+        "workspace-scoped cwd."
+    ),
+    "contracts/fence.py": (
+        "observability-git-read: fence reads git log/blame for "
+        "chesterton-fence protection. Argv is fixed except for the "
+        "``path`` argument, which is a WorkspaceSnapshot-derived "
+        "Path (never model-controlled string). Malicious git-config "
+        "threat (SP Q4) mitigated at manifest.env.passthrough."
+    ),
+    "legacy_whisperer.py": (
+        "observability-git-read: legacy pre-contracts whisperer "
+        "git log helper; retained for backward-compat callers."
+    ),
+    "chestertons_fence.py": (
+        "observability-git-read: legacy pre-contracts fence git "
+        "helper; retained for backward-compat callers."
+    ),
+    "codebase_historian.py": (
+        "observability-git-read: git blame -L for annotated code "
+        "review context."
+    ),
+    "memory/repo_fingerprint.py": (
+        "observability-git-read: git log --format=%at for repo "
+        "activity fingerprinting."
+    ),
+    "memory/functions/intake.py": (
+        "observability-git-read: git log --oneline for memory "
+        "intake context digest."
+    ),
+    "memory/composition_runner.py": (
+        "observability-git-read: memory composition runner shell "
+        "invocation for retrieval script (v0.6 target: gate through "
+        "invoke_tool with capability declared per-composition)."
+    ),
+    # ---- provider-transport (wrapped by higher-level gate) -----------
+    "providers/internal_provider.py": (
+        "provider-transport: LLM provider subprocess is the wire "
+        "layer of the provider dispatch chain. Provider RPC is not "
+        "a tool_use invocation; the model-facing gate is Executor's "
+        "MCP tool_call path which DOES route through invoke_tool."
+    ),
+    "mcp_adapter.py": (
+        "provider-transport: StdioMcpClient subprocess is the MCP "
+        "transport under Executor's MCP tool_call path. That path "
+        "IS gated at the Executor boundary; gating the transport "
+        "too would emit two tool.invocation.pre events per call."
+    ),
+    # ---- operator-invoked-diagnostic ---------------------------------
+    "hook_system.py": (
+        "operator-invoked-diagnostic: operator-configured hooks "
+        "(pre/post step callbacks). Not a model tool_use. v0.6: "
+        "per-hook capability declaration in manifest."
+    ),
+    "git_mode.py": (
+        "operator-invoked-diagnostic: operator-facing git commit "
+        "mode helper. Direct CLI-invoked, not model tool_use."
+    ),
+    "test_failure_diagnoser.py": (
+        "operator-invoked-diagnostic: pytest re-run for failure "
+        "diagnosis. Operator-invoked, not model tool_use."
+    ),
+    "self_test_benchmark_mode.py": (
+        "operator-invoked-diagnostic: benchmark harness subprocess "
+        "for self-test mode. Operator-invoked."
+    ),
+    "lint_format_repair.py": (
+        "operator-invoked-diagnostic: linter/formatter subprocess "
+        "for lint-repair workflow. Operator-invoked."
+    ),
+    "coverage_delta.py": (
+        "operator-invoked-diagnostic: coverage.py subprocess for "
+        "coverage-delta computation. Operator-invoked."
+    ),
+    "mutation_runner.py": (
+        "operator-invoked-diagnostic: mutation testing subprocess "
+        "(wsl detection + test runner). Operator-invoked."
+    ),
+    "eval/runner.py": (
+        "operator-invoked-diagnostic: eval script subprocess for "
+        "the eval harness. Operator-invoked, not model tool_use."
+    ),
+    "antilazy/patchdiff.py": (
+        "operator-invoked-diagnostic: polyglot AST tool subprocess "
+        "for anti-lazy patchdiff analysis. Called from anti-lazy "
+        "dispatch chain, not from model tool_use."
+    ),
+}
+
+
+def is_exempt_site(rel_path: str) -> tuple[bool, str]:
+    """Return ``(exempt, reason)`` for a ``src/ract/`` relative path.
+
+    ``rel_path`` uses POSIX separators (as produced by
+    :func:`pathlib.Path.relative_to(...).as_posix()`). Returns
+    ``(True, reason)`` when the path appears in :data:`_EXEMPT_SITES`;
+    ``(False, "")`` otherwise.
+    """
+    reason = _EXEMPT_SITES.get(rel_path, "")
+    return (bool(reason), reason)
+
+
+def exempt_sites() -> Mapping[str, str]:
+    """Return a snapshot of the exempt-site registry.
+
+    Kept immutable-by-copy so tests cannot mutate the shipping list.
+    """
+    return dict(_EXEMPT_SITES)
+
+
 __all__ = [
     "ToolArgSchema",
     "ToolArgSpec",
@@ -543,6 +748,8 @@ __all__ = [
     "ToolInvocationRecord",
     "ToolInvocationRefused",
     "ToolRegistry",
+    "exempt_sites",
+    "is_exempt_site",
 ]
 
 
