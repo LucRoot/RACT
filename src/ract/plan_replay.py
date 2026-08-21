@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from ract.canonical import dumps_jcs
 from ract.manager import Plan
 from ract.plan_serializers import plan_from_dict, plan_to_dict
 
@@ -115,12 +116,16 @@ class PlanReplay:
         reports = [self.replay(plan, executor) for _ in range(max(1, trials))]
         if not all(r.success for r in reports):
             return False, reports
-        canonical = json.dumps(
-            [self._result_key(r) for r in reports[0].results], sort_keys=True
-        )
+        # v0.5.1 module_09 (Lens F H3 closure): the determinism check
+        # compares canonical bytes across trials. Migrated from
+        # ``json.dumps(sort_keys=True)`` to :func:`ract.canonical.dumps_jcs`
+        # so a future refactor promoting this comparison to a
+        # cross-runtime ``sha256(...)`` inherits stable canonical bytes
+        # for free. Within one process the equality outcome is
+        # identical to the prior implementation.
+        canonical = dumps_jcs([self._result_key(r) for r in reports[0].results])
         deterministic = all(
-            json.dumps([self._result_key(r) for r in report.results], sort_keys=True)
-            == canonical
+            dumps_jcs([self._result_key(r) for r in report.results]) == canonical
             for report in reports
         )
         return deterministic, reports

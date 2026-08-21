@@ -19,6 +19,7 @@ the JSONL. See ``docs/ARCHITECTURE.md`` §"Concurrent tool execution".
 from __future__ import annotations
 
 import json
+import logging
 import re
 import threading
 from dataclasses import dataclass, field
@@ -34,6 +35,8 @@ from ract.trace.events import (
     EventKind,
     hash_event,
 )
+
+_LOG = logging.getLogger("ract.trace.writer")
 
 
 # ---------------------------------------------------------------------------
@@ -141,11 +144,119 @@ class JsonlEventWriter:
         # mirror events to the OTLP exporter without coupling this
         # module to OpenTelemetry).
         self._mirror_sinks: list[Any] = []
+        # v0.5.1 module_09 (Lens F H1 closure): seed the chain's
+        # tip_hash from the on-disk tail if the events.jsonl file
+        # already carries events. Without this, a second writer opened
+        # on the same file (crash-restart, repair tool, second loop
+        # under the same run_id) would default to ``_GENESIS_HASH``,
+        # produce a first event with ``prev_hash = 0*32``, and
+        # silently break the chain -- ``EventReader.load`` would then
+        # raise ChainBrokenError on the NEXT read.
+        #
+        # A tail-only replay is sufficient: reading the LAST line of
+        # the JSONL gives us the current ``hash`` value, which is what
+        # the next event's ``prev_hash`` must reference. Middle-line
+        # corruption is deferred to ``EventReader.load`` (which walks
+        # the full file and re-verifies every hash link).
+        #
+        # Tail-corruption (Lens F H2 closure): if the last line fails
+        # to parse we fall back to the second-to-last event's hash and
+        # WARN -- matching the manifest_ledger / WAL / workspace-chain
+        # tolerant idiom. Genesis (empty file) stays GENESIS.
+        self._reseed_tip_from_disk()
 
     @property
     def run_id(self) -> bytes:
         """The run id this writer stamps into every event."""
         return self.chain.run_id
+
+    def _reseed_tip_from_disk(self) -> None:
+        """Replay the on-disk tail so ``self.chain.tip_hash`` matches disk.
+
+        v0.5.1 module_09 (Lens F H1 closure). Called from
+        ``__init__``; a fresh (missing or zero-byte) file leaves the
+        chain's default GENESIS tip in place. A well-formed tail line
+        seeds ``tip_hash`` from its ``hash`` field. A malformed tail
+        line falls back to the second-to-last well-formed line's hash
+        (Lens F H2 tail-tolerant alignment) and WARN-logs so the
+        operator sees the recovery.
+
+        The full-chain re-verification is intentionally deferred to
+        :meth:`EventReader.load` -- that path already re-hashes every
+        event to catch middle-line tamper. Re-running it in the
+        writer's hot construction path would add O(N) startup on
+        every reopen, which is a real cost for long-running loops.
+        """
+        if not self.path.is_file():
+            return
+        try:
+            size = self.path.stat().st_size
+        except OSError:
+            return
+        if size == 0:
+            return
+        try:
+            raw = self.path.read_bytes()
+        except OSError as exc:
+            _LOG.warning(
+                "JsonlEventWriter: could not read %s to reseed tip_hash "
+                "(errno=%r); starting from GENESIS. New appends will "
+                "break the chain if the file already carries events.",
+                self.path,
+                exc,
+            )
+            return
+        try:
+            text = raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError:
+            _LOG.warning(
+                "JsonlEventWriter: %s is not valid UTF-8; starting "
+                "from GENESIS. New appends will break the chain if the "
+                "file already carries events.",
+                self.path,
+            )
+            return
+        lines = [line for line in text.split("\n") if line.strip()]
+        if not lines:
+            return
+        # Walk from the tail forward: the FIRST parseable line from
+        # the end wins. Malformed tail lines are dropped with WARN
+        # (Lens F H2 alignment with the WAL/manifest-ledger tolerant
+        # pattern). Middle-line corruption is not detected here --
+        # ``EventReader.load`` is the full-verify surface.
+        dropped_tail = 0
+        seed_hash: bytes | None = None
+        for candidate in reversed(lines):
+            try:
+                data = json.loads(candidate)
+                event = Event.from_canonical_dict(data)
+                seed_hash = event.hash
+                break
+            except (json.JSONDecodeError, ValueError, KeyError, TypeError) as exc:
+                dropped_tail += 1
+                _LOG.warning(
+                    "JsonlEventWriter: %s tail line dropped (torn "
+                    "write?): %s. Falling back to prior line.",
+                    self.path,
+                    exc,
+                )
+        if seed_hash is None:
+            _LOG.warning(
+                "JsonlEventWriter: %s has %d line(s) but none parse as "
+                "an Event; starting from GENESIS. New appends will "
+                "break the chain until the file is repaired.",
+                self.path,
+                len(lines),
+            )
+            return
+        self.chain.tip_hash = seed_hash
+        if dropped_tail:
+            _LOG.warning(
+                "JsonlEventWriter: %s reseeded tip_hash after "
+                "dropping %d torn tail line(s).",
+                self.path,
+                dropped_tail,
+            )
 
     def add_mirror(self, sink: Any) -> None:
         """Register an additional sink invoked with each appended event.
@@ -213,8 +324,17 @@ class EventReader:
     def load(path: Path | str) -> EventChain:
         """Replay ``path`` into an ``EventChain`` with full hash verification.
 
-        Raises ``ChainBrokenError`` if any middle event has been tampered
-        with or if the chain's tip does not link cleanly.
+        Middle-line JSON errors raise :class:`ChainBrokenError` (the
+        chain has been tampered with mid-stream). A malformed tail
+        line -- for example a SIGKILL mid-``fh.write("\\n")`` -- is
+        WARN-logged and DROPPED so the run's event log stays
+        recoverable up to the last durable event.
+
+        v0.5.1 module_09 (Lens F H2 closure): the prior behavior
+        raised on any tail parse error, making the event log the ONLY
+        ledger in the repo without a tolerant tail policy. The
+        manifest ledger, WAL, workspace-digest chain, and suite chain
+        all recover; the event log now matches that idiom.
         """
         events = list(EventReader.iter_events(path))
         if not events:
@@ -228,17 +348,56 @@ class EventReader:
 
     @staticmethod
     def iter_events(path: Path | str) -> Iterable[Event]:
-        """Iterate the log's events (unverified)."""
+        """Iterate the log's events (middle-strict, tail-tolerant).
+
+        v0.5.1 module_09 (Lens F H2 closure): a malformed tail line is
+        WARN-logged + dropped so a torn-write crash leaves the file
+        readable. A malformed middle line raises
+        :class:`ChainBrokenError` -- non-append corruption is still a
+        hard failure.
+        """
         p = Path(path)
         if not p.is_file():
             return
-        with p.open("r", encoding="utf-8") as fh:
-            for raw_line in fh:
-                line = raw_line.strip()
-                if not line:
-                    continue
+        raw = p.read_text(encoding="utf-8")
+        lines = raw.split("\n")
+        # Trim trailing empty line (JSONL framing).
+        if lines and lines[-1] == "":
+            lines.pop()
+        for i, raw_line in enumerate(lines):
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
                 data = json.loads(line)
+            except json.JSONDecodeError as exc:
+                if i == len(lines) - 1:
+                    _LOG.warning(
+                        "EventReader: %s tail line %d dropped (torn "
+                        "write? %s). Middle events remain verifiable.",
+                        p,
+                        i,
+                        exc,
+                    )
+                    return
+                raise ChainBrokenError(
+                    f"malformed middle event line {i} in {p}: {exc}"
+                ) from exc
+            try:
                 yield Event.from_canonical_dict(data)
+            except (ValueError, KeyError, TypeError) as exc:
+                if i == len(lines) - 1:
+                    _LOG.warning(
+                        "EventReader: %s tail line %d dropped (shape "
+                        "invalid? %s).",
+                        p,
+                        i,
+                        exc,
+                    )
+                    return
+                raise ChainBrokenError(
+                    f"malformed middle event at line {i} in {p}: {exc}"
+                ) from exc
 
     @staticmethod
     def verify(path: Path | str) -> tuple[bool, str]:

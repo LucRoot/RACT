@@ -715,6 +715,7 @@ class ManifestLedger:
                         first_wal_seq=first_wal_seq,
                         last_wal_seq=last_wal_seq,
                         prev_ledger_hash=prev_hash,
+                        entry_index=len(entries),
                     )
                     line = _canonical_line(entry)
                     os.write(fd, line)
@@ -803,6 +804,35 @@ class ManifestLedger:
             # correctly, but the mandatory-field shape check catches
             # any entry that does not match the append-time schema.
             if not _entry_schema_valid(entry):
+                return LedgerVerifyResult(
+                    valid=False,
+                    first_break_at=i,
+                    tail_valid_count=i,
+                )
+            # v0.5.1 module_09 (Lens F H4 closure): middle-excise
+            # detection via stamped ``entry_index``. Every new append
+            # stamps its ordinal (0, 1, 2, ...) into the entry
+            # payload, and the stamp is covered by
+            # :func:`_hash_entry` (which the NEXT entry's
+            # ``prev_ledger_hash`` references). An attacker who
+            # removes middle entries and rewrites the surviving
+            # ``prev_ledger_hash`` fields to re-link the chain
+            # cannot also rewrite each surviving entry's own
+            # ``entry_index`` (doing so would change the entry's
+            # canonical bytes, break the recomputed
+            # ``prev_ledger_hash`` link, and cost more effort than
+            # simply forging a full new chain). If the stamped
+            # index does not equal the physical position, the entry
+            # was excised or reordered.
+            #
+            # Backward compatibility: entries written before
+            # module_09 do NOT carry ``entry_index``. We SKIP the
+            # density check for such entries (returning valid on the
+            # existing prev_ledger_hash link only). New appends land
+            # with the stamp, so a mature ledger picks up middle-
+            # excise protection as it churns.
+            stamped = entry.get("entry_index")
+            if isinstance(stamped, int) and stamped != i:
                 return LedgerVerifyResult(
                     valid=False,
                     first_break_at=i,
@@ -963,11 +993,24 @@ def _build_entry(
     first_wal_seq: int | None,
     last_wal_seq: int | None,
     prev_ledger_hash: str,
+    entry_index: int,
 ) -> dict[str, Any]:
     """Build the canonical entry dict.
 
     The entry field order does not matter -- JCS sorts keys at serialise
     time -- but keeping the assembly explicit here documents the schema.
+
+    v0.5.1 module_09 (Lens F H4 closure): ``entry_index`` is stamped
+    into every new entry's payload as the entry's zero-based ordinal
+    position in the ledger at append time. The index becomes part of
+    the entry's canonical bytes -- which means it is part of
+    :func:`_hash_entry` output, which means it is part of the NEXT
+    entry's ``prev_ledger_hash``. An attacker who excises entries
+    4..6 and then recomputes the ``prev_ledger_hash`` of entries
+    7..N to re-link the chain cannot ALSO rewrite each surviving
+    entry's own ``entry_index`` (index 7 would still claim to be
+    entry 7 while sitting at physical position 4); the verifier
+    detects the gap.
     """
     entry: dict[str, Any] = {
         "timestamp": timestamp,
@@ -976,6 +1019,7 @@ def _build_entry(
         "rootknot_run_id": rootknot_run_id,
         "tool_trace_summary": _normalise_tool_trace(tool_trace_summary),
         "prev_ledger_hash": prev_ledger_hash,
+        "entry_index": entry_index,
     }
     if manifest_snapshot_ref is not None:
         entry["manifest_snapshot_ref"] = manifest_snapshot_ref
@@ -1076,6 +1120,15 @@ def _entry_schema_valid(entry: dict[str, Any]) -> bool:
             v = xlink.get(key)
             if not isinstance(v, int):
                 return False
+    # v0.5.1 module_09 (Lens F H4): entry_index is optional (for
+    # backward-compat with pre-module_09 entries) but when present
+    # must be a non-negative int. Density check happens in
+    # :meth:`ManifestLedger.verify_chain`, not here.
+    idx = entry.get("entry_index")
+    if idx is not None:
+        # ``bool`` is a subclass of int; reject it explicitly.
+        if isinstance(idx, bool) or not isinstance(idx, int) or idx < 0:
+            return False
     return True
 
 

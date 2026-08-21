@@ -33,6 +33,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 
@@ -322,7 +323,15 @@ def write(fingerprint: RepoFingerprint, root: Path) -> Path:
     target = root / FINGERPRINT_RECORD_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = asdict(fingerprint)
-    text = json.dumps(payload, sort_keys=True, separators=(",", ": ")) + "\n"
+    # v0.5.1 module_09 (Lens F H3 closure): migrated from
+    # ``json.dumps(sort_keys=True, separators=(",", ": "))`` to
+    # :func:`ract.canonical.dumps_jcs`. The prior custom-separators
+    # form was NOT JCS-canonical, so a future refactor promoting the
+    # fingerprint to a hash-input surface (retrieval-index cache key,
+    # WAL entry, signed observation) would have silently broken
+    # cross-runtime determinism. JCS ships the same bytes for the
+    # same dict on every Python interpreter and platform.
+    text = dumps_jcs(payload).decode("utf-8") + "\n"
     fd, tmp_name = tempfile.mkstemp(
         prefix="fingerprint-",
         suffix=".json.tmp",

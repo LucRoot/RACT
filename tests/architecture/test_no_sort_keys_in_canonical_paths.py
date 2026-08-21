@@ -40,37 +40,63 @@ import pytest
 _ALLOWLIST: dict[str, str] = {
     # Anti-lazy gate reports: written for human inspection with
     # ``indent=2``; not signed, not hashed, not part of the Rootknot
-    # canonical bytes.
-    "antilazy/coverage.py": "indent=2 human report",
-    "antilazy/holdout.py": "indent=2 human report",
-    "antilazy/iso_perturb.py": "indent=2 human report",
-    "antilazy/mutation.py": "indent=2 human report",
-    "antilazy/patchdiff.py": "indent=2 human report",
-    "antilazy/symgraph.py": "indent=2 human report (line 785; snapshot_digest_of migrated to dumps_jcs)",
-    "antilazy/testintegrity.py": "indent=2 human report",
-    # Trace CLI + OTEL export + writer: report artifacts and OTLP export
-    # formatter; the on-disk trace line uses dumps_jcs via _write_line
-    # (canonical bytes surface).
+    # canonical bytes. Each of these files ALSO uses dumps_jcs when it
+    # DOES need to hash (e.g. symgraph.snapshot_digest_of at line 156)
+    # -- the sort_keys=True calls flagged here are the report-writer
+    # paths downstream operators grep as .json artifacts.
+    "antilazy/coverage.py": "indent=2 human report -- not hashed downstream",
+    "antilazy/holdout.py": "indent=2 human report -- not hashed downstream",
+    "antilazy/iso_perturb.py": "indent=2 human report -- not hashed downstream",
+    "antilazy/mutation.py": "indent=2 human report -- not hashed downstream",
+    "antilazy/patchdiff.py": (
+        "indent=2 human report at line 819 -- not hashed downstream; "
+        "the hash-input paths in this file (lines 151/309/398) hash "
+        "raw bytes / hunk content, never a json.dumps() output"
+    ),
+    "antilazy/symgraph.py": (
+        "indent=2 human report at line 786; the hash-input path "
+        "snapshot_digest_of at line 156 uses dumps_jcs"
+    ),
+    "antilazy/testintegrity.py": "indent=2 human report -- not hashed downstream",
+    # Trace CLI + OTEL export: report artifacts and OTLP export
+    # formatter; the on-disk trace line uses dumps_jcs via
+    # ``JsonlEventWriter._write_line`` (canonical bytes surface).
     "trace/cli_trace.py": "indent=2 test/inspection artifacts",
-    "trace/otel.py": "OTLP attribute serialisation with default=str for cross-language export",
-    # Provenance + report writers: indent=2 for human review.
-    "core/provenance.py": "indent=2 human report",
+    "trace/otel.py": (
+        "OTLP attribute serialisation with default=str for "
+        "cross-language export -- OTLP attribute values must fit "
+        "an OTel string field, this is not a hash-input surface"
+    ),
+    # Provenance + report writers: indent=2 for human review; the
+    # signed knot canonical bytes route through dumps_jcs in rootknot.py.
+    "core/provenance.py": (
+        "indent=2 human sidecar report -- Rootknot canonical bytes "
+        "use dumps_jcs in core/rootknot.py"
+    ),
     # AcceptanceSuite.to_json: indent=2 display form; the signed digest
-    # is emitted by AcceptanceSuite.digest which routes through dumps_jcs.
-    "core/predicate.py": "to_json indent=2 display; digest() uses dumps_jcs",
+    # is emitted by AcceptanceSuite.digest which routes through dumps_jcs
+    # (predicate.py:363-370). to_json is display-only.
+    "core/predicate.py": (
+        "to_json indent=2 display at line 381; digest() at line 370 "
+        "uses dumps_jcs (hash-input surface)"
+    ),
     # Providers + CLI: report/conformance artifacts.
-    "providers/conformance.py": "indent=2 conformance report",
+    "providers/conformance.py": (
+        "indent=2 conformance report (line 112) and response cache "
+        "(line 191) -- both consumed via json.loads, never hashed"
+    ),
     "experimental/cli_repro_manifest.py": "indent=2 report artifact",
     "dependency_graph.py": "indent=2 report artifact",
     "run_reporter.py": "predicate invocation display, not signed",
-    "plan_replay.py": "result-key comparison string, not signed",
-    # Memory session + records + probe scheduler + CLI: JSONL records
-    # + YAML output for operator inspection, not part of signature
-    # chain.
+    # Memory session + records + CLI: JSONL records + YAML output
+    # for operator inspection, not part of signature chain.
     "memory/session.py": "indent=2 session dump for operator",
-    "memory/failure_records.py": "JSONL failure records for operator inspection",
-    "memory/probes/scheduler.py": "human-readable JSON probe schedule",
-    "memory/repo_fingerprint.py": "human-readable fingerprint file with ': ' spacing",
+    "memory/failure_records.py": (
+        "JSONL failure records for operator inspection -- grepped "
+        "src/ract/ for consumers, no hash-input path exists as of "
+        "module_09; if a future module hashes these lines the file "
+        "moves off the allowlist and switches to dumps_jcs"
+    ),
 }
 
 
@@ -218,6 +244,98 @@ def test_no_sort_keys_true_outside_allowlist() -> None:
                 "Migrate each site to ``ract.canonical.dumps_jcs`` (module_03),",
                 "or add the file to ``_ALLOWLIST`` with a justification comment.",
                 "See ``_BUILD/ract_v0.5.1_external_review_response/module_03.md``.",
+            ]
+        )
+        pytest.fail("\n".join(report_lines))
+
+
+# ---------------------------------------------------------------------------
+# module_09 tightening (Lens F H3): forbid json.dumps(sort_keys=True) as
+# input to sha256() / hashlib in the SAME expression, everywhere in
+# src/ract/. This is a stricter predicate than the file-level allowlist
+# above: allowlisted files may still write sort_keys=True to disk for
+# human inspection, but NONE of them may hash such bytes.
+# ---------------------------------------------------------------------------
+
+
+# Match hashlib.sha256(...json.dumps(...sort_keys=True...)) OR
+# sha256(...json.dumps(...sort_keys=True...)). We tolerate arbitrary
+# whitespace and a single-level of nested arguments (the inner
+# json.dumps call may include a to_canonical()/asdict()/... payload).
+# Multiline: enable DOTALL so the pattern crosses newlines. The
+# scanner still runs against source with comments/strings blanked out
+# (via ``_strip_comments_and_strings``) so a doc example does not
+# trip the gate.
+_SHA256_JSON_DUMPS_PATTERN = re.compile(
+    r"(?:hashlib\.)?sha256\s*\([^)]*json\.dumps\s*\([^)]*?\bsort_keys\s*=\s*True",
+    re.DOTALL,
+)
+
+# Match .encode(...) on a json.dumps(sort_keys=True) call in the same
+# expression. This is the ".encode()" hash-input smell the audit's
+# H3 remediation calls out specifically.
+_ENCODE_JSON_DUMPS_PATTERN = re.compile(
+    r"json\.dumps\s*\([^)]*?\bsort_keys\s*=\s*True[^)]*?\)\s*\.\s*encode\s*\(",
+    re.DOTALL,
+)
+
+
+def _find_sha256_or_encode_hits(path: Path) -> list[tuple[int, str]]:
+    """Return ``(line, snippet)`` tuples for hash-input sort_keys hits."""
+    try:
+        source = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    stripped = _strip_comments_and_strings(source)
+    hits: list[tuple[int, str]] = []
+    for match in _SHA256_JSON_DUMPS_PATTERN.finditer(stripped):
+        lineno = stripped.count("\n", 0, match.start()) + 1
+        hits.append((lineno, "sha256(json.dumps(sort_keys=True))"))
+    for match in _ENCODE_JSON_DUMPS_PATTERN.finditer(stripped):
+        lineno = stripped.count("\n", 0, match.start()) + 1
+        hits.append((lineno, "json.dumps(sort_keys=True).encode(...)"))
+    return hits
+
+
+def test_no_sha256_over_sort_keys_dumps_anywhere() -> None:
+    """No file in ``src/ract/`` may call ``sha256(json.dumps(...sort_keys=True))``.
+
+    The allowlist above governs the report-writer surface (indent=2
+    JSON for humans). It does NOT permit any file to feed
+    ``json.dumps(sort_keys=True)`` bytes into a SHA-256 or an
+    ``.encode()`` intended for hashing.
+
+    The gate is the module_09 (Lens F H3) closure -- the prior
+    file-level allowlist could not distinguish a report writer from a
+    hash-input site that happened to share a file, so a rushed
+    reviewer might add a new sha256 call adjacent to an existing
+    report writer inside an allowlisted file and never re-check.
+
+    Reference:
+    - ``_BUILD/audit_2026-08-21/lens_F_trace_events_ledgers.md`` H3.
+    - ``_BUILD/ract_v0.5.1_wiring_completion/module_09.md``.
+    """
+    src_root = Path(__file__).resolve().parent.parent.parent / "src" / "ract"
+    violations: list[tuple[str, int, str]] = []
+    for py_path in _iter_python_files():
+        rel = py_path.relative_to(src_root).as_posix()
+        for lineno, kind in _find_sha256_or_encode_hits(py_path):
+            violations.append((rel, lineno, kind))
+    if violations:
+        report_lines = [
+            "The following files hash json.dumps(sort_keys=True) bytes "
+            "(sha256 or .encode() in the same expression):",
+            "",
+        ]
+        for rel, lineno, kind in violations:
+            report_lines.append(f"  {rel}:{lineno} -- {kind}")
+        report_lines.extend(
+            [
+                "",
+                "Migrate each expression to ``ract.canonical.dumps_jcs`` bytes.",
+                "The file-level allowlist governs report writers ONLY -- it does",
+                "NOT permit hash-input paths that happen to share a file.",
+                "See ``_BUILD/audit_2026-08-21/lens_F_trace_events_ledgers.md`` H3.",
             ]
         )
         pytest.fail("\n".join(report_lines))

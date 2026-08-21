@@ -144,3 +144,59 @@ def test_oserror_at_chain_append_is_tolerated_with_warn(
         "OSError" in record.message or "disk full" in record.message
         for record in warn_records
     )
+
+
+# v0.5.1 module_09 (Lens G G-06 observability closure): LoopState
+# now carries ``_last_chain_load_error`` so a swallowed
+# chain-init exception is visible to downstream inspection paths
+# (``ract inspect state``, tests, operator diagnostics).
+
+
+def test_chain_init_error_surfaces_on_loop_state(
+    tmp_path: Path,
+) -> None:
+    """A tolerated chain-init exception MUST populate
+    ``LoopState._last_chain_load_error``. Fresh construction (no
+    exception) leaves the field None.
+    """
+    suite = _suite()
+
+    # Baseline: fresh construction, chain-init succeeds -> field is None.
+    fresh = build_loop_state(
+        plan=Plan(assumption="a test intent", confidence=1.0, steps=[]),
+        workspace=_seed_workspace(),
+        suite=suite,
+        run_dir=tmp_path,
+    )
+    assert fresh._last_chain_load_error is None
+
+    # Tolerated OSError -> field carries the repr.
+    def _oserror(*args, **kwargs):
+        raise OSError("simulated permission denied")
+
+    tmp_path_2 = tmp_path / "second_run"
+    with patch("ract.core.suite_chain.SuiteChain.entries", side_effect=_oserror):
+        recovered = build_loop_state(
+            plan=Plan(assumption="a test intent", confidence=1.0, steps=[]),
+            workspace=_seed_workspace(),
+            suite=suite,
+            run_dir=tmp_path_2,
+        )
+    assert recovered._last_chain_load_error is not None
+    assert "OSError" in recovered._last_chain_load_error
+    assert "permission denied" in recovered._last_chain_load_error
+
+    # Tolerated lock contention -> field carries the repr.
+    tmp_path_3 = tmp_path / "third_run"
+    with patch(
+        "ract.core.suite_chain.SuiteChain.entries",
+        side_effect=SuiteChainLockContended("simulated lock contention"),
+    ):
+        contended = build_loop_state(
+            plan=Plan(assumption="a test intent", confidence=1.0, steps=[]),
+            workspace=_seed_workspace(),
+            suite=suite,
+            run_dir=tmp_path_3,
+        )
+    assert contended._last_chain_load_error is not None
+    assert "SuiteChainLockContended" in contended._last_chain_load_error

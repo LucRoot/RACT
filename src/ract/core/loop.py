@@ -202,6 +202,14 @@ class LoopState:
     # rolls back to on T8 halt. Recorded before each iteration writes;
     # None until the first iteration's pre-write snapshot exists.
     last_known_good_workspace: WorkspaceSnapshot | None = None
+    # v0.5.1 module_09 (Lens G G-06 observability closure): captures
+    # the last suite-chain load/append error swallowed by
+    # :func:`build_loop_state` at construction time. ``None`` when the
+    # chain-init succeeded or was skipped (no prompt_digest); a repr
+    # of the tolerated exception (:class:`SuiteChainLockContended` or
+    # :class:`OSError`) otherwise. ``ract inspect state`` reads this
+    # field to surface silent chain-init failures to operators.
+    _last_chain_load_error: str | None = None
 
     def __post_init__(self) -> None:
         if self.handshake_registry is None:
@@ -503,7 +511,7 @@ def build_loop_state(
                 # Re-raise: a corrupt chain must NOT be silently
                 # entered. Operator inspects and fixes.
                 raise
-            except SuiteChainLockContended:
+            except SuiteChainLockContended as exc:
                 # Another writer is landing an entry; tolerate.
                 import logging
 
@@ -511,6 +519,9 @@ def build_loop_state(
                     "build_loop_state: SuiteChain lock contended at "
                     "entry-0 append; deferring to concurrent writer."
                 )
+                # v0.5.1 module_09 (Lens G G-06 observability):
+                # surface the swallowed exception on LoopState.
+                kwargs["_last_chain_load_error"] = repr(exc)
             except OSError as exc:
                 # Disk full, perm error, etc. Log at WARN so operators
                 # see the failure; the loop proceeds without entry-0
@@ -523,6 +534,8 @@ def build_loop_state(
                     "Error: %s",
                     exc,
                 )
+                # v0.5.1 module_09 (Lens G G-06 observability): as above.
+                kwargs["_last_chain_load_error"] = repr(exc)
     return LoopState(plan=plan, workspace=workspace, suite=suite, **kwargs)
 
 

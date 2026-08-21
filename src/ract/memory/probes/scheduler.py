@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 from ract.memory.events import EventSink, NullEventSink, emit_probe_evaluated
 from ract.memory.probes.adherence import AdherenceProbe, AdherenceProbeReport
@@ -259,7 +260,17 @@ def read_capability_record(root: Path) -> ModelCapability | None:
 
 
 def _capability_to_json(capability: ModelCapability) -> str:
-    """Return the canonical JSON string for a :class:`ModelCapability`."""
+    """Return the canonical JSON string for a :class:`ModelCapability`.
+
+    v0.5.1 module_09 (Lens F H3 closure): migrated from
+    ``json.dumps(sort_keys=True, separators=(",", ": "))`` to
+    :func:`ract.canonical.dumps_jcs`. The prior custom-separators form
+    was not JCS-canonical; the capability record is consumed as-is by
+    :func:`read_capability_record` (JSON parse) so migration is
+    behavior-preserving, and any future promotion of this record to a
+    hash-input surface (probe-attestation event, capability sidecar
+    signature) inherits stable canonical bytes for free.
+    """
     payload = {
         "schema_version": capability.schema_version,
         "usable_context_window": capability.usable_context_window,
@@ -267,7 +278,7 @@ def _capability_to_json(capability: ModelCapability) -> str:
         "persistence_bound": capability.persistence_bound,
         "recorded_at": capability.recorded_at,
     }
-    return json.dumps(payload, sort_keys=True, separators=(",", ": ")) + "\n"
+    return dumps_jcs(payload).decode("utf-8") + "\n"
 
 
 def _capability_from_json(payload: dict[str, Any]) -> ModelCapability:
