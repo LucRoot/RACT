@@ -7,7 +7,7 @@ find_by_text / find_by_hash) + insert / delete / replace-file paths.
 Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` section
 "The three indexes / Symbol index". Rationale: ADR-0032.
 
-The store lives at ``.rack/index/symbols.db`` in a real repo; tests
+The store lives at ``.ract/index/symbols.db`` in a real repo; tests
 open a temp path. Schema is loaded from
 ``symbol_index_schema.sql`` on connection open (idempotent CREATEs
 so the loader is safe against an existing store).

@@ -211,11 +211,17 @@ def _handshakes_command(args: list[str]) -> int:
     parser.add_argument(
         "--json", dest="json_output", action="store_true", help="Emit JSON output"
     )
+    # v0.5.1 wiring module_10 (Lens A N1): hyphenated form is the
+    # documented spelling; underscored ``--json_review`` stays as a
+    # hidden alias for one release so existing scripts continue to
+    # work. The primary spelling ``--json-review`` matches every
+    # other RACT flag naming convention.
     parser.add_argument(
+        "--json-review",
         "--json_review",
         dest="json_review",
         action="store_true",
-        help="Emit JSON output (review alias)",
+        help="Emit JSON output (review alias; --json_review is a deprecated alias).",
     )
     parser.add_argument(
         "--csv", dest="csv_output", action="store_true", help="Emit CSV output"
@@ -439,8 +445,12 @@ def _retrieval_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     if parsed.action is None:
+        # v0.5.1 wiring module_10 (Lens A M7): bare ``ract retrieval``
+        # exits 0 after printing help; the user requested help and
+        # nothing errored. CI scripts probing verb capability with
+        # ``ract retrieval 2>/dev/null`` now succeed.
         parser.print_help()
-        return 1
+        return 0
 
     if parsed.query is None:
         parser.error("query is required for search")
@@ -1231,8 +1241,10 @@ def _plan_command(args: list[str]) -> int:
 
     parsed = parser.parse_args(args)
     if parsed.action is None:
+        # v0.5.1 wiring module_10 (Lens A M7): bare ``ract plan``
+        # exits 0 after printing help.
         parser.print_help()
-        return 1
+        return 0
 
     if parsed.action == "export":
         store = SessionStore(parsed.config.parent / ".ract" / "sessions")
@@ -2577,7 +2589,10 @@ def _release_command(args: list[str]) -> int:
     ract.yaml (github.owner / github.repo). Requires GITHUB_TOKEN.
     """
     parser = argparse.ArgumentParser(prog="ract release")
-    subparsers = parser.add_subparsers(dest="action", help="Release action")
+    # v0.5.1 wiring module_10 (Lens A N7): make the subverb required
+    # so a bare ``ract release`` fails cleanly with argparse's error
+    # instead of falling through to unreachable branches.
+    subparsers = parser.add_subparsers(dest="action", required=True, help="Release action")
 
     list_parser = subparsers.add_parser("list", help="List existing releases")
     list_parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
@@ -4003,6 +4018,44 @@ def main(argv: list[str] | None = None) -> int:
     """RACT CLI entry point."""
     if argv is None:
         argv = sys.argv[1:]
+
+    # v0.5.1 wiring module_10 (Lens A C2): unify workspace state on
+    # ``.ract/``. If the workspace has a pre-module_10 ``.rack/`` and
+    # no ``.ract/``, rename in place. Idempotent, one syscall on the
+    # no-op path.
+    try:
+        from ract.workspace_state import migrate_rack_to_ract
+
+        migrate_rack_to_ract(Path.cwd())
+    except Exception:  # noqa: BLE001 -- migration must never crash the CLI
+        pass
+
+    # v0.5.1 wiring module_10 (Lens A C1): comprehensive top-level
+    # ``--help``. A bare ``ract --help`` / ``ract -h`` / ``ract help``
+    # emits the full verb catalog with one-line descriptions.
+    # ``ract help <verb>`` routes to the verb's own ``--help``.
+    if argv and argv[0] == "help":
+        from ract.cli_help import print_discovery_help
+
+        if len(argv) == 1:
+            print_discovery_help(CLI_VERBS)
+            return 0
+        # ``ract help <verb>`` -- delegate to the verb's own --help.
+        target = argv[1]
+        if target in CLI_VERBS:
+            return main([target, "--help"])
+        print(
+            f"[ract] unknown verb: {target}",
+            file=sys.stderr,
+        )
+        print_discovery_help(CLI_VERBS)
+        return 2
+    if argv and argv[0] in {"--help", "-h"} and len(argv) == 1:
+        from ract.cli_help import print_discovery_help
+
+        print_discovery_help(CLI_VERBS)
+        return 0
+
     # README + Quickstart advertise ``ract run "<intent>"`` as the canonical
     # execute-an-intent invocation. The default intent parser only accepts a
     # single positional, so ``run`` is stripped here and the remaining argv
@@ -4068,8 +4121,10 @@ def main(argv: list[str] | None = None) -> int:
         return _release_command(argv[1:])
     if argv and argv[0] == "merge-gate":
         return _merge_gate_command(argv[1:])
-    if argv and argv[0] == "marketplace":
-        return _skills_marketplace_command(argv[1:])
+    # NOTE: the duplicate ``marketplace`` dispatch that lived here
+    # (Lens A M3) was deleted in v0.5.1 wiring module_10. The single
+    # dispatch is at line ~4063 above; this comment stays as a
+    # tombstone so a future rebase does not re-introduce the copy.
     if argv and argv[0] == "rot-report":
         return _rot_report_command(argv[1:])
     if argv and argv[0] == "receipt-export":
@@ -4099,13 +4154,18 @@ def main(argv: list[str] | None = None) -> int:
 
         return _repro_manifest_command(argv[1:])
     if argv and argv[0] == "manifest":
-        # ``ract manifest`` is the v0.1.2-era alias for
-        # ``ract repro-manifest``. The CHANGELOG bullet for the v0.1 AI
-        # provenance manifest surface names both verbs; a rename during
-        # the v0.4 rebuild left only ``repro-manifest`` on the surface and
-        # the older name silently resolved as an unknown positional
-        # intent. The alias restores the older verb without changing the
-        # shipped semantics.
+        # ``ract manifest`` has two dispatch shapes since v0.5.1
+        # wiring module_10 (Lens A M1 closure):
+        #
+        # - ``ract manifest ledger {verify,inspect,show,proof}`` routes
+        #   to the historical manifest-ledger CLI added in module_10.
+        # - Every other ``ract manifest ...`` form remains the v0.1.2-era
+        #   alias for ``ract repro-manifest`` (kept for backward compat;
+        #   CHANGELOG names both verbs).
+        if len(argv) >= 2 and argv[1] == "ledger":
+            from ract.security.cli_manifest_ledger import manifest_ledger_command
+
+            return manifest_ledger_command(argv[2:])
         from ract.experimental.cli_repro_manifest import _repro_manifest_command
 
         return _repro_manifest_command(argv[1:])
@@ -4198,12 +4258,16 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Path to a project document JSON file whose goal/notes prepend the intent.",
     )
-    parser.add_argument(
+    # v0.5.1 wiring module_10 (Lens A N2): --yolo and --auto share a
+    # single mutually-exclusive group so argparse rejects the combination
+    # at parse time. Prior behavior silently let --auto win over --yolo.
+    approval_group = parser.add_mutually_exclusive_group()
+    approval_group.add_argument(
         "--yolo",
         action="store_true",
         help="Execute all steps without approval prompts (default).",
     )
-    parser.add_argument(
+    approval_group.add_argument(
         "--auto",
         action="store_true",
         help="Prompt for approval before each step (mutually exclusive with --yolo).",
@@ -4293,8 +4357,13 @@ def main(argv: list[str] | None = None) -> int:
         from ract.harness import _default_manager_prompt_path
 
         if args.init_provider not in list_presets():
+            # v0.5.1 wiring module_10 (Lens A M9): enumerate the valid
+            # presets so the operator does not have to grep for
+            # ``list_presets``.
+            available = ", ".join(sorted(list_presets()))
             print(
-                f"[ract] unknown provider preset: {args.init_provider}",
+                f"[ract] unknown provider preset: {args.init_provider}\n"
+                f"[ract] available presets: {available}",
                 file=sys.stderr,
             )
             return 1
@@ -4404,6 +4473,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.yolo:
         console.direct("yolo mode: executing without approval")
     if args.auto:
+        # v0.5.1 wiring module_10 (Lens A M4): TTY guard.
+        # ``--auto`` calls the ConsoleApprovalCallback which reads
+        # ``input()``. In headless CI (no TTY) the ``input()`` call
+        # raises ``EOFError`` and every step is rejected silently --
+        # a full run that completes with zero steps executed. Refuse
+        # loudly instead. Operators wanting headless approval
+        # semantics should use ``--yolo`` (approve-all) or wire a
+        # non-console callback via the library API.
+        if not sys.stdin.isatty():
+            print(
+                "[ract] --auto requires a TTY (stdin is not a terminal). "
+                "Use --yolo for headless / CI runs, or run ract from a "
+                "real terminal for interactive approval.",
+                file=sys.stderr,
+            )
+            return 2
         console.direct("auto mode: approval required per step")
     if args.reload:
         console.direct("reload mode: re-run after success")

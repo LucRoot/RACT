@@ -174,10 +174,11 @@ def test_held_out_seal_refused_by_model_capability(tmp_path: Path) -> None:
     assert recovered.digest() == held_out.digest()
     # A model-facing manifest declares filesystem.read paths — the
     # sandbox refuses read of anything not in that set. The seal file
-    # for a run lives under ``.rack/sandbox/holdout/<run_id>.seal``;
+    # for a run lives under ``.ract/sandbox/holdout/<run_id>.seal``
+    # (v0.5.1 wiring module_10 unified workspace state on ``.ract/``);
     # a model-facing manifest that does not name the path is a refusal
     # by construction (SUBSTRATE §4.2 allowlist-not-denylist idiom).
-    seal_dir = tmp_path / ".rack" / "sandbox" / "holdout"
+    seal_dir = tmp_path / ".ract" / "sandbox" / "holdout"
     seal_dir.mkdir(parents=True, exist_ok=True)
     seal_path = seal_dir / f"{run_id.hex()}.seal"
     seal_path.write_bytes(seal)
@@ -186,7 +187,7 @@ def test_held_out_seal_refused_by_model_capability(tmp_path: Path) -> None:
         filesystem=FilesystemPolicy(
             read=(str(tmp_path / "src") + "/**",),
             write=(),
-            denied=(str(tmp_path / ".rack") + "/**",),
+            denied=(str(tmp_path / ".ract") + "/**",),
         ),
     )
     denied_globs = manifest.filesystem.denied

@@ -58,22 +58,36 @@ def test_use_cases_jsonl_parses() -> None:
 
 
 def test_every_cli_verb_is_accepted() -> None:
-    """Every CLI verb has an accepted entry; every accepted entry is a verb."""
+    """Every CLI verb has an accepted entry; every accepted entry maps to a verb.
+
+    v0.5.1 wiring module_10 extends the mapping: an accepted entry
+    whose title is ``"<verb> <subverb> ..."`` (e.g. ``"manifest
+    ledger verify"``) matches when ``<verb>`` is a first-class
+    CLI verb. This lets subverb-level documentation entries land
+    without inflating :data:`CLI_VERBS`.
+    """
     entries = _load_entries()
     accepted_titles = {
         entry["title"].lower() for entry in entries if entry["status"] == "accepted"
     }
     verb_set = {verb.lower() for verb in CLI_VERBS}
 
-    missing = verb_set - accepted_titles
-    assert not missing, (
-        f"CLI verbs without accepted USE_CASES.jsonl entry: {sorted(missing)}"
-    )
+    # Every CLI verb needs at least one accepted title starting with it.
+    for verb in verb_set:
+        vlower = verb.lower()
+        has_entry = vlower in accepted_titles or any(
+            t == vlower or t.startswith(vlower + " ") for t in accepted_titles
+        )
+        assert has_entry, f"CLI verb {verb!r} has no accepted USE_CASES.jsonl entry"
 
-    extra = accepted_titles - verb_set
-    assert not extra, (
-        f"accepted USE_CASES.jsonl entries without a matching CLI verb: {sorted(extra)}"
-    )
+    # Every accepted title must map back to a verb (either exact match
+    # or its first token is a first-class verb).
+    for title in accepted_titles:
+        first_token = title.split(" ", 1)[0]
+        assert title in verb_set or first_token in verb_set, (
+            f"accepted USE_CASES.jsonl entry {title!r} does not map to a CLI verb "
+            f"(first token: {first_token!r})"
+        )
 
 
 def test_no_rejected_entry_leaks_as_verb() -> None:
@@ -129,9 +143,15 @@ def test_cli_verbs_matches_dispatch_table() -> None:
     """
     dispatch_verbs = _dispatch_verbs_from_main()
     declared = {verb.lower() for verb in CLI_VERBS}
+    # v0.5.1 wiring module_10: the dispatcher gained two internal
+    # tokens that are NOT verbs -- ``help`` (top-level help routing,
+    # Lens A C1) and ``ledger`` (subverb of ``manifest``, Lens A M1
+    # closure). Both belong to a wider verb's dispatch tree; neither
+    # should appear in CLI_VERBS in isolation.
+    dispatcher_internal_tokens = {"help", "ledger"}
     # ``run`` is aliased away before the dispatch chain, so it is
     # declared without appearing as a compare literal.
-    missing_from_declared = dispatch_verbs - declared
+    missing_from_declared = dispatch_verbs - declared - dispatcher_internal_tokens
     assert not missing_from_declared, (
         f"dispatch branches without a CLI_VERBS entry: {sorted(missing_from_declared)}"
     )

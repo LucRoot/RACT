@@ -360,5 +360,6 @@ def test_rewrite_records_atomic_replaces_content(tmp_path: Path) -> None:
     reloaded = read_all(tmp_path)
     assert len(reloaded) == 1
     assert reloaded[0].input_token_count == 2
-    leftover = list((tmp_path / ".rack" / "failures").glob("*.tmp"))
+    # v0.5.1 wiring module_10 (Lens A C2): state dir unified on ``.ract/``.
+    leftover = list((tmp_path / ".ract" / "failures").glob("*.tmp"))
     assert leftover == []

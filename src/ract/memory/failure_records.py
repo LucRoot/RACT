@@ -1,7 +1,7 @@
 """Failure-record aggregation for the self-adjustment layer (module_08 step 6).
 
 Every function failure emits a structured :class:`FailureRecord`; the
-records land in ``.rack/failures/records.jsonl`` (append-only JSONL).
+records land in ``.ract/failures/records.jsonl`` (append-only JSONL).
 The aggregator groups by function and failure_type over a sliding
 window and produces narrowing proposals for the budget layer.
 
@@ -37,10 +37,17 @@ from pathlib import Path
 from typing import Any, Literal
 
 
-FAILURE_RECORDS_PATH: Path = Path(".rack") / "failures" / "records.jsonl"
+# v0.5.1 wiring module_10 (Lens A C2): workspace state unified on
+# ``.ract/``. The path constants reference the canonical name via
+# :data:`ract.workspace_state.WORKSPACE_STATE_DIR_NAME` so a future
+# rename lands one place. Pre-module_10 records under ``.rack/failures``
+# are migrated in place by :func:`ract.workspace_state.migrate_rack_to_ract`.
+from ract.workspace_state import WORKSPACE_STATE_DIR_NAME as _RACT_DIR
+
+FAILURE_RECORDS_PATH: Path = Path(_RACT_DIR) / "failures" / "records.jsonl"
 """Relative location of the shipped failure records file."""
 
-APPLIED_NARROWINGS_PATH: Path = Path(".rack") / "failures" / "applied_narrowings.jsonl"
+APPLIED_NARROWINGS_PATH: Path = Path(_RACT_DIR) / "failures" / "applied_narrowings.jsonl"
 """Relative location of the applied-narrowing audit trail (module_08 Lateral E)."""
 
 

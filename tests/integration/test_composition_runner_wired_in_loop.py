@@ -96,7 +96,8 @@ def test_probe_scheduler_fires_at_run_start(tmp_path: Path) -> None:
     ctrl._run_probe_scheduler_at_start()
     assert scheduler.calls == [provider]
     # Capability record must land at the standard path.
-    assert (tmp_path / ".rack" / "probes" / "capability.json").is_file()
+    # v0.5.1 wiring module_10 (Lens A C2): state dir unified on ``.ract/``.
+    assert (tmp_path / ".ract" / "probes" / "capability.json").is_file()
 
 
 def test_probe_scheduler_wire_is_noop_without_provider(tmp_path: Path) -> None:

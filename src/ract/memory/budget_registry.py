@@ -249,7 +249,7 @@ def get_with_capability_clamp(
     reduced :class:`~ract.memory.probes.scheduler.ModelCapability`
     record persisted by
     :func:`~ract.memory.probes.scheduler.write_capability_record` at
-    ``root / .rack / probes / capability.json``. If present and its
+    ``root / .ract / probes / capability.json``. If present and its
     ``usable_context_window`` is smaller than the base declaration's
     ``input_target`` / ``input_max``, the declaration is narrowed via
     :func:`~ract.memory.composition.apply_runtime_narrowing` so the

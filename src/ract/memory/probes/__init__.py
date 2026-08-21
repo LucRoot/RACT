@@ -8,7 +8,7 @@ Three probe suites measure provider behavior on the current provider mix:
 
 The :mod:`~ract.memory.probes.scheduler` runs all three, reduces the
 reports into a :class:`~ract.memory.probes.scheduler.ModelCapability`
-record, and writes it atomically to ``.rack/probes/capability.json``.
+record, and writes it atomically to ``.ract/probes/capability.json``.
 Budgets derive from this record when populated; the module_01 spec
 defaults ship as fallback for a fresh install.
 

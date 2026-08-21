@@ -60,7 +60,8 @@ def wired_executor(tmp_path: Path):
     """Executor with all six v4 deps supplied."""
     project_dir = tmp_path / "project"
     project_dir.mkdir()
-    (project_dir / ".rack").mkdir()
+    # v0.5.1 wiring module_10 (Lens A C2): state dir unified on ``.ract/``.
+    (project_dir / ".ract").mkdir()
 
     session_key = SessionKey.load_or_create(os.urandom(16))
     sandbox = _KeyStub(os.urandom(16))
@@ -142,7 +143,8 @@ def test_install_v4_provenance_deps_setter_enables_v4_emission(
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
-    (project_dir / ".rack").mkdir()
+    # v0.5.1 wiring module_10 (Lens A C2): state dir unified on ``.ract/``.
+    (project_dir / ".ract").mkdir()
 
     session_key = SessionKey.load_or_create(os.urandom(16))
     sandbox = _KeyStub(os.urandom(16))
@@ -188,7 +190,8 @@ def test_unwired_executor_skips_provenance(tmp_path: Path) -> None:
 
     project_dir = tmp_path / "project"
     project_dir.mkdir()
-    (project_dir / ".rack").mkdir()
+    # v0.5.1 wiring module_10 (Lens A C2): state dir unified on ``.ract/``.
+    (project_dir / ".ract").mkdir()
 
     session_key = SessionKey.load_or_create(os.urandom(16))
     index = ProvenanceIndex(project_dir)

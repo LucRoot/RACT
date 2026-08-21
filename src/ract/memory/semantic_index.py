@@ -13,7 +13,7 @@ Chunk identity joins on
 module_02 ``symbols.id`` foreign key. The store does not create a
 parallel symbol id space (module_02 POST inbound constraint 2).
 
-The store lives at ``.rack/index/semantic/`` in a real repo; tests
+The store lives at ``.ract/index/semantic/`` in a real repo; tests
 open a temp path. A ``metadata.json`` alongside the LanceDB
 directory records the ``embedding_model_name`` + ``embedding_dim``
 that produced the stored vectors. A mismatch on re-open raises

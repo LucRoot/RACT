@@ -141,7 +141,8 @@ def test_write_capability_record_creates_parent_dirs(tmp_path: Path) -> None:
 def test_write_capability_record_atomic_no_leftover_tmp(tmp_path: Path) -> None:
     reports = run_all_probes(AlwaysHitProvider())
     write_capability_record(reports, tmp_path)
-    leftover = list((tmp_path / ".rack" / "probes").glob("*.tmp"))
+    # v0.5.1 wiring module_10 (Lens A C2): state dir unified on ``.ract/``.
+    leftover = list((tmp_path / ".ract" / "probes").glob("*.tmp"))
     assert leftover == []
 
 

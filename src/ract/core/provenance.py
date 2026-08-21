@@ -72,7 +72,14 @@ class ProvenanceIndex:
 
     def __init__(self, workspace_root: Path) -> None:
         self.workspace_root = Path(workspace_root)
-        self._db_path = self.workspace_root / ".rack" / "rootknots.db"
+        # v0.5.1 wiring module_10: workspace state directory unified
+        # on ``.ract/`` (Lens A C2 closure). The migration shim in
+        # ``ract.workspace_state`` renames any pre-module_10 ``.rack/``
+        # tree in place on CLI dispatch, so existing rootknots.db
+        # remains at the expected relative path after migration.
+        from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
+
+        self._db_path = self.workspace_root / WORKSPACE_STATE_DIR_NAME / "rootknots.db"
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
@@ -163,7 +170,7 @@ class ProvenanceIndex:
 
         Both are ``None`` for v1 sidecars — those workspaces predate the
         embedded-pubkey extension. Callers use these when running RK-3
-        without a live ``.rack/sandbox/`` archive.
+        without a live ``.ract/sandbox/`` archive.
         """
         sidecar = artifact_path.parent / f".{artifact_path.name}.rootknot.json"
         if not sidecar.is_file():

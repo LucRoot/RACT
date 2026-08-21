@@ -51,7 +51,7 @@ ONLINE_ENV_VAR: str = "RACT_EMBED_ONLINE"
 """Env var whose ``"1"`` value gates real-model tests / weight download."""
 
 LOCAL_MODEL_ROOT_ENV_VAR: str = "RACT_EMBED_MODEL_ROOT"
-"""Env var pointing at a local model root (``.rack/models/embeddings/``)."""
+"""Env var pointing at a local model root (``.ract/models/embeddings/``)."""
 
 
 class EmbeddingError(RuntimeError):
@@ -68,7 +68,7 @@ class EmbeddingModelUnavailableError(EmbeddingError):
 
     The message names the fallback path (either
     ``RACT_EMBED_ONLINE=1`` to allow download, or a local
-    ``.rack/models/embeddings/<name>/`` weights directory) so the
+    ``.ract/models/embeddings/<name>/`` weights directory) so the
     caller has a specific fix rather than an opaque HuggingFace
     stacktrace (Second Pass Q2).
     """
@@ -180,7 +180,7 @@ class _SentenceTransformerBase:
         """Return the local weights dir for this model, if configured.
 
         The installer's ``ract memory init`` (module_09) drops the
-        weights at ``.rack/models/embeddings/<name>/``. The env var
+        weights at ``.ract/models/embeddings/<name>/``. The env var
         ``RACT_EMBED_MODEL_ROOT`` names the parent directory so tests
         and non-standard installs can point elsewhere.
         """

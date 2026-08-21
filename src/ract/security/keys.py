@@ -1,14 +1,20 @@
 """Sandbox signing key — the environment attester (SUBSTRATE §7.1).
 
 Every run mints one ``SandboxKey`` at first sandbox entry. The private
-material lives on disk under ``.rack/sandbox/<run_id>.key`` and is
+material lives on disk under ``.ract/sandbox/<run_id>.key`` and is
 consumed only by the sandbox process; the model layer never sees it. The
 raw 32-byte public key is embedded in every v2 Rootknot the run
 produces, so the environment signature verifies offline against the
 sidecar alone (module_06 lateral chain branch C).
 
+v0.5.1 wiring module_10 (Lens A C2) unified workspace state on
+``.ract/``. Pre-module_10 keys living at ``.rack/sandbox/`` are
+transparently migrated by :func:`ract.workspace_state.migrate_rack_to_ract`
+on CLI dispatch; direct callers who bypass the CLI should invoke the
+shim once at startup.
+
 At run completion, the private key is archived under
-``.rack/sandbox/archive/<run_id>.key`` so rootknots signed during that
+``.ract/sandbox/archive/<run_id>.key`` so rootknots signed during that
 run remain verifiable. The SQLite provenance index carries the key id
 (``sha256(pubkey)``) so a rootknot can be resolved back to the pubkey
 that attested it (lateral chain branch B).
@@ -61,16 +67,18 @@ class SandboxKey:
         """Generate a fresh ``SandboxKey`` for ``run_id``.
 
         The private material is written under
-        ``<workspace_root>/.rack/sandbox/<run_id>.key`` with ``0600``
+        ``<workspace_root>/.ract/sandbox/<run_id>.key`` with ``0600``
         permissions (POSIX). The sandbox process is the only reader; the
         capability manifest for the run explicitly refuses read of
-        ``.rack/sandbox/`` so the model can never see the file.
+        ``.ract/sandbox/`` so the model can never see the file.
         """
         if len(run_id) != 16:
             raise ValueError("run_id must be a 16-byte UUID")
         if workspace_root is None:
             workspace_root = Path.cwd()
-        sandbox_dir = Path(workspace_root) / ".rack" / "sandbox"
+        from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
+
+        sandbox_dir = Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "sandbox"
         sandbox_dir.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             sandbox_dir.chmod(0o700)
@@ -94,15 +102,17 @@ class SandboxKey:
 
     @classmethod
     def load_archived(cls, run_id: bytes, workspace_root: Path) -> "SandboxKey | None":
-        """Load an archived key for ``run_id`` from ``.rack/sandbox/archive/``.
+        """Load an archived key for ``run_id`` from ``.ract/sandbox/archive/``.
 
         Returns ``None`` if no archived key exists — the caller then falls
         back to the pubkey embedded in the v2 sidecar (SUBSTRATE §7.2 +
         module_06 lateral chain branch C).
         """
+        from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
+
         archive = (
             Path(workspace_root)
-            / ".rack"
+            / WORKSPACE_STATE_DIR_NAME
             / "sandbox"
             / "archive"
             / f"{run_id.hex()}.key"
@@ -119,7 +129,7 @@ class SandboxKey:
     # ------------------------------------------------------------------
 
     def archive(self, workspace_root: Path | None = None) -> Path:
-        """Move the private key under ``.rack/sandbox/archive/``.
+        """Move the private key under ``.ract/sandbox/archive/``.
 
         Called by the loop's finalizer at run completion so the key file
         does not linger in the live sandbox directory. The archived
@@ -127,10 +137,12 @@ class SandboxKey:
         Returns the archive path.
         """
         if workspace_root is None:
-            # ``<workspace_root>/.rack/sandbox/<run_id>.key`` — walk up two
+            # ``<workspace_root>/.ract/sandbox/<run_id>.key`` — walk up two
             # to recover the workspace root.
             workspace_root = self._key_path.parent.parent.parent
-        archive_dir = Path(workspace_root) / ".rack" / "sandbox" / "archive"
+        from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
+
+        archive_dir = Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "sandbox" / "archive"
         archive_dir.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             archive_dir.chmod(0o700)

@@ -6,9 +6,9 @@ the environment (RK-3), the ALM verifier attests the thoroughness of the
 completion (AL-1). Two distinct keys mean that compromising the sandbox
 does not forge an anti-lazy signature and vice versa.
 
-The private key persists under ``.rack/alm/<run_id>.key`` with the same
+The private key persists under ``.ract/alm/<run_id>.key`` with the same
 0600 permissions the sandbox key uses on POSIX. The capability manifest
-in force for the model layer explicitly refuses read of ``.rack/alm/``
+in force for the model layer explicitly refuses read of ``.ract/alm/``
 so the model never sees the private material.
 
 Reference sources:
@@ -59,7 +59,7 @@ class AlmVerifierKey:
         """Generate a fresh ``AlmVerifierKey`` for ``run_id``.
 
         The private material is written under
-        ``<workspace_root>/.rack/alm/<run_id>.key`` with ``0600``
+        ``<workspace_root>/.ract/alm/<run_id>.key`` with ``0600``
         permissions on POSIX. Windows drops the ``chmod`` step; the
         directory is not shared with the model layer regardless of the
         underlying filesystem semantics.
@@ -68,7 +68,9 @@ class AlmVerifierKey:
             raise ValueError("run_id must be a 16-byte UUID")
         if workspace_root is None:
             workspace_root = Path.cwd()
-        alm_dir = Path(workspace_root) / ".rack" / "alm"
+        from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
+
+        alm_dir = Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "alm"
         alm_dir.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             alm_dir.chmod(0o700)
@@ -96,7 +98,7 @@ class AlmVerifierKey:
     def load_archived(
         cls, run_id: bytes, workspace_root: Path
     ) -> "AlmVerifierKey | None":
-        """Load an archived key for ``run_id`` from ``.rack/alm/archive/``.
+        """Load an archived key for ``run_id`` from ``.ract/alm/archive/``.
 
         Returns ``None`` if no archived key exists. Verification then
         falls back to the ALM pubkey embedded in the v3 sidecar (though
@@ -104,8 +106,10 @@ class AlmVerifierKey:
         the module_05 ``## Second Pass results`` section for the
         chain-of-custody design).
         """
+        from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
+
         archive = (
-            Path(workspace_root) / ".rack" / "alm" / "archive" / f"{run_id.hex()}.key"
+            Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "alm" / "archive" / f"{run_id.hex()}.key"
         )
         if not archive.exists():
             return None
@@ -119,15 +123,17 @@ class AlmVerifierKey:
     # ------------------------------------------------------------------
 
     def archive(self, workspace_root: Path | None = None) -> Path:
-        """Move the private key under ``.rack/alm/archive/``.
+        """Move the private key under ``.ract/alm/archive/``.
 
         Called by the loop finalizer so the key file does not linger in
-        the live ``.rack/alm/`` directory across runs. The archived
+        the live ``.ract/alm/`` directory across runs. The archived
         pubkey remains resolvable by ``key_id`` for future verification.
         """
         if workspace_root is None:
             workspace_root = self._key_path.parent.parent.parent
-        archive_dir = Path(workspace_root) / ".rack" / "alm" / "archive"
+        from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
+
+        archive_dir = Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "alm" / "archive"
         archive_dir.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             archive_dir.chmod(0o700)

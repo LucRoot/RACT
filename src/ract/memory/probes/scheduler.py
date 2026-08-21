@@ -2,7 +2,8 @@
 
 Runs the three probes (needle, coherence, adherence) against a
 provider, reduces the reports into a :class:`ModelCapability` record,
-and writes it atomically to ``.rack/probes/capability.json``.
+and writes it atomically to ``.ract/probes/capability.json``
+(unified on ``.ract/`` by v0.5.1 wiring module_10, Lens A C2).
 
 Design notes:
 
@@ -38,7 +39,9 @@ from ract.memory.probes.coherence import CoherenceProbe, CoherenceProbeReport
 from ract.memory.probes.needle import NeedleProbe, NeedleProbeReport
 
 
-CAPABILITY_RECORD_PATH: Path = Path(".rack") / "probes" / "capability.json"
+from ract.workspace_state import WORKSPACE_STATE_DIR_NAME as _RACT_DIR
+
+CAPABILITY_RECORD_PATH: Path = Path(_RACT_DIR) / "probes" / "capability.json"
 """Relative location of the shipped capability record.
 
 Callers pass a repo root; the writer joins that root with this

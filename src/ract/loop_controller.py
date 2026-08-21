@@ -257,7 +257,7 @@ class LoopController:
         # default None preserves prior LoopController behavior. When
         # supplied, the loop fires the probe scheduler once at run()
         # entry (self-adjustment record persisted to
-        # ``.rack/probes/capability.json``), consults the record on
+        # ``.ract/probes/capability.json``), consults the record on
         # every budget request (see budget_registry.get_with_capability_clamp),
         # and hands the CompositionRunner + IndexBundle to the
         # `_run_composed_retrieval` method for use by downstream
@@ -279,7 +279,7 @@ class LoopController:
         #   still available but any invocation must pass its own
         #   indexes.
         # - ``memory_root``: the repo root under which the capability
-        #   record lives (`root/.rack/probes/capability.json`).
+        #   record lives (`root/.ract/probes/capability.json`).
         #   Defaults to ``self.project_dir`` when a probe scheduler is
         #   attached and no explicit root is given, so budget clamps
         #   fire against the same probe artifact the scheduler wrote.
@@ -851,7 +851,7 @@ class LoopController:
         """Body of :meth:`run` executed under the bound ambient run_id."""
         # v0.5.1 wiring module_08 (Lens E MEM-E-04) closure: fire the
         # ProbeScheduler once at run() entry so the capability record
-        # persisted at ``memory_root/.rack/probes/capability.json``
+        # persisted at ``memory_root/.ract/probes/capability.json``
         # reflects the current provider's real bounds. Subsequent
         # budget requests via ``budget_registry.get_with_capability_clamp``
         # consult that record and clamp ``input_target`` /
@@ -1868,7 +1868,7 @@ class LoopController:
         run but a single run does not re-probe on every iteration.
 
         Writes the reduced capability record to
-        ``memory_root/.rack/probes/capability.json`` via
+        ``memory_root/.ract/probes/capability.json`` via
         :func:`~ract.memory.probes.scheduler.write_capability_record`
         so :func:`~ract.memory.budget_registry.get_with_capability_clamp`
         reads it on subsequent budget requests. Errors are logged +

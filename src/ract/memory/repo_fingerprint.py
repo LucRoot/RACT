@@ -37,7 +37,10 @@ from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 
-FINGERPRINT_RECORD_PATH: Path = Path(".rack") / "fingerprint" / "repo.json"
+# v0.5.1 wiring module_10 (Lens A C2): workspace state unified on ``.ract/``.
+from ract.workspace_state import WORKSPACE_STATE_DIR_NAME as _RACT_DIR
+
+FINGERPRINT_RECORD_PATH: Path = Path(_RACT_DIR) / "fingerprint" / "repo.json"
 """Relative location of the shipped fingerprint record."""
 
 FINGERPRINT_SCHEMA_VERSION: int = 1

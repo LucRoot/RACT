@@ -159,7 +159,7 @@ ract run "commit the greeting tool" --config ract.yaml --mode git
 
 ## Other useful commands
 
-- `ract --welcome` — show the branded Root-Koot welcome screen.
+- `ract --welcome` — show the branded Root-Knot welcome screen.
 - `ract report --last` / `--session ID` — view a structured run summary.
 - `ract handshakes list/approve/reject/defer` — review high-risk milestones the loop deferred.
 - `ract mcp list` — inspect tools exposed by configured MCP servers.

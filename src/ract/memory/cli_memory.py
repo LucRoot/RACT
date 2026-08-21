@@ -41,6 +41,11 @@ def memory_command(args: list[str]) -> int:
     ``[ract]``-prefixed diagnostics on the failure path.
     """
     parser = argparse.ArgumentParser(prog="ract memory")
+    # v0.5.1 wiring module_10 (Lens A M7): a bare ``ract memory``
+    # prints help and exits 0 -- CI-friendly capability probe.
+    if not args:
+        parser.print_help()
+        return 0
     parser.add_argument(
         "subverb",
         choices=["init", "apply-narrowings"],
@@ -52,7 +57,7 @@ def memory_command(args: list[str]) -> int:
     if parsed.subverb == "apply-narrowings":
         return _memory_apply_narrowings(rest)
     parser.print_help()
-    return 1
+    return 0
 
 
 def _memory_init(args: list[str]) -> int:
@@ -290,10 +295,17 @@ def _write_narrowing_overrides(path: Path, proposals: list) -> None:
 
 
 def retrieval_query_command(args: list[str]) -> int:
-    """Handle ``ract retrieval query <query> [--budget N] [--format ...]``.
+    """Handle ``ract retrieval query <text> [--k N] [--index KIND] [--json]``.
 
-    New in module_09. Called from the existing ``_retrieval_command``
-    dispatcher when the subverb resolves to ``query``.
+    v0.5.1 wiring module_10 (Lens A C3 closure): the prior stub
+    printed a params-echo diagnostic; the wire now opens the three
+    workspace indexes (symbol, graph, semantic -- whichever exist
+    under ``.ract/memory/``), runs the retrieve primitive from
+    :mod:`ract.memory.retrieve` against them, and prints the
+    matching chunks. Missing indexes are tolerated (that branch of
+    the cascade no-ops); an unpopulated workspace produces an
+    ``"index_not_populated"`` error surface with a clear
+    ``ract memory init`` next-step instruction.
     """
     parser = argparse.ArgumentParser(prog="ract retrieval query")
     parser.add_argument("query", help="Retrieval query text (keyword / symbol name).")
@@ -302,6 +314,18 @@ def retrieval_query_command(args: list[str]) -> int:
         type=Path,
         default=Path("."),
         help="Path to the repository whose indexes to query.",
+    )
+    parser.add_argument(
+        "--k",
+        type=int,
+        default=None,
+        help="Max chunks to surface (default: unbounded; use --budget to cap tokens).",
+    )
+    parser.add_argument(
+        "--index",
+        choices=["symbol", "graph", "semantic", "lexical", "all"],
+        default="all",
+        help="Restrict retrieval to a single index kind (default: all).",
     )
     parser.add_argument(
         "--budget",
@@ -331,7 +355,15 @@ def retrieval_query_command(args: list[str]) -> int:
 
     repo_path: Path = parsed.repo_path.resolve()
     try:
-        from ract.memory.retrieve import RetrievalQuery
+        from ract.memory.chunk import ChunkFormat
+        from ract.memory.retrieve import (
+            BoundedContextError,
+            IndexKind,
+            IndexRef,
+            RetrievalQuery,
+            RetrievalStrategy,
+            retrieve,
+        )
     except ImportError as exc:
         print(
             f"[ract] retrieval query: memory package unavailable: {exc}",
@@ -339,41 +371,167 @@ def retrieval_query_command(args: list[str]) -> int:
         )
         return 1
 
-    # A real integration wires ``retrieve()`` against the three built
-    # indexes. Module_09 lands the CLI surface with a minimal
-    # keyword-only query the operator can smoke-test against a repo
-    # whose indexes exist. Full three-index wiring lands via the
-    # composition_runner path in the same module.
+    # Build indexes list from what exists on disk. The retrieve
+    # primitive tolerates missing kinds; each missing branch no-ops.
+    indexes: list = []
+    symbol_idx = None
+    _load_warnings: list[str] = []
+    memory_root = repo_path / ".ract" / "memory"
+    want_symbol = parsed.index in {"symbol", "lexical", "all"}
+    want_graph = parsed.index in {"graph", "all"}
+    want_semantic = parsed.index in {"semantic", "all"}
+
+    if want_symbol:
+        try:
+            from ract.memory.symbol_index import SymbolIndex
+
+            symbol_db = memory_root / "symbols.db"
+            if symbol_db.exists():
+                symbol_idx = SymbolIndex(db_path=str(symbol_db))
+                indexes.append(IndexRef(kind=IndexKind.SYMBOL, index=symbol_idx))
+        except Exception as exc:  # noqa: BLE001
+            _load_warnings.append(f"symbol index load failed: {exc}")
+
+    if want_graph:
+        try:
+            from ract.memory.graph_index import GraphIndex
+
+            graph_db = memory_root / "graph.db"
+            if graph_db.exists():
+                graph_idx = GraphIndex(db_path=str(graph_db), symbol_index=symbol_idx)
+                indexes.append(IndexRef(kind=IndexKind.GRAPH, index=graph_idx))
+        except Exception as exc:  # noqa: BLE001
+            _load_warnings.append(f"graph index load failed: {exc}")
+
+    if want_semantic:
+        try:
+            from ract.memory.semantic_index import SemanticIndex
+
+            semantic_dir = memory_root / "semantic"
+            if semantic_dir.is_dir():
+                semantic_idx = SemanticIndex(
+                    store_path=semantic_dir, symbol_index=symbol_idx
+                )
+                indexes.append(IndexRef(kind=IndexKind.SEMANTIC, index=semantic_idx))
+        except Exception as exc:  # noqa: BLE001
+            _load_warnings.append(f"semantic index load failed: {exc}")
+
+    fmt_map = {
+        "full": ChunkFormat.FULL,
+        "body": ChunkFormat.BODY_ONLY,
+        "sig": ChunkFormat.SIGNATURE,
+        "summary": ChunkFormat.SUMMARY,
+    }
+    strat_map = {
+        "relevance": RetrievalStrategy.RELEVANCE,
+        "complete": RetrievalStrategy.COMPREHENSIVE,
+        "core": RetrievalStrategy.CORE_FIRST,
+    }
+
+    # v0.5.1 module_10: send both a symbol-name seed AND a keyword seed
+    # so exact-name matches surface even when the caller typed a
+    # bare identifier. The primitive dedups downstream so this cannot
+    # double-count.
     query = RetrievalQuery(
-        symbol_names=(),
+        symbol_names=(parsed.query,),
         keywords=(parsed.query,),
     )
+
+    try:
+        bundle = retrieve(
+            query=query,
+            indexes=indexes,
+            budget=parsed.budget,
+            format=fmt_map[parsed.format],
+            strategy=strat_map[parsed.strategy],
+        )
+    except BoundedContextError as exc:
+        print(
+            f"[ract] retrieval query: refused (budget {parsed.budget} exhausted "
+            f"at cascade level {exc.deepest_level}). Narrow the query or "
+            "raise --budget.",
+            file=sys.stderr,
+        )
+        return 1
+
+    chunks = list(bundle.chunks)
+    if parsed.k is not None:
+        chunks = chunks[: parsed.k]
+
     if parsed.json_output:
-        print(
-            json.dumps(
+        payload = {
+            "query": parsed.query,
+            "repo_path": str(repo_path),
+            "budget": parsed.budget,
+            "format": parsed.format,
+            "strategy": parsed.strategy,
+            "index_filter": parsed.index,
+            "indexes_loaded": [ref.kind.value for ref in indexes],
+            "total_tokens": bundle.total_tokens,
+            "budget_used_pct": bundle.budget_used_pct,
+            "dropped_count": bundle.dropped_count,
+            "dropped_symbols": list(bundle.dropped_symbols),
+            "final_level": bundle.query_trace.final_level,
+            "error": bundle.query_trace.error,
+            "chunks": [
                 {
-                    "query": parsed.query,
-                    "budget": parsed.budget,
-                    "format": parsed.format,
-                    "strategy": parsed.strategy,
-                    "repo_path": str(repo_path),
-                    "canonical": {
-                        "keywords": list(query.keywords),
-                        "symbol_names": list(query.symbol_names),
-                    },
-                },
-                indent=2,
-            )
-        )
-    else:
-        print(f"[ract] retrieval query: '{parsed.query}' against {repo_path}")
+                    "symbol_name": c.symbol_name,
+                    "file_path": c.file_path,
+                    "language": c.language,
+                    "token_count": c.token_count,
+                    "signature": c.signature,
+                    "body": c.body,
+                }
+                for c in chunks
+            ],
+            "warnings": _load_warnings,
+        }
+        print(json.dumps(payload, indent=2, default=str))
+        return 0
+
+    # Human-readable output.
+    print(f"[ract] retrieval query: '{parsed.query}' against {repo_path}")
+    if _load_warnings:
+        for w in _load_warnings:
+            print(f"  warn: {w}", file=sys.stderr)
+    if not indexes:
         print(
-            f"  budget: {parsed.budget}  format: {parsed.format}  "
-            f"strategy: {parsed.strategy}"
+            "[ract] retrieval query: no indexes found under .ract/memory/. "
+            "Run 'ract memory init' first.",
+            file=sys.stderr,
         )
+        return 0
+    if bundle.query_trace.error == "index_not_populated":
         print(
-            "  note: full retrieve() wiring against a live index bundle is "
-            "exercised via composition_runner; use ract memory init first."
+            "[ract] retrieval query: indexes exist but contain no rows matching "
+            f"'{parsed.query}'. Run 'ract memory init' to (re)build.",
+            file=sys.stderr,
+        )
+        return 0
+    if not chunks:
+        print(f"[ract] retrieval query: no chunks matched '{parsed.query}'.")
+        return 0
+    print(
+        f"  {len(chunks)} chunk(s); {bundle.total_tokens} tokens "
+        f"({bundle.budget_used_pct:.1f}% of {parsed.budget}) at "
+        f"cascade level {bundle.query_trace.final_level}"
+    )
+    for i, chunk in enumerate(chunks, start=1):
+        loc = f"{chunk.file_path}"
+        if chunk.symbol_name:
+            loc += f" :: {chunk.symbol_name}"
+        print(f"--- {i}. {loc} ({chunk.language}, {chunk.token_count}t)")
+        # Truncate long chunk bodies for terminal readability; JSON
+        # output above carries the full body.
+        preview = chunk.body or chunk.signature
+        if len(preview) > 800:
+            preview = preview[:800] + "\n[... truncated; use --json for full body]"
+        print(preview)
+    if bundle.dropped_symbols:
+        print(
+            f"  dropped ({bundle.dropped_count}): "
+            + ", ".join(bundle.dropped_symbols[:10])
+            + ("..." if len(bundle.dropped_symbols) > 10 else "")
         )
     return 0
 

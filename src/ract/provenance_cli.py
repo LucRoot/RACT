@@ -177,9 +177,20 @@ def _resolve_pubkey(knot) -> bytes | None:
 
 
 def _infer_workspace_root(artifact_path: Path) -> Path:
-    """Walk up from ``artifact_path`` to find the workspace containing ``.rack``."""
+    """Walk up from ``artifact_path`` to find the workspace state dir.
+
+    v0.5.1 wiring module_10 (Lens A C2): the canonical name is
+    ``.ract/``; a legacy ``.rack/`` directory is accepted as a fallback
+    so a workspace that has not yet run through the migration shim
+    still resolves. The workspace-state migration renames legacy
+    directories in place on CLI dispatch.
+    """
+    from ract.workspace_state import LEGACY_STATE_DIR_NAME, WORKSPACE_STATE_DIR_NAME
+
     for parent in [artifact_path.parent, *artifact_path.parents]:
-        if (parent / ".rack").is_dir():
+        if (parent / WORKSPACE_STATE_DIR_NAME).is_dir() or (
+            parent / LEGACY_STATE_DIR_NAME
+        ).is_dir():
             return parent
     return artifact_path.parent
 

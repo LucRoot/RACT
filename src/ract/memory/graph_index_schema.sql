@@ -7,7 +7,7 @@
 -- an existing store.
 --
 -- Edges reference symbol ids from the module_02 symbol_index.symbols
--- table. The graph store lives at .rack/index/graph.db in a real
+-- table. The graph store lives at .ract/index/graph.db in a real
 -- repo; tests open a temp path (or ATTACH the symbol store to run
 -- foreign-key checks in-memory).
 --

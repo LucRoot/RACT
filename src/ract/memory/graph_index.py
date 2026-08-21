@@ -7,7 +7,7 @@ path_between / orphans / hotspots) + insert / delete write paths.
 Master spec: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` section
 "The three indexes / Graph index". Rationale: ADR-0033.
 
-The store lives at ``.rack/index/graph.db`` in a real repo; tests
+The store lives at ``.ract/index/graph.db`` in a real repo; tests
 open a temp path. Schema is loaded from
 ``graph_index_schema.sql`` on connection open (idempotent CREATEs
 so the loader is safe against an existing store).

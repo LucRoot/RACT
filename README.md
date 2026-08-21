@@ -64,7 +64,7 @@ substrate modules plus a release-close module:
   `bug_fix`, `unit_test` — composed of those four functions.
 - **Three self-adjustment probes** — `needle`, `coherence`,
   `adherence` — writing a per-repo capability fingerprint to
-  `.rack/probes/capability.json`.
+  `.ract/probes/capability.json`.
 - **Integration wiring.** `SubstrateLoop` reads a retrieval bundle
   off `SubstrateStepSpec.metadata`; `Rootknot` payload carries an
   optional `retrieval_attestation`; seven new EventKind members;
@@ -137,25 +137,68 @@ ract run "refactor the greeting module" --config ract.yaml --loop --max-iteratio
 
 ## CLI Verb Index
 
-- `ract doctor` — verify workspace health and dependencies.
-- `ract config validate` — validate ract.yaml configuration.
-- `ract provider health` — check configured provider reachability.
-- `ract session list` — list persisted run sessions.
-- `ract session ls` — list persisted transactional sessions (v0.4 substrate).
-- `ract session diff <step_id>` — show the diff a step's `StepTransaction` applied (v0.4 substrate).
-- `ract plan diff` — show the diff a plan would apply.
-- `ract run` — execute an intent against the workspace.
-- `ract fence inspect --file <path>` — inspect threat-model guardrails.
-- `ract conformance run --provider <name>` — run the per-provider conformance corpus (schema + tool discipline + refusal fidelity + anti-lazy). Router gates registration on a recent passing report.
-- `ract trace replay <run>` — replay a hash-chained event log against the current tree (emits determinism warning on HEAD mismatch).
-- `ract trace fork <run> <event_id>` — fork a trace from a specific event.
-- `ract trace diff <run_a> <run_b>` — diff two traces event-by-event.
-- `ract trace to-test <run>` — materialize the trace's provider prompts and responses as pinned test fixtures.
-- `ract provenance verify <path>` — verify a file's `Rootknot` (RK-1 + RK-2 always; RK-3 when the sidecar is v2+; AL-1 when the sidecar is v3 and the workspace is in strict mode).
-- `ract plan analyze <session>` — print the `PlanRiskReport` advisory for a session (restoration cluster 2; reads the `plan.risk_assessed` event out of `events.jsonl`).
-- `ract memory init` — build the symbol / graph / semantic indexes for the current workspace under `.rack/index/` (v0.5.0 memory discipline).
-- `ract memory apply-narrowings` — apply queued budget-narrowings from the failure record store (v0.5.0 memory discipline).
-- `ract retrieval query <text>` — issue a retrieval query against the memory-discipline three-index cascade (v0.5.0; skeleton — full CLI wiring queued for v0.6).
+Run `ract --help` to see every verb enumerated at the top level; `ract
+help <verb>` prints per-verb usage. The list below is generated from
+`src/ract/cli_help.py::VERB_DESCRIPTIONS` and cross-checked in CI by
+`tests/unit/test_readme_verb_index_matches_parser.py` (v0.5.1 wiring
+module_10, Lens A M8 closure).
+
+<!-- BEGIN VERB INDEX (auto-checked; edit VERB_DESCRIPTIONS in src/ract/cli_help.py) -->
+- `ract run` — Execute an intent as a planned-and-verified RACT run.
+- `ract plan` — Load, save, replay, diff, or analyse a serialized plan.
+- `ract session` — List, export, import, backup, or restore saved sessions.
+- `ract doctor` — Diagnose RACT installation, config, and workspace state.
+- `ract status` — Print a one-line summary of the current workspace state.
+- `ract self-audit` — Audit RACT's own code against the audit lens findings.
+- `ract audit` — Audit a workspace or run for anti-rot and provenance issues.
+- `ract leaderboard` — Print the provider leaderboard by success rate.
+- `ract source-digest` — Print the SHA-256 digest of a source file or workspace.
+- `ract init` — Initialize a new RACT project from a template.
+- `ract docs` — Generate or regenerate documentation for the workspace.
+- `ract openapi` — Generate an OpenAPI client or server scaffold.
+- `ract provider` — List, add, or configure provider adapters and presets.
+- `ract router` — Inspect or reconfigure the provider router policy.
+- `ract config` — Inspect or edit ract.yaml keys.
+- `ract cost` — Report accumulated provider cost from receipts.
+- `ract memory` — Init, apply-narrowings, and inspect memory-discipline indexes.
+- `ract retrieval` — Search the retrieval adapter; query the three memory indexes.
+- `ract intent` — Operator-signed intent recompile appending a new suite version.
+- `ract handshakes` — List, approve, reject, defer, or review pending handshakes.
+- `ract operator-queue` — List or drain the operator-approval queue.
+- `ract whisper` — Add or list free-form legacy operator notes.
+- `ract auction` — List or resolve entries in the dead-code auction.
+- `ract fence` — List or resolve Chesterton's fence entries.
+- `ract skills` — List and inspect builtin and installed skills.
+- `ract marketplace` — (alias) Same as skills marketplace; browse skill packages.
+- `ract mcp` — Manage and invoke MCP tools registered with RACT.
+- `ract refactor` — Run a scoped refactor over a named target.
+- `ract rename` — Rename a symbol project-wide through the symbol renamer.
+- `ract diff` — Show and apply RACT-authored diffs against the workspace.
+- `ract explain` — Explain a plan, step, or artifact with its provenance chain.
+- `ract consolidate` — Scan for consolidation candidates and propose merges.
+- `ract report` — Render run reports in markdown or HTML.
+- `ract trace` — Inspect a run's events.jsonl trace file.
+- `ract quality` — Compute the plan quality scorecard.
+- `ract load-bearing` — Inspect or manage load-bearing annotations across the workspace.
+- `ract novelty` — Report novelty budget usage and scan for overruns.
+- `ract coverage` — Report coverage deltas and status.
+- `ract mutation` — Run mutation-testing checks over the workspace.
+- `ract conformance` — Run the provider conformance suite.
+- `ract rot-report` — Print the anti-rot report.
+- `ract rot` — Detect and quarantine rot in the workspace.
+- `ract merge-gate` — Evaluate the mutation-testing merge gate.
+- `ract provenance` — Verify Rootknot signatures for artifacts and workspaces.
+- `ract receipt` — List, show, or verify receipts.
+- `ract receipt-export` — Export receipts to disk or upload to a signed archive.
+- `ract manifest` — Repro-manifest alias + ledger verify/inspect/show/proof.
+- `ract repro-manifest` — Produce a reproducibility manifest for a run.
+- `ract policy-gate` — Evaluate a run against the configured policy.
+- `ract run-fingerprint` — Print or diff a run's fingerprint.
+- `ract ai-sbom` — Emit an AI Software Bill of Materials.
+- `ract release` — List, create, or update GitHub releases.
+- `ract calibrate` — Run provider calibration (experimental).
+- `ract infer` — Run a single inference call (experimental).
+<!-- END VERB INDEX -->
 
 Anti-lazy gates (G1-G8) are pre-commit helpers rather than top-level CLI verbs.
 A run's `evals/runs/<run_id>/` directory gains one report per gate:

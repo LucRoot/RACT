@@ -19,7 +19,7 @@ watcher invalidations. Wired paired with
 :meth:`invalidate_by_file` on every source change so an in-place
 edit and an idle bundle both drop stale entries in production.
 
-The cache lives at ``.rack/cache/retrieval.db`` in a real repo; tests
+The cache lives at ``.ract/cache/retrieval.db`` in a real repo; tests
 open a temp path. Schema is created idempotently at open time so a
 loader is safe against an existing store.
 

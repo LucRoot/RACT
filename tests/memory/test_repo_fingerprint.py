@@ -236,7 +236,8 @@ def test_write_atomic_no_leftover_tmp(tmp_path: Path) -> None:
         recorded_at=0,
     )
     write(fp, tmp_path)
-    leftover = list((tmp_path / ".rack" / "fingerprint").glob("*.tmp"))
+    # v0.5.1 wiring module_10 (Lens A C2): state dir unified on ``.ract/``.
+    leftover = list((tmp_path / ".ract" / "fingerprint").glob("*.tmp"))
     assert leftover == []
 
 

@@ -1,6 +1,6 @@
 """Budget clamping via capability probe (v0.5.1 wiring module_08, MEM-E-03).
 
-The v0.5.0 probe scheduler wrote ``.rack/probes/capability.json`` but
+The v0.5.0 probe scheduler wrote ``.ract/probes/capability.json`` but
 no caller ever read it. Module_08 adds
 :func:`ract.memory.budget_registry.get_with_capability_clamp` which
 reads the record and narrows ``input_target`` / ``input_max`` down to
