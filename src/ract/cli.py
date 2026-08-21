@@ -1688,8 +1688,17 @@ def _novelty_command(args: list[str]) -> int:
     if parsed.timeout is not None:
         import concurrent.futures
 
+        from ract.runtime import run_with_ambient
+
+        # v0.5.1 wiring module_06 (Lens H C4) closure: propagate the
+        # ambient run_id (if any -- CLI diagnostic paths typically run
+        # outside a ``bind_run_id`` scope, in which case the wrap is a
+        # no-op) into the pool worker via
+        # :func:`ract.runtime.run_with_ambient`. Prevents the "bare
+        # submit hides ambient" architecture-test grep-gate from
+        # flagging this site.
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(detector.scan_project)
+            future = executor.submit(run_with_ambient(detector.scan_project))
             try:
                 result = future.result(timeout=parsed.timeout)
             except concurrent.futures.TimeoutError:

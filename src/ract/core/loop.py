@@ -443,9 +443,32 @@ def build_loop_state(
         # accept the attacker's intent.
         prompt_digest = getattr(suite, "prompt_digest", None)
         if prompt_digest is not None:
-            try:
-                from ract.core.suite_chain import SuiteChain
+            # v0.5.1 wiring module_06 (Lens G G-06) closure: narrow the
+            # exception surface so a corrupt or torn-writer chain does
+            # not silently disappear. The prior catch-all
+            # ``except Exception: pass`` let a
+            # :class:`SuiteChainCorruptError` or a lock-timeout join the
+            # loop with NO audit trail -- combined with G-03 that made
+            # a poisoned run_dir enter the loop with no rollback target
+            # AND no chain evidence. We now:
+            #
+            # - Tolerate lock contention (another writer will land the
+            #   initial entry; retry is safe and cheap).
+            # - Tolerate transient OSError (disk full, perm) with a
+            #   WARN so operators see the failure but the loop still
+            #   proceeds -- entry-0 is best-effort and downstream
+            #   ``_check_prompt_drift`` re-reads the chain each iter.
+            # - Re-raise :class:`SuiteChainCorruptError` unwrapped:
+            #   entering the loop on a corrupted chain is a data-loss
+            #   risk; the operator must inspect and fix (or restart
+            #   the run_dir).
+            from ract.core.suite_chain import (
+                SuiteChain,
+                SuiteChainCorruptError,
+                SuiteChainLockContended,
+            )
 
+            try:
                 chain = SuiteChain(run_path)
                 if not chain.entries():
                     # v0.5.1 module_06: run_id resolution order --
@@ -476,8 +499,30 @@ def build_loop_state(
                         origin="initial",
                         rootknot_signature=None,
                     )
-            except Exception:  # noqa: BLE001 -- chain write must never break loop entry
-                pass
+            except SuiteChainCorruptError:
+                # Re-raise: a corrupt chain must NOT be silently
+                # entered. Operator inspects and fixes.
+                raise
+            except SuiteChainLockContended:
+                # Another writer is landing an entry; tolerate.
+                import logging
+
+                logging.getLogger("ract.core.loop").info(
+                    "build_loop_state: SuiteChain lock contended at "
+                    "entry-0 append; deferring to concurrent writer."
+                )
+            except OSError as exc:
+                # Disk full, perm error, etc. Log at WARN so operators
+                # see the failure; the loop proceeds without entry-0
+                # (the ``check_t8`` re-reads chain per iteration).
+                import logging
+
+                logging.getLogger("ract.core.loop").warning(
+                    "build_loop_state: entry-0 append failed with OSError; "
+                    "loop proceeds without initial suite_chain entry. "
+                    "Error: %s",
+                    exc,
+                )
     return LoopState(plan=plan, workspace=workspace, suite=suite, **kwargs)
 
 

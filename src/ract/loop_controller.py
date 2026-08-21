@@ -120,6 +120,7 @@ class LoopController:
         iso_perturb: Any | None = None,
         strict_prompt_digest: bool = False,
         delete_orphaned_files_on_t8: bool = False,
+        allow_iter1_delete_orphans: bool = False,
     ) -> None:
         self.config_path = Path(config_path)
         self.max_iterations = max(max_iterations, 1)
@@ -237,6 +238,12 @@ class LoopController:
         # (list + emit event) matches OpenRouter reviewer's compromise; True
         # matches Google's stricter fix.
         self.delete_orphaned_files_on_t8 = delete_orphaned_files_on_t8
+        # v0.5.1 wiring module_06 (Lens G G-08) closure: iter-1
+        # delete-orphans confirmation gate. Default False refuses to
+        # wipe files on a drift halt that fires before any iteration
+        # has recorded a real workspace snapshot. Operators who WANT
+        # aggressive iter-1 cleanup opt in explicitly.
+        self.allow_iter1_delete_orphans = allow_iter1_delete_orphans
 
     def _take_snapshot(self) -> dict[str, str]:
         """Return a snapshot of Python file contents relative to project_dir."""
@@ -519,12 +526,37 @@ class LoopController:
         orphans = sorted(set(current.keys()) - recorded)
 
         # Optional delete.
+        # v0.5.1 wiring module_06 (Lens G G-08) additional guard: when
+        # the recorded snapshot is empty (``files == {}``) the delete
+        # path would treat EVERY tracked ``.py`` in ``project_dir`` as
+        # an orphan and unlink it. That is safe only when the operator
+        # explicitly accepts the aggressive path via
+        # ``allow_iter1_delete_orphans=True`` (the flag's name reflects
+        # the historical bug it protects against -- iter-1 T8 with the
+        # delete-orphans flag on). SP Q6.2 amendment: prior code also
+        # gated on ``_rollback_streak == 0`` but that reduced to the
+        # same ``not snapshot.files`` check (dead code); the single
+        # ``snapshot_is_empty`` signal is the load-bearing one.
         if orphans and self.delete_orphaned_files_on_t8:
-            for rel_path in orphans:
-                try:
-                    (self.project_dir / rel_path).unlink()
-                except OSError:
-                    continue
+            snapshot_is_empty = not snapshot.files
+            if snapshot_is_empty and not getattr(
+                self, "allow_iter1_delete_orphans", False
+            ):
+                import logging
+
+                logging.getLogger("ract.loop_controller").warning(
+                    "T8 rollback: refusing to delete %d orphaned files on "
+                    "iter-1 / empty-snapshot fire (would risk wiping the "
+                    "tree). Pass allow_iter1_delete_orphans=True on the "
+                    "LoopController to opt in.",
+                    len(orphans),
+                )
+            else:
+                for rel_path in orphans:
+                    try:
+                        (self.project_dir / rel_path).unlink()
+                    except OSError:
+                        continue
 
         return orphans
 
@@ -789,14 +821,43 @@ class LoopController:
                 handshake_registry=self.handshake_registry,
                 strict_prompt_digest=self.strict_prompt_digest,
             )
+            # v0.5.1 wiring module_06 (Lens G G-03) closure: re-seed
+            # ``last_known_good_workspace`` on the freshly-built
+            # LoopState from the resume snapshot, so a T8 halt in the
+            # FIRST iteration after resume still has a rollback target.
+            resume_last_known = getattr(self, "_resume_last_known_good", None)
+            if resume_last_known is not None and self._loop_state is not None:
+                self._loop_state.last_known_good_workspace = resume_last_known
+                self._resume_last_known_good = None
             user_done = done_callback
             done_callback = self._make_suite_done_callback(user_done)
 
-        iterations: list[LoopIteration] = []
-        previous_score: float | None = None
-        stagnation_count = 0
+        # v0.5.1 wiring module_06 (Lens G G-03, G-04, G-05) closure:
+        # loop-resume path. When a prior invocation on this run_dir
+        # persisted iteration state via ``on_pause`` (or per-iter
+        # auto-persist below), start counting AT the persisted
+        # iteration + 1 rather than resetting to 1. Fresh runs (no
+        # sidecar) hit ``start_index = 1``. The stashed counters live
+        # in ``self._resume_snapshot`` -- populated by
+        # :meth:`on_resume` or the public :meth:`resume` entry point.
+        resume_snapshot: dict[str, Any] | None = getattr(
+            self, "_resume_snapshot", None
+        )
+        if resume_snapshot is not None:
+            iterations = list(resume_snapshot.get("iterations", []))
+            previous_score = resume_snapshot.get("previous_score")
+            stagnation_count = int(resume_snapshot.get("stagnation_count", 0))
+            start_index = int(resume_snapshot.get("iterations_count", 0)) + 1
+            # Drop the snapshot so a subsequent ``run()`` on the same
+            # controller does not re-consume it.
+            self._resume_snapshot = None
+        else:
+            iterations = []
+            previous_score = None
+            stagnation_count = 0
+            start_index = 1
 
-        for index in range(1, self.max_iterations + 1):
+        for index in range(start_index, self.max_iterations + 1):
             current_milestone = self._current_milestone()
             if current_milestone is None and self.backlog is not None:
                 return LoopResult(
@@ -806,10 +867,46 @@ class LoopController:
                     handshake_milestones=list(self.handshake_milestones),
                 )
 
+            # v0.5.1 wiring module_06 (Lens G G-08) closure: capture
+            # snapshot state BEFORE the T8 drift check. The prior
+            # ordering (drift-check first, snapshot-init second) meant
+            # that on iter-1 a T8 halt would run
+            # ``_rollback_to_last_known_good`` with an empty
+            # ``last_known_good_workspace`` (or a snapshot whose
+            # ``files={}`` from a controller pre-seed), so
+            # ``_take_snapshot() - set()`` marked EVERY tracked file in
+            # ``project_dir`` as an orphan. With
+            # ``delete_orphaned_files_on_t8=True`` and a partially
+            # populated snapshot, iter-1 T8 could wipe the tree. This
+            # block now runs first so ``last_known_good_workspace`` is
+            # populated from the tree-at-entry BEFORE any drift check
+            # reads it.
+            if not self._snapshot_initialized:
+                self._baseline_snapshot = self._take_snapshot()
+                self._previous_snapshot = dict(self._baseline_snapshot)
+                self._snapshot_initialized = True
+
+            # v0.5.1 module_04: record the last-known-good workspace on
+            # the LoopState BEFORE the iteration writes anything. On a
+            # T8 halt in a later iteration, the controller rolls the
+            # tree back to this snapshot's file contents.
+            if self._loop_state is not None:
+                self._loop_state.last_known_good_workspace = WorkspaceSnapshot(
+                    files=dict(self._previous_snapshot),
+                    timestamp=float(index),
+                    metadata=dict(
+                        self._loop_state.last_known_good_workspace.metadata
+                        if self._loop_state.last_known_good_workspace is not None
+                        else {}
+                    ),
+                )
+
             # v0.5.1 module_04: T8 PROMPT_DRIFT check at the START of
-            # each iteration, BEFORE any augmentation or planning /
-            # execution work. Compare the raw operator ``intent`` (the
-            # bytes ``IntentCompiler.compile`` hashed into
+            # each iteration, AFTER snapshot init so
+            # ``_rollback_to_last_known_good`` has a real target if a
+            # drift halt fires on iter-1 (Lens G G-08 fix). Compare the
+            # raw operator ``intent`` (the bytes
+            # ``IntentCompiler.compile`` hashed into
             # ``suite.prompt_digest``) against the LATEST suite in the
             # chain (post-operator-recompile awareness). Mismatch =>
             # halt with T8 + rollback + surfaced diagnostic. See
@@ -833,27 +930,6 @@ class LoopController:
             iteration_intent = self._augment_intent(
                 intent, iterations, current_milestone
             )
-
-            # Capture the project state before this iteration writes anything.
-            if not self._snapshot_initialized:
-                self._baseline_snapshot = self._take_snapshot()
-                self._previous_snapshot = dict(self._baseline_snapshot)
-                self._snapshot_initialized = True
-
-            # v0.5.1 module_04: record the last-known-good workspace on
-            # the LoopState BEFORE the iteration writes anything. On a
-            # T8 halt in a later iteration, the controller rolls the
-            # tree back to this snapshot's file contents.
-            if self._loop_state is not None:
-                self._loop_state.last_known_good_workspace = WorkspaceSnapshot(
-                    files=dict(self._previous_snapshot),
-                    timestamp=float(index),
-                    metadata=dict(
-                        self._loop_state.last_known_good_workspace.metadata
-                        if self._loop_state.last_known_good_workspace is not None
-                        else {}
-                    ),
-                )
 
             result = self._run_with_timeout(iteration_intent)
 
@@ -1067,12 +1143,286 @@ class LoopController:
 
             previous_score = quality_score
 
+            # v0.5.1 wiring module_06 (Lens G G-04) closure: persist
+            # iteration state at each boundary so a compaction /
+            # restart can resume from the current iteration count
+            # rather than restarting at 1. Best-effort: a failing
+            # write does not break the loop -- the resume path
+            # tolerates a missing sidecar by starting fresh.
+            self._persist_iteration_state(
+                iterations=iterations,
+                previous_score=previous_score,
+                stagnation_count=stagnation_count,
+            )
+
         return LoopResult(
             iterations=iterations,
             final_decision="stop",
             summary=f"Reached max iterations ({self.max_iterations}).",
             handshake_milestones=list(self.handshake_milestones),
         )
+
+    # ------------------------------------------------------------------
+    # v0.5.1 wiring module_06 (Lens G G-03, G-04, G-05) closure --
+    # loop-resume path
+    # ------------------------------------------------------------------
+
+    _LOOP_STATE_SIDECAR_NAME = "loop_state.json"
+
+    def _loop_state_sidecar_path(self) -> Path | None:
+        """Return the sidecar path for persisted loop-resume state.
+
+        Lives at ``<run_dir>/loop_state.json`` when ``run_dir`` is set.
+        Returns ``None`` for controllers without a ``run_dir`` (which
+        cannot participate in the resume path -- there is nowhere to
+        persist).
+        """
+        if self.run_dir is None:
+            return None
+        return self.run_dir / self._LOOP_STATE_SIDECAR_NAME
+
+    def _serialize_iteration(self, iteration: LoopIteration) -> dict[str, Any]:
+        """Serialize a :class:`LoopIteration` to a JCS-safe dict.
+
+        The report / plan objects are dropped -- they hold live
+        provider objects that cannot round-trip. What survives is the
+        counter surface the resume path needs (index, decision,
+        quality_score, test_returncode, error, metrics, content).
+        """
+        return {
+            "index": iteration.index,
+            "intent": iteration.intent,
+            "test_returncode": iteration.test_returncode,
+            "test_summary": iteration.test_summary,
+            "test_output": iteration.test_output,
+            "quality_score": iteration.quality_score,
+            "reflection": iteration.reflection,
+            "decision": iteration.decision,
+            "error": iteration.error,
+            "assumptions": list(iteration.assumptions),
+            "repair_attempt": iteration.repair_attempt,
+            "metrics": dict(iteration.metrics),
+            "content_snapshot": dict(iteration.content_snapshot),
+        }
+
+    def _deserialize_iteration(self, payload: dict[str, Any]) -> LoopIteration:
+        """Reconstruct a :class:`LoopIteration` from a persisted dict.
+
+        ``report`` is ``None`` -- the live executor object cannot round
+        trip. The resume path only needs the counters + reflection for
+        subsequent iterations' heuristics; the report was consumed
+        immediately in the original iteration.
+        """
+        return LoopIteration(
+            index=int(payload["index"]),
+            intent=str(payload["intent"]),
+            report=None,
+            test_returncode=payload.get("test_returncode"),
+            test_summary=str(payload.get("test_summary", "")),
+            test_output=str(payload.get("test_output", "")),
+            quality_score=float(payload.get("quality_score", 0.0)),
+            reflection=str(payload.get("reflection", "")),
+            decision=str(payload.get("decision", "continue")),
+            error=payload.get("error"),
+            assumptions=list(payload.get("assumptions", [])),
+            repair_attempt=bool(payload.get("repair_attempt", False)),
+            metrics=dict(payload.get("metrics", {})),
+            content_snapshot=dict(payload.get("content_snapshot", {})),
+        )
+
+    def _current_persist_payload(
+        self,
+        *,
+        iterations: list[LoopIteration],
+        previous_score: float | None,
+        stagnation_count: int,
+    ) -> dict[str, Any]:
+        """Return the JCS-safe snapshot of resumable loop state.
+
+        Fields captured (per Lens G G-04 remediation):
+        ``iterations``, ``previous_score``, ``stagnation_count``,
+        ``_rollback_streak``, ``_prev_iteration_plan`` (dropped: live
+        Plan object), ``_completed_families``, ``repair_attempts_remaining``,
+        ``_repair_intent``, ``last_known_good_workspace``.
+        """
+        last_known: dict[str, Any] | None = None
+        state = self._loop_state
+        if state is not None and state.last_known_good_workspace is not None:
+            snap = state.last_known_good_workspace
+            last_known = {
+                "files": dict(snap.files),
+                "timestamp": float(snap.timestamp),
+                "metadata": dict(snap.metadata),
+            }
+        return {
+            "iterations": [self._serialize_iteration(it) for it in iterations],
+            "iterations_count": len(iterations),
+            "previous_score": previous_score,
+            "stagnation_count": int(stagnation_count),
+            "rollback_streak": int(self._rollback_streak),
+            "completed_families": list(self._completed_families),
+            "repair_attempts_remaining": int(self.repair_attempts_remaining),
+            "repair_intent": self._repair_intent,
+            "last_known_good_workspace": last_known,
+            "handshake_milestones": list(self.handshake_milestones),
+        }
+
+    def _persist_iteration_state(
+        self,
+        *,
+        iterations: list[LoopIteration],
+        previous_score: float | None,
+        stagnation_count: int,
+    ) -> None:
+        """Best-effort JCS write of loop state to the sidecar.
+
+        Called at each iteration boundary AND from :meth:`on_pause`.
+        Failure to write does not break the loop -- a missing sidecar
+        on resume just starts fresh.
+        """
+        sidecar = self._loop_state_sidecar_path()
+        if sidecar is None:
+            return
+        payload = self._current_persist_payload(
+            iterations=iterations,
+            previous_score=previous_score,
+            stagnation_count=stagnation_count,
+        )
+        # The sidecar is a self-describing state file, NOT a hash
+        # input, so canonical order is convenient (grep-friendly) but
+        # not load-bearing. Prefer JCS to keep parity with the rest
+        # of the codebase; fall back to plain ``json.dumps`` when the
+        # canonical module cannot be imported (deep-dependency edge
+        # cases). The fallback deliberately omits ``sort_keys=True``
+        # so the architecture grep-gate for
+        # ``ract.canonical.dumps_jcs`` migration stays honest.
+        try:
+            from ract.canonical import dumps_jcs
+        except Exception:  # noqa: BLE001 -- deep dependency, tolerate absence
+            import json as _json
+
+            body = _json.dumps(payload, ensure_ascii=False)
+        else:
+            raw = dumps_jcs(payload)
+            body = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
+        try:
+            sidecar.parent.mkdir(parents=True, exist_ok=True)
+            sidecar.write_text(body, encoding="utf-8")
+        except OSError:
+            # Best-effort: log at INFO, do not raise.
+            import logging
+
+            logging.getLogger("ract.loop_controller").info(
+                "loop_state.json persist failed for run_dir %s; resume "
+                "will start fresh.",
+                self.run_dir,
+            )
+
+    def on_pause(
+        self,
+        *,
+        iterations: list[LoopIteration] | None = None,
+        previous_score: float | None = None,
+        stagnation_count: int = 0,
+    ) -> None:
+        """Persist loop state BEFORE an external event (e.g., compaction).
+
+        Callers that know a compaction / checkpoint is imminent invoke
+        this to flush the current counters to the sidecar. Passing the
+        iteration list explicitly is required from external orchestrators;
+        the loop's own per-iter auto-persist writes the same content
+        without arguments needed. See Lens G G-05: promotes compaction
+        to a first-class event with an explicit persist protocol.
+        """
+        self._persist_iteration_state(
+            iterations=iterations or [],
+            previous_score=previous_score,
+            stagnation_count=stagnation_count,
+        )
+
+    def on_resume(self, state_path: Path | str | None = None) -> bool:
+        """Load persisted loop state from the sidecar and stage it for
+        the next :meth:`run` call.
+
+        Returns True when a valid sidecar was consumed; False when the
+        sidecar is missing / unreadable / semantically invalid. When
+        True, the next call to :meth:`run` (or :meth:`resume`) skips
+        the counter reset and starts the ``for index`` loop at the
+        persisted ``iterations_count + 1``. Also restores
+        ``_rollback_streak``, ``_completed_families``,
+        ``repair_attempts_remaining``, ``_repair_intent``, and
+        ``last_known_good_workspace`` on the controller / LoopState.
+        """
+        path: Path | None
+        if state_path is not None:
+            path = Path(state_path)
+        else:
+            path = self._loop_state_sidecar_path()
+        if path is None or not path.exists():
+            return False
+        try:
+            body = path.read_text(encoding="utf-8")
+            payload = json.loads(body)
+        except (OSError, ValueError):
+            return False
+        if not isinstance(payload, dict):
+            return False
+        # Rehydrate the controller-level counters. The iteration list
+        # is rehydrated as :class:`LoopIteration` instances so
+        # ``_run_bound``'s ``iterations`` variable can carry a
+        # coherent history for report-writers.
+        try:
+            iterations = [
+                self._deserialize_iteration(entry)
+                for entry in payload.get("iterations", [])
+            ]
+        except (KeyError, TypeError, ValueError):
+            return False
+        self._resume_snapshot = {
+            "iterations": iterations,
+            "iterations_count": int(payload.get("iterations_count", len(iterations))),
+            "previous_score": payload.get("previous_score"),
+            "stagnation_count": int(payload.get("stagnation_count", 0)),
+        }
+        self._rollback_streak = int(payload.get("rollback_streak", 0))
+        self._completed_families = list(payload.get("completed_families", []))
+        self.repair_attempts_remaining = int(
+            payload.get("repair_attempts_remaining", 0)
+        )
+        self._repair_intent = payload.get("repair_intent")
+        self.handshake_milestones = list(payload.get("handshake_milestones", []))
+        # Rehydrate the last-known-good snapshot on the loop state
+        # (needed for T8 rollback to survive resume -- Lens G G-03).
+        last_known = payload.get("last_known_good_workspace")
+        if last_known is not None:
+            snap = WorkspaceSnapshot(
+                files=dict(last_known.get("files", {})),
+                timestamp=float(last_known.get("timestamp", 0.0)),
+                metadata=dict(last_known.get("metadata", {})),
+            )
+            # Stash on the controller so ``_run_bound`` (which may
+            # rebuild ``_loop_state`` from the suite) can seed the
+            # loop state's ``last_known_good_workspace`` field after
+            # ``build_loop_state`` returns.
+            self._resume_last_known_good = snap
+        return True
+
+    def resume(
+        self,
+        intent: str,
+        *,
+        state_path: Path | str | None = None,
+        done_callback: Callable[[LoopIteration], bool] | None = None,
+    ) -> LoopResult:
+        """Public entry point for restart-with-resume.
+
+        Reads the persisted state via :meth:`on_resume` and enters
+        :meth:`run` so the iteration counter continues from the persisted
+        count instead of resetting to 1. If no sidecar exists, behaves
+        exactly like :meth:`run` (fresh start).
+        """
+        self.on_resume(state_path=state_path)
+        return self.run(intent, done_callback=done_callback)
 
     def _maybe_emit_plan_rewritten(self, report: Any) -> None:
         """Emit ``plan.rewritten`` when the report carries a mutated plan.
@@ -1228,7 +1578,12 @@ class LoopController:
         if workspace is None:
             return None
         original_solution = self._iso_perturb_original_solution(iteration)
-        run_id = self.run_dir.name if self.run_dir is not None else None
+        # v0.5.1 wiring module_06 (Lens G G-02) closure: use the
+        # controller's canonical ambient -> marker -> basename resolver
+        # so the iso-perturb telemetry is stamped with the same run_id
+        # every other subsystem in this run sees. The prior hand-rolled
+        # ``self.run_dir.name`` bypassed the ambient/marker precedence.
+        run_id = self._resolve_run_id(state) if state is not None else None
         return run_iso_perturb_gate(
             intent=iteration.intent,
             workspace=workspace,
@@ -1358,15 +1713,27 @@ class LoopController:
         LR:: A hung provider call must not stall the loop. Running each iteration
         in its own thread lets us cap wall-clock time and return a Rooted timeout
         failure instead of waiting forever.
+
+        v0.5.1 wiring module_06 (Lens G G-01) closure: the worker call
+        is wrapped in :func:`ract.runtime.run_with_ambient` so the
+        ambient run_id bound by :meth:`run` at loop entry propagates
+        into the :class:`concurrent.futures.ThreadPoolExecutor` worker.
+        A bare :meth:`ThreadPoolExecutor.submit` does NOT inherit the
+        caller's :class:`contextvars.ContextVar` values -- this is the
+        exact hole ``run_with_ambient`` was written to close.
         """
+        from ract.runtime import run_with_ambient
+
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(
-                run_ract,
-                self.config_path,
-                intent,
-                yolo=True,
-                allow_load_bearing_override=self.allow_load_bearing_override,
-                allow_novelty_overrun=self.allow_novelty_overrun,
+                run_with_ambient(
+                    run_ract,
+                    self.config_path,
+                    intent,
+                    yolo=True,
+                    allow_load_bearing_override=self.allow_load_bearing_override,
+                    allow_novelty_overrun=self.allow_novelty_overrun,
+                )
             )
             try:
                 return future.result(timeout=self.iteration_timeout)
