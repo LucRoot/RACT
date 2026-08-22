@@ -4,9 +4,39 @@
 ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LucRoot/RACT/main/docs/coverage-badge.json)
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
-![Version](https://img.shields.io/badge/version-0.5.1-blue)
+![Version](https://img.shields.io/badge/version-0.5.2-blue)
 
 RACT is a model-agnostic, local-first agentic coding tool built around three ideas: signed provenance capabilities (*rootknots*) on every artifact, explicit assumptions for every plan step, and milestone-halting recursion instead of fixed iteration counts.
+
+## What v0.5.2 changes
+
+v0.5.2 is the Deep-Audit Hardening release. Six modules layered on
+v0.5.1 close fifteen paired Ox-Alpha-partnered deep-audit findings
+without breaking wire compatibility. Highlights:
+
+- **Rootknot v4 signature hardening** — `Rootknot.__post_init__` v4
+  gate + authoritative verifier v4-label check +
+  `min_acceptable_schema_version` policy + closed known-versions
+  allowlist (`--min-schema=N` CLI flag).
+- **Sandbox env library-injection defense** — 40+ new env vars added
+  to NEVER_PASSTHROUGH (LD_PRELOAD, DYLD_INSERT_LIBRARIES, PYTHONPATH,
+  NODE_OPTIONS, BASH_ENV, GLIBC_TUNABLES, GIT_SSH_COMMAND,
+  HTTPS_PROXY, more).
+- **Subagent lifecycle + PID-reuse hardening** — spawn-time
+  `creation_time_ns` capture, tri-state PID identity check.
+- **Run_id continuity** — new `write_sidecar_header` primitive +
+  `RACT_RUN_ID` env plumbing across subprocess subagents.
+- **Trace log durability + honest verify** — per-run
+  `{run_id}.verify.json` warm-verify sidecar + streaming
+  `iter_events` + torn-tail UTF-8 replace. New CLI verb
+  `ract trace verify` (warm/cold, `--json`).
+- **Memory system polish** — honest dataclass grouping docstring +
+  on_moved reorder-race defense + new CLI verb
+  `ract memory verify-consistency`.
+
+Full change list: [CHANGELOG.md](./CHANGELOG.md#052---2026-08-22--deep-audit-hardening).
+Migration walk-through: [docs/UPGRADING.md](./docs/UPGRADING.md).
+Deferred backlog: [docs/RACT_v0.6_BACKLOG.md](./docs/RACT_v0.6_BACKLOG.md).
 
 ## What v0.5.1 changes
 

@@ -6,6 +6,180 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.2] - 2026-08-22 — Deep-Audit Hardening
+
+Six-module hardening release layered on the v0.5.1 spec-completeness
+tag. Fifteen deep-audit findings from the paired Ox-Alpha-partnered
+Deep Audits A (Rootknot v4 + substrate) and B (runtime + trace +
+memory) closed as primary work; roughly twenty smaller carryover
+items either folded into module_06 (six) or routed to
+`docs/RACT_v0.6_BACKLOG.md` (fourteen+). See
+`docs/UPGRADING.md` for the v0.5.1 → v0.5.2 operator path and
+`docs/RACT_v0.5.2_HARDENING_SPEC.md` for the master module map.
+
+Every module executed the 13-step build discipline authored 2026-
+08-22 per operator directive (spec + PRE depth/lateral chain +
+intent grounding + architecture grounding + Ox-Alpha co-build +
+build + POST depth/lateral chain + audit SP + POST-post
+chains + BUILD-what-emerged + UX grounding). Every module carries
+a fragment under `_BUILD/ract_v0.5.2_hardening/module_0N.md`
+(gitignored; operators with local pipelines have them).
+
+### Findings closed
+
+- **module_01** (Rootknot v4 signature hardening) — `55df494` +
+  amendment `f79805a`. Closes DA-A F-1 (v4 fields absent under
+  v4-labelled construction), F-2 (canonical bytes emit v4 fields
+  only when truthy), F-5 (sidecar reader silently defaults
+  ``run_id`` to empty), Ox-M-1 (verifier had no
+  ``min_acceptable_schema_version`` policy — DOWNGRADE attack),
+  Ox-M-2 (``schema_version < 3`` accepted unknown v9 with drifted
+  semantics — forward-compat drift). Ships
+  ``Rootknot.__post_init__`` v4 gate, authoritative verifier-side
+  ``_check_rk3`` cross-check, ``--min-schema=N`` CLI flag, and a
+  closed known-versions allowlist ``{1, 2, 3, 4}``.
+- **module_02** (Sandbox env library-injection defense) —
+  `0829758` + `c447aec`. Closes DA-A F-3 (NEVER_PASSTHROUGH
+  missed classic library-injection vectors), Ox-M-4 (Windows
+  allowlist-key case sensitivity gap); routes Ox-M-3
+  (repo-committed allowlist trust-tier redesign) to v0.6 with a
+  reserved ADR-0048 slot. Extends NEVER_PASSTHROUGH by 40+ env
+  vars (``LD_PRELOAD``, ``LD_LIBRARY_PATH``, ``LD_AUDIT``,
+  ``DYLD_INSERT_LIBRARIES``, ``PYTHONPATH``, ``NODE_OPTIONS``,
+  ``BASH_ENV``, ``GLIBC_TUNABLES`` [CVE-2023-4911],
+  ``GIT_SSH_COMMAND``, ``SSL_CERT_FILE``, ``HTTPS_PROXY``,
+  ``CARGO_HOME``, ``RUSTFLAGS``, ``PSMODULEPATH``, more).
+- **module_03** (Subagent lifecycle + PID-reuse hardening) —
+  `53338df` + `06b6f04`. Closes DA-A F-4 (poll-exited short-
+  circuit skipped tree-kill; grandchildren leaked) + Ox-M-5 (no
+  PID identity check — reused pid could receive a delayed kill
+  intended for the original tenant). Ships spawn-time
+  ``creation_time_ns`` capture, ``process_identity.same_process``
+  tri-state check (SAME / REUSED / DEAD), unconditional
+  ``tree_kill_invoked`` emit on every ``dispose``, and a new
+  ``pid_reuse_detected`` event kind for auditors.
+- **module_04** (Run_id continuity — sidecar schema + subprocess
+  plumbing) — `eefbad0` + `ec33975`. Closes DA-B F-3.1
+  (subprocess subagent had no way to inherit ambient run_id) +
+  F-3.2 (sidecar payloads carried no schema binding). Ships
+  ``ract.sidecar_header.write_sidecar_header`` primitive
+  (envelope + tmp+rename atomicity, header carries
+  ``sidecar_type`` + ``schema_version`` + ``run_id``),
+  ``RACT_RUN_ID`` env plumbing via
+  ``_capture_ambient_run_id_once`` + ``_inject_ract_run_id_env``
+  (single ambient snapshot per spawn defeats concurrent-binder
+  races; RACT_* keys stripped from parent env before re-inject),
+  and ``bootstrap_ambient_from_env`` at subagent boot with
+  synthetic-orphan fall-through.
+- **module_05** (Trace log durability + honest verify) —
+  `b80b3cb` + `c224db5`. Closes DA-B F-4.1 (O(N²) full-file
+  reseed on every verify), F-4.2 (``iter_events`` materialised
+  the whole file), F-4.4 (strict UTF-8 decode of torn tail
+  aborted verify), F-4.5 (``raw.split("\n")`` mishandled CRLF),
+  F-4.6 (verify result shape inconsistent — some paths bool,
+  some dataclass, some raise). Ships per-run
+  ``{run_id}.verify.json`` incremental warm-verify sidecar,
+  streaming ``iter_events`` generator, torn-tail UTF-8 replace
+  (last line only; body stays strict), universal newline reader
+  (binary mode + ``splitlines``), and the ONE
+  ``TraceVerifyResult`` frozen dataclass with closed
+  ``Literal["VALID","INVALID","TORN_TAIL","TAMPERED"]`` status
+  every verify entry point returns. New CLI verb
+  ``ract trace verify`` — warm by default, ``--cold`` for
+  full-file replay, ``--json`` for machine-readable output.
+- **module_06** (Memory system polish + docs + release close) —
+  this commit series. Closes DA-B F-5.1 (dataclass grouping
+  regex docstring dishonestly claimed foreign aliases would not
+  match) + F-5.4 (watcher ``on_moved`` src-delete + dest-create
+  reorder race on network shares); adds ``ract memory
+  verify-consistency`` cross-index consistency verifier
+  (``IndexConsistencyReport`` dataclass mirroring the
+  ``TraceVerifyResult`` shape per Ox-Alpha co-build Q4 hybrid
+  verdict); folds three MUST-FOLD carryover items (module_01 Q3
+  unknown-sidecar-schema refusal; module_04 C-6 ``RACT_RUN_ID``
+  boundary regex validation; docstring-honest per Ox-Alpha co-
+  build Q7 verdict); defers three SAFE-TO-DEFER carryover items
+  to v0.6 (module_04 C-4 ``--strict-sidecar-headers`` opt-in;
+  module_04 C-8 ContextVar reset fixture; module_05 C-14
+  ``memory_budget_bytes`` kwarg). See `docs/RACT_v0.6_BACKLOG.md`
+  for the full deferred inventory.
+
+### Golden hash re-lock
+
+Per Ox-Alpha co-build Q2 verdict, the re-pin is NARRATED (not
+silent). ``tests/test_source_digest.py::test_golden_hash_matches_locked``
+was RED at HEAD across modules 01-05 because the shipped source
+tree changed. Old value:
+``7d6c8b1c56449bb96428e6ba75af2b24b85adadb66e75ca6b2c7a0ad7afc41fb``.
+New value:
+``0f00795c8438280860211af968855b82f0ae552170bb8aed2a2e7b92c492f2ba``
+(``src/ract/source_digest.py::GOLDEN_HASH_CONSTANT``).
+Rationale: every code fold above is spec-authorized; the re-pin
+is the mechanism working as designed. Operators who audit
+external RACT builds should compare against the new constant.
+
+### New CLI verbs / flags
+
+- ``ract trace verify <run_id>`` — warm/cold trace-log chain
+  verify. Exit codes 0/1/2/3 (VALID or TORN_TAIL / INVALID /
+  TAMPERED / no log).
+- ``ract memory verify-consistency [repo_path]`` — cross-index
+  consistency. Exit codes 0/1/2 (CONSISTENT / INCONSISTENT /
+  UNAVAILABLE).
+- ``ract provenance verify --min-schema=N`` — reject any sidecar
+  below schema version N.
+
+### New event kinds (all additive)
+
+- ``substrate.subagent.tree_kill_invoked``
+- ``substrate.subagent.pid_reuse_detected``
+- ``substrate.subagent.orphan_reaped``
+- ``runtime.run_id.env_injected``
+- ``runtime.run_id.env_rejected`` — module_06 boundary-regex
+  defense.
+- ``runtime.run_id.env_stripped_from_parent``
+- ``runtime.run_id.orphan_generated``
+- ``sidecar.header.written``
+- ``sidecar.header.missing_refused``
+- ``sidecar.header.mismatch_refused``
+
+### New exception types
+
+- ``ract.core.rootknot.RootknotSchemaViolation`` — v4-label
+  without v4-fields (module_01).
+- ``ract.core.provenance.RootknotUnknownSidecarFormat`` —
+  unknown named sidecar ``schema`` (module_06 fold of module_01
+  Q3).
+- ``ract.runtime.RunIdFormatError`` — path-shape /
+  shell-metacharacter poisoning candidate rejected at the
+  ambient boundary (module_06 fold of module_04 C-6).
+
+### v0.6 backlog
+
+Twenty-one deferred carryover items routed to
+`docs/RACT_v0.6_BACKLOG.md` (owner-column table per Ox-Alpha
+co-build Q3 verdict). Includes the ``.ract/sandbox_env.allowlist``
+trust-tier redesign (ADR-0048 reserved), the external
+manifest-ledger anchor for mid-file trace tamper, the universal
+``write_sidecar_header`` sweep, and the ``ract sidecar reheader``
+verb.
+
+### Compatibility
+
+v0.5.1 payloads, sidecars, and trace logs continue to load
+unchanged. ``min_acceptable_schema_version`` defaults to 3. Legacy
+trace files auto-generate a fresh warm-verify sidecar on first
+``ract trace verify``. Full migration walk-through in
+`docs/UPGRADING.md`. Rollback: ``git checkout
+backup-v0.5.1-preHardening`` (created at module_06 close).
+
+### Backup tag
+
+``backup-v0.5.1-preHardening`` at the v0.5.1 tip
+(``300f8b22``) created before the version bump.
+
+---
+
 ## [0.5.1] - 2026-08-22 — External Review Response + wired + spec-completeness
 
 > **Third re-tag.** Tag re-issued 2026-08-22 at the spec-completeness
