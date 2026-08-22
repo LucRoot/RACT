@@ -334,7 +334,11 @@ def test_sp_wq6_credential_shape_heuristic_counts_new_family(
     with caplog.at_level(logging.WARNING, logger="ract.security.sandbox_env"):
         result = build_sandbox_env(
             process_env=seeded,
-            manifest_passthrough=("MYCO_INTERNAL_TOKEN", "CLAUDE_LEGACY_SECRET", "PATH"),
+            manifest_passthrough=(
+                "MYCO_INTERNAL_TOKEN",
+                "CLAUDE_LEGACY_SECRET",
+                "PATH",
+            ),
         )
     # Names ARE passed (backward-compat) but heuristic counts them.
     assert "MYCO_INTERNAL_TOKEN" in result.env

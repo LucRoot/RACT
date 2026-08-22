@@ -121,9 +121,7 @@ class GroupingRules:
     test_subject: bool = True
     function_type_aliases: bool = True
     languages: frozenset[str] = field(
-        default_factory=lambda: frozenset(
-            {"python", "typescript", "rust", "go"}
-        )
+        default_factory=lambda: frozenset({"python", "typescript", "rust", "go"})
     )
 
 
@@ -260,12 +258,44 @@ def _looks_like_test(symbol: SymbolRow) -> tuple[bool, str, str]:
 # and avoids false positives on parameter names / builtins.
 _PY_SIG_STOPWORDS: frozenset[str] = frozenset(
     {
-        "def", "async", "self", "cls", "None", "True", "False",
-        "return", "if", "else", "elif", "for", "while", "in",
-        "not", "and", "or", "int", "str", "bool", "float", "bytes",
-        "list", "dict", "set", "tuple", "frozenset", "Any", "Union",
-        "Optional", "Callable", "Sequence", "Iterable", "Iterator",
-        "Mapping", "MutableMapping", "MutableSequence", "type",
+        "def",
+        "async",
+        "self",
+        "cls",
+        "None",
+        "True",
+        "False",
+        "return",
+        "if",
+        "else",
+        "elif",
+        "for",
+        "while",
+        "in",
+        "not",
+        "and",
+        "or",
+        "int",
+        "str",
+        "bool",
+        "float",
+        "bytes",
+        "list",
+        "dict",
+        "set",
+        "tuple",
+        "frozenset",
+        "Any",
+        "Union",
+        "Optional",
+        "Callable",
+        "Sequence",
+        "Iterable",
+        "Iterator",
+        "Mapping",
+        "MutableMapping",
+        "MutableSequence",
+        "type",
     }
 )
 
@@ -317,9 +347,7 @@ def _sorted_rows(rows: list[SymbolRow]) -> list[SymbolRow]:
     )
 
 
-def _find_dataclass_methods(
-    primary: SymbolRow, index: SymbolIndex
-) -> list[SymbolRow]:
+def _find_dataclass_methods(primary: SymbolRow, index: SymbolIndex) -> list[SymbolRow]:
     """Return every method whose source range lies inside ``primary``'s
     class body.
 
@@ -357,9 +385,7 @@ def _find_dataclass_methods(
 _IMPL_HEAD_RE = re.compile(r"^impl(?:\s*<[^>]*>)?\s+([A-Za-z_][A-Za-z0-9_:]*)")
 
 
-def _find_trait_impls(
-    primary: SymbolRow, index: SymbolIndex
-) -> list[SymbolRow]:
+def _find_trait_impls(primary: SymbolRow, index: SymbolIndex) -> list[SymbolRow]:
     """Return every ``impl <Trait> for <Type>`` row where ``<Trait>``
     is ``primary.name``.
 
@@ -404,9 +430,7 @@ def _find_trait_impls(
     return _sorted_rows(confirmed)
 
 
-def _find_test_subject(
-    primary: SymbolRow, index: SymbolIndex
-) -> list[SymbolRow]:
+def _find_test_subject(primary: SymbolRow, index: SymbolIndex) -> list[SymbolRow]:
     """Return the subject symbol(s) for a test symbol.
 
     ``test_foo`` → symbols named ``foo`` (kind ``function`` or
@@ -641,9 +665,7 @@ def load_grouping_rules(workspace_root: str | Path) -> GroupingRules:
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     except Exception as exc:  # pragma: no cover - yaml parse error
-        raise ValueError(
-            f"load_grouping_rules: failed to parse {path}: {exc}"
-        ) from exc
+        raise ValueError(f"load_grouping_rules: failed to parse {path}: {exc}") from exc
     if raw is None:
         return GroupingRules()
     if not isinstance(raw, dict):

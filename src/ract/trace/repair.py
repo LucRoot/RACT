@@ -228,7 +228,11 @@ def repair(events: Iterable[Event]) -> RepairedEventStream:
         # If this event CLOSES a handle, remove one matching open.
         if ev.kind in _CLOSE_KINDS:
             paired_open_kind = _CLOSE_KINDS[ev.kind]
-            source_id_hex = ev.payload.get("source_event_id") if isinstance(ev.payload, dict) else None
+            source_id_hex = (
+                ev.payload.get("source_event_id")
+                if isinstance(ev.payload, dict)
+                else None
+            )
             opens = open_by_kind.get(paired_open_kind, [])
             if source_id_hex is not None:
                 # By-id match (idempotence path: this is a synthesized

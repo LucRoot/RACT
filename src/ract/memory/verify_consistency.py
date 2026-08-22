@@ -50,7 +50,6 @@ dataclass details.
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -239,9 +238,7 @@ class IndexConsistencyReport:
             f"semantic slices"
         )
         if checks_skipped:
-            default_reason += (
-                f" (checks skipped: {', '.join(checks_skipped)})"
-            )
+            default_reason += f" (checks skipped: {', '.join(checks_skipped)})"
         return cls(
             status="CONSISTENT",
             symbols_checked=symbols_checked,
@@ -264,9 +261,7 @@ class IndexConsistencyReport:
         reason: str = "",
     ) -> "IndexConsistencyReport":
         if not inconsistencies:
-            raise ValueError(
-                "inconsistent() requires >= 1 inconsistency"
-            )
+            raise ValueError("inconsistent() requires >= 1 inconsistency")
         return cls(
             status="INCONSISTENT",
             symbols_checked=symbols_checked,
@@ -328,9 +323,7 @@ def verify_indexes(
     inconsistencies.
     """
     if symbol_index is None:
-        return IndexConsistencyReport.unavailable(
-            reason="symbol_index is None"
-        )
+        return IndexConsistencyReport.unavailable(reason="symbol_index is None")
 
     # v0.5.2 module_06 SP Q5 fold: refuse a vacuous
     # ``max_inconsistencies <= 0`` request. Pre-fix, the loop's
@@ -343,8 +336,7 @@ def verify_indexes(
     # boundary so callers can't shape a false-clean report.
     if max_inconsistencies < 1:
         raise ValueError(
-            f"max_inconsistencies must be >= 1; got "
-            f"{max_inconsistencies!r}"
+            f"max_inconsistencies must be >= 1; got {max_inconsistencies!r}"
         )
 
     inconsistencies: list[IndexInconsistency] = []
@@ -417,9 +409,7 @@ def verify_indexes(
             valid_symbol_ids: set[int] = set()
             # Materialise once; symbol counts on realistic repos
             # are 10k-100k -- fine for a memory set.
-            sym_cur = symbol_index.connection.execute(
-                "SELECT id FROM symbols"
-            )
+            sym_cur = symbol_index.connection.execute("SELECT id FROM symbols")
             for r in sym_cur.fetchall():
                 valid_symbol_ids.add(r["id"])
             for row in cur:
@@ -473,9 +463,7 @@ def verify_indexes(
                         )
                     )
         except Exception as exc:
-            _LOG.warning(
-                "verify_indexes: graph_index sweep failed: %s", exc
-            )
+            _LOG.warning("verify_indexes: graph_index sweep failed: %s", exc)
             # v0.5.2 module_06 SP Q5 fold: was mislabeled as
             # ``orphan_edge`` (a sweep-infrastructure failure is
             # NOT an orphan-edge condition). Now surfaces as
@@ -502,9 +490,7 @@ def verify_indexes(
         iter_ids = getattr(semantic_index, "iter_symbol_ids", None)
         if callable(iter_ids):
             try:
-                sym_cur = symbol_index.connection.execute(
-                    "SELECT id FROM symbols"
-                )
+                sym_cur = symbol_index.connection.execute("SELECT id FROM symbols")
                 valid_symbol_ids = {r["id"] for r in sym_cur.fetchall()}
                 for sid in iter_ids():
                     semantic_slices_checked += 1
@@ -537,9 +523,7 @@ def verify_indexes(
                 # exception was logged only, letting the report
                 # come out CONSISTENT with no evidence the
                 # semantic slice was verified).
-                checks_skipped.append(
-                    f"semantic_sweep_raised: {exc}"
-                )
+                checks_skipped.append(f"semantic_sweep_raised: {exc}")
 
     # -- report ------------------------------------------------------
     if not inconsistencies:
@@ -554,10 +538,7 @@ def verify_indexes(
         f"kind={inconsistencies[0].kind}"
     )
     if truncated:
-        reason += (
-            f" (truncated at max_inconsistencies="
-            f"{max_inconsistencies})"
-        )
+        reason += f" (truncated at max_inconsistencies={max_inconsistencies})"
     return IndexConsistencyReport.inconsistent(
         symbols_checked=symbols_checked,
         edges_checked=edges_checked,

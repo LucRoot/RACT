@@ -348,7 +348,9 @@ def _encode_float(value: float) -> str:
       ``[1e-6, 1e21)``.
     """
     if math.isnan(value):
-        raise CanonicalJSONError("NaN is not representable in canonical JSON (RFC 8785)")
+        raise CanonicalJSONError(
+            "NaN is not representable in canonical JSON (RFC 8785)"
+        )
     if math.isinf(value):
         raise CanonicalJSONError(
             "Infinity is not representable in canonical JSON (RFC 8785)"

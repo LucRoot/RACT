@@ -27,7 +27,6 @@ from __future__ import annotations
 import secrets
 from pathlib import Path
 
-import pytest
 
 from ract.core.loop import LoopState, WorkspaceSnapshot
 from ract.core.predicate import (
@@ -117,9 +116,7 @@ def test_iter1_drift_deletes_when_operator_opts_in(tmp_path: Path) -> None:
     for name in ("a.py", "b.py"):
         (tmp_path / name).write_text(f"# {name}\n", encoding="utf-8")
 
-    controller = _make_controller(
-        tmp_path, delete_orphans=True, allow_iter1=True
-    )
+    controller = _make_controller(tmp_path, delete_orphans=True, allow_iter1=True)
     controller._loop_state = LoopState(
         plan=None,  # type: ignore[arg-type]
         workspace=WorkspaceSnapshot(files={}, timestamp=0.0),

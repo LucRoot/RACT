@@ -77,7 +77,9 @@ def test_trace_verify_result_frozen() -> None:
 def test_trace_verify_result_status_literals_exhaustive() -> None:
     """Every documented status is reachable via a classmethod."""
     # VALID
-    v = TraceVerifyResult.valid(verified_head=None, verified_offset=0, events_verified=0)
+    v = TraceVerifyResult.valid(
+        verified_head=None, verified_offset=0, events_verified=0
+    )
     assert v.status == "VALID"
     assert v.is_valid and v.is_healthy
     # INVALID
@@ -85,7 +87,9 @@ def test_trace_verify_result_status_literals_exhaustive() -> None:
     assert inv.status == "INVALID"
     assert not inv.is_valid
     # TORN_TAIL
-    tt = TraceVerifyResult.torn_tail(verified_head="a" * 64, verified_offset=1, events_verified=1)
+    tt = TraceVerifyResult.torn_tail(
+        verified_head="a" * 64, verified_offset=1, events_verified=1
+    )
     assert tt.status == "TORN_TAIL"
     assert tt.is_valid and not tt.is_healthy
     # TAMPERED
@@ -350,9 +354,7 @@ def test_warm_verify_falls_back_when_sidecar_missing(tmp_path: Path) -> None:
     events_path = tmp_path / "events.jsonl"
     _write_events(events_path, 5)
     sidecar_path = tmp_path / "explicit.verify.json"
-    r = verify_trace(
-        events_path, run_id_hex=RUN_ID_HEX, sidecar_path=sidecar_path
-    )
+    r = verify_trace(events_path, run_id_hex=RUN_ID_HEX, sidecar_path=sidecar_path)
     assert r.status == "VALID"
     assert sidecar_path.exists()
 

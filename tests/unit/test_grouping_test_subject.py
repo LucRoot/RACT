@@ -11,7 +11,6 @@ C-1 (HIGH).
 from __future__ import annotations
 
 from ract.memory.grouping import (
-    RULE_NONE,
     RULE_TEST_SUBJECT,
     GroupingRules,
     group_symbols,

@@ -236,9 +236,7 @@ def test_retrieve_function_pulls_type_aliases_end_to_end(tmp_path: Path):
     the returned bundle.
     """
     fp_types = tmp_path / "types.py"
-    fp_types.write_text(
-        "UserId = int\nResponse = dict[str, str]\n", encoding="utf-8"
-    )
+    fp_types.write_text("UserId = int\nResponse = dict[str, str]\n", encoding="utf-8")
     fp_api = tmp_path / "api.py"
     fp_api.write_text(
         "def handle(uid: UserId) -> Response:\n    return {}\n",

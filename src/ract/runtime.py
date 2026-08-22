@@ -110,9 +110,7 @@ def set_current_run_id(run_id: str | None) -> Token[str | None]:
     loop controller resetting the id on a non-standard shutdown path).
     """
     if run_id is not None and not isinstance(run_id, str):
-        raise TypeError(
-            f"run_id must be a str or None; got {type(run_id).__name__}"
-        )
+        raise TypeError(f"run_id must be a str or None; got {type(run_id).__name__}")
     return _CURRENT_RUN_ID.set(run_id)
 
 
@@ -141,9 +139,7 @@ def bind_run_id(run_id: str) -> Iterator[str]:
     empty run_id downstream would silently defeat the propagation.
     """
     if not isinstance(run_id, str) or not run_id:
-        raise ValueError(
-            f"bind_run_id requires a non-empty string; got {run_id!r}"
-        )
+        raise ValueError(f"bind_run_id requires a non-empty string; got {run_id!r}")
     token = _CURRENT_RUN_ID.set(run_id)
     try:
         yield run_id
@@ -343,8 +339,7 @@ def bootstrap_ambient_from_env(
                 },
             )
         _LOG.info(
-            "runtime: bound ambient run_id from RACT_RUN_ID env "
-            "(pid=%d, run_id=%s)",
+            "runtime: bound ambient run_id from RACT_RUN_ID env (pid=%d, run_id=%s)",
             os.getpid(),
             raw,
         )

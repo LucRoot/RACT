@@ -61,9 +61,7 @@ class _FakeAdapter(McpAdapter):
             provenance=["fake_mcp.list_tools"],
         )
 
-    def call_tool(
-        self, name: str, arguments: dict[str, Any]
-    ) -> Rooted[McpToolResult]:
+    def call_tool(self, name: str, arguments: dict[str, Any]) -> Rooted[McpToolResult]:
         self.calls.append((name, dict(arguments)))
         return Rooted(
             value=McpToolResult(
@@ -135,9 +133,7 @@ def test_mcp_tool_call_routes_through_gate_and_emits_events(
     # Pre-declare the mcp tool_id so the manifest gate accepts.
     # We use wire_mcp_registry via install_substrate_loop below --
     # auto_declare=True (default) plumbs the declared_ids.
-    executor = _build_executor(
-        tmp_path, fake_adapter=fake, substrate_loop=loop
-    )
+    executor = _build_executor(tmp_path, fake_adapter=fake, substrate_loop=loop)
 
     # Inject an event sink by replacing the loop's per-step gate's
     # sink. Easiest path: invoke once first so the gate exists, then
@@ -165,9 +161,7 @@ def test_mcp_tool_call_routes_through_gate_and_emits_events(
         declared_tool_ids=loop._tool_declared_ids,
         budget=ToolBudget(max_invocations=64),
         step_id_hex=sentinel_id.hex(),
-        event_sink=lambda kind, payload: events.append(
-            (kind, dict(payload))
-        ),
+        event_sink=lambda kind, payload: events.append((kind, dict(payload))),
     )
     loop._tool_gates[sentinel_id] = pre_gate
 
@@ -208,9 +202,7 @@ def test_undeclared_mcp_tool_refused_at_manifest_gate(
     fake = _FakeAdapter(tools=[{"name": "hello", "description": "d"}])
     # Build a loop with an EMPTY declared_ids surface AND pass
     # auto_declare=False when wiring, so the manifest gate refuses.
-    loop = _build_substrate_loop(
-        tmp_path, declared_ids=frozenset()
-    )
+    loop = _build_substrate_loop(tmp_path, declared_ids=frozenset())
     executor = Executor(
         router=_build_router(),
         project_dir=tmp_path,
@@ -284,9 +276,7 @@ def test_harness_wires_substrate_loop_into_executor_in_production(
         ) -> Rooted[dict[str, Any]]:
             return Rooted(
                 value={
-                    "choices": [
-                        {"message": {"role": "assistant", "content": "{}"}}
-                    ]
+                    "choices": [{"message": {"role": "assistant", "content": "{}"}}]
                 },
                 assumption="min",
                 confidence=0.5,
@@ -310,8 +300,7 @@ def test_harness_wires_substrate_loop_into_executor_in_production(
         manager=manager,
     )
     assert isinstance(harness.substrate_loop, SubstrateLoop), (
-        "harness must construct a SubstrateLoop; got "
-        f"{type(harness.substrate_loop)}"
+        f"harness must construct a SubstrateLoop; got {type(harness.substrate_loop)}"
     )
     assert harness.executor.substrate_loop is harness.substrate_loop, (
         "harness.executor.substrate_loop must be the harness's own "
@@ -327,9 +316,7 @@ def test_executor_without_substrate_loop_falls_back_with_warning(
     import logging
 
     fake = _FakeAdapter(tools=[{"name": "hello", "description": "d"}])
-    executor = _build_executor(
-        tmp_path, fake_adapter=fake, substrate_loop=None
-    )
+    executor = _build_executor(tmp_path, fake_adapter=fake, substrate_loop=None)
     plan = Plan(
         assumption="test plan",
         confidence=1.0,

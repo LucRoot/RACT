@@ -32,9 +32,7 @@ from ract.trace.writer import JsonlEventWriter, WriteFirstViolation
 
 
 def _new_writer(tmp_path: Path) -> JsonlEventWriter:
-    return JsonlEventWriter(
-        path=tmp_path / "events.jsonl", run_id=uuid.uuid4().bytes
-    )
+    return JsonlEventWriter(path=tmp_path / "events.jsonl", run_id=uuid.uuid4().bytes)
 
 
 # --------------------------------------------------------------------------

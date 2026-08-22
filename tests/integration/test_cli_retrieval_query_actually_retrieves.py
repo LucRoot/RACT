@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import contextlib
 import io
-import os
 from pathlib import Path
 
 import pytest
@@ -70,10 +69,9 @@ def test_retrieval_query_returns_real_chunk_on_symbol_match(
     # Concrete signal the chunk landed: the function body or signature
     # must appear. The stub message MUST NOT appear.
     assert "widget_maker" in out
-    assert (
-        "queued for v0.6" not in out
-        and "full retrieve() wiring" not in out
-    ), "stub message leaked through -- retrieval query still not wired"
+    assert "queued for v0.6" not in out and "full retrieve() wiring" not in out, (
+        "stub message leaked through -- retrieval query still not wired"
+    )
 
 
 def test_retrieval_query_json_output_carries_chunks(prepped_workspace: Path) -> None:

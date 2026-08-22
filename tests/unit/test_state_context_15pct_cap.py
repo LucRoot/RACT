@@ -94,23 +94,17 @@ def test_state_cap_is_floor_of_fraction() -> None:
     Each declaration passes ``input_max`` >= ``input_target`` per the
     ``BudgetDeclaration.__post_init__`` invariant.
     """
+    assert _state_cap_tokens(_declaration(input_target=2000, input_max=5000)) == 300
+    assert _state_cap_tokens(_declaration(input_target=3000, input_max=5000)) == 450
+    assert _state_cap_tokens(_declaration(input_target=4000, input_max=5000)) == 600
     assert (
-        _state_cap_tokens(_declaration(input_target=2000, input_max=5000)) == 300
-    )
-    assert (
-        _state_cap_tokens(_declaration(input_target=3000, input_max=5000)) == 450
-    )
-    assert (
-        _state_cap_tokens(_declaration(input_target=4000, input_max=5000)) == 600
-    )
-    assert (
-        _state_cap_tokens(_declaration(input_target=8000, input_max=9000, hard_ceiling=15000))
+        _state_cap_tokens(
+            _declaration(input_target=8000, input_max=9000, hard_ceiling=15000)
+        )
         == 1200
     )
     # Non-multiple: floor()
-    assert (
-        _state_cap_tokens(_declaration(input_target=1007, input_max=5000)) == 151
-    )
+    assert _state_cap_tokens(_declaration(input_target=1007, input_max=5000)) == 151
 
 
 # ---------------------------------------------------------------------------

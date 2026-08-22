@@ -189,9 +189,7 @@ def _env_map(draw) -> dict[str, str]:
             unique=True,
         )
     )
-    values = draw(
-        st.lists(st.text(min_size=0, max_size=32), min_size=n, max_size=n)
-    )
+    values = draw(st.lists(st.text(min_size=0, max_size=32), min_size=n, max_size=n))
     return dict(zip(keys, values))
 
 

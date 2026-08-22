@@ -41,7 +41,12 @@ def _all_enforce_gN_produce_signatures():
         ("G1", enforce_g1(None, None)),
         ("G5-polyglot", enforce_g5_dead_code_polyglot([])),
         ("G6-polyglot", enforce_g6_test_copy_paste_polyglot([])),
-        ("G7", enforce_g7(intent="i", final_diff=None, visible_suite=None, companion_bundle=None)),
+        (
+            "G7",
+            enforce_g7(
+                intent="i", final_diff=None, visible_suite=None, companion_bundle=None
+            ),
+        ),
         ("G8", enforce_g8(final_diff=None, effort_estimate=None)),
     ]
 

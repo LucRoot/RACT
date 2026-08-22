@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import shutil
 
-import pytest
 
 from ract.core.gates import check_invocation_available
 from ract.core.predicate import (
@@ -95,9 +94,7 @@ class TestBinaryBasedAvailability:
             assert "pytest" in reason
 
     def test_mypy_available_when_binary_on_path(self) -> None:
-        avail, reason = check_invocation_available(
-            MypyInvocation(target="src/ract")
-        )
+        avail, reason = check_invocation_available(MypyInvocation(target="src/ract"))
         if shutil.which("mypy") is not None:
             assert avail is True
             assert reason == ""
@@ -111,8 +108,7 @@ class TestBinaryBasedAvailability:
         )
         # hypothesis is a dev dep; should be importable in the test env.
         assert avail is True, (
-            "hypothesis must be importable in the dev test env; "
-            f"got reason={reason!r}"
+            f"hypothesis must be importable in the dev test env; got reason={reason!r}"
         )
 
 

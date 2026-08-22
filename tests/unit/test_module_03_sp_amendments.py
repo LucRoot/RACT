@@ -23,9 +23,6 @@ verdicts:
 
 from __future__ import annotations
 
-import subprocess
-import sys
-import time
 
 import pytest
 
@@ -40,7 +37,6 @@ from ract.executor.process_group import (
 )
 from ract.executor.process_identity import (
     ProcessIdentity,
-    current_identity,
 )
 
 
@@ -62,12 +58,8 @@ def test_current_identity_returns_none_for_dead_posix_pid(
     import ract.executor.process_identity as pid_mod
 
     monkeypatch.setattr(pid_mod, "_IS_WINDOWS", False)
-    monkeypatch.setattr(
-        pid_mod, "_read_posix_starttime_ns", lambda pid: None
-    )
-    monkeypatch.setattr(
-        pid_mod, "_read_posix_ctime_ns_fallback", lambda pid: None
-    )
+    monkeypatch.setattr(pid_mod, "_read_posix_starttime_ns", lambda pid: None)
+    monkeypatch.setattr(pid_mod, "_read_posix_ctime_ns_fallback", lambda pid: None)
     # Dead pid probe: os.kill(pid, 0) -> ProcessLookupError.
     monkeypatch.setattr(pid_mod, "_posix_pid_exists", lambda pid: False)
 
@@ -91,12 +83,8 @@ def test_current_identity_returns_fallback_for_live_pid_without_source(
     import ract.executor.process_identity as pid_mod
 
     monkeypatch.setattr(pid_mod, "_IS_WINDOWS", False)
-    monkeypatch.setattr(
-        pid_mod, "_read_posix_starttime_ns", lambda pid: None
-    )
-    monkeypatch.setattr(
-        pid_mod, "_read_posix_ctime_ns_fallback", lambda pid: None
-    )
+    monkeypatch.setattr(pid_mod, "_read_posix_starttime_ns", lambda pid: None)
+    monkeypatch.setattr(pid_mod, "_read_posix_ctime_ns_fallback", lambda pid: None)
     # Live pid probe: returns True.
     monkeypatch.setattr(pid_mod, "_posix_pid_exists", lambda pid: True)
 
@@ -118,9 +106,7 @@ def test_identity_verdict_returns_match_on_agreeing_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stored = ProcessIdentity(pid=1000, creation_time_ns=555)
-    monkeypatch.setattr(
-        pg, "current_identity", lambda pid: ProcessIdentity(1000, 555)
-    )
+    monkeypatch.setattr(pg, "current_identity", lambda pid: ProcessIdentity(1000, 555))
     handle = ProcessGroupHandle(
         popen=None,  # type: ignore[arg-type]
         pgid=1000,
@@ -175,9 +161,7 @@ def test_identity_verdict_returns_mismatch_and_emits_event(
     assert _identity_verdict(handle) == _IDENTITY_MISMATCH
     # Event fires exactly once.
     reuse_events = [
-        p
-        for (k, p) in events_captured
-        if k == "substrate.subagent.pid_reuse_detected"
+        p for (k, p) in events_captured if k == "substrate.subagent.pid_reuse_detected"
     ]
     assert len(reuse_events) == 1
 
@@ -222,9 +206,7 @@ def test_orphan_reaped_event_count_reflects_true_total_pre_cap(
     _emit_orphan_reaped(total, capped_pids)
 
     orphan_events = [
-        p
-        for (k, p) in events_captured
-        if k == "substrate.subagent.orphan_reaped"
+        p for (k, p) in events_captured if k == "substrate.subagent.orphan_reaped"
     ]
     assert len(orphan_events) == 1
     payload = orphan_events[0]
@@ -250,9 +232,7 @@ def test_orphan_reaped_event_untruncated_when_below_cap() -> None:
         _emit_orphan_reaped(3, [111, 222, 333])
 
     orphan_events = [
-        p
-        for (k, p) in events_captured
-        if k == "substrate.subagent.orphan_reaped"
+        p for (k, p) in events_captured if k == "substrate.subagent.orphan_reaped"
     ]
     assert len(orphan_events) == 1
     payload = orphan_events[0]

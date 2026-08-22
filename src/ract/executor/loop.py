@@ -418,9 +418,7 @@ class SubstrateLoop:
             gate = ToolInvocationGate(
                 registry=self.tool_registry,
                 declared_tool_ids=self._tool_declared_ids,
-                budget=ToolBudget(
-                    max_invocations=self._tool_budget.max_invocations
-                ),
+                budget=ToolBudget(max_invocations=self._tool_budget.max_invocations),
                 step_id_hex=effective_step_id.hex(),
             )
             self._tool_gates[effective_step_id] = gate
@@ -519,9 +517,7 @@ class SubstrateLoop:
             ) -> object:
                 rooted = _reg.call_tool(_qn, dict(arguments or {}))  # type: ignore[attr-defined]
                 if not rooted.is_ok():
-                    raise RuntimeError(
-                        f"MCP tool {_qn!r} failed: {rooted.error}"
-                    )
+                    raise RuntimeError(f"MCP tool {_qn!r} failed: {rooted.error}")
                 return rooted.unwrap()
 
             # Wrap the tool's arguments (an inner dict per MCP wire)
@@ -541,18 +537,14 @@ class SubstrateLoop:
                 )
             )
             if auto_declare:
-                self._tool_declared_ids = frozenset(
-                    self._tool_declared_ids | {tool_id}
-                )
+                self._tool_declared_ids = frozenset(self._tool_declared_ids | {tool_id})
             # Stash the raw MCP inputSchema for audit / event
             # correlation. Not consumed by the gate itself (per-
             # server JSON schema validation is left to the MCP
             # server), but exposed to callers that want to
             # emit the schema hash into the tool.invocation.pre
             # event.
-            self._mcp_input_schemas[tool_id] = dict(
-                tool.get("inputSchema") or {}
-            )
+            self._mcp_input_schemas[tool_id] = dict(tool.get("inputSchema") or {})
             registered += 1
         return registered
 
@@ -1328,9 +1320,7 @@ def _emit_env_stripped_from_parent(stripped_names: list[str]) -> None:
         pass
 
 
-def _emit_run_id_env_injected(
-    env: dict[str, str] | None, handle: object
-) -> None:
+def _emit_run_id_env_injected(env: dict[str, str] | None, handle: object) -> None:
     """Emit ``runtime.run_id.env_injected`` for a spawned subagent.
 
     v0.5.2 module_04. Fires when

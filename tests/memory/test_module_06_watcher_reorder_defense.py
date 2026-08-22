@@ -73,18 +73,14 @@ def test_write_flag_but_file_absent_is_reindexed_as_delete(
         with watcher:
             watcher._queue_event(ghost, deleted=False)
             watcher.flush()
-            assert any(
-                r.name == "ghost" for r in idx.find_in_file(str(ghost))
-            )
+            assert any(r.name == "ghost" for r in idx.find_in_file(str(ghost)))
 
             ghost.unlink()
             # Enqueue a WRITE (deleted=False) for the vanished path.
             watcher._queue_event(ghost, deleted=False)
             watcher.flush()
 
-            assert not any(
-                r.name == "ghost" for r in idx.find_in_file(str(ghost))
-            ), (
+            assert not any(r.name == "ghost" for r in idx.find_in_file(str(ghost))), (
                 "F-5.4 companion: write_flag=False on a vanished "
                 "file should fall through to delete_reindex; the "
                 "stale row survived."
@@ -104,9 +100,7 @@ def test_normal_delete_still_removes_row(tmp_path: Path) -> None:
             p.unlink()
             watcher._queue_event(p, deleted=True)
             watcher.flush()
-            assert not any(
-                r.name == "normal" for r in idx.find_in_file(str(p))
-            )
+            assert not any(r.name == "normal" for r in idx.find_in_file(str(p)))
 
 
 def test_normal_write_still_indexes(tmp_path: Path) -> None:

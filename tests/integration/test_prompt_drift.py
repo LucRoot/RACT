@@ -121,9 +121,7 @@ def test_t8_fires_on_mid_loop_intent_mutation(controller_with_suite) -> None:
     # First iteration: canonical intent -- no drift.
     assert controller._check_prompt_drift(CANONICAL_INTENT, iteration_index=1) is None
     # Second iteration: attacker mutated intent -- T8 fires.
-    drift_iteration = controller._check_prompt_drift(
-        DRIFT_INTENT, iteration_index=2
-    )
+    drift_iteration = controller._check_prompt_drift(DRIFT_INTENT, iteration_index=2)
     assert drift_iteration is not None
     assert drift_iteration.decision == "regression"
     assert "T8 PROMPT_DRIFT" in drift_iteration.test_summary
@@ -134,9 +132,7 @@ def test_t8_evidence_carries_expected_and_actual_digests(
     controller_with_suite,
 ) -> None:
     controller = controller_with_suite["controller"]
-    drift_iteration = controller._check_prompt_drift(
-        DRIFT_INTENT, iteration_index=1
-    )
+    drift_iteration = controller._check_prompt_drift(DRIFT_INTENT, iteration_index=1)
     assert drift_iteration is not None
     expected_hex = hashlib.sha256(CANONICAL_INTENT.encode("utf-8")).hexdigest()
     actual_hex = hashlib.sha256(DRIFT_INTENT.encode("utf-8")).hexdigest()
@@ -157,9 +153,7 @@ def test_operator_signed_recompile_lets_loop_continue(
     ract_dir = controller_with_suite["ract_dir"]
 
     # Pre-recompile: DRIFT_INTENT trips T8 against the initial suite.
-    assert (
-        controller._check_prompt_drift(DRIFT_INTENT, iteration_index=1) is not None
-    )
+    assert controller._check_prompt_drift(DRIFT_INTENT, iteration_index=1) is not None
 
     # Operator signs a recompile with the new intent.
     result = recompile_intent(
@@ -173,9 +167,7 @@ def test_operator_signed_recompile_lets_loop_continue(
 
     # Post-recompile: DRIFT_INTENT now matches the chain head => no
     # drift; loop continues normally.
-    assert (
-        controller._check_prompt_drift(DRIFT_INTENT, iteration_index=2) is None
-    )
+    assert controller._check_prompt_drift(DRIFT_INTENT, iteration_index=2) is None
 
 
 # ---------------------------------------------------------------------------
@@ -187,15 +179,9 @@ def test_recompile_chain_appends_never_replaces(controller_with_suite) -> None:
     run_dir = controller_with_suite["run_dir"]
     ract_dir = controller_with_suite["ract_dir"]
 
-    recompile_intent(
-        run_dir=run_dir, intent_text="second intent", ract_dir=ract_dir
-    )
-    recompile_intent(
-        run_dir=run_dir, intent_text="third intent", ract_dir=ract_dir
-    )
-    recompile_intent(
-        run_dir=run_dir, intent_text="fourth intent", ract_dir=ract_dir
-    )
+    recompile_intent(run_dir=run_dir, intent_text="second intent", ract_dir=ract_dir)
+    recompile_intent(run_dir=run_dir, intent_text="third intent", ract_dir=ract_dir)
+    recompile_intent(run_dir=run_dir, intent_text="fourth intent", ract_dir=ract_dir)
 
     chain = SuiteChain(run_dir)
     entries = chain.entries()
@@ -236,9 +222,7 @@ def test_attacker_without_operator_key_still_trips_t8(
         )
     # No chain entry appended -- drift check still trips T8 on the
     # mutated intent.
-    drift_iteration = controller._check_prompt_drift(
-        DRIFT_INTENT, iteration_index=1
-    )
+    drift_iteration = controller._check_prompt_drift(DRIFT_INTENT, iteration_index=1)
     assert drift_iteration is not None
 
 
@@ -247,9 +231,7 @@ def test_attacker_without_operator_key_still_trips_t8(
 # ---------------------------------------------------------------------------
 
 
-def test_pre_v051_suite_skips_t8_check_with_warn(
-    tmp_path: Path, caplog
-) -> None:
+def test_pre_v051_suite_skips_t8_check_with_warn(tmp_path: Path, caplog) -> None:
     """A pre-v0.5.1 suite (no prompt_digest) skips the check + logs a warn."""
     config = tmp_path / "ract.yaml"
     config.write_text("providers: []\n", encoding="utf-8")
@@ -294,9 +276,7 @@ def test_pre_v051_suite_skips_t8_check_with_warn(
             is None
         )
     # Warn logged at least once.
-    assert any(
-        "PROMPT_DRIFT check skipped" in rec.message for rec in caplog.records
-    )
+    assert any("PROMPT_DRIFT check skipped" in rec.message for rec in caplog.records)
 
 
 # ---------------------------------------------------------------------------
@@ -336,12 +316,13 @@ def test_sp_q2_orphan_files_listed_in_reflection(
     orphan.parent.mkdir(parents=True, exist_ok=True)
     orphan.write_text("# planted under drifted intent\n", encoding="utf-8")
 
-    drift_iteration = controller._check_prompt_drift(
-        DRIFT_INTENT, iteration_index=1
-    )
+    drift_iteration = controller._check_prompt_drift(DRIFT_INTENT, iteration_index=1)
     assert drift_iteration is not None
     # Orphan filename appears in reflection.
-    assert "attacker.py" in drift_iteration.reflection or "attacker" in drift_iteration.reflection
+    assert (
+        "attacker.py" in drift_iteration.reflection
+        or "attacker" in drift_iteration.reflection
+    )
     # Default: file NOT deleted (delete_orphaned_files_on_t8=False).
     assert orphan.exists()
 
@@ -372,9 +353,7 @@ def test_sp_q2_delete_orphaned_files_flag_deletes(
 
     controller._loop_state = build_loop_state(
         plan=Plan(assumption=CANONICAL_INTENT, confidence=1.0, steps=[]),
-        workspace=WorkspaceSnapshot(
-            files={"src/foo.py": "print(1)\n"}, timestamp=0.0
-        ),
+        workspace=WorkspaceSnapshot(files={"src/foo.py": "print(1)\n"}, timestamp=0.0),
         suite=suite,
         run_dir=run_dir,
     )
@@ -389,9 +368,7 @@ def test_sp_q2_delete_orphaned_files_flag_deletes(
     orphan = controller.project_dir / "src" / "attacker.py"
     orphan.write_text("# planted\n", encoding="utf-8")
 
-    drift_iteration = controller._check_prompt_drift(
-        DRIFT_INTENT, iteration_index=1
-    )
+    drift_iteration = controller._check_prompt_drift(DRIFT_INTENT, iteration_index=1)
     assert drift_iteration is not None
     # Orphan deleted.
     assert not orphan.exists()

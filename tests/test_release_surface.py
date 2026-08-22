@@ -1057,7 +1057,14 @@ def test_changelog_v051_shas_resolve_in_git() -> None:
     unresolved: list[str] = []
     for sha in sorted(candidates):
         result = subprocess.run(
-            ["git", "-C", str(_REPO_ROOT), "rev-parse", "--verify", f"{sha}^{{commit}}"],
+            [
+                "git",
+                "-C",
+                str(_REPO_ROOT),
+                "rev-parse",
+                "--verify",
+                f"{sha}^{{commit}}",
+            ],
             capture_output=True,
             text=True,
             check=False,
@@ -1176,10 +1183,7 @@ def test_adr_0042_documented_in_changelog() -> None:
     if next_section == -1:
         next_section = len(changelog)
     section = changelog[start:next_section]
-    assert (
-        "ADR-0042" in section
-        or "sycophancy v2 tuning band" in section.lower()
-    ), (
+    assert "ADR-0042" in section or "sycophancy v2 tuning band" in section.lower(), (
         "CHANGELOG [0.5.1] does not reference ADR-0042 or its "
         "'sycophancy v2 tuning band' name. Re-add the reference "
         "when regenerating the release notes."
@@ -1333,10 +1337,9 @@ def test_adr_0043_and_adr_0044_present() -> None:
         assert "## Status" in body, f"{name} missing ## Status"
         assert "Accepted" in body, f"{name} does not say Accepted"
         assert "## Decision" in body, f"{name} missing ## Decision"
-        assert (
-            "## Alternatives considered" in body
-            or "## Rationale" in body
-        ), f"{name} missing Rationale or Alternatives considered"
+        assert "## Alternatives considered" in body or "## Rationale" in body, (
+            f"{name} missing Rationale or Alternatives considered"
+        )
 
 
 def test_adr_0043_and_adr_0044_referenced_in_v0_5_1_changelog() -> None:
@@ -1367,9 +1370,9 @@ def test_memory_discipline_spec_flags_dspy_and_lewm_deferral() -> None:
     on the ADR, not on ambiguity about whether the mechanism might
     have quietly slipped into a v0.5.x re-tag.
     """
-    spec = (
-        _REPO_ROOT / "docs" / "RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md"
-    ).read_text(encoding="utf-8")
+    spec = (_REPO_ROOT / "docs" / "RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md").read_text(
+        encoding="utf-8"
+    )
     # DSPy bullet must name ADR-0043.
     assert "DSPy" in spec, "spec missing DSPy backlog bullet"
     dspy_bullet_start = spec.find("- DSPy signature compilation")

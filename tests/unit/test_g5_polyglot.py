@@ -23,11 +23,7 @@ from ract.antilazy.pre_commit import (
 def test_python_unreferenced_function_flagged(tmp_path: Path) -> None:
     p = tmp_path / "m.py"
     p.write_text(
-        "def used():\n"
-        "    return 1\n"
-        "def orphan():\n"
-        "    return 2\n"
-        "print(used())\n"
+        "def used():\n    return 1\ndef orphan():\n    return 2\nprint(used())\n"
     )
     report = scan_dead_code([p])
     idents = {c.identifier for c in report.candidates}
@@ -67,7 +63,7 @@ def test_rust_unreferenced_function_flagged(tmp_path: Path) -> None:
     p.write_text(
         "fn used() -> i32 { 1 }\n"
         "fn orphan() -> i32 { 2 }\n"
-        "fn main() { println!(\"{}\", used()); }\n"
+        'fn main() { println!("{}", used()); }\n'
     )
     report = scan_dead_code([p])
     idents = {c.identifier for c in report.candidates}
@@ -145,9 +141,7 @@ def test_scan_in_dir_ignores_vendor_dirs(tmp_path: Path) -> None:
     ok.write_text("def a():\n    return 1\n")
     vendor.write_text("def vendored_orphan():\n    return 2\n")
     report = scan_dead_code_in_dir(tmp_path)
-    assert not any(
-        c.identifier == "vendored_orphan" for c in report.candidates
-    )
+    assert not any(c.identifier == "vendored_orphan" for c in report.candidates)
 
 
 # ---------------------------------------------------------------------------
@@ -217,8 +211,12 @@ def test_report_passed_helper() -> None:
     r_one = DeadCodePolyglotReport(
         candidates=(
             DeadCodeCandidate(
-                file="a", language="python", identifier="x", kind="function",
-                start_row=0, start_col=0,
+                file="a",
+                language="python",
+                identifier="x",
+                kind="function",
+                start_row=0,
+                start_col=0,
             ),
         )
     )

@@ -133,9 +133,7 @@ def register_sidecar_type(sidecar_type: str, known_versions: frozenset[int]) -> 
     old + new versions in ``known_versions``.
     """
     if not isinstance(sidecar_type, str) or not sidecar_type:
-        raise ValueError(
-            f"sidecar_type must be a non-empty str; got {sidecar_type!r}"
-        )
+        raise ValueError(f"sidecar_type must be a non-empty str; got {sidecar_type!r}")
     if not isinstance(known_versions, frozenset):
         raise TypeError(
             f"known_versions must be frozenset[int]; got "
@@ -145,9 +143,7 @@ def register_sidecar_type(sidecar_type: str, known_versions: frozenset[int]) -> 
         raise ValueError("known_versions must be non-empty")
     for v in known_versions:
         if not isinstance(v, int) or v < 1:
-            raise ValueError(
-                f"schema versions must be positive ints; got {v!r}"
-            )
+            raise ValueError(f"schema versions must be positive ints; got {v!r}")
     _KNOWN_SIDECAR_SCHEMAS[sidecar_type] = known_versions
 
 
@@ -196,9 +192,7 @@ class SidecarRunIdMismatch(SidecarHeaderError):
     file + values.
     """
 
-    def __init__(
-        self, *, path: Path, header_run_id: str, expected_run_id: str
-    ) -> None:
+    def __init__(self, *, path: Path, header_run_id: str, expected_run_id: str) -> None:
         super().__init__(
             f"sidecar {path!s}: header run_id={header_run_id!r} does not "
             f"match expected run_id={expected_run_id!r}"
@@ -355,6 +349,7 @@ def _ract_version() -> str:
     """Return the running ract package version (best-effort)."""
     try:
         from ract import __version__ as v  # noqa: PLC0415
+
         return str(v)
     except Exception:  # noqa: BLE001 -- diagnostic only
         return "unknown"
@@ -394,9 +389,7 @@ def build_sidecar_header(
             known_versions=known,
         )
     if not isinstance(run_id, str) or not run_id:
-        raise ValueError(
-            f"run_id must be a non-empty str; got {run_id!r}"
-        )
+        raise ValueError(f"run_id must be a non-empty str; got {run_id!r}")
     return SidecarHeader(
         kind=HEADER_KIND,
         schema_version=schema_version,
@@ -432,13 +425,10 @@ def json_body_with_header(
     grep-friendliness; JSON-load restores as a dict either way.
     """
     if not isinstance(body, dict):
-        raise TypeError(
-            f"body must be dict; got {type(body).__name__}"
-        )
+        raise TypeError(f"body must be dict; got {type(body).__name__}")
     if "sidecar_header" in body:
         raise ValueError(
-            "body already contains 'sidecar_header' key; refusing "
-            "to overwrite"
+            "body already contains 'sidecar_header' key; refusing to overwrite"
         )
     out: dict[str, Any] = {"sidecar_header": header.to_dict()}
     for k, v in body.items():
@@ -492,8 +482,7 @@ def _validate_header_shape(
     for required in ("schema_version", "run_id", "sidecar_type", "created_at"):
         if required not in payload:
             raise SidecarHeaderMissing(
-                f"sidecar {path!s}: header missing required field "
-                f"{required!r}"
+                f"sidecar {path!s}: header missing required field {required!r}"
             )
     if not isinstance(payload["schema_version"], int):
         raise SidecarHeaderMissing(
@@ -506,8 +495,7 @@ def _validate_header_shape(
         )
     if not isinstance(payload["sidecar_type"], str) or not payload["sidecar_type"]:
         raise SidecarHeaderMissing(
-            f"sidecar {path!s}: header sidecar_type must be a "
-            f"non-empty str"
+            f"sidecar {path!s}: header sidecar_type must be a non-empty str"
         )
     if sidecar_type is not None and payload["sidecar_type"] != sidecar_type:
         # A sidecar_type mismatch is a header-shape violation from the
@@ -529,9 +517,7 @@ def _validate_header_shape(
     )
 
 
-def _emit_header_trace_event(
-    kind: str, payload: dict[str, Any]
-) -> None:
+def _emit_header_trace_event(kind: str, payload: dict[str, Any]) -> None:
     """Best-effort trace-event emit. Silent on absence of writer.
 
     Uses :func:`ract.trace.sink.emit` when a run has a bound writer;
@@ -629,8 +615,7 @@ def read_sidecar_header(
         header_payload = None
 
     if header_payload is None or (
-        isinstance(header_payload, dict)
-        and header_payload.get("kind") != HEADER_KIND
+        isinstance(header_payload, dict) and header_payload.get("kind") != HEADER_KIND
     ):
         # Headerless payload path.
         if strict:

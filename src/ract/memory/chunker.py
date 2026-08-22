@@ -298,11 +298,8 @@ def _split_python_ast_boundaries(body: str) -> list[str] | None:
 
     # Identify the statement list we walk over.
     inner: list[ast.stmt]
-    if (
-        len(tree.body) == 1
-        and isinstance(
-            tree.body[0], (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-        )
+    if len(tree.body) == 1 and isinstance(
+        tree.body[0], (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
     ):
         inner = list(tree.body[0].body)
     else:
@@ -322,9 +319,7 @@ def _split_python_ast_boundaries(body: str) -> list[str] | None:
         return "".join(lines[s:e])
 
     def _is_control_flow(node: ast.stmt) -> bool:
-        return isinstance(
-            node, (ast.For, ast.AsyncFor, ast.While, ast.If, ast.Try)
-        )
+        return isinstance(node, (ast.For, ast.AsyncFor, ast.While, ast.If, ast.Try))
 
     # Build (start_line, end_line) segments. Every straight-line run
     # becomes one segment; every control-flow statement is its own

@@ -40,9 +40,7 @@ def test_gconv_path_denied() -> None:
     Not caught by the LD_ prefix. Ox Alpha SP Q1 primary defect.
     """
     seeded = {"GCONV_PATH": "/tmp/attacker/gconv"}
-    result = build_sandbox_env(
-        process_env=seeded, manifest_passthrough=("GCONV_PATH",)
-    )
+    result = build_sandbox_env(process_env=seeded, manifest_passthrough=("GCONV_PATH",))
     assert "GCONV_PATH" not in result.env
     assert result.never_passthrough_denied == 1
     assert result.refused_family_counts["loader"] == 1
@@ -100,8 +98,11 @@ def test_git_config_count_smuggle_denied() -> None:
     }
     result = build_sandbox_env(
         process_env=seeded,
-        manifest_passthrough=("GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0",
-                              "GIT_CONFIG_VALUE_0"),
+        manifest_passthrough=(
+            "GIT_CONFIG_COUNT",
+            "GIT_CONFIG_KEY_0",
+            "GIT_CONFIG_VALUE_0",
+        ),
     )
     assert "GIT_CONFIG_COUNT" not in result.env
     assert "GIT_CONFIG_KEY_0" not in result.env

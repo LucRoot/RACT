@@ -115,16 +115,16 @@ def test_go_copy_paste_flagged(tmp_path: Path) -> None:
     p = tmp_path / "x_test.go"
     p.write_text(
         "package x\n"
-        "import \"testing\"\n"
+        'import "testing"\n'
         "func TestA(t *testing.T) {\n"
         "    x := compute(1)\n"
-        "    if x != 2 { t.Errorf(\"nope %d\", x) }\n"
-        "    if x <= 0 { t.Errorf(\"nope\") }\n"
+        '    if x != 2 { t.Errorf("nope %d", x) }\n'
+        '    if x <= 0 { t.Errorf("nope") }\n'
         "}\n"
         "func TestB(t *testing.T) {\n"
         "    y := compute(2)\n"
-        "    if y != 3 { t.Errorf(\"nope %d\", y) }\n"
-        "    if y <= 0 { t.Errorf(\"nope\") }\n"
+        '    if y != 3 { t.Errorf("nope %d", y) }\n'
+        '    if y <= 0 { t.Errorf("nope") }\n'
         "}\n"
     )
     report = scan_test_copy_paste([p])
@@ -138,10 +138,7 @@ def test_go_copy_paste_flagged(tmp_path: Path) -> None:
 
 def test_non_test_python_file_not_scanned(tmp_path: Path) -> None:
     p = tmp_path / "not_test.py"
-    p.write_text(
-        "def foo_a():\n    assert 1 == 1\n"
-        "def foo_b():\n    assert 2 == 2\n"
-    )
+    p.write_text("def foo_a():\n    assert 1 == 1\ndef foo_b():\n    assert 2 == 2\n")
     report = scan_test_copy_paste([p])
     assert report.findings == ()
     assert report.tests_scanned == 0
@@ -150,9 +147,7 @@ def test_non_test_python_file_not_scanned(tmp_path: Path) -> None:
 def test_go_non_test_file_not_scanned(tmp_path: Path) -> None:
     p = tmp_path / "prod.go"
     p.write_text(
-        "package x\n"
-        "func TestA(){ x := 1; _ = x }\n"
-        "func TestB(){ y := 1; _ = y }\n"
+        "package x\nfunc TestA(){ x := 1; _ = x }\nfunc TestB(){ y := 1; _ = y }\n"
     )
     report = scan_test_copy_paste([p])
     assert report.findings == ()
@@ -165,10 +160,7 @@ def test_go_non_test_file_not_scanned(tmp_path: Path) -> None:
 
 def test_tiny_tests_below_min_tokens_ignored(tmp_path: Path) -> None:
     p = tmp_path / "test_tiny.py"
-    p.write_text(
-        "def test_a():\n    pass\n"
-        "def test_b():\n    pass\n"
-    )
+    p.write_text("def test_a():\n    pass\ndef test_b():\n    pass\n")
     report = scan_test_copy_paste([p], min_tokens=6)
     assert report.findings == ()
 
@@ -270,9 +262,14 @@ def test_report_passed_helper() -> None:
     one = TestCopyPastePolyglotReport(
         findings=(
             CopyPasteFinding(
-                a_file="a", a_name="test_a", a_row=0,
-                b_file="a", b_name="test_b", b_row=10,
-                jaccard=0.9, language="python",
+                a_file="a",
+                a_name="test_a",
+                a_row=0,
+                b_file="a",
+                b_name="test_b",
+                b_row=10,
+                jaccard=0.9,
+                language="python",
             ),
         )
     )
@@ -308,8 +305,8 @@ def test_cross_language_never_compared(tmp_path: Path) -> None:
     )
     go = tmp_path / "x_test.go"
     go.write_text(
-        "package x\nimport \"testing\"\n"
-        "func TestA(t *testing.T){ x := compute(1); if x != 2 { t.Errorf(\"no %d\", x) }; if x <= 0 { t.Errorf(\"no\") } }\n"
+        'package x\nimport "testing"\n'
+        'func TestA(t *testing.T){ x := compute(1); if x != 2 { t.Errorf("no %d", x) }; if x <= 0 { t.Errorf("no") } }\n'
     )
     report = scan_test_copy_paste([py, go])
     for f in report.findings:

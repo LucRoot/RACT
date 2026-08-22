@@ -178,9 +178,7 @@ def test_loop_module_imports_process_group_primitives() -> None:
         "primitives at module load so the wire-in is not lazy."
     )
     for symbol in ("spawn", "kill_tree", "ProcessGroupHandle"):
-        assert symbol in src, (
-            f"loop.py must reference ``{symbol}`` from process_group."
-        )
+        assert symbol in src, f"loop.py must reference ``{symbol}`` from process_group."
 
 
 # RACT 0.5.1

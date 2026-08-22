@@ -48,8 +48,7 @@ def test_lookup_expires_entry_past_ttl(tmp_path: Path) -> None:
         # Force created_at into the past by rewriting the row.
         with cache._lock:
             cache._conn.execute(
-                "UPDATE retrieval_cache SET created_at = ? "
-                "WHERE repo_commit_hash = ?",
+                "UPDATE retrieval_cache SET created_at = ? WHERE repo_commit_hash = ?",
                 (int(time.time()) - 3600, "commit-hash"),
             )
         got = cache.lookup(query, "commit-hash")
@@ -65,8 +64,7 @@ def test_ttl_disabled_when_zero(tmp_path: Path) -> None:
         cache.store(query, "commit-hash", bundle, [1], ["a.py"])
         with cache._lock:
             cache._conn.execute(
-                "UPDATE retrieval_cache SET created_at = ? "
-                "WHERE repo_commit_hash = ?",
+                "UPDATE retrieval_cache SET created_at = ? WHERE repo_commit_hash = ?",
                 (0, "commit-hash"),
             )
         assert cache.lookup(query, "commit-hash") == bundle

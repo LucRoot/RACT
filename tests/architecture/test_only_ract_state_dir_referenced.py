@@ -169,8 +169,7 @@ def test_no_rack_literal_outside_migration_shim() -> None:
         violations.extend(_comment_violations(text, py_file))
     assert not violations, (
         "unmigrated `.rack` references in src/ract/ (v0.5.1 module_10 "
-        "Lens A C2 gate; SP Q9 [DEFECT] hardened):\n"
-        + "\n".join(violations)
+        "Lens A C2 gate; SP Q9 [DEFECT] hardened):\n" + "\n".join(violations)
     )
 
 
@@ -182,7 +181,9 @@ def test_workspace_state_dir_constant_is_ract() -> None:
     assert LEGACY_STATE_DIR_NAME == ".rack"
 
 
-def test_migration_shim_warns_loudly_when_both_dirs_present(tmp_path: Path, capsys) -> None:
+def test_migration_shim_warns_loudly_when_both_dirs_present(
+    tmp_path: Path, capsys
+) -> None:
     """SP Q2 [PARTIAL] amendment: BOTH-exist path emits stderr diagnostic.
 
     A silent WARN log is easy to miss in noisy CI; the amendment adds
@@ -222,12 +223,14 @@ def test_gate_rejects_reviewer_escape_hatch(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     text = fake_file.read_text(encoding="utf-8")
-    violations = _string_violations(text, fake_file) + _comment_violations(text, fake_file)
+    violations = _string_violations(text, fake_file) + _comment_violations(
+        text, fake_file
+    )
     # The string literal in os.makedirs('.rack/new_feature') is the
     # real code reference; must be flagged.
-    assert any(
-        "os.makedirs" in v or "new_feature" in v for v in violations
-    ), f"escape hatch not flagged; violations were: {violations}"
+    assert any("os.makedirs" in v or "new_feature" in v for v in violations), (
+        f"escape hatch not flagged; violations were: {violations}"
+    )
 
 
 # RACT 0.5.1 -- v0.5.1 wiring module_10 (Lens A C2 regression; SP Q9 hardened)

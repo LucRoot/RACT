@@ -55,7 +55,7 @@ def polyglot_repo(tmp_path: Path) -> Path:
     (root / "rs" / "mod.rs").write_text(
         "fn used_rs() -> i32 { 1 }\n"
         "fn orphan_rs() -> i32 { 2 }\n"
-        "fn main() { println!(\"{}\", used_rs()); }\n"
+        'fn main() { println!("{}", used_rs()); }\n'
     )
 
     (root / "go").mkdir()
@@ -93,16 +93,16 @@ def polyglot_repo(tmp_path: Path) -> Path:
         "});\n"
     )
     (root / "tests" / "x_test.go").write_text(
-        "package x\nimport \"testing\"\n"
+        'package x\nimport "testing"\n'
         "func TestA(t *testing.T) {\n"
         "    x := compute(1)\n"
-        "    if x != 2 { t.Errorf(\"nope %d\", x) }\n"
-        "    if x <= 0 { t.Errorf(\"nope\") }\n"
+        '    if x != 2 { t.Errorf("nope %d", x) }\n'
+        '    if x <= 0 { t.Errorf("nope") }\n'
         "}\n"
         "func TestB(t *testing.T) {\n"
         "    y := compute(2)\n"
-        "    if y != 3 { t.Errorf(\"nope %d\", y) }\n"
-        "    if y <= 0 { t.Errorf(\"nope\") }\n"
+        '    if y != 3 { t.Errorf("nope %d", y) }\n'
+        '    if y <= 0 { t.Errorf("nope") }\n'
         "}\n"
     )
 
@@ -173,6 +173,4 @@ def test_scan_ignores_vendor_directories(polyglot_repo: Path) -> None:
         "function vendored_orphan(){ return 1; }\n"
     )
     report = scan_dead_code_in_dir(polyglot_repo)
-    assert not any(
-        c.identifier == "vendored_orphan" for c in report.candidates
-    )
+    assert not any(c.identifier == "vendored_orphan" for c in report.candidates)

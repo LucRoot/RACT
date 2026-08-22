@@ -24,7 +24,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from ract.loop_controller import LoopController
 from ract.rooted import Rooted

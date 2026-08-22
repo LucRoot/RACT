@@ -20,7 +20,6 @@ import warnings
 
 from ract.memory.chunk import ChunkFormat, chunk_from_chunk_row, format_chunk
 from ract.memory.chunker import (
-    MAX_TOKENS_PER_CHUNK,
     OVERSIZE_WARNING_KEY,
     chunk_symbol,
 )
@@ -195,10 +194,7 @@ def test_oversize_composed_summary_carries_calls_line() -> None:
     for chunk_row in chunks:
         chunk = chunk_from_chunk_row(chunk_row)
         summary_chunk = format_chunk(chunk, ChunkFormat.SUMMARY)
-        if (
-            "control:" in summary_chunk.body
-            and "calls:" in summary_chunk.body
-        ):
+        if "control:" in summary_chunk.body and "calls:" in summary_chunk.body:
             saw_control_and_calls = True
             break
     assert saw_control_and_calls, (
@@ -282,12 +278,7 @@ def test_defensive_end_lineno_walks_nested_control_flow() -> None:
 
     from ract.memory.chunker import _resolve_end_lineno
 
-    src = (
-        "if outer:\n"
-        "    if middle:\n"
-        "        if inner:\n"
-        "            pass\n"
-    )
+    src = "if outer:\n    if middle:\n        if inner:\n            pass\n"
     tree = ast.parse(src)
     outer_if = tree.body[0]
     # Outer's end_lineno should reach line 4 (the innermost pass),

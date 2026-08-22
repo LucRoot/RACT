@@ -356,7 +356,9 @@ def test_truncated_tail_line_is_tolerated(tmp_path: Path, caplog) -> None:
     with caplog.at_level("WARNING", logger="ract.security.manifest_ledger"):
         loaded = ledger.load()
     assert len(loaded) == 3
-    assert any("truncated manifest_ledger tail" in rec.message for rec in caplog.records)
+    assert any(
+        "truncated manifest_ledger tail" in rec.message for rec in caplog.records
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -910,8 +912,7 @@ def test_sp_q5_observer_emits_refused_event_on_append_failure(
             result = record_environment_attestation(knot, ledger=ledger)
         assert result is None
         assert any(
-            "manifest_ledger append refused" in rec.message
-            for rec in caplog.records
+            "manifest_ledger append refused" in rec.message for rec in caplog.records
         )
         refused = [e for e in sink.events if e[0] == "manifest.ledger.refused"]
         assert len(refused) == 1

@@ -253,7 +253,8 @@ def _extract_js_ts(path: Path, tree: ParseTree) -> list[TestBody]:
         callback = None
         title = "<anonymous>"
         arg_children = [
-            c for c in getattr(args, "children", ()) or ()
+            c
+            for c in getattr(args, "children", ()) or ()
             if getattr(c, "is_named", True)
         ]
         for arg in arg_children:
@@ -407,7 +408,9 @@ def _jaccard(a: tuple[str, ...], b: tuple[str, ...]) -> float:
     return inter / union
 
 
-def _extract_file(path: Path, source_bytes: bytes) -> tuple[Language | None, list[TestBody], bool]:
+def _extract_file(
+    path: Path, source_bytes: bytes
+) -> tuple[Language | None, list[TestBody], bool]:
     """Return (language, bodies, grammar_available).
 
     ``grammar_available`` is False when the language IS supported by
@@ -486,9 +489,7 @@ def scan_test_copy_paste(
             unsupported.add(lang.value)
             continue
         if bodies:
-            bodies_by_lang.setdefault(
-                _lang_group_key(lang.value), []
-            ).extend(bodies)
+            bodies_by_lang.setdefault(_lang_group_key(lang.value), []).extend(bodies)
 
     tests_scanned = sum(len(v) for v in bodies_by_lang.values())
     findings: list[CopyPasteFinding] = []
@@ -505,11 +506,7 @@ def scan_test_copy_paste(
                 # Skip pairs that are the SAME file+name+row (defensive; the
                 # extractors do not produce dupes today but guard for the
                 # copy-and-declare-twice case).
-                if (
-                    a.file == b.file
-                    and a.name == b.name
-                    and a.start_row == b.start_row
-                ):
+                if a.file == b.file and a.name == b.name and a.start_row == b.start_row:
                     continue
                 sim = _jaccard(a.tokens, b.tokens)
                 if sim >= jaccard_threshold:
@@ -527,9 +524,7 @@ def scan_test_copy_paste(
                     )
     # Stable ordering: by (a_file, a_row, b_file, b_row) then by descending
     # Jaccard so the caller sees the strongest matches first per file.
-    findings.sort(
-        key=lambda f: (f.a_file, f.a_row, f.b_file, f.b_row, -f.jaccard)
-    )
+    findings.sort(key=lambda f: (f.a_file, f.a_row, f.b_file, f.b_row, -f.jaccard))
     return TestCopyPastePolyglotReport(
         findings=tuple(findings),
         tests_scanned=tests_scanned,

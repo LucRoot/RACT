@@ -203,8 +203,7 @@ class SuiteChain:
         """
         if len(prompt_digest) != 32:
             raise ValueError(
-                "prompt_digest must be 32 bytes (SHA-256); "
-                f"got {len(prompt_digest)}"
+                f"prompt_digest must be 32 bytes (SHA-256); got {len(prompt_digest)}"
             )
         if origin not in {"initial", "operator_recompile"}:
             raise ValueError(

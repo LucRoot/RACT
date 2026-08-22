@@ -11,6 +11,7 @@ against two invariants before allowing the next one:
 """
 
 import json
+import logging
 import subprocess
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
@@ -899,9 +900,7 @@ class LoopController:
         # sidecar) hit ``start_index = 1``. The stashed counters live
         # in ``self._resume_snapshot`` -- populated by
         # :meth:`on_resume` or the public :meth:`resume` entry point.
-        resume_snapshot: dict[str, Any] | None = getattr(
-            self, "_resume_snapshot", None
-        )
+        resume_snapshot: dict[str, Any] | None = getattr(self, "_resume_snapshot", None)
         if resume_snapshot is not None:
             iterations = list(resume_snapshot.get("iterations", []))
             previous_score = resume_snapshot.get("previous_score")
@@ -1369,13 +1368,10 @@ class LoopController:
             from ract.sidecar_header import write_json_sidecar_with_header
             from ract.runtime import get_current_run_id as _get_amb
 
-            _run_id_for_header = (
-                _get_amb()
-                or (
-                    self._resolve_run_id(self._loop_state)
-                    if self._loop_state is not None
-                    else None
-                )
+            _run_id_for_header = _get_amb() or (
+                self._resolve_run_id(self._loop_state)
+                if self._loop_state is not None
+                else None
             )
             if not _run_id_for_header and self.run_dir is not None:
                 _run_id_for_header = self.run_dir.name
@@ -1408,7 +1404,9 @@ class LoopController:
                 from ract.canonical import dumps_jcs
 
                 raw = dumps_jcs(payload)
-                body = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
+                body = (
+                    raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
+                )
             except Exception:  # noqa: BLE001
                 import json as _json
 
@@ -1496,8 +1494,7 @@ class LoopController:
                 )
             except SidecarHeaderError as exc:
                 logging.getLogger("ract.loop_controller").warning(
-                    "loop_state.json refused on resume: %s. Loop "
-                    "will start fresh.",
+                    "loop_state.json refused on resume: %s. Loop will start fresh.",
                     exc,
                 )
                 return False
@@ -1506,9 +1503,7 @@ class LoopController:
             # sidecars (backward-compat with the legacy field
             # names).
             if "sidecar_header" in payload:
-                payload = {
-                    k: v for k, v in payload.items() if k != "sidecar_header"
-                }
+                payload = {k: v for k, v in payload.items() if k != "sidecar_header"}
             # If the header is a synthetic legacy stamp AND the
             # current run has a bound ambient, log an INFO trace so
             # the operator sees the cross-run boundary explicitly.
@@ -1778,9 +1773,7 @@ class LoopController:
                 pass
             return
 
-    def _collect_changed_polyglot_files(
-        self, iteration: LoopIteration
-    ) -> list[Path]:
+    def _collect_changed_polyglot_files(self, iteration: LoopIteration) -> list[Path]:
         """Return the polyglot-scannable paths touched since baseline.
 
         Walks ``project_dir`` for the polyglot-supported extensions

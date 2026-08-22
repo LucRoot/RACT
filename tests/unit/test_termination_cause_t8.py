@@ -166,10 +166,7 @@ def test_check_t8_match_returns_none() -> None:
 
 def test_check_t8_mismatch_returns_t8() -> None:
     suite = _suite_with_prompt("write me a factorial")
-    assert (
-        check_t8(suite, "delete all files")
-        is TerminationCause.PROMPT_DRIFT
-    )
+    assert check_t8(suite, "delete all files") is TerminationCause.PROMPT_DRIFT
 
 
 def test_check_t8_missing_digest_returns_none_backcompat() -> None:

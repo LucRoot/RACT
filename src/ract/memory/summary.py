@@ -129,9 +129,7 @@ _LANGUAGE_KEYWORDS: dict[str, dict[str, re.Pattern[str]]] = {
 # Best-effort call-target regex: word chars (dot-nested attribute
 # access allowed) directly followed by an opening paren. Skips
 # keywords via a stopword list per language.
-_CALL_TARGET_RE: re.Pattern[str] = re.compile(
-    r"(?<![.\w])([A-Za-z_][\w.]*)\s*\("
-)
+_CALL_TARGET_RE: re.Pattern[str] = re.compile(r"(?<![.\w])([A-Za-z_][\w.]*)\s*\(")
 
 _PY_STOPWORDS: frozenset[str] = frozenset(
     {
@@ -303,7 +301,9 @@ def _extract_docstring(body: str, language: str | None) -> str:
         if match:
             # Strip leading ``*`` lines and pull the first non-empty line.
             raw = match.group(1)
-            cleaned = "\n".join(line.strip().lstrip("*").strip() for line in raw.splitlines())
+            cleaned = "\n".join(
+                line.strip().lstrip("*").strip() for line in raw.splitlines()
+            )
             return _first_line(cleaned)
         return ""
     if language == "rust":

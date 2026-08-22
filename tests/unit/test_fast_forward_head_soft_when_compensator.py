@@ -31,8 +31,12 @@ def _env() -> dict[str, str]:
 
 def _run(*argv: str, cwd: Path) -> str:
     result = subprocess.run(
-        argv, cwd=str(cwd), capture_output=True, text=True,
-        check=True, env=_env(),
+        argv,
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        check=True,
+        env=_env(),
     )
     return result.stdout.strip()
 

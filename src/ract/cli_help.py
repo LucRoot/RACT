@@ -130,10 +130,10 @@ def build_discovery_parser(cli_verbs: Iterable[str]) -> argparse.ArgumentParser:
         ),
         epilog=(
             "Examples:\n"
-            "  ract \"add a test for utils.py\" --config ract.yaml\n"
-            "  ract run \"refactor the parser\" --loop --max-iterations 5\n"
+            '  ract "add a test for utils.py" --config ract.yaml\n'
+            '  ract run "refactor the parser" --loop --max-iterations 5\n'
             "  ract memory init\n"
-            "  ract retrieval query \"parser\"\n"
+            '  ract retrieval query "parser"\n'
             "  ract manifest ledger verify\n"
             "  ract help <verb>   # per-verb help\n"
             "\n"

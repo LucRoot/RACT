@@ -32,11 +32,9 @@ from GENESIS.
 
 from __future__ import annotations
 
-import io
 import json
 import logging
-import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Literal
@@ -157,8 +155,7 @@ class TraceVerifyResult:
         # tamper_details required iff status == TAMPERED.
         if self.status == "TAMPERED" and not self.tamper_details:
             raise ValueError(
-                "TraceVerifyResult.tamper_details is required when "
-                "status == 'TAMPERED'"
+                "TraceVerifyResult.tamper_details is required when status == 'TAMPERED'"
             )
         if self.status != "TAMPERED" and self.tamper_details is not None:
             raise ValueError(
@@ -475,7 +472,9 @@ def _read_verify_sidecar(
         # SHA-256 hex is 64 chars. Reject other lengths cheaply so
         # a downstream bytes.fromhex(head_val) that would
         # otherwise raise ValueError falls back cleanly here.
-        if len(head_val) != 64 or any(c not in "0123456789abcdefABCDEF" for c in head_val):
+        if len(head_val) != 64 or any(
+            c not in "0123456789abcdefABCDEF" for c in head_val
+        ):
             _LOG.warning(
                 "trace verify sidecar %s last_verified_head must be 64-char hex; "
                 "got len=%d; cold-verify fallback",
@@ -599,8 +598,10 @@ def _walk_verify(
     """
     events_verified = events_verified_prior
     current_offset = start_offset
-    tip_hex: str | None = chain.tip_hash.hex() if events_verified_prior else (
-        chain.tip_hash.hex() if chain.tip_hash != _GENESIS_HASH else None
+    tip_hex: str | None = (
+        chain.tip_hash.hex()
+        if events_verified_prior
+        else (chain.tip_hash.hex() if chain.tip_hash != _GENESIS_HASH else None)
     )
     for end_offset, line_text, torn_tail in _iter_lines_with_offsets(
         events_path, start_offset=start_offset
@@ -647,8 +648,7 @@ def _walk_verify(
                     "line_snippet": stripped[:200],
                 },
                 reason=(
-                    f"malformed middle event line at offset {current_offset}: "
-                    f"{exc}"
+                    f"malformed middle event line at offset {current_offset}: {exc}"
                 ),
             )
         try:
@@ -665,9 +665,7 @@ def _walk_verify(
                     "reason": str(exc),
                     "line_snippet": stripped[:200],
                 },
-                reason=(
-                    f"malformed event shape at offset {current_offset}: {exc}"
-                ),
+                reason=(f"malformed event shape at offset {current_offset}: {exc}"),
             )
         # Bind run_id lazily from the first event (cold start) so
         # we do not require the caller to know it up front.
@@ -966,7 +964,9 @@ def _find_backwards_window_start(
             aligned_start = start + idx + 1
         else:
             aligned_start = 0
-        newline_count = blob.count(b"\n") if start == 0 else blob[idx + 1 :].count(b"\n")
+        newline_count = (
+            blob.count(b"\n") if start == 0 else blob[idx + 1 :].count(b"\n")
+        )
         if newline_count >= target_events or start == 0:
             return aligned_start
         window = min(window * 2, file_size)
@@ -1135,7 +1135,8 @@ def verify_trace(
             )
         return result
     resolved_sidecar = (
-        Path(sidecar_path) if sidecar_path is not None
+        Path(sidecar_path)
+        if sidecar_path is not None
         else _sidecar_path_for(p, run_id_hex)
     )
     body = _read_verify_sidecar(
@@ -1273,7 +1274,8 @@ def _persist_sidecar_after_verify(
     result: TraceVerifyResult,
 ) -> None:
     resolved = (
-        Path(sidecar_path) if sidecar_path is not None
+        Path(sidecar_path)
+        if sidecar_path is not None
         else _sidecar_path_for(events_path, run_id_hex)
     )
     try:
@@ -1321,9 +1323,7 @@ def persist_verify_sidecar(
 # ---------------------------------------------------------------------------
 
 
-def _emit_torn_tail_event(
-    events_path: Path, offset: int, raw_repr: str
-) -> None:
+def _emit_torn_tail_event(events_path: Path, offset: int, raw_repr: str) -> None:
     try:
         from ract.trace.sink import emit
 

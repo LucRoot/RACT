@@ -504,9 +504,7 @@ def kill_tree(
     _kill_tree_posix(handle, grace_period_seconds=grace_period_seconds)
 
 
-def _kill_descendants_only(
-    handle: ProcessGroupHandle, *, close_handle: bool
-) -> None:
+def _kill_descendants_only(handle: ProcessGroupHandle, *, close_handle: bool) -> None:
     """Reap descendants without touching the parent PID (identity-guard skip path).
 
     Used when the parent PID is gone or reused. Reparented children
@@ -807,9 +805,7 @@ def _reverify_ok(handle: ProcessGroupHandle) -> bool:
     return _identity_verdict(handle) == _IDENTITY_MATCH
 
 
-def _kill_tree_windows(
-    handle: ProcessGroupHandle, *, close_handle: bool
-) -> None:
+def _kill_tree_windows(handle: ProcessGroupHandle, *, close_handle: bool) -> None:
     """Windows Job Object reap with taskkill fallback.
 
     v0.5.2 hardening module_03 (Ox Alpha co-build Fork 2 (b)-lite):

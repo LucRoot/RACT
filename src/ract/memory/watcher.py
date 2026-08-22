@@ -312,9 +312,7 @@ class SymbolIndexWatcher:
                 self.stats.graph_updates += 1
             except Exception as exc:  # noqa: BLE001 -- one index failing must not skip others
                 self.stats.graph_errors += 1
-                LOG.warning(
-                    "watcher graph cascade failed on %s: %s", path_str, exc
-                )
+                LOG.warning("watcher graph cascade failed on %s: %s", path_str, exc)
                 self._emit_cascade_error(path_str, "graph", "write", exc)
         # Semantic index update: walk the fresh symbols in this file
         # and call update_symbol per-symbol. Import inline to avoid a

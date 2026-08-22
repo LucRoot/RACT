@@ -161,7 +161,9 @@ def test_parse_accepts_bytearray_source() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_parse_returns_none_when_grammar_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_parse_returns_none_when_grammar_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Simulate a missing grammar; parse should return None + WARN, not raise."""
     # Reset caches so our monkeypatch is exercised.
     tsb._reset_caches_for_tests()

@@ -153,9 +153,7 @@ def test_composition_runner_dispatches_when_wired(tmp_path: Path) -> None:
 
 def test_composition_runner_noop_when_absent(tmp_path: Path) -> None:
     ctrl = LoopController(_minimal_config(tmp_path))
-    result = ctrl._run_composed_retrieval(
-        spec=None, request="x", provider=None
-    )
+    result = ctrl._run_composed_retrieval(spec=None, request="x", provider=None)
     assert result is None
 
 
@@ -165,8 +163,6 @@ def test_composition_runner_noop_when_indexes_absent(tmp_path: Path) -> None:
         _minimal_config(tmp_path),
         composition_runner=runner,
     )
-    result = ctrl._run_composed_retrieval(
-        spec=None, request="x", provider=None
-    )
+    result = ctrl._run_composed_retrieval(spec=None, request="x", provider=None)
     assert result is None
     assert runner.calls == []

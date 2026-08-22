@@ -1179,9 +1179,7 @@ def _extend_with_grouping(
                 )
                 if downgraded.token_count <= remaining:
                     packed_out.append(
-                        _Candidate(
-                            chunk=downgraded, origin="grouping", score=0.5
-                        )
+                        _Candidate(chunk=downgraded, origin="grouping", score=0.5)
                     )
                     remaining -= downgraded.token_count
                     total_tokens += downgraded.token_count
@@ -1206,9 +1204,7 @@ def _extend_with_grouping(
             call_id=call_id,
             group=group,
             seated_count=seated_this_group,
-            companion_format=(
-                first_seated_format.value if first_seated_format else ""
-            ),
+            companion_format=(first_seated_format.value if first_seated_format else ""),
             dropped_count=dropped_this_group,
         )
         grouping_events.append(event)
@@ -1436,9 +1432,7 @@ def cache_payload_to_bundle(payload: dict[str, Any]) -> RetrievalBundle:
             int(sid) for sid in payload.get("traversal_symbol_ids", [])
         ),
         dropped_companions=tuple(payload.get("dropped_companions", [])),
-        grouping_events=tuple(
-            dict(evt) for evt in payload.get("grouping_events", [])
-        ),
+        grouping_events=tuple(dict(evt) for evt in payload.get("grouping_events", [])),
     )
 
 

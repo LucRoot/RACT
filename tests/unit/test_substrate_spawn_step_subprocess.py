@@ -20,7 +20,6 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from ract.executor.loop import SubstrateLoop
 from ract.executor.process_group import ProcessGroupHandle
@@ -54,7 +53,10 @@ def _init_repo(root: Path) -> str:
     )
     (root / "seed.txt").write_text("seed", encoding="utf-8")
     subprocess.run(
-        ["git", "add", "-A"], cwd=str(root), check=True, env=env,
+        ["git", "add", "-A"],
+        cwd=str(root),
+        check=True,
+        env=env,
         capture_output=True,
     )
     subprocess.run(
@@ -168,6 +170,7 @@ def test_spawn_consumes_current_sandbox_env(tmp_path: Path) -> None:
 
     def _fake_spawn(argv, *, env=None, cwd=None, stdin=None, stdout=None, stderr=None):
         captured["env"] = env
+
         # Return a lightweight object with the same attribute surface
         # `_reap_active_processes` and this test read.
         class _FakePopen:
@@ -225,9 +228,7 @@ def test_explicit_env_overrides_sandbox_env(tmp_path: Path) -> None:
         )
 
     with patch("ract.executor.loop.spawn", side_effect=_fake_spawn):
-        loop.spawn_step_subprocess(
-            [sys.executable, "-c", "pass"], env=explicit
-        )
+        loop.spawn_step_subprocess([sys.executable, "-c", "pass"], env=explicit)
     assert captured["env"] == explicit
 
 

@@ -455,9 +455,7 @@ def cmd_repair(args: argparse.Namespace) -> int:
             return 3
         # Use JsonlEventWriter's repair_from_disk() which is the same
         # code path -- it re-reads and re-repairs, then extends.
-        writer = JsonlEventWriter(
-            path=log_path, run_id=run_id, repair_on_open=True
-        )
+        writer = JsonlEventWriter(path=log_path, run_id=run_id, repair_on_open=True)
         applied = writer.last_repair_summary
         result["applied"] = True
         result["applied_synthesized_count"] = (
@@ -634,9 +632,7 @@ def _trace_command(argv: list[str]) -> int:
             "GENESIS. Use when tamper is suspected."
         ),
     )
-    verify_parser.add_argument(
-        "--json", action="store_true", dest="json_output"
-    )
+    verify_parser.add_argument("--json", action="store_true", dest="json_output")
 
     parsed = parser.parse_args(argv)
     if parsed.verb == "replay":

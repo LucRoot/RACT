@@ -212,7 +212,9 @@ def test_manifest_bytes_stored_when_helper_provides_them(
     ledger = _mk_ledger(tmp_path)
     from ract.canonical import dumps_jcs
 
-    manifest_body = dumps_jcs({"version": 1, "run_id": "e" * 32, "syscalls": {"seccomp_profile": "strict"}})
+    manifest_body = dumps_jcs(
+        {"version": 1, "run_id": "e" * 32, "syscalls": {"seccomp_profile": "strict"}}
+    )
     import hashlib
 
     manifest_digest = Digest(hashlib.sha256(manifest_body).digest())
@@ -223,7 +225,10 @@ def test_manifest_bytes_stored_when_helper_provides_them(
         )
     record_environment_attestation(knot, ledger=ledger, manifest_bytes=manifest_body)
     entry = ledger.load()[0]
-    assert entry["manifest_snapshot_ref"] == f"manifest_snapshots/{manifest_digest.hex()}.json"
+    assert (
+        entry["manifest_snapshot_ref"]
+        == f"manifest_snapshots/{manifest_digest.hex()}.json"
+    )
     assert ledger.read_snapshot(manifest_digest.hex()) == manifest_body
 
 

@@ -42,8 +42,7 @@ def workspace_tree(tmp_path: Path) -> dict[str, Path]:
     )
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_widget.py").write_text(
-        "def test_add():\n    from src.widget import add\n"
-        "    assert add(2, 3) == 5\n",
+        "def test_add():\n    from src.widget import add\n    assert add(2, 3) == 5\n",
         encoding="utf-8",
     )
 
@@ -85,9 +84,7 @@ def test_recompile_with_scanned_workspace_yields_predicates(
     )
     # The fresh suite must carry at least one required predicate --
     # the test file the auto-scan found under ``tests/``.
-    required = [
-        p for p in result.new_suite.predicates if getattr(p, "required", False)
-    ]
+    required = [p for p in result.new_suite.predicates if getattr(p, "required", False)]
     assert len(required) > 0, (
         "recompile produced zero required predicates -- Lens D D4 regression "
         "(empty WorkspaceSnapshot fallthrough)."
@@ -114,9 +111,7 @@ def test_recompile_with_explicit_workspace_preserves_predicates(
         ract_dir=workspace_tree["ract_dir"],
         workspace=ws,
     )
-    required = [
-        p for p in result.new_suite.predicates if getattr(p, "required", False)
-    ]
+    required = [p for p in result.new_suite.predicates if getattr(p, "required", False)]
     assert len(required) > 0
     # New prompt_digest fires as always.
     assert result.new_suite.prompt_digest is not None
@@ -139,9 +134,7 @@ def test_recompile_falls_back_to_prev_predicates_when_scan_yields_less(
         ract_dir=workspace_tree["ract_dir"],
         workspace=WorkspaceSnapshot(),
     )
-    required = [
-        p for p in result.new_suite.predicates if getattr(p, "required", False)
-    ]
+    required = [p for p in result.new_suite.predicates if getattr(p, "required", False)]
     assert len(required) > 0, (
         "recompile with empty workspace should PRESERVE the prior suite's "
         "predicates rather than drop them -- Lens D D4 second-line defence."

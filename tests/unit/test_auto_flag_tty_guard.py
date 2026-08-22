@@ -49,8 +49,11 @@ def test_yolo_and_auto_are_mutually_exclusive() -> None:
     except SystemExit as exc:
         assert exc.code == 2
     combined = stderr.getvalue() + stdout.getvalue()
-    assert "not allowed" in combined.lower() or "mutual" in combined.lower() or \
-        "--yolo" in combined
+    assert (
+        "not allowed" in combined.lower()
+        or "mutual" in combined.lower()
+        or "--yolo" in combined
+    )
 
 
 # RACT 0.5.1 -- v0.5.1 wiring module_10 (Lens A M4 + N2 regression)

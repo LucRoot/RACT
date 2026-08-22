@@ -22,11 +22,8 @@ import pytest
 from ract.trace.events import (
     Event,
     EventChain,
-    LEGAL_EVENT_KINDS,
 )
 from ract.trace.repair import (
-    RepairedEventStream,
-    RepairSummary,
     rebuild_chain_from_repaired,
     repair,
 )
@@ -209,8 +206,12 @@ def test_writer_repair_from_disk_extends_log_and_stays_verifiable(
     # Chain fully verifiable.
     chain = EventReader.load(log_path)
     kinds = [e.kind for e in chain.events]
-    assert kinds == ["run.started", "tool.called", "tool.result", "run.aborted"] or \
-           kinds == ["run.started", "tool.called", "run.aborted", "tool.result"]
+    assert kinds == [
+        "run.started",
+        "tool.called",
+        "tool.result",
+        "run.aborted",
+    ] or kinds == ["run.started", "tool.called", "run.aborted", "tool.result"]
 
 
 def test_writer_repair_from_disk_is_idempotent(tmp_path: Path) -> None:
@@ -233,10 +234,24 @@ def test_writer_repair_from_disk_is_idempotent(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------
 
 
-_OPEN_KINDS = ["run.started", "step.started", "tool.called", "prompt.sent", "handshake.requested"]
-_CLOSE_KIND_CHOICES = ["run.completed", "run.aborted", "step.committed", "step.rolled_back",
-                       "tool.result", "tool.refused", "response.received", "response.rejected",
-                       "handshake.resolved"]
+_OPEN_KINDS = [
+    "run.started",
+    "step.started",
+    "tool.called",
+    "prompt.sent",
+    "handshake.requested",
+]
+_CLOSE_KIND_CHOICES = [
+    "run.completed",
+    "run.aborted",
+    "step.committed",
+    "step.rolled_back",
+    "tool.result",
+    "tool.refused",
+    "response.received",
+    "response.rejected",
+    "handshake.resolved",
+]
 
 
 @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
@@ -247,7 +262,11 @@ _CLOSE_KIND_CHOICES = ["run.completed", "run.aborted", "step.committed", "step.r
         max_size=30,
     )
 )
-@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=100,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 def test_repair_idempotence_property(kinds: list[str]) -> None:
     """repair(repair(x)) == repair(x) for arbitrary event sequences."""
     chain = _fresh_chain()
@@ -266,7 +285,11 @@ def test_repair_idempotence_property(kinds: list[str]) -> None:
         max_size=20,
     )
 )
-@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=50,
+    deadline=None,
+    suppress_health_check=[HealthCheck.function_scoped_fixture],
+)
 def test_repair_determinism_property(kinds: list[str]) -> None:
     """Two calls with same input produce byte-identical Event outputs."""
     chain = _fresh_chain()

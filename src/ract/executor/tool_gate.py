@@ -99,9 +99,7 @@ class ToolInvocationRefused(RuntimeError):
 # Accepted arg types. Keeping the set closed prevents a tool from
 # claiming an unbounded type surface. ``None`` is expressible as a
 # nullable field via ``optional=True``.
-_ALLOWED_TYPES: frozenset[type] = frozenset(
-    {str, int, float, bool, list, tuple, dict}
-)
+_ALLOWED_TYPES: frozenset[type] = frozenset({str, int, float, bool, list, tuple, dict})
 
 
 @dataclass(frozen=True)
@@ -485,9 +483,7 @@ class ToolInvocationGate:
         try:
             self._event_sink(kind, payload)
         except Exception:  # noqa: BLE001 -- never fail a step on a sink error
-            _LOG.warning(
-                "tool_gate: event sink raised on %r; suppressing", kind
-            )
+            _LOG.warning("tool_gate: event sink raised on %r; suppressing", kind)
 
 
 # ---------------------------------------------------------------------------
@@ -648,16 +644,13 @@ _EXEMPT_SITES: dict[str, str] = {
         "helper; retained for backward-compat callers."
     ),
     "codebase_historian.py": (
-        "observability-git-read: git blame -L for annotated code "
-        "review context."
+        "observability-git-read: git blame -L for annotated code review context."
     ),
     "memory/repo_fingerprint.py": (
-        "observability-git-read: git log --format=%at for repo "
-        "activity fingerprinting."
+        "observability-git-read: git log --format=%at for repo activity fingerprinting."
     ),
     "memory/functions/intake.py": (
-        "observability-git-read: git log --oneline for memory "
-        "intake context digest."
+        "observability-git-read: git log --oneline for memory intake context digest."
     ),
     "memory/composition_runner.py": (
         "observability-git-read: memory composition runner shell "

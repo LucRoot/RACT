@@ -113,13 +113,7 @@ def test_ast_boundaries_include_try_statement() -> None:
 
 
 def test_ast_boundaries_include_while_statement() -> None:
-    body = (
-        "def waiter():\n"
-        "    i = 0\n"
-        "    while i < 10:\n"
-        "        i += 1\n"
-        "    return i\n"
-    )
+    body = "def waiter():\n    i = 0\n    while i < 10:\n        i += 1\n    return i\n"
     pieces = _split_python_ast_boundaries(body)
     assert pieces is not None
     while_piece = next(p for p in pieces if p.lstrip().startswith("while "))
@@ -132,14 +126,7 @@ def test_ast_boundaries_do_not_cut_at_random_blank_lines() -> None:
     behaviour we deliberately replace on the Python path.
     """
     body = (
-        "def straight():\n"
-        "    a = 1\n"
-        "\n"
-        "\n"
-        "    b = 2\n"
-        "\n"
-        "    c = 3\n"
-        "    return a + b + c\n"
+        "def straight():\n    a = 1\n\n\n    b = 2\n\n    c = 3\n    return a + b + c\n"
     )
     pieces = _split_python_ast_boundaries(body)
     # Straight-line run with no control-flow → single segment → falls

@@ -21,9 +21,7 @@ from pathlib import Path
 
 def _watcher_source() -> str:
     root = Path(__file__).resolve().parents[2]
-    text = (root / "src" / "ract" / "memory" / "watcher.py").read_text(
-        encoding="utf-8"
-    )
+    text = (root / "src" / "ract" / "memory" / "watcher.py").read_text(encoding="utf-8")
     assert text, "watcher.py should not be empty"
     return text
 

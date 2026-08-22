@@ -464,7 +464,7 @@ class JsonlEventWriter:
                 "before the event is durably written"
             )
         with self._lock:
-            new_events = self.chain.events[self._checkpoint_watermark:]
+            new_events = self.chain.events[self._checkpoint_watermark :]
             self._checkpoint_watermark = len(self.chain.events)
         # Fire observers OUTSIDE the lock -- a slow observer must not
         # block subsequent emits. This matches spec §5.1.2 which
@@ -779,9 +779,7 @@ class EventReader:
                                 line_index,
                                 exc,
                             )
-                            line_text = raw_bytes.decode(
-                                "utf-8", errors="replace"
-                            )
+                            line_text = raw_bytes.decode("utf-8", errors="replace")
                         else:
                             raise ChainBrokenError(
                                 f"malformed middle event line "
@@ -822,8 +820,7 @@ class EventReader:
                             )
                             return
                     raise ChainBrokenError(
-                        f"malformed middle event line {line_index} "
-                        f"in {p}: {exc}"
+                        f"malformed middle event line {line_index} in {p}: {exc}"
                     ) from exc
                 try:
                     yield Event.from_canonical_dict(data)
@@ -843,8 +840,7 @@ class EventReader:
                             )
                             return
                     raise ChainBrokenError(
-                        f"malformed middle event at line {line_index} "
-                        f"in {p}: {exc}"
+                        f"malformed middle event at line {line_index} in {p}: {exc}"
                     ) from exc
                 line_index += 1
 

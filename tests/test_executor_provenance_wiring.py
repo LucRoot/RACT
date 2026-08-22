@@ -20,7 +20,6 @@ tests now share the same wiring contract).
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -121,7 +120,11 @@ def test_write_artifact_emits_sidecar(tmp_path: Path) -> None:
     # (generator + environment + antilazy) rather than the pre-v4
     # single ``signature`` field.
     assert payload.get("schema") == "sidecar/v4"
-    for sig_field in ("generator_signature", "environment_signature", "antilazy_signature"):
+    for sig_field in (
+        "generator_signature",
+        "environment_signature",
+        "antilazy_signature",
+    ):
         assert sig_field in payload, f"sidecar missing {sig_field!r}"
     assert payload["workspace_path"].endswith("src/hello.py")
 

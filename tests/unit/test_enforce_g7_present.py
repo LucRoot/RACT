@@ -51,7 +51,10 @@ def test_enforce_g7_skips_without_companion_bundle_and_emits():
     assert outcome.skipped is True
     assert outcome.skip_reason == "no_companion_bundle"
     assert outcome.rootknot_signature.startswith("sha256:")
-    assert ("laziness.skipped", {"gate_id": "G7", "reason": "no_companion_bundle"}) in events
+    assert (
+        "laziness.skipped",
+        {"gate_id": "G7", "reason": "no_companion_bundle"},
+    ) in events
 
 
 def test_enforce_g7_skips_when_final_diff_missing_and_emits():

@@ -46,11 +46,7 @@ def test_sp_q1_reset_grammar_caches_reexported_from_parsers() -> None:
 
 def test_sp_q2_ann_assign_target_recorded_as_decl(tmp_path: Path) -> None:
     p = tmp_path / "m.py"
-    p.write_text(
-        "value: int = 1\n"
-        "orphan: int = 2\n"
-        "print(value)\n"
-    )
+    p.write_text("value: int = 1\norphan: int = 2\nprint(value)\n")
     report = scan_dead_code([p])
     idents = {c.identifier for c in report.candidates}
     assert "orphan" in idents
@@ -60,9 +56,7 @@ def test_sp_q2_ann_assign_target_recorded_as_decl(tmp_path: Path) -> None:
 def test_sp_q2_ann_assign_annotation_counts_as_ref(tmp_path: Path) -> None:
     p = tmp_path / "m.py"
     p.write_text(
-        "class Config:\n    pass\n"
-        "cfg: Config = None  # type: ignore\n"
-        "print(cfg)\n"
+        "class Config:\n    pass\ncfg: Config = None  # type: ignore\nprint(cfg)\n"
     )
     report = scan_dead_code([p])
     idents = {c.identifier for c in report.candidates}
@@ -190,6 +184,6 @@ def test_sp_q6_tsx_and_ts_share_comparison_group(tmp_path: Path) -> None:
     # .ts body under the folded typescript/tsx comparison group.
     tsx.write_text(body.replace("adds", "adds_copy"))
     report = scan_test_copy_paste([ts, tsx])
-    assert any(
-        {f.a_file, f.b_file} == {str(ts), str(tsx)} for f in report.findings
-    ), report.findings
+    assert any({f.a_file, f.b_file} == {str(ts), str(tsx)} for f in report.findings), (
+        report.findings
+    )

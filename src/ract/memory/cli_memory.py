@@ -74,7 +74,6 @@ def _memory_verify_consistency(args: list[str]) -> int:
     - 1 -- INCONSISTENT (at least one flagged discrepancy)
     - 2 -- UNAVAILABLE (backing store missing / unreadable)
     """
-    import json
 
     parser = argparse.ArgumentParser(
         prog="ract memory verify-consistency",
@@ -101,6 +100,7 @@ def _memory_verify_consistency(args: list[str]) -> int:
             "CI where paths are synthetic)."
         ),
     )
+
     def _positive_int(raw: str) -> int:
         # v0.5.2 module_06 SP Q5 fold: refuse a vacuous cap of
         # 0 or negative. Verify_indexes also refuses at the API
@@ -111,9 +111,7 @@ def _memory_verify_consistency(args: list[str]) -> int:
         except ValueError as exc:  # pragma: no cover - argparse re-wraps
             raise argparse.ArgumentTypeError(str(exc)) from exc
         if v < 1:
-            raise argparse.ArgumentTypeError(
-                f"must be >= 1; got {v}"
-            )
+            raise argparse.ArgumentTypeError(f"must be >= 1; got {v}")
         return v
 
     parser.add_argument(
@@ -143,8 +141,7 @@ def _memory_verify_consistency(args: list[str]) -> int:
     if not sym_db.is_file():
         report = IndexConsistencyReport.unavailable(
             reason=(
-                f"symbol_index DB not found at {sym_db} "
-                "(run `ract memory init` first)"
+                f"symbol_index DB not found at {sym_db} (run `ract memory init` first)"
             ),
         )
     else:
@@ -186,6 +183,7 @@ def _memory_verify_consistency(args: list[str]) -> int:
 
     if parsed.json_output:
         from ract.canonical import dumps_jcs
+
         payload = {
             "repo_path": str(repo_path),
             "status": report.status,
@@ -215,15 +213,9 @@ def _memory_verify_consistency(args: list[str]) -> int:
         print(f"  status: {report.status}")
         print(f"  symbols_checked: {report.symbols_checked}")
         print(f"  edges_checked: {report.edges_checked}")
-        print(
-            "  semantic_slices_checked: "
-            f"{report.semantic_slices_checked}"
-        )
+        print(f"  semantic_slices_checked: {report.semantic_slices_checked}")
         if report.checks_skipped:
-            print(
-                "  checks_skipped: "
-                f"{', '.join(report.checks_skipped)}"
-            )
+            print(f"  checks_skipped: {', '.join(report.checks_skipped)}")
         print(f"  reason: {report.reason}")
         if report.inconsistencies:
             # Cap human-readable print at 20; JSON has all.

@@ -18,7 +18,9 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-_LOOP_CONTROLLER = Path(__file__).resolve().parents[2] / "src" / "ract" / "loop_controller.py"
+_LOOP_CONTROLLER = (
+    Path(__file__).resolve().parents[2] / "src" / "ract" / "loop_controller.py"
+)
 
 
 def _has_legacy_sycophancy_call(source: str) -> bool:

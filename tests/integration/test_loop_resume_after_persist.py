@@ -26,9 +26,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
-from ract.core.loop import WorkspaceSnapshot
 from ract.core.predicate import (
     AcceptancePredicate,
     AcceptanceSuite,
@@ -122,9 +120,7 @@ def test_on_resume_loads_sidecar_and_stages_counters(tmp_path: Path) -> None:
     controller._completed_families = ["parser"]
     controller.repair_attempts_remaining = 3
     controller._repair_intent = "hi"
-    controller.on_pause(
-        iterations=iterations, previous_score=0.7, stagnation_count=0
-    )
+    controller.on_pause(iterations=iterations, previous_score=0.7, stagnation_count=0)
 
     # Fresh controller (simulates process restart after compaction).
     fresh = _make_controller(tmp_path.parent / "second_run")
@@ -165,9 +161,7 @@ def test_run_after_resume_starts_at_persisted_count_plus_one(
     """
     controller = _make_controller(tmp_path)
     iterations = [_fake_iteration(i) for i in (1, 2, 3)]
-    controller.on_pause(
-        iterations=iterations, previous_score=0.6, stagnation_count=0
-    )
+    controller.on_pause(iterations=iterations, previous_score=0.6, stagnation_count=0)
     assert controller.on_resume() is True
     # Confirm the staged snapshot maps to iteration 4 as the next
     # iteration index.
