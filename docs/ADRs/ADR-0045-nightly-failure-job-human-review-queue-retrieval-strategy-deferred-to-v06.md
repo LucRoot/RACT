@@ -35,8 +35,10 @@ Items 1 and 2 shipped in v0.5.0 (`failure_records.FailureRecord` +
 `aggregate` + `NarrowingProposal.__post_init__` narrowing-only
 invariant + `validate_proposal_against_live_value()` live gate).
 Items 3, 4, and 5 did not — the 2026-08-21 source-spec audit
-(`_BUILD/audit_2026-08-21c/lens_1F_self_adjustment.md` findings 3
-and 7, both MEDIUM) surfaced their absence. The v0.5.1 spec-
+(`_BUILD/audit_2026-08-21c/lens_1F_self_adjustment.md` finding 3
+MEDIUM covering the nightly-job + review-queue absence, plus
+finding 7 LOW covering the retrieval-strategy adjustment absence)
+surfaced their absence. The v0.5.1 spec-
 completeness pipeline originally scheduled all three under
 module_06.
 
@@ -168,8 +170,9 @@ workflow with an operator surface.
 - Memory Discipline spec: `docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`
   §Failure Learning items 3-5.
 - Source-spec audit finding:
-  `_BUILD/audit_2026-08-21c/lens_1F_self_adjustment.md` findings 3
-  and 7 (MEDIUM severity).
+  `_BUILD/audit_2026-08-21c/lens_1F_self_adjustment.md` finding 3
+  (MEDIUM, nightly job + review queue) and finding 7 (LOW,
+  retrieval-strategy adjustment surface).
 - Ox Alpha adversarial review authorizing the cancellation:
   `_BUILD/ract_v0.5.1_spec_completeness/ox_alpha_reviews/pipeline_challenge_2026-08-21.md`
   §1.
