@@ -363,9 +363,7 @@ def _knot_to_json(
                 else None
             ),
             "prompt_digest": (
-                knot.prompt_digest.hex()
-                if knot.prompt_digest is not None
-                else None
+                knot.prompt_digest.hex() if knot.prompt_digest is not None else None
             ),
             "run_id": knot.run_id or "",
         }

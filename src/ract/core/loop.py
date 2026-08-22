@@ -485,10 +485,7 @@ def build_loop_state(
                 raise VerifierUnavailable(
                     predicate_id=predicate.id.hex(),
                     verifier=str(predicate.kind),
-                    reason=(
-                        f"availability check crashed: "
-                        f"{type(exc).__name__}: {exc}"
-                    ),
+                    reason=(f"availability check crashed: {type(exc).__name__}: {exc}"),
                 ) from exc
             if not available:
                 # Kind gives the operator a short, symbolic verifier

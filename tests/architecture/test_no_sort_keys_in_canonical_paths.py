@@ -141,16 +141,14 @@ def _strip_comments_and_strings(source: str) -> str:
             if start_row == end_row:
                 line = lines[start_row - 1]
                 lines[start_row - 1] = (
-                    line[:start_col]
-                    + " " * (end_col - start_col)
-                    + line[end_col:]
+                    line[:start_col] + " " * (end_col - start_col) + line[end_col:]
                 )
             else:
                 # Multi-line string: blank the interior. Keep leading
                 # cols on the first line and trailing cols on the last.
                 first = lines[start_row - 1]
-                lines[start_row - 1] = (
-                    first[:start_col] + " " * (len(first) - start_col)
+                lines[start_row - 1] = first[:start_col] + " " * (
+                    len(first) - start_col
                 )
                 for row in range(start_row, end_row - 1):
                     lines[row] = " " * len(lines[row])
@@ -359,6 +357,5 @@ def test_allowlist_entries_actually_use_sort_keys() -> None:
             stale.append(f"{rel} (allowlisted but no sort_keys=True use remains)")
     if stale:
         pytest.fail(
-            "Stale allowlist entries — remove from _ALLOWLIST:\n  "
-            + "\n  ".join(stale)
+            "Stale allowlist entries — remove from _ALLOWLIST:\n  " + "\n  ".join(stale)
         )

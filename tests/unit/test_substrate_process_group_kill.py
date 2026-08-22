@@ -151,9 +151,7 @@ def test_kill_tree_reaps_parent_child_grandchild(tmp_path: Path) -> None:
                 break
             time.sleep(0.2)
 
-        survivors = {
-            role: pid for role, pid in pids.items() if _pid_alive(pid)
-        }
+        survivors = {role: pid for role, pid in pids.items() if _pid_alive(pid)}
         assert not survivors, (
             f"processes survived kill_tree: {survivors}. This is the "
             "REVIEW_4_UNKNOWN §B3 defect the module_05 fix targets."
@@ -194,8 +192,7 @@ def test_spawn_returns_handle_with_platform_appropriate_group_id() -> None:
             # (We do not assert non-None because pywin32 may be absent.)
         else:
             assert handle.pgid == handle.popen.pid, (
-                "POSIX spawn must set pgid == pid (setsid via "
-                "start_new_session=True)"
+                "POSIX spawn must set pgid == pid (setsid via start_new_session=True)"
             )
     finally:
         kill_tree(handle)
@@ -228,9 +225,7 @@ time.sleep(30)
     # Give the child a moment to install the handler.
     time.sleep(0.5)
     kill_tree(handle, grace_period_seconds=2.0)
-    assert sentinel.exists(), (
-        "SIGTERM handler did not fire; grace period is broken"
-    )
+    assert sentinel.exists(), "SIGTERM handler did not fire; grace period is broken"
 
 
 # RACT 0.5.1

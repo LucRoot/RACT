@@ -51,9 +51,7 @@ class TestKnownShapesMatch:
         )
 
     def test_dataclasses_dataclass(self) -> None:
-        assert _DATACLASS_DECORATOR_RE.search(
-            "@dataclasses.dataclass\nclass Foo:"
-        )
+        assert _DATACLASS_DECORATOR_RE.search("@dataclasses.dataclass\nclass Foo:")
 
     def test_pydantic_dataclasses_dataclass(self) -> None:
         assert _DATACLASS_DECORATOR_RE.search(
@@ -61,9 +59,7 @@ class TestKnownShapesMatch:
         )
 
     def test_attrs_dataclass(self) -> None:
-        assert _DATACLASS_DECORATOR_RE.search(
-            "@attrs.dataclass\nclass Foo:"
-        )
+        assert _DATACLASS_DECORATOR_RE.search("@attrs.dataclass\nclass Foo:")
 
     def test_dc_alias(self) -> None:
         assert _DATACLASS_DECORATOR_RE.search("@dc\nclass Foo:")
@@ -78,17 +74,13 @@ class TestPermissivePrefixIntentional:
         # A local re-export like ``from my_pkg.helpers import
         # dataclass``; the caller invokes as ``@my_pkg.dataclass``.
         # This is a LEGITIMATE dataclass and grouping SHOULD fire.
-        assert _DATACLASS_DECORATOR_RE.search(
-            "@my_pkg.dataclass\nclass Foo:"
-        )
+        assert _DATACLASS_DECORATOR_RE.search("@my_pkg.dataclass\nclass Foo:")
 
     def test_project_local_dc_reexport_matches(self) -> None:
         assert _DATACLASS_DECORATOR_RE.search("@my.dc\nclass Foo:")
 
     def test_deep_chain_ending_in_dataclass_matches(self) -> None:
-        assert _DATACLASS_DECORATOR_RE.search(
-            "@a.b.c.dataclass\nclass Foo:"
-        )
+        assert _DATACLASS_DECORATOR_RE.search("@a.b.c.dataclass\nclass Foo:")
 
 
 class TestArbitraryLocalAliasStillMisses:
@@ -105,9 +97,7 @@ class TestArbitraryLocalAliasStillMisses:
     def test_similar_but_not_matching_word_misses(self) -> None:
         # ``@dclass`` has no ``.dc`` or ``.dataclass`` boundary --
         # trailing \b anchors on the full identifier.
-        assert not _DATACLASS_DECORATOR_RE.search(
-            "@dclass\nclass Foo:"
-        )
+        assert not _DATACLASS_DECORATOR_RE.search("@dclass\nclass Foo:")
 
 
 class TestLooksLikeDataclass:

@@ -72,9 +72,7 @@ def test_sp_q5c_dispose_resyncs_parent_snapshot_after_drain(
     after = _add_commit(repo, "one.py", "one")
     loop.parent_snapshot = after
     loop.compensator_stack.install(
-        build_compensator(
-            repo, branch="main", sha_before=initial, sha_after=after
-        )
+        build_compensator(repo, branch="main", sha_before=initial, sha_after=after)
     )
     # Dispose unsuccessfully -- compensator drains + resync.
     loop.dispose(success=False, reason="T2_test")
@@ -97,9 +95,7 @@ def test_sp_q5c_dispose_success_does_not_touch_parent_snapshot(
     after = _add_commit(repo, "one.py", "one")
     loop.parent_snapshot = after
     loop.compensator_stack.install(
-        build_compensator(
-            repo, branch="main", sha_before=initial, sha_after=after
-        )
+        build_compensator(repo, branch="main", sha_before=initial, sha_after=after)
     )
     loop.dispose(success=True, reason="T1_SUCCESS")
     # HEAD still at 'after' (T1 discards; does NOT touch git).

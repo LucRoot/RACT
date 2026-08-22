@@ -238,7 +238,11 @@ def _collect_errors(node: Any, source_bytes: bytes) -> tuple[ParseError, ...]:
     stack: list[Any] = [node]
     while stack:
         n = stack.pop()
-        if getattr(n, "is_error", False) or getattr(n, "type", "") == "ERROR" or getattr(n, "is_missing", False):
+        if (
+            getattr(n, "is_error", False)
+            or getattr(n, "type", "") == "ERROR"
+            or getattr(n, "is_missing", False)
+        ):
             start = getattr(n, "start_point", (0, 0))
             end = getattr(n, "end_point", (0, 0))
             start_byte = getattr(n, "start_byte", 0)
@@ -275,9 +279,7 @@ def parse(file_path: Path | str, source: bytes) -> ParseTree | None:
     encode UTF-8 first; tree-sitter node ranges are byte offsets.
     """
     if not isinstance(source, (bytes, bytearray)):
-        raise TypeError(
-            f"parse(): source must be bytes, got {type(source).__name__}"
-        )
+        raise TypeError(f"parse(): source must be bytes, got {type(source).__name__}")
     lang = language_for(file_path)
     if lang is None:
         return None

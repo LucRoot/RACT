@@ -1278,11 +1278,7 @@ def enforce_g7(
             skip_reason="no_companion_bundle",
         )
     if final_diff is None or visible_suite is None:
-        reason = (
-            "no_final_diff"
-            if final_diff is None
-            else "no_visible_suite"
-        )
+        reason = "no_final_diff" if final_diff is None else "no_visible_suite"
         _emit_laziness_skipped(gate_id="G7", reason=reason)
         skip_report = {"kind": "skipped", "reason": reason}
         return CompanionGateOutcome(

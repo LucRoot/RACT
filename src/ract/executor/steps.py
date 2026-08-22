@@ -173,8 +173,7 @@ class Executor:
                     "pattern": r"except\s*:\s*$",
                     "name": "no-bare-except",
                     "message": (
-                        "Bare except: catches unexpected errors including "
-                        "SystemExit."
+                        "Bare except: catches unexpected errors including SystemExit."
                     ),
                 },
             ]
@@ -992,8 +991,7 @@ class Executor:
                             confidence=0.0,
                             provenance=[f"executor.step:{index}"],
                             error=(
-                                f"tool-gate refused [{refused.gate}]: "
-                                f"{refused.reason}"
+                                f"tool-gate refused [{refused.gate}]: {refused.reason}"
                             ),
                             hint="tool_gate",
                         )
@@ -1043,22 +1041,17 @@ class Executor:
                             {
                                 "tool_id": f"mcp:{tool_name}",
                                 "reason": (
-                                    "executor constructed without "
-                                    "substrate_loop"
+                                    "executor constructed without substrate_loop"
                                 ),
                                 "step_index": index,
-                                "args_repr": (
-                                    repr(dict(tool_args))[:256]
-                                ),
+                                "args_repr": (repr(dict(tool_args))[:256]),
                             },
                         )
                     except Exception:  # noqa: BLE001
                         # Event sink failures must not fail the step;
                         # the WARN log above still records the bypass.
                         pass
-                    tool_result = self.mcp_registry.call_tool(
-                        tool_name, tool_args
-                    )
+                    tool_result = self.mcp_registry.call_tool(tool_name, tool_args)
                     if not tool_result.is_ok():
                         return Rooted(
                             value=None,

@@ -186,9 +186,7 @@ def emit_probe_evaluated(sink: EventSink, payload: dict[str, Any]) -> None:
     _emit(sink, PROBE_EVALUATED, payload)
 
 
-def emit_retrieval_grouping_applied(
-    sink: EventSink, payload: dict[str, Any]
-) -> None:
+def emit_retrieval_grouping_applied(sink: EventSink, payload: dict[str, Any]) -> None:
     """Emit ``retrieval.grouping.applied`` — a grouping rule fired
     for one primary symbol and (possibly) seated companions.
 

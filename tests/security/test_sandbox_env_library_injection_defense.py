@@ -23,13 +23,11 @@ in a later module, this test is the single place to extend.
 from __future__ import annotations
 
 import logging
-from typing import Iterable
 
 import pytest
 
 from ract.security.sandbox_env import (
     NEVER_PASSTHROUGH,
-    NEVER_PASSTHROUGH_PREFIXES,
     _classify_refused_family,
     build_sandbox_env,
 )
@@ -90,9 +88,7 @@ def test_glibc_tunables_denied_even_when_manifest_declares(
 def test_ld_preload_from_manifest_denied() -> None:
     """LD_PRELOAD in manifest.env.passthrough is refused (loader hijack)."""
     seeded = {"LD_PRELOAD": "/tmp/attacker.so"}
-    result = build_sandbox_env(
-        process_env=seeded, manifest_passthrough=("LD_PRELOAD",)
-    )
+    result = build_sandbox_env(process_env=seeded, manifest_passthrough=("LD_PRELOAD",))
     assert "LD_PRELOAD" not in result.env
     assert result.never_passthrough_denied == 1
     assert result.refused_family_counts.get("loader") == 1
@@ -101,9 +97,7 @@ def test_ld_preload_from_manifest_denied() -> None:
 def test_ld_audit_from_manifest_denied_via_prefix() -> None:
     """LD_AUDIT (not enumerated) is caught by LD_ prefix (2011 vector)."""
     seeded = {"LD_AUDIT": "/tmp/audit.so"}
-    result = build_sandbox_env(
-        process_env=seeded, manifest_passthrough=("LD_AUDIT",)
-    )
+    result = build_sandbox_env(process_env=seeded, manifest_passthrough=("LD_AUDIT",))
     assert "LD_AUDIT" not in result.env
     assert result.never_passthrough_denied == 1
     assert result.refused_family_counts.get("loader") == 1
@@ -351,12 +345,15 @@ def test_nt_symbol_path_denied_via_prefix() -> None:
     assert "_NT_SYMBOL_PATH" not in result.env
 
 
-@pytest.mark.parametrize("name,value", [
-    ("EDITOR", "/tmp/evil.sh"),
-    ("VISUAL", "/tmp/evil.sh"),
-    ("PAGER", "/tmp/evil.sh"),
-    ("SYSTEMD_EDITOR", "/tmp/evil.sh"),
-])
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("EDITOR", "/tmp/evil.sh"),
+        ("VISUAL", "/tmp/evil.sh"),
+        ("PAGER", "/tmp/evil.sh"),
+        ("SYSTEMD_EDITOR", "/tmp/evil.sh"),
+    ],
+)
 def test_editor_invocation_vector_denied(name: str, value: str) -> None:
     """EDITOR / VISUAL / PAGER refused -- direct exec inside sandbox."""
     seeded = {name: value}
@@ -435,11 +432,23 @@ def test_classify_refused_family_covers_all_declared_deny_names() -> None:
     # baseline). They should map to the "credential" family per the
     # classifier's prefix rules.
     credential_leaf_names = {
-        "GITHUB_TOKEN", "GH_TOKEN", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
-        "ANTHROPIC_AUTH_TOKEN", "GOOGLE_API_KEY", "OPENROUTER_API_KEY",
-        "DEEPSEEK_API_KEY", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
-        "AWS_SESSION_TOKEN", "AWS_SECURITY_TOKEN", "NPM_TOKEN", "PYPI_TOKEN",
-        "TWINE_PASSWORD", "DOCKER_PASSWORD", "SLACK_TOKEN",
+        "GITHUB_TOKEN",
+        "GH_TOKEN",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "GOOGLE_API_KEY",
+        "OPENROUTER_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AWS_SECURITY_TOKEN",
+        "NPM_TOKEN",
+        "PYPI_TOKEN",
+        "TWINE_PASSWORD",
+        "DOCKER_PASSWORD",
+        "SLACK_TOKEN",
     }
     for name in NEVER_PASSTHROUGH:
         family = _classify_refused_family(name)
@@ -470,9 +479,7 @@ def test_refused_family_counts_uses_fixed_schema() -> None:
     from ract.security.sandbox_env import FAMILY_KEYS
 
     seeded = {"LD_PRELOAD": "/tmp/x"}
-    result = build_sandbox_env(
-        process_env=seeded, manifest_passthrough=("LD_PRELOAD",)
-    )
+    result = build_sandbox_env(process_env=seeded, manifest_passthrough=("LD_PRELOAD",))
     # Every bucket present.
     assert set(result.refused_family_counts.keys()) == set(FAMILY_KEYS)
     # Loader fired.

@@ -258,8 +258,11 @@ def _utc_iso() -> str:
     on the timestamp field alone. Deduplication is by (run_id,
     manifest_digest); timestamps are informational.
     """
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace(
-        "+00:00", "Z"
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
     )
 
 
@@ -706,7 +709,8 @@ class ManifestLedger:
                         manifest_snapshot_ref=snapshot_ref,
                         rootknot_signature=rootknot_signature,
                         rootknot_run_id=rootknot_run_id,
-                        tool_trace_summary=tool_trace_summary or {
+                        tool_trace_summary=tool_trace_summary
+                        or {
                             "tool_ids_invoked": [],
                             "invocation_count": 0,
                             "first_invoke_at": None,
@@ -919,7 +923,9 @@ class ManifestLedger:
             )
         target = entries[entry_index]
         target_hash = _hash_entry(target)
-        forward = tuple(_hash_entry(entries[j]) for j in range(entry_index + 1, len(entries)))
+        forward = tuple(
+            _hash_entry(entries[j]) for j in range(entry_index + 1, len(entries))
+        )
         tail_hash = forward[-1] if forward else target_hash
         return MerkleProof(
             target_index=entry_index,
@@ -1048,7 +1054,9 @@ def _build_entry(
     entry: dict[str, Any] = {
         "timestamp": timestamp,
         "manifest_digest": manifest_digest,
-        "rootknot_signature": base64.b64encode(bytes(rootknot_signature)).decode("ascii"),
+        "rootknot_signature": base64.b64encode(bytes(rootknot_signature)).decode(
+            "ascii"
+        ),
         "rootknot_run_id": rootknot_run_id,
         "tool_trace_summary": _normalise_tool_trace(tool_trace_summary),
         "prev_ledger_hash": prev_ledger_hash,
@@ -1339,8 +1347,7 @@ def record_environment_attestation(
         # "ledger refused" (this event). Returning None preserves the
         # caller's "no ledger entry produced" semantics.
         _LOG.warning(
-            "manifest_ledger append refused (manifest_digest=%s, "
-            "run_id=%s): %s",
+            "manifest_ledger append refused (manifest_digest=%s, run_id=%s): %s",
             manifest_digest_hex,
             run_id_str,
             exc,
@@ -1358,9 +1365,7 @@ def record_environment_attestation(
                 },
             )
         except Exception:  # noqa: BLE001 -- trace failure never masks the WARN log
-            _LOG.debug(
-                "manifest.ledger.refused emit failed", exc_info=True
-            )
+            _LOG.debug("manifest.ledger.refused emit failed", exc_info=True)
         return None
 
 

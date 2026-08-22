@@ -16,9 +16,9 @@ from hypothesis import given, strategies as st
 from ract.memory.chunker import _split_python_ast_boundaries
 
 
-_IDENT = st.text(
-    alphabet=string.ascii_lowercase, min_size=1, max_size=6
-).map(lambda s: "n" + s)
+_IDENT = st.text(alphabet=string.ascii_lowercase, min_size=1, max_size=6).map(
+    lambda s: "n" + s
+)
 
 
 def _straight_line(idents: list[str]) -> str:
@@ -89,8 +89,7 @@ def test_ast_sub_chunks_at_least_two_when_control_flow_present(
     control-flow construct must produce >=2 pieces (the splitter must
     actually split, not degenerate to a single piece)."""
     if not any(
-        block.lstrip().startswith(("for ", "while ", "if ", "try:"))
-        for block in blocks
+        block.lstrip().startswith(("for ", "while ", "if ", "try:")) for block in blocks
     ):
         return
     body = "def big():\n" + "".join(blocks)

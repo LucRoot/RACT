@@ -12,8 +12,6 @@ import io
 import json
 from pathlib import Path
 
-import pytest
-
 
 def _run(argv: list[str]) -> tuple[int, str, str]:
     from ract.security.cli_manifest_ledger import manifest_ledger_command

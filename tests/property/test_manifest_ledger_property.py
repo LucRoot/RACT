@@ -104,7 +104,11 @@ def test_verify_chain_always_valid_after_N_appends(
     assert verified.tail_valid_count == unique
 
 
-@given(observations=st.lists(_obs, min_size=3, max_size=8, unique_by=lambda o: (o.run_id, o.manifest_digest)))
+@given(
+    observations=st.lists(
+        _obs, min_size=3, max_size=8, unique_by=lambda o: (o.run_id, o.manifest_digest)
+    )
+)
 @settings(
     max_examples=15,
     deadline=None,

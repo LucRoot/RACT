@@ -114,8 +114,7 @@ class TestQ3RuntimeTunables:
                     samples, null_op_threshold=th, min_commitment_floor=fl
                 )
                 assert score.f1 >= 0.85, (
-                    f"sweep failure at threshold={th} floor={fl}: "
-                    f"F1={score.f1:.3f}"
+                    f"sweep failure at threshold={th} floor={fl}: F1={score.f1:.3f}"
                 )
 
 
@@ -151,9 +150,7 @@ class TestQ4EmitEventSemantics:
         set_writer(sink)
         r.emit_event()
         emitted = [e for e in sink.events if e.kind == "whisperer.contract_violation"]
-        assert emitted, (
-            "SP Q4a: null-op-only sycophancy must emit contract_violation"
-        )
+        assert emitted, "SP Q4a: null-op-only sycophancy must emit contract_violation"
         payload = emitted[0].payload
         assert payload["trigger"] in ("null_op", "both")
 
@@ -273,12 +270,7 @@ class TestQ6BodyComparison:
         # commitment because body hash differs.
         req = "```python\ndef fn(x): return x\n```"
         resp = (
-            "```python\n"
-            "def fn(x):\n"
-            "    if x < 0:\n"
-            "        return 0\n"
-            "    return x\n"
-            "```"
+            "```python\ndef fn(x):\n    if x < 0:\n        return 0\n    return x\n```"
         )
         r = classify(req, resp)
         assert r.ast_new_commitments >= 1

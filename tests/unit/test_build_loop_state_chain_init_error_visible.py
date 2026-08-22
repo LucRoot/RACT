@@ -112,8 +112,7 @@ def test_suite_chain_lock_contended_is_tolerated_and_logged(
         )
     assert state is not None
     assert any(
-        "lock contended" in record.message.lower()
-        for record in caplog.records
+        "lock contended" in record.message.lower() for record in caplog.records
     ), "lock-contended path must log at INFO"
 
 

@@ -109,7 +109,11 @@ class AlmVerifierKey:
         from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
 
         archive = (
-            Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "alm" / "archive" / f"{run_id.hex()}.key"
+            Path(workspace_root)
+            / WORKSPACE_STATE_DIR_NAME
+            / "alm"
+            / "archive"
+            / f"{run_id.hex()}.key"
         )
         if not archive.exists():
             return None
@@ -133,7 +137,9 @@ class AlmVerifierKey:
             workspace_root = self._key_path.parent.parent.parent
         from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
 
-        archive_dir = Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "alm" / "archive"
+        archive_dir = (
+            Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "alm" / "archive"
+        )
         archive_dir.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             archive_dir.chmod(0o700)

@@ -117,9 +117,7 @@ def test_dispose_fires_kill_tree_even_when_parent_popen_exited(
     and the ``substrate.subagent.tree_kill_invoked`` event records
     ``path == "poll_exited"``.
     """
-    popen, parent_pid, grandchild_pid = _spawn_parent_with_orphan_grandchild(
-        tmp_path
-    )
+    popen, parent_pid, grandchild_pid = _spawn_parent_with_orphan_grandchild(tmp_path)
     # Sanity: parent has exited by construction.
     assert popen.poll() is not None, "parent should have exited"
 
@@ -161,8 +159,7 @@ def test_dispose_fires_kill_tree_even_when_parent_popen_exited(
             f"pre-dispose; got {event['path']!r}"
         )
         assert event["pid"] == parent_pid, (
-            f"pid payload must match parent pid; "
-            f"got {event['pid']} vs {parent_pid}"
+            f"pid payload must match parent pid; got {event['pid']} vs {parent_pid}"
         )
         assert event["reason"] == "test_dispose_unconditional"
     finally:

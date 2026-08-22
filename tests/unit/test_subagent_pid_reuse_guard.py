@@ -63,9 +63,7 @@ def test_kill_tree_refuses_signal_on_pid_reuse(
         )
 
         # Monkeypatch current_identity to report the mismatch.
-        monkeypatch.setattr(
-            pg, "current_identity", lambda pid: forged_current
-        )
+        monkeypatch.setattr(pg, "current_identity", lambda pid: forged_current)
 
         # Capture events.
         events_captured: list[tuple[str, dict]] = []
@@ -91,9 +89,7 @@ def test_kill_tree_refuses_signal_on_pid_reuse(
 
         monkeypatch.setattr(pg, "_kill_tree_windows", _fake_kill_windows)
         monkeypatch.setattr(pg, "_kill_tree_posix", _fake_kill_posix)
-        monkeypatch.setattr(
-            pg, "_kill_descendants_only", _fake_descendants_only
-        )
+        monkeypatch.setattr(pg, "_kill_descendants_only", _fake_descendants_only)
 
         handle = ProcessGroupHandle(
             popen=decoy,
@@ -134,9 +130,7 @@ def test_kill_tree_refuses_signal_on_pid_reuse(
         )
 
         # And the decoy is still alive.
-        assert decoy.poll() is None, (
-            "decoy process must survive -- kill was refused"
-        )
+        assert decoy.poll() is None, "decoy process must survive -- kill was refused"
     finally:
         try:
             decoy.kill()
@@ -165,9 +159,7 @@ def test_kill_tree_proceeds_when_identity_matches(
             creation_time_ns=1_234_567,
         )
 
-        monkeypatch.setattr(
-            pg, "current_identity", lambda pid: matching_current
-        )
+        monkeypatch.setattr(pg, "current_identity", lambda pid: matching_current)
 
         kill_calls: list[str] = []
         monkeypatch.setattr(
@@ -192,8 +184,7 @@ def test_kill_tree_proceeds_when_identity_matches(
         kill_tree(handle)
 
         assert len(kill_calls) == 1, (
-            f"exactly one platform kill fires on identity match; "
-            f"got {kill_calls}"
+            f"exactly one platform kill fires on identity match; got {kill_calls}"
         )
     finally:
         try:

@@ -59,17 +59,15 @@ from pathlib import Path
 import pytest
 
 from ract.runtime import bind_run_id
-from ract.trace.events import _GENESIS_HASH, ChainBrokenError, EventChain
+from ract.trace.events import ChainBrokenError
 from ract.trace.writer import EventReader, JsonlEventWriter
 from ract.trace.verify import (
     TraceVerifyResult,
     _read_verify_sidecar,
     _sidecar_path_for,
-    _spot_check_tail,
     cold_verify,
     verify_trace,
 )
-from ract.sidecar_header import write_json_sidecar_with_header
 
 RUN_ID_HEX = "77" * 16
 _RUN_ID = bytes.fromhex(RUN_ID_HEX)
@@ -134,7 +132,6 @@ def test_walker_rejects_spliced_event_from_different_run(tmp_path: Path) -> None
     # The simplest tamper: rewrite event 1 to declare run_id=B.
     lines = ep_a.read_bytes().split(b"\n")
     ev0 = json.loads(lines[0])
-    ev1 = json.loads(lines[1])
     # Change run_id -- rehash would need to reflect that; but we
     # want cheap tamper detection: attacker who forgets to
     # recompute the hash is trivially caught by rehash_check.
@@ -188,9 +185,7 @@ def test_sidecar_refuses_negative_offset(tmp_path: Path) -> None:
     body["last_verified_offset"] = -1
     sc.write_text(json.dumps(body))
     # Read via the internal helper.
-    result_body = _read_verify_sidecar(
-        sidecar_path=sc, expected_run_id_hex=RUN_ID_HEX
-    )
+    result_body = _read_verify_sidecar(sidecar_path=sc, expected_run_id_hex=RUN_ID_HEX)
     assert result_body is None, "negative offset must fall back to cold"
 
 
@@ -202,9 +197,7 @@ def test_sidecar_refuses_bool_offset(tmp_path: Path) -> None:
     body = json.loads(sc.read_text())
     body["last_verified_offset"] = True  # bool subclass of int
     sc.write_text(json.dumps(body))
-    result_body = _read_verify_sidecar(
-        sidecar_path=sc, expected_run_id_hex=RUN_ID_HEX
-    )
+    result_body = _read_verify_sidecar(sidecar_path=sc, expected_run_id_hex=RUN_ID_HEX)
     assert result_body is None, "bool-as-int must fall back to cold"
 
 
@@ -214,11 +207,11 @@ def test_sidecar_refuses_non_hex_head(tmp_path: Path) -> None:
     verify_trace(events_path, run_id_hex=RUN_ID_HEX)
     sc = _sidecar_path_for(events_path, RUN_ID_HEX)
     body = json.loads(sc.read_text())
-    body["last_verified_head"] = "not_hex_at_all_zzz_" + "x" * 45  # 64 chars but non-hex
+    body["last_verified_head"] = (
+        "not_hex_at_all_zzz_" + "x" * 45
+    )  # 64 chars but non-hex
     sc.write_text(json.dumps(body))
-    result_body = _read_verify_sidecar(
-        sidecar_path=sc, expected_run_id_hex=RUN_ID_HEX
-    )
+    result_body = _read_verify_sidecar(sidecar_path=sc, expected_run_id_hex=RUN_ID_HEX)
     assert result_body is None, "non-hex head must fall back to cold"
 
 
@@ -230,9 +223,7 @@ def test_sidecar_refuses_wrong_length_head(tmp_path: Path) -> None:
     body = json.loads(sc.read_text())
     body["last_verified_head"] = "abcd" * 8  # 32 chars, half the length
     sc.write_text(json.dumps(body))
-    result_body = _read_verify_sidecar(
-        sidecar_path=sc, expected_run_id_hex=RUN_ID_HEX
-    )
+    result_body = _read_verify_sidecar(sidecar_path=sc, expected_run_id_hex=RUN_ID_HEX)
     assert result_body is None
 
 
@@ -324,7 +315,6 @@ def test_writer_truncates_torn_tail_on_reseed(
     writer = JsonlEventWriter(events_path, run_id=_RUN_ID)
     for i in range(5):
         writer.emit("run.started", {"i": i})
-    original_size = events_path.stat().st_size
 
     # Truncate the last line to make it torn.
     raw = events_path.read_bytes()
@@ -340,10 +330,9 @@ def test_writer_truncates_torn_tail_on_reseed(
     # File must have shrunk to remove the torn bytes.
     assert truncated_size < torn_size
     # And the truncation WARN must have fired.
-    assert any(
-        "truncated" in record.message.lower()
-        for record in caplog.records
-    ), "truncation WARN missing"
+    assert any("truncated" in record.message.lower() for record in caplog.records), (
+        "truncation WARN missing"
+    )
 
     # Now emit a fresh event.
     fresh = reopened.emit("step.started", {"note": "post-truncate"})

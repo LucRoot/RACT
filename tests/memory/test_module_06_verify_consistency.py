@@ -137,9 +137,7 @@ class TestReportShape:
 class TestVerifyIndexesLive:
     def test_empty_symbol_index_reports_consistent(self) -> None:
         with SymbolIndex() as sym:
-            r = verify_indexes(
-                symbol_index=sym, check_files_on_disk=False
-            )
+            r = verify_indexes(symbol_index=sym, check_files_on_disk=False)
             assert r.status == "CONSISTENT"
             assert r.symbols_checked == 0
 
@@ -171,23 +169,16 @@ class TestVerifyIndexesLive:
                     content_hash="h",
                 )
             )
-            r = verify_indexes(
-                symbol_index=sym, check_files_on_disk=True
-            )
+            r = verify_indexes(symbol_index=sym, check_files_on_disk=True)
             assert r.status == "INCONSISTENT"
             assert any(
-                i.kind == "missing_symbol_file"
-                and i.file == str(ghost)
+                i.kind == "missing_symbol_file" and i.file == str(ghost)
                 for i in r.inconsistencies
             )
             # The existing file does NOT get flagged.
-            assert not any(
-                i.file == str(good) for i in r.inconsistencies
-            )
+            assert not any(i.file == str(good) for i in r.inconsistencies)
 
-    def test_no_disk_check_skips_missing_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_no_disk_check_skips_missing_file(self, tmp_path: Path) -> None:
         with SymbolIndex() as sym:
             sym.insert_or_update(
                 _sym(
@@ -197,15 +188,11 @@ class TestVerifyIndexesLive:
                     content_hash="g",
                 )
             )
-            r = verify_indexes(
-                symbol_index=sym, check_files_on_disk=False
-            )
+            r = verify_indexes(symbol_index=sym, check_files_on_disk=False)
             assert r.status == "CONSISTENT"
 
     def test_orphan_edge_flagged(self, tmp_path: Path) -> None:
-        with SymbolIndex() as sym, GraphIndex(
-            symbol_index=sym
-        ) as graph:
+        with SymbolIndex() as sym, GraphIndex(symbol_index=sym) as graph:
             good = tmp_path / "good.py"
             good.write_text("def f(): pass\n", encoding="utf-8")
             sid = sym.insert_or_update(
@@ -242,12 +229,8 @@ class TestVerifyIndexesLive:
             )
             assert r.edges_checked >= 1
 
-    def test_dangling_edge_location_flagged(
-        self, tmp_path: Path
-    ) -> None:
-        with SymbolIndex() as sym, GraphIndex(
-            symbol_index=sym
-        ) as graph:
+    def test_dangling_edge_location_flagged(self, tmp_path: Path) -> None:
+        with SymbolIndex() as sym, GraphIndex(symbol_index=sym) as graph:
             good = tmp_path / "good.py"
             good.write_text("def f(): pass\n", encoding="utf-8")
             sid = sym.insert_or_update(
@@ -276,10 +259,7 @@ class TestVerifyIndexesLive:
                 graph_index=graph,
                 check_files_on_disk=False,
             )
-            assert any(
-                i.kind == "dangling_edge_location"
-                for i in r.inconsistencies
-            )
+            assert any(i.kind == "dangling_edge_location" for i in r.inconsistencies)
 
     def test_max_inconsistencies_truncates(self, tmp_path: Path) -> None:
         with SymbolIndex() as sym:
@@ -326,9 +306,7 @@ class TestCliVerbWiring:
         out = capsys.readouterr().out
         assert "UNAVAILABLE" in out
 
-    def test_verify_consistency_json_output(
-        self, tmp_path: Path, capsys
-    ) -> None:
+    def test_verify_consistency_json_output(self, tmp_path: Path, capsys) -> None:
         # Populate a real symbols.db so the verify runs.
         import json
 

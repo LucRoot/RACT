@@ -34,9 +34,7 @@ _MODULE_02_KINDS = ("state.budget_capped",)
 # function grouping rule seats companions into the bundle.
 _MODULE_04_KINDS = ("retrieval.grouping.applied",)
 
-_EXPECTED_MEMORY_KINDS = frozenset(
-    _NEW_KINDS + _MODULE_02_KINDS + _MODULE_04_KINDS
-)
+_EXPECTED_MEMORY_KINDS = frozenset(_NEW_KINDS + _MODULE_02_KINDS + _MODULE_04_KINDS)
 
 
 def test_seven_new_kinds_in_legal_set() -> None:

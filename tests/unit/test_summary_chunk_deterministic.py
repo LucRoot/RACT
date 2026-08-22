@@ -54,9 +54,7 @@ class TestPythonDeterministicSummary:
 
     def test_control_flow_line_present_even_when_none(self) -> None:
         summary = summarize_chunk_deterministic(_chunk())
-        assert any(
-            line.startswith("control:") for line in summary.splitlines()
-        )
+        assert any(line.startswith("control:") for line in summary.splitlines())
 
     def test_control_flow_counts_for_and_if(self) -> None:
         body = (
@@ -112,9 +110,9 @@ class TestPythonDeterministicSummary:
         body = f'def x():\n    """{long_doc}"""\n    return 1\n'
         chunk = _chunk(body=body, signature="def x():")
         summary = summarize_chunk_deterministic(chunk)
-        doc_line = [
-            line for line in summary.splitlines() if line.startswith("doc: ")
-        ][0]
+        doc_line = [line for line in summary.splitlines() if line.startswith("doc: ")][
+            0
+        ]
         assert len(doc_line) - len("doc: ") <= DOCSTRING_MAX_CHARS
 
     def test_deterministic_across_calls(self) -> None:

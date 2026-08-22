@@ -8,9 +8,7 @@ from ract.antilazy.sycophancy_v2 import classify
 
 
 class TestRegexFallback:
-    def test_syntax_error_in_python_block_triggers_fallback(
-        self, caplog
-    ) -> None:
+    def test_syntax_error_in_python_block_triggers_fallback(self, caplog) -> None:
         req = "give me the fix"
         # A python block with a syntax error — ast.parse raises
         # SyntaxError; the classifier degrades to the agreement-
@@ -54,7 +52,9 @@ class TestRegexFallback:
             resp = "```python\ndef broken(:\npass\n```\nyou are right"
             r = classify(req, resp)
             r.emit_event()
-            events = [e for e in sink.events if e.kind == "whisperer.contract_violation"]
+            events = [
+                e for e in sink.events if e.kind == "whisperer.contract_violation"
+            ]
             assert events
             assert events[0].payload["used_regex_fallback"] is True
         finally:

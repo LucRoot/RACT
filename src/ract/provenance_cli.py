@@ -26,6 +26,8 @@ def _unknown_sidecar_format() -> type[Exception]:
     # small helper so the except clause reads cleanly without a
     # bare-import-then-reference in the except line.
     return RootknotUnknownSidecarFormat
+
+
 from ract.core.rootknot import (
     _KNOWN_SCHEMA_VERSIONS,
     _ZERO_DIGEST,
@@ -118,9 +120,7 @@ def verify_artifact(
                 "F-1). Re-sign under a v3 factory or supply the missing "
                 "fields."
             )
-        return False, (
-            f"sidecar refused: {exc.reason}"
-        )
+        return False, (f"sidecar refused: {exc.reason}")
     except _unknown_sidecar_format() as exc:
         # v0.5.2 module_06 SP Q8 fold: give the operator a sharp
         # diagnostic for a named-but-unknown sidecar/vN literal
@@ -152,10 +152,7 @@ def _check_knot(
             "M-2). Upgrade the verifier or re-sign under an "
             "implemented major."
         )
-    if (
-        min_schema_version is not None
-        and knot.schema_version < min_schema_version
-    ):
+    if min_schema_version is not None and knot.schema_version < min_schema_version:
         return False, (
             f"schema_version={knot.schema_version} below policy floor "
             f"{min_schema_version}; refusing the weaker attestation "

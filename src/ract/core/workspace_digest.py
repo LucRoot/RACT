@@ -189,7 +189,9 @@ def require_prompt_digest(suite: Any) -> bytes:
     digest = getattr(suite, "prompt_digest", None)
     if digest is None:
         intent_id = getattr(suite, "intent_id", b"")
-        intent_hex = intent_id.hex() if isinstance(intent_id, (bytes, bytearray)) else ""
+        intent_hex = (
+            intent_id.hex() if isinstance(intent_id, (bytes, bytearray)) else ""
+        )
         raise PromptDigestMissingError(
             f"AcceptanceSuite {intent_hex!r} has no prompt_digest but a "
             "v0.5.1 security-critical check requires one. This can occur "
@@ -558,26 +560,20 @@ class WorkspaceDigestChain:
                 ChainEdge(
                     child=str(payload["child"]),
                     parent=payload.get("parent"),
-                    run_id=(
-                        str(raw_run_id) if raw_run_id is not None else None
-                    ),
+                    run_id=(str(raw_run_id) if raw_run_id is not None else None),
                 )
             )
         return edges
 
     def parent_of(self, child: Digest | str) -> str | None:
         """Return the parent hex digest of ``child``, or ``None`` if root/unknown."""
-        child_hex = (
-            child.hex() if isinstance(child, (bytes, bytearray)) else str(child)
-        )
+        child_hex = child.hex() if isinstance(child, (bytes, bytearray)) else str(child)
         for edge in self.edges():
             if edge.child == child_hex:
                 return edge.parent
         return None
 
-    def is_ancestor(
-        self, ancestor: Digest | str, descendant: Digest | str
-    ) -> bool:
+    def is_ancestor(self, ancestor: Digest | str, descendant: Digest | str) -> bool:
         """Return ``True`` iff ``ancestor`` lies on ``descendant``'s parent chain.
 
         Walks the parent chain from ``descendant`` upward. A descendant

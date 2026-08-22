@@ -15,26 +15,22 @@ failures -- all with the offending path.
 
 from __future__ import annotations
 
-import copy
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from ract.core.keys import SessionKey
-from ract.core.loop import WorkspaceSnapshot
 from ract.core.provenance import (
     ProvenanceIndex,
     _KnotLoadError,
     verify_workspace,
 )
 from ract.core.rootknot import (
-    GeneratorRef,
-    Rootknot,
     RootknotSchemaViolation,
     make_rootknot,
 )
-from ract.core.types import Digest, digest_bytes, make_plan_id, make_step_id
+from ract.core.types import Digest, digest_bytes
 
 
 def _registry(assumption_digest: Digest) -> dict:

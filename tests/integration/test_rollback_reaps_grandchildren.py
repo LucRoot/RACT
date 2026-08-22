@@ -43,7 +43,9 @@ def _pid_alive(pid: int) -> bool:
     if _IS_WINDOWS:
         result = subprocess.run(
             ["tasklist", "/FI", f"PID eq {pid}"],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         return str(pid) in result.stdout
     try:
@@ -108,20 +110,33 @@ def _init_repo(root: Path) -> str:
     }
     subprocess.run(
         ["git", "init", "-q", "-b", "main"],
-        cwd=str(root), check=True, env=env, capture_output=True,
+        cwd=str(root),
+        check=True,
+        env=env,
+        capture_output=True,
     )
     (root / "seed.txt").write_text("seed", encoding="utf-8")
     subprocess.run(
-        ["git", "add", "-A"], cwd=str(root), check=True, env=env,
+        ["git", "add", "-A"],
+        cwd=str(root),
+        check=True,
+        env=env,
         capture_output=True,
     )
     subprocess.run(
-        ["git", "commit", "-q", "-m", "seed"], cwd=str(root),
-        check=True, env=env, capture_output=True,
+        ["git", "commit", "-q", "-m", "seed"],
+        cwd=str(root),
+        check=True,
+        env=env,
+        capture_output=True,
     )
     result = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=str(root),
-        capture_output=True, text=True, check=True, env=env,
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+        check=True,
+        env=env,
     )
     return result.stdout.strip()
 
@@ -284,7 +299,7 @@ def test_postcondition_failure_reaps_tree(tmp_path: Path) -> None:
     """A required post-condition returning ok=False triggers rollback
     which MUST reap the tree (Lens C C-03 rollback path).
     """
-    from dataclasses import dataclass, field
+    from dataclasses import dataclass
     from ract.core.loop import WorkspaceSnapshot
     from ract.executor.loop import SubstrateStepSpec
 

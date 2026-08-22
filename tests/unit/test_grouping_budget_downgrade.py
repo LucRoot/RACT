@@ -126,7 +126,9 @@ def test_companion_downgrades_to_signature_when_full_would_not_fit(
         # SIGNATURE format returns just the signature; no fat body.
         assert "pass" not in m1_chunk.body
         # Grouping event tagged the downgraded format.
-        evts = [e for e in bundle.grouping_events if e["rule_fired"] == "dataclass_methods"]
+        evts = [
+            e for e in bundle.grouping_events if e["rule_fired"] == "dataclass_methods"
+        ]
         assert evts, "dataclass_methods rule should have fired"
         assert evts[0]["companion_format"] == ChunkFormat.SIGNATURE.value
         assert evts[0]["companion_count"] == 2

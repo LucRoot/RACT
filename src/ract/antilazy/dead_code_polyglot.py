@@ -80,7 +80,9 @@ class DeadCodePolyglotReport:
 # ---------------------------------------------------------------------------
 
 
-def _collect_python_identifiers(source: str) -> tuple[list[tuple[str, str, int, int]], set[str]]:
+def _collect_python_identifiers(
+    source: str,
+) -> tuple[list[tuple[str, str, int, int]], set[str]]:
     """Return (declarations, references) for Python source.
 
     Declarations: list of ``(name, kind, row, col)``.
@@ -111,9 +113,7 @@ def _collect_python_identifiers(source: str) -> tuple[list[tuple[str, str, int, 
         def visit_Assign(self, node: ast.Assign) -> None:  # noqa: N802
             for target in node.targets:
                 if isinstance(target, ast.Name):
-                    decls.append(
-                        (target.id, "const", node.lineno - 1, node.col_offset)
-                    )
+                    decls.append((target.id, "const", node.lineno - 1, node.col_offset))
             self.generic_visit(node)
 
         def visit_AnnAssign(self, node: ast.AnnAssign) -> None:  # noqa: N802
@@ -194,12 +194,18 @@ def _collect_from_tree(
         ntype = getattr(node, "type", "")
         if ntype in decl_types:
             name_node = field_named(node, id_field)
-            if name_node is None or getattr(name_node, "type", "") not in id_child_types:
+            if (
+                name_node is None
+                or getattr(name_node, "type", "") not in id_child_types
+            ):
                 for child in getattr(node, "children", ()) or ():
                     if getattr(child, "type", "") in id_child_types:
                         name_node = child
                         break
-            if name_node is not None and getattr(name_node, "type", "") in id_child_types:
+            if (
+                name_node is not None
+                and getattr(name_node, "type", "") in id_child_types
+            ):
                 name = node_text(name_node, src)
                 sp = getattr(name_node, "start_point", (0, 0))
                 decls.append((name, decl_types[ntype], sp[0], sp[1]))
@@ -473,7 +479,9 @@ def scan_dead_code(
             "tearDownClass",
             "default",
         }
-    per_file: dict[Path, tuple[Language, list[tuple[str, str, int, int]], set[str]]] = {}
+    per_file: dict[
+        Path, tuple[Language, list[tuple[str, str, int, int]], set[str]]
+    ] = {}
     skipped: list[str] = []
     unsupported: set[str] = set()
     for path in files:

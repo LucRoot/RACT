@@ -7,7 +7,6 @@ tests can assume a working substrate.
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 import time
@@ -58,8 +57,7 @@ def test_current_identity_matches_capture_identity_on_stable_pid() -> None:
         assert first is not None
         assert second is not None
         assert same_process(first, second), (
-            f"back-to-back identity reads must agree; "
-            f"first={first}, second={second}"
+            f"back-to-back identity reads must agree; first={first}, second={second}"
         )
     finally:
         try:

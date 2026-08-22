@@ -25,7 +25,6 @@ from ract.core.keys import SessionKey
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.provenance import ProvenanceIndex, verify_workspace
 from ract.core.rootknot import (
-    Rootknot,
     make_rootknot_v4,
 )
 from ract.core.types import Digest, digest_bytes

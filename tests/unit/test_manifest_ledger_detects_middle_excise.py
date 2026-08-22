@@ -23,7 +23,6 @@ Reference:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from ract.security.manifest_ledger import (
@@ -142,8 +141,7 @@ def test_prehistoric_entries_without_entry_index_still_verify(
 
     result = ledger.verify_chain()
     assert result.valid, (
-        "legacy entries without entry_index must still verify "
-        "(backward-compat surface)"
+        "legacy entries without entry_index must still verify (backward-compat surface)"
     )
     assert result.tail_valid_count == 5
 

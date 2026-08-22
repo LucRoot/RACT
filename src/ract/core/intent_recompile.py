@@ -127,7 +127,7 @@ def _load_operator_key(ract_dir: Path) -> bytes:
             f"operator.key at {key_path} is too short "
             f"(got {len(key_bytes)} bytes, need >= {_MIN_KEY_BYTES}). "
             f"Generate a fresh key with, e.g., "
-            f"'python -c \"import secrets; print(secrets.token_hex(32))\" "
+            f'\'python -c "import secrets; print(secrets.token_hex(32))" '
             f"> {key_path}'."
         )
     env_val = os.environ.get(OPERATOR_KEY_ENV, "").strip()
@@ -466,8 +466,12 @@ def _recompile_intent_locked(
     # SP feedback: an unconditional "smaller-than-prev" preserve
     # blocks legitimate operator removal; scope the guard to the
     # bright-line "zero required predicates" symptom.
-    prev_required = tuple(p for p in prev_suite.predicates if getattr(p, "required", False))
-    new_required = tuple(p for p in new_suite.predicates if getattr(p, "required", False))
+    prev_required = tuple(
+        p for p in prev_suite.predicates if getattr(p, "required", False)
+    )
+    new_required = tuple(
+        p for p in new_suite.predicates if getattr(p, "required", False)
+    )
     if len(new_required) == 0 and len(prev_required) > 0:
         _LOG.warning(
             "intent recompile: new compile yielded ZERO required predicates "

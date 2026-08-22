@@ -47,7 +47,9 @@ from ract.workspace_state import WORKSPACE_STATE_DIR_NAME as _RACT_DIR
 FAILURE_RECORDS_PATH: Path = Path(_RACT_DIR) / "failures" / "records.jsonl"
 """Relative location of the shipped failure records file."""
 
-APPLIED_NARROWINGS_PATH: Path = Path(_RACT_DIR) / "failures" / "applied_narrowings.jsonl"
+APPLIED_NARROWINGS_PATH: Path = (
+    Path(_RACT_DIR) / "failures" / "applied_narrowings.jsonl"
+)
 """Relative location of the applied-narrowing audit trail (module_08 Lateral E)."""
 
 

@@ -98,12 +98,9 @@ def test_build_loop_state_refuses_when_assertion_callable_missing() -> None:
         "VerifierUnavailable.predicate_id must name the failing "
         f"predicate (got {err.predicate_id!r})"
     )
-    assert err.verifier == "invariant", (
-        "verifier field should carry the predicate kind"
-    )
+    assert err.verifier == "invariant", "verifier field should carry the predicate kind"
     assert "nonexistent_module" in err.reason, (
-        "reason must name the specific failure: "
-        f"got {err.reason!r}"
+        f"reason must name the specific failure: got {err.reason!r}"
     )
 
 
@@ -117,17 +114,13 @@ def test_build_loop_state_names_first_unavailable_verifier() -> None:
     bad1 = AcceptancePredicate(
         id=new_predicate_id(),
         kind="invariant",
-        invocation=AssertionInvocation(
-            callable_ref="broken.module.one:fn"
-        ),
+        invocation=AssertionInvocation(callable_ref="broken.module.one:fn"),
         required=True,
     )
     bad2 = AcceptancePredicate(
         id=new_predicate_id(),
         kind="invariant",
-        invocation=AssertionInvocation(
-            callable_ref="broken.module.two:fn"
-        ),
+        invocation=AssertionInvocation(callable_ref="broken.module.two:fn"),
         required=True,
     )
     suite = AcceptanceSuite(
@@ -164,9 +157,7 @@ def test_build_loop_state_ignores_non_required_predicate() -> None:
     bad_optional = AcceptancePredicate(
         id=new_predicate_id(),
         kind="invariant",
-        invocation=AssertionInvocation(
-            callable_ref="does.not.exist:x"
-        ),
+        invocation=AssertionInvocation(callable_ref="does.not.exist:x"),
         required=False,
     )
     suite = AcceptanceSuite(
@@ -192,9 +183,7 @@ def test_build_loop_state_opt_out_bypasses_check() -> None:
     bad_predicate = AcceptancePredicate(
         id=new_predicate_id(),
         kind="invariant",
-        invocation=AssertionInvocation(
-            callable_ref="nonexistent:fn"
-        ),
+        invocation=AssertionInvocation(callable_ref="nonexistent:fn"),
         required=True,
     )
     suite = AcceptanceSuite(
@@ -212,9 +201,7 @@ def test_build_loop_state_opt_out_bypasses_check() -> None:
 
 def _raising_from_getattr(_ws) -> bool:
     """Intentional raise for the unexpected-exception amendment test."""
-    raise TypeError(
-        "simulated unexpected exception from callable resolution"
-    )
+    raise TypeError("simulated unexpected exception from callable resolution")
 
 
 class _CrashingAvailableProxy:

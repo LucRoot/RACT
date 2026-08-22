@@ -86,8 +86,10 @@ def test_watcher_cascades_write_to_graph_and_cache(tmp_path: Path) -> None:
             # Mutate the file so the watcher fires _reindex_write.
             source.write_text("def a(): return 2\n", encoding="utf-8")
             assert _wait_for(
-                lambda: len(graph.update_calls) >= 1
-                and watcher.stats.cache_invalidations >= 1,
+                lambda: (
+                    len(graph.update_calls) >= 1
+                    and watcher.stats.cache_invalidations >= 1
+                ),
                 watcher=watcher,
             ), f"cascade stats: {watcher.stats!r}"
         # Graph got the fresh file.
@@ -130,7 +132,10 @@ def test_watcher_cascades_delete_to_graph_semantic_and_cache(
 
 def test_periodic_scan_invokes_cache_ttl_sweep(tmp_path: Path) -> None:
     """Watcher's periodic scan invokes RetrievalCache.invalidate_expired."""
-    with RetrievalCache(tmp_path / "cache.db", ttl_seconds=1) as cache, SymbolIndex() as idx:
+    with (
+        RetrievalCache(tmp_path / "cache.db", ttl_seconds=1) as cache,
+        SymbolIndex() as idx,
+    ):
         cache.store({"q": 1}, "c1", {"b": 1}, [], ["a.py"])
         # Force stale created_at so the sweep drops the row.
         with cache._lock:

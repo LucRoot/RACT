@@ -97,9 +97,7 @@ class TestRunIdFormatValidation:
     def test_normalize_accepts_run_uuid(self) -> None:
         from ract.runtime import _normalize_run_id_or_raise
 
-        out = _normalize_run_id_or_raise(
-            "RUN-abc123def456-0000-4000-8000-000000000000"
-        )
+        out = _normalize_run_id_or_raise("RUN-abc123def456-0000-4000-8000-000000000000")
         assert out.startswith("RUN-")
 
     def test_normalize_accepts_orphan_and_legacy(self) -> None:
@@ -111,9 +109,7 @@ class TestRunIdFormatValidation:
     def test_normalize_strips_whitespace(self) -> None:
         from ract.runtime import _normalize_run_id_or_raise
 
-        assert (
-            _normalize_run_id_or_raise("  RUN-abc\n") == "RUN-abc"
-        )
+        assert _normalize_run_id_or_raise("  RUN-abc\n") == "RUN-abc"
 
     def test_normalize_refuses_path_traversal(self) -> None:
         from ract.runtime import RunIdFormatError, _normalize_run_id_or_raise
@@ -133,10 +129,7 @@ class TestRunIdFormatValidation:
         # path-shape and shell-metacharacter values.
         from ract.runtime import _normalize_run_id_or_raise
 
-        assert (
-            _normalize_run_id_or_raise("abc123def456")
-            == "abc123def456"
-        )
+        assert _normalize_run_id_or_raise("abc123def456") == "abc123def456"
 
     def test_normalize_refuses_shell_metachars(self) -> None:
         from ract.runtime import RunIdFormatError, _normalize_run_id_or_raise
@@ -162,9 +155,7 @@ class TestRunIdFormatValidation:
         with pytest.raises(RunIdFormatError):
             _normalize_run_id_or_raise("a" * 5000)
 
-    def test_bootstrap_rejects_poisoned_env_and_orphans(
-        self, monkeypatch
-    ) -> None:
+    def test_bootstrap_rejects_poisoned_env_and_orphans(self, monkeypatch) -> None:
         """The load-bearing behavior: a poisoned parent env
         does NOT crash the subagent; it falls through to
         orphan-generate. Regression for module_04 C-6 folded via

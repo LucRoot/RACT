@@ -156,7 +156,7 @@ def _kill_after_transition_script(transition: str) -> str:
     return textwrap.dedent(
         f"""
         import os, sys
-        sys.path.insert(0, {os.path.join(os.path.dirname(__file__), '..', '..', 'src')!r})
+        sys.path.insert(0, {os.path.join(os.path.dirname(__file__), "..", "..", "src")!r})
         from pathlib import Path
         from ract.core.assumption import Evidence, Violation
         from ract.core.assumption_registry import AssumptionRegistry

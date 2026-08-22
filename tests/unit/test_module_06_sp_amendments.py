@@ -66,9 +66,7 @@ class TestChecksSkippedField:
 
     def test_disk_check_disabled_recorded(self, tmp_path: Path) -> None:
         with SymbolIndex() as sym:
-            r = verify_indexes(
-                symbol_index=sym, check_files_on_disk=False
-            )
+            r = verify_indexes(symbol_index=sym, check_files_on_disk=False)
             assert "disk-existence" in r.checks_skipped
 
     def test_graph_missing_recorded(self) -> None:
@@ -93,9 +91,7 @@ class TestChecksSkippedField:
         self,
     ) -> None:
         with SymbolIndex() as sym:
-            r = verify_indexes(
-                symbol_index=sym, check_files_on_disk=False
-            )
+            r = verify_indexes(symbol_index=sym, check_files_on_disk=False)
             assert r.status == "CONSISTENT"
             # Reason must acknowledge the partial sweep.
             assert "checks skipped" in r.reason
@@ -109,8 +105,9 @@ class TestChecksSkippedField:
 
 class TestMaxInconsistenciesRefused:
     def test_zero_refused(self) -> None:
-        with SymbolIndex() as sym, pytest.raises(
-            ValueError, match=r"max_inconsistencies must be >= 1"
+        with (
+            SymbolIndex() as sym,
+            pytest.raises(ValueError, match=r"max_inconsistencies must be >= 1"),
         ):
             verify_indexes(
                 symbol_index=sym,
@@ -119,8 +116,9 @@ class TestMaxInconsistenciesRefused:
             )
 
     def test_negative_refused(self) -> None:
-        with SymbolIndex() as sym, pytest.raises(
-            ValueError, match=r"max_inconsistencies must be >= 1"
+        with (
+            SymbolIndex() as sym,
+            pytest.raises(ValueError, match=r"max_inconsistencies must be >= 1"),
         ):
             verify_indexes(
                 symbol_index=sym,
@@ -128,9 +126,7 @@ class TestMaxInconsistenciesRefused:
                 max_inconsistencies=-5,
             )
 
-    def test_cli_negative_refused(
-        self, tmp_path: Path, capsys
-    ) -> None:
+    def test_cli_negative_refused(self, tmp_path: Path, capsys) -> None:
         from ract.memory.cli_memory import memory_command
 
         # argparse-driven refusal.
@@ -170,9 +166,7 @@ class TestCheckErrorKind:
 
 
 class TestProvenanceCliUnknownSidecar:
-    def test_unknown_sidecar_yields_sharp_diagnostic(
-        self, tmp_path: Path
-    ) -> None:
+    def test_unknown_sidecar_yields_sharp_diagnostic(self, tmp_path: Path) -> None:
         """Write an artifact + sidecar with an unknown schema
         literal; verify_artifact must surface a sharp
         unknown-schema diagnostic rather than the generic

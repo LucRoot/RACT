@@ -25,7 +25,6 @@ import pytest
 from ract.sidecar_header import (
     HEADER_KIND,
     SidecarDowngradeRefused,
-    SidecarHeader,
     SidecarHeaderError,
     SidecarHeaderMissing,
     SidecarRunIdMismatch,
@@ -140,9 +139,7 @@ def test_read_header_missing_strict_raises(tmp_path: Path) -> None:
     path = tmp_path / "loop_state.json"
     path.write_text(json.dumps({"counter": 1}), encoding="utf-8")
     with pytest.raises(SidecarHeaderMissing):
-        read_sidecar_header(
-            path, sidecar_type="loop_state", strict=True
-        )
+        read_sidecar_header(path, sidecar_type="loop_state", strict=True)
 
 
 def test_read_header_run_id_mismatch_refused(tmp_path: Path) -> None:
@@ -176,9 +173,7 @@ def test_read_header_unknown_schema_refused(tmp_path: Path) -> None:
     handcraft = header.to_dict()
     handcraft["schema_version"] = 999
     path.write_text(
-        json.dumps(
-            {"sidecar_header": handcraft, "counter": 1}, sort_keys=True
-        ),
+        json.dumps({"sidecar_header": handcraft, "counter": 1}, sort_keys=True),
         encoding="utf-8",
     )
     with pytest.raises(SidecarUnknownSchema):
@@ -197,9 +192,7 @@ def test_read_header_downgrade_refused(tmp_path: Path) -> None:
         run_id="a" * 32,
     )
     with pytest.raises(SidecarDowngradeRefused) as exc_info:
-        read_sidecar_header(
-            path, sidecar_type="_test_downgrade", min_schema_version=3
-        )
+        read_sidecar_header(path, sidecar_type="_test_downgrade", min_schema_version=3)
     assert exc_info.value.header_schema_version == 2
     assert exc_info.value.min_schema_version == 3
 
@@ -208,9 +201,7 @@ def test_read_header_legacy_fallback_stamps_synthetic(tmp_path: Path) -> None:
     """Non-strict + headerless → RUN-LEGACY-* synthetic stamp."""
     path = tmp_path / "loop_state.json"
     path.write_text(json.dumps({"counter": 1}), encoding="utf-8")
-    header = read_sidecar_header(
-        path, sidecar_type="loop_state", strict=False
-    )
+    header = read_sidecar_header(path, sidecar_type="loop_state", strict=False)
     assert header.synthetic_legacy is True
     assert header.run_id.startswith("RUN-LEGACY-")
     assert len(header.run_id) == len("RUN-LEGACY-") + 16
@@ -247,9 +238,7 @@ def test_read_header_exceptions_share_base_class(tmp_path: Path) -> None:
     path = tmp_path / "loop_state.json"
     path.write_text(json.dumps({"counter": 1}), encoding="utf-8")
     with pytest.raises(SidecarHeaderError):
-        read_sidecar_header(
-            path, sidecar_type="loop_state", strict=True
-        )
+        read_sidecar_header(path, sidecar_type="loop_state", strict=True)
 
 
 # ---- Loop-state end-to-end integration -------------------------------------

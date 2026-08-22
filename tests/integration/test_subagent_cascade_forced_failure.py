@@ -97,9 +97,7 @@ def _spawn_sleeper(tmp_path: Path, label: str) -> tuple[subprocess.Popen, int]:
     """
     pid_file = tmp_path / f"pids_{label}_{time.time_ns()}.txt"
     script_file = tmp_path / f"sleeper_{label}_{time.time_ns()}.py"
-    script_file.write_text(
-        _sleep_subprocess_script(pid_file), encoding="utf-8"
-    )
+    script_file.write_text(_sleep_subprocess_script(pid_file), encoding="utf-8")
     popen = subprocess.Popen(
         [sys.executable, str(script_file)],
         stdout=subprocess.DEVNULL,
@@ -286,7 +284,6 @@ def test_run_step_exception_reaps_subagent(tmp_path: Path) -> None:
     unwind. The forced failure here is a step_runner that raises
     RuntimeError mid-flight AFTER registering a subagent.
     """
-    from ract.core.loop import WorkspaceSnapshot
 
     repo = tmp_path / "repo"
     initial = _init_repo(repo)
@@ -401,9 +398,7 @@ def test_cascade_lifo_ordering(tmp_path: Path) -> None:
     loop.register_subagent_handle(h2)
 
     loop.dispose(success=False, reason="lifo_test")
-    assert order == ["h2", "h1"], (
-        f"cascade must drain LIFO; got {order}"
-    )
+    assert order == ["h2", "h1"], f"cascade must drain LIFO; got {order}"
 
 
 @pytest.mark.timeout(60)
@@ -492,9 +487,7 @@ def test_dispose_no_ops_when_popen_already_exited(tmp_path: Path) -> None:
     # Direct dispose (not via loop cascade) -- must return True
     # without invoking kill_tree on the dead PID.
     ok = handle.dispose(reason="already_exited")
-    assert ok is True, (
-        "dispose must return True when the Popen is already dead"
-    )
+    assert ok is True, "dispose must return True when the Popen is already dead"
     assert handle._disposed is True
 
 

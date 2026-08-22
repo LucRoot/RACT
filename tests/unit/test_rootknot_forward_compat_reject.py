@@ -20,7 +20,6 @@ guessed semantics.
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -78,7 +77,6 @@ def test_verifier_side_refuses_unknown_via_construction_bypass() -> None:
     authoritative regardless.
     """
     import copy
-    import tempfile
     from pathlib import Path as _P
 
     from ract.core.keys import SessionKey

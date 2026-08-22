@@ -50,15 +50,11 @@ _TOOL_ID_ALPHABET = string.ascii_lowercase + string.digits + "_"
 
 
 def _tool_ids():
-    return st.text(
-        alphabet=_TOOL_ID_ALPHABET, min_size=1, max_size=12
-    )
+    return st.text(alphabet=_TOOL_ID_ALPHABET, min_size=1, max_size=12)
 
 
 def _arg_names():
-    return st.text(
-        alphabet=string.ascii_lowercase + "_", min_size=1, max_size=8
-    )
+    return st.text(alphabet=string.ascii_lowercase + "_", min_size=1, max_size=8)
 
 
 def _arg_values():
@@ -66,9 +62,7 @@ def _arg_values():
     return st.one_of(
         st.text(max_size=32),
         st.integers(min_value=-1_000, max_value=1_000),
-        st.floats(
-            allow_nan=False, allow_infinity=False, width=32
-        ),
+        st.floats(allow_nan=False, allow_infinity=False, width=32),
         st.booleans(),
     )
 
@@ -98,9 +92,7 @@ def _build_registry_with_one_tool(
     suppress_health_check=[HealthCheck.filter_too_much],
     deadline=None,
 )
-def test_manifest_gate_refuses_undeclared(
-    call_id: str, declared: list[str]
-) -> None:
+def test_manifest_gate_refuses_undeclared(call_id: str, declared: list[str]) -> None:
     """When ``call_id`` is not in the declared set, the manifest
     gate must refuse."""
     # Ensure the invocation is UNDECLARED.
@@ -153,9 +145,7 @@ def test_registry_gate_refuses_declared_but_unregistered(
     suppress_health_check=[HealthCheck.filter_too_much],
     deadline=None,
 )
-def test_args_gate_refuses_unknown_key(
-    unknown_arg: str, unknown_value: object
-) -> None:
+def test_args_gate_refuses_unknown_key(unknown_arg: str, unknown_value: object) -> None:
     """An arg key the tool did not declare must refuse at the
     ``args`` gate."""
     if unknown_arg == "target":
@@ -164,9 +154,7 @@ def test_args_gate_refuses_unknown_key(
     reg.register(
         ToolDefinition(
             tool_id="probe",
-            schema=ToolArgSchema(
-                args=(ToolArgSpec("target", str, optional=False),)
-            ),
+            schema=ToolArgSchema(args=(ToolArgSpec("target", str, optional=False),)),
             call=lambda **kw: kw,
         )
     )
@@ -196,9 +184,7 @@ def test_args_gate_refuses_type_mismatch(bad_value: int) -> None:
     reg.register(
         ToolDefinition(
             tool_id="probe",
-            schema=ToolArgSchema(
-                args=(ToolArgSpec("target", str, optional=False),)
-            ),
+            schema=ToolArgSchema(args=(ToolArgSpec("target", str, optional=False),)),
             call=lambda **kw: kw,
         )
     )
@@ -227,9 +213,7 @@ def test_budget_gate_refuses_when_exhausted(
     reg.register(
         ToolDefinition(
             tool_id="probe",
-            schema=ToolArgSchema(
-                args=(ToolArgSpec("target", str, optional=False),)
-            ),
+            schema=ToolArgSchema(args=(ToolArgSpec("target", str, optional=False),)),
             call=lambda **kw: {"ok": True},
         )
     )
@@ -252,9 +236,7 @@ def test_all_gates_pass_returns_tool_result() -> None:
     reg.register(
         ToolDefinition(
             tool_id="probe",
-            schema=ToolArgSchema(
-                args=(ToolArgSpec("target", str, optional=False),)
-            ),
+            schema=ToolArgSchema(args=(ToolArgSpec("target", str, optional=False),)),
             call=lambda **kw: {"echoed": kw["target"]},
         )
     )
@@ -277,9 +259,7 @@ def test_four_gates_check_in_declared_order() -> None:
     reg.register(
         ToolDefinition(
             tool_id="probe",
-            schema=ToolArgSchema(
-                args=(ToolArgSpec("target", str, optional=False),)
-            ),
+            schema=ToolArgSchema(args=(ToolArgSpec("target", str, optional=False),)),
             call=lambda **kw: kw,
         )
     )
@@ -295,8 +275,7 @@ def test_four_gates_check_in_declared_order() -> None:
         # Type mismatch AND unknown key AND missing required arg.
         gate.invoke("probe", {"bogus": 42})
     assert exc.value.gate == "manifest", (
-        "gate cascade must refuse at first failure (manifest); "
-        f"got {exc.value.gate!r}"
+        f"gate cascade must refuse at first failure (manifest); got {exc.value.gate!r}"
     )
 
 
@@ -332,9 +311,7 @@ def test_successful_invocation_emits_pre_and_post_events() -> None:
     reg.register(
         ToolDefinition(
             tool_id="probe",
-            schema=ToolArgSchema(
-                args=(ToolArgSpec("target", str, optional=False),)
-            ),
+            schema=ToolArgSchema(args=(ToolArgSpec("target", str, optional=False),)),
             call=lambda **kw: {"ok": kw["target"]},
         )
     )

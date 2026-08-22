@@ -123,8 +123,7 @@ def test_events_jsonl_carries_run_id(tmp_path: Path) -> None:
     for line in lines:
         payload = _json.loads(line)
         assert payload["run_id"] == rid_bytes.hex() == rid, (
-            f"event {payload['kind']} run_id drifted: "
-            f"{payload['run_id']!r} != {rid!r}"
+            f"event {payload['kind']} run_id drifted: {payload['run_id']!r} != {rid!r}"
         )
 
 
@@ -150,8 +149,7 @@ def test_workspace_digest_chain_carries_run_id(tmp_path: Path) -> None:
     assert len(edges) == 3
     for edge in edges:
         assert edge.run_id == rid, (
-            f"edge {edge.child[:8]}... run_id drifted: "
-            f"{edge.run_id!r} != {rid!r}"
+            f"edge {edge.child[:8]}... run_id drifted: {edge.run_id!r} != {rid!r}"
         )
 
 
@@ -453,9 +451,7 @@ def test_run_id_preserved_across_full_loop(tmp_path: Path) -> None:
         # Event log continues under the same rid via bytes.fromhex
         # decode of ambient hex.
         event_writer2 = JsonlEventWriter(events_path)
-        event_writer2.emit(
-            "step.committed", {"step": 2, "post_compaction": True}
-        )
+        event_writer2.emit("step.committed", {"step": 2, "post_compaction": True})
 
     # Final assertion: EVERY artifact on disk (across both passes)
     # carries the exact same run_id.
@@ -647,9 +643,7 @@ def test_sp_q2_wal_persist_warns_on_explicit_ambient_mismatch(
         # Hand-craft a WAL append with an explicit run_id that differs
         # from the ambient. Use the AssumptionWal directly since the
         # public registry API does not surface a run_id kwarg.
-        with caplog.at_level(
-            logging.WARNING, logger="ract.core.assumption_registry"
-        ):
+        with caplog.at_level(logging.WARNING, logger="ract.core.assumption_registry"):
             registry._persist(
                 "proposed",
                 {
@@ -709,17 +703,14 @@ def test_sp_q4_marker_mint_double_checked_under_lock(tmp_path: Path) -> None:
     assert len(results) == 4
     # All four workers agree on ONE id (double-checked pattern under lock).
     assert len(set(results)) == 1, (
-        f"marker mint race: got {len(set(results))} distinct ids "
-        f"{set(results)!r}"
+        f"marker mint race: got {len(set(results))} distinct ids {set(results)!r}"
     )
     # Marker file agrees.
     marker = run_dir / "run_id.txt"
     assert marker.read_text(encoding="utf-8").strip() == results[0]
 
 
-def test_sp_q5_wal_reload_warns_on_mixed_rid_history(
-    tmp_path: Path, caplog
-) -> None:
+def test_sp_q5_wal_reload_warns_on_mixed_rid_history(tmp_path: Path, caplog) -> None:
     """SP Q5 amendment: WAL reload emits a WARN when the ambient is
     bound AND the on-disk WAL has legacy entries without run_id.
     """
@@ -738,21 +729,16 @@ def test_sp_q5_wal_reload_warns_on_mixed_rid_history(
 
     rid = run_id_hex()
     with bind_run_id(rid):
-        with caplog.at_level(
-            logging.WARNING, logger="ract.core.assumption_registry"
-        ):
+        with caplog.at_level(logging.WARNING, logger="ract.core.assumption_registry"):
             AssumptionRegistry(wal_dir=wal_dir)
 
     assert any(
-        "found 1 legacy entries without run_id" in rec.message
-        and rid in rec.message
+        "found 1 legacy entries without run_id" in rec.message and rid in rec.message
         for rec in caplog.records
     ), "SP Q5 WARN missing or malformed"
 
 
-def test_sp_q5_wal_reload_silent_without_ambient(
-    tmp_path: Path, caplog
-) -> None:
+def test_sp_q5_wal_reload_silent_without_ambient(tmp_path: Path, caplog) -> None:
     """SP Q5 amendment corollary: no ambient bound => no WARN (the
     WARN is a mismatch-detection signal, not a legacy-entry alarm).
     """
@@ -767,14 +753,11 @@ def test_sp_q5_wal_reload_silent_without_ambient(
             "depends_on": [],
         },
     )
-    with caplog.at_level(
-        logging.WARNING, logger="ract.core.assumption_registry"
-    ):
+    with caplog.at_level(logging.WARNING, logger="ract.core.assumption_registry"):
         AssumptionRegistry(wal_dir=wal_dir)
 
     assert not any(
-        "legacy entries without run_id" in rec.message
-        for rec in caplog.records
+        "legacy entries without run_id" in rec.message for rec in caplog.records
     ), "SP Q5 WARN fired without ambient bound (should be silent)"
 
 
@@ -783,9 +766,7 @@ def test_sp_q5_wal_reload_silent_without_ambient(
 # ---------------------------------------------------------------------------
 
 
-def test_pre_v051_wal_entries_verify_silently(
-    tmp_path: Path, caplog
-) -> None:
+def test_pre_v051_wal_entries_verify_silently(tmp_path: Path, caplog) -> None:
     """A WAL entry appended before module_06 landed carries no run_id in
     the payload. The registry loads it back without raising -- the
     field is optional.

@@ -54,7 +54,6 @@ reviewer (dispatch A):
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -147,9 +146,7 @@ def test_legacy_fallback_pure_observability_read_accepts(tmp_path: Path) -> None
     from ract.runtime import set_current_run_id
 
     set_current_run_id(None)
-    header = read_sidecar_header(
-        path, sidecar_type="loop_state", strict=False
-    )
+    header = read_sidecar_header(path, sidecar_type="loop_state", strict=False)
     assert header.synthetic_legacy is True
 
 
@@ -192,9 +189,7 @@ def test_envelope_read_with_is_jsonl_true_refuses(tmp_path: Path) -> None:
         run_id="a" * 32,
     )
     with pytest.raises(SidecarHeaderMissing, match="envelope layout"):
-        read_sidecar_header(
-            path, sidecar_type="loop_state", is_jsonl=True
-        )
+        read_sidecar_header(path, sidecar_type="loop_state", is_jsonl=True)
 
 
 # ---- Ox B Q3 supplemental S1: env=None strips inherited RACT_* ------------

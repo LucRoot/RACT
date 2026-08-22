@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
 from pathlib import Path
 
 import pytest
@@ -27,7 +26,6 @@ from ract.core.keys import SessionKey
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.provenance import ProvenanceIndex
 from ract.core.types import Digest
-from ract.core.workspace_digest import compute_prompt_digest
 from ract.executor.steps import Executor
 from ract.runtime import bind_run_id
 

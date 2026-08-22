@@ -71,9 +71,7 @@ def test_load_operator_key_from_env_var(tmp_path: Path, monkeypatch) -> None:
     assert key == bytes.fromhex(hex_key)
 
 
-def test_load_operator_key_missing_raises(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_load_operator_key_missing_raises(tmp_path: Path, monkeypatch) -> None:
     empty_dir = tmp_path / ".ract-empty"
     empty_dir.mkdir()
     monkeypatch.delenv(OPERATOR_KEY_ENV, raising=False)
@@ -173,7 +171,11 @@ def test_cli_intent_verb_exists() -> None:
     """`ract intent -h` must exit cleanly (verb is wired)."""
     stderr = io.StringIO()
     stdout = io.StringIO()
-    with redirect_stdout(stdout), redirect_stderr(stderr), pytest.raises(SystemExit) as exc:
+    with (
+        redirect_stdout(stdout),
+        redirect_stderr(stderr),
+        pytest.raises(SystemExit) as exc,
+    ):
         cli_main(["intent", "-h"])
     assert exc.value.code == 0
 
@@ -234,9 +236,7 @@ def test_cli_intent_recompile_no_operator_key_refuses(
     assert "operator key" in stderr.getvalue().lower()
 
 
-def test_sp_q4a_ract_dir_resolves_to_realpath(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_sp_q4a_ract_dir_resolves_to_realpath(tmp_path: Path, monkeypatch) -> None:
     """SP Q4a amendment: caller-supplied ract_dir goes through
     Path.resolve(strict=False) so a relative path or symlink race
     cannot redirect the loader to a decoy operator.key.
@@ -253,9 +253,7 @@ def test_sp_q4a_ract_dir_resolves_to_realpath(
     assert len(key) >= 32
 
 
-def test_sp_q6b_exit_code_4_missing_suite(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_sp_q6b_exit_code_4_missing_suite(tmp_path: Path, monkeypatch) -> None:
     """SP Q6b: missing suite.json => exit code 4 (was 2)."""
     ract_dir = tmp_path / ".ract-for-4"
     ract_dir.mkdir()

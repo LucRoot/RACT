@@ -46,7 +46,7 @@ def _row(**kw) -> SymbolRow:
 def test_dataclass_methods_rule_fires_and_gathers_methods_in_body():
     with SymbolIndex() as sym:
         # Class starts at line 5, ends at line 30.
-        class_id = sym.insert_or_update(
+        sym.insert_or_update(
             _row(
                 name="User",
                 kind="class",

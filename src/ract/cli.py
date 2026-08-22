@@ -2592,7 +2592,9 @@ def _release_command(args: list[str]) -> int:
     # v0.5.1 wiring module_10 (Lens A N7): make the subverb required
     # so a bare ``ract release`` fails cleanly with argparse's error
     # instead of falling through to unreachable branches.
-    subparsers = parser.add_subparsers(dest="action", required=True, help="Release action")
+    subparsers = parser.add_subparsers(
+        dest="action", required=True, help="Release action"
+    )
 
     list_parser = subparsers.add_parser("list", help="List existing releases")
     list_parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
@@ -3990,10 +3992,16 @@ def _intent_command(args: list[str]) -> int:
     except IntentRecompileError as exc:
         msg = str(exc)
         if "has no suite.json" in msg:
-            print(f"[ract] intent recompile failed (missing suite): {exc}", file=sys.stderr)
+            print(
+                f"[ract] intent recompile failed (missing suite): {exc}",
+                file=sys.stderr,
+            )
             return 4
         if "IntentCompiler.compile failed" in msg:
-            print(f"[ract] intent recompile failed (compile error): {exc}", file=sys.stderr)
+            print(
+                f"[ract] intent recompile failed (compile error): {exc}",
+                file=sys.stderr,
+            )
             return 5
         print(f"[ract] intent recompile failed: {exc}", file=sys.stderr)
         return 2

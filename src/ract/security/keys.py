@@ -142,7 +142,9 @@ class SandboxKey:
             workspace_root = self._key_path.parent.parent.parent
         from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
 
-        archive_dir = Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "sandbox" / "archive"
+        archive_dir = (
+            Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "sandbox" / "archive"
+        )
         archive_dir.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             archive_dir.chmod(0o700)

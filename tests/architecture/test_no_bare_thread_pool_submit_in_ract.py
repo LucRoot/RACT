@@ -145,9 +145,7 @@ def _scan_file(path: Path) -> list[tuple[Path, int, str]]:
         if _is_bare_submit(node):
             findings.append((path, node.lineno, "bare .submit(callable)"))
         elif _is_asyncio_gather(node):
-            findings.append(
-                (path, node.lineno, "asyncio.gather (may drop ContextVar)")
-            )
+            findings.append((path, node.lineno, "asyncio.gather (may drop ContextVar)"))
         elif _is_run_in_executor(node):
             findings.append(
                 (
@@ -184,8 +182,7 @@ def test_no_bare_thread_pool_submit_in_src_ract() -> None:
         "Bare ThreadPoolExecutor.submit / asyncio.gather sites found in "
         "src/ract/. Wrap each callable with ract.runtime.run_with_ambient "
         "so the ambient run_id propagates into the worker context "
-        "(Lens G G-01 / Lens H C4).\n"
-        + "\n".join(offenders)
+        "(Lens G G-01 / Lens H C4).\n" + "\n".join(offenders)
     )
 
 

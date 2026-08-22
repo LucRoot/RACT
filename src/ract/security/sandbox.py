@@ -245,9 +245,7 @@ class UnenforcedSandbox:
                         "backend": self.name,
                         "allowlist_source": result.allowlist_source,
                         "scrubbed_count": result.scrubbed_count,
-                        "never_passthrough_denied": (
-                            result.never_passthrough_denied
-                        ),
+                        "never_passthrough_denied": (result.never_passthrough_denied),
                         # v0.5.1 wiring module_04 SP Q6 amendment:
                         # heuristic credential-shape detector count.
                         "credential_shaped_unblocked_count": (
@@ -261,9 +259,7 @@ class UnenforcedSandbox:
                         # ``windows_module``/``build_cache``/
                         # ``credential`` families to specific attack
                         # classes without leaking any env-var name.
-                        "refused_family_counts": dict(
-                            result.refused_family_counts
-                        ),
+                        "refused_family_counts": dict(result.refused_family_counts),
                     },
                 )
             )
