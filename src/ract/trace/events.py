@@ -150,6 +150,20 @@ EventKind = Literal[
     # signal an auditor can grep to reconstruct which descendant trees
     # a specific rollback path SIGKILL'd.
     "process.reaped",
+    # v0.5.1 spec-completeness module_02 (Lens 1A CRITICAL A-2 closure).
+    # Emitted by
+    # :func:`ract.memory.functions.provider_adapter.seat_state_section`
+    # when a state_context section is truncated to satisfy the master
+    # spec's 15%-of-input_target sub-budget cap
+    # (``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §Context
+    # Composition line 71). Payload carries ``function``,
+    # ``cap_tokens`` (floor(0.15 * input_target)),
+    # ``requested_tokens`` (pre-truncate seated size),
+    # ``seated_tokens`` (post-truncate seated size),
+    # ``dropped_entry_count`` (lines dropped by the truncation walk),
+    # and ``strategy`` (``truncate_tail`` today; future strategies may
+    # introduce ``drop_lowest_priority`` or ``summarize``).
+    "state.budget_capped",
 ]
 
 

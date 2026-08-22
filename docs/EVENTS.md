@@ -1,5 +1,5 @@
 ---
-schema_version: "5"
+schema_version: "6"
 ---
 
 # RACT event schema
@@ -593,3 +593,57 @@ tuning-band provenance behind the `floor` and `null_op_threshold`
 defaults.
 
 <!-- schema_version: 4 — v0.5.1 External Review Response (added assumption.accepted, tool.invocation.pre|post|refused, manifest.ledger.appended|refused, whisperer.contract_violation) -->
+
+## v0.5.1 spec-completeness module_02 (schema_version 6)
+
+The kind below extends the closed vocabulary under schema_version 6.
+Producer:
+
+- `state.budget_capped` — `ract.memory.functions.provider_adapter.seat_state_section`
+  (module_02 -- 15%-of-input_target sub-budget cap on the state
+  section, closes Lens 1A CRITICAL A-2).
+
+### `state.budget_capped`
+
+Emitted by
+`ract.memory.functions.provider_adapter.seat_state_section` when the
+proposed `state_context` section's token cost exceeds
+`floor(0.15 * declaration.input_target)` -- the master spec's
+sub-budget cap
+(`docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md` §Context Composition
+line 71: "state_context bounded at 15% of input budget"). The
+truncation strategy is `truncate_tail`: the helper drops trailing
+lines one at a time and appends a one-line
+`[TRUNCATED: state_context capped at N tokens; K lines dropped from
+tail]` marker; the marker counts toward the seated size so the seated
+total is `<= cap_tokens`. Future strategies may report entry drops or
+summarization; the `strategy` field names which one fired.
+
+Fields:
+
+- `function` (string; `intake` / `research` / `plan` / `edit`).
+- `cap_tokens` (int; `floor(0.15 * input_target)`).
+- `requested_tokens` (int; pre-truncate seated size).
+- `seated_tokens` (int; post-truncate seated size — always `<=
+  cap_tokens`).
+- `dropped_entry_count` (int; lines dropped by the truncation walk
+  under strategy `truncate_tail`).
+- `strategy` (string; currently only `truncate_tail`).
+- `requested_hash` (string; SHA-256 hex of the pre-truncate content
+  so the audit trail can reconstruct what was requested vs seated).
+
+Example payload:
+
+```json
+{
+  "function": "plan",
+  "cap_tokens": 600,
+  "requested_tokens": 872,
+  "seated_tokens": 599,
+  "dropped_entry_count": 14,
+  "strategy": "truncate_tail",
+  "requested_hash": "3f5e…"
+}
+```
+
+<!-- schema_version: 6 — v0.5.1 spec-completeness module_02 (added state.budget_capped) -->

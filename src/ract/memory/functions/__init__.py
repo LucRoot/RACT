@@ -87,10 +87,13 @@ from ract.memory.functions.prompts_loader import (
     verify_prompt_coverage,
 )
 from ract.memory.functions.provider_adapter import (
+    STATE_CONTEXT_CAP_FRACTION,
     MemoryFunctionProvider,
     assemble_prompt,
     refuse_over_ceiling,
+    refuse_over_max,
     seat_prompt_section,
+    seat_state_section,
 )
 from ract.memory.functions.research import (
     IndexBundle,
@@ -138,6 +141,7 @@ __all__ = [
     "ResearchBundle",
     "RiskAssessment",
     "RiskLevel",
+    "STATE_CONTEXT_CAP_FRACTION",
     "ScopeHints",
     "SignatureRow",
     "SymbolRef",
@@ -154,8 +158,10 @@ __all__ = [
     "plan",
     "prompt_path",
     "refuse_over_ceiling",
+    "refuse_over_max",
     "research",
     "seat_prompt_section",
+    "seat_state_section",
     "to_json",
     "verify_prompt_coverage",
 ]

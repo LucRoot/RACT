@@ -43,6 +43,10 @@ RETRIEVAL_SATISFIED: str = "retrieval.satisfied"
 RETRIEVAL_CASCADED: str = "retrieval.cascaded"
 RETRIEVAL_REFUSED: str = "retrieval.refused"
 PROBE_EVALUATED: str = "probe.evaluated"
+# v0.5.1 spec-completeness module_02 (Lens 1A A-2). Emitted by
+# ``seat_state_section`` when a state_context section is truncated
+# to satisfy the master spec's 15%-of-input_target sub-budget cap.
+STATE_BUDGET_CAPPED: str = "state.budget_capped"
 
 
 MEMORY_EVENT_KINDS: frozenset[str] = frozenset(
@@ -54,6 +58,7 @@ MEMORY_EVENT_KINDS: frozenset[str] = frozenset(
         RETRIEVAL_CASCADED,
         RETRIEVAL_REFUSED,
         PROBE_EVALUATED,
+        STATE_BUDGET_CAPPED,
     }
 )
 
@@ -176,6 +181,23 @@ def emit_probe_evaluated(sink: EventSink, payload: dict[str, Any]) -> None:
     _emit(sink, PROBE_EVALUATED, payload)
 
 
+def emit_state_budget_capped(sink: EventSink, payload: dict[str, Any]) -> None:
+    """Emit ``state.budget_capped`` — state_context truncated to 15% cap.
+
+    Payload keys (docs/EVENTS.md carries the schema):
+
+    - ``function`` (str) — one of ``intake / research / plan / edit``.
+    - ``cap_tokens`` (int) — ``floor(0.15 * declaration.input_target)``.
+    - ``requested_tokens`` (int) — pre-truncate seated size.
+    - ``seated_tokens`` (int) — post-truncate seated size (< cap_tokens).
+    - ``dropped_entry_count`` (int) — lines dropped by the truncation
+      walk (module_02 ships the ``truncate_tail`` strategy; future
+      strategies may report entries instead of lines).
+    - ``strategy`` (str) — currently ``truncate_tail``.
+    """
+    _emit(sink, STATE_BUDGET_CAPPED, payload)
+
+
 __all__ = [
     "BUDGET_DECLARED",
     "BUDGET_EXCEEDED",
@@ -187,6 +209,7 @@ __all__ = [
     "RETRIEVAL_REFUSED",
     "RETRIEVAL_REQUESTED",
     "RETRIEVAL_SATISFIED",
+    "STATE_BUDGET_CAPPED",
     "emit_budget_declared",
     "emit_budget_exceeded",
     "emit_probe_evaluated",
@@ -194,6 +217,7 @@ __all__ = [
     "emit_retrieval_refused",
     "emit_retrieval_requested",
     "emit_retrieval_satisfied",
+    "emit_state_budget_capped",
 ]
 
 

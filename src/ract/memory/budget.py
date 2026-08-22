@@ -71,6 +71,49 @@ class BudgetExceededError(RuntimeError):
         )
 
 
+class BudgetInputMaxExceeded(BudgetExceededError):
+    """Raised when a seated total exceeds ``declaration.input_max``.
+
+    The ``input_max`` boundary is the master spec's HARD REJECTION line
+    for a single invocation's input (spec ``The Token Budget System``,
+    line 48): assembly that exceeds ``input_max`` fails the invocation
+    with a bounded-context error, distinct from the ``hard_ceiling``
+    catastrophic gate that includes future output and reasoning
+    headroom.
+
+    Subclasses :class:`BudgetExceededError` so a caller that catches the
+    base class (existing pattern at
+    :meth:`BudgetAccountant.refuse_if_over_ceiling` sites) still catches
+    this variant. Carries three named attributes the operator directive
+    (module_02) requires: ``function_name`` (the offending function),
+    ``budget`` (the ``BudgetDeclaration`` under which the boundary
+    applied), ``actual_input_tokens`` (the seated total at refuse time).
+
+    The composition layer can catch this exception and either (a) retry
+    with narrowed context if the narrowing floor has headroom, or (b)
+    escalate to human review when narrowing is already at floor.
+    """
+
+    def __init__(
+        self,
+        *,
+        function_name: str,
+        budget: "BudgetDeclaration",
+        actual_input_tokens: int,
+        section_name: str,
+        delta: int,
+    ) -> None:
+        self.function_name = function_name
+        self.budget = budget
+        self.actual_input_tokens = actual_input_tokens
+        super().__init__(
+            declaration=budget,
+            section_name=section_name,
+            delta=delta,
+            boundary="input_max",
+        )
+
+
 class WideningRefusedError(RuntimeError):
     """Raised when a narrowing operation attempts to widen a declaration.
 
@@ -504,20 +547,29 @@ class BudgetAccountant:
         return "__none__", 0
 
     def refuse_if_over_max(self) -> None:
-        """Raise :class:`BudgetExceededError` if seated total > ``input_max``.
+        """Raise :class:`BudgetInputMaxExceeded` if seated total > ``input_max``.
 
-        Called after every ``seat`` in the module_09 assembly pipeline.
-        The exception names the offending section so the failing
-        assembly is diagnosable without re-walking the accountant.
+        Called by :func:`ract.memory.functions.provider_adapter.refuse_over_max`
+        after final section-seating in every memory-discipline function
+        (v0.5.1 module_02 wire-in — closes Lens 1A CRITICAL A-1).
+        The exception names the offending section, the ``function_name``,
+        the ``budget`` (declaration), and ``actual_input_tokens`` so the
+        composition layer can decide to retry-narrow or escalate.
+
+        Subclass note: :class:`BudgetInputMaxExceeded` extends
+        :class:`BudgetExceededError`, so a caller catching the base
+        (e.g. the sacred-spine ``refuse_if_over_ceiling`` sites) still
+        catches this variant.
         """
         if not self.over_max():
             return
         name, delta = self._offending_section(self.declaration.input_max)
-        raise BudgetExceededError(
-            declaration=self.declaration,
+        raise BudgetInputMaxExceeded(
+            function_name=self.declaration.function,
+            budget=self.declaration,
+            actual_input_tokens=self.used(),
             section_name=name,
             delta=delta,
-            boundary="input_max",
         )
 
     def refuse_if_over_ceiling(self) -> None:
@@ -551,6 +603,7 @@ __all__ = [
     "BudgetAccountant",
     "BudgetDeclaration",
     "BudgetExceededError",
+    "BudgetInputMaxExceeded",
     "BudgetNarrowing",
     "BudgetSection",
     "TokenEstimator",

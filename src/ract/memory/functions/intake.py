@@ -41,7 +41,9 @@ from ract.memory.functions.provider_adapter import (
     MemoryFunctionProvider,
     assemble_prompt,
     refuse_over_ceiling,
+    refuse_over_max,
     seat_prompt_section,
+    seat_state_section,
 )
 from ract.memory.functions.prompts_loader import (
     assert_prompt_shipped,
@@ -129,11 +131,15 @@ def intake(
         content=contract_block,
         content_hash=_hash(contract_block),
     )
-    seat_prompt_section(
+    # v0.5.1 module_02: state seated via seat_state_section which
+    # enforces the master spec's 15%-of-input_target cap. On truncation
+    # ``effective_state_block`` differs from the original; the model
+    # sees the effective content so accountant + prompt agree.
+    _state_section, effective_state_block = seat_state_section(
         active_accountant,
-        name="state",
         content=state_block,
         content_hash=_hash(state_block),
+        sink=active_sink,
     )
     seat_prompt_section(
         active_accountant,
@@ -157,12 +163,17 @@ def intake(
             "source": "default",
         },
     )
+    # v0.5.1 module_02: refuse_over_max fires FIRST (stricter gate; the
+    # input_max boundary is the spec's HARD REJECTION line). Paired
+    # with refuse_over_ceiling per the AST grep-gate at
+    # tests/architecture/test_refuse_if_over_max_wired.py.
+    refuse_over_max(active_accountant, sink=active_sink)
     refuse_over_ceiling(active_accountant, sink=active_sink)
 
     prompt = assemble_prompt(
         system=system,
         contract=contract_block,
-        state=state_block,
+        state=effective_state_block,
         bundle=bundle_block,
         inputs=inputs_block,
     )
