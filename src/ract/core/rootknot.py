@@ -265,7 +265,7 @@ class Rootknot:
             )
         if self.schema_version == 4:
             missing: list[str] = []
-            # v0.5.2 module_01 SP amendment (Ox Alpha + nemotron Q5):
+            # v0.5.2 module_01 SP amendment (Ox Alpha + cross-family Q5):
             # a ``Digest(b"\x00" * 32)`` is a truthy bytes subclass, so
             # the previous ``if not self.workspace_digest`` gate
             # accepted a zero-digest as "set". The zero sentinel binds

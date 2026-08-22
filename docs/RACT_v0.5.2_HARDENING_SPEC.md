@@ -37,7 +37,7 @@ Every module executes the full 13-step flow documented at `_BUILD/ract_v0.5.2_ha
 7. Build
 8. POST-pre Depth Chain
 9. POST-pre Lateral Chain
-10. Audit (Ox Alpha primary + nemotron_ultra cross-family)
+10. Audit (Ox Alpha primary + cross-family reviewer)
 11. POST-post Depth + Lateral
 12. BUILD-what-emerged
 13. **UX grounding** — cite user-visible impact + doc update
@@ -154,7 +154,7 @@ Closes: **DA-B F-5.1 + F-5.4** + release-close discipline.
 - CHANGELOG `[0.5.2]` section authored with per-module bullets + audit-finding cross-refs.
 - Golden hash re-locked.
 - Full pytest suite green (target: 3150+ pass with 0 failures — the 3 pre-existing failures were closed in `1043a4b`).
-- Ox Alpha + nemotron_ultra re-audit at `_BUILD/audit_2026-08-22c/` — verify all 15+13 findings from DA-A + DA-B are CLOSED or explicitly ADR-deferred with reason.
+- Ox Alpha + cross-family re-audit at `_BUILD/audit_2026-08-22c/` — verify all 15+13 findings from DA-A + DA-B are CLOSED or explicitly ADR-deferred with reason.
 - Version bump: `0.5.1` → `0.5.2` in VERSION + pyproject.toml + src/ract/__init__.py.
 - Annotated tag `v0.5.2` (body ≤ 500 chars).
 - Backup existing v0.5.1 tag as `backup-v0.5.1-preHardening`.
@@ -194,4 +194,4 @@ Push happens ONLY after operator confirmation in chat. Pipeline writes HANDSHAKE
 
 ## 9. Ox Alpha co-build discipline
 
-Every module dispatches Ox Alpha at step 6 (co-build) for design forks BEFORE code lands, in addition to step 10 (SP audit) after code lands. Ox Alpha's session-1 win rate over nemotron on rigor (module_05 SP: 3 Q3 DEFECTS Ox flagged that nemotron missed; DA-A + DA-B: 7 findings Ox added that main-agent missed) justifies this asymmetric deployment.
+Every module dispatches Ox Alpha at step 6 (co-build) for design forks BEFORE code lands, in addition to step 10 (SP audit) after code lands. Ox Alpha's session-1 win rate over the cross-family reviewer on rigor (module_05 SP: 3 Q3 DEFECTS Ox flagged that the cross-family reviewer missed; DA-A + DA-B: 7 findings Ox added that main-agent missed) justifies this asymmetric deployment.

@@ -37,7 +37,8 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import dataclass
+import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -110,9 +111,18 @@ DEFAULT_ALLOWLIST: tuple[str, ...] = (
     # Python (interpreter + stdlib; NOT PYTHONPATH which routes imports)
     "PYTHONIOENCODING",
     "PYTHONUTF8",
-    # SSL trust store paths (never the cert content itself)
-    "SSL_CERT_FILE",
-    "SSL_CERT_DIR",
+    # v0.5.2 hardening module_02 (DA-A F-3 close):
+    # ``SSL_CERT_FILE`` / ``SSL_CERT_DIR`` USED to live here so
+    # legit tools could find the trust store. The DA-A audit
+    # flagged them as trust-store hijack surfaces (an attacker
+    # who sets either pointing at an attacker-controlled bundle
+    # gets every TLS handshake inside the sandbox to succeed
+    # against a rogue CA). They are now on ``NEVER_PASSTHROUGH``
+    # instead; operators who need enterprise CA bundles inside
+    # the sandbox declare a specific path via a manifest
+    # ``sandbox.trust_store`` field (v0.6 backlog item) rather
+    # than opening the whole ``SSL_CERT_FILE`` interpretation
+    # to whatever the parent env carries.
 )
 
 
@@ -122,6 +132,7 @@ DEFAULT_ALLOWLIST: tuple[str, ...] = (
 # against a compromised manifest / allowlist file.
 NEVER_PASSTHROUGH: frozenset[str] = frozenset(
     {
+        # ---- Credential-shaped exact names (v0.5.1 baseline) ----
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
         "AWS_SESSION_TOKEN",
@@ -140,6 +151,203 @@ NEVER_PASSTHROUGH: frozenset[str] = frozenset(
         "TWINE_PASSWORD",
         "DOCKER_PASSWORD",
         "SLACK_TOKEN",
+        # ---- v0.5.2 module_02 (DA-A F-3, Ox Alpha) additions ----
+        # LIBRARY-INJECTION defense: every entry below is a
+        # code-execution / trust-boundary primitive when set on a
+        # process that later shells out. Grouped by family so an
+        # auditor can trace back to the CVE / vector class.
+        #
+        # -- Dynamic-linker family (POSIX / glibc):
+        # `LD_PRELOAD` = inject a shared object into every child;
+        # `LD_LIBRARY_PATH` = poison library resolution order;
+        # `LD_AUDIT` = load rtld-audit hooks; `GLIBC_TUNABLES` =
+        # CVE-2023-4911 Looney Tunables privilege escalation.
+        # Prefix `LD_` catches the rest (LD_BIND_NOW / LD_DEBUG /
+        # LD_ORIGIN_PATH / LD_PROFILE / LD_SHOW_AUXV / etc).
+        "LD_PRELOAD",
+        "LD_LIBRARY_PATH",
+        "LD_AUDIT",
+        "GLIBC_TUNABLES",
+        "LOCPATH",
+        "NLSPATH",
+        # -- Dynamic-linker family (macOS):
+        # `DYLD_INSERT_LIBRARIES` = macOS LD_PRELOAD equivalent
+        # (SIP-hardened for /usr/bin/* but attacker-writable for
+        # any custom binary in the sandbox); `DYLD_LIBRARY_PATH`
+        # + `DYLD_FRAMEWORK_PATH` = library-path poisoning;
+        # `DYLD_FALLBACK_*` = fallback overrides; `DYLD_ROOT_PATH`
+        # = chroot-like re-root of the loader; `DYLD_FORCE_FLAT_NAMESPACE`
+        # = merge symbols so an earlier lib wins over the real one.
+        # Prefix `DYLD_` catches the rest.
+        "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH",
+        "DYLD_FRAMEWORK_PATH",
+        "DYLD_FALLBACK_LIBRARY_PATH",
+        "DYLD_FALLBACK_FRAMEWORK_PATH",
+        "DYLD_ROOT_PATH",
+        "DYLD_PRINT_TO_FILE",
+        "DYLD_FORCE_FLAT_NAMESPACE",
+        # -- macOS malloc-family (heap tampering / logs to file):
+        # `MallocStackLogging` / `MallocLogFile` = redirect libc
+        # malloc bookkeeping to an attacker-writable file; other
+        # `MALLOC_*` under prefix.
+        "MallocStackLogging",
+        "MallocLogFile",
+        "MallocScribble",
+        "MallocPreScribble",
+        "MallocGuardEdges",
+        # -- Python interpreter injection:
+        # `PYTHONPATH` = prepend to sys.path so `import foo` loads
+        # attacker's foo; `PYTHONHOME` = re-root the whole stdlib;
+        # `PYTHONSTARTUP` = script that runs before every REPL /
+        # interactive shell; `PYTHONBREAKPOINT` = alt breakpoint()
+        # entrypoint; `PYTHONINSPECT` = drop to REPL on exit;
+        # `PYTHONUSERBASE` = re-root the user site-packages dir.
+        # NOTE: `PYTHONIOENCODING` + `PYTHONUTF8` stay on
+        # DEFAULT_ALLOWLIST -- they are I/O tuning, not code
+        # injection. Enumerated (not `PYTHON` prefix) so those
+        # two continue to pass through.
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "PYTHONSTARTUP",
+        "PYTHONBREAKPOINT",
+        "PYTHONINSPECT",
+        "PYTHONUSERBASE",
+        "PYTHONDONTWRITEBYTECODE",
+        # -- Node.js interpreter injection:
+        # `NODE_OPTIONS` accepts `--require /path/to/evil.js` and
+        # arbitrary V8 flags; `NODE_PATH` = poison module search;
+        # `NODE_EXTRA_CA_CERTS` = trust-store hijack. NODE_ENV
+        # (dev/prod/test) is a legitimate build-system knob and
+        # is left off the deny list (it never appears in default
+        # allowlist either -- operator declares in manifest if
+        # the sandbox step needs it).
+        "NODE_OPTIONS",
+        "NODE_PATH",
+        "NODE_EXTRA_CA_CERTS",
+        # -- Ruby / Perl / Java interpreter injection:
+        "RUBYOPT",
+        "RUBYLIB",
+        "RUBYPATH",
+        "PERL5OPT",
+        "PERL5LIB",
+        "PERLIO",
+        "PERL5DB",
+        # Java -- `_JAVA_OPTIONS` is auto-prepended to every JVM
+        # startup (undocumented but honored); `JAVA_TOOL_OPTIONS`
+        # is the documented equivalent; `JDK_JAVA_OPTIONS` for
+        # tools like javac; `CLASSPATH` poisons class resolution.
+        "JAVA_TOOL_OPTIONS",
+        "JDK_JAVA_OPTIONS",
+        "_JAVA_OPTIONS",
+        "CLASSPATH",
+        "JAVA_OPTS",
+        # -- Shell auto-run hooks:
+        # `BASH_ENV` runs a script on every non-interactive bash
+        # invocation; `ENV` same for POSIX sh. `PROMPT_COMMAND`
+        # runs before every prompt (interactive). `CDPATH` +
+        # `IFS` are lesser-known but classic injection primitives
+        # for scripts that `cd $var` or field-split unquoted.
+        "BASH_ENV",
+        "ENV",
+        "ZDOTDIR",  # zsh startup-file directory (co-build Fork 5 gotcha)
+        "PROMPT_COMMAND",
+        "CDPATH",
+        "IFS",
+        # -- Git tool subversion:
+        # `GIT_SSH_COMMAND` = arbitrary command executed as ssh
+        # (used by every `git fetch/push` over ssh -- so a
+        # sandbox step that runs git clone with this poisoned
+        # runs the attacker's payload); `GIT_ASKPASS` /
+        # `SSH_ASKPASS` = arbitrary command for password prompts;
+        # `GIT_EXEC_PATH` = re-root git's helper binaries;
+        # `GIT_CONFIG_GLOBAL` / `GIT_CONFIG_SYSTEM` = point git
+        # at an attacker's config (config keys include
+        # `core.sshCommand`, `core.gitProxy`, etc). `GIT_TRACE_*`
+        # writes to attacker-controlled files. `GIT_SSL_CAINFO` =
+        # trust-store hijack for git HTTPS.
+        "GIT_SSH_COMMAND",
+        "GIT_EXEC_PATH",
+        "GIT_ASKPASS",
+        "SSH_ASKPASS",
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_TRACE",
+        "GIT_TRACE_PACKET",
+        "GIT_TRACE_SETUP",
+        "GIT_SSL_CAINFO",
+        "GIT_HTTP_LOW_SPEED_LIMIT",
+        "GIT_HTTP_LOW_SPEED_TIME",
+        "GIT_PROXY_COMMAND",
+        # -- Editor invocation vectors:
+        # `EDITOR` / `VISUAL` / `PAGER` are exec'd by many CLIs
+        # (git commit, `less`, etc.) -- setting them to arbitrary
+        # commands is direct RCE inside the sandbox.
+        "EDITOR",
+        "VISUAL",
+        "PAGER",
+        "SYSTEMD_EDITOR",
+        "SYSTEMD_PAGER",
+        # -- Trust-store hijack:
+        # These USED to live on DEFAULT_ALLOWLIST (v0.5.1) so
+        # tools inside the sandbox found the system trust store.
+        # DA-A F-3 flagged the risk: an attacker with a poisoned
+        # process env can point either at an attacker-controlled
+        # bundle and every TLS handshake inside the sandbox now
+        # succeeds against a rogue CA. Moved to deny; enterprise
+        # CA bundle support is a v0.6 controlled-injection field.
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+        "REQUESTS_CA_BUNDLE",
+        "CURL_CA_BUNDLE",
+        # -- Egress redirection (upper + lower case variants;
+        # curl / requests / node all honor lower-case forms):
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "NO_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+        "no_proxy",
+        # -- Windows PowerShell hijack:
+        # `PSMODULEPATH` poisons `Import-Module` resolution --
+        # any script that Imports-Module by name loads the
+        # attacker's version. `_NT_SYMBOL_PATH` = point windbg
+        # / dbghelp at attacker payloads (network paths supported).
+        "PSMODULEPATH",
+        "_NT_SYMBOL_PATH",
+        "_NT_SYMCACHE_PATH",
+        "_NT_ALT_SYMBOL_PATH",
+        # -- Build-tool cache / config poisoning:
+        # `CARGO_HOME` / `GOPATH` / `GOMODCACHE` re-root package
+        # caches (attacker inserts a poisoned dep). `PIP_CONFIG_FILE`
+        # / `PIP_INDEX_URL` = redirect pip to attacker's index.
+        # `RUSTFLAGS` / `MAKEFLAGS` / `GOFLAGS` = arbitrary build
+        # flag injection.
+        "CARGO_HOME",
+        "GOPATH",
+        "GOMODCACHE",
+        "GOROOT",
+        "PIP_CONFIG_FILE",
+        "PIP_INDEX_URL",
+        "PIP_EXTRA_INDEX_URL",
+        "PIP_TRUSTED_HOST",
+        "RUSTFLAGS",
+        "MAKEFLAGS",
+        "GOFLAGS",
+        # -- Persistence config-root:
+        # `XDG_CONFIG_HOME` = attacker-controlled config root for
+        # every XDG-conformant tool (git if set, ssh via helpers,
+        # etc). `XDG_DATA_HOME` = same for data caches.
+        # `HOME` intentionally NOT deny-listed (git / ssh / most
+        # POSIX tools break without it); it is a residual risk
+        # documented in `docs/SUBSTRATE.md` §sandbox.env_scrubbed
+        # and mitigated by bwrap `--ro-bind` on Linux and Seatbelt
+        # on macOS. On the Windows unenforced stub, HOME is
+        # already noted as a residual risk of the stub itself.
+        "XDG_CONFIG_HOME",
+        "XDG_DATA_HOME",
     }
 )
 
@@ -149,8 +357,18 @@ NEVER_PASSTHROUGH: frozenset[str] = frozenset(
 # shapes. This prefix set catches every credential-shape family so
 # an operator declaring ``aws_access_key_id`` or ``AWS_*`` still
 # gets refused. Match is case-insensitive against the upper form.
+#
+# v0.5.2 module_02 (DA-A F-3 + Ox Alpha co-build Fork 1 verdict C):
+# add PREFIX families whose ENTIRE family is dangerous. Enumerated
+# names in `NEVER_PASSTHROUGH` above cover the KNOWN-bad specifics;
+# these prefixes cover the "next CVE hasn't been named yet" case
+# for families where every name is unsafe by construction. Prefix
+# is intentionally NOT used for PYTHON / NODE / GIT because those
+# families mix safe (PYTHONIOENCODING / NODE_ENV / GIT_AUTHOR_NAME)
+# with dangerous names -- enumeration is the right tool there.
 NEVER_PASSTHROUGH_PREFIXES: frozenset[str] = frozenset(
     {
+        # Credential-shape families (v0.5.1 baseline)
         "AWS_",
         "OPENAI_",
         "ANTHROPIC_",
@@ -165,8 +383,59 @@ NEVER_PASSTHROUGH_PREFIXES: frozenset[str] = frozenset(
         "AZURE_",
         "GCP_",
         "STRIPE_",
+        # v0.5.2 module_02 additions -- pure-danger families:
+        # `LD_*` -- glibc dynamic-linker knobs, ALL are hijack /
+        # tuning / debug primitives (LD_BIND_NOW, LD_DEBUG,
+        # LD_ORIGIN_PATH, LD_PROFILE, LD_SHOW_AUXV, ...).
+        "LD_",
+        # `DYLD_*` -- macOS dyld equivalent. All names are loader
+        # hijacks or tunables.
+        "DYLD_",
+        # `_JAVA_*` -- undocumented JVM auto-options (`_JAVA_OPTIONS`
+        # is the canonical instance).
+        "_JAVA_",
+        # `MALLOC_` -- glibc + macOS malloc-debugging redirections
+        # (MALLOC_CHECK_, MALLOC_TRACE, MALLOC_PERTURB_,
+        # MallocScribble, etc).
+        "MALLOC_",
+        # `NPM_CONFIG_` (upper-case; lowercase caught by casefold
+        # deny compare) -- every entry is a registry / cafile /
+        # ignore-scripts poisoning surface. Deny the whole family;
+        # legitimate build steps configure npm via package.json /
+        # .npmrc under the worktree, not via env.
+        "NPM_CONFIG_",
+        # `PIP_` -- pip config env vars (PIP_INDEX_URL /
+        # PIP_TRUSTED_HOST / PIP_CONFIG_FILE / PIP_CERT). Every
+        # one is either registry redirect or trust-store poison.
+        "PIP_",
     }
 )
+
+
+def _platform_case_key(name: str) -> str:
+    """v0.5.2 module_02 (DA-A M-4 + Ox Alpha co-build Fork 3 verdict A).
+
+    Return the normalized key for the ``union`` dict + the intersection
+    against process_env. On Windows the OS env block is
+    case-INsensitive; two entries ``LD_PRELOAD`` and ``ld_preload``
+    are the SAME variable to CreateProcess. Casefolding on Windows
+    prevents the union counter from double-firing AND ensures the
+    intersect step does not carry two distinct spellings of the
+    same name into the sandbox env dict (undefined which value
+    Windows loader picks when the block has duplicates).
+
+    On POSIX env names are case-SENSITIVE per POSIX; casefolding
+    would silently merge ``mode`` and ``MODE`` -- rare but real,
+    so keep raw on POSIX.
+
+    Uses ``.upper()`` NOT ``.casefold()`` on Windows to match the
+    NT invariant upcasing semantics (e.g., 'ß'.casefold() == 'ss'
+    would over-merge; Windows upcases 'ß' to 'ß'). Ox Alpha Fork 3
+    gotcha explicitly called this out.
+    """
+    if sys.platform == "win32":
+        return name.upper()
+    return name
 
 
 def _is_never_passthrough(name: str, extra_denied: frozenset[str] = frozenset()) -> bool:
@@ -286,6 +555,125 @@ def _is_credential_shaped_but_not_denied(
     return any(upper.endswith(suffix) for suffix in _CREDENTIAL_SHAPE_SUFFIXES)
 
 
+# v0.5.2 module_02 -- family classifier for the refused-name counter.
+# Maps each denied entry to a family bucket for the
+# ``sandbox.env_scrubbed`` trace event so an auditor can grep one
+# JSONL trace and see "loader-hijack tried 3x in this session"
+# without leaking any name. Order matters -- most-specific first.
+_REFUSED_FAMILY_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    # (family_name, exact_upper_names, upper_prefix_matches)
+    (
+        "loader",
+        (
+            "GLIBC_TUNABLES",
+            "LOCPATH",
+            "NLSPATH",
+        ),
+        # macOS malloc names use CamelCase (upper == "MALLOC..." with
+        # no underscore); catch via bare `MALLOC` prefix in addition
+        # to the underscored `MALLOC_` family.
+        ("LD_", "DYLD_", "MALLOC_", "MALLOC"),
+    ),
+    (
+        "interpreter",
+        (
+            "PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONBREAKPOINT",
+            "PYTHONINSPECT", "PYTHONUSERBASE", "PYTHONDONTWRITEBYTECODE",
+            "NODE_OPTIONS", "NODE_PATH",
+            "RUBYOPT", "RUBYLIB", "RUBYPATH",
+            "PERL5OPT", "PERL5LIB", "PERLIO", "PERL5DB",
+            "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "CLASSPATH", "JAVA_OPTS",
+            "BASH_ENV", "ENV", "ZDOTDIR", "PROMPT_COMMAND", "CDPATH", "IFS",
+        ),
+        ("_JAVA_",),
+    ),
+    (
+        "trust_store",
+        (
+            "SSL_CERT_FILE", "SSL_CERT_DIR",
+            "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE",
+            "NODE_EXTRA_CA_CERTS", "GIT_SSL_CAINFO",
+        ),
+        (),
+    ),
+    (
+        "egress",
+        (
+            "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+        ),
+        (),
+    ),
+    (
+        "git_tool",
+        (
+            "GIT_SSH_COMMAND", "GIT_EXEC_PATH", "GIT_ASKPASS", "SSH_ASKPASS",
+            "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM",
+            "GIT_TRACE", "GIT_TRACE_PACKET", "GIT_TRACE_SETUP",
+            "GIT_HTTP_LOW_SPEED_LIMIT", "GIT_HTTP_LOW_SPEED_TIME",
+            "GIT_PROXY_COMMAND",
+        ),
+        (),
+    ),
+    (
+        "editor",
+        ("EDITOR", "VISUAL", "PAGER", "SYSTEMD_EDITOR", "SYSTEMD_PAGER"),
+        (),
+    ),
+    (
+        "windows_module",
+        ("PSMODULEPATH",),
+        ("_NT_",),
+    ),
+    (
+        "build_cache",
+        (
+            "CARGO_HOME", "GOPATH", "GOMODCACHE", "GOROOT",
+            "RUSTFLAGS", "MAKEFLAGS", "GOFLAGS",
+            "XDG_CONFIG_HOME", "XDG_DATA_HOME",
+        ),
+        ("NPM_CONFIG_", "PIP_"),
+    ),
+    (
+        "credential",
+        # Leaf-name credentials whose prefix does NOT match one of the
+        # credential-family prefixes below (GITHUB / GH / no shared root).
+        (
+            "GITHUB_TOKEN",
+            "GH_TOKEN",
+        ),
+        (
+            "AWS_", "OPENAI_", "ANTHROPIC_", "GOOGLE_", "OPENROUTER_",
+            "DEEPSEEK_", "NPM_", "PYPI_", "TWINE_", "DOCKER_", "SLACK_",
+            "AZURE_", "GCP_", "STRIPE_",
+        ),
+    ),
+)
+
+
+def _classify_refused_family(name: str) -> str:
+    """Return the family bucket for a refused env-var name.
+
+    Used to populate ``SandboxEnvResult.refused_family_counts`` and
+    the ``sandbox.env_scrubbed`` trace event's ``refused_family_counts``
+    details dict. The family names are stable audit strings -- an
+    external SIEM correlating RACT trace events keys on these.
+
+    Falls through to ``"other"`` for a name that hits the deny surface
+    via ``extra_denied`` or ``_is_never_passthrough`` glob-shape check
+    (the operator-declared ``AWS_*`` case).
+    """
+    if any(ch in name for ch in "*?["):
+        return "glob_shape"
+    upper = name.upper()
+    for family, exacts, prefixes in _REFUSED_FAMILY_RULES:
+        if upper in exacts:
+            return family
+        for prefix in prefixes:
+            if upper.startswith(prefix):
+                return family
+    return "other"
+
+
 @dataclass(frozen=True)
 class SandboxEnvResult:
     """The scrubbed environment for one sandbox entry, plus audit info.
@@ -309,6 +697,13 @@ class SandboxEnvResult:
     - ``allowlist_source`` is one of ``"manifest"``, ``"file"``,
       ``"default"`` -- whichever source contributed the largest set of
       names; ties resolve to the more explicit source.
+    - ``refused_family_counts`` (v0.5.2 module_02) is a dict mapping
+      each family bucket ("loader", "interpreter", "trust_store",
+      "egress", "git_tool", "editor", "windows_module",
+      "build_cache", "credential", "glob_shape", "other") to the
+      count of denied allowlist entries in that bucket. Every entry
+      counted in ``never_passthrough_denied`` also increments one
+      bucket here. Empty dict when no denials fired.
     """
 
     env: dict[str, str]
@@ -316,6 +711,7 @@ class SandboxEnvResult:
     never_passthrough_denied: int = 0
     credential_shaped_unblocked_count: int = 0
     allowlist_source: str = "default"
+    refused_family_counts: dict[str, int] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -418,10 +814,19 @@ def build_sandbox_env(
     env_source = os.environ if process_env is None else process_env
 
     # Build the union allowlist in source order. A name that appears in
-    # multiple sources still lands in the union once.
-    union: dict[str, str] = {}  # name -> source
+    # multiple sources still lands in the union once. On Windows the
+    # ``_platform_case_key`` helper folds keys to upper-case so
+    # ``LD_PRELOAD`` and ``ld_preload`` are the SAME union entry --
+    # first-source-wins for attribution (v0.5.2 module_02, DA-A M-4 +
+    # Ox Alpha co-build Fork 3). Original spelling of the first
+    # declaration is preserved in ``union_original`` for downstream
+    # use (WARN log, env intersect).
+    union: dict[str, str] = {}  # key -> source
+    union_original: dict[str, str] = {}  # key -> original spelling
     for name in manifest_passthrough:
-        union.setdefault(name, "manifest")
+        k = _platform_case_key(name)
+        if union.setdefault(k, "manifest") == "manifest" and k not in union_original:
+            union_original[k] = name
     if allowlist_file is not None:
         try:
             file_entries = load_allowlist_file(allowlist_file)
@@ -432,10 +837,14 @@ def build_sandbox_env(
             # operator meant to scrub.
             raise
         for name in file_entries:
-            union.setdefault(name, "file")
+            k = _platform_case_key(name)
+            union.setdefault(k, "file")
+            union_original.setdefault(k, name)
     if include_default:
         for name in DEFAULT_ALLOWLIST:
-            union.setdefault(name, "default")
+            k = _platform_case_key(name)
+            union.setdefault(k, "default")
+            union_original.setdefault(k, name)
 
     # Apply NEVER_PASSTHROUGH denies. SP Q3(a) amendment: use
     # case-insensitive prefix + exact match so a manifest entry like
@@ -450,21 +859,32 @@ def build_sandbox_env(
     # gap; keep backward-compat by passing the name through (some
     # legitimate build systems declare ``BUILD_SIGNING_KEY_PATH``, so
     # a hard deny here would break real users).
+    #
+    # v0.5.2 module_02 amendment: every denied entry ALSO increments
+    # a ``refused_family_counts`` bucket so an auditor grepping the
+    # ``sandbox.env_scrubbed`` trace event can see "loader-hijack tried
+    # 3x this session" without any name leaking to the trace.
     extra_denied_set = frozenset(extra_denied)
     denied_hits = 0
     credential_shaped_unblocked = 0
     scrubbed_env: dict[str, str] = {}
-    denied_names: set[str] = set()
-    for name, source in union.items():
+    denied_keys: set[str] = set()
+    refused_family_counts: dict[str, int] = {}
+    for key, source in union.items():
+        name = union_original.get(key, key)
         if _is_never_passthrough(name, extra_denied_set):
             denied_hits += 1
-            denied_names.add(name)
+            denied_keys.add(key)
+            family = _classify_refused_family(name)
+            refused_family_counts[family] = refused_family_counts.get(family, 0) + 1
             _LOG.warning(
-                "sandbox_env: denied allowlist entry %r (source=%s); "
-                "in NEVER_PASSTHROUGH — the substrate refuses to pass "
-                "credential-shaped names into the sandbox",
+                "sandbox_env: denied allowlist entry %r (source=%s, "
+                "family=%s); in NEVER_PASSTHROUGH — the substrate "
+                "refuses to pass library-injection / credential-shaped "
+                "names into the sandbox",
                 _redact_name_for_log(name),
                 source,
+                family,
             )
             continue
         if _is_credential_shaped_but_not_denied(name, extra_denied_set):
@@ -479,13 +899,28 @@ def build_sandbox_env(
                 _redact_name_for_log(name),
                 source,
             )
-        if name in env_source:
-            scrubbed_env[name] = env_source[name]
+        # Intersect against process env. On Windows the process env
+        # is case-insensitive so we look up by the folded key against
+        # every process_env entry (there may be multiple case variants
+        # if the process was launched by a POSIX shim -- shouldn't
+        # happen but defensive). On POSIX, exact match against the
+        # original spelling.
+        if sys.platform == "win32":
+            for env_name, env_val in env_source.items():
+                if _platform_case_key(env_name) == key:
+                    scrubbed_env[env_name] = env_val
+                    break
+        else:
+            if name in env_source:
+                scrubbed_env[name] = env_source[name]
 
-    # Count names in process env that were NOT allowlisted.
+    # Count names in process env that were NOT allowlisted. On Windows
+    # fold both sides via _platform_case_key so `ld_preload` in the
+    # process env counts as scrubbed against a `LD_PRELOAD` denied key.
     scrubbed_count = 0
-    for name in env_source:
-        if name not in union or name in denied_names:
+    for env_name in env_source:
+        k = _platform_case_key(env_name)
+        if k not in union or k in denied_keys:
             scrubbed_count += 1
 
     if scrubbed_count > 0:
@@ -518,6 +953,7 @@ def build_sandbox_env(
         never_passthrough_denied=denied_hits,
         credential_shaped_unblocked_count=credential_shaped_unblocked,
         allowlist_source=primary,
+        refused_family_counts=dict(refused_family_counts),
     )
 
 
@@ -531,10 +967,14 @@ __all__ = [
     "AllowlistFileMalformed",
     "DEFAULT_ALLOWLIST",
     "NEVER_PASSTHROUGH",
+    "NEVER_PASSTHROUGH_PREFIXES",
     "SandboxEnvResult",
     "build_sandbox_env",
     "default_allowlist_path",
     "load_allowlist_file",
+    # v0.5.2 module_02:
+    "_classify_refused_family",
+    "_platform_case_key",
 ]
 
 
