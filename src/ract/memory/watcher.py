@@ -241,10 +241,30 @@ class SymbolIndexWatcher:
                 to_process.append((path, deleted))
         for path, deleted in to_process:
             try:
-                if deleted or not path.exists():
+                # v0.5.2 module_06 (DA-B F-5.4): resolve delete-vs-
+                # write by the FILE'S ACTUAL EXISTENCE AT FLUSH TIME
+                # rather than the enqueued flag. Rationale: on
+                # network shares (SMB / NFS) watchdog's on_moved
+                # src-delete + dest-create pair can arrive reordered,
+                # and even a same-path rename A -> A.tmp -> A cycle
+                # (VSCode-style atomic write) can leave the enqueued
+                # ``deleted=True`` for a path that IS present again
+                # at flush time. Trusting the flag would invalidate
+                # a freshly-written entry -> stale cache-miss window.
+                # Trusting the disk closes that race. Only delete
+                # when the flag AND absence agree; otherwise re-index
+                # as a write. (Content-hash disambiguation was
+                # considered and DEFERRED to v0.6 -- existence-check
+                # is O(1) syscall vs O(file) hash cost.)
+                if deleted and not path.exists():
                     self._reindex_delete(path)
-                else:
+                elif path.exists():
                     self._reindex_write(path)
+                else:
+                    # Flag says write but the file is gone; treat
+                    # as a delete so downstream indexes drop the
+                    # stale rows.
+                    self._reindex_delete(path)
             except Exception as exc:  # pragma: no cover - defensive
                 self.stats.parse_errors += 1
                 LOG.warning("watcher failed on %s: %s", path, exc)
