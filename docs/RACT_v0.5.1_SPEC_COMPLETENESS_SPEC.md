@@ -106,37 +106,45 @@ Addresses **audit Lens 1C MEDIUM** (`format_chunk(SUMMARY, ...)` returns "summar
 - Update `chunker.py` sub-chunking: replace blank-line heuristic with per-language AST boundary walker (for/while/if/else/try/except regions per spec §Chunk Overflow).
 - **Regression:** oversize function → sub-chunks with correct AST boundaries; SUMMARY format returns non-"summary unavailable" content.
 
-### module_06 — Failure-learning nightly job + human-review queue + retrieval-strategy adjustment surface
+### module_06 — CANCELLED per Ox Alpha adversarial review 2026-08-21
 
-Addresses **audit Lens 1F MEDIUM**.
+**Original scope** (deferred): Failure-learning nightly job + human-review queue + retrieval-strategy adjustment surface (audit Lens 1F MEDIUM).
 
-- New: `src/ract/memory/nightly.py` — scheduled job (via existing scheduler infra OR add cron-adjacent scheduler if none exists):
-  - Reads failure records aggregated over trailing 7d
-  - Proposes budget narrowings (already implemented in `failure_records.aggregate`)
-  - Writes proposals to `.ract/memory/proposals.jsonl` (append-only)
-  - CLI verb `ract memory review-proposals` — enumerates pending; operator applies with `ract memory apply-proposal <id>`
-- Retrieval-strategy adjustment: extend `failure_records.aggregate` to propose default-format changes (e.g., "function X consistently fails at FULL, try BODY_ONLY default"). Wire proposal into `retrieve.py` default-format-per-function lookup.
-- **Regression:** simulate failure stream → verify nightly job proposes narrowings + retrieval-strategy changes; `apply-proposal` writes to override file.
+**Cancellation rationale** (Ox Alpha critique verbatim, `_BUILD/ract_v0.5.1_spec_completeness/ox_alpha_reviews/pipeline_challenge_2026-08-21.md` §1): *"A human-review queue with no operator workflow is dead code on arrival. An 'adjustment surface' with no retrieval-path reader is the primitive-without-wiring trap, pre-committed. ADR it to v0.6 exactly like ADR-0043/0044. This also shrinks your highest-risk module out of existence before it can hurt you."*
+
+**Deferral:** ADR-0045 — "Failure-learning nightly job + human-review queue + retrieval-strategy adjustment deferred to v0.6" (authored in module_08's docs pass; formalizes the deferral analogously to ADR-0043 DSPy + ADR-0044 LeWM).
+
+**Impact:** pipeline shortens from 8 to 7 modules. module_07 + module_08 keep their numbers (renumbering would corrupt ledger provenance). module_08's re-audit hardened per Ox Alpha §3 (4 sneak-vector defenses).
 
 ### module_07 — Lens 2 remaining deltas: verifier availability pre-check + SubagentHandle cascade + index_digest equivalence
 
-Addresses **audit Lens 2 Deltas 2, 3, 4**.
+Addresses **audit Lens 2 Deltas 2, 3, 4**. **Hardened per Ox Alpha adversarial review 2026-08-21 §2**.
 
-- **Verifier availability pre-check:** `predicate.available(snapshot: WorkspaceSnapshot) -> bool`. Called during `build_loop_state` — if any predicate's verifier is unavailable (tool missing, config missing), loop refuses to enter with clear error naming the missing verifier. Currently unavailability surfaces only when the predicate fires.
-- **SubagentHandle wired to compensator stack:** when Legacy Whisperer / Chesterton's Fence / other subagent-shaped operations spawn, register their handle with the compensator stack. On parent loop halt (non-T1), cascade dispose to all subagent handles.
-- **`index_digest()` on 3 indexes:** each of symbol/graph/semantic exposes `.digest()` returning hash of internal state (log prefix hash + config hash + content hash). Consumer (retrieve) short-circuits reload if digest unchanged.
-- **Regression:** each fix has an integration test.
+- **Verifier availability pre-check:** `predicate.available(snapshot: WorkspaceSnapshot) -> bool`. Called during `build_loop_state` — if any predicate's verifier is unavailable (tool missing, config missing), loop refuses to enter with clear error naming the missing verifier.
+- **SubagentHandle wired to compensator stack:** register handle with compensator stack; on parent loop halt (non-T1), cascade dispose. **Ox Alpha requirement:** integration test that **FORCES a subagent failure end-to-end** and asserts cascade fires — not unit tests of the cascade in isolation. A cascade with only isolated unit tests is unwired-in-anger.
+- **`index_digest()` on 3 indexes:** each of symbol/graph/semantic exposes `.digest()` returning hash of internal state. **Ox Alpha requirement:** module plan MUST name the exact production caller that short-circuits reload on unchanged digest, BEFORE build starts. If no named caller exists, this sub-item is CANCELLED (utility functions with green tests + zero production callers are the classic residue of wiring pipelines).
+- **Regression:** each fix has an integration test; cascade test forces failure; digest test asserts named-caller consumption.
 
-### module_08 — Release close + re-verify audit + re-tag v0.5.1 (third)
+### module_08 — Release close + re-verify audit + ADR-0045 + re-tag v0.5.1 (third)
 
 - Full pytest suite green.
 - Golden hash re-locked.
-- **Re-run source-spec audit** at `_BUILD/audit_2026-08-21d/` — verify items 1, 2, 3, 6-fix-or-defer, 8, 9, 10 CLOSED; items 4, 5, 7 explicitly DEFERRED (with false claims removed).
+- ADR-0045 authored (module_06 cancellation → v0.6 deferral, per Ox Alpha §1).
+- **Re-run source-spec audit** at `_BUILD/audit_2026-08-21d/` — verify items 1, 2, 3, 6-fix-or-defer, 8, 10 CLOSED; items 4, 5, 7, 9 explicitly DEFERRED via ADR (nightly failure job now item 9, deferred via ADR-0045).
+
+**Ox Alpha §3 hardening of re-audit (MANDATORY — 4 sneak-vector defenses):**
+- **Scope-narrowing via ADR:** re-audit reports TWO numbers per lens — (a) open against original spec, (b) open against ADR-amended spec. Delta is the honesty metric. Every ADR-deferred item appears in final report as a counted line with owner + version target (deferred is a STATUS, not a closure).
+- **Auditor capture via excerpt selection:** SP prompts do NOT allow the primary to hand-pick spec excerpts. Give SP the full section list with SHA hashes; SP picks OR pre-commit a random seed for sampling. Documented in module_08 SP prompt template.
+- **Test-oracle circularity:** one cold-read exercise — an agent that has NOT seen the code reads the spec and states what it believes v0.5.1 does; diff against reality. Divergence surfaces reading-error tests bake in.
+- **Severity laundering:** every "by-design" reclassification requires SP approval, not builder assertion. Grep for reclassifications in module fragments; each must have SP citation.
+
+**Ox Alpha CHANGELOG-presence retroactive gate:** grep `[0.5.1]` for named appearance of each shipped module (02 budget hardening, 03 write-first + repair, 04 grouping, 05 SUMMARY chunk, 07 verifier availability + cascade + digest). Missing → block re-tag until CHANGELOG updated.
+
 - Version stays `0.5.1`.
-- CHANGELOG `[0.5.1]` reflects final state (from module_01 rewrite + this pipeline's additions).
+- CHANGELOG `[0.5.1]` reflects final state (from module_01 rewrite + this pipeline's additions + ADR-0045 deferral).
 - Backup old tag: `git tag backup-v0.5.1-preSpecCompleteness v0.5.1`.
 - Re-tag `v0.5.1` at module_08 close commit.
-- HANDSHAKE_PUSH_COMMANDS.md written with explicit gating language.
+- HANDSHAKE_PUSH_COMMANDS.md written with explicit gating language ("HANDSHAKE REQUIRED. Operator must explicitly execute...").
 - **NO PUSH.**
 
 ## 5. Gate matrix additions
@@ -157,6 +165,10 @@ Addresses **audit Lens 2 Deltas 2, 3, 4**.
 | SubagentHandle cascades on parent halt | integration test | 07 |
 | index_digest short-circuits reload | integration test | 07 |
 | 8-lens audit re-verify | ad-hoc | 08 |
+| **Ox Alpha CHANGELOG-presence gate:** every shipped module appears in `[0.5.1]` with behavior change described | test_release_surface.py grep-gate (retroactive on 02/03/04/05/07; forward on 08 close) | 08 |
+| **Ox Alpha module_08 §3 4-vector re-audit hardening** | module_08 audit prompt template + report shape | 08 |
+| **Ox Alpha named-caller requirement** for module_07 index_digest sub-item | in-plan review before build | 07 |
+| **Ox Alpha forced-failure integration test** for module_07 SubagentHandle cascade | tests/integration/test_subagent_cascade_forced_failure.py | 07 |
 
 ## 6. Second-Pass discipline update
 
