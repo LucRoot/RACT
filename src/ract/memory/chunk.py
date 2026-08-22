@@ -14,10 +14,15 @@ seed a chunk since exact-name matches never touch the semantic store.
 - ``FULL`` — full body (as stored). Default cascade level 1 output.
 - ``BODY_ONLY`` — body without any prepended signature.
 - ``SIGNATURE`` — signature only; empty body. Cascade downgrade output.
-- ``SUMMARY`` — provider-generated one-line summary. Placeholder here;
-  a real provider integration lands in a later module. When no summary
-  is available the returned chunk carries ``body = "summary unavailable"``
-  and ``summary_pending = True`` (Flagged gap for module_06 wiring).
+- ``SUMMARY`` — chunk summary. Since module_05 (v0.5.1 spec-
+  completeness pipeline) the SUMMARY branch produces an AST-
+  deterministic body via :func:`ract.memory.summary.summarize_chunk_deterministic`
+  (signature + first-line docstring + control-flow shape + up to ten
+  external-call targets). :attr:`Chunk.summary_pending` is ``False``
+  whenever the deterministic summary produced a non-empty body. The
+  ``provider`` hook is preserved unchanged as the v0.6 slot for a
+  Bonsai-council model summarizer (deferred per ADR-0046); when a
+  provider is supplied its output takes precedence.
 
 :func:`chunk_from_symbol` composes a :class:`Chunk` from a
 :class:`~ract.memory.symbol_index.SymbolRow` + the source bytes.
@@ -50,9 +55,12 @@ class ChunkFormat(enum.Enum):
 
     Master spec §The retrieve primitive lists four values. FULL is the
     default (cascade level 1). BODY_ONLY drops the prepended signature.
-    SIGNATURE emits the declaration only. SUMMARY delegates to a
-    provider; the placeholder returns ``"summary unavailable"`` until
-    the module_06 provider wiring lands.
+    SIGNATURE emits the declaration only. SUMMARY returns an AST-
+    deterministic body via
+    :func:`ract.memory.summary.summarize_chunk_deterministic`
+    (module_05); the Bonsai-council model-based summarizer path is
+    deferred to v0.6 per ADR-0046 and slots into the ``provider``
+    parameter of :func:`format_chunk` unchanged.
     """
 
     FULL = "full"
@@ -249,11 +257,20 @@ def format_chunk(
 ) -> Chunk:
     """Return a new :class:`Chunk` rendered under ``format``.
 
-    Pure for FULL / BODY_ONLY / SIGNATURE. Delegates to
-    ``provider.summarize(chunk)`` when ``format is SUMMARY`` and a
-    provider is supplied; otherwise returns a chunk whose body is
-    ``"summary unavailable"`` and whose :attr:`Chunk.summary_pending`
-    is ``True``. A real provider wiring lands in module_06.
+    Pure for FULL / BODY_ONLY / SIGNATURE. For SUMMARY:
+
+    - When ``provider`` is supplied and exposes ``summarize(chunk)``,
+      provider output is used (v0.6 hook; ADR-0046 slot for the
+      deferred Bonsai-council model-based summarizer). Sets
+      :attr:`Chunk.summary_pending` to ``False``.
+    - Otherwise (the shipping path in v0.5.1) an AST-deterministic
+      summary body is produced via
+      :func:`ract.memory.summary.summarize_chunk_deterministic`:
+      signature + first-line docstring + control-flow shape + up to
+      ten external-call targets. Sets :attr:`Chunk.summary_pending`
+      to ``False`` when the deterministic body is non-empty, ``True``
+      only in the degenerate case of an empty deterministic body
+      (a chunk with empty ``body`` and empty ``signature``).
 
     Token-count is recomputed against the rendered body via the
     shipped :func:`~ract.memory.parser.estimate_tokens` so a caller
@@ -270,13 +287,21 @@ def format_chunk(
         new_body = chunk.signature
         pending = False
     elif format is ChunkFormat.SUMMARY:
-        if provider is None or not hasattr(provider, "summarize"):
-            new_body = "summary unavailable"
-            pending = True
-        else:
+        if provider is not None and hasattr(provider, "summarize"):
             summarized = provider.summarize(chunk)
             new_body = str(summarized)
             pending = False
+        else:
+            # Avoid a top-level import cycle: chunk.py -> summary.py
+            # would re-enter chunk.py under TYPE_CHECKING for typing.
+            from ract.memory.summary import summarize_chunk_deterministic
+
+            new_body = summarize_chunk_deterministic(chunk)
+            # summary_pending is only True in the degenerate case
+            # (no signature, no docstring, no calls, no control flow —
+            # which today still produces "control: none" so the body
+            # is never fully empty; pending stays False).
+            pending = not bool(new_body)
     else:
         raise ValueError(f"format_chunk: unknown format {format!r}")
     return Chunk(

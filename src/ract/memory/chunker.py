@@ -14,18 +14,42 @@ The chunker does NOT own vector embedding or storage. That is
 Chunking is pure over ``(SymbolRow, source_bytes)`` so unit tests can
 compose synthetic scenarios without an embedder or a LanceDB store.
 
+Sub-chunk boundary discipline (module_05, v0.5.1 spec-completeness):
+per-language AST walkers own the sub-chunk boundary set. Python uses
+stdlib :mod:`ast` (:func:`_split_python_ast_boundaries`) — walks the
+outer function / class body and cuts at ``for`` / ``while`` / ``if`` /
+``try`` statements (each control-flow statement is its own sub-chunk
+plus a straight-line pre-block prefix). Non-Python languages
+(TypeScript / JavaScript / Rust / Go) fall back to the shared
+blank-line-group heuristic (:func:`_split_blank_line_groups`) because
+their tree-sitter parsers are heavy to reload per sub-split; full AST
+boundary support for those languages is deferred alongside the five
+missing language chunkers (Java / Kotlin / C# / C / C++) per Lens 1C
+finding 2 (HIGH). The dispatch is explicit in
+:func:`_split_semantic_boundaries` and the method used is recorded
+via :data:`SUB_CHUNK_METHOD_AST` / :data:`SUB_CHUNK_METHOD_BLANK_LINE`.
+
 Sub-chunk overflow behaviour (Second Pass Q3): when a single logical
 sub-chunk still exceeds :data:`MAX_TOKENS_PER_CHUNK`, the chunker
 emits it as-is with :data:`OVERSIZE_WARNING_KEY` set in the chunk
 locator's metadata and issues a Python ``warnings.warn`` call named
 :class:`OversizeChunkWarning`. The rationale: emit the sub-chunk so
 retrieval can still surface the region; the SUMMARY chunking fallback
-from master spec §Chunk overflow item 2 defers to module_05 (retrieve
-primitive), where :func:`summarize_chunk` will call a provider.
+from master spec §Chunk overflow item 2 fires at the retrieve primitive
+via :func:`ract.memory.chunk.format_chunk` in SUMMARY mode
+(:func:`ract.memory.summary.summarize_chunk_deterministic`
+AST-deterministic body, module_05; ADR-0046 pins the Bonsai model path
+as v0.6).
+
+Byte-identical reassembly: concatenating the sub-chunk bodies in
+locator order reproduces the original body byte-for-byte. This is a
+hard invariant asserted by
+:mod:`tests.property.test_ast_sub_chunks_cover_function_body`.
 """
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import time
 import warnings
@@ -50,6 +74,16 @@ CHUNK_KIND_DECLARATION: str = "declaration"
 
 OVERSIZE_WARNING_KEY: str = "oversize"
 """Chunk locator prefix marking a sub-chunk that still exceeds the token cap."""
+
+SUB_CHUNK_METHOD_AST: str = "ast_boundaries"
+"""Marker: sub-chunk boundaries were derived from a stdlib AST walk
+(Python only in v0.5.1; TS / Rust / Go land in v0.6)."""
+
+SUB_CHUNK_METHOD_BLANK_LINE: str = "blank_line_heuristic_fallback"
+"""Marker: sub-chunk boundaries were derived from the blank-line-group
+heuristic (all non-Python languages in v0.5.1, and the Python fallback
+when :func:`ast.parse` raises on a body sliced from a syntactically
+incomplete outer scope)."""
 
 
 class OversizeChunkWarning(UserWarning):
@@ -149,18 +183,12 @@ def _chunk_id(
     return hasher.hexdigest()
 
 
-def _split_semantic_boundaries(body: str) -> list[str]:
-    """Split ``body`` at logical boundaries: blank-line groups.
+def _split_blank_line_groups(body: str) -> list[str]:
+    """Language-agnostic fallback splitter: blank-line-group split.
 
-    A production sub-chunker would parse the AST for the body and
-    split at for / while / if / try boundaries; that requires re-
-    parsing the source with the per-language grammar, which is out of
-    scope for module_04's chunker layer (module_02 owns tree-sitter
-    parsing per language). This module ships a language-agnostic
-    heuristic: split at runs of blank lines. The heuristic preserves
-    the "each sub-chunk carries the parent function's signature"
-    requirement because the caller (:func:`chunk_symbol`) prepends
-    the signature after splitting.
+    Preserves the "each sub-chunk carries the parent function's
+    signature" requirement because :func:`chunk_symbol` prepends the
+    signature after splitting.
 
     If ``body`` has no blank-line groups, returns ``[body]`` and the
     caller falls back to line-count splitting to hit the cap.
@@ -187,6 +215,161 @@ def _split_semantic_boundaries(body: str) -> list[str]:
     if not pieces:
         pieces = [body]
     return pieces
+
+
+def _split_python_ast_boundaries(body: str) -> list[str] | None:
+    """Split ``body`` at Python AST control-flow boundaries.
+
+    Returns ``None`` when the body is not parseable by stdlib
+    :mod:`ast` (caller falls back to blank-line-group heuristic). This
+    is common when the chunker is handed a body sliced from an outer
+    scope whose surrounding braces / decorators are unmatched.
+
+    Boundary rule (spec §Chunk Overflow "Semantic sub-chunking at
+    logical boundaries"):
+
+    - Parse the body.
+    - When the top-level construct is a function / async function /
+      class definition, walk THAT construct's inner body.
+    - When the body is a bare statement list (already sliced to a
+      function body), walk it directly.
+    - Cut between straight-line statement runs and control-flow
+      statements (``For`` / ``AsyncFor`` / ``While`` / ``If`` /
+      ``Try``). Each control-flow statement becomes its own sub-
+      chunk; consecutive straight-line statements group into one
+      preceding piece.
+
+    Byte-identical reassembly is guaranteed because the splitter
+    walks statement boundaries and reassembles by slicing the ORIGINAL
+    body bytes between :attr:`ast.stmt.lineno` /
+    :attr:`ast.stmt.end_lineno` markers (inclusive of the line
+    terminator character), producing pieces whose concatenation
+    reproduces the original body.
+    """
+    try:
+        tree = ast.parse(body)
+    except SyntaxError:
+        return None
+
+    # Identify the statement list we walk over.
+    inner: list[ast.stmt]
+    if (
+        len(tree.body) == 1
+        and isinstance(
+            tree.body[0], (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        )
+    ):
+        inner = list(tree.body[0].body)
+    else:
+        inner = list(tree.body)
+
+    if not inner:
+        return None
+
+    lines = body.splitlines(keepends=True)
+    total_lines = len(lines)
+
+    def _slice_lines(start_line_1indexed: int, end_line_1indexed: int) -> str:
+        # ast lineno / end_lineno are 1-indexed inclusive. Convert to
+        # 0-indexed slice-friendly form. Clamp end_lineno defensively.
+        s = max(0, start_line_1indexed - 1)
+        e = min(total_lines, end_line_1indexed)
+        return "".join(lines[s:e])
+
+    def _is_control_flow(node: ast.stmt) -> bool:
+        return isinstance(
+            node, (ast.For, ast.AsyncFor, ast.While, ast.If, ast.Try)
+        )
+
+    # Build (start_line, end_line) segments. Every straight-line run
+    # becomes one segment; every control-flow statement is its own
+    # segment. All boundaries fall on stmt boundaries so line ranges
+    # are contiguous.
+    segments: list[tuple[int, int]] = []
+    run_start: int | None = None
+    run_end: int | None = None
+
+    def _flush_run() -> None:
+        nonlocal run_start, run_end
+        if run_start is not None and run_end is not None:
+            segments.append((run_start, run_end))
+        run_start = None
+        run_end = None
+
+    for stmt in inner:
+        lineno = stmt.lineno
+        end_lineno = getattr(stmt, "end_lineno", None) or lineno
+        if _is_control_flow(stmt):
+            _flush_run()
+            segments.append((lineno, end_lineno))
+        else:
+            if run_start is None:
+                run_start = lineno
+            run_end = end_lineno
+    _flush_run()
+
+    if len(segments) < 2:
+        # A body that produced a single segment offers no boundary
+        # advantage over emitting the whole body; fall back to the
+        # blank-line heuristic for consistency with existing behaviour.
+        return None
+
+    # Stretch segments so line ranges are contiguous — the very first
+    # segment must start at line 1, the very last must end at
+    # ``total_lines``, and each segment ends immediately before the
+    # next one begins. This guarantees byte-identical reassembly.
+    contiguous: list[tuple[int, int]] = []
+    prev_end = 0
+    for idx, (start, end) in enumerate(segments):
+        adj_start = prev_end + 1 if prev_end else 1
+        adj_end = end
+        if idx == len(segments) - 1:
+            adj_end = max(adj_end, total_lines)
+        # If the AST-reported start of this segment jumped over blank
+        # lines that had no statement, absorb those into this segment
+        # (so the concatenation covers every byte).
+        contiguous.append((adj_start, adj_end))
+        prev_end = adj_end
+
+    pieces: list[str] = []
+    for start_line, end_line in contiguous:
+        piece = _slice_lines(start_line, end_line)
+        if piece:
+            pieces.append(piece)
+
+    if not pieces:
+        return None
+    # Byte-identical reassembly check (defensive; asserted by
+    # tests/property/test_ast_sub_chunks_cover_function_body).
+    if "".join(pieces) != body:
+        return None
+    return pieces
+
+
+def _split_semantic_boundaries(
+    body: str, language: str | None
+) -> tuple[list[str], str]:
+    """Return ``(pieces, method)`` for the sub-chunk split of ``body``.
+
+    Dispatches per ``language``:
+
+    - ``"python"`` → :func:`_split_python_ast_boundaries` (stdlib
+      :mod:`ast`). On parse failure (partial-parse body), falls
+      through to the blank-line heuristic with method
+      :data:`SUB_CHUNK_METHOD_BLANK_LINE`.
+    - Other languages → :func:`_split_blank_line_groups` with method
+      :data:`SUB_CHUNK_METHOD_BLANK_LINE`. Full AST boundary support
+      for non-Python languages is v0.6 scope (per ADR-0046 flagged
+      gaps + the five deferred language chunkers).
+
+    The ``method`` return value is surfaced so callers / regression
+    tests can assert which path fired.
+    """
+    if language == "python":
+        pieces = _split_python_ast_boundaries(body)
+        if pieces is not None:
+            return pieces, SUB_CHUNK_METHOD_AST
+    return _split_blank_line_groups(body), SUB_CHUNK_METHOD_BLANK_LINE
 
 
 def _split_by_line_count(body: str, max_lines_per_piece: int) -> list[str]:
@@ -239,14 +422,18 @@ def chunk_symbol(row: SymbolRow, source: str | bytes) -> list["ChunkRow"]:
     cap is honoured.
 
     Split levels: TWO. Level 1 is :func:`_split_semantic_boundaries`
-    (blank-line-group split). Level 2 is :func:`_split_by_line_count`
+    (per-language dispatch: Python uses stdlib AST control-flow
+    boundaries; others use blank-line-group split as a documented
+    fallback — Flagged gap 2 closed for Python in module_05, deferred
+    for TS/Rust/Go to v0.6). Level 2 is :func:`_split_by_line_count`
     (line-count window). A pathological single-line 4000-token
     expression survives both levels intact and is emitted with the
-    oversize marker (Second Pass Q3). Recursive re-splitting inside
-    a single logical piece (a giant switch with six statements each
-    over the cap) is Flagged gap 2; the module_05 SUMMARY chunker
-    is the second-line owner of "still too big" bodies per master
-    spec §Chunk overflow item 2.
+    oversize marker (Second Pass Q3). The SUMMARY-format fallback for
+    the "still too big" case is
+    :func:`ract.memory.chunk.format_chunk` in SUMMARY mode, which
+    now returns an AST-deterministic body (module_05,
+    :func:`ract.memory.summary.summarize_chunk_deterministic`;
+    Bonsai model path deferred per ADR-0046).
     """
     if isinstance(source, bytes):
         source_bytes = source
@@ -259,8 +446,13 @@ def chunk_symbol(row: SymbolRow, source: str | bytes) -> list["ChunkRow"]:
     tokens = estimate_tokens(body)
     if tokens <= MAX_TOKENS_PER_CHUNK:
         return [_build_chunk(row, body, chunk_kind, "0/1", signature, stamp)]
-    # Split.
-    logical_pieces = _split_semantic_boundaries(body)
+    # Split. Per-language dispatch (Python → stdlib AST boundaries;
+    # others → blank-line fallback). ``sub_method`` is currently only
+    # asserted by regression tests; if a caller needs to surface it
+    # downstream, thread it through :class:`ChunkRow` in a future
+    # follow-up.
+    logical_pieces, sub_method = _split_semantic_boundaries(body, row.language)
+    del sub_method  # v0.5.1: value observed via test surface only.
     resolved_pieces: list[str] = []
     for piece in logical_pieces:
         piece_tokens = estimate_tokens(piece)
@@ -329,6 +521,8 @@ __all__ = [
     "MAX_TOKENS_PER_CHUNK",
     "OVERSIZE_WARNING_KEY",
     "OversizeChunkWarning",
+    "SUB_CHUNK_METHOD_AST",
+    "SUB_CHUNK_METHOD_BLANK_LINE",
     "chunk_symbol",
 ]
 
