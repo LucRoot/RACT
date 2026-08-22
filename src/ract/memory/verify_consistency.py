@@ -93,6 +93,7 @@ IndexInconsistencyKind = Literal[
     "missing_symbol_file",
     "dangling_edge_location",
     "semantic_stale",
+    "check_error",
 ]
 
 
@@ -102,6 +103,11 @@ _LEGAL_KINDS: frozenset[str] = frozenset(
         "missing_symbol_file",
         "dangling_edge_location",
         "semantic_stale",
+        # v0.5.2 module_06 SP Q5 fold: a sweep-infrastructure
+        # failure (graph sweep raised, semantic backend errored
+        # mid-walk) surfaces as ``check_error`` rather than
+        # abusing ``orphan_edge`` for a non-edge condition.
+        "check_error",
     )
 )
 
@@ -148,6 +154,16 @@ class IndexConsistencyReport:
       (``0`` when the graph is not attached).
     - ``semantic_slices_checked`` -- rows walked in the semantic
       index (``0`` when the semantic index is not attached).
+    - ``checks_skipped`` -- tuple of skip-reason strings, one
+      per check-category the sweep DID NOT perform (e.g.
+      ``"disk-existence"`` when ``check_files_on_disk=False``,
+      ``"graph_index_not_attached"`` when no graph handle was
+      supplied, ``"semantic_sweep_raised: <exc>"`` when the
+      semantic backend blew up mid-sweep). v0.5.2 module_06 SP
+      Q5 fold: this closes the honest-verify silent-coverage
+      gap Ox Alpha flagged -- a CONSISTENT verdict from a
+      partial sweep is weaker than a full sweep, and the shape
+      must express it. Empty tuple on a full sweep.
     - ``inconsistencies`` -- concrete flagged items (may be
       empty on CONSISTENT).
     - ``reason`` -- human-readable one-sentence summary for the
@@ -160,6 +176,7 @@ class IndexConsistencyReport:
     symbols_checked: int
     edges_checked: int
     semantic_slices_checked: int
+    checks_skipped: tuple[str, ...] = field(default_factory=tuple)
     inconsistencies: tuple[IndexInconsistency, ...] = field(default_factory=tuple)
     reason: str = ""
 
@@ -213,20 +230,26 @@ class IndexConsistencyReport:
         symbols_checked: int,
         edges_checked: int = 0,
         semantic_slices_checked: int = 0,
+        checks_skipped: tuple[str, ...] = (),
         reason: str = "",
     ) -> "IndexConsistencyReport":
+        default_reason = (
+            f"consistent across {symbols_checked} symbols, "
+            f"{edges_checked} edges, {semantic_slices_checked} "
+            f"semantic slices"
+        )
+        if checks_skipped:
+            default_reason += (
+                f" (checks skipped: {', '.join(checks_skipped)})"
+            )
         return cls(
             status="CONSISTENT",
             symbols_checked=symbols_checked,
             edges_checked=edges_checked,
             semantic_slices_checked=semantic_slices_checked,
+            checks_skipped=checks_skipped,
             inconsistencies=(),
-            reason=reason
-            or (
-                f"consistent across {symbols_checked} symbols, "
-                f"{edges_checked} edges, {semantic_slices_checked} "
-                f"semantic slices"
-            ),
+            reason=reason or default_reason,
         )
 
     @classmethod
@@ -237,6 +260,7 @@ class IndexConsistencyReport:
         edges_checked: int,
         semantic_slices_checked: int,
         inconsistencies: tuple[IndexInconsistency, ...],
+        checks_skipped: tuple[str, ...] = (),
         reason: str = "",
     ) -> "IndexConsistencyReport":
         if not inconsistencies:
@@ -248,6 +272,7 @@ class IndexConsistencyReport:
             symbols_checked=symbols_checked,
             edges_checked=edges_checked,
             semantic_slices_checked=semantic_slices_checked,
+            checks_skipped=checks_skipped,
             inconsistencies=inconsistencies,
             reason=reason
             or (
@@ -307,8 +332,33 @@ def verify_indexes(
             reason="symbol_index is None"
         )
 
+    # v0.5.2 module_06 SP Q5 fold: refuse a vacuous
+    # ``max_inconsistencies <= 0`` request. Pre-fix, the loop's
+    # ``if len(inconsistencies) >= max`` check tripped on the
+    # first iteration when ``max <= 0``, ``truncated`` was set,
+    # every downstream sweep was gated on ``not truncated`` and
+    # skipped, and the empty ``inconsistencies`` list fell
+    # through to ``CONSISTENT`` -- a VACUOUS CONSISTENT report
+    # from zero actual checking. Now we reject the input at the
+    # boundary so callers can't shape a false-clean report.
+    if max_inconsistencies < 1:
+        raise ValueError(
+            f"max_inconsistencies must be >= 1; got "
+            f"{max_inconsistencies!r}"
+        )
+
     inconsistencies: list[IndexInconsistency] = []
+    checks_skipped: list[str] = []
     truncated = False
+
+    # Record disabled check-categories up front so a CONSISTENT
+    # verdict carries the honest partial-sweep signal.
+    if not check_files_on_disk:
+        checks_skipped.append("disk-existence")
+    if graph_index is None:
+        checks_skipped.append("graph_index_not_attached")
+    if semantic_index is None:
+        checks_skipped.append("semantic_index_not_attached")
 
     # -- symbols pass ------------------------------------------------
     try:
@@ -426,9 +476,15 @@ def verify_indexes(
             _LOG.warning(
                 "verify_indexes: graph_index sweep failed: %s", exc
             )
+            # v0.5.2 module_06 SP Q5 fold: was mislabeled as
+            # ``orphan_edge`` (a sweep-infrastructure failure is
+            # NOT an orphan-edge condition). Now surfaces as
+            # ``check_error`` so the closed-Literal kind stays
+            # meaningful. The status still flips INCONSISTENT
+            # because we could not attest the graph sweep.
             inconsistencies.append(
                 IndexInconsistency(
-                    kind="orphan_edge",
+                    kind="check_error",
                     file=None,
                     symbol_id=None,
                     edge_id=None,
@@ -474,6 +530,16 @@ def verify_indexes(
                     "verify_indexes: semantic_index sweep failed: %s",
                     exc,
                 )
+                # v0.5.2 module_06 SP Q5 fold: record the
+                # semantic sweep failure in checks_skipped so a
+                # subsequent CONSISTENT verdict carries the
+                # honest partial-sweep signal (previously the
+                # exception was logged only, letting the report
+                # come out CONSISTENT with no evidence the
+                # semantic slice was verified).
+                checks_skipped.append(
+                    f"semantic_sweep_raised: {exc}"
+                )
 
     # -- report ------------------------------------------------------
     if not inconsistencies:
@@ -481,6 +547,7 @@ def verify_indexes(
             symbols_checked=symbols_checked,
             edges_checked=edges_checked,
             semantic_slices_checked=semantic_slices_checked,
+            checks_skipped=tuple(checks_skipped),
         )
     reason = (
         f"{len(inconsistencies)} inconsistency(ies); first "
@@ -496,6 +563,7 @@ def verify_indexes(
         edges_checked=edges_checked,
         semantic_slices_checked=semantic_slices_checked,
         inconsistencies=tuple(inconsistencies),
+        checks_skipped=tuple(checks_skipped),
         reason=reason,
     )
 

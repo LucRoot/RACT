@@ -26,20 +26,29 @@ the tag push and no `--force-with-lease` is needed on the branch push
   BEFORE module_01 began). Created at the module_06 open, before
   the version bump commit. Recoverable via
   `git checkout backup-v0.5.1-preHardening`.
-- **Version triple:** `pyproject.toml [project].version` +
-  `src/ract/__init__.py __version__` both read `0.5.2`.
-  `ract --version` prints `RACT 0.5.2`.
+- **Version surface (SP Q1 fold — was "triple", attested at four
+  paths):** `pyproject.toml [project].version` +
+  `src/ract/__init__.py __version__` + `VERSION` (human-readable
+  banner file) + `tests/test_release_surface.py` version-alignment
+  assertions all read `0.5.2`. `ract --version` prints
+  `RACT 0.5.2`. The `# RACT 0.5.X` trailing comments per source
+  file are historical origin markers (see prior-release
+  precedent) and are NOT updated on a hardening bump.
 - **Golden hash:** re-locked at module_06 close per Ox-Alpha co-build
   Q2 verdict (narrated re-pin, not silent). Old value:
   `7d6c8b1c56449bb96428e6ba75af2b24b85adadb66e75ca6b2c7a0ad7afc41fb`.
-  New value: the current `GOLDEN_HASH_CONSTANT` in
-  `src/ract/source_digest.py`. Shift covers five hardening modules
-  that touched `src/ract/`: module_01 (Rootknot v4 hardening),
-  module_02 (sandbox_env allowlist), module_03 (subagent lifecycle),
-  module_04 (run_id continuity + sidecar header primitive),
-  module_05 (trace log durability + honest verify), module_06
-  (memory system polish + docs + release close). See the
-  v0.5.2 CHANGELOG entry.
+  New value:
+  `e8be3860fc36ca4ea3c646c4e5f1d2c12f74d7050df36b478771fafdcbc99306`
+  (SP Q3 fold: stated inline so the doc is a verification artifact
+  the auditor can compare against
+  `src/ract/source_digest.py::GOLDEN_HASH_CONSTANT` at the tagged
+  commit). Shift covers SIX hardening modules that touched
+  `src/ract/` (SP Q3 fold; was "five" -- off-by-one):
+  module_01 (Rootknot v4 hardening), module_02 (sandbox_env
+  allowlist), module_03 (subagent lifecycle), module_04 (run_id
+  continuity + sidecar header primitive), module_05 (trace log
+  durability + honest verify), module_06 (memory system polish +
+  docs + release close). See the v0.5.2 CHANGELOG entry.
 - **Branch:** `main` at HEAD == release-close commit.
 - **Push target:** operator's origin (no remote assumed by this file;
   operator selects at push time).
@@ -56,6 +65,13 @@ for the full operator-visible change list.
 
 ## Push commands (operator-executed after handshake)
 
+Commands below assume the operator's origin remote is literally named
+`origin`. If a different remote name is in use, substitute it
+throughout (SP Q2 fold: prior "no remote assumed" text was
+inconsistent with the hardcoded `origin` in the commands; the doc
+now explicitly names the assumption). Verify remotes first with
+`git remote -v` if unsure.
+
 Run in this order:
 
 ```bash
@@ -70,17 +86,27 @@ git push origin v0.5.2
 git push origin backup-v0.5.1-preHardening
 ```
 
-Bare `git push` is intentional — no history is being rewritten and
-the v0.5.2 commits + tag are strictly ahead of every remote reference.
-If the operator's origin refuses `git push origin main` as
-non-fast-forward, that indicates a concurrent push arrived out-of-band
-(NOT a v0.5.2 defect); investigate before force-pushing.
+No `--force` used — no history is being rewritten and the v0.5.2
+commits + tag are strictly ahead of every remote reference.
+If `git push origin main` is refused as non-fast-forward, that
+indicates a concurrent push arrived out-of-band (NOT a v0.5.2
+defect); investigate before force-pushing.
 
 ## GitHub release notes body
 
-Copy-paste into the "Release notes" field of the GitHub release
-authored against tag `v0.5.2` (typically `gh release create v0.5.2
---notes-file <this excerpt>`, or the web UI):
+Copy-paste the markdown block below into the "Release notes" field
+of the GitHub release authored against tag `v0.5.2` (web UI at
+`https://github.com/<owner>/<repo>/releases/new?tag=v0.5.2`).
+
+Alternatively via `gh` CLI: save the block below to a file (e.g.
+`/tmp/v0.5.2-notes.md`) and run
+`gh release create v0.5.2 --title "v0.5.2 -- Deep-Audit Hardening" --notes-file /tmp/v0.5.2-notes.md`.
+The `--notes-file` flag expects an on-disk PATH, not an inline
+excerpt (SP Q2 fold: prior text said `--notes-file <this excerpt>`
+which would fail on paste since "<this excerpt>" is a placeholder,
+not a file).
+
+Release notes body:
 
 ```markdown
 ## RACT 0.5.2 — Deep-Audit Hardening

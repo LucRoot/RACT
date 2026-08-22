@@ -101,11 +101,26 @@ def _memory_verify_consistency(args: list[str]) -> int:
             "CI where paths are synthetic)."
         ),
     )
+    def _positive_int(raw: str) -> int:
+        # v0.5.2 module_06 SP Q5 fold: refuse a vacuous cap of
+        # 0 or negative. Verify_indexes also refuses at the API
+        # boundary; the CLI validation gives a friendlier
+        # argparse-formatted error message.
+        try:
+            v = int(raw)
+        except ValueError as exc:  # pragma: no cover - argparse re-wraps
+            raise argparse.ArgumentTypeError(str(exc)) from exc
+        if v < 1:
+            raise argparse.ArgumentTypeError(
+                f"must be >= 1; got {v}"
+            )
+        return v
+
     parser.add_argument(
         "--max-inconsistencies",
-        type=int,
+        type=_positive_int,
         default=500,
-        help="Cap on returned detail entries (default 500).",
+        help="Cap on returned detail entries (default 500; must be >= 1).",
     )
     parser.add_argument(
         "--json",
@@ -177,6 +192,10 @@ def _memory_verify_consistency(args: list[str]) -> int:
             "symbols_checked": report.symbols_checked,
             "edges_checked": report.edges_checked,
             "semantic_slices_checked": report.semantic_slices_checked,
+            # v0.5.2 module_06 SP Q5 fold: expose checks_skipped
+            # so JSON consumers see the honest partial-sweep
+            # signal.
+            "checks_skipped": list(report.checks_skipped),
             "reason": report.reason,
             "inconsistencies": [
                 {
@@ -200,6 +219,11 @@ def _memory_verify_consistency(args: list[str]) -> int:
             "  semantic_slices_checked: "
             f"{report.semantic_slices_checked}"
         )
+        if report.checks_skipped:
+            print(
+                "  checks_skipped: "
+                f"{', '.join(report.checks_skipped)}"
+            )
         print(f"  reason: {report.reason}")
         if report.inconsistencies:
             # Cap human-readable print at 20; JSON has all.
