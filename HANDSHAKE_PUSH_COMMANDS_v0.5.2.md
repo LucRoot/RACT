@@ -11,8 +11,8 @@ Per RACT invariant five (no push without operator handshake), the v0.5.2
 hardening pipeline prepared the release-close state, created the local
 `v0.5.2` annotated tag, and created the local `backup-v0.5.1-preHardening`
 backup tag — but did NOT push. After the operator confirms the handshake
-in chat, run the commands below in order from the repo root
-(`C:/RootClaw/RACT`). Unlike the v0.5.1 handshakes this is a FIRST-TIME
+in chat, run the commands below in order from the RACT repo
+root. Unlike the v0.5.1 handshakes this is a FIRST-TIME
 tag creation for `v0.5.2` (not a re-tag), so no `--force` is needed on
 the tag push and no `--force-with-lease` is needed on the branch push
 (the v0.5.2 commits are strictly ahead of v0.5.1 with no rewriting).
