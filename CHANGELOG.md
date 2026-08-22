@@ -656,8 +656,9 @@ tree to discover the deferral:
   deferred per ADR-0036 and ADR-0037. Loop composition today runs
   the four v0.5.0 verbs; the four deferred verbs are v0.6 scope.
 - **Language chunkers for Java / Kotlin / C# / C / C++** (Memory
-  Discipline spec §AST Chunking Rules). v0.5.1 ships chunkers for
-  Python / TypeScript / Rust / Go (four of the ten spec languages);
+  Discipline spec §AST Chunking Rules; spec line 372 defers
+  Java / Kotlin / C# / C / C++ to v0.6). v0.5.1 ships chunkers for
+  Python / TypeScript / Rust / Go (four of the nine spec languages);
   the remaining five are deferred to v0.6.
 - **Bonsai council model-based SUMMARY chunk generation** (Memory
   Discipline spec §Chunk Overflow item 2). The AST-deterministic
@@ -681,8 +682,10 @@ tree to discover the deferral:
   strategy adjustment surface** (Memory Discipline spec
   §Failure Learning items 3-5). Aggregation + narrowing-only
   invariant + `apply-narrowings` CLI verb ship v0.5.0 and remain
-  operational; the scheduler, the review queue, and the retrieval-
-  strategy override reader are deferred to v0.6. Originally
+  operational; the scheduler, the review queue, the reviewer CLI
+  surface (list / approve / reject verbs + approval durability
+  store per ADR-0045 §Flagged gaps), and the retrieval-strategy
+  override reader are deferred to v0.6. Originally
   scheduled as module_06 of the v0.5.1 spec-completeness pipeline;
   **module_06 CANCELLED** per Ox Alpha adversarial pipeline review
   2026-08-21 §1
