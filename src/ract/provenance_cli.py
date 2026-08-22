@@ -139,6 +139,27 @@ def _check_knot(
             f"{min_schema_version}; refusing the weaker attestation "
             "(deep-audit A M-1 DOWNGRADE defence)."
         )
+    # v0.5.2 module_01 SP amendment (Q5 + Fork 3 gotcha #2
+    # defense-in-depth for CLI): verifier-side v4-label-implies-v4-
+    # fields with zero-digest sentinel refusal. Covers the
+    # deserialisation-bypass path Ox Alpha warned about:
+    # ``copy``/pickle restore skip ``__post_init__``, so a smuggled
+    # v4 knot with empty or zero-digest fields could reach
+    # ``_check_knot`` unchallenged.
+    if knot.schema_version == 4:
+        missing_v4: list[str] = []
+        if not knot.workspace_digest or knot.workspace_digest == _ZERO_DIGEST:
+            missing_v4.append("workspace_digest")
+        if not knot.prompt_digest or knot.prompt_digest == _ZERO_DIGEST:
+            missing_v4.append("prompt_digest")
+        if not knot.run_id:
+            missing_v4.append("run_id")
+        if missing_v4:
+            return False, (
+                f"v4 schema-label but v4 fields empty or zero: "
+                f"{missing_v4}; the label carries no attestation "
+                "guarantee (deep-audit A F-1)."
+            )
     # 1. artifact digest
     actual = digest_bytes(artifact_path.read_bytes())
     if actual != knot.artifact_digest:

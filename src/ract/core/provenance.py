@@ -53,6 +53,23 @@ from ract.core.types import Digest, PlanId, Result, StepId, digest_bytes
 # ---------------------------------------------------------------------------
 
 
+class _KnotLoadError(Exception):
+    """Internal: a single row in the SQLite index failed reconstruction.
+
+    v0.5.2 module_01 SP amendment (Ox Alpha Q4 -- per-file
+    attribution for load-path failures). Carried up from
+    :meth:`ProvenanceIndex.all_knots` to :func:`verify_workspace`
+    where it is converted to a :class:`ProvenanceViolation` with the
+    offending path -- the original try/except lost that triage
+    information by refusing with ``file=None``.
+    """
+
+    def __init__(self, *, path: str, cause: BaseException) -> None:
+        super().__init__(f"knot load failed for {path}: {cause}")
+        self.path = path
+        self.cause = cause
+
+
 @dataclass(frozen=True)
 class ProvenanceViolation:
     """A single provenance failure.
@@ -219,13 +236,27 @@ class ProvenanceIndex:
             return None
 
     def all_knots(self) -> dict[str, Rootknot]:
-        """Return a mapping from relative artifact path to Rootknot."""
+        """Return a mapping from relative artifact path to Rootknot.
+
+        v0.5.2 module_01 SP amendment (Ox Alpha Q4): per-row
+        construction failures are wrapped in :class:`_KnotLoadError`
+        carrying the offending ``path``. ``verify_workspace`` catches
+        it and emits a :class:`ProvenanceViolation` with the offending
+        path -- restoring the triage information the earlier
+        ``file=None`` refusal lost.
+        """
         conn = sqlite3.connect(str(self._db_path))
         try:
             rows = conn.execute("SELECT path, json FROM rootknots").fetchall()
         finally:
             conn.close()
-        return {path: _knot_from_json(payload) for path, payload in rows}
+        knots: dict[str, Rootknot] = {}
+        for path, payload in rows:
+            try:
+                knots[path] = _knot_from_json(payload)
+            except Exception as exc:
+                raise _KnotLoadError(path=path, cause=exc) from exc
+        return knots
 
     def _rel(self, artifact_path: Path) -> str:
         try:
@@ -669,23 +700,42 @@ def verify_workspace(
     # ``_check_rk3`` check is still authoritative because
     # ``copy``/pickle restore paths bypass ``__post_init__`` -- this
     # try/except is the belt-and-braces load-path surface.
+    # SP amendment (Ox Alpha Q4): ``all_knots`` now wraps per-row
+    # failures in :class:`_KnotLoadError` carrying the offending
+    # relative path. Restores per-file attribution the original
+    # ``file=None`` refusal lost. Broader ``OSError`` / JSON /
+    # unicode failures also route to a classified violation with the
+    # offending path rather than propagating as unhandled traceback.
     from ract.core.rootknot import RootknotSchemaViolation
 
     try:
         knots = index.all_knots()
-    except RootknotSchemaViolation as exc:
+    except _KnotLoadError as exc:
+        cause = exc.cause
+        if isinstance(cause, RootknotSchemaViolation):
+            return Result.err(
+                ProvenanceViolation(
+                    file=exc.path,
+                    predicate=(
+                        "RK-V4-LABEL-MISMATCH"
+                        if cause.missing_fields
+                        else "RK-UNKNOWN-SCHEMA"
+                    ),
+                    detail=(
+                        f"sidecar refused during load: {cause.reason} "
+                        "(construction-time invariant enforced by "
+                        "Rootknot.__post_init__)"
+                    ),
+                )
+            )
         return Result.err(
             ProvenanceViolation(
-                file=None,
-                predicate=(
-                    "RK-V4-LABEL-MISMATCH"
-                    if exc.missing_fields
-                    else "RK-UNKNOWN-SCHEMA"
-                ),
+                file=exc.path,
+                predicate="RK-SIDECAR-UNREADABLE",
                 detail=(
-                    f"sidecar refused during load: {exc.reason} "
-                    "(construction-time invariant enforced by "
-                    "Rootknot.__post_init__)"
+                    f"sidecar load failed: {type(cause).__name__}: "
+                    f"{cause}. Repair or remove the sidecar to unblock "
+                    "verification."
                 ),
             )
         )
@@ -773,9 +823,14 @@ def verify_workspace(
         # construction, but ``copy``/pickle restore paths bypass
         # ``__init__``, so the verifier is what closes the attack.
         if knot.schema_version == 4:
-            if not knot.workspace_digest:
+            # v0.5.2 module_01 SP amendment (Ox Alpha + nemotron Q5):
+            # zero-digest sentinel is truthy bytes; explicit sentinel
+            # check plugs the bypass.
+            from ract.core.rootknot import _ZERO_DIGEST as _ZD
+
+            if not knot.workspace_digest or knot.workspace_digest == _ZD:
                 return False
-            if not knot.prompt_digest:
+            if not knot.prompt_digest or knot.prompt_digest == _ZD:
                 return False
             if not knot.run_id:
                 return False
@@ -972,9 +1027,14 @@ def _classify_violation(
         )
     if knot.schema_version == 4:
         missing_v4: list[str] = []
-        if not knot.workspace_digest:
+        # v0.5.2 module_01 SP amendment (Ox Alpha + nemotron Q5):
+        # zero-digest sentinel treated as missing here too so the
+        # classifier surfaces the sharp diagnostic.
+        from ract.core.rootknot import _ZERO_DIGEST as _ZD
+
+        if not knot.workspace_digest or knot.workspace_digest == _ZD:
             missing_v4.append("workspace_digest")
-        if not knot.prompt_digest:
+        if not knot.prompt_digest or knot.prompt_digest == _ZD:
             missing_v4.append("prompt_digest")
         if not knot.run_id:
             missing_v4.append("run_id")
