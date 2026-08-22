@@ -28,7 +28,15 @@ _NEW_KINDS = (
 # emitted from `seat_state_section`.
 _MODULE_02_KINDS = ("state.budget_capped",)
 
-_EXPECTED_MEMORY_KINDS = frozenset(_NEW_KINDS + _MODULE_02_KINDS)
+# v0.5.1 spec-completeness module_04 (Lens 1C C-1 closure): one further
+# memory-layer kind extends the vocabulary — the retrieval grouping
+# applied event emitted from `_extend_with_grouping` when a cross-
+# function grouping rule seats companions into the bundle.
+_MODULE_04_KINDS = ("retrieval.grouping.applied",)
+
+_EXPECTED_MEMORY_KINDS = frozenset(
+    _NEW_KINDS + _MODULE_02_KINDS + _MODULE_04_KINDS
+)
 
 
 def test_seven_new_kinds_in_legal_set() -> None:
@@ -45,6 +53,17 @@ def test_memory_event_kinds_match_new_kinds() -> None:
     ``_MODULE_02_KINDS`` (module_02).
     """
     assert MEMORY_EVENT_KINDS == _EXPECTED_MEMORY_KINDS
+
+
+def test_module_04_retrieval_grouping_applied_in_legal_set() -> None:
+    """v0.5.1 module_04: ``retrieval.grouping.applied`` in LEGAL_EVENT_KINDS.
+
+    The cross-function grouping rule fires this kind at bundle-
+    assembly time; trace/events.py Literal must carry it or the
+    emit path trips the ``NullEventSink.emit`` gate.
+    """
+    assert "retrieval.grouping.applied" in LEGAL_EVENT_KINDS
+    assert "retrieval.grouping.applied" in MEMORY_EVENT_KINDS
 
 
 def test_module_02_state_budget_capped_in_legal_set() -> None:

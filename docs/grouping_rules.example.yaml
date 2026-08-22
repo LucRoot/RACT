@@ -1,0 +1,31 @@
+# v0.5.1 spec-completeness module_04 -- Cross-function grouping rules
+# ---------------------------------------------------------------------
+# EXAMPLE workspace-scoped config for
+# ``ract.memory.grouping.GroupingRules``. Copy this file to
+# ``<workspace_root>/.ract/grouping_rules.yaml`` (the
+# :func:`ract.memory.grouping.load_grouping_rules` search path).
+# Missing file = shipped defaults (every rule on;
+# python/typescript/rust/go languages).
+#
+# Master spec: docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md
+# §Cross-Function Grouping.
+# Audit finding: _BUILD/audit_2026-08-21c/lens_1C_retrieve_chunks.md
+# C-1 (HIGH).
+
+grouping:
+  # Python: retrieve a @dataclass class WITH every method inside its body.
+  dataclass_methods: true
+  # Rust: retrieve a `trait` declaration WITH every `impl <Trait> for <T>`
+  # block, but ONLY when the query targets the trait
+  # (i.e. the trait's name appears in `query.symbol_names`).
+  trait_impls: true
+  # Any language: retrieve `test_foo` WITH `foo`, `class TestFoo` WITH
+  # `class Foo`. Directional: test -> subject, never subject -> tests.
+  test_subject: true
+  # Python: retrieve a function or method WITH every module-scope type
+  # alias referenced in its signature.
+  function_type_aliases: true
+  # Language allowlist. A symbol whose ``language`` label is outside
+  # this set contributes an empty group regardless of the per-rule
+  # toggles above.
+  languages: [python, typescript, rust, go]

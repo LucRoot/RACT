@@ -164,6 +164,24 @@ EventKind = Literal[
     # and ``strategy`` (``truncate_tail`` today; future strategies may
     # introduce ``drop_lowest_priority`` or ``summarize``).
     "state.budget_capped",
+    # v0.5.1 spec-completeness module_04 (Lens 1C HIGH C-1 closure).
+    # Emitted by :func:`ract.memory.retrieve.retrieve` at bundle-
+    # assembly time when a cross-function grouping rule fires and
+    # adds one or more companion symbols to the returned bundle.
+    # Payload carries ``call_id`` (parity with the other retrieval.*
+    # kinds), ``primary_symbol_id`` (int; ``-1`` when the primary
+    # had no id — test fixtures), ``companion_count`` (int; number
+    # of companions seated into the bundle at this format cascade
+    # level), and ``rule_fired`` (one of ``dataclass_methods`` /
+    # ``trait_impls`` / ``test_subject`` / ``function_type_aliases``
+    # per :data:`ract.memory.grouping.LEGAL_RULES`). One event is
+    # emitted per group that seated at least one companion; groups
+    # whose rule fired but whose companions all fell below the
+    # budget floor emit a companion_count of 0 with the rule name
+    # preserved so the audit trail can distinguish "no rule fired"
+    # (no event) from "rule fired but budget dropped every
+    # companion".
+    "retrieval.grouping.applied",
 ]
 
 

@@ -78,9 +78,15 @@ from ract.memory.events import (
     EventSink,
     NullEventSink,
     emit_retrieval_cascaded,
+    emit_retrieval_grouping_applied,
     emit_retrieval_refused,
     emit_retrieval_requested,
     emit_retrieval_satisfied,
+)
+from ract.memory.grouping import (
+    GroupingRules,
+    SymbolGroup,
+    group_symbols,
 )
 from ract.memory.query_trace import CascadeStep, IndexHit, QueryTrace
 
@@ -213,6 +219,18 @@ class RetrievalQuery:
     graph_hops: int = 1
     file_scope: tuple[str, ...] | None = None
     exclude_paths: tuple[str, ...] = field(default_factory=tuple)
+    grouping_enabled: bool = True
+    """Opt-out toggle for v0.5.1 module_04 cross-function grouping.
+
+    Default ``True`` so every existing caller gets grouped bundles
+    without a config change. Setting ``False`` short-circuits the
+    grouping pass entirely — the bundle contains only the symbols
+    the four-level cascade seated, no companions. Kept on the
+    query rather than a global config so a caller can request an
+    ungrouped bundle for a specific narrow retrieve (e.g., a
+    dependency-graph walk that wants only the seed symbols) without
+    disturbing the workspace-wide default.
+    """
 
 
 @dataclass(frozen=True)
@@ -250,6 +268,29 @@ class RetrievalBundle:
     truncation_notes: tuple[str, ...] = field(default_factory=tuple)
     call_id: str = ""
     traversal_symbol_ids: tuple[int, ...] = field(default_factory=tuple)
+    dropped_companions: tuple[str, ...] = field(default_factory=tuple)
+    """Names of companions the v0.5.1 module_04 grouping pass
+    identified but the budget floor refused to seat even at the
+    :class:`~ract.memory.chunk.ChunkFormat.SIGNATURE` cascade level.
+
+    Populated only when :attr:`RetrievalQuery.grouping_enabled` is
+    True AND the cascade landed at a level whose remaining budget
+    could not accept the SIGNATURE cost of one or more companions.
+    Named separately from :attr:`dropped_symbols` (which tracks
+    cascade-dropped primaries) so a caller can distinguish a
+    primary-drop from a companion-drop without re-running grouping.
+    """
+    grouping_events: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    """One entry per grouping rule that fired for this bundle.
+
+    Each entry mirrors the ``retrieval.grouping.applied`` event
+    payload (``primary_symbol_id`` / ``companion_count`` /
+    ``rule_fired`` / ``companion_format`` /
+    ``dropped_companion_count``) so a caller who cannot see the
+    event sink (unit tests, offline replay) can still audit which
+    rules fired and how many companions each seated. The list is
+    ordered by the order companions were considered.
+    """
     """Symbol ids the retrieve visited during graph traversal but did
     NOT surface in :attr:`chunks`.
 
@@ -853,6 +894,8 @@ def retrieve(
             truncation_notes=tuple(),
             call_id=call_id,
             traversal_symbol_ids=tuple(sorted(traversal_ids)),
+            dropped_companions=tuple(),
+            grouping_events=tuple(),
         )
         emit_retrieval_satisfied(
             active_sink,
@@ -899,6 +942,9 @@ def retrieve(
                 budget=budget,
                 call_id=call_id,
                 traversal_ids=traversal_ids,
+                query=query,
+                indexes=indexes,
+                format=format,
             )
 
         if level < 4:
@@ -957,11 +1003,245 @@ def retrieve(
             budget=budget,
             call_id=call_id,
             traversal_ids=traversal_ids,
+            query=query,
+            indexes=indexes,
+            format=format,
         )
 
     # Unreachable: the loop returns or raises before this line. Kept
     # as a defensive assert to make static analysis happy.
     raise BoundedContextError(query=query, deepest_level=last_level, budget=budget)
+
+
+# ---------------------------------------------------------------------------
+# v0.5.1 module_04 -- Cross-function grouping wire-in (Lens 1C C-1)
+# ---------------------------------------------------------------------------
+
+
+def _extend_with_grouping(
+    *,
+    packed: list[_Candidate],
+    total_tokens: int,
+    query: RetrievalQuery,
+    indexes: list[IndexRef],
+    format: ChunkFormat,
+    budget: TokenBudget,
+    call_id: str,
+    active_sink: EventSink,
+) -> tuple[list[_Candidate], int, list[str], list[dict[str, Any]]]:
+    """Extend ``packed`` with grouping companions under the remaining
+    budget. Returns ``(packed_out, total_tokens_out, dropped_companion_names,
+    grouping_events)``.
+
+    Master spec §Cross-Function Grouping: four rules
+    (dataclass+methods, trait+impls, test+subject, function+type-
+    aliases). Delegates rule matching to
+    :func:`ract.memory.grouping.group_symbols` (pure) and handles
+    the bundle-level budget cascade here.
+
+    Budget rule (task spec): companions consume from same budget as
+    primary. Cascade: try companion at caller's ``format`` first;
+    if it does not fit, downgrade to
+    :class:`~ract.memory.chunk.ChunkFormat.SIGNATURE`; if that still
+    does not fit, add to ``dropped_companion_names`` and continue.
+    A dropped companion does NOT halt the rest of the group; the
+    next companion still gets a fit check.
+
+    Opt-out: ``query.grouping_enabled = False`` short-circuits and
+    returns the inputs unchanged. The retrieve primitive still
+    honors caller-side grouping decisions and never surfaces
+    companions the caller opted out of.
+
+    Grouping vs cascade interaction: grouping runs AFTER the four-
+    level cascade — a bundle that already ate its budget at Level 4
+    SIGNATURE has zero remaining budget and grouping simply drops
+    every companion. The refuse gate at Level 4 still fires before
+    grouping runs (empty ``packed`` never reaches this helper).
+    """
+    dropped_companions: list[str] = []
+    grouping_events: list[dict[str, Any]] = []
+
+    if not getattr(query, "grouping_enabled", True):
+        return packed, total_tokens, dropped_companions, grouping_events
+    if not packed:
+        return packed, total_tokens, dropped_companions, grouping_events
+
+    symbol_index = _find_index(indexes, IndexKind.SYMBOL)
+    if symbol_index is None:
+        # Grouping needs a symbol index to look up companions; no
+        # index → no grouping (no error — the caller may deliberately
+        # pass a subset of indexes for a specific narrow retrieve).
+        return packed, total_tokens, dropped_companions, grouping_events
+
+    # Resolve packed candidates back to SymbolRow via symbol_id.
+    # Candidates whose id is < 0 (test fixtures) OR whose id lookup
+    # fails are skipped — grouping is best-effort, not load-bearing.
+    packed_symbol_ids: set[int] = {
+        cand.chunk.symbol_id for cand in packed if cand.chunk.symbol_id >= 0
+    }
+    packed_symbol_rows: list[SymbolRow] = []
+    for cand in packed:
+        if cand.chunk.symbol_id < 0:
+            continue
+        row = _lookup_symbol_by_id(symbol_index, cand.chunk.symbol_id)
+        if row is None:
+            continue
+        packed_symbol_rows.append(row)
+
+    if not packed_symbol_rows:
+        return packed, total_tokens, dropped_companions, grouping_events
+
+    rules = GroupingRules()  # defaults; workspace config wiring lives
+    # at the retrieve-caller composition layer (module_09), not inside
+    # the retrieve primitive.
+    groups: list[SymbolGroup] = group_symbols(
+        packed_symbol_rows, rules, index=symbol_index, query=query
+    )
+
+    remaining = budget - total_tokens
+    packed_out = list(packed)
+    content_hashes_seated: set[str] = {
+        cand.chunk.content_hash for cand in packed_out if cand.chunk.content_hash
+    }
+
+    for group in groups:
+        if not group.companions:
+            continue
+        # Skip a group whose primary already ate every token slot.
+        if remaining <= 0:
+            # Every remaining companion under this group is dropped.
+            for companion in group.companions:
+                if _companion_already_seated(
+                    companion, packed_symbol_ids, content_hashes_seated
+                ):
+                    continue
+                dropped_companions.append(companion.name)
+            grouping_events.append(
+                _grouping_event_payload(
+                    call_id=call_id,
+                    group=group,
+                    seated_count=0,
+                    companion_format="",
+                    dropped_count=sum(
+                        1
+                        for companion in group.companions
+                        if not _companion_already_seated(
+                            companion, packed_symbol_ids, content_hashes_seated
+                        )
+                    ),
+                )
+            )
+            continue
+
+        seated_this_group = 0
+        dropped_this_group = 0
+        first_seated_format: ChunkFormat | None = None
+
+        for companion in group.companions:
+            if _companion_already_seated(
+                companion, packed_symbol_ids, content_hashes_seated
+            ):
+                continue
+            source = _read_source(companion.file_path)
+            base_chunk = chunk_from_symbol(companion, source)
+            # Try the caller's format first.
+            preferred = format_chunk(base_chunk, format, provider=None)
+            if preferred.token_count <= remaining:
+                packed_out.append(
+                    _Candidate(chunk=preferred, origin="grouping", score=0.5)
+                )
+                remaining -= preferred.token_count
+                total_tokens += preferred.token_count
+                if preferred.content_hash:
+                    content_hashes_seated.add(preferred.content_hash)
+                if companion.id is not None:
+                    packed_symbol_ids.add(companion.id)
+                seated_this_group += 1
+                if first_seated_format is None:
+                    first_seated_format = format
+                continue
+            # Downgrade to SIGNATURE.
+            if format is not ChunkFormat.SIGNATURE:
+                downgraded = format_chunk(
+                    base_chunk, ChunkFormat.SIGNATURE, provider=None
+                )
+                if downgraded.token_count <= remaining:
+                    packed_out.append(
+                        _Candidate(
+                            chunk=downgraded, origin="grouping", score=0.5
+                        )
+                    )
+                    remaining -= downgraded.token_count
+                    total_tokens += downgraded.token_count
+                    if downgraded.content_hash:
+                        content_hashes_seated.add(downgraded.content_hash)
+                    if companion.id is not None:
+                        packed_symbol_ids.add(companion.id)
+                    seated_this_group += 1
+                    if first_seated_format is None:
+                        first_seated_format = ChunkFormat.SIGNATURE
+                    continue
+            # Even SIGNATURE would not fit.
+            dropped_companions.append(companion.name)
+            dropped_this_group += 1
+
+        if seated_this_group == 0 and dropped_this_group == 0:
+            # Every companion was already seated by an earlier rule
+            # or by the cascade itself. No event fires.
+            continue
+
+        event = _grouping_event_payload(
+            call_id=call_id,
+            group=group,
+            seated_count=seated_this_group,
+            companion_format=(
+                first_seated_format.value if first_seated_format else ""
+            ),
+            dropped_count=dropped_this_group,
+        )
+        grouping_events.append(event)
+        emit_retrieval_grouping_applied(active_sink, event)
+
+    return packed_out, total_tokens, dropped_companions, grouping_events
+
+
+def _companion_already_seated(
+    companion: SymbolRow,
+    seated_ids: set[int],
+    seated_content_hashes: set[str],
+) -> bool:
+    """Return True when ``companion`` is already present in the bundle.
+
+    Dedup runs on ``id`` first (fast, unique across the store) then
+    on ``content_hash`` (catches the case where a companion is a
+    same-body clone of a primary — dedup mirrors the cascade's
+    :func:`_dedup_by_content_hash` policy).
+    """
+    if companion.id is not None and companion.id in seated_ids:
+        return True
+    if companion.content_hash and companion.content_hash in seated_content_hashes:
+        return True
+    return False
+
+
+def _grouping_event_payload(
+    *,
+    call_id: str,
+    group: SymbolGroup,
+    seated_count: int,
+    companion_format: str,
+    dropped_count: int,
+) -> dict[str, Any]:
+    """Build the ``retrieval.grouping.applied`` payload for one group."""
+    primary_id = group.primary.id if group.primary.id is not None else -1
+    return {
+        "call_id": call_id,
+        "primary_symbol_id": int(primary_id),
+        "companion_count": seated_count,
+        "rule_fired": group.rule,
+        "companion_format": companion_format,
+        "dropped_companion_count": dropped_count,
+    }
 
 
 def _build_and_emit(
@@ -978,7 +1258,32 @@ def _build_and_emit(
     budget: TokenBudget,
     call_id: str,
     traversal_ids: set[int],
+    query: RetrievalQuery,
+    indexes: list[IndexRef],
+    format: ChunkFormat,
 ) -> RetrievalBundle:
+    # v0.5.1 module_04 (Lens 1C C-1): cross-function grouping. Runs
+    # AFTER the four-level cascade seated the primary candidates and
+    # BEFORE the bundle is materialised. Companions consume from the
+    # SAME budget as the primary: remaining = budget - total_tokens.
+    # Companion format cascade: try the caller's format first
+    # (typically FULL); if it does not fit, downgrade to SIGNATURE;
+    # if that still does not fit, add to :attr:`RetrievalBundle.dropped_companions`.
+    (
+        packed,
+        total_tokens,
+        dropped_companions,
+        grouping_events,
+    ) = _extend_with_grouping(
+        packed=packed,
+        total_tokens=total_tokens,
+        query=query,
+        indexes=indexes,
+        format=format,
+        budget=budget,
+        call_id=call_id,
+        active_sink=active_sink,
+    )
     truncation_notes = _collect_truncation_notes(packed)
     trace = QueryTrace(
         index_hits=tuple(trace_hits),
@@ -1000,6 +1305,8 @@ def _build_and_emit(
         truncation_notes=tuple(truncation_notes),
         call_id=call_id,
         traversal_symbol_ids=tuple(sorted(traversal_ids)),
+        dropped_companions=tuple(dropped_companions),
+        grouping_events=tuple(grouping_events),
     )
     emit_retrieval_satisfied(
         active_sink,
@@ -1035,6 +1342,8 @@ def bundle_to_cache_payload(bundle: RetrievalBundle) -> dict[str, Any]:
         "dropped_symbols": list(bundle.dropped_symbols),
         "truncation_notes": list(bundle.truncation_notes),
         "traversal_symbol_ids": list(bundle.traversal_symbol_ids),
+        "dropped_companions": list(bundle.dropped_companions),
+        "grouping_events": [dict(evt) for evt in bundle.grouping_events],
         "query_trace": {
             "final_level": bundle.query_trace.final_level,
             "cache_hit": bundle.query_trace.cache_hit,
@@ -1113,6 +1422,10 @@ def cache_payload_to_bundle(payload: dict[str, Any]) -> RetrievalBundle:
         call_id=_fresh_call_id(),
         traversal_symbol_ids=tuple(
             int(sid) for sid in payload.get("traversal_symbol_ids", [])
+        ),
+        dropped_companions=tuple(payload.get("dropped_companions", [])),
+        grouping_events=tuple(
+            dict(evt) for evt in payload.get("grouping_events", [])
         ),
     )
 
