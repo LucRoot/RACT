@@ -447,6 +447,76 @@ CRITICAL/HIGH findings remain OPEN.
   `backup-v0.5.1-preWiring`); `HANDSHAKE_PUSH_COMMANDS.md` written
   for operator-gated push.
 
+### Not yet shipped in v0.5.1 (deferred to v0.6)
+
+The 2026-08-21 source-spec audit
+(`_BUILD/audit_2026-08-21c/AUDIT_SUMMARY_c.md`) surfaced a gap
+between what the Memory Discipline spec
+(`docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`) prescribes and what
+v0.5.1 actually ships. The v0.5.1 spec-completeness pipeline
+(`docs/RACT_v0.5.1_SPEC_COMPLETENESS_SPEC.md`) addresses the
+release-label honesty gap by naming every prescribed mechanism that
+is **not** shipping in v0.5.1, so readers do not have to grep the
+tree to discover the deferral:
+
+- **DSPy signature compilation-recompilation** (Memory Discipline
+  spec §Self-Adjustment Mechanisms item 3, v0.6-backlog line 70)
+  is **not shipped in v0.5.1**. No `src/ract/compilation/` directory;
+  no `signatures.py` or `training.py`; the `dspy` dependency is not
+  present in `pyproject.toml`. Deferred to v0.6 per **ADR-0043**.
+  The substrate the mechanism will consume (probes, failure
+  records, repo fingerprint, JCS canonical hashing, event trace)
+  is production-live.
+- **LeWM 23-dim behavioral-vector drift detection** (Memory
+  Discipline spec §Self-Adjustment Mechanisms item 4,
+  v0.6-backlog line 72; also referenced as an emit field in
+  §Operational Metrics) is **not shipped in v0.5.1**. No
+  `src/ract/observability/` package; no `lewm.py`, `drift.py`, or
+  `spc.py`; no SPC statistics harness; no drift-alert path. Zero
+  source hits for `lewm` / `LeWM` / `23-dim`. Deferred to v0.6
+  per **ADR-0044**. The substrate (event trace, per-repo capability
+  record, per-repo fingerprint, failure-record aggregation) is
+  production-live.
+- **`verify` / `review` / `commit` / `document` memory-discipline
+  functions** (Memory Discipline spec §Function contracts;
+  v0.5.0 shipped `intake` / `research` / `plan` / `edit`) remain
+  deferred per ADR-0036 and ADR-0037. Loop composition today runs
+  the four v0.5.0 verbs; the four deferred verbs are v0.6 scope.
+- **Cross-function grouping rules** (Memory Discipline spec
+  §Cross-Function Grouping — dataclass+methods, trait+impls,
+  test+subject, fn+type-aliases). Not yet shipped in v0.5.1;
+  addressed by module_04 of the v0.5.1 spec-completeness pipeline
+  (pending).
+- **Language chunkers for Java / Kotlin / C# / C / C++** (Memory
+  Discipline spec §AST Chunking Rules). v0.5.1 ships chunkers for
+  Python / TypeScript / Rust / Go (four of the ten spec languages);
+  the remaining five are deferred to v0.6.
+- **SUMMARY-format chunk generation + Bonsai council fallback**
+  (Memory Discipline spec §Chunk Overflow). Today `format_chunk`
+  returns a placeholder for the SUMMARY format; real summarisation
+  is pending in module_05 of the v0.5.1 spec-completeness
+  pipeline.
+- **Nightly failure-learning job + human-review queue + retrieval-
+  strategy adjustment surface** (Memory Discipline spec
+  §Failure Learning items 3-5). Aggregation ships; the nightly
+  scheduler and operator-review queue are pending in module_06 of
+  the v0.5.1 spec-completeness pipeline.
+- **Verifier availability pre-check** (`predicate.available(snapshot)`
+  gate before loop entry), **SubagentHandle wired to compensator
+  stack** (cascade-on-halt for subagent-shaped operations), and
+  **`index_digest()` equivalence-based no-op-rebuild short-circuit
+  on the 3 indexes** (v0.2-primitive salvage items). Pending in
+  module_07 of the v0.5.1 spec-completeness pipeline.
+- **`refuse_if_over_max` production wire-in** and
+  **`state_context` 15% sub-budget cap** (Memory Discipline spec
+  §Budget Declaration + §Context Composition). Both primitives
+  exist; wiring is pending in module_02 of the v0.5.1
+  spec-completeness pipeline.
+- **Write-first-invariant hardening in `JsonlEventWriter` +
+  `trace/repair.py` deterministic repair module** (v0.2-primitive
+  §5.1.2 / §5.1.3 salvage). Pending in module_03 of the v0.5.1
+  spec-completeness pipeline.
+
 ### Known limitations (carried to the v0.6 hardening backlog)
 
 The nine external-review-response modules each queued their own

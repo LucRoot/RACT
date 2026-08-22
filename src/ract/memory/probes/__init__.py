@@ -13,8 +13,13 @@ Budgets derive from this record when populated; the module_01 spec
 defaults ship as fallback for a fresh install.
 
 Nightly recompilation and the drift detector defer to v0.6 per master
-spec §Bounded scope; this module ships the aggregator + a manual
-``ract memory apply-narrowings`` verb the operator triggers by hand.
+spec §Bounded scope. DSPy signature compilation-recompilation is
+deferred per ADR-0043 (no ``src/ract/compilation/`` directory; no
+``dspy`` in ``pyproject.toml``); LeWM 23-dim behavioral-vector drift
+detection is deferred per ADR-0044 (no ``src/ract/observability/``
+package; no ``lewm.py`` / ``drift.py``). This module ships the
+aggregator + a manual ``ract memory apply-narrowings`` verb the
+operator triggers by hand.
 
 Reference: ``docs/RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md`` §Self-
 adjustment, §Signals item 10, and ``docs/ADRs/ADR-0038-self-

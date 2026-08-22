@@ -797,4 +797,30 @@ the pipeline progresses.
 - Lens H: Ubuntu-only lint / mypy (Windows / macOS matrix not
   wired).
 
+## v0.6 hardening (from v0.5.1 spec-completeness pipeline, 2026-08-21)
+
+The 2026-08-21 source-spec audit
+(`_BUILD/audit_2026-08-21c/AUDIT_SUMMARY_c.md`) compared v0.5.1
+against the Memory Discipline spec's stated intent. The
+spec-completeness pipeline
+(`docs/RACT_v0.5.1_SPEC_COMPLETENESS_SPEC.md`) closes what it
+can in-place and formalises the residual as v0.6 scope with
+ADR pins.
+
+- **DSPy signature compilation-recompilation** (spec §Self-Adjustment
+  Mechanisms item 3). Not shipped in v0.5.1; formally deferred per
+  **ADR-0043**. Requires `dspy-ai` dependency add, per-function
+  signature authoring, compile pipeline, evaluation harness, diff
+  report, and operator-review ceremony. Multi-week v0.6 scope.
+- **LeWM 23-dim behavioral-vector drift detection** (spec
+  §Self-Adjustment Mechanisms item 4; also referenced in
+  §Operational Metrics). Not shipped in v0.5.1; formally deferred
+  per **ADR-0044**. Requires 23-dim vector schema ADR, per-invocation
+  computation, baseline data collection, SPC statistics harness,
+  sliding-window comparator, drift-alert event kind, and operator-
+  review ceremony. Multi-week v0.6 scope.
+- **Additional language chunkers** (Java, Kotlin, C#, C, C++) —
+  spec §AST Chunking Rules lists 10 languages; v0.5.1 ships 4
+  (Python, TypeScript, Rust, Go). Deferred to v0.6.
+
 <!-- RACT 0.5.1 -->

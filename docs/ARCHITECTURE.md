@@ -1292,7 +1292,11 @@ target). The mapper is pure over the fingerprint (Second Pass Q3
 invariant): same input always produces the same output.
 
 Nightly recompilation and the drift detector defer to v0.6 per
-master spec §Bounded scope. Module_09 wires the manual
+master spec §Bounded scope. DSPy signature compilation-recompilation
+is deferred per ADR-0043 (no `src/ract/compilation/` directory; no
+`dspy` dependency in `pyproject.toml`). LeWM 23-dim behavioral-vector
+drift detection is deferred per ADR-0044 (no `src/ract/observability/`
+package; no `lewm.py` / `drift.py`). Module_09 wires the manual
 `ract memory apply-narrowings` verb.
 
 ## Memory-discipline integration (v0.5.0 module_09)

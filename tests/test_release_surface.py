@@ -1168,3 +1168,214 @@ def test_adr_0042_documented_in_changelog() -> None:
         "'sycophancy v2 tuning band' name. Re-add the reference "
         "when regenerating the release notes."
     )
+
+
+# ---------------------------------------------------------------------------
+# v0.5.1 spec-completeness module_01 -- docs honesty pass gates
+# ---------------------------------------------------------------------------
+
+
+def _v051_changelog_section() -> str:
+    """Return the substring of ``CHANGELOG.md`` between ``## [0.5.1]``
+    and the next ``## [`` heading. Load-bearing helper for the two
+    false-claim grep gates below.
+    """
+    text = (_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    marker = "## [0.5.1]"
+    start = text.find(marker)
+    assert start != -1, "CHANGELOG missing [0.5.1] entry"
+    next_section = text.find("\n## [", start + len(marker))
+    if next_section == -1:
+        next_section = len(text)
+    return text[start:next_section]
+
+
+def _line_is_deferral_context(line: str) -> bool:
+    """A line that mentions DSPy / LeWM is honest iff it names the
+    deferral **explicitly**. This is a conservative allowlist: the
+    line itself (or any of the lines around it, handled by the caller
+    via a symmetric line window) must carry at least one **strong
+    negation token** that asserts the mechanism is NOT shipping in
+    v0.5.1.
+
+    Weaker context tokens like "v0.6 scope" / "v0.6 backlog" alone
+    are NOT sufficient (SP module_01 Q6.1: a stray "v0.6 scope"
+    comment could otherwise be used to launder a false claim past
+    the gate). The allowlist below requires an unambiguous
+    "not shipped" or ADR-cross-ref token, which cannot be added
+    accidentally.
+    """
+    lowered = line.lower()
+    return any(
+        token in lowered
+        for token in (
+            "not yet shipped",
+            "not shipped",
+            "deferred to v0.6",
+            "defer to v0.6",
+            "defers to v0.6",
+            "adr-0043",
+            "adr-0044",
+        )
+    )
+
+
+def test_no_false_dspy_claim_in_v0_5_1_changelog() -> None:
+    """The ``[0.5.1]`` CHANGELOG section must not mention DSPy without
+    naming the deferral in the same 3-line window.
+
+    Regression anchor: spec-completeness module_01 (2026-08-21). The
+    2026-08-21 source-spec audit
+    (``_BUILD/audit_2026-08-21c/lens_1F_self_adjustment.md``) found
+    that DSPy signature compilation-recompilation is prescribed by
+    the Memory Discipline spec but not shipped: no
+    ``src/ract/compilation/``, no ``dspy`` in ``pyproject.toml``,
+    zero source hits. ADR-0043 formalises the deferral to v0.6. This
+    gate refuses a future CHANGELOG edit that claims DSPy shipped in
+    v0.5.1 without ADR-0043-style context.
+
+    The gate is line-scoped with an 11-line context window (line +/- 5)
+    so a paragraph that names DSPy and the deferral in adjacent
+    sentences passes. A bare "DSPy" mention with no deferral context
+    anywhere in the 3-line window fails.
+    """
+    section = _v051_changelog_section()
+    lines = section.splitlines()
+    violations: list[tuple[int, str]] = []
+    for i, line in enumerate(lines):
+        if "dspy" not in line.lower():
+            continue
+        window_start = max(0, i - 5)
+        window_end = min(len(lines), i + 6)
+        window = lines[window_start:window_end]
+        if not any(_line_is_deferral_context(w) for w in window):
+            violations.append((i, line.strip()))
+    assert not violations, (
+        "CHANGELOG [0.5.1] mentions DSPy without a deferral context "
+        "in the 11-line window. See ADR-0043. Offending lines:\n"
+        + "\n".join(f"  line {i}: {ln}" for i, ln in violations)
+    )
+
+
+def test_no_false_lewm_claim_in_v0_5_1_changelog() -> None:
+    """The ``[0.5.1]`` CHANGELOG section must not mention LeWM (or
+    ``23-dim`` behavioral-vector drift detection) without naming the
+    deferral in the same 3-line window.
+
+    Regression anchor: spec-completeness module_01 (2026-08-21). The
+    2026-08-21 source-spec audit found no ``src/ract/observability/``
+    package, no ``lewm.py`` / ``drift.py`` / ``spc.py``, and zero
+    source hits for ``lewm``. ADR-0044 formalises the deferral to
+    v0.6. This gate refuses a future CHANGELOG edit that claims
+    LeWM drift detection shipped in v0.5.1 without ADR-0044-style
+    context.
+    """
+    section = _v051_changelog_section()
+    lines = section.splitlines()
+    violations: list[tuple[int, str]] = []
+    for i, line in enumerate(lines):
+        lowered = line.lower()
+        # "23-dim" catches "23-dim", "23 dim", "23-dimensional"; also
+        # flag "lewm" case-insensitively.
+        if "lewm" not in lowered and "23-dim" not in lowered:
+            continue
+        window_start = max(0, i - 5)
+        window_end = min(len(lines), i + 6)
+        window = lines[window_start:window_end]
+        if not any(_line_is_deferral_context(w) for w in window):
+            violations.append((i, line.strip()))
+    assert not violations, (
+        "CHANGELOG [0.5.1] mentions LeWM / 23-dim behavioral-vector "
+        "drift detection without a deferral context in the 7-line "
+        "window. See ADR-0044. Offending lines:\n"
+        + "\n".join(f"  line {i}: {ln}" for i, ln in violations)
+    )
+
+
+def test_adr_0043_and_adr_0044_present() -> None:
+    """ADR-0043 (DSPy deferral) and ADR-0044 (LeWM deferral) must
+    both exist on disk.
+
+    Spec-completeness module_01 authored both under
+    ``docs/RACT_v0.5.1_SPEC_COMPLETENESS_SPEC.md`` §4 module_01. Each
+    must:
+
+    1. Live at the canonical path.
+    2. Carry a ``## Status`` section with the word ``Accepted``.
+    3. Carry a ``## Decision`` section.
+    4. Carry a ``## Rationale`` or ``## Alternatives considered``
+       section (both, in the shipped ADRs).
+    """
+    adr_root = _REPO_ROOT / "docs" / "ADRs"
+    for name in (
+        "ADR-0043-dspy-compilation-deferred-to-v06.md",
+        "ADR-0044-lewm-drift-detection-deferred-to-v06.md",
+    ):
+        p = adr_root / name
+        assert p.is_file(), f"ADR missing at {p}"
+        body = p.read_text(encoding="utf-8")
+        assert "## Status" in body, f"{name} missing ## Status"
+        assert "Accepted" in body, f"{name} does not say Accepted"
+        assert "## Decision" in body, f"{name} missing ## Decision"
+        assert (
+            "## Alternatives considered" in body
+            or "## Rationale" in body
+        ), f"{name} missing Rationale or Alternatives considered"
+
+
+def test_adr_0043_and_adr_0044_referenced_in_v0_5_1_changelog() -> None:
+    """The ``[0.5.1]`` CHANGELOG section must cite both new deferral
+    ADRs so a reader tracing "why isn't DSPy shipping" or "why isn't
+    LeWM shipping" finds the ADR before the disappointment.
+    """
+    section = _v051_changelog_section()
+    assert "ADR-0043" in section, (
+        "CHANGELOG [0.5.1] does not reference ADR-0043 (DSPy deferral). "
+        "spec-completeness module_01 wired this cross-reference; "
+        "re-add it if a regeneration dropped it."
+    )
+    assert "ADR-0044" in section, (
+        "CHANGELOG [0.5.1] does not reference ADR-0044 (LeWM deferral). "
+        "spec-completeness module_01 wired this cross-reference; "
+        "re-add it if a regeneration dropped it."
+    )
+
+
+def test_memory_discipline_spec_flags_dspy_and_lewm_deferral() -> None:
+    """The Memory Discipline spec's v0.6-backlog bullets for DSPy and
+    the 23-dim drift detector must each carry an inline
+    "Not shipped in v0.5.1 -- deferred to v0.6 per ADR-004X" callout.
+
+    Regression anchor: spec-completeness module_01. Reader tracing
+    from the spec's ``### v0.6 hardening (deferred)`` list must land
+    on the ADR, not on ambiguity about whether the mechanism might
+    have quietly slipped into a v0.5.x re-tag.
+    """
+    spec = (
+        _REPO_ROOT / "docs" / "RACT_v0.5.0_MEMORY_DISCIPLINE_SPEC.md"
+    ).read_text(encoding="utf-8")
+    # DSPy bullet must name ADR-0043.
+    assert "DSPy" in spec, "spec missing DSPy backlog bullet"
+    dspy_bullet_start = spec.find("- DSPy signature compilation")
+    assert dspy_bullet_start != -1, "spec DSPy bullet moved / renamed"
+    dspy_bullet_end = spec.find("\n-", dspy_bullet_start + 1)
+    if dspy_bullet_end == -1:
+        dspy_bullet_end = len(spec)
+    dspy_bullet = spec[dspy_bullet_start:dspy_bullet_end]
+    assert "ADR-0043" in dspy_bullet, (
+        "Memory Discipline spec DSPy backlog bullet missing "
+        "ADR-0043 deferral callout. spec-completeness module_01 "
+        "wired this; re-add if dropped."
+    )
+    # 23-dim bullet must name ADR-0044.
+    drift_bullet_start = spec.find("- Drift detector")
+    assert drift_bullet_start != -1, "spec drift-detector bullet moved / renamed"
+    drift_bullet_end = spec.find("\n-", drift_bullet_start + 1)
+    if drift_bullet_end == -1:
+        drift_bullet_end = len(spec)
+    drift_bullet = spec[drift_bullet_start:drift_bullet_end]
+    assert "ADR-0044" in drift_bullet, (
+        "Memory Discipline spec 23-dim drift-detector backlog bullet "
+        "missing ADR-0044 deferral callout. spec-completeness "
+        "module_01 wired this; re-add if dropped."
+    )

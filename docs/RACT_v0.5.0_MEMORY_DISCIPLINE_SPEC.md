@@ -67,9 +67,9 @@ v0.5.0 ships the load-bearing half of the memory-discipline surface. v0.6 harden
 
 - `verify`, `review`, `commit`, `document` functions (module_06 in the v0.6 pipeline).
 - Eight remaining playbooks (security audit, feature endpoint, migration, code review, perf, dead code, schema migration, config change).
-- DSPy signature compilation with weekly recompile and diff report.
+- DSPy signature compilation with weekly recompile and diff report. **[Not shipped in v0.5.1 — deferred to v0.6 per ADR-0043. No `dspy` dependency in `pyproject.toml`; no `src/ract/compilation/` directory.]**
 - Outlines-based structured generation for `edit` output (v0.5.0 uses AST validation + retry on parse error; v0.6 adds grammar-constrained generation).
-- Drift detector (23-dimensional behavioral vectors, statistical process control on weekly distributions).
+- Drift detector (23-dimensional behavioral vectors, statistical process control on weekly distributions). **[Not shipped in v0.5.1 — deferred to v0.6 per ADR-0044. No `src/ract/observability/` package; no `lewm.py` / `drift.py`.]**
 - Automated nightly review queue that applies runtime budget narrowing.
 - Repo fingerprint feedback loop that adjusts retrieval defaults per repo.
 - Cross-language coverage for the graph index beyond Python/TypeScript/Rust/Go (Java, Kotlin, C#, C/C++).
