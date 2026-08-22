@@ -209,4 +209,41 @@ Regression tests (all under `tests/`):
 - `unit/test_rootknot_forward_compat_reject.py` (M-2)
 - `unit/test_rootknot_v4_missing_field_verify_fails.py` (F-2)
 
+## v0.5.2 module_06 read-boundary refusal (module_01 Q3 fold)
+
+`ract.core.provenance._knot_from_json` refuses to load a sidecar
+whose `schema` field carries an unknown named literal (e.g.
+`sidecar/v9`). Previously the reader silently downgraded to the
+v1 shape and the module_01 verifier then refused it -- but by
+then the reader had already committed to wrong fields. Pairing
+this read-side refusal with module_04's `write_sidecar_header`
+primitive means unknown sidecar formats fail loudly at ingest.
+
+- Exception raised: `ract.core.provenance.RootknotUnknownSidecarFormat`
+  with the offending literal in the message.
+- Absent-`schema` legacy v0.3 v1 payloads continue to load
+  unchanged.
+- Known values: `sidecar/v2`, `sidecar/v3`, `sidecar/v4`.
+
+Regression test: `tests/unit/test_module_06_carryover_folds.py`.
+
+## v0.5.2 module_06 ambient run_id boundary regex (module_04 C-6 fold)
+
+`ract.runtime.bootstrap_ambient_from_env` validates the
+`RACT_RUN_ID` env value against `^[A-Za-z0-9_-]{1,240}$` at
+subagent boot. Rationale: module_05's per-run
+`{run_id}.verify.json` sidecar takes this value straight into a
+filesystem path, so a path-separator / shell-metacharacter /
+dot-traversal value in the env is a direct path-shape vector on
+a trust boundary module_04 itself created. On format failure the
+runtime emits `runtime.run_id.env_rejected`, logs a WARN, and
+falls through to synthetic-orphan generation -- the subagent
+runs; only the poisoned identifier is discarded.
+
+- Exception raised (via `_normalize_run_id_or_raise` public
+  helper): `ract.runtime.RunIdFormatError` with the offending
+  value truncated to 80 chars in the message.
+
+Regression test: `tests/unit/test_module_06_carryover_folds.py`.
+
 <!-- RACT 0.5.2 -->

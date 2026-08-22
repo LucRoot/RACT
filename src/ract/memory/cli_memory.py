@@ -35,7 +35,8 @@ from ract.core.module_identity import _module_knot, register_module_knot
 def memory_command(args: list[str]) -> int:
     """Handle ``ract memory <subverb>``.
 
-    Subverbs: ``init``, ``apply-narrowings``.
+    Subverbs: ``init``, ``apply-narrowings``,
+    ``verify-consistency`` (v0.5.2 module_06 DA-B F-5.1 companion).
 
     Returns 0 on success, 1 on any user-visible failure. Prints
     ``[ract]``-prefixed diagnostics on the failure path.
@@ -48,7 +49,7 @@ def memory_command(args: list[str]) -> int:
         return 0
     parser.add_argument(
         "subverb",
-        choices=["init", "apply-narrowings"],
+        choices=["init", "apply-narrowings", "verify-consistency"],
         help="Memory-discipline action to perform.",
     )
     parsed, rest = parser.parse_known_args(args)
@@ -56,8 +57,166 @@ def memory_command(args: list[str]) -> int:
         return _memory_init(rest)
     if parsed.subverb == "apply-narrowings":
         return _memory_apply_narrowings(rest)
+    if parsed.subverb == "verify-consistency":
+        return _memory_verify_consistency(rest)
     parser.print_help()
     return 0
+
+
+def _memory_verify_consistency(args: list[str]) -> int:
+    """v0.5.2 module_06: cross-index consistency verifier CLI.
+
+    Opens the three-index store under ``<repo>/.ract/memory/``
+    (symbol + graph; semantic is optional and best-effort) and
+    prints a report. Exit codes:
+
+    - 0 -- CONSISTENT
+    - 1 -- INCONSISTENT (at least one flagged discrepancy)
+    - 2 -- UNAVAILABLE (backing store missing / unreadable)
+    """
+    import json
+
+    parser = argparse.ArgumentParser(
+        prog="ract memory verify-consistency",
+        description=(
+            "Cross-check symbol / graph / semantic indexes for "
+            "orphan edges, missing files, and stale semantic "
+            "slices."
+        ),
+    )
+    parser.add_argument(
+        "repo_path",
+        type=Path,
+        nargs="?",
+        default=Path("."),
+        help="Repository whose .ract/memory store to verify.",
+    )
+    parser.add_argument(
+        "--no-disk-check",
+        dest="check_files_on_disk",
+        action="store_false",
+        default=True,
+        help=(
+            "Skip the missing-symbol-file check (only useful in "
+            "CI where paths are synthetic)."
+        ),
+    )
+    parser.add_argument(
+        "--max-inconsistencies",
+        type=int,
+        default=500,
+        help="Cap on returned detail entries (default 500).",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit a JSON report instead of human-readable text.",
+    )
+    parsed = parser.parse_args(args)
+    repo_path: Path = parsed.repo_path.resolve()
+
+    from ract.memory.symbol_index import SymbolIndex
+    from ract.memory.graph_index import GraphIndex
+    from ract.memory.verify_consistency import (
+        IndexConsistencyReport,
+        verify_indexes,
+    )
+
+    sym_db = repo_path / ".ract" / "memory" / "symbols.db"
+    graph_db = repo_path / ".ract" / "memory" / "graph.db"
+    if not sym_db.is_file():
+        report = IndexConsistencyReport.unavailable(
+            reason=(
+                f"symbol_index DB not found at {sym_db} "
+                "(run `ract memory init` first)"
+            ),
+        )
+    else:
+        try:
+            with SymbolIndex(db_path=str(sym_db)) as sym_idx:
+                gi = None
+                if graph_db.is_file():
+                    try:
+                        gi = GraphIndex(
+                            db_path=str(graph_db),
+                            symbol_index=sym_idx,
+                        )
+                    except Exception as exc:
+                        gi = None
+                        print(
+                            f"[ract memory verify-consistency] "
+                            f"graph_index open failed ({exc}); "
+                            "graph check skipped",
+                            file=sys.stderr,
+                        )
+                try:
+                    report = verify_indexes(
+                        symbol_index=sym_idx,
+                        graph_index=gi,
+                        semantic_index=None,
+                        check_files_on_disk=parsed.check_files_on_disk,
+                        max_inconsistencies=parsed.max_inconsistencies,
+                    )
+                finally:
+                    if gi is not None:
+                        try:
+                            gi.close()
+                        except Exception:
+                            pass
+        except Exception as exc:
+            report = IndexConsistencyReport.unavailable(
+                reason=f"symbol_index open failed: {exc}",
+            )
+
+    if parsed.json_output:
+        from ract.canonical import dumps_jcs
+        payload = {
+            "repo_path": str(repo_path),
+            "status": report.status,
+            "symbols_checked": report.symbols_checked,
+            "edges_checked": report.edges_checked,
+            "semantic_slices_checked": report.semantic_slices_checked,
+            "reason": report.reason,
+            "inconsistencies": [
+                {
+                    "kind": i.kind,
+                    "file": i.file,
+                    "symbol_id": i.symbol_id,
+                    "edge_id": i.edge_id,
+                    "detail": i.detail,
+                }
+                for i in report.inconsistencies
+            ],
+        }
+        # dumps_jcs returns bytes; decode for print.
+        print(dumps_jcs(payload).decode("utf-8"))
+    else:
+        print(f"[ract memory verify-consistency] {repo_path}")
+        print(f"  status: {report.status}")
+        print(f"  symbols_checked: {report.symbols_checked}")
+        print(f"  edges_checked: {report.edges_checked}")
+        print(
+            "  semantic_slices_checked: "
+            f"{report.semantic_slices_checked}"
+        )
+        print(f"  reason: {report.reason}")
+        if report.inconsistencies:
+            # Cap human-readable print at 20; JSON has all.
+            for i in report.inconsistencies[:20]:
+                print(f"  - [{i.kind}] {i.detail}")
+            if len(report.inconsistencies) > 20:
+                print(
+                    "  ... "
+                    f"{len(report.inconsistencies) - 20} more "
+                    "(pass --json for the full list)"
+                )
+
+    if report.status == "CONSISTENT":
+        return 0
+    if report.status == "INCONSISTENT":
+        return 1
+    return 2
 
 
 def _memory_init(args: list[str]) -> int:

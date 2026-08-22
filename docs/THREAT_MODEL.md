@@ -255,10 +255,71 @@ canonical bytes to the v0.5.0 v3 baseline (see
 ``tests/unit/test_schema_version_backread``) -- the sacred spine
 extends, nothing removed.
 
+## v0.5.2 Deep-Audit Hardening additions
+
+Six hardening modules layered on v0.5.1 close fifteen
+Ox-Alpha-partnered deep-audit findings. Each closes an attack
+surface the sacred spine implicitly promised but the code did
+not enforce end-to-end.
+
+- **DOWNGRADE refusal (module_01 / DA-A M-1):** the verifier
+  now carries a `min_acceptable_schema_version` policy floor.
+  Without it, a v4 knot could be relabelled as v1 and re-signed
+  by the same key-holder and verified as a weaker attestation.
+  Default floor stays at v3 (v0.5.1 compat); strict deployments
+  set `--min-schema 4`.
+- **v4-label-implies-v4-fields (module_01 / DA-A F-1/F-2/F-5):**
+  `Rootknot.__post_init__` now refuses a v4-labelled knot with
+  absent `workspace_digest` / `prompt_digest` / `run_id`;
+  `_check_rk3` cross-checks at verify time because deserialization
+  paths (copy/pickle) can bypass `__post_init__`.
+- **Known-schema-versions allowlist (module_01 / DA-A M-2):** a
+  hostile `schema_version=9` payload is refused with
+  `RK-UNKNOWN-SCHEMA` rather than falling through to v3
+  semantics.
+- **Library-injection env deny (module_02 / DA-A F-3):**
+  `NEVER_PASSTHROUGH` extended by 40+ classic vectors including
+  `LD_PRELOAD`, `DYLD_INSERT_LIBRARIES`, `PYTHONPATH`,
+  `NODE_OPTIONS`, `BASH_ENV`, `GLIBC_TUNABLES` (CVE-2023-4911),
+  `GIT_SSH_COMMAND`, `HTTPS_PROXY`, `PSMODULEPATH`.
+- **PID-reuse guard (module_03 / DA-A F-4 + M-5):** every
+  `SubprocessSubagentHandle.dispose` captures the pid's
+  `creation_time_ns` at spawn; a signal is refused with
+  `substrate.subagent.pid_reuse_detected` when the live pid's
+  creation time no longer matches. Killing the wrong tenant is
+  worse than a leaked descendant.
+- **RACT_RUN_ID strip-and-reinject (module_04 / DA-B F-3.1):**
+  a hostile parent env's `RACT_RUN_ID=victim` is stripped from
+  the spawned child's env; the loop's ambient value is
+  re-injected. Even the `env=None` path now flows through the
+  strip helper (module_04 SP amendment) so no substrate spawn
+  path leaks the poisoned key.
+- **RACT_RUN_ID boundary regex (module_06 / m04 C-6 fold):**
+  `bootstrap_ambient_from_env` refuses a `RACT_RUN_ID` value
+  that fails `^[A-Za-z0-9_-]{1,240}$`. Path-shape values
+  (`../`, absolute paths, whitespace, shell metacharacters,
+  dots) fail the boundary check and the subagent falls through
+  to synthetic-orphan generation. Rationale: module_05's
+  `{run_id}.verify.json` sidecar takes this value straight into
+  a filesystem path.
+- **Torn-tail decode (module_05 / DA-B F-4.5):** trace-log
+  post-crash tails are readable via a last-line `errors="replace"`
+  fallback (body stays strict). `TORN_TAIL` reports as a
+  first-class status; the chain is resumable at exit code 0.
+- **Unknown sidecar format refusal (module_06 / m01 Q3 fold):**
+  `_knot_from_json` refuses a sidecar with an unknown named
+  `schema` literal (e.g. `sidecar/v9`) rather than silently
+  downgrading to v1 semantics.
+- **On-move reorder-race defense (module_06 / DA-B F-5.4):**
+  the watcher's flush loop now decides delete-vs-write from the
+  file's actual existence at flush time, not the enqueued flag.
+  Bounds stale-cache-miss windows introduced by network-share
+  event reordering to a single scan interval.
+
 ## Reporting
 
 See [SECURITY.md](../SECURITY.md) for the vulnerability reporting
 policy and PGP key.
 
-<!-- RACT 0.5.1 -->
+<!-- RACT 0.5.2 -->
 

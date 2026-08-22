@@ -70,6 +70,27 @@ class _KnotLoadError(Exception):
         self.cause = cause
 
 
+class RootknotUnknownSidecarFormat(Exception):
+    """Sidecar payload declares a ``schema`` this reader does not know.
+
+    v0.5.2 hardening module_06 (module_01 Q3 fold; Ox Alpha co-build
+    Q1 MUST-FOLD verdict). Prior to this the reader accepted a
+    ``sidecar/v9`` payload by silently downgrading to the v1 shape;
+    the module_01 verifier-side ``_check_rk3`` known-versions
+    allowlist would then refuse it, but only AFTER the reader had
+    already committed to a wrong shape for the fields. Pairing this
+    read-side refusal with the write-side ``write_sidecar_header``
+    primitive means UNKNOWN sidecar formats fail loudly at ingest,
+    with the offending literal in the message.
+
+    Callers that want to soft-accept unknown schemas (a rolling
+    upgrade window, deliberate operator override) can catch this
+    exception at the boundary and rebuild via a compatibility path.
+    Absent-``schema`` legacy v0.3 v1 payloads continue to load
+    unchanged.
+    """
+
+
 @dataclass(frozen=True)
 class ProvenanceViolation:
     """A single provenance failure.
@@ -596,6 +617,28 @@ def _knot_from_json(payload: str) -> Rootknot:
             ),
             manifest_digest=Digest(bytes.fromhex(data["manifest_digest"])),
             schema_version=int(data.get("schema_version", 2)),
+        )
+    # v0.5.2 module_06 (module_01 Q3 fold, Ox Alpha co-build Q1
+    # MUST-FOLD verdict): explicit refusal of unknown sidecar
+    # schemas. Module_04's ``write_sidecar_header`` established a
+    # second schema-versioned ingestion boundary; leaving THIS
+    # reader silently downgrading unknown ``schema`` strings to the
+    # v1 shape meant the module_01 known-versions allowlist policy
+    # was enforced at one boundary and not its pair. A hostile
+    # ``sidecar/v9`` payload previously fell through to v1
+    # semantics; now it raises :class:`RootknotUnknownSidecarFormat`
+    # with the offending literal. The absent-field v0.3 shape is
+    # still accepted (schema is None) -- only NAMED-but-UNKNOWN
+    # values refuse.
+    if schema is not None and schema not in (
+        "sidecar/v2",
+        "sidecar/v3",
+        "sidecar/v4",
+    ):
+        raise RootknotUnknownSidecarFormat(
+            f"unknown sidecar schema {schema!r}; known values are "
+            "'sidecar/v2', 'sidecar/v3', 'sidecar/v4' (or absent for "
+            "the legacy v0.3 v1 shape)"
         )
     # v1 (v0.3) shape.
     return Rootknot(

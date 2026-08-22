@@ -163,6 +163,18 @@ class SymbolGroup:
 # variable literally named ``dataclass_foo`` inside a signature does
 # not false-positive. Second Pass module_04 Q6a amendment: broadened
 # from a plain substring check that missed the ``@dc`` alias.
+#
+# v0.5.2 module_06 hardening (DA-B F-5.1 + Ox Alpha Q7 co-build): the
+# ANY-module-prefix acceptance is INTENTIONAL. A project-local
+# re-export such as ``from pkg import dataclass`` reachable as
+# ``@pkg.dataclasses.dataclass`` or ``@my_pkg.dataclass`` is a
+# LEGITIMATE dataclass and grouping SHOULD fire. The prior docstring
+# incorrectly claimed foreign prefixes would NOT match; the fix is a
+# HONEST DOCSTRING (per Q7 verdict) not a tighter regex. The rare
+# false-positive of ``@evil.dc`` where ``.dc`` is unrelated to
+# dataclasses degrades to slightly-broader grouping -- retrieval
+# noise, not correctness. Escalate to allowlist-with-introspection
+# only if false-positive mis-grouping appears in the wild (v0.6+).
 _DATACLASS_DECORATOR_RE = re.compile(
     r"@(?:"
     r"(?:[A-Za-z_][A-Za-z0-9_]*\.)*"  # optional module prefix (a.b.c.)
@@ -180,16 +192,25 @@ def _looks_like_dataclass(symbol: SymbolRow) -> bool:
     decorated_definition first line, per
     :func:`ract.memory.languages.python._signature`).
 
-    Recognised decorator shapes: ``@dataclass``,
-    ``@dataclass(frozen=True)``, ``@dataclasses.dataclass``,
-    ``@pydantic.dataclasses.dataclass``, ``@attrs.dataclass``, and
-    the well-known short alias ``@dc`` (Second Pass Q6a amendment;
-    ``from dataclasses import dataclass as dc`` is a common
-    shortening). A project-local alias under an arbitrary name
-    (``@my_special_dataclass``) will NOT match, and the grouping
-    simply does not fire for that class — non-firing remains the
-    safe default: the primary still surfaces from the query, and
-    the caller can request the methods explicitly.
+    Recognised decorator shapes: bare ``@dataclass`` /
+    ``@dataclass(frozen=True)``, and ANY module-prefix chain that
+    ends in ``dataclass`` or ``dc`` (e.g.
+    ``@dataclasses.dataclass``, ``@pydantic.dataclasses.dataclass``,
+    ``@attrs.dataclass``, ``@my_pkg.dataclass``, ``@a.b.c.dc``).
+    The short alias ``@dc`` (``from dataclasses import dataclass as
+    dc``) matches directly. v0.5.2 module_06 (DA-B F-5.1 + Ox
+    Alpha Q7 co-build) HONESTED this docstring: the prior wording
+    incorrectly claimed project-local re-exports would NOT match --
+    they DO match and grouping DOES fire for them. Rationale: a
+    genuine project re-export of dataclass is a real dataclass and
+    the caller wants companion methods. The rare false-positive
+    where ``@evil.dc`` names an unrelated decorator ending in
+    ``.dc`` degrades to slightly-broader grouping (retrieval noise,
+    not a correctness failure) -- the primary still surfaces and
+    the caller can request the methods explicitly. A project-local
+    alias under an ARBITRARY name (``@my_special_dataclass``, no
+    ``.dc`` / ``.dataclass`` suffix) does NOT match, and grouping
+    does not fire for that class.
     """
     if symbol.kind != "class":
         return False

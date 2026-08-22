@@ -211,6 +211,61 @@ _LOG = logging.getLogger("ract.runtime")
 RACT_RUN_ID_ENV_KEY: str = "RACT_RUN_ID"
 
 
+# v0.5.2 hardening module_06 (m04 C-6 fold, Ox Alpha co-build Q1
+# MUST-FOLD verdict): closed-form regex the ambient run_id MUST
+# match. Module_05's ``{run_id}.verify.json`` sidecar takes this
+# value straight into a filesystem path, so unvalidated input at
+# this boundary is a direct path-shape vector on a trust boundary
+# module_04 itself created. Validated at the SINGLE chokepoint per
+# Ox Alpha's implementation note:
+# :func:`bootstrap_ambient_from_env` (env entry) +
+# :func:`_normalize_run_id_or_raise` (public helper).
+#
+# Regex shape: [A-Za-z0-9_-]{1,240} -- an operator-set value need
+# NOT carry a ``RUN-`` prefix (many existing callers, including
+# fixture-driven tests, use bare hex), but MUST NOT contain path
+# separators, whitespace, shell metacharacters, dots (``../``
+# traversal), or other characters that would give the value
+# meaning inside a filesystem path.
+import re as _re
+
+_RUN_ID_ALLOWED = _re.compile(r"^[A-Za-z0-9_-]{1,240}$")
+
+
+class RunIdFormatError(ValueError):
+    """Raised when a supplied run_id does not match the allowed
+    ``^[A-Za-z0-9_-]{1,240}$`` shape.
+
+    v0.5.2 module_06 (m04 C-6 fold). Callers that receive this
+    exception have accepted un-validated input into an ambient
+    slot that downstream code turns into a filesystem path --
+    fix the caller, not the check.
+    """
+
+
+def _normalize_run_id_or_raise(raw: str) -> str:
+    """Validate ``raw`` against :data:`_RUN_ID_ALLOWED` and return it.
+
+    A leading/trailing whitespace strip is done as a courtesy (env
+    files often trail a ``\\n``); anything else that fails the
+    regex raises :class:`RunIdFormatError` with a diagnostic that
+    names the offending value (truncated to 80 chars so a hostile
+    huge blob does not blow up log lines).
+    """
+    stripped = raw.strip()
+    if not _RUN_ID_ALLOWED.match(stripped):
+        preview = stripped[:80] + ("..." if len(stripped) > 80 else "")
+        raise RunIdFormatError(
+            f"invalid RACT_RUN_ID {preview!r}: must match "
+            r"^[A-Za-z0-9_-]{1,240}$ (no path separators, "
+            "whitespace, shell metacharacters, or dots; a foreign "
+            "value likely reached the runtime through an "
+            "unfiltered subprocess env or a hostile parent "
+            "process)"
+        )
+    return stripped
+
+
 def bootstrap_ambient_from_env(
     *,
     env: dict[str, str] | None = None,
@@ -245,6 +300,37 @@ def bootstrap_ambient_from_env(
     """
     source_env = os.environ if env is None else env
     raw = source_env.get(RACT_RUN_ID_ENV_KEY, "")
+    if raw:
+        # v0.5.2 module_06 (m04 C-6 fold): validate the shape at
+        # the boundary. A hostile parent that populated
+        # ``RACT_RUN_ID=../../../etc/passwd`` or similar shaped a
+        # module_05 sidecar path straight into an unrelated
+        # directory pre-fix. On format failure we DO NOT raise --
+        # we emit a runtime.run_id.env_rejected event, log the
+        # violation, and fall through to synthetic-orphan
+        # generation (the fail-open contract this bootstrap
+        # advertises). Op-visible: unless operators set
+        # ``--strict-orphans`` (v0.6 reserved), a poisoned parent
+        # env yields an orphan run + a WARN, not a crashed
+        # subagent.
+        try:
+            raw = _normalize_run_id_or_raise(raw)
+        except RunIdFormatError as exc:
+            if emit_events:
+                _emit_runtime_event(
+                    "runtime.run_id.env_rejected",
+                    {
+                        "reason": str(exc),
+                        "child_pid": os.getpid(),
+                        "source": "env",
+                    },
+                )
+            _LOG.warning(
+                "runtime: rejected RACT_RUN_ID env value (%s); "
+                "generating orphan instead",
+                exc,
+            )
+            raw = ""  # falls through to orphan-generate branch
     if raw:
         set_current_run_id(raw)
         if emit_events:

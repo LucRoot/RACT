@@ -830,3 +830,121 @@ subagent cascades; readers at schema_version 8 gain the new kind.
 
 <!-- schema_version: 8 — v0.5.1 spec-completeness module_07 (added subagent.disposed) -->
 
+## v0.5.2 hardening pipeline -- ten additive kinds (schema_version 9)
+
+The v0.5.2 Deep-Audit Hardening pipeline extends the closed
+vocabulary under `schema_version 9` with ten additive kinds.
+Producers cited per kind. Payloads are informal (documented here;
+the LEGAL_EVENT_KINDS frozenset in
+`src/ract/trace/events.py` is the load-bearing gate). Backward
+compatibility: every kind is ADDITIVE; readers at
+schema_version 8 that ignore unknown kinds continue to work.
+
+### `substrate.subagent.tree_kill_invoked`
+
+Emitted every time
+:meth:`SubprocessSubagentHandle.dispose` calls into
+:func:`process_group.kill_tree`, regardless of whether the
+parent Popen has already exited. The `poll_exited` path is the
+load-bearing DA-A F-4 fix: pre-hardening the short-circuit
+skipped tree-kill in that case and grandchildren leaked; now
+it fires unconditionally.
+
+Payload: `pid`, `creation_time_ns`, `path` (one of
+`"poll_exited"` / `"timeout"` / `"explicit"` / `"error"`).
+
+### `substrate.subagent.pid_reuse_detected`
+
+Emitted when
+:func:`process_identity.same_process` refuses a signal because
+the pid's live `creation_time_ns` no longer matches the value
+captured at spawn. The event MUST cause the caller to skip the
+signal -- killing the wrong tenant would be worse than a leaked
+descendant.
+
+Payload: `stored_pid`, `stored_ctime` (creation_time_ns from
+spawn), `current_ctime` (creation_time_ns of the pid RIGHT NOW).
+
+### `substrate.subagent.orphan_reaped`
+
+Emitted when tree-kill actually terminated live descendants
+after the parent Popen exited. Distinct from
+`tree_kill_invoked` because that fires unconditionally on every
+dispose while `orphan_reaped` only fires when the substrate
+ACTUALLY caught reparented descendants -- the audit signal an
+operator uses to confirm the DA-A F-4 defense is doing real
+work.
+
+Payload: `count` (int), `pids` (list of ints, capped at 32).
+
+### `runtime.run_id.env_injected`
+
+Emitted when
+:meth:`SubstrateLoop.spawn_step_subprocess` has plumbed
+`RACT_RUN_ID` into a spawned child (parent had an ambient
+bound), OR when
+:func:`ract.runtime.bootstrap_ambient_from_env` at subagent
+boot binds an ambient from `RACT_RUN_ID` env.
+
+Payload: `run_id`, `child_pid`, `source` (one of
+`"spawn_step_subprocess"` / `"env"`).
+
+### `runtime.run_id.env_rejected`
+
+v0.5.2 module_06 (m04 C-6 fold). Emitted when
+:func:`ract.runtime.bootstrap_ambient_from_env` discards a
+`RACT_RUN_ID` env value that fails the
+`^[A-Za-z0-9_-]{1,240}$` format regex (path-shape poisoning
+defense). The subagent falls through to
+`orphan_generated` after the reject.
+
+Payload: `reason` (truncated to ≤80 chars), `child_pid`,
+`source` (typically `"env"`).
+
+### `runtime.run_id.env_stripped_from_parent`
+
+Emitted when
+:func:`_inject_ract_run_id_env` discards a caller-supplied
+`RACT_RUN_ID` (attacker sneak-vector: shell sets
+`RACT_RUN_ID=victim_run` before invoking `ract`). Raw
+poisoned value NEVER logged.
+
+Payload: `stripped_key`, `stripped_value_hash` (16-hex prefix
+of sha256).
+
+### `runtime.run_id.orphan_generated`
+
+Emitted when a subagent is invoked WITHOUT `RACT_RUN_ID`
+(legitimate: operator debug, external orchestrator).
+:func:`bootstrap_ambient_from_env` generates a synthetic
+`RUN-ORPHAN-{uuid}` and binds it.
+
+Payload: `synthetic_run_id`, `reason`, `child_pid`.
+
+### `sidecar.header.written`
+
+Emitted each time a sidecar writer emits a header via
+:func:`ract.sidecar_header.write_json_sidecar_with_header` (or
+an equivalent header-first path).
+
+Payload: `path`, `sidecar_type`, `schema_version`, `run_id`.
+
+### `sidecar.header.missing_refused`
+
+Emitted when
+:func:`ract.sidecar_header.read_sidecar_header` refuses a
+sidecar in strict mode (headerless), OR when the header is
+present but violates schema-allowlist / downgrade policy.
+
+Payload: `path`, `reason` (one of `"headerless"` /
+`"unknown_schema"` / `"downgrade"`).
+
+### `sidecar.header.mismatch_refused`
+
+Emitted when the header `run_id` differs from the verifier's
+`expected_run_id`.
+
+Payload: `path`, `header_run_id`, `expected_run_id`.
+
+<!-- schema_version: 9 — v0.5.2 hardening pipeline modules 03/04/06 (added 10 kinds) -->
+

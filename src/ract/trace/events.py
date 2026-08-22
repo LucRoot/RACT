@@ -247,6 +247,16 @@ EventKind = Literal[
     # emit uses spawned child's pid), and ``source`` (one of
     # ``"spawn_step_subprocess"`` / ``"env"``).
     "runtime.run_id.env_injected",
+    # ``runtime.run_id.env_rejected`` -- v0.5.2 hardening
+    # module_06 (m04 C-6 fold, Ox Alpha co-build Q1 MUST-FOLD).
+    # Fires when :func:`ract.runtime.bootstrap_ambient_from_env`
+    # discards a ``RACT_RUN_ID`` env value that fails the
+    # ``^RUN-[A-Za-z0-9_-]{1,240}$`` format regex (path-shape
+    # poisoning defense at the trust boundary). The subagent
+    # falls through to ``orphan_generated`` after the reject.
+    # Payload carries ``reason`` (truncated to 80 chars),
+    # ``child_pid``, and ``source`` (typically ``"env"``).
+    "runtime.run_id.env_rejected",
     # ``runtime.run_id.env_stripped_from_parent`` -- fires when
     # :func:`_inject_ract_run_id_env` discards a caller-supplied
     # RACT_RUN_ID (attacker sneak-vector: shell sets
