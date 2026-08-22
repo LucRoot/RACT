@@ -675,8 +675,20 @@ class SubstrateLoop:
         cover the two common shapes. Registration is idempotent per
         handle identity: a second register of the same object is a
         no-op.
+
+        SP amendment (Ox Alpha finding): dedup uses IDENTITY
+        (``is``), not value equality (``in``). Handle types like
+        :class:`SubprocessSubagentHandle` and
+        :class:`InlineSubagentHandle` are dataclasses whose
+        ``__eq__`` compares field values; two distinct handle
+        objects wrapping the same teardown callable + identical
+        descriptors would compare equal under ``in`` and the
+        second registration would silently drop -- orphaning that
+        handle's dispose call. Identity dedup is correct for
+        "same object twice" AND admits two distinct-but-equal
+        handles wrapping semantically-different resources.
         """
-        if handle in self._active_subagent_handles:
+        if any(existing is handle for existing in self._active_subagent_handles):
             return
         self._active_subagent_handles.append(handle)
 
@@ -726,7 +738,24 @@ class SubstrateLoop:
                     exc,
                 )
                 ok = False
-            emit_subagent_disposed_event(handle, reason=reason, ok=ok)
+            # SP amendment (Ox Alpha finding): event emission must be
+            # inside its own try/except so a trace-sink failure OR a
+            # non-JSON-serialisable descriptor cannot abort the
+            # cascade mid-iteration, leaving remaining handles
+            # orphaned and the ``_active_subagent_handles = []``
+            # clear unreached. emit itself best-effort-swallows
+            # (see :func:`emit_subagent_disposed_event` in
+            # ``subagent_handle.py``), but any future refactor that
+            # promotes the emit to raise-propagate must not break
+            # cascade completeness. Belt-and-suspenders.
+            try:
+                emit_subagent_disposed_event(handle, reason=reason, ok=ok)
+            except Exception as exc:  # noqa: BLE001 -- never fail cascade on emit
+                _KNOT_LOGGER.warning(
+                    "subagent.disposed emit raised (descriptor=%r): %s",
+                    getattr(handle, "descriptor", {}),
+                    exc,
+                )
             reaped += 1
         self._active_subagent_handles = []
         return reaped

@@ -803,9 +803,14 @@ Payload:
 
 Fields:
 
-- `kind` — short role string. Common values are `"subprocess"`
-  (`SubprocessSubagentHandle`), `"inline"` (`InlineSubagentHandle`),
-  or a caller-supplied identifier.
+- `kind` — short role string. Not a closed enum: the concrete
+  ship classes default to `"subprocess"` (`SubprocessSubagentHandle`)
+  and `"inline"` (`InlineSubagentHandle`), and any caller-supplied
+  handle implementation MAY set an arbitrary string on its
+  ``kind`` attribute (e.g. `"lsp"`, `"embedding_sidecar"`,
+  `"whisperer_provider_session"`). Consumers writing dashboards
+  or greps should treat `kind` as an open vocabulary keyed by the
+  handle's registered `descriptor.role` for canonical grouping.
 - `descriptor` — free-form dict the caller attached at registration.
   Typically names the specific subagent role + a per-instance
   label so the audit trail can distinguish two Whisperers running
