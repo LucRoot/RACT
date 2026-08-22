@@ -452,4 +452,174 @@ def test_cascade_survives_individual_dispose_failure(tmp_path: Path) -> None:
     assert loop._active_subagent_handles == []
 
 
+# ---------------------------------------------------------------------------
+# SP amendment coverage
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.timeout(60)
+def test_dispose_no_ops_when_popen_already_exited(tmp_path: Path) -> None:
+    """SP amendment (Ox Alpha + cross-family second reviewer D2): dispose short-circuits
+    with ``ok=True`` when the underlying Popen is already dead.
+
+    Prior behavior: dispose unconditionally built a ProcessGroupHandle
+    and called ``kill_tree`` on a dead PID -- best case a wasted
+    syscall + misleading warning; worst case an ok=False event
+    misrepresenting a successful teardown. The short-circuit uses
+    ``popen.poll() is not None`` as the "already exited" signal.
+
+    Simulates the double-covered case: a Popen registered in both
+    the process-handle list AND the subagent-handle list would be
+    reaped first by ``_reap_active_processes`` (setting poll() to
+    an exit code), then cascaded here -- dispose must return True
+    without invoking kill_tree.
+    """
+    # Start-and-immediately-exit subprocess so poll() has a value.
+    popen = subprocess.Popen(
+        [sys.executable, "-c", "import sys; sys.exit(0)"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    popen.wait(timeout=10.0)
+    assert popen.poll() is not None, "subprocess must have exited"
+
+    handle = SubprocessSubagentHandle(
+        popen=popen,
+        descriptor={"role": "already_dead", "label": "d2_amendment"},
+        kind="subprocess",
+    )
+
+    # Direct dispose (not via loop cascade) -- must return True
+    # without invoking kill_tree on the dead PID.
+    ok = handle.dispose(reason="already_exited")
+    assert ok is True, (
+        "dispose must return True when the Popen is already dead"
+    )
+    assert handle._disposed is True
+
+
+@pytest.mark.timeout(60)
+def test_cascade_survives_bad_descriptor_in_event(tmp_path: Path) -> None:
+    """SP amendment (Ox Alpha finding): a handle whose descriptor
+    causes the ``subagent.disposed`` emit to raise MUST NOT abort
+    the cascade -- remaining handles still dispose.
+
+    Belt-and-suspenders test: the emit is already best-effort inside
+    :func:`emit_subagent_disposed_event`, but the cascade loop wraps
+    the emit call in its OWN try/except so a hypothetical future
+    refactor that promotes emit to raise-propagate cannot silently
+    break cascade completeness.
+    """
+    repo = tmp_path / "repo"
+    initial = _init_repo(repo)
+    loop = SubstrateLoop(
+        repo_root=repo,
+        parent_snapshot=initial,
+        worktree_manager=WorktreeManager(repo),
+    )
+
+    disposed_order: list[str] = []
+
+    class _BadDescriptorTeardown:
+        """Object that raises when JSON-serialised (used inside
+        descriptor to force emit to raise). Not JSON-encodable."""
+
+        def __repr__(self) -> str:
+            return "<bad-descriptor>"
+
+    # Two live handles + one middle handle whose emit will raise
+    # if the trace sink JSON-encodes the descriptor.
+    def _teardown_ok(name: str):
+        def _tear() -> bool:
+            disposed_order.append(name)
+            return True
+
+        return _tear
+
+    h_last = InlineSubagentHandle(
+        teardown=_teardown_ok("last"),
+        descriptor={"role": "ok_last"},
+    )
+    h_middle = InlineSubagentHandle(
+        teardown=_teardown_ok("middle"),
+        descriptor={"role": "middle", "bad": _BadDescriptorTeardown()},
+    )
+    h_first = InlineSubagentHandle(
+        teardown=_teardown_ok("first"),
+        descriptor={"role": "first"},
+    )
+    loop.register_subagent_handle(h_first)
+    loop.register_subagent_handle(h_middle)
+    loop.register_subagent_handle(h_last)
+
+    # LIFO: h_last, h_middle, h_first. Even if h_middle's emit path
+    # raised (best-effort swallow + belt-and-suspenders cascade
+    # wrapper), all three teardown callables must fire.
+    loop.dispose(success=False, reason="cascade_survives_bad_descriptor")
+    assert disposed_order == ["last", "middle", "first"], (
+        f"cascade must survive emit failure; got {disposed_order}"
+    )
+    assert loop._active_subagent_handles == []
+
+
+@pytest.mark.timeout(60)
+def test_register_dedupes_by_identity_not_equality(tmp_path: Path) -> None:
+    """SP amendment (Ox Alpha finding): dedup uses IDENTITY (``is``),
+    not value equality (``in``).
+
+    Two dataclass handles with identical field values compare equal
+    under ``==`` (dataclass default). The prior ``handle in list``
+    dedup would silently drop the second registration. Identity
+    dedup correctly rejects only "same object twice" and admits
+    two distinct-but-equal handles.
+    """
+    repo = tmp_path / "repo"
+    initial = _init_repo(repo)
+    loop = SubstrateLoop(
+        repo_root=repo,
+        parent_snapshot=initial,
+        worktree_manager=WorktreeManager(repo),
+    )
+
+    disposed_names: list[str] = []
+
+    def _mk_teardown(name: str):
+        def _tear() -> bool:
+            disposed_names.append(name)
+            return True
+
+        return _tear
+
+    # Two DISTINCT handle objects; if dataclass __eq__ compared
+    # descriptor+kind+_disposed all equal, they'd dedup under
+    # ``in``. With identity dedup, both register.
+    h1 = InlineSubagentHandle(
+        teardown=_mk_teardown("h1"),
+        descriptor={"role": "twins"},
+        kind="inline",
+    )
+    h2 = InlineSubagentHandle(
+        teardown=_mk_teardown("h2"),
+        descriptor={"role": "twins"},
+        kind="inline",
+    )
+    loop.register_subagent_handle(h1)
+    loop.register_subagent_handle(h2)
+    assert len(loop._active_subagent_handles) == 2, (
+        "distinct-but-equal handles must both register"
+    )
+
+    # Same object registered twice must dedup.
+    loop.register_subagent_handle(h1)
+    assert len(loop._active_subagent_handles) == 2, (
+        "same object registered twice must dedup"
+    )
+
+    loop.dispose(success=False, reason="identity_dedup")
+    # LIFO: h2 then h1.
+    assert disposed_names == ["h2", "h1"], (
+        f"both distinct handles must dispose; got {disposed_names}"
+    )
+
+
 # RACT 0.5.1

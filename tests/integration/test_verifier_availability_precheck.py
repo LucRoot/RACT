@@ -210,6 +210,76 @@ def test_build_loop_state_opt_out_bypasses_check() -> None:
     assert state is not None
 
 
+def _raising_from_getattr(_ws) -> bool:
+    """Intentional raise for the unexpected-exception amendment test."""
+    raise TypeError(
+        "simulated unexpected exception from callable resolution"
+    )
+
+
+class _CrashingAvailableProxy:
+    """Wraps AcceptancePredicate to force ``available()`` to raise a
+    non-caught exception type, exercising the SP amendment
+    (Ox Alpha + cross-family second reviewer D1 converged DEFECT fix).
+    """
+
+    def __init__(self, predicate: AcceptancePredicate) -> None:
+        self._wrapped = predicate
+        self.id = predicate.id
+        self.kind = predicate.kind
+        self.required = predicate.required
+
+    def available(self) -> tuple[bool, str]:
+        # Simulate a non-caught exception path from _resolve_callable
+        # (e.g. TypeError from module-level __getattr__, MemoryError,
+        # or a custom exception class).
+        raise RuntimeError("simulated availability-check crash")
+
+    def evaluate(self, ws):  # pragma: no cover - not reached
+        return self._wrapped.evaluate(ws)
+
+
+def test_available_check_crash_converts_to_verifier_unavailable() -> None:
+    """SP amendment: an unexpected exception from ``available()``
+    (i.e. NOT in the closed catch list ``ImportError`` /
+    ``AttributeError`` / ``ValueError``) is CONVERTED to
+    :class:`VerifierUnavailable` with a reason that carries the
+    original exception class + message.
+
+    Regression anchor for the Ox Alpha + cross-family second reviewer D1 converged
+    DEFECT: prior behavior propagated the raw exception, violating
+    the documented "raise VerifierUnavailable" structural refusal
+    contract. Callers catching only :class:`VerifierUnavailable`
+    would see an untyped crash instead of a structured refusal.
+    """
+    ok_pred = AcceptancePredicate(
+        id=new_predicate_id(),
+        kind="artifact",
+        invocation=ArtifactInvocation(path="README.md"),
+        required=True,
+    )
+    crashing = _CrashingAvailableProxy(ok_pred)
+
+    class _FakeSuite:
+        intent_id = new_intent_id()
+        predicates = (crashing,)
+
+        def required(self):
+            return (crashing,)
+
+    with pytest.raises(VerifierUnavailable) as exc_info:
+        build_loop_state(
+            plan=_make_plan(),
+            workspace=WorkspaceSnapshot(),
+            suite=_FakeSuite(),
+        )
+    err = exc_info.value
+    assert err.predicate_id == ok_pred.id.hex()
+    assert "availability check crashed" in err.reason
+    assert "RuntimeError" in err.reason
+    assert "simulated availability-check crash" in err.reason
+
+
 def test_build_loop_state_admits_healthy_predicates() -> None:
     """PytestInvocation + MypyInvocation + HypothesisInvocation +
     ArtifactInvocation + healthy AssertionInvocation compose cleanly.

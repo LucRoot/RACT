@@ -457,11 +457,40 @@ def build_loop_state(
     loop entry" and ADR-0010.
     """
     if not skip_verifier_availability_check:
-        for predicate in suite.required():
-            available, reason = predicate.available()
-            if not available:
-                from ract.core.predicate import VerifierUnavailable
+        from ract.core.predicate import VerifierUnavailable
 
+        for predicate in suite.required():
+            # SP amendment (Ox Alpha + cross-family second reviewer D1 converged DEFECT):
+            # :meth:`AcceptancePredicate.available` -> :func:`check_invocation_available`
+            # in gates.py catches a CLOSED set of exception types on
+            # its AssertionInvocation branch
+            # (``ImportError``/``AttributeError``/``ValueError``). Any
+            # OTHER exception from :func:`_resolve_callable` (a raw
+            # ``TypeError`` from a malformed ref, a custom exception
+            # from module-level ``__getattr__``, a ``SyntaxError``
+            # from a broken .py at import time) previously escaped as
+            # an untyped traceback -- violating the structural-refusal
+            # contract (docstring says raise
+            # :class:`VerifierUnavailable`, not a raw
+            # ``TypeError``). The wrapper converts the unexpected
+            # class into the documented structured refusal so
+            # callers catching ``VerifierUnavailable`` see the same
+            # contract regardless of the underlying resolution
+            # failure mode. The catch-all is intentional: pre-check
+            # failure MUST land as ``VerifierUnavailable`` OR pass;
+            # no other outcome is admissible.
+            try:
+                available, reason = predicate.available()
+            except Exception as exc:  # noqa: BLE001 -- see comment above
+                raise VerifierUnavailable(
+                    predicate_id=predicate.id.hex(),
+                    verifier=str(predicate.kind),
+                    reason=(
+                        f"availability check crashed: "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                ) from exc
+            if not available:
                 # Kind gives the operator a short, symbolic verifier
                 # name. ``predicate.kind`` maps 1:1 to invocation type
                 # by :class:`AcceptancePredicate` construction gate.

@@ -50,7 +50,7 @@ import logging
 import subprocess
 import time
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 
 from ract.core.module_identity import _module_knot, register_module_knot
 
@@ -61,7 +61,6 @@ register_module_knot(__name__, _MODULE_KNOT)
 _LOG = logging.getLogger(__name__)
 
 
-@runtime_checkable
 class SubagentHandle(Protocol):
     """Structural protocol every subagent handle satisfies.
 
@@ -69,6 +68,33 @@ class SubagentHandle(Protocol):
     case is covered by :class:`SubprocessSubagentHandle`; a caller
     with an inline resource (e.g. a GPU-model context manager) writes a
     thin adapter satisfying this shape.
+
+    SP amendment (Ox Alpha finding): the ``@runtime_checkable``
+    decorator was removed. Runtime-checkable Protocols with data
+    members (``descriptor: dict[str, Any]``) raise ``TypeError``
+    on ``issubclass()`` in CPython -- and ``isinstance()`` only
+    verifies method presence, missing the data attribute. The
+    Protocol is now purely structural (documentation +
+    static-type-checker guidance); runtime callers use duck-typed
+    ``hasattr`` / ``getattr`` semantics via
+    :meth:`SubstrateLoop.register_subagent_handle` which does not
+    ``isinstance`` at registration time. The concrete
+    :class:`SubprocessSubagentHandle` and
+    :class:`InlineSubagentHandle` implementations remain the
+    load-bearing surface.
+
+    Implementations MUST:
+
+    - Make :meth:`dispose` idempotent (a second call on a disposed
+      handle returns True without doing work); the cascade
+      contract in :meth:`SubstrateLoop._reap_subagent_handles`
+      relies on this to survive double-cascade situations
+      (run_step exception unwind followed by dispose(success=False)
+      is one such path).
+    - Never raise from :meth:`dispose`. The cascade catches
+      exceptions defensively, but the contract is best-effort
+      teardown; a raising dispose reports a failure to the
+      trace log (``ok=False`` in ``subagent.disposed``).
     """
 
     #: Free-form descriptor consumed by the ``subagent.disposed`` event
@@ -132,6 +158,20 @@ class SubprocessSubagentHandle:
             # no-op that returns True.
             return True
         if self.popen is None:
+            self._disposed = True
+            return True
+        # SP amendment (Ox Alpha + cross-family second reviewer D2 converged): short-circuit
+        # when the underlying Popen has ALREADY exited (e.g. because
+        # the loop's :meth:`SubstrateLoop._reap_active_processes` ran
+        # first on a Popen registered in BOTH the process-handle and
+        # subagent-handle lists, or because the subprocess exited
+        # naturally between register and cascade). Without the
+        # short-circuit, kill_tree on a dead process group would emit
+        # a false ok=False event and log a misleading "compensator
+        # failed" warning. poll() is None means "still running";
+        # anything else is a valid exit code and the process is
+        # gone.
+        if self.popen.poll() is not None:
             self._disposed = True
             return True
         # Route through the module_05 process-group tree-killer so a
