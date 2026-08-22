@@ -29,6 +29,65 @@ if TYPE_CHECKING:
     from ract.core.loop import WorkspaceSnapshot
 
 
+# ---------------------------------------------------------------------------
+# v0.5.1 spec-completeness module_07 (Lens 2 Delta 2): verifier availability
+# ---------------------------------------------------------------------------
+
+
+class VerifierUnavailable(RuntimeError):
+    """Raised by :func:`ract.core.loop.build_loop_state` when at least one
+    compiled acceptance predicate would evaluate against a verifier that is
+    not resolvable at loop-entry time.
+
+    The v0.5.1 spec-completeness pipeline (Lens 2 Delta 2 of the source-
+    spec audit) traces the failure mode: today a missing verifier
+    surfaces only when the predicate FIRES mid-loop (an
+    :class:`AssertionInvocation` whose ``callable_ref`` cannot be
+    imported returns ``ok=False`` for the life of the loop; a
+    :class:`PytestInvocation` whose ``pytest`` binary is absent silently
+    reads an empty metadata channel and returns ``ok=False`` per
+    iteration until T5 budget exhaustion). The loop burns iterations
+    that were structurally hopeless.
+
+    The pre-check inverts that: :meth:`AcceptancePredicate.available`
+    dispatches per-invocation availability, and
+    :func:`build_loop_state` raises this exception naming the FIRST
+    missing verifier so operators see the actual failure ("mypy binary
+    absent on PATH") rather than the shape of the failure ("T5 fired
+    after 10 unresolved-verifier iterations").
+
+    Attributes:
+
+    - ``predicate_id`` (hex string) — the 16-byte predicate id (hex) so
+      the operator can locate the offending predicate in the compiled
+      suite payload.
+    - ``verifier`` — a short symbolic name for the verifier kind
+      (``"pytest"`` / ``"mypy"`` / ``"hypothesis"`` /
+      ``"assertion"``). Callers do NOT rely on the string identity for
+      dispatch; it is a human-readable hint.
+    - ``reason`` — the specific reason the verifier is unavailable
+      (e.g. ``"binary 'mypy' not on PATH"`` or ``"ImportError:
+      module 'nonexistent.helper' not found"``). Always non-empty.
+
+    A caller who wants to construct a :class:`LoopState` on a machine
+    that legitimately lacks a verifier (e.g. hermetic property test
+    that never fires the pytest evaluator) passes
+    ``skip_verifier_availability_check=True`` to :func:`build_loop_state`.
+    That opt-out is the ONLY way to bypass the structural refusal --
+    silently downgrading to a WARN log would defeat the pre-check
+    purpose (Ox Alpha SP mandatory Q4 test).
+    """
+
+    def __init__(self, *, predicate_id: str, verifier: str, reason: str) -> None:
+        self.predicate_id = predicate_id
+        self.verifier = verifier
+        self.reason = reason
+        super().__init__(
+            f"verifier unavailable for predicate {predicate_id}: "
+            f"verifier={verifier!r} reason={reason!r}"
+        )
+
+
 PredicateKind = Literal[
     "test",
     "type",
@@ -238,6 +297,27 @@ class AcceptancePredicate:
                 "predicate.kind and invocation.kind disagree: "
                 f"{self.kind!r} vs {self.invocation.kind!r}"
             )
+
+    def available(self) -> tuple[bool, str]:
+        """Return ``(is_available, reason)`` for this predicate's verifier.
+
+        v0.5.1 spec-completeness module_07 (Lens 2 Delta 2). Dispatches
+        to :func:`ract.core.gates.check_invocation_available` — the
+        gates module owns the per-invocation availability check because
+        that is where the evaluator dispatch already lives (co-located
+        for cache locality and to keep the checks/evaluators from
+        drifting apart). ``reason`` is empty when
+        ``is_available=True``.
+
+        Read by :func:`ract.core.loop.build_loop_state` BEFORE the loop
+        enters step one, so a missing verifier surfaces as
+        :class:`VerifierUnavailable` at construction rather than as a
+        stream of ``ok=False`` at evaluation. See the class docstring
+        for the motivation.
+        """
+        from ract.core.gates import check_invocation_available
+
+        return check_invocation_available(self.invocation)
 
     def evaluate(self, ws: "WorkspaceSnapshot") -> PredicateResult:
         """Return the ``PredicateResult`` for this predicate against ``ws``.

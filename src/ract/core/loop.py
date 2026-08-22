@@ -424,6 +424,7 @@ def build_loop_state(
     workspace: WorkspaceSnapshot,
     suite: AcceptanceSuite,
     run_dir: Path | str | None = None,
+    skip_verifier_availability_check: bool = False,
     **kwargs: Any,
 ) -> LoopState:
     """Construct a ``LoopState`` and persist ``suite.json`` before returning.
@@ -433,9 +434,42 @@ def build_loop_state(
     returned to the caller. That ordering is the guarantee module_01 makes:
     the compile artifact is on disk before any step-write path can run.
 
+    v0.5.1 spec-completeness module_07 (Lens 2 Delta 2): a verifier
+    availability pre-check runs before any state is persisted or
+    returned. Every REQUIRED predicate in ``suite`` is asked
+    :meth:`AcceptancePredicate.available`; the FIRST unavailable
+    verifier raises :class:`~ract.core.predicate.VerifierUnavailable`
+    naming the predicate id + verifier kind + specific reason
+    (missing binary on PATH, unimportable callable, etc.). Loop
+    entry is refused STRUCTURALLY: no ``suite.json`` write, no
+    :class:`LoopState` construction, no chain append. Callers that
+    legitimately want to bypass (hermetic property tests that
+    never fire the pytest evaluator, offline replay of a run
+    whose verifier binaries were long-since uninstalled) pass
+    ``skip_verifier_availability_check=True`` -- the ONLY way to
+    downgrade the refusal (a silent WARN log would defeat the
+    pre-check purpose per Ox Alpha SP mandatory Q4). Non-required
+    predicates are exempted: an optional predicate whose verifier
+    disappears returns ``ok=False`` at evaluation time without
+    halting the loop, matching the "required=False" semantic.
+
     See ``docs/ARCHITECTURE.md``, section "Acceptance suite compiled before
     loop entry" and ADR-0010.
     """
+    if not skip_verifier_availability_check:
+        for predicate in suite.required():
+            available, reason = predicate.available()
+            if not available:
+                from ract.core.predicate import VerifierUnavailable
+
+                # Kind gives the operator a short, symbolic verifier
+                # name. ``predicate.kind`` maps 1:1 to invocation type
+                # by :class:`AcceptancePredicate` construction gate.
+                raise VerifierUnavailable(
+                    predicate_id=predicate.id.hex(),
+                    verifier=str(predicate.kind),
+                    reason=reason,
+                )
     if run_dir is not None:
         run_path = Path(run_dir)
         run_path.mkdir(parents=True, exist_ok=True)

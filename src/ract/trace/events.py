@@ -182,6 +182,23 @@ EventKind = Literal[
     # (no event) from "rule fired but budget dropped every
     # companion".
     "retrieval.grouping.applied",
+    # v0.5.1 spec-completeness module_07 (Lens 2 Delta 3 closure).
+    # Emitted by
+    # :meth:`ract.executor.loop.SubstrateLoop._reap_subagent_handles`
+    # once per subagent handle disposed on a non-T1 halt (or from the
+    # ``run_step`` exception path). Payload carries ``kind`` (short
+    # role string from the handle's ``kind`` attribute, e.g.
+    # ``"subprocess"`` / ``"inline"`` / caller-supplied), ``descriptor``
+    # (the free-form dict the caller attached at registration --
+    # typically identifies the specific Whisperer / Fence / LSP /
+    # embedding sidecar instance), ``reason`` (``"dispose_unsuccessful"``
+    # / ``"run_step_exception"`` / caller-supplied), and ``ok`` (bool;
+    # True on successful dispose, False when the handle's
+    # :meth:`dispose` returned False or raised). The event turns
+    # subagent-cascade from silent (or worse -- leaked) into a
+    # first-class trace signal an auditor can grep to reconstruct
+    # which subagents cascaded on which halt cause.
+    "subagent.disposed",
 ]
 
 

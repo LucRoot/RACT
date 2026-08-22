@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import fnmatch
 import importlib
+import importlib.util
+import shutil
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -273,6 +275,91 @@ def evaluate_related_file_coverage(
         },
         duration_ns=time.perf_counter_ns() - started,
     )
+
+
+def check_invocation_available(
+    invocation: PredicateInvocation,
+) -> tuple[bool, str]:
+    """Return ``(is_available, reason)`` for one invocation's verifier.
+
+    v0.5.1 spec-completeness module_07 (Lens 2 Delta 2). Called from
+    :meth:`ract.core.predicate.AcceptancePredicate.available` and,
+    transitively, from :func:`ract.core.loop.build_loop_state` BEFORE
+    the loop enters step one so a missing verifier surfaces as
+    :class:`~ract.core.predicate.VerifierUnavailable` at construction
+    rather than as a stream of ``ok=False`` at evaluation time.
+
+    Dispatch:
+
+    - :class:`PytestInvocation`: ``pytest`` binary present on
+      ``PATH`` (``shutil.which``). Even though the built-in
+      :func:`evaluate_pytest` reads from
+      ``ws.metadata['pytest']`` and never invokes pytest itself,
+      the source-of-truth for a *fresh* run in production is a
+      pytest execution that populates that channel; a runtime
+      lacking pytest cannot ever populate the channel.
+    - :class:`MypyInvocation`: ``mypy`` binary present on
+      ``PATH``. Same reasoning as pytest.
+    - :class:`HypothesisInvocation`: ``hypothesis`` importable
+      (``importlib.util.find_spec``). Hypothesis is a library, not
+      a binary; ``find_spec`` is the module-level analogue of
+      ``shutil.which``.
+    - :class:`AssertionInvocation`: ``callable_ref`` resolves
+      (:func:`_resolve_callable`). A ``ModuleNotFoundError`` or
+      ``AttributeError`` at loop-entry time is the sharpest
+      possible signal that this predicate would fail every
+      iteration until T5.
+    - :class:`ArtifactInvocation`: always available (the check is
+      "does the file exist in the snapshot?", which is intrinsic
+      to the snapshot and has no external dependency).
+    - :class:`RelatedFileCoverageInvocation`: always available
+      (the check is "did the diff touch a coupled glob?", which
+      reads ``ws.metadata['changed_files']`` and has no external
+      dependency).
+
+    The check is INTENTIONALLY conservative on the binary-based
+    dispatches: a runtime with the binary installed still may
+    fail to run the verifier for other reasons (permissions,
+    corrupted install). The pre-check catches the missing-binary
+    class of failure; it does not attempt to validate the
+    binary's operational health.
+    """
+    if isinstance(invocation, PytestInvocation):
+        if shutil.which("pytest") is None:
+            return False, "binary 'pytest' not on PATH"
+        return True, ""
+    if isinstance(invocation, MypyInvocation):
+        if shutil.which("mypy") is None:
+            return False, "binary 'mypy' not on PATH"
+        return True, ""
+    if isinstance(invocation, HypothesisInvocation):
+        try:
+            spec = importlib.util.find_spec("hypothesis")
+        except (ImportError, ValueError) as exc:
+            return False, f"hypothesis package not importable: {exc}"
+        if spec is None:
+            return False, "hypothesis package not installed"
+        return True, ""
+    if isinstance(invocation, AssertionInvocation):
+        try:
+            _resolve_callable(invocation.callable_ref)
+        except (ImportError, AttributeError, ValueError) as exc:
+            return (
+                False,
+                (
+                    f"callable_ref {invocation.callable_ref!r} did not resolve: "
+                    f"{type(exc).__name__}: {exc}"
+                ),
+            )
+        return True, ""
+    if isinstance(invocation, ArtifactInvocation):
+        return True, ""
+    if isinstance(invocation, RelatedFileCoverageInvocation):
+        return True, ""
+    # Unreachable when the invocation union stays closed. Report
+    # unavailable + name the shape so a future new-invocation-kind
+    # author sees the gap loudly.
+    return False, f"no availability check registered for {type(invocation).__name__}"
 
 
 def evaluate_invocation(
