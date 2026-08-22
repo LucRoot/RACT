@@ -57,7 +57,7 @@ from typing import Any, Iterable
 from ract.trace.events import (
     Event,
     EventChain,
-    EventKind,
+    EventKind,  # noqa: F401 -- named in module docstring as closed vocabulary source
     hash_event,
     new_event_id,  # noqa: F401 -- documented alt to synth id derivation
 )

@@ -6,21 +6,39 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.5.1] - 2026-08-21 — External Review Response (fully wired)
+## [0.5.1] - 2026-08-22 — External Review Response + wired + spec-completeness
 
-> **Wiring status.** Tag re-issued 2026-08-21 at the wiring-completion
-> pipeline HEAD. The 2026-08-21 8-lens audit
-> (`_BUILD/audit_2026-08-21/AUDIT_SUMMARY.md`) found that several
-> primitives shipped clean-tested API surfaces with zero production
-> callers. The v0.5.1 wiring-completion pipeline
-> (`docs/RACT_v0.5.1_WIRING_COMPLETION_SPEC.md`, modules 01-11) closes
-> every CRITICAL and HIGH finding via ten wiring commits (`c78d8b1` ..
-> `53280ff`) plus this release-close commit. Re-audit at module_11
-> (`_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md`) verifies each
-> primitive now has at least one production call chain from a runtime
-> entry point. The prior tag `bb8e013` is preserved as
-> `backup-v0.5.1-preWiring` and superseded. See the **Wired** section
-> below for the per-module wire-in map.
+> **Third re-tag.** Tag re-issued 2026-08-22 at the spec-completeness
+> pipeline HEAD. This release combines three sequential closure
+> pipelines against the same v0.5.1 semver:
+>
+> 1. **External Review Response** (nine modules `bb8e013` era) —
+>    the trust-chain fixes described in the release body below.
+> 2. **Wiring completion** (eleven modules `c78d8b1` .. `53280ff`,
+>    close at `15e6cb1`) — closes every zero-caller gap surfaced
+>    by the 2026-08-21 8-lens audit
+>    (`_BUILD/audit_2026-08-21/AUDIT_SUMMARY.md`) with production
+>    call chains from runtime entry points. Re-audit at
+>    `_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verified zero
+>    CRITICAL / HIGH remained OPEN against the wired surface.
+> 3. **Spec completeness** (seven modules; module_06 CANCELLED per
+>    Ox Alpha adversarial review; commits `c5ff8ac`, `a147610`,
+>    `eb6ba41`, `2db7f88` + `769192d`, `2b2e5b1` + `ea82b54` +
+>    `556b2b7`, `403d800` + `4569426`, plus this release-close
+>    commit) — closes the source-spec audit gaps
+>    (`_BUILD/audit_2026-08-21c/AUDIT_SUMMARY_c.md`, 7 lenses)
+>    where the code did not yet do what the Memory Discipline spec
+>    prescribed, and formalizes deferrals via ADR-0043 (DSPy),
+>    ADR-0044 (LeWM), ADR-0045 (nightly failure-learning workflow),
+>    and ADR-0046 (Bonsai council summarizer). Re-audit at
+>    `_BUILD/audit_2026-08-22/AUDIT_SUMMARY_d.md` (4-vector sneak-
+>    hardened per Ox Alpha §3).
+>
+> Prior tags preserved locally as `backup-v0.5.1-preWiring`
+> (external-review-response HEAD, primitives-only) and
+> `backup-v0.5.1-preSpecCompleteness` (wiring-HEAD `96b06790`,
+> wired-but-pre-spec-completeness). See the **Spec-completeness**
+> and **Wired** sections below for the per-module maps.
 
 Patch release for the External Review Response pipeline
 (`_BUILD/ract_v0.5.1_external_review_response/`). This release closes
@@ -439,13 +457,168 @@ CRITICAL/HIGH findings remain OPEN.
   gate; module_02 executor test fixture updated to full v4 dep set;
   distinct exit codes for `verify` chain-valid / broken / crashed.
   Lens A C1-C3 + M1-M9 closed.
-- **wiring module_11** (this commit) — release close. Golden hash
-  re-locked; 8-lens re-audit at
-  `_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verifies zero
-  CRITICAL/HIGH findings remain OPEN; `v0.5.1` tag re-issued at the
-  wired HEAD (prior `bb8e013` preserved as
-  `backup-v0.5.1-preWiring`); `HANDSHAKE_PUSH_COMMANDS.md` written
-  for operator-gated push.
+- **wiring module_11** (`15e6cb1`) — release close for the wiring
+  pipeline. Golden hash re-locked at that HEAD; 8-lens re-audit at
+  `_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verified zero
+  CRITICAL/HIGH findings remained OPEN against the wired surface;
+  `v0.5.1` tag re-issued at the wired HEAD (prior `bb8e013`
+  preserved as `backup-v0.5.1-preWiring`). Superseded at the third
+  re-tag by the spec-completeness close commit (see the
+  **Spec-completeness** section below); the wired HEAD is preserved
+  as `backup-v0.5.1-preSpecCompleteness`.
+
+### Spec-completeness (v0.5.1 spec-completeness pipeline)
+
+The 2026-08-21 source-spec audit
+(`_BUILD/audit_2026-08-21c/AUDIT_SUMMARY_c.md`, 7 lenses) checked
+the wired v0.5.1 surface against two source design documents — the
+Memory Discipline spec and the v0.2 Spatiotemporal Composability
+Primitive (Kairos-free salvage items only, per the operator's
+Kairos hard-wall). The wiring pipeline had closed every zero-caller
+gap; the source-spec audit surfaced a distinct class of findings —
+places where the code did not yet do what the spec prescribed, or
+where docs claimed a mechanism the code did not ship. The v0.5.1
+spec-completeness pipeline
+(`docs/RACT_v0.5.1_SPEC_COMPLETENESS_SPEC.md`, 8 modules, one
+CANCELLED per Ox Alpha adversarial review 2026-08-21) closes those
+findings and formalizes the deferrals via ADRs. Re-audit at
+module_08 (`_BUILD/audit_2026-08-22/AUDIT_SUMMARY_d.md`, 4-vector
+sneak-hardened per Ox Alpha §3) verifies every CRITICAL / HIGH
+finding either CLOSED or explicitly DEFERRED via ADR.
+
+- **spec-completeness module_01** (`c5ff8ac`) — docs honesty pass.
+  `[0.5.1]` CHANGELOG rewrite (this section framing); ROADMAP +
+  THREAT_MODEL + PROVENANCE + EVENTS scrub of DSPy / LeWM claims;
+  Memory Discipline spec §Self-Adjustment items 3 (DSPy) and 4
+  (LeWM) gain "Not-yet-shipped" callouts. **ADR-0043** (DSPy
+  compilation-recompilation deferred to v0.6) and **ADR-0044**
+  (LeWM 23-dim drift detection deferred to v0.6) authored. New
+  grep-gates in `tests/test_release_surface.py` refuse `dspy` /
+  `lewm` string mentions in the `[0.5.1]` CHANGELOG section
+  outside a tight allowlist (window widened per SP amendment).
+- **spec-completeness module_02** (`a147610`) — budget hardening.
+  New `BudgetInputMaxExceeded` exception subclass carrying
+  `function_name` + `budget` + `actual_input_tokens`; new
+  `refuse_over_max` wrapper in `provider_adapter.py` wired at all
+  four shipped memory-discipline functions (intake / research /
+  plan / edit) **before** the existing `refuse_over_ceiling` gate.
+  15% `state_context` sub-budget cap via `seat_state_section` with
+  `STATE_CONTEXT_CAP_FRACTION = 0.15` computed against
+  `input_target` (SP-mandated drift guard against `input_max`);
+  `truncate_tail` strategy emits a `state.budget_capped` event and
+  returns `(section, effective_content)` so callers assemble the
+  truncated body (audit-trail truth). New `state.budget_capped`
+  EventKind (`schema_version` 5→6). Closes Lens 1A A-1 + A-2
+  (both CRITICAL).
+- **spec-completeness module_03** (`eb6ba41`) — write-first
+  invariant hardening + `src/ract/trace/repair.py`. `WriteFirstViolation`
+  exception + `_committing` flag guard + fsync-inside-lock in
+  `JsonlEventWriter._write_line`; two observer classes explicit
+  (`_post_commit_observers` fire on every emit, raise WARN-logged
+  and not propagated; `_durability_observers` fire only on
+  `checkpoint()`, raise propagates); legacy `add_mirror` backward-
+  compat preserved. New `repair(events)` deterministic (synth id =
+  `sha256(_SYNTH_MARKER || open.id || close_kind)[:16]`) and
+  idempotent (`repair(repair(x)) == repair(x)` via by-id
+  `source_event_id` pairing) — closes 5 open-kinds in RACT's closed
+  vocabulary. `JsonlEventWriter(..., repair_on_open=True)` opt-in.
+  `ract trace repair <run_id> [--apply] [--json]` CLI verb. Closes
+  Lens 2 Delta 1.
+- **spec-completeness module_04** (`2db7f88` + `769192d`) — cross-
+  function grouping rules. New `src/ract/memory/grouping.py`
+  (`GroupingRules` + `SymbolGroup` + `group_symbols(...)` pure +
+  `load_grouping_rules(...)` YAML loader). Four rules per Memory
+  Discipline spec §Cross-Function Grouping: `dataclass_methods`
+  (Python `@dataclass` / `@dc` / `@dataclasses.dataclass` /
+  `@pydantic.dataclasses.dataclass` / `@attrs.dataclass` +
+  methods), `trait_impls` (Rust trait + `impl <Trait> for <T>`
+  when the query names the trait; namespaced + generic impl heads
+  handled), `test_subject` (`test_foo` → `foo`, `class TestFoo` →
+  `class Foo`), `function_type_aliases` (Python fn/method
+  signatures → module-scope `type` aliases with 32-word stopword
+  guard). Wired at `retrieve.py::_extend_with_grouping` post-
+  cascade / pre-bundle-build; two-step budget cascade (caller
+  format → SIGNATURE → drop with `dropped_companions` trace
+  field). New `retrieval.grouping.applied` EventKind
+  (`schema_version` 6→7). Cache-key distinctness includes
+  `grouping_enabled` (SP DEFECT fix). Closes Lens 1C HIGH C-1.
+- **spec-completeness module_05** (`2b2e5b1` + `ea82b54` +
+  `556b2b7`) — AST-deterministic SUMMARY chunking + Python AST
+  sub-chunker + **ADR-0046** (Bonsai council model-based path
+  deferred). New `src/ract/memory/summary.py` with
+  `summarize_chunk_deterministic(chunk, language=None)` producing
+  signature + first-line docstring (`DOCSTRING_MAX_CHARS = 120`) +
+  control-flow region counts + up-to-ten external-call targets
+  (`MAX_EXTERNAL_CALLS = 10`); Python uses stdlib `ast`, non-Python
+  uses per-language bounded regex catalogues.
+  `format_chunk(SUMMARY, ...)` no-provider branch now returns this
+  deterministic body (was `"summary unavailable"`);
+  `summary_pending = False` whenever body is non-empty. Provider
+  hook preserved as the v0.6 slot per ADR-0046. New
+  `_split_python_ast_boundaries` walker cutting oversize function
+  bodies at For / AsyncFor / While / If / Try boundaries with
+  contiguous-line-range slicing + defensive byte-identity check
+  falling through to the blank-line heuristic; renamed
+  `_split_blank_line_groups` marker `SUB_CHUNK_METHOD_BLANK_LINE`
+  vs new `SUB_CHUNK_METHOD_AST`. `sub_chunk_method` threaded
+  through `ChunkRow.sub_chunk_method` + `Chunk.sub_chunk_method`
+  for observability (SP fold-through). `chunk_from_chunk_row`
+  language inference (`.py/.pyi`, `.ts/.tsx`, `.js/.jsx/.mjs/.cjs`,
+  `.rs`, `.go`) so re-hydrated non-Python bodies pick the right
+  regex catalogue. Closes Lens 1C MEDIUM findings 4 + 5.
+- **spec-completeness module_07** (`403d800` + `4569426`) — verifier
+  availability pre-check + `SubagentHandle` compensator cascade
+  (with Ox Alpha §2 mandatory forced-failure integration test).
+  New `VerifierUnavailable` exception in `src/ract/core/predicate.py`;
+  `AcceptancePredicate.available()` delegates to new
+  `check_invocation_available` in `src/ract/core/gates.py`
+  (per-invocation dispatch: `shutil.which` for pytest / mypy,
+  `importlib.util.find_spec` for hypothesis, `_resolve_callable`
+  for assertion, always-True for artifact + related_file_coverage,
+  fail-closed for unknown kinds — SP D1 amendment wraps unexpected
+  exceptions into `VerifierUnavailable` rather than raw
+  tracebacks). `build_loop_state` gains a structural pre-check
+  walking `suite.required()` and refusing loop entry on the first
+  miss; single opt-out kwarg (`skip_verifier_availability_check=True`)
+  per Ox Alpha SP Q4 (STRUCTURAL not advisory). New
+  `src/ract/executor/subagent_handle.py` (~240 lines) with
+  `SubagentHandle` Protocol + `SubprocessSubagentHandle` (Popen
+  wrapper reaping via `process_group.kill_tree`; SP D2 amendment
+  short-circuits on already-exited Popen to avoid false
+  `ok=False` telemetry) + `InlineSubagentHandle` (teardown
+  callable wrapper). `SubstrateLoop` gains
+  `_active_subagent_handles` list + `register_subagent_handle`
+  (identity dedup via `any(existing is handle)` per SP #2, not
+  value-equality `in`) + `_reap_subagent_handles` (LIFO drain,
+  best-effort dispose in try / except, emit-belt-and-suspenders
+  per SP #3). Cascade wired into `dispose(success=False)` after
+  `_reap_active_processes` + into `run_step` exception unwind. T1
+  dispose discards the list without teardown (caller natural
+  cleanup owns disposal). New `subagent.disposed` EventKind
+  (`schema_version` 7→8); `docs/EVENTS.md` `kind` field described
+  as OPEN VOCABULARY (SP A1 amendment corrects a prior closed-enum
+  claim; third-party handles may set any `kind`). **`index_digest()`
+  sub-item CANCELLED** per Ox Alpha §2 — no named production caller
+  exists (verified by pre-build grep of retrieve / cache / watcher
+  / composition surface). Closes Lens 2 Deltas 2 + 3.
+- **spec-completeness module_08** (this commit) — release close.
+  **ADR-0045** authored (module_06 cancellation → v0.6 deferral,
+  per Ox Alpha §1). `[0.5.1]` CHANGELOG rewritten to reflect the
+  final shipped state — every spec-completeness module named
+  above appears with its behavior change described (Ox Alpha
+  CHANGELOG-presence retroactive gate). Golden hash re-locked.
+  Full pytest suite green modulo the known
+  `test_cli_retrieval.py::test_retrieval_no_action_prints_help`
+  failure carried forward from module_01 baseline. 7-lens re-audit
+  at `_BUILD/audit_2026-08-22/AUDIT_SUMMARY_d.md` reports two
+  numbers per lens (open against original spec + open against
+  ADR-amended spec, the honesty metric per Ox Alpha §3 Vector 1);
+  cold-read exercise per Vector 3; SP-picked excerpts + random
+  seed per Vector 2; every by-design reclassification carries an
+  SP citation per Vector 4. `v0.5.1` tag re-issued at this HEAD
+  (prior `96b06790` wired-HEAD preserved as
+  `backup-v0.5.1-preSpecCompleteness`); `HANDSHAKE_PUSH_COMMANDS.md`
+  written for operator-gated push.
 
 ### Not yet shipped in v0.5.1 (deferred to v0.6)
 
@@ -482,40 +655,51 @@ tree to discover the deferral:
   v0.5.0 shipped `intake` / `research` / `plan` / `edit`) remain
   deferred per ADR-0036 and ADR-0037. Loop composition today runs
   the four v0.5.0 verbs; the four deferred verbs are v0.6 scope.
-- **Cross-function grouping rules** (Memory Discipline spec
-  §Cross-Function Grouping — dataclass+methods, trait+impls,
-  test+subject, fn+type-aliases). Not yet shipped in v0.5.1;
-  addressed by module_04 of the v0.5.1 spec-completeness pipeline
-  (pending).
 - **Language chunkers for Java / Kotlin / C# / C / C++** (Memory
   Discipline spec §AST Chunking Rules). v0.5.1 ships chunkers for
   Python / TypeScript / Rust / Go (four of the ten spec languages);
   the remaining five are deferred to v0.6.
-- **SUMMARY-format chunk generation + Bonsai council fallback**
-  (Memory Discipline spec §Chunk Overflow). Today `format_chunk`
-  returns a placeholder for the SUMMARY format; real summarisation
-  is pending in module_05 of the v0.5.1 spec-completeness
-  pipeline.
-- **Nightly failure-learning job + human-review queue + retrieval-
+- **Bonsai council model-based SUMMARY chunk generation** (Memory
+  Discipline spec §Chunk Overflow item 2). The AST-deterministic
+  SUMMARY body producer ships in v0.5.1 via spec-completeness
+  module_05 (`format_chunk(SUMMARY, ...)` returns a real
+  deterministic body — signature + first-line docstring + control-
+  flow region counts + up-to-ten external-call targets — instead
+  of the pre-pipeline `"summary unavailable"` placeholder). The
+  provider hook is preserved as the v0.6 slot for a Bonsai council
+  adapter; no shipping caller passes a provider in v0.5.1.
+  Deferred to v0.6 per **ADR-0046**.
+- **Non-Python AST sub-chunker paths** (TypeScript / Rust / Go).
+  Python routes through stdlib `ast` in v0.5.1 via spec-
+  completeness module_05; the non-Python languages fall through to
+  the blank-line heuristic (`SUB_CHUNK_METHOD_BLANK_LINE` marker
+  threaded through `ChunkRow.sub_chunk_method` +
+  `Chunk.sub_chunk_method` for observability). Full AST boundary
+  support for TS / Rust / Go ships v0.6 alongside the five deferred
+  language chunkers. Flagged in ADR-0046.
+- **Failure-learning nightly job + human-review queue + retrieval-
   strategy adjustment surface** (Memory Discipline spec
-  §Failure Learning items 3-5). Aggregation ships; the nightly
-  scheduler and operator-review queue are pending in module_06 of
-  the v0.5.1 spec-completeness pipeline.
-- **Verifier availability pre-check** (`predicate.available(snapshot)`
-  gate before loop entry), **SubagentHandle wired to compensator
-  stack** (cascade-on-halt for subagent-shaped operations), and
-  **`index_digest()` equivalence-based no-op-rebuild short-circuit
-  on the 3 indexes** (v0.2-primitive salvage items). Pending in
-  module_07 of the v0.5.1 spec-completeness pipeline.
-- **`refuse_if_over_max` production wire-in** and
-  **`state_context` 15% sub-budget cap** (Memory Discipline spec
-  §Budget Declaration + §Context Composition). Both primitives
-  exist; wiring is pending in module_02 of the v0.5.1
-  spec-completeness pipeline.
-- **Write-first-invariant hardening in `JsonlEventWriter` +
-  `trace/repair.py` deterministic repair module** (v0.2-primitive
-  §5.1.2 / §5.1.3 salvage). Pending in module_03 of the v0.5.1
-  spec-completeness pipeline.
+  §Failure Learning items 3-5). Aggregation + narrowing-only
+  invariant + `apply-narrowings` CLI verb ship v0.5.0 and remain
+  operational; the scheduler, the review queue, and the retrieval-
+  strategy override reader are deferred to v0.6. Originally
+  scheduled as module_06 of the v0.5.1 spec-completeness pipeline;
+  **module_06 CANCELLED** per Ox Alpha adversarial pipeline review
+  2026-08-21 §1
+  (`_BUILD/ract_v0.5.1_spec_completeness/ox_alpha_reviews/pipeline_challenge_2026-08-21.md`) —
+  bundling three primitives without an operator workflow was
+  identified as the primitive-without-wiring trap pre-committed
+  for a point release. Deferred to v0.6 per **ADR-0045**.
+- **`index_digest()` equivalence-based no-op-rebuild short-circuit
+  on the 3 indexes** (v0.2-primitive salvage item, Lens 2 Delta 4).
+  Sub-item of spec-completeness module_07; **CANCELLED** per Ox
+  Alpha §2 rule ("utility functions with green tests + zero
+  production callers are the classic residue of wiring pipelines").
+  A named production caller — reload cadence that would short-
+  circuit on unchanged digest — does not exist in the v0.5.1
+  retrieve / cache / watcher / composition surface (verified by
+  pre-build grep at module_07). Reopens in v0.6 only if a reload
+  cadence emerges.
 
 ### Known limitations (carried to the v0.6 hardening backlog)
 

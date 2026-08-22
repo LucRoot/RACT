@@ -822,5 +822,65 @@ ADR pins.
 - **Additional language chunkers** (Java, Kotlin, C#, C, C++) —
   spec §AST Chunking Rules lists 10 languages; v0.5.1 ships 4
   (Python, TypeScript, Rust, Go). Deferred to v0.6.
+- **Failure-learning nightly job + human-review queue + retrieval-
+  strategy adjustment surface** (spec §Failure Learning items 3-5).
+  Originally scheduled as spec-completeness module_06; CANCELLED
+  per Ox Alpha adversarial pipeline review 2026-08-21 §1
+  (bundling three primitives without an operator workflow was
+  identified as the primitive-without-wiring trap for a point
+  release). Formally deferred per **ADR-0045**. v0.6 pipeline must
+  land the three items as a coordinated workflow (reviewer CLI
+  surface + retrieve-path adjustment reader landing in the same
+  module as the producers), not three independent primitives.
+  Substrate that will consume the workflow (`FailureRecord`
+  JSONL + `aggregate` + `NarrowingProposal.__post_init__` +
+  narrowing-only invariant + `applied_narrowings.jsonl` audit
+  trail + `ract memory apply-narrowings` CLI verb) is
+  production-live in v0.5.1.
+- **Bonsai council model-based SUMMARY chunk generation** (spec
+  §Chunk Overflow item 2). AST-deterministic SUMMARY body producer
+  ships in v0.5.1 spec-completeness module_05; the model-based
+  path is formally deferred per **ADR-0046**. Requires a
+  summarizer model surface (not present in `src/ract/`), weights
+  packaging, wiring at the retrieve-composition layer, and a
+  summary-vs-full-body quality regression harness. The
+  `format_chunk(SUMMARY, provider)` provider hook is preserved
+  as the v0.6 slot.
+- **Non-Python AST sub-chunker paths** (TypeScript / Rust / Go).
+  v0.5.1 spec-completeness module_05 ships Python AST sub-chunking
+  via stdlib `ast`; TS / Rust / Go fall through to the blank-line
+  heuristic with `SUB_CHUNK_METHOD_BLANK_LINE` marker for
+  observability. Full AST boundary support ships v0.6 alongside
+  the five deferred language chunkers. Flagged in ADR-0046.
+- **`index_digest()` equivalence-based no-op-rebuild short-circuit**
+  on symbol / graph / semantic indexes (v0.2-primitive Lens 2
+  Delta 4). Originally scheduled as spec-completeness module_07
+  sub-item; CANCELLED per Ox Alpha §2 rule (utility functions
+  with green tests + zero production callers are the classic
+  residue of wiring pipelines). Reopens in v0.6 only if a reload
+  cadence emerges in the retrieve / cache / watcher / composition
+  surface that would consume a digest-based short-circuit.
+- **`SubagentHandle` wired-in-anger** (Whisperer / Fence async
+  refactor). v0.5.1 spec-completeness module_07 ships the Protocol
+  + two concrete adapters (`SubprocessSubagentHandle` +
+  `InlineSubagentHandle`) + `SubstrateLoop.register_subagent_handle`
+  + cascade wired into `dispose(success=False)` and `run_step`
+  exception unwind, with the Ox Alpha §2 mandatory forced-failure
+  integration test proving cascade fires end-to-end. v0.6
+  registers `InlineSubagentHandle` from Whisperer / Fence
+  contracts at spawn time so the cascade covers those surfaces
+  under real load, not only the forced-failure test path.
+- **Resume-path verifier availability pre-check** (spec-completeness
+  module_07 flagged gap). `build_loop_state` runs the pre-check on
+  a freshly-constructed `LoopState`; a `LoopState` reconstructed
+  from `suite.json` on resume bypasses the check. v0.6 threads the
+  pre-check into the resume path.
+- **Cross-thread `register_subagent_handle` / `_reap_subagent_handles`
+  race** (spec-completeness module_07 flagged gap). v0.5.1 confines
+  handle registration and reap to a single thread; v0.6 adds a
+  `threading.Lock` if a multi-threaded caller emerges.
+- **`subagent.spawned` EventKind** (spec-completeness module_07
+  flagged gap). v0.5.1 emits `subagent.disposed` only; v0.6 lands
+  the spawn / dispose pair together for trace-graph symmetry.
 
 <!-- RACT 0.5.1 -->
