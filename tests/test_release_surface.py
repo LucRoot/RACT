@@ -615,7 +615,7 @@ def test_version_matches_across_files() -> None:
     """
     from packaging.version import Version
 
-    expected = Version("0.5.1")
+    expected = Version("0.5.2")
 
     version_text = (_REPO_ROOT / "VERSION").read_text(encoding="utf-8").strip()
     # Extract the semver token from the VERSION file's human-friendly
@@ -656,12 +656,12 @@ def test_ract_version_cli_reports_aligned_identity() -> None:
     import ract
 
     module_version = Version(ract.__version__)
-    expected = Version("0.5.1")
+    expected = Version("0.5.2")
     assert module_version == expected, (
         f"ract.__version__ {ract.__version__!r} != expected {expected!r}"
     )
-    # And the aligned PEP 440 canonical form is the literal `0.5.1`.
-    assert str(expected) == "0.5.1"
+    # And the aligned PEP 440 canonical form is the literal `0.5.2`.
+    assert str(expected) == "0.5.2"
 
 
 def test_changelog_has_0_4_0_entry_with_module_bullets() -> None:
