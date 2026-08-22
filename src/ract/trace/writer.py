@@ -335,6 +335,58 @@ class JsonlEventWriter:
                 self.path,
                 dropped_tail,
             )
+            # SP amendment (Ox Alpha co-build Fork 2 companion
+            # rule): the writer MUST truncate the file to the
+            # end of the last good line before allowing new
+            # appends -- else the next emit() writes AFTER the
+            # torn bytes, sandwiching them mid-file. A subsequent
+            # EventReader.load walks the sandwich and raises
+            # ChainBrokenError on the (now middle) torn line.
+            # Rebuild the text with only the SEEDED prefix
+            # (through the seed_hash's own line) so the tail
+            # picks up cleanly.
+            #
+            # The seed line lives at some position in ``lines``;
+            # rebuild the file with the prefix ending just after
+            # that line. To locate it: scan from tail forward
+            # again, this time keeping the byte length of the
+            # kept prefix.
+            #
+            # We do this by re-parsing lines and stopping at the
+            # first line-from-end whose hash equals seed_hash.
+            kept_prefix_bytes = 0
+            for candidate in lines:
+                try:
+                    data = json.loads(candidate)
+                    ev = Event.from_canonical_dict(data)
+                except (json.JSONDecodeError, ValueError, KeyError, TypeError):
+                    # A malformed non-tail line here would mean
+                    # the file has been corrupted beyond the
+                    # tail-tolerant scope; keep whatever we have
+                    # so far and stop. EventReader.load will
+                    # raise on the next verify -- correct.
+                    break
+                kept_prefix_bytes += len(candidate.encode("utf-8")) + 1  # +1 for \n
+                if ev.hash == seed_hash:
+                    break
+            try:
+                with self.path.open("r+b") as fh:
+                    fh.truncate(kept_prefix_bytes)
+                _LOG.warning(
+                    "JsonlEventWriter: %s truncated to %d bytes "
+                    "to reclaim torn tail; next append lands "
+                    "on the seeded chain tip cleanly.",
+                    self.path,
+                    kept_prefix_bytes,
+                )
+            except OSError as exc:
+                _LOG.warning(
+                    "JsonlEventWriter: %s truncate failed (%s); "
+                    "next append will chain-fork mid-file. "
+                    "Operator repair required.",
+                    self.path,
+                    exc,
+                )
 
     def add_mirror(self, sink: Any) -> None:
         """Register an additional sink invoked with each appended event.
@@ -682,8 +734,14 @@ class EventReader:
                 # a truncated-but-newline-terminated last line
                 # (operator edit corruption) is still tolerable.
                 # Middle lines never take the torn path.
+                #
+                # SP amendment (Ox Alpha B Q3 DEFECT): the
+                # ``has_newline`` bool used to be an AND of the
+                # tail condition -- deliberately dropped because
+                # the has_newline-gate would reject the locked
+                # operator-edit-with-newline case. Do NOT
+                # reintroduce ``and not has_newline`` here.
                 end_offset = current_offset + len(raw_bytes)
-                has_newline = raw_bytes.endswith(b"\n")
                 is_tail = end_offset >= file_size
                 # Universal-newlines: strip \r\n or \n uniformly.
                 if raw_bytes.endswith(b"\r\n"):
@@ -699,17 +757,38 @@ class EventReader:
                 try:
                     line_text = raw_bytes.decode("utf-8", errors="strict")
                 except UnicodeDecodeError as exc:
+                    # SP amendment (Ox Alpha B Q1 DEFECT): under
+                    # a concurrent writer that grew the file
+                    # between our stat() and this readline(),
+                    # ``is_tail`` computed from the stale
+                    # file_size could misclassify a real middle
+                    # line as tail -- silently dropping middle-
+                    # corruption evidence. Restat before the tail
+                    # tolerance path to confirm we really are at
+                    # EOF.
                     if is_tail:
-                        _LOG.warning(
-                            "EventReader: %s tail line %d torn UTF-8 "
-                            "(retrying with replace; %s).",
-                            p,
-                            line_index,
-                            exc,
-                        )
-                        line_text = raw_bytes.decode(
-                            "utf-8", errors="replace"
-                        )
+                        try:
+                            fresh_size = p.stat().st_size
+                        except OSError:
+                            fresh_size = file_size
+                        if end_offset >= fresh_size:
+                            _LOG.warning(
+                                "EventReader: %s tail line %d torn "
+                                "UTF-8 (retrying with replace; %s).",
+                                p,
+                                line_index,
+                                exc,
+                            )
+                            line_text = raw_bytes.decode(
+                                "utf-8", errors="replace"
+                            )
+                        else:
+                            raise ChainBrokenError(
+                                f"malformed middle event line "
+                                f"{line_index} in {p} (UTF-8 decode "
+                                f"failed at offset {current_offset}; "
+                                f"concurrent write extended file): {exc}"
+                            ) from exc
                     else:
                         raise ChainBrokenError(
                             f"malformed middle event line {line_index} "
@@ -723,16 +802,25 @@ class EventReader:
                 try:
                     data = json.loads(line)
                 except json.JSONDecodeError as exc:
+                    # SP amendment (Ox Alpha B Q1 DEFECT): restat
+                    # before the tail-tolerant path so a concurrent
+                    # writer growing the file cannot silence a real
+                    # middle-line corruption.
                     if is_tail:
-                        _LOG.warning(
-                            "EventReader: %s tail line %d dropped "
-                            "(torn write? %s). Middle events remain "
-                            "verifiable.",
-                            p,
-                            line_index,
-                            exc,
-                        )
-                        return
+                        try:
+                            fresh_size = p.stat().st_size
+                        except OSError:
+                            fresh_size = file_size
+                        if end_offset >= fresh_size:
+                            _LOG.warning(
+                                "EventReader: %s tail line %d "
+                                "dropped (torn write? %s). Middle "
+                                "events remain verifiable.",
+                                p,
+                                line_index,
+                                exc,
+                            )
+                            return
                     raise ChainBrokenError(
                         f"malformed middle event line {line_index} "
                         f"in {p}: {exc}"
@@ -741,14 +829,19 @@ class EventReader:
                     yield Event.from_canonical_dict(data)
                 except (ValueError, KeyError, TypeError) as exc:
                     if is_tail:
-                        _LOG.warning(
-                            "EventReader: %s tail line %d dropped "
-                            "(shape invalid? %s).",
-                            p,
-                            line_index,
-                            exc,
-                        )
-                        return
+                        try:
+                            fresh_size = p.stat().st_size
+                        except OSError:
+                            fresh_size = file_size
+                        if end_offset >= fresh_size:
+                            _LOG.warning(
+                                "EventReader: %s tail line %d "
+                                "dropped (shape invalid? %s).",
+                                p,
+                                line_index,
+                                exc,
+                            )
+                            return
                     raise ChainBrokenError(
                         f"malformed middle event at line {line_index} "
                         f"in {p}: {exc}"

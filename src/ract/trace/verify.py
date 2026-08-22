@@ -433,28 +433,56 @@ def _read_verify_sidecar(
             )
             return None
         body[k] = payload[k]
-    # Type-check the ones that MUST be int / str / None.
-    if not isinstance(body["last_verified_offset"], int):
+    # SP amendment (Ox Alpha A Q3 DEFECT): strict type + bounds
+    # check. `bool` is a subclass of `int` in Python
+    # (isinstance(True, int) is True) -- an attacker writing
+    # ``true`` for last_verified_offset would previously satisfy
+    # the int check + become seek(1). Now excluded via
+    # ``not isinstance(x, bool)``. Also reject negative offsets +
+    # negative events counts: previously a crafted sidecar with
+    # offset=-1 satisfied the int check, propagated to
+    # fp.seek(-1), and raised OSError -- breaking the module's
+    # "Never raises for cache-miss reasons" contract in
+    # ``_read_verify_sidecar``. Reject in the reader so a bad
+    # sidecar cleanly cold-fallbacks.
+    off = body["last_verified_offset"]
+    if isinstance(off, bool) or not isinstance(off, int) or off < 0:
         _LOG.warning(
-            "trace verify sidecar %s last_verified_offset not int; cold-verify fallback",
+            "trace verify sidecar %s last_verified_offset must be non-negative int "
+            "(not bool); got %r; cold-verify fallback",
             sidecar_path,
+            off,
         )
         return None
-    if not isinstance(body["last_verified_events"], int):
+    ev_count = body["last_verified_events"]
+    if isinstance(ev_count, bool) or not isinstance(ev_count, int) or ev_count < 0:
         _LOG.warning(
-            "trace verify sidecar %s last_verified_events not int; cold-verify fallback",
+            "trace verify sidecar %s last_verified_events must be non-negative int "
+            "(not bool); got %r; cold-verify fallback",
             sidecar_path,
+            ev_count,
         )
         return None
-    if body["last_verified_head"] is not None and not isinstance(
-        body["last_verified_head"], str
-    ):
-        _LOG.warning(
-            "trace verify sidecar %s last_verified_head must be str or None; "
-            "cold-verify fallback",
-            sidecar_path,
-        )
-        return None
+    head_val = body["last_verified_head"]
+    if head_val is not None:
+        if not isinstance(head_val, str):
+            _LOG.warning(
+                "trace verify sidecar %s last_verified_head must be str or None; "
+                "cold-verify fallback",
+                sidecar_path,
+            )
+            return None
+        # SHA-256 hex is 64 chars. Reject other lengths cheaply so
+        # a downstream bytes.fromhex(head_val) that would
+        # otherwise raise ValueError falls back cleanly here.
+        if len(head_val) != 64 or any(c not in "0123456789abcdefABCDEF" for c in head_val):
+            _LOG.warning(
+                "trace verify sidecar %s last_verified_head must be 64-char hex; "
+                "got len=%d; cold-verify fallback",
+                sidecar_path,
+                len(head_val),
+            )
+            return None
     del header  # currently unused past validation; retained for future audit
     return body
 
@@ -645,6 +673,33 @@ def _walk_verify(
         # we do not require the caller to know it up front.
         if not events_verified and chain.tip_hash == _GENESIS_HASH:
             chain = EventChain(run_id=event.run_id)
+        # SP amendment (Ox Alpha A Q2 + cross-family Q2 DEFECT
+        # CONVERGED): every event's run_id must match the chain's
+        # bound run_id. Without this check an attacker splicing
+        # an event from run B into run A's file passes prev_hash
+        # + rehash (event.hash was computed by run B honestly)
+        # and only the run_id would betray the splice. The
+        # walker now surfaces the mismatch as TAMPERED with
+        # kind="run_id_mismatch" so operators see the splice
+        # class of tamper distinctly from payload tamper.
+        if event.run_id != chain.run_id:
+            return TraceVerifyResult.tampered(
+                verified_head=tip_hex,
+                verified_offset=current_offset,
+                events_verified=events_verified,
+                tamper_details={
+                    "offset": current_offset,
+                    "event_index": events_verified,
+                    "kind": "run_id_mismatch",
+                    "expected_run_id": chain.run_id.hex(),
+                    "claimed_run_id": event.run_id.hex(),
+                },
+                reason=(
+                    f"run_id mismatch at offset {current_offset}: "
+                    f"expected {chain.run_id.hex()[:12]}...; "
+                    f"got {event.run_id.hex()[:12]}..."
+                ),
+            )
         # Kind must be legal (closed vocabulary).
         if event.kind not in LEGAL_EVENT_KINDS:
             return TraceVerifyResult.tampered(
@@ -780,6 +835,41 @@ def cold_verify(events_path: Path | str) -> TraceVerifyResult:
         return TraceVerifyResult.invalid(
             reason=f"trace file {p} unreadable during iteration: {exc}",
         )
+    except UnicodeDecodeError as exc:
+        # SP amendment (Ox Alpha A Q4 DEFECT): middle-line UTF-8
+        # corruption previously escaped cold_verify as a raw
+        # UnicodeDecodeError -- violating the module's contract
+        # that content-level failures surface as dataclass
+        # statuses. Now it lands as TAMPERED with a diagnostic
+        # tamper_details block so callers switch on .status
+        # uniformly.
+        return TraceVerifyResult.tampered(
+            verified_head=None,
+            verified_offset=int(getattr(exc, "start", 0) or 0),
+            events_verified=0,
+            tamper_details={
+                "offset": int(getattr(exc, "start", 0) or 0),
+                "event_index": 0,
+                "kind": "middle_utf8_corruption",
+                "reason": str(exc),
+            },
+            reason=f"middle-line UTF-8 corruption in {p}: {exc}",
+        )
+    except ChainBrokenError as exc:
+        # Same rationale as UnicodeDecodeError -- surface as
+        # TAMPERED for uniform caller handling.
+        return TraceVerifyResult.tampered(
+            verified_head=None,
+            verified_offset=0,
+            events_verified=0,
+            tamper_details={
+                "offset": 0,
+                "event_index": 0,
+                "kind": "chain_broken",
+                "reason": str(exc),
+            },
+            reason=f"chain broken in {p}: {exc}",
+        )
     _emit_verify_completed_event(
         run_id=chain.run_id.hex() if chain.run_id != b"\x00" * 16 else None,
         result=result,
@@ -790,14 +880,25 @@ def cold_verify(events_path: Path | str) -> TraceVerifyResult:
 
 def _read_events_in_range(
     events_path: Path, *, start_offset: int, end_offset: int
-) -> tuple[list[tuple[int, Event]], bool]:
+) -> tuple[list[tuple[int, Event]], bool, bool]:
     """Parse complete events whose byte ranges fall in [start, end].
 
-    Returns ``(events_with_end_offsets, hit_torn_tail)``. Torn tail
-    stops iteration cleanly. Middle-line json/shape errors return
-    the events collected so far with a False torn flag (the caller
-    treats as "spot-check inconclusive" -> fall through to cold
-    verify).
+    Returns ``(events_with_end_offsets, hit_torn_tail, complete)``.
+    ``complete`` is True when iteration exited naturally (end of
+    range reached OR torn tail encountered); False when iteration
+    was cut short by a middle-line parse failure (json / shape /
+    UTF-8 error) inside the window. The caller treats
+    ``complete=False`` as "spot-check inconclusive" -> refuses to
+    trust the sidecar -> falls back to cold verify.
+
+    SP amendment (Ox Alpha A Q1 adjacent DEFECT): pre-amendment
+    this was a 2-tuple returning ``(out, False)`` on parse
+    failures -- silently truncating the checked prefix. An
+    attacker could inject a garbage line WITHIN the tail window
+    (before sidecar_verified_offset) and _spot_check_tail would
+    verify only the events BEFORE the garbage, report OK, and
+    the garbage line would sit undetected in the "verified"
+    region forever. The tri-state signal closes that.
     """
     out: list[tuple[int, Event]] = []
     try:
@@ -805,9 +906,9 @@ def _read_events_in_range(
             events_path, start_offset=start_offset
         ):
             if torn:
-                return out, True
+                return out, True, True
             if end_off > end_offset:
-                break
+                return out, False, True
             stripped = line_text.strip()
             if not stripped:
                 continue
@@ -815,11 +916,14 @@ def _read_events_in_range(
                 data = json.loads(stripped)
                 event = Event.from_canonical_dict(data)
             except (json.JSONDecodeError, ValueError, KeyError, TypeError):
-                return out, False
+                # Middle-line parse failure inside the tail window
+                # -- inconclusive; caller falls back to cold verify.
+                return out, False, False
             out.append((end_off, event))
     except (ChainBrokenError, UnicodeDecodeError):
-        return out, False
-    return out, False
+        # Middle-line corruption in the window -- inconclusive.
+        return out, False, False
+    return out, False, True
 
 
 def _find_backwards_window_start(
@@ -909,15 +1013,23 @@ def _spot_check_tail(
         )
     except OSError as exc:
         return False, f"spot-check window search failed: {exc}"
-    events, hit_torn = _read_events_in_range(
+    events, hit_torn, complete = _read_events_in_range(
         events_path,
         start_offset=window_start,
         end_offset=file_size,
     )
-    if hit_torn:
-        # Torn tail: drop the phantom last line; still check the
-        # remaining tail for chaining.
-        pass
+    # SP amendment (Ox Alpha A Q1 adjacent DEFECT): a middle-line
+    # parse failure in the tail window is evidence of corruption
+    # or tamper -- spot-check MUST refuse to trust the sidecar
+    # and force cold verify. Pre-amendment we silently verified
+    # only the prefix before the failure and returned OK,
+    # leaving the garbage line permanently undetected in the
+    # warm-verified region.
+    if not complete:
+        return False, (
+            "tail window contains a malformed line before end of "
+            "range; spot-check inconclusive -- cold verify required"
+        )
     if not events:
         return True, "not enough events for spot-check"
     # Trim to last n.
@@ -1106,12 +1218,38 @@ def verify_trace(
             last_offset=start_offset,
             file_size=file_size,
         )
-        result = _walk_verify(
-            events_path=p,
-            chain=chain,
-            start_offset=start_offset,
-            events_verified_prior=events_prior,
-        )
+        try:
+            result = _walk_verify(
+                events_path=p,
+                chain=chain,
+                start_offset=start_offset,
+                events_verified_prior=events_prior,
+            )
+        except (OSError, UnicodeDecodeError, ChainBrokenError) as exc:
+            # SP amendment (Ox Alpha A Q4 defect fold, warm-path
+            # variant): surface as INVALID / TAMPERED so warm
+            # callers get a dataclass instead of a raise.
+            if isinstance(exc, OSError):
+                result = TraceVerifyResult.invalid(
+                    reason=f"trace file {p} unreadable: {exc}",
+                )
+            else:
+                result = TraceVerifyResult.tampered(
+                    verified_head=None,
+                    verified_offset=start_offset,
+                    events_verified=events_prior,
+                    tamper_details={
+                        "offset": start_offset,
+                        "event_index": events_prior,
+                        "kind": (
+                            "middle_utf8_corruption"
+                            if isinstance(exc, UnicodeDecodeError)
+                            else "chain_broken"
+                        ),
+                        "reason": str(exc),
+                    },
+                    reason=f"{type(exc).__name__} at offset {start_offset}: {exc}",
+                )
     _emit_verify_completed_event(
         run_id=run_id_hex,
         result=result,
