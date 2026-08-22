@@ -520,8 +520,10 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   compat preserved. New `repair(events)` deterministic (synth id =
   `sha256(_SYNTH_MARKER || open.id || close_kind)[:16]`) and
   idempotent (`repair(repair(x)) == repair(x)` via by-id
-  `source_event_id` pairing) — closes 5 open-kinds in RACT's closed
-  vocabulary. `JsonlEventWriter(..., repair_on_open=True)` opt-in.
+  `source_event_id` pairing) — synthesizes close events for the
+  5 first-party lifecycle kinds RACT tracks (`run.started`,
+  `step.started`, `tool.called`, `prompt.sent`,
+  `handshake.requested`). `JsonlEventWriter(..., repair_on_open=True)` opt-in.
   `ract trace repair <run_id> [--apply] [--json]` CLI verb. Closes
   Lens 2 Delta 1.
 - **spec-completeness module_04** (`2db7f88` + `769192d`) — cross-
@@ -600,16 +602,41 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   claim; third-party handles may set any `kind`). **`index_digest()`
   sub-item CANCELLED** per Ox Alpha §2 — no named production caller
   exists (verified by pre-build grep of retrieve / cache / watcher
-  / composition surface). Closes Lens 2 Deltas 2 + 3.
+  / composition surface). Closes Lens 2 Delta 2 (verifier
+  availability pre-check). Addresses Lens 2 Delta 3 (SubagentHandle
+  cascade wired end-to-end with Ox Alpha §2 forced-failure test)
+  with four documented flagged gaps carried to v0.6: (a)
+  SubagentHandle wired-in-anger from Whisperer / Fence async
+  refactor, (b) resume-path bypass of the pre-check when
+  `LoopState` is reconstructed from `suite.json`, (c) cross-thread
+  `register` / `_reap` race (single-thread today), (d)
+  `subagent.spawned` EventKind for trace-graph symmetry. SP
+  amendment (module_08): pre-amendment wording "Closes Lens 2
+  Deltas 2 + 3" overpromised on Delta 3; corrected here.
 - **spec-completeness module_08** (this commit) — release close.
   **ADR-0045** authored (module_06 cancellation → v0.6 deferral,
   per Ox Alpha §1). `[0.5.1]` CHANGELOG rewritten to reflect the
   final shipped state — every spec-completeness module named
   above appears with its behavior change described (Ox Alpha
   CHANGELOG-presence retroactive gate). Golden hash re-locked.
-  Full pytest suite green modulo the known
-  `test_cli_retrieval.py::test_retrieval_no_action_prints_help`
-  failure carried forward from module_01 baseline. 7-lens re-audit
+  Full pytest suite: 3139 passed / 21 skipped / 1 deselected / 3
+  failed. All three failures are pre-existing before the spec-
+  completeness pipeline started (git blame confirms none of the
+  five spec-completeness modules that touched `src/ract/` modified
+  the affected files):
+  `tests/test_cli_retrieval.py::test_retrieval_no_action_prints_help`
+  (the "1 deselected" — carried forward from module_01 baseline);
+  `tests/test_readme_cli_index.py::test_readme_contains_cli_verb_index`
+  and `tests/test_readme_version.py::test_readme_verb_index_includes_core_verbs`
+  (both stem from the same README verb-index gap flagged as an
+  R10 softbump during wiring module_10 close — README missing
+  `ract config validate` and other core verbs). All three carried
+  to v0.6 hardening (README verb-index refresh). SP amendment
+  (module_08): pre-amendment wording claimed "green modulo the
+  known [one] failure" — false-simplification that named a
+  deselected test as the sole known failure while omitting the
+  two README failures that actually failed in the run. Correction
+  landed in this amendment. 7-lens re-audit
   at `_BUILD/audit_2026-08-22/AUDIT_SUMMARY_d.md` reports two
   numbers per lens (open against original spec + open against
   ADR-amended spec, the honesty metric per Ox Alpha §3 Vector 1);
@@ -656,10 +683,20 @@ tree to discover the deferral:
   deferred per ADR-0036 and ADR-0037. Loop composition today runs
   the four v0.5.0 verbs; the four deferred verbs are v0.6 scope.
 - **Language chunkers for Java / Kotlin / C# / C / C++** (Memory
-  Discipline spec §AST Chunking Rules; spec line 372 defers
-  Java / Kotlin / C# / C / C++ to v0.6). v0.5.1 ships chunkers for
-  Python / TypeScript / Rust / Go (four of the nine spec languages);
-  the remaining five are deferred to v0.6.
+  Discipline spec §AST Chunking Rules; spec explicitly defers
+  Java / Kotlin / C# / C / C++ to v0.6). v0.5.1 ships **four
+  chunkers covering five of the ten spec languages** — a `python`
+  chunker for Python, a shared `typescript_javascript` chunker for
+  TypeScript and JavaScript (grouped per spec §AST Chunking Rules
+  "TypeScript/JavaScript" bullet), a `rust` chunker for Rust, and
+  a `go` chunker for Go. The remaining five languages (Java,
+  Kotlin, C#, C, C++) are deferred to v0.6 as roughly four
+  additional chunkers (C and C++ grouped per the spec's "C/C++"
+  phrasing). SP amendment (module_08): pre-amendment wording
+  ("chunkers for Python / TypeScript / Rust / Go — four of the
+  nine spec languages") mis-omitted JavaScript from the shipped
+  list and mis-counted the spec at nine; both fixed in this
+  amendment.
 - **Bonsai council model-based SUMMARY chunk generation** (Memory
   Discipline spec §Chunk Overflow item 2). The AST-deterministic
   SUMMARY body producer ships in v0.5.1 via spec-completeness
