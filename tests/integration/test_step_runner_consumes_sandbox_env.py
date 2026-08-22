@@ -26,7 +26,6 @@ import sys
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator
 from unittest.mock import patch
 
 from ract.executor.loop import SubstrateLoop, SubstrateStepSpec
@@ -93,20 +92,33 @@ def _init_repo(root: Path) -> str:
     root.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         ["git", "init", "-q", "-b", "main"],
-        cwd=str(root), check=True, env=_env_git(), capture_output=True,
+        cwd=str(root),
+        check=True,
+        env=_env_git(),
+        capture_output=True,
     )
     (root / "seed.txt").write_text("seed", encoding="utf-8")
     subprocess.run(
-        ["git", "add", "-A"], cwd=str(root), check=True, env=_env_git(),
+        ["git", "add", "-A"],
+        cwd=str(root),
+        check=True,
+        env=_env_git(),
         capture_output=True,
     )
     subprocess.run(
-        ["git", "commit", "-q", "-m", "seed"], cwd=str(root),
-        check=True, env=_env_git(), capture_output=True,
+        ["git", "commit", "-q", "-m", "seed"],
+        cwd=str(root),
+        check=True,
+        env=_env_git(),
+        capture_output=True,
     )
     result = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=str(root), capture_output=True,
-        text=True, check=True, env=_env_git(),
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+        check=True,
+        env=_env_git(),
     )
     return result.stdout.strip()
 
@@ -271,9 +283,22 @@ def test_windows_stub_shape_no_sandbox_env_falls_through(
     spec = SubstrateStepSpec()
     loop.run_step(spec, _runner)
 
-    # Stub yielded None -> _current_sandbox_env stays None -> env=None
-    # to spawn (parent env inherit).
-    assert captured_env["env"] is None
+    # v0.5.2 module_04 SP amendment (Ox Alpha B Q3 supplemental S1
+    # DEFECT): stub yielded None -> ``_current_sandbox_env`` stays
+    # None, BUT :func:`_inject_ract_run_id_env` now strips
+    # ``RACT_*`` from a copy of ``os.environ`` and passes the
+    # cleaned dict to :func:`spawn` even on the env=None path (so
+    # a hostile parent-shell ``RACT_RUN_ID=victim`` cannot poison
+    # a child launched outside a sandboxed step). The pre-amendment
+    # ``env is None`` shape is no longer correct; the new
+    # invariant is "a dict without any RACT_* key".
+    env_out = captured_env["env"]
+    assert env_out is not None
+    assert isinstance(env_out, dict)
+    for key in env_out:
+        assert not key.upper().startswith("RACT_"), (
+            f"RACT_* key {key!r} leaked through env=None + stub-backend path"
+        )
 
 
 # RACT 0.5.1

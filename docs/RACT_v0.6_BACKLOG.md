@@ -36,7 +36,7 @@ module; do not mutate the discovered-by/severity columns retroactively.
 | [m04-C4](#m04-c4) | module_04 | LOW | `--strict-sidecar-headers` opt-in CLI flag | v0.6 module_C | reserved |
 | m04-C5 | module_04 | MED | `ract sidecar reheader` verb (legacy sidecar rewriter) | v0.6 module_C | reserved |
 | m04-C7 | module_04 | PROCESS | SP prompt splitting pattern doc | process-doc | reserved |
-| m04-C8 | module_04 | PROCESS | Pytest fixture: reset ambient ContextVar between tests | v0.6 module_D `test_hygiene` | reserved |
+| m04-C8 | module_04 | PROCESS | Pytest fixture: reset ambient ContextVar between tests | v0.6 module_D `test_hygiene` | **shipped in v0.5.2 CI-fix follow-up** (tests/conftest.py autouse `_reset_ambient_run_id_and_env`) |
 | m04-C9 | module_04 SP | MED | `RACT_*` consumer enumeration gate (single registry) | v0.6 module_C | reserved |
 | [m05-C10](#m05-c10) | module_05 co-build | MED | Machine-identity HMAC in verify sidecar | v0.6 module_E `sidecar_hmac` | reserved |
 | m05-C11 | module_05 SP | LOW | `expected_max_size` hint in verify sidecar for concurrent-write detection | v0.6 module_E | reserved |
