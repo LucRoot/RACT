@@ -152,31 +152,51 @@ class SymbolGroup:
 # ---------------------------------------------------------------------------
 
 
+# Regex covering the common Python dataclass decorator shapes:
+#   @dataclass
+#   @dataclass(frozen=True, slots=True)
+#   @dataclasses.dataclass
+#   @pydantic.dataclasses.dataclass
+#   @attrs.dataclass  (attrs mirrors the dataclass shape)
+#   @dc  (well-known short alias: ``from dataclasses import dataclass as dc``)
+# The trailing ``\b`` anchors on the decorator NAME identifier so a
+# variable literally named ``dataclass_foo`` inside a signature does
+# not false-positive. Second Pass module_04 Q6a amendment: broadened
+# from a plain substring check that missed the ``@dc`` alias.
+_DATACLASS_DECORATOR_RE = re.compile(
+    r"@(?:"
+    r"(?:[A-Za-z_][A-Za-z0-9_]*\.)*"  # optional module prefix (a.b.c.)
+    r"(?:dataclass|dc)"
+    r")\b"
+)
+
+
 def _looks_like_dataclass(symbol: SymbolRow) -> bool:
     """Return True when ``symbol`` is a Python ``@dataclass`` class.
 
     Detection: symbol.kind == "class", language == "python", AND
-    ``@dataclass`` appears in the signature (which for a decorated
-    class chunker holds the whole decorated_definition first line,
-    per :func:`ract.memory.languages.python._signature`).
+    :data:`_DATACLASS_DECORATOR_RE` matches the signature (which
+    for a decorated class chunker holds the whole
+    decorated_definition first line, per
+    :func:`ract.memory.languages.python._signature`).
 
-    Also matches ``@dataclass(frozen=True)`` and
-    ``@dataclasses.dataclass`` variants via substring check on
-    ``@dataclass``. The check is intentionally lax — a decorator
-    whose runtime type happens to be ``dataclass`` under a different
-    import name (a project-local alias) will NOT match, and the
-    grouping simply does not fire for that class. Non-firing is the
-    safe default: the primary still surfaces from the query, and the
-    caller can request the methods explicitly.
+    Recognised decorator shapes: ``@dataclass``,
+    ``@dataclass(frozen=True)``, ``@dataclasses.dataclass``,
+    ``@pydantic.dataclasses.dataclass``, ``@attrs.dataclass``, and
+    the well-known short alias ``@dc`` (Second Pass Q6a amendment;
+    ``from dataclasses import dataclass as dc`` is a common
+    shortening). A project-local alias under an arbitrary name
+    (``@my_special_dataclass``) will NOT match, and the grouping
+    simply does not fire for that class — non-firing remains the
+    safe default: the primary still surfaces from the query, and
+    the caller can request the methods explicitly.
     """
     if symbol.kind != "class":
         return False
     if (symbol.language or "").lower() != "python":
         return False
     sig = symbol.signature or ""
-    if "@dataclass" not in sig:
-        return False
-    return True
+    return bool(_DATACLASS_DECORATOR_RE.search(sig))
 
 
 def _looks_like_trait(symbol: SymbolRow) -> bool:

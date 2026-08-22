@@ -16,6 +16,7 @@ from pathlib import Path
 from ract.memory.events import NullEventSink
 from ract.memory.grouping import (
     RULE_DATACLASS_METHODS,
+    RULE_FUNCTION_TYPE_ALIASES,
     RULE_TEST_SUBJECT,
     RULE_TRAIT_IMPLS,
 )
@@ -221,6 +222,76 @@ def test_retrieve_trait_pulls_impls_when_query_targets_trait(tmp_path: Path):
         assert "impl Formatter for Pretty" in names
         rules = {evt["rule_fired"] for evt in bundle.grouping_events}
         assert RULE_TRAIT_IMPLS in rules
+    finally:
+        sym.close()
+
+
+def test_retrieve_function_pulls_type_aliases_end_to_end(tmp_path: Path):
+    """Second Pass module_04 Q1 amendment.
+
+    Original integration coverage lacked an e2e test for the
+    function+type-aliases rule; this test seats a real function
+    into the retrieve pipeline and asserts that module-scope type
+    aliases referenced in its signature surface as companions in
+    the returned bundle.
+    """
+    fp_types = tmp_path / "types.py"
+    fp_types.write_text(
+        "UserId = int\nResponse = dict[str, str]\n", encoding="utf-8"
+    )
+    fp_api = tmp_path / "api.py"
+    fp_api.write_text(
+        "def handle(uid: UserId) -> Response:\n    return {}\n",
+        encoding="utf-8",
+    )
+    sym = SymbolIndex(str(tmp_path / "sym.db"))
+    try:
+        sym.insert_or_update(
+            _row(
+                name="UserId",
+                kind="type",
+                file_path=str(fp_types),
+                start_line=1,
+                end_line=1,
+                signature="UserId = int",
+                content_hash="t1",
+                token_count=3,
+            )
+        )
+        sym.insert_or_update(
+            _row(
+                name="Response",
+                kind="type",
+                file_path=str(fp_types),
+                start_line=2,
+                end_line=2,
+                signature="Response = dict[str, str]",
+                content_hash="t2",
+                token_count=4,
+            )
+        )
+        sym.insert_or_update(
+            _row(
+                name="handle",
+                kind="function",
+                file_path=str(fp_api),
+                start_line=1,
+                end_line=2,
+                signature="def handle(uid: UserId) -> Response:",
+                content_hash="h1",
+                token_count=6,
+            )
+        )
+        indexes = [IndexRef(kind=IndexKind.SYMBOL, index=sym)]
+        query = RetrievalQuery(symbol_names=("handle",))
+        bundle = retrieve(query, indexes, budget=10_000)
+        names = {chunk.symbol_name for chunk in bundle.chunks}
+        assert "handle" in names
+        assert "UserId" in names
+        assert "Response" in names
+        rules = {evt["rule_fired"] for evt in bundle.grouping_events}
+        assert RULE_FUNCTION_TYPE_ALIASES in rules
+        assert bundle.dropped_companions == ()
     finally:
         sym.close()
 

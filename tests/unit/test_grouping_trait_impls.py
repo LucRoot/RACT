@@ -182,6 +182,90 @@ def test_trait_impls_rule_off_produces_no_companions():
         assert groups[0].companions == ()
 
 
+def test_trait_impls_matches_namespaced_and_generic_impl_heads():
+    """Second Pass module_04 Q6b amendment (defensive test).
+
+    Refutes the SP concern that ``impl foo::Formatter for X`` and
+    ``impl<T> Formatter for Wrapper<T>`` would not match. Both
+    forms are exercised end-to-end through :func:`group_symbols`:
+    the regex ``^impl\\b.*\\bFormatter\\b\\s+for\\b`` uses word
+    boundaries which sit at any non-word character (``:`` and
+    ``<`` both qualify), and the ``_IMPL_HEAD_RE`` confirm step
+    captures identifiers with ``::`` and strips generics.
+    """
+    with SymbolIndex() as sym:
+        sym.insert_or_update(
+            _row(
+                name="Formatter",
+                kind="trait",
+                file_path="/repo/lib.rs",
+                start_line=1,
+                end_line=3,
+                signature="trait Formatter {",
+            )
+        )
+        # Namespaced impl.
+        sym.insert_or_update(
+            _row(
+                name="impl foo::Formatter for X",
+                kind="impl",
+                file_path="/repo/impls.rs",
+                start_line=1,
+                end_line=5,
+                signature="impl foo::Formatter for X {",
+            )
+        )
+        # Generic impl with type parameter block.
+        sym.insert_or_update(
+            _row(
+                name="impl<T> Formatter for Wrapper<T>",
+                kind="impl",
+                file_path="/repo/impls.rs",
+                start_line=6,
+                end_line=10,
+                signature="impl<T> Formatter for Wrapper<T> {",
+            )
+        )
+        primary = sym.find_by_name("Formatter")[0]
+        query = RetrievalQuery(symbol_names=("Formatter",))
+        groups = group_symbols([primary], GroupingRules(), index=sym, query=query)
+        names = sorted(c.name for c in groups[0].companions)
+        assert names == [
+            "impl foo::Formatter for X",
+            "impl<T> Formatter for Wrapper<T>",
+        ]
+
+
+def test_trait_impls_excludes_reverse_impl_direction():
+    """``impl Debug for Formatter`` -- Formatter is the TYPE target,
+    not the trait -- must NOT match a Formatter-focused query."""
+    with SymbolIndex() as sym:
+        sym.insert_or_update(
+            _row(
+                name="Formatter",
+                kind="trait",
+                file_path="/repo/lib.rs",
+                start_line=1,
+                end_line=3,
+                signature="trait Formatter {",
+            )
+        )
+        sym.insert_or_update(
+            _row(
+                name="impl Debug for Formatter",
+                kind="impl",
+                file_path="/repo/impls.rs",
+                start_line=1,
+                end_line=5,
+                signature="impl Debug for Formatter {",
+            )
+        )
+        primary = sym.find_by_name("Formatter")[0]
+        query = RetrievalQuery(symbol_names=("Formatter",))
+        groups = group_symbols([primary], GroupingRules(), index=sym, query=query)
+        assert groups[0].companions == ()
+
+
 def test_trait_impls_rule_excludes_language_when_filtered_out():
     with SymbolIndex() as sym:
         sym.insert_or_update(

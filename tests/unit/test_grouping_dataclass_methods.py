@@ -158,6 +158,100 @@ def test_non_dataclass_class_produces_no_companions():
         assert groups[0].companions == ()
 
 
+def test_dataclass_detects_short_alias_dc_decorator():
+    """Second Pass module_04 Q6a amendment.
+
+    ``from dataclasses import dataclass as dc`` is a common
+    shortening in codebases with heavy dataclass usage. The
+    detector's original substring check on ``@dataclass`` missed
+    this shape; the amended regex ``_DATACLASS_DECORATOR_RE``
+    accepts both ``dataclass`` and ``dc`` decorator identifiers,
+    plus optional module prefixes (``@dataclasses.dataclass``,
+    ``@pydantic.dataclasses.dataclass``, ``@attrs.dataclass``).
+    """
+    with SymbolIndex() as sym:
+        sym.insert_or_update(
+            _row(
+                name="ShortAlias",
+                kind="class",
+                file_path="/repo/m.py",
+                start_line=1,
+                end_line=5,
+                signature="@dc\nclass ShortAlias:",
+            )
+        )
+        sym.insert_or_update(
+            _row(
+                name="do",
+                kind="method",
+                file_path="/repo/m.py",
+                start_line=3,
+                end_line=4,
+            )
+        )
+        primary = sym.find_by_name("ShortAlias")[0]
+        groups = group_symbols([primary], GroupingRules(), index=sym)
+        assert groups[0].rule == RULE_DATACLASS_METHODS
+        assert [c.name for c in groups[0].companions] == ["do"]
+
+
+def test_dataclass_detects_module_prefixed_decorator():
+    """``@dataclasses.dataclass``, ``@pydantic.dataclasses.dataclass``,
+    ``@attrs.dataclass`` all satisfy the amended regex.
+    """
+    with SymbolIndex() as sym:
+        for name, decorator in (
+            ("PathA", "@dataclasses.dataclass"),
+            ("PathB", "@pydantic.dataclasses.dataclass"),
+            ("PathC", "@attrs.dataclass"),
+        ):
+            sym.insert_or_update(
+                _row(
+                    name=name,
+                    kind="class",
+                    file_path=f"/repo/{name}.py",
+                    start_line=1,
+                    end_line=5,
+                    signature=f"{decorator}\nclass {name}:",
+                )
+            )
+            sym.insert_or_update(
+                _row(
+                    name=f"m_{name}",
+                    kind="method",
+                    file_path=f"/repo/{name}.py",
+                    start_line=3,
+                    end_line=4,
+                )
+            )
+        for name in ("PathA", "PathB", "PathC"):
+            primary = sym.find_by_name(name)[0]
+            groups = group_symbols([primary], GroupingRules(), index=sym)
+            assert groups[0].rule == RULE_DATACLASS_METHODS, name
+            assert [c.name for c in groups[0].companions] == [f"m_{name}"]
+
+
+def test_dataclass_rejects_project_local_alias():
+    """A decorator whose name is not ``dataclass`` / ``dc`` (or a
+    dotted path ending in one of those) does NOT trip the detector.
+    Non-firing is the safe default per the module docstring.
+    """
+    with SymbolIndex() as sym:
+        sym.insert_or_update(
+            _row(
+                name="Local",
+                kind="class",
+                file_path="/repo/m.py",
+                start_line=1,
+                end_line=5,
+                signature="@my_special_dataclass\nclass Local:",
+            )
+        )
+        primary = sym.find_by_name("Local")[0]
+        groups = group_symbols([primary], GroupingRules(), index=sym)
+        assert groups[0].rule == RULE_NONE
+
+
 def test_dataclass_rule_deterministic_across_runs():
     with SymbolIndex() as sym:
         sym.insert_or_update(
