@@ -66,8 +66,25 @@ def test_write_header_produces_valid_shape(tmp_path: Path) -> None:
 
 
 def test_write_header_refuses_unknown_schema_at_write_time() -> None:
-    """schema_version outside allowlist refused at build time."""
-    with pytest.raises(SidecarUnknownSchema):
+    """schema_version outside allowlist refused at build time.
+
+    SP amendment (cross-family Q3 DEFECT): write-time raises the
+    dedicated ``SidecarUnknownSchemaAtWrite`` subclass. Both
+    subclasses catchable via ``SidecarSchemaError`` base.
+    """
+    from ract.sidecar_header import (
+        SidecarSchemaError,
+        SidecarUnknownSchemaAtWrite,
+    )
+
+    with pytest.raises(SidecarUnknownSchemaAtWrite):
+        build_sidecar_header(
+            sidecar_type="loop_state",
+            schema_version=999,
+            run_id="a" * 32,
+        )
+    # Base class also catches.
+    with pytest.raises(SidecarSchemaError):
         build_sidecar_header(
             sidecar_type="loop_state",
             schema_version=999,

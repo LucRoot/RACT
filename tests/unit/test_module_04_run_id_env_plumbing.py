@@ -59,30 +59,44 @@ def test_inject_ract_run_id_env_adds_ambient_when_bound() -> None:
     assert out.get("PATH") == "/usr/bin"
 
 
-def test_inject_ract_run_id_env_none_env_none_ambient_passes_through() -> None:
-    """No env dict + no ambient == None (child inherits parent env)."""
-    # Ensure no ambient (fresh ContextVar in the test process). We
-    # cannot call reset_current_run_id() here without a token; use
-    # bind_run_id + immediate exit.
-    ambient = _capture_ambient_run_id_once()
-    if ambient is None:
-        out = _inject_ract_run_id_env(None, ambient)
-        assert out is None
-    else:
-        # Test process happens to have an ambient (unlikely). Bind
-        # nothing new; just confirm the shape when ambient is None
-        # via a fresh explicit None.
-        out = _inject_ract_run_id_env(None, None)
-        assert out is None
+def test_inject_ract_run_id_env_none_env_none_ambient_strips_and_passes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No env dict + no ambient: SP amendment (Ox B S1) strips
+    RACT_* from os.environ + returns cleaned env (no reinject).
+
+    Pre-amendment this returned None (child inherits parent
+    os.environ wholesale). Post-amendment: strip-and-inherit so
+    a subprocess spawned without an active run STILL cannot see
+    an attacker's parent-shell RACT_* key.
+    """
+    monkeypatch.setenv("RACT_UNKNOWN_FUTURE_KEY", "poison")
+    monkeypatch.setenv(RACT_RUN_ID_ENV_KEY, "victim")
+    # Explicitly no ambient bound in this test.
+    set_current_run_id(None)
+    out = _inject_ract_run_id_env(None, None)
+    assert out is not None
+    assert "RACT_UNKNOWN_FUTURE_KEY" not in out
+    assert RACT_RUN_ID_ENV_KEY not in out
 
 
-def test_inject_ract_run_id_env_none_env_with_ambient_creates_mini_env() -> None:
-    """No env dict + ambient bound == bare {RACT_RUN_ID} mini-env."""
+def test_inject_ract_run_id_env_none_env_with_ambient_strips_and_reinjects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No env dict + ambient bound: SP amendment (Ox B S1) strips
+    RACT_* from os.environ + reinjects captured ambient. Full
+    os.environ passes through so PATH/HOME survive."""
+    monkeypatch.setenv("RACT_UNKNOWN_FUTURE_KEY", "poison")
+    monkeypatch.setenv(RACT_RUN_ID_ENV_KEY, "victim")
     rid = _hex_run_id()
     with bind_run_id(rid):
         ambient = _capture_ambient_run_id_once()
         out = _inject_ract_run_id_env(None, ambient)
-    assert out == {RACT_RUN_ID_ENV_KEY: rid}
+    assert out is not None
+    assert out[RACT_RUN_ID_ENV_KEY] == rid
+    assert "RACT_UNKNOWN_FUTURE_KEY" not in out
+    # PATH survives (real os.environ entry passed through).
+    assert "PATH" in out or "Path" in out
 
 
 # ---- Attacker sneak-vector defense -----------------------------------------

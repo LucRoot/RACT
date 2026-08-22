@@ -1265,6 +1265,8 @@ def _inject_ract_run_id_env(
     kept inline here so this method is safe to call from ad-hoc
     test callers that bypass the sandbox path.
     """
+    import os as _os  # noqa: PLC0415
+
     from ract.runtime import RACT_RUN_ID_ENV_KEY  # noqa: PLC0415
     from ract.security.sandbox_env import (  # noqa: PLC0415
         strip_ract_internal_keys,
@@ -1273,9 +1275,21 @@ def _inject_ract_run_id_env(
     # ``ambient`` is passed in as the capture-once snapshot from
     # :func:`_capture_ambient_run_id_once` (Ox Alpha Bug #3 fold).
     if env is None:
-        if not ambient:
-            return None
-        return {RACT_RUN_ID_ENV_KEY: ambient}
+        # SP amendment (Ox Alpha B Q3 supplemental S1 DEFECT):
+        # env=None used to fall through to Popen(env=None) which
+        # inherits parent os.environ WHOLESALE -- including any
+        # attacker-set RACT_* keys the strip would have caught if
+        # env were an explicit dict. Now: even for env=None we
+        # strip RACT_* from a copy of os.environ + re-inject the
+        # captured ambient. Preserves the substrate's "child sees
+        # only what RACT grants" invariant across the sandbox +
+        # non-sandbox spawn paths uniformly.
+        cleaned, stripped = strip_ract_internal_keys(dict(_os.environ))
+        if stripped:
+            _emit_env_stripped_from_parent(stripped)
+        if ambient:
+            cleaned[RACT_RUN_ID_ENV_KEY] = ambient
+        return cleaned
 
     cleaned, stripped = strip_ract_internal_keys(env)
     if stripped:
@@ -1294,22 +1308,21 @@ def _emit_env_stripped_from_parent(stripped_names: list[str]) -> None:
     may have attempted a sneak, OR that a well-meaning caller
     plumbed the key manually (which we now forbid).
 
-    Payload carries a HASH of the stripped value, not the raw value,
-    so a poisoned run_id string does not appear in the trace log.
+    Payload carries only the stripped KEY NAME. SP amendment
+    (Ox Alpha B Q6 DEFECT): the earlier ``stripped_value_hash``
+    field was cosmetic -- the hash covered only ``"{key}="``, not
+    the raw value (secrets hygiene), so it added no signal beyond
+    the key name itself. Callers wanting to correlate a specific
+    poisoned value across multiple sites can grep the key name in
+    the parent-process env directly.
     """
     try:
         from ract.trace.sink import emit as _emit  # noqa: PLC0415
-        import hashlib as _hl  # noqa: PLC0415
 
         for name in stripped_names:
             _emit(
                 "runtime.run_id.env_stripped_from_parent",  # type: ignore[arg-type]
-                {
-                    "stripped_key": name,
-                    "stripped_value_hash": _hl.sha256(
-                        f"{name}=".encode("utf-8")
-                    ).hexdigest()[:16],
-                },
+                {"stripped_key": name},
             )
     except Exception:  # noqa: BLE001 -- audit signal
         pass
