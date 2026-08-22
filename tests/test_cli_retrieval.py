@@ -106,12 +106,16 @@ def test_retrieval_search_error(tmp_path: Path, capsys):
 
 
 def test_retrieval_no_action_prints_help(tmp_path: Path, capsys):
+    # v0.5.1 spec-completeness wiring module_10 (Lens A M7 closure):
+    # bare ``ract retrieval`` / ``memory`` / ``plan`` return exit 0 after
+    # printing help — exit 1 was blocking CI capability-probing scripts
+    # that grep --help output. Align the test to the shipped behaviour.
     config_path = tmp_path / "ract.yaml"
     config_path.write_text(
         yaml.safe_dump({"project": {"name": "demo"}}), encoding="utf-8"
     )
     exit_code = _retrieval_command(["--config", str(config_path)])
-    assert exit_code == 1
+    assert exit_code == 0
     captured = capsys.readouterr()
     assert "usage" in captured.out.lower()
 

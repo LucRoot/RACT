@@ -200,6 +200,21 @@ module_10, Lens A M8 closure).
 - `ract infer` — Run a single inference call (experimental).
 <!-- END VERB INDEX -->
 
+### Core sub-verbs (quickstart pointers)
+
+The auto-generated index above lists every top-level verb. These are the
+sub-verbs first-run users reach for most often; each is asserted by
+`tests/test_readme_cli_index.py` + `tests/test_readme_version.py` so
+first-run docs stay honest:
+
+- `ract run` — start a run from an intent
+- `ract doctor` — one-shot workspace health check
+- `ract config validate` — check `ract.yaml` before running
+- `ract provider health` — verify every provider adapter can reach its backend
+- `ract session list` — enumerate persisted session directories
+- `ract plan diff` — compare two serialized plans
+- `ract fence inspect --file <path>` — inspect Chesterton's-fence entries in a file
+
 Anti-lazy gates (G1-G8) are pre-commit helpers rather than top-level CLI verbs.
 A run's `evals/runs/<run_id>/` directory gains one report per gate:
 `mutation_kill.json`, `patch_diff.json`, `coverage_delta.json`,
