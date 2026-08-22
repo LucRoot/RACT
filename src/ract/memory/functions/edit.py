@@ -47,7 +47,9 @@ from ract.memory.functions.provider_adapter import (
     MemoryFunctionProvider,
     assemble_prompt,
     refuse_over_ceiling,
+    refuse_over_max,
     seat_prompt_section,
+    seat_state_section,
 )
 from ract.memory.functions.prompts_loader import (
     assert_prompt_shipped,
@@ -143,7 +145,6 @@ def edit(
     for name, content in (
         ("system_prompt", system),
         ("contract", contract_block),
-        ("state", state_block),
         ("retrieved_bundle", load_block),
         ("inputs", inputs_block),
     ):
@@ -153,6 +154,14 @@ def edit(
             content=content,
             content_hash=_hash(content),
         )
+    # v0.5.1 module_02: state seated via seat_state_section which
+    # enforces the master spec's 15%-of-input_target cap.
+    _state_section, effective_state_block = seat_state_section(
+        active_accountant,
+        content=state_block,
+        content_hash=_hash(state_block),
+        sink=active_sink,
+    )
 
     emit_budget_declared(
         active_sink,
@@ -163,12 +172,15 @@ def edit(
             "source": "default",
         },
     )
+    # v0.5.1 module_02: paired input_max + hard_ceiling gates
+    # (Lens 1A CRITICAL A-1 wire-in).
+    refuse_over_max(active_accountant, sink=active_sink)
     refuse_over_ceiling(active_accountant, sink=active_sink)
 
     prompt = assemble_prompt(
         system=system,
         contract=contract_block,
-        state=state_block,
+        state=effective_state_block,
         bundle=load_block,
         inputs=inputs_block,
     )

@@ -23,6 +23,13 @@ _NEW_KINDS = (
     "probe.evaluated",
 )
 
+# v0.5.1 spec-completeness module_02: one further memory-layer kind
+# extends the vocabulary — the state_context 15% sub-budget cap event
+# emitted from `seat_state_section`.
+_MODULE_02_KINDS = ("state.budget_capped",)
+
+_EXPECTED_MEMORY_KINDS = frozenset(_NEW_KINDS + _MODULE_02_KINDS)
+
 
 def test_seven_new_kinds_in_legal_set() -> None:
     """Every new kind is a member of LEGAL_EVENT_KINDS."""
@@ -31,8 +38,24 @@ def test_seven_new_kinds_in_legal_set() -> None:
 
 
 def test_memory_event_kinds_match_new_kinds() -> None:
-    """memory.events.MEMORY_EVENT_KINDS matches the seven new kinds."""
-    assert MEMORY_EVENT_KINDS == frozenset(_NEW_KINDS)
+    """memory.events.MEMORY_EVENT_KINDS matches the closed set.
+
+    v0.5.1 module_02 extended the set with ``state.budget_capped``;
+    the expected set is composed of ``_NEW_KINDS`` (module_09) plus
+    ``_MODULE_02_KINDS`` (module_02).
+    """
+    assert MEMORY_EVENT_KINDS == _EXPECTED_MEMORY_KINDS
+
+
+def test_module_02_state_budget_capped_in_legal_set() -> None:
+    """v0.5.1 module_02: ``state.budget_capped`` in LEGAL_EVENT_KINDS.
+
+    The 15%-of-input_target sub-budget cap emits this kind on truncation;
+    trace/events.py Literal must carry it or the emit path trips the
+    ``NullEventSink.emit`` gate.
+    """
+    assert "state.budget_capped" in LEGAL_EVENT_KINDS
+    assert "state.budget_capped" in MEMORY_EVENT_KINDS
 
 
 def test_memory_kinds_subset_of_legal_kinds() -> None:

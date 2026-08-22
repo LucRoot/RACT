@@ -1096,17 +1096,22 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
     the payload sections; this gate refuses a future kind-add that
     forgets the doc bump.
 
-    Also verifies the five v0.5.1 EventKind literals that are
+    v0.5.1 spec-completeness module_02 added ``state.budget_capped``
+    (Lens 1A CRITICAL A-2 closure, 15%-of-input_target sub-budget cap
+    on the state section) — schema bumps to "6".
+
+    Also verifies the six v0.5.1 EventKind literals that are
     load-bearing gate entries are present in ``LEGAL_EVENT_KINDS``.
     """
     text = (_REPO_ROOT / "docs" / "EVENTS.md").read_text(encoding="utf-8")
     match = re.search(r'^schema_version:\s*"(\d+)"', text, flags=re.MULTILINE)
     assert match, "docs/EVENTS.md frontmatter missing schema_version"
     doc_version = match.group(1)
-    assert doc_version == "5", (
-        f"docs/EVENTS.md schema_version {doc_version!r} != expected '5'. "
-        "v0.5.1 wiring module_05 added ``process.reaped``; bump the "
-        "frontmatter + document the payload per docs/EVENTS.md's own rule."
+    assert doc_version == "6", (
+        f"docs/EVENTS.md schema_version {doc_version!r} != expected '6'. "
+        "v0.5.1 spec-completeness module_02 added ``state.budget_capped``; "
+        "bump the frontmatter + document the payload per docs/EVENTS.md's "
+        "own rule."
     )
 
     # v0.5.1 kinds that must be in the closed literal.
@@ -1118,6 +1123,7 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
         "manifest.ledger.refused",
         "whisperer.contract_violation",
         "process.reaped",
+        "state.budget_capped",
     )
     missing = [k for k in required if k not in LEGAL_EVENT_KINDS]
     assert not missing, (
