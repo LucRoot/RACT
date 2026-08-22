@@ -51,6 +51,9 @@ Reference:
 
 from __future__ import annotations
 
+import logging
+import os
+import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar, Token, copy_context
 from typing import Any, Callable, Iterator, TypeVar
@@ -190,4 +193,112 @@ def run_with_ambient(
     return _bound
 
 
-# RACT 0.5.1
+# ---------------------------------------------------------------------------
+# v0.5.2 module_04 -- subprocess subagent env-boot ambient plumbing
+# ---------------------------------------------------------------------------
+
+
+_LOG = logging.getLogger("ract.runtime")
+
+
+#: Env var name RACT injects into subprocess subagents to carry the
+#: parent's ambient run_id across the process boundary. The value is
+#: injected by :meth:`ract.executor.loop.SubstrateLoop.spawn_step_subprocess`
+#: AFTER the sandbox env scrub strips any parent-supplied value (see
+#: :data:`ract.security.sandbox_env.RACT_INTERNAL_ENV_KEYS`) so an
+#: attacker running ``RACT_RUN_ID=victim ract loop ...`` cannot poison
+#: a subagent's ambient.
+RACT_RUN_ID_ENV_KEY: str = "RACT_RUN_ID"
+
+
+def bootstrap_ambient_from_env(
+    *,
+    env: dict[str, str] | None = None,
+    emit_events: bool = True,
+) -> str:
+    """Read ``RACT_RUN_ID`` from env and bind the ambient run_id.
+
+    v0.5.2 module_04 (DA-B F-3.1 closure). Subprocess subagents call
+    this once at startup so any ambient-aware subsystem they touch
+    (JsonlEventWriter, Rootknot v4 factory, WorkspaceDigestChain,
+    WAL) sees the SAME run_id the parent bound.
+
+    Behavior:
+
+    - When ``env`` (default ``os.environ``) carries a non-empty
+      ``RACT_RUN_ID``, that value is bound as the ambient and
+      returned. A ``runtime.run_id.env_injected`` trace event fires
+      when ``emit_events`` is True.
+    - When ``RACT_RUN_ID`` is absent OR empty, a synthetic
+      ``RUN-ORPHAN-{uuid4}`` is generated + bound + returned. A
+      ``runtime.run_id.orphan_generated`` trace event fires when
+      ``emit_events`` is True.
+
+    Orphan generation (not fail-closed) is the Ox Alpha co-build
+    Fork 2 verdict: subagents legitimately invoked outside a RACT
+    parent (operator debugging, external orchestrator) still run +
+    write their own audit trail. A ``--strict-orphans`` mode is
+    reserved for v0.6.
+
+    Returns the bound run_id (the real value OR the synthetic
+    orphan). Never raises.
+    """
+    source_env = os.environ if env is None else env
+    raw = source_env.get(RACT_RUN_ID_ENV_KEY, "")
+    if raw:
+        set_current_run_id(raw)
+        if emit_events:
+            _emit_runtime_event(
+                "runtime.run_id.env_injected",
+                {
+                    "run_id": raw,
+                    "child_pid": os.getpid(),
+                    "source": "env",
+                },
+            )
+        _LOG.info(
+            "runtime: bound ambient run_id from RACT_RUN_ID env "
+            "(pid=%d, run_id=%s)",
+            os.getpid(),
+            raw,
+        )
+        return raw
+
+    synthetic = f"RUN-ORPHAN-{uuid.uuid4().hex}"
+    set_current_run_id(synthetic)
+    if emit_events:
+        _emit_runtime_event(
+            "runtime.run_id.orphan_generated",
+            {
+                "synthetic_run_id": synthetic,
+                "reason": "RACT_RUN_ID env var absent or empty",
+                "child_pid": os.getpid(),
+            },
+        )
+    _LOG.warning(
+        "runtime: RACT_RUN_ID env var absent; generated synthetic "
+        "orphan run_id=%s (pid=%d). Subagent is running outside a "
+        "RACT-plumbed parent; its trace/sidecar output will carry "
+        "the RUN-ORPHAN-* stamp.",
+        synthetic,
+        os.getpid(),
+    )
+    return synthetic
+
+
+def _emit_runtime_event(kind: str, payload: dict[str, Any]) -> None:
+    """Best-effort trace event emit. Never raises.
+
+    Follows the module_05 wiring pattern used by
+    :func:`ract.executor.loop._emit_process_reaped` -- try the ambient
+    sink; log at INFO on absence.
+    """
+    try:
+        from ract.trace.sink import emit as _emit  # noqa: PLC0415
+
+        _emit(kind, payload)  # type: ignore[arg-type]
+    except Exception:  # noqa: BLE001 -- audit signal, not load-bearing
+        _LOG.info("runtime trace event %s payload=%s", kind, payload)
+
+
+# RACT 0.5.2 module_04

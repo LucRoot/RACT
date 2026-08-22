@@ -1255,20 +1255,118 @@ def default_allowlist_path(project_dir: Path) -> Path:
     return Path(project_dir) / ".ract" / ALLOWLIST_FILE_NAME
 
 
+# ---------------------------------------------------------------------------
+# v0.5.2 module_04 -- RACT-internal env key strip-and-reinject
+# ---------------------------------------------------------------------------
+
+
+# ``RACT_INTERNAL_ENV_KEYS`` names env vars that RACT INJECTS under
+# its own control into subprocess subagents. Any inbound value in
+# parent process env is STRIPPED before the allowlist evaluates,
+# then RACT re-injects the current-run value in
+# :meth:`ract.executor.loop.SubstrateLoop.spawn_step_subprocess`.
+#
+# Why not just add these to ``NEVER_PASSTHROUGH``?
+# - ``NEVER_PASSTHROUGH`` is a DENY list -- names present there are
+#   refused if they appear in the allowlist (WARN + skip).
+# - ``RACT_INTERNAL_ENV_KEYS`` is a STRIP-AND-REINJECT list -- the
+#   attacker's parent-env value is discarded silently (no allowlist
+#   entry needed), then RACT injects its own value under the same
+#   name. The two semantics are peers, not overlapping.
+#
+# Design lock (Ox Alpha co-build Fork 4 verdict): general primitive
+# rather than module_04-scoped. Future modules add their own keys
+# via a docstring convention in the target module + a one-line
+# extension here. The strip is unconditional; the reinject is per
+# spawn site (spawn_step_subprocess owns RACT_RUN_ID today).
+#
+# Sneak-vector closed: an attacker who runs ``RACT_RUN_ID=victim_run
+# ract loop ...`` cannot poison a subagent's ambient run_id -- the
+# value never reaches the child env under RACT's plumbing.
+#
+# Case discipline: keys are keyed by :func:`_platform_case_key`
+# (upper on Windows, exact on POSIX) so a shell setting
+# ``ract_run_id=`` on Windows still hits the strip.
+RACT_INTERNAL_ENV_KEYS: frozenset[str] = frozenset(
+    {
+        # v0.5.2 module_04: ambient run_id propagation across the
+        # subprocess boundary. Injected by
+        # :meth:`SubstrateLoop.spawn_step_subprocess` when an
+        # ambient is bound; consumed by
+        # :func:`ract.runtime.bootstrap_ambient_from_env` at
+        # subagent startup.
+        "RACT_RUN_ID",
+    }
+)
+
+
+#: Prefix owned by RACT for internal env plumbing (Ox Alpha co-build
+#: Fork 4 verdict: strip-by-prefix, reinject-by-registration). Any
+#: env var whose upper-cased name starts with this prefix is
+#: STRIPPED from parent env in :func:`strip_ract_internal_keys` --
+#: RACT reserves the entire ``RACT_*`` namespace so a caller cannot
+#: forge a future RACT-owned key that hasn't been enumerated yet.
+#: RACT re-injects only the registered set (currently
+#: :data:`RACT_INTERNAL_ENV_KEYS`) under its own control.
+_RACT_INTERNAL_PREFIX: str = "RACT_"
+
+
+def strip_ract_internal_keys(
+    env: dict[str, str],
+) -> tuple[dict[str, str], list[str]]:
+    """Return ``(cleaned_env, stripped_names)``.
+
+    ``cleaned_env`` is a shallow copy of ``env`` with EVERY key whose
+    upper-cased form starts with the ``RACT_`` prefix removed
+    (case-insensitive on Windows via :func:`_platform_case_key`).
+    Ox Alpha co-build Fork 4 amendment: strip-by-PREFIX (broader than
+    enumerated) closes the forward-compat sneak vector where an
+    attacker sets ``RACT_FUTURE_KEY=<poison>`` in shell before RACT
+    ever adds that key to its enumerated set. The registered
+    :data:`RACT_INTERNAL_ENV_KEYS` remains the RE-INJECT surface;
+    the STRIP surface is broader by design.
+
+    ``stripped_names`` is the ORIGINAL spellings of the keys that
+    were removed, so an observability event can record what was
+    stripped without leaking the (potentially poisoned) value.
+
+    Callers pass ``env`` as ``dict(os.environ)`` (or a filtered
+    subset). The return value is safe to hand to
+    ``subprocess.Popen(env=...)`` -- RACT then re-injects its own
+    controlled value.
+    """
+    if not isinstance(env, dict):
+        raise TypeError(
+            f"env must be dict; got {type(env).__name__}"
+        )
+    stripped: list[str] = []
+    cleaned: dict[str, str] = {}
+    prefix_upper = _RACT_INTERNAL_PREFIX.upper()
+    for name, value in env.items():
+        upper = _platform_case_key(name)
+        if upper.startswith(prefix_upper):
+            stripped.append(name)
+            continue
+        cleaned[name] = value
+    return cleaned, stripped
+
+
 __all__ = [
     "ALLOWLIST_FILE_NAME",
     "AllowlistFileMalformed",
     "DEFAULT_ALLOWLIST",
     "NEVER_PASSTHROUGH",
     "NEVER_PASSTHROUGH_PREFIXES",
+    "RACT_INTERNAL_ENV_KEYS",
     "SandboxEnvResult",
     "build_sandbox_env",
     "default_allowlist_path",
     "load_allowlist_file",
+    "strip_ract_internal_keys",
     # v0.5.2 module_02:
     "_classify_refused_family",
     "_platform_case_key",
 ]
 
 
-# RACT 0.5.1
+# RACT 0.5.2 module_04

@@ -233,6 +233,61 @@ EventKind = Literal[
     # audit signal an operator uses to confirm the DA-A F-4 defense
     # is doing real work.
     "substrate.subagent.orphan_reaped",
+    # v0.5.2 hardening module_04 (DA-B F-3.1 + F-3.2). Seven new
+    # kinds cover run_id continuity across the subprocess boundary
+    # + sidecar schema binding.
+    #
+    # ``runtime.run_id.env_injected`` -- fires when
+    # :meth:`SubstrateLoop.spawn_step_subprocess` has plumbed
+    # RACT_RUN_ID into a spawned child (parent had an ambient
+    # bound), OR when
+    # :func:`ract.runtime.bootstrap_ambient_from_env` at subagent
+    # boot binds an ambient from RACT_RUN_ID env. Payload carries
+    # ``run_id``, ``child_pid`` (the receiver's pid; parent-side
+    # emit uses spawned child's pid), and ``source`` (one of
+    # ``"spawn_step_subprocess"`` / ``"env"``).
+    "runtime.run_id.env_injected",
+    # ``runtime.run_id.env_stripped_from_parent`` -- fires when
+    # :func:`_inject_ract_run_id_env` discards a caller-supplied
+    # RACT_RUN_ID (attacker sneak-vector: shell sets
+    # ``RACT_RUN_ID=victim_run`` before invoking ract). Payload
+    # carries ``stripped_key`` and ``stripped_value_hash`` (16-hex
+    # prefix of sha256; RAW poisoned value NEVER logged).
+    "runtime.run_id.env_stripped_from_parent",
+    # ``runtime.run_id.orphan_generated`` -- fires when a subagent
+    # is invoked WITHOUT RACT_RUN_ID (legitimate: operator debug,
+    # external orchestrator).
+    # :func:`ract.runtime.bootstrap_ambient_from_env` generates a
+    # synthetic ``RUN-ORPHAN-{uuid}`` and binds it. Payload
+    # carries ``synthetic_run_id``, ``reason``, and ``child_pid``.
+    "runtime.run_id.orphan_generated",
+    # ``sidecar.header.written`` -- fires each time a sidecar
+    # writer emits a header via
+    # :func:`ract.sidecar_header.write_json_sidecar_with_header`
+    # (or an equivalent header-first path). Payload carries
+    # ``path``, ``sidecar_type``, ``schema_version``, ``run_id``.
+    "sidecar.header.written",
+    # ``sidecar.header.missing_refused`` -- fires when
+    # :func:`ract.sidecar_header.read_sidecar_header` refuses a
+    # sidecar in strict mode (headerless), OR when the header is
+    # present but violates schema-allowlist / downgrade policy.
+    # Payload carries ``path`` and ``reason`` (one of
+    # ``"headerless"`` / ``"unknown_schema"`` / ``"downgrade"``).
+    "sidecar.header.missing_refused",
+    # ``sidecar.header.mismatch_refused`` -- fires when the header
+    # ``run_id`` differs from the verifier's ``expected_run_id``.
+    # Payload carries ``path``, ``header_run_id``, and
+    # ``expected_run_id`` so the operator's error surface can
+    # name both values.
+    "sidecar.header.mismatch_refused",
+    # ``sidecar.header.legacy_fallback`` -- fires when a
+    # headerless (v0.5.1-and-earlier) sidecar is accepted with a
+    # synthetic ``RUN-LEGACY-{sha256(path)[:16]}`` stamp +
+    # ``schema_version=3`` (last pre-header schema).
+    # Non-strict-mode-only; strict mode raises
+    # :class:`ract.sidecar_header.SidecarHeaderMissing` instead.
+    # Payload carries ``path`` and ``synthetic_run_id``.
+    "sidecar.header.legacy_fallback",
 ]
 
 

@@ -1355,18 +1355,76 @@ class LoopController:
         # cases). The fallback deliberately omits ``sort_keys=True``
         # so the architecture grep-gate for
         # ``ract.canonical.dumps_jcs`` migration stays honest.
+        # v0.5.2 module_04 (DA-B F-3.2 closure): wrap payload with a
+        # sidecar_header carrying schema_version + run_id so a resume
+        # cannot silently consume a stale / cross-run sidecar. The
+        # header sits at the top-level ``sidecar_header`` key; the
+        # rest of the payload is unchanged.
+        try:
+            from ract.sidecar_header import (
+                build_sidecar_header,
+                json_body_with_header,
+            )
+            from ract.runtime import get_current_run_id as _get_amb
+
+            _run_id_for_header = _get_amb() or self._resolve_run_id(
+                self._loop_state
+            ) if self._loop_state is not None else _get_amb()
+            if not _run_id_for_header and self.run_dir is not None:
+                _run_id_for_header = self.run_dir.name
+            if not _run_id_for_header:
+                _run_id_for_header = "unknown-run"
+            _header = build_sidecar_header(
+                sidecar_type="loop_state",
+                schema_version=4,
+                run_id=_run_id_for_header,
+            )
+            payload_with_header = json_body_with_header(_header, payload)
+        except Exception:  # noqa: BLE001 -- header path best-effort
+            # If the header helper is unavailable (partial import
+            # during package build), fall through to a headerless
+            # write; the read side's legacy-fallback path handles it.
+            payload_with_header = payload
+            _header = None  # type: ignore[assignment]
+
         try:
             from ract.canonical import dumps_jcs
         except Exception:  # noqa: BLE001 -- deep dependency, tolerate absence
             import json as _json
 
-            body = _json.dumps(payload, ensure_ascii=False)
+            body = _json.dumps(payload_with_header, ensure_ascii=False)
         else:
-            raw = dumps_jcs(payload)
+            raw = dumps_jcs(payload_with_header)
             body = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
         try:
+            # v0.5.2 module_04 Ox Alpha co-build Fork 1 gotcha #2
+            # (atomic creation): write via tmp + os.replace so a
+            # reader never observes a partial or empty sidecar.
+            # Also eliminates the "empty file == headerless legacy"
+            # ambiguity on a crash mid-persist.
             sidecar.parent.mkdir(parents=True, exist_ok=True)
-            sidecar.write_text(body, encoding="utf-8")
+            import os as _os
+
+            tmp_path = sidecar.parent / (sidecar.name + ".tmp")
+            tmp_path.write_text(body, encoding="utf-8")
+            _os.replace(str(tmp_path), str(sidecar))
+            # Emit the sidecar.header.written event on successful
+            # write when the header was constructed.
+            if _header is not None:
+                try:
+                    from ract.trace.sink import emit as _emit
+
+                    _emit(
+                        "sidecar.header.written",  # type: ignore[arg-type]
+                        {
+                            "path": str(sidecar),
+                            "sidecar_type": "loop_state",
+                            "schema_version": _header.schema_version,
+                            "run_id": _header.run_id,
+                        },
+                    )
+                except Exception:  # noqa: BLE001 -- audit signal
+                    pass
         except OSError:
             # Best-effort: log at INFO, do not raise.
             import logging
@@ -1426,6 +1484,63 @@ class LoopController:
             return False
         if not isinstance(payload, dict):
             return False
+
+        # v0.5.2 module_04 (DA-B F-3.2 closure): validate the
+        # sidecar_header BEFORE consuming any counters. Legacy
+        # (headerless) sidecars are accepted with a synthetic
+        # RUN-LEGACY-* stamp in non-strict mode (v0.5.2 default per
+        # Ox Alpha co-build Fork 3); strict mode is reserved for
+        # a future ``--strict-sidecar-headers`` CLI flag. On
+        # run_id / schema mismatch: refuse (return False) so the
+        # loop starts fresh rather than silently consuming stale
+        # state.
+        try:
+            from ract.sidecar_header import (
+                SidecarHeaderError,
+                read_sidecar_header,
+            )
+            from ract.runtime import get_current_run_id
+
+            expected_run_id = get_current_run_id()
+            try:
+                header = read_sidecar_header(
+                    path,
+                    sidecar_type="loop_state",
+                    expected_run_id=expected_run_id,
+                    strict=False,
+                )
+            except SidecarHeaderError as exc:
+                logging.getLogger("ract.loop_controller").warning(
+                    "loop_state.json refused on resume: %s. Loop "
+                    "will start fresh.",
+                    exc,
+                )
+                return False
+            # Strip the header key from the payload so downstream
+            # ``.get()`` calls see the same shape as pre-header
+            # sidecars (backward-compat with the legacy field
+            # names).
+            if "sidecar_header" in payload:
+                payload = {
+                    k: v for k, v in payload.items() if k != "sidecar_header"
+                }
+            # If the header is a synthetic legacy stamp AND the
+            # current run has a bound ambient, log an INFO trace so
+            # the operator sees the cross-run boundary explicitly.
+            if header.synthetic_legacy and expected_run_id:
+                logging.getLogger("ract.loop_controller").info(
+                    "loop_state.json legacy-fallback consumed under "
+                    "current run_id=%s (synthetic_run_id=%s); "
+                    "sidecar was written by v0.5.1 or earlier.",
+                    expected_run_id,
+                    header.run_id,
+                )
+        except Exception:  # noqa: BLE001 -- header path best-effort
+            # If the header module itself failed to import (partial
+            # install), fall through to the legacy tolerant read
+            # rather than block resume entirely.
+            pass
+
         # Rehydrate the controller-level counters. The iteration list
         # is rehydrated as :class:`LoopIteration` instances so
         # ``_run_bound``'s ``iterations`` variable can carry a
