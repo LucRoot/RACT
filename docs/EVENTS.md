@@ -647,3 +647,57 @@ Example payload:
 ```
 
 <!-- schema_version: 6 — v0.5.1 spec-completeness module_02 (added state.budget_capped) -->
+
+## v0.5.1 spec-completeness module_03 -- repair-synthesized close events (schema_version 6, no new kind)
+
+Module_03 (Lens 2 Delta 1) adds :mod:`ract.trace.repair`, which
+synthesizes close events for open handles in a possibly-truncated
+event log. Repair uses the EXISTING closed EventKind vocabulary
+(no new kind, no schema bump). Synthesized close events carry
+three payload-shape additions on top of the base close event's
+schema:
+
+- `synthesized` (boolean; always `true` when present) -- flag
+  distinguishing a synthesized close from a real one.
+- `reason` (string; `"interrupted"` today; future values may name
+  a different repair cause).
+- `source_event_id` (string; hex of the open event's id). The
+  by-id pairing rule that makes ``repair(repair(x)) == repair(x))``
+  idempotent.
+
+Additional per-close-kind fields:
+
+- `run.aborted` (synth): base payload keys only.
+- `step.rolled_back` (synth): base payload keys only.
+- `tool.result` (synth): adds `status: "unknown"` — signals to
+  downstream consumers that the tool's outcome cannot be
+  reconstructed from the log.
+- `response.received` (synth): adds `status: "timed_out"` — signals
+  that the LLM request never received a response before the log
+  was truncated.
+- `handshake.resolved` (synth): adds `resolution: "interrupted"`.
+
+Example synthesized `run.aborted`:
+
+```json
+{
+  "kind": "run.aborted",
+  "payload": {
+    "synthesized": true,
+    "reason": "interrupted",
+    "source_event_id": "3fa85f6417174562b3fc2c963f66afa6"
+  }
+}
+```
+
+Consumers filtering for real closes MUST check
+``payload.get("synthesized")`` -- a synth close is a repair
+projection, not an authoritative run terminator. See
+:func:`ract.trace.repair.repair` docstring for the full open->close
+map and determinism contract.
+
+Fiber-lifecycle event kinds (``fiber.activated`` / ``fiber.disposed``
+/ ``fiber.failed``) are NOT part of the closed vocabulary in v0.5.1
+per the audit's Delta 1 recommendation (§5.2 loops-as-fibers not
+adopted); their addition would be a schema_version bump.
+

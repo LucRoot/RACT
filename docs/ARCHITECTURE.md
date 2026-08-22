@@ -244,7 +244,7 @@ opt-in — a run with no endpoint configured still writes the JSONL log.
 `RunReporter` reads only the event log and derives its summary from
 it. The report is derived data; the log is the source of truth.
 
-Four CLI verbs operate on the log:
+Five CLI verbs operate on the log:
 
 - `ract trace replay <run_id> [--until step:<step_id>]` — reconstruct
   workspace state from cached responses.
@@ -255,10 +255,53 @@ Four CLI verbs operate on the log:
 - `ract trace to-test <run_id> --out <path>` — emit a pytest test that
   pins the model responses (fixtures in a sibling directory) and
   asserts the workspace state.
+- `ract trace repair <run_id> [--apply] [--json]` — inspect + optionally
+  extend a run's log with synthesized close events for open handles
+  (see "Write-first invariant + repair", below).
 
 See ADR-0015 for the design rationale and rejected alternatives, and
 `docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §6 (Substrate Layer 5) plus §11
 signals 9, 10, 11 for the master-spec source.
+
+### Write-first invariant + repair (v0.5.1 spec-completeness module_03)
+
+The event log's `JsonlEventWriter` enforces a **write-first
+invariant** (per 04-RACT-DESIGN §5.1.2 + spec-completeness
+module_03): no state change is observable to any observer before
+the corresponding event is durably written to disk. The commit
+sequence is: acquire commit lock -> assign sequence via
+`EventChain.build_next` -> `write() + flush() + os.fsync()` (all
+inside the lock) -> append to in-memory chain -> release lock ->
+fire post-commit observers. Any observer that attempts to
+re-enter the writer while `_committing=True` raises
+:class:`ract.trace.writer.WriteFirstViolation`.
+
+Two observer classes are supported (matching the spec's Two
+Observer Classes pattern):
+
+- **Post-commit** (`add_post_commit_observer`) -- fire-and-forget
+  best-effort after fsync-return + lock-release. A raise is
+  WARN-logged, not propagated. Use for TUI updates, telemetry
+  sidecars, dev inspectors. `close()` drains via `checkpoint()`.
+- **Durability** (`add_durability_observer`) -- fire only on
+  explicit `checkpoint()` call. A raise propagates so the caller
+  knows when a downstream durability observer failed. Use for
+  index feeders, replicated logs, another agent's inbox.
+
+The legacy `add_mirror(sink)` surface is retained (OTEL exporter
+uses it); mirror sinks fire on the post-commit path with
+raise-propagation preserved for backward compatibility.
+
+The :mod:`ract.trace.repair` module reconstructs a coherent event
+stream from a possibly-truncated log by synthesizing close events
+for open handles. `repair()` is deterministic (synthesized event
+ids derive from `sha256(marker || open.id || close_kind)[:16]`)
+and idempotent (`repair(repair(x)) == repair(x))` because
+synthesized closes carry `payload["source_event_id"]` for by-id
+pairing on second pass). Synthesized events participate in the
+hash chain -- `EventReader.load` succeeds on a repaired log.
+`JsonlEventWriter(..., repair_on_open=True)` extends the log
+during construction (opt-in; default OFF).
 
 ## Trust direction: environment attests
 

@@ -32,7 +32,8 @@ from pathlib import Path
 from typing import Any
 
 from ract.trace.events import Event
-from ract.trace.writer import EventReader
+from ract.trace.repair import repair as repair_events
+from ract.trace.writer import EventReader, JsonlEventWriter
 
 
 # ---------------------------------------------------------------------------
@@ -413,6 +414,69 @@ def cmd_to_test(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_repair(args: argparse.Namespace) -> int:
+    """Inspect + optionally apply :mod:`ract.trace.repair` to a run's log.
+
+    v0.5.1 spec-completeness module_03 (Lens 2 Delta 1). Default is
+    dry-run: prints the summary of what WOULD be synthesized without
+    touching the log. Pass ``--apply`` to extend the on-disk log with
+    the synthesized close events (idempotent; safe to re-run).
+    """
+    log_path = _run_events_path(args.runs_root, args.run_id)
+    if not log_path.is_file():
+        print(f"[ract] no event log at {log_path}", file=sys.stderr)
+        return 2
+    existing = _load_events(log_path)
+    stream = repair_events(existing)
+    summary = stream.repair_summary
+    result: dict[str, Any] = {
+        "run_id": args.run_id,
+        "log_path": str(log_path),
+        "existing_event_count": len(existing),
+        "synthesized_count": summary.synthesized_count,
+        "dropped_count": summary.dropped_count,
+        "closed_kinds": dict(summary.closed_kinds),
+        "already_closed": summary.already_closed,
+        "applied": False,
+        "synthesized_kinds": [e.kind for e in stream.synthesized_close_events],
+    }
+    if args.apply and stream.synthesized_close_events:
+        # Load the run's run_id from the first event.
+        run_id = existing[0].run_id if existing else None
+        if run_id is None:
+            print(
+                "[ract] refusing to apply repair to empty log",
+                file=sys.stderr,
+            )
+            return 3
+        # Use JsonlEventWriter's repair_from_disk() which is the same
+        # code path -- it re-reads and re-repairs, then extends.
+        writer = JsonlEventWriter(
+            path=log_path, run_id=run_id, repair_on_open=True
+        )
+        applied = writer.last_repair_summary
+        result["applied"] = True
+        result["applied_synthesized_count"] = (
+            applied.synthesized_count if applied else 0
+        )
+    if args.json_output:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    else:
+        print(f"[ract] repair inspect: {args.run_id}")
+        print(f"  existing events: {len(existing)}")
+        print(f"  synthesized close events: {summary.synthesized_count}")
+        print(f"  dropped events: {summary.dropped_count}")
+        print(f"  already coherent: {summary.already_closed}")
+        if summary.closed_kinds:
+            print(f"  closed kinds: {dict(summary.closed_kinds)}")
+        if args.apply:
+            status = "APPLIED to disk" if result["applied"] else "no-op (no synth)"
+            print(f"  {status}")
+        elif summary.synthesized_count:
+            print("  (dry-run; pass --apply to extend the log)")
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Top-level dispatch
 # ---------------------------------------------------------------------------
@@ -470,6 +534,24 @@ def _trace_command(argv: list[str]) -> int:
     to_test_parser.add_argument("--out", type=Path, required=True)
     to_test_parser.add_argument("--json", action="store_true", dest="json_output")
 
+    repair_parser = subparsers.add_parser(
+        "repair",
+        help=(
+            "Inspect + optionally apply repair to a run's event log "
+            "(synthesize close events for open handles)."
+        ),
+    )
+    repair_parser.add_argument("run_id")
+    repair_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help=(
+            "Extend the on-disk log with synthesized close events "
+            "(default is dry-run; repair is idempotent)."
+        ),
+    )
+    repair_parser.add_argument("--json", action="store_true", dest="json_output")
+
     parsed = parser.parse_args(argv)
     if parsed.verb == "replay":
         return cmd_replay(parsed)
@@ -479,6 +561,8 @@ def _trace_command(argv: list[str]) -> int:
         return cmd_diff(parsed)
     if parsed.verb == "to-test":
         return cmd_to_test(parsed)
+    if parsed.verb == "repair":
+        return cmd_repair(parsed)
     return 1  # pragma: no cover — argparse enforces
 
 
