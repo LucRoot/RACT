@@ -64,7 +64,10 @@ import hashlib
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ract.memory.symbol_index import SymbolRow
 
 from ract.core.module_identity import _module_knot, register_module_knot
 from ract.memory.chunk import (
