@@ -288,6 +288,41 @@ EventKind = Literal[
     # :class:`ract.sidecar_header.SidecarHeaderMissing` instead.
     # Payload carries ``path`` and ``synthetic_run_id``.
     "sidecar.header.legacy_fallback",
+    # v0.5.2 hardening module_05 (DA-B F-4.1/F-4.2/F-4.4/F-4.5/F-4.6).
+    # Three new kinds cover trace-log durability + honest verify.
+    #
+    # ``trace.torn_tail_detected`` -- fires when
+    # :meth:`EventReader.iter_events` (or
+    # :func:`ract.trace.verify._walk_verify`) drops a torn-write
+    # last line (SIGKILL between ``fh.write("\n")`` fsync + return,
+    # or a partial multi-byte UTF-8 sequence at file end). Payload
+    # carries ``path``, ``offset`` (byte position where the torn
+    # line began), and ``raw_repr`` (short string preview of the
+    # partial bytes, at most 200 chars). Middle-line corruption
+    # is NOT covered here -- that surface still raises
+    # :class:`ChainBrokenError` because non-append corruption is
+    # a hard failure.
+    "trace.torn_tail_detected",
+    # ``trace.incremental_verify_resumed`` -- fires when
+    # :func:`ract.trace.verify.verify_trace` chose the warm path
+    # (sidecar valid, header check passed, tail spot-check passed)
+    # and is about to replay only the delta past
+    # ``last_verified_offset``. Payload carries ``run_id``,
+    # ``last_offset``, ``file_size``, ``new_bytes`` (file_size -
+    # last_offset). Load-bearing observability signal that the
+    # F-4.1 O(n^2) fix is actually doing work.
+    "trace.incremental_verify_resumed",
+    # ``trace.verify_completed`` -- fires at the end of every
+    # cold + warm verify pass (regardless of status). Payload
+    # carries ``run_id`` (empty string when not warm-known),
+    # ``mode`` (``"cold"`` / ``"warm"`` /
+    # ``"spot_check_refused"``), ``status`` (one of
+    # ``TraceVerifyStatus`` literals), ``events_verified``,
+    # ``events_torn``, ``events_tampered``, and
+    # ``verified_offset``. The ``spot_check_refused`` mode fires
+    # BEFORE the follow-up cold-verify emits again, so an
+    # auditor sees the spot-check refuse -> cold-verify sequence.
+    "trace.verify_completed",
 ]
 
 

@@ -40,6 +40,14 @@ from ract.trace.events import (
 _LOG = logging.getLogger("ract.trace.writer")
 
 
+# v0.5.2 module_05 (Ox Alpha co-build Fork 4 (b)): threshold above
+# which :meth:`EventReader.read_all_events` WARN-logs the deliberate
+# materialization. Not a refusal -- some callers really do need the
+# full list -- but the warn line makes the choice auditable and gives
+# a v0.6 refactor a clean grep target.
+READ_ALL_EVENTS_WARN_BYTES: int = 16 * 1024 * 1024
+
+
 # ---------------------------------------------------------------------------
 # Write-first invariant guard
 # ---------------------------------------------------------------------------
@@ -485,7 +493,15 @@ class JsonlEventWriter:
         # and fsync loses the last event and any post-commit
         # observer would then have seen "state changed" without a
         # durable record. Ordering: write -> flush -> fsync -> return.
-        with self.path.open("a", encoding="utf-8") as fh:
+        # v0.5.2 module_05 (DA-B F-4.5): open with newline="" so
+        # Python's text-mode translation NEVER rewrites our
+        # ``"\n"`` to platform-native ``os.linesep`` (\r\n on
+        # Windows). The trace log must be identical bytes on
+        # every OS -- a Windows-authored file must decode
+        # cleanly on POSIX and vice versa. Reader uses binary
+        # mode + universal-newline stripping, so the invariant
+        # is symmetric on both sides.
+        with self.path.open("a", encoding="utf-8", newline="") as fh:
             fh.write(line)
             fh.write("\n")
             fh.flush()
@@ -520,7 +536,11 @@ class JsonlEventWriter:
         # `ract trace repair --apply`); blocking emits during repair
         # is the correct trade-off vs a chain-fork race.
         with self._lock:
-            existing = list(EventReader.iter_events(self.path))
+            # v0.5.2 module_05 (Fork 4 (b)): explicit
+            # materialization -- repair legitimately needs the
+            # full list to compute unclosed opens across the
+            # whole log.
+            existing = EventReader.read_all_events(self.path)
             stream = repair(existing)
             self.last_repair_summary = stream.repair_summary
             # If repair produced no synthesized events, nothing to
@@ -588,7 +608,13 @@ class EventReader:
         manifest ledger, WAL, workspace-digest chain, and suite chain
         all recover; the event log now matches that idiom.
         """
-        events = list(EventReader.iter_events(path))
+        # v0.5.2 module_05 (Fork 4 (b)): materialize deliberately
+        # -- load() historically returns the fully-verified
+        # in-memory chain, and callers expect the full events
+        # list on ``chain.events``. Streaming fold would break
+        # that contract; the WARN in read_all_events flags large
+        # log loads.
+        events = EventReader.read_all_events(path)
         if not events:
             raise ChainBrokenError(f"event log {path!s} is empty; cannot infer run_id")
         chain = EventChain(run_id=events[0].run_id)
@@ -602,58 +628,146 @@ class EventReader:
     def iter_events(path: Path | str) -> Iterable[Event]:
         """Iterate the log's events (middle-strict, tail-tolerant).
 
-        v0.5.1 module_09 (Lens F H2 closure): a malformed tail line is
-        WARN-logged + dropped so a torn-write crash leaves the file
-        readable. A malformed middle line raises
-        :class:`ChainBrokenError` -- non-append corruption is still a
-        hard failure.
+        v0.5.2 hardening module_05 (DA-B F-4.2/F-4.4/F-4.5): true
+        streaming generator. Never materializes the whole file --
+        a 1 GB trace log peaks at line-buffer memory during
+        iteration. Universal-newlines mode collapses both ``\n``
+        and ``\r\n`` line endings so a Windows-authored log parses
+        cleanly on POSIX and vice versa.
+
+        Torn-tail handling (DA-B F-4.4): the last line is
+        allowed to fail strict UTF-8 decode; that ONE line is
+        retried with ``errors="replace"``, and if it still fails
+        json.loads it is WARN-dropped and iteration ends. Middle
+        lines are always strict -- a middle-line UTF-8 or JSON
+        error raises :class:`ChainBrokenError`.
+
+        Middle-line JSON errors continue to raise
+        :class:`ChainBrokenError` unchanged from v0.5.1
+        semantics.
         """
         p = Path(path)
         if not p.is_file():
             return
-        raw = p.read_text(encoding="utf-8")
-        lines = raw.split("\n")
-        # Trim trailing empty line (JSONL framing).
-        if lines and lines[-1] == "":
-            lines.pop()
-        for i, raw_line in enumerate(lines):
-            line = raw_line.strip()
-            if not line:
-                continue
-            try:
-                data = json.loads(line)
-            except json.JSONDecodeError as exc:
-                if i == len(lines) - 1:
-                    _LOG.warning(
-                        "EventReader: %s tail line %d dropped (torn "
-                        "write? %s). Middle events remain verifiable.",
-                        p,
-                        i,
-                        exc,
-                    )
-                    return
-                raise ChainBrokenError(
-                    f"malformed middle event line {i} in {p}: {exc}"
-                ) from exc
-            try:
-                yield Event.from_canonical_dict(data)
-            except (ValueError, KeyError, TypeError) as exc:
-                if i == len(lines) - 1:
-                    _LOG.warning(
-                        "EventReader: %s tail line %d dropped (shape "
-                        "invalid? %s).",
-                        p,
-                        i,
-                        exc,
-                    )
-                    return
-                raise ChainBrokenError(
-                    f"malformed middle event at line {i} in {p}: {exc}"
-                ) from exc
+        # Read the file's total size ONCE so we can detect the
+        # final line without materializing every line. We compare
+        # the current handle position after each readline() to
+        # decide whether the just-read line is the tail. A
+        # concurrent writer that appends between the stat() and
+        # our readline() would grow the file; the extra bytes
+        # would just be picked up by the next readline() (the OS
+        # position tracker moves forward with each read).
+        try:
+            file_size = p.stat().st_size
+        except OSError:
+            file_size = 0
+        # SP amendment: open BINARY so we can measure real byte
+        # offsets AND retry the tail with errors="replace" without
+        # re-opening. Text mode (newline=None) would silently
+        # rewrite \r\n -> \n and hide CRLF corruption diagnostics.
+        with open(p, "rb") as fp:
+            line_index = 0
+            while True:
+                current_offset = fp.tell()
+                raw_bytes = fp.readline()
+                if not raw_bytes:
+                    break
+                # A well-terminated line ends in \n or \r\n; the
+                # LAST line in a torn-write file may lack a
+                # trailing newline. We treat "last line in the
+                # file" as torn-tail-tolerable regardless of
+                # newline presence -- this matches the v0.5.1
+                # semantics locked by
+                # ``test_event_chain_tolerates_truncated_tail``:
+                # a truncated-but-newline-terminated last line
+                # (operator edit corruption) is still tolerable.
+                # Middle lines never take the torn path.
+                end_offset = current_offset + len(raw_bytes)
+                has_newline = raw_bytes.endswith(b"\n")
+                is_tail = end_offset >= file_size
+                # Universal-newlines: strip \r\n or \n uniformly.
+                if raw_bytes.endswith(b"\r\n"):
+                    raw_bytes = raw_bytes[:-2]
+                elif raw_bytes.endswith(b"\n"):
+                    raw_bytes = raw_bytes[:-1]
+                # Also strip a stray trailing \r (very old Mac
+                # editors, or a torn \r\n that lost the \n).
+                if raw_bytes.endswith(b"\r"):
+                    raw_bytes = raw_bytes[:-1]
+                # Decode: strict for middle lines, replace-fallback
+                # for tail on strict failure only.
+                try:
+                    line_text = raw_bytes.decode("utf-8", errors="strict")
+                except UnicodeDecodeError as exc:
+                    if is_tail:
+                        _LOG.warning(
+                            "EventReader: %s tail line %d torn UTF-8 "
+                            "(retrying with replace; %s).",
+                            p,
+                            line_index,
+                            exc,
+                        )
+                        line_text = raw_bytes.decode(
+                            "utf-8", errors="replace"
+                        )
+                    else:
+                        raise ChainBrokenError(
+                            f"malformed middle event line {line_index} "
+                            f"in {p} (UTF-8 decode failed at offset "
+                            f"{current_offset}): {exc}"
+                        ) from exc
+                line = line_text.strip()
+                if not line:
+                    line_index += 1
+                    continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    if is_tail:
+                        _LOG.warning(
+                            "EventReader: %s tail line %d dropped "
+                            "(torn write? %s). Middle events remain "
+                            "verifiable.",
+                            p,
+                            line_index,
+                            exc,
+                        )
+                        return
+                    raise ChainBrokenError(
+                        f"malformed middle event line {line_index} "
+                        f"in {p}: {exc}"
+                    ) from exc
+                try:
+                    yield Event.from_canonical_dict(data)
+                except (ValueError, KeyError, TypeError) as exc:
+                    if is_tail:
+                        _LOG.warning(
+                            "EventReader: %s tail line %d dropped "
+                            "(shape invalid? %s).",
+                            p,
+                            line_index,
+                            exc,
+                        )
+                        return
+                    raise ChainBrokenError(
+                        f"malformed middle event at line {line_index} "
+                        f"in {p}: {exc}"
+                    ) from exc
+                line_index += 1
 
     @staticmethod
     def verify(path: Path | str) -> tuple[bool, str]:
-        """Return ``(ok, reason)`` — a diagnostic form of ``load``."""
+        """Return ``(ok, reason)`` — a diagnostic form of ``load``.
+
+        v0.5.2 module_05 note: for a scalable verify surface with
+        a typed dataclass result and incremental warm-verify
+        support, callers should prefer
+        :func:`ract.trace.verify.verify_trace` /
+        :func:`ract.trace.verify.cold_verify`, which return a
+        :class:`~ract.trace.verify.TraceVerifyResult`. This
+        ``EventReader.verify`` remains as a thin
+        backward-compatible surface for legacy callers.
+        """
         try:
             EventReader.load(path)
         except ChainBrokenError as exc:
@@ -661,6 +775,41 @@ class EventReader:
         except FileNotFoundError as exc:
             return False, str(exc)
         return True, ""
+
+    @staticmethod
+    def read_all_events(path: Path | str) -> list[Event]:
+        """DELIBERATELY materialize every event into a list.
+
+        v0.5.2 module_05 (DA-B F-4.2 + Ox Alpha co-build Fork 4
+        verdict (b)): :meth:`iter_events` is now a true streaming
+        generator. A caller who legitimately needs the full list
+        (repair summary computation, one-shot reporter that folds
+        every event before rendering, small-file test fixture)
+        calls this helper -- the memory cost is in the name so a
+        future refactor knows what to look for.
+
+        Emits a WARN log when the file size exceeds
+        :data:`READ_ALL_EVENTS_WARN_BYTES` (16 MiB) -- large
+        materializations are not refused (some callers really do
+        need the whole list) but the warn line makes the choice
+        auditable.
+        """
+        p = Path(path)
+        if p.is_file():
+            try:
+                size = p.stat().st_size
+            except OSError:
+                size = 0
+            if size > READ_ALL_EVENTS_WARN_BYTES:
+                _LOG.warning(
+                    "EventReader.read_all_events: %s is %d bytes "
+                    "(> %d WARN threshold); materializing anyway. "
+                    "Consider a streaming fold via iter_events.",
+                    p,
+                    size,
+                    READ_ALL_EVENTS_WARN_BYTES,
+                )
+        return list(EventReader.iter_events(p))
 
 
 # ---------------------------------------------------------------------------
