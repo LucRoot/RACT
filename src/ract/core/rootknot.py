@@ -265,9 +265,18 @@ class Rootknot:
             )
         if self.schema_version == 4:
             missing: list[str] = []
-            if not self.workspace_digest:
+            # v0.5.2 module_01 SP amendment (Ox Alpha + nemotron Q5):
+            # a ``Digest(b"\x00" * 32)`` is a truthy bytes subclass, so
+            # the previous ``if not self.workspace_digest`` gate
+            # accepted a zero-digest as "set". The zero sentinel binds
+            # nothing (it would fail RK-1.x content comparison for any
+            # real workspace), but per DA-A F-1 intent the v4 label
+            # must not carry any meaningless-value bypass. Refuse both
+            # ``None`` / empty AND the zero-digest sentinel at both
+            # construction and verify.
+            if not self.workspace_digest or self.workspace_digest == _ZERO_DIGEST:
                 missing.append("workspace_digest")
-            if not self.prompt_digest:
+            if not self.prompt_digest or self.prompt_digest == _ZERO_DIGEST:
                 missing.append("prompt_digest")
             if not self.run_id:
                 missing.append("run_id")
