@@ -189,12 +189,19 @@ def test_provenance_doc_is_concise() -> None:
     # module_01 raised 1000 -> 1300 to document the three new
     # signature-hardening surfaces (known-schema allowlist, v4-label
     # gate, min-schema policy) with the operator-visible CLI
-    # examples they require to be actionable. The doc remains
-    # "commands + source symbols rather than prose" per its own
-    # intent; the added lines are load-bearing pointers, not prose.
+    # examples they require to be actionable. v0.5.2 hardening
+    # module_06 raised 1300 -> 1500 for the two additional
+    # load-bearing surfaces the module ships: the read-boundary
+    # RootknotUnknownSidecarFormat refusal (module_01 Q3 fold) +
+    # the ambient run_id boundary regex documenting
+    # RunIdFormatError (module_04 C-6 fold). Both sections carry
+    # exception name + rationale + regression-test pointer per the
+    # doc's existing pattern. The doc remains "commands + source
+    # symbols rather than prose" per its own intent; the added
+    # lines are load-bearing pointers, not prose.
     text = PROVENANCE_DOC.read_text(encoding="utf-8")
     word_count = len(text.split())
-    assert word_count <= 1300, f"PROVENANCE.md is {word_count} words; limit is 1300"
+    assert word_count <= 1500, f"PROVENANCE.md is {word_count} words; limit is 1500"
 
 
 @pytest.mark.parametrize(
