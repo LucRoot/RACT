@@ -583,7 +583,7 @@ def retrieval_query_command(args: list[str]) -> int:
             from ract.memory.semantic_index import SemanticIndex
 
             semantic_dir = memory_root / "semantic"
-            if semantic_dir.is_dir():
+            if semantic_dir.is_dir() and symbol_idx is not None:
                 semantic_idx = SemanticIndex(
                     store_path=semantic_dir, symbol_index=symbol_idx
                 )

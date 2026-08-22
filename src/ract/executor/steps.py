@@ -603,8 +603,8 @@ class Executor:
             manifest_digest_raw = self.manifest_digest_provider()
             from ract.core.types import Digest as _Digest3
 
-            manifest_digest = (
-                manifest_digest_raw
+            manifest_digest: _Digest3 = (
+                _Digest3(manifest_digest_raw)
                 if isinstance(manifest_digest_raw, bytes)
                 and len(manifest_digest_raw) == 32
                 else _Digest3(bytes(manifest_digest_raw))

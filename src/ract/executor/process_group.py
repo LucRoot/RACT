@@ -240,7 +240,7 @@ def _resume_thread(popen: subprocess.Popen[bytes]) -> None:
     try:
         import ctypes
 
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
         # Snapshot the process' threads and resume the first one.
         # CreateToolhelp32Snapshot(dwFlags=0x00000004 /* THREADS */,
         # th32ProcessID=0).
@@ -311,7 +311,7 @@ def _try_create_job_object(pid: int) -> Any | None:
         import ctypes
         from ctypes import wintypes  # noqa: F401 -- ensures import validity
 
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
         # CreateJobObjectW(lpJobAttributes, lpName) -> HANDLE
         create_job = kernel32.CreateJobObjectW
         create_job.restype = ctypes.c_void_p
@@ -522,7 +522,7 @@ def _kill_descendants_only(handle: ProcessGroupHandle, *, close_handle: bool) ->
             try:
                 import ctypes
 
-                kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+                kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
                 terminate = kernel32.TerminateJobObject
                 terminate.restype = ctypes.c_int
                 terminate.argtypes = [ctypes.c_void_p, ctypes.c_uint]
@@ -818,7 +818,7 @@ def _kill_tree_windows(handle: ProcessGroupHandle, *, close_handle: bool) -> Non
         try:
             import ctypes
 
-            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
             # TerminateJobObject(hJob, uExitCode) -> BOOL
             terminate = kernel32.TerminateJobObject
             terminate.restype = ctypes.c_int

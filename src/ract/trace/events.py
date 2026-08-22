@@ -333,6 +333,61 @@ EventKind = Literal[
     # BEFORE the follow-up cold-verify emits again, so an
     # auditor sees the spot-check refuse -> cold-verify sequence.
     "trace.verify_completed",
+    # v0.5.2 CI-fix closure (Ox Alpha Q1 mypy sweep): the emit
+    # sites below already ship a payload; this Literal was the
+    # missing gate. Descriptions live in ``docs/EVENTS.md``.
+    #
+    # ``budget.clamp_refused`` -- module_09 budget registry
+    # refused a probe-informed clamp because the reduced target
+    # fell below the caller's declared floor. Producer:
+    # :func:`ract.memory.budget_registry.request_budget`.
+    "budget.clamp_refused",
+    # ``budget.adjusted_by_probes`` -- module_09 budget registry
+    # accepted a probe-informed clamp; the reduced input target
+    # replaced the caller's declared value. Producer:
+    # :func:`ract.memory.budget_registry.request_budget`.
+    "budget.adjusted_by_probes",
+    # ``tool.invocation.bypassed`` -- executor observed a step
+    # that skipped a declared tool invocation (dry-run guard,
+    # allowlist refusal, or precondition failure). Producer:
+    # :func:`ract.executor.steps.run_step`.
+    "tool.invocation.bypassed",
+    # ``laziness.skipped`` -- ALM pre-commit gate elected NOT to
+    # run for the current diff (small edit, docs-only, or
+    # explicit operator opt-out). Producer:
+    # :func:`ract.antilazy.pre_commit`.
+    "laziness.skipped",
+    # ``whisperer.classifier_error`` -- loop controller caught an
+    # exception raised by the sycophancy classifier and downgraded
+    # to a WARN log instead of failing the turn. Producer:
+    # :meth:`ract.loop_controller.LoopController._run_whisperer_gate`.
+    "whisperer.classifier_error",
+    # ``laziness.gate_error`` -- loop controller caught an
+    # exception raised by the anti-laziness gate and downgraded to
+    # a WARN log so the run continues. Producer:
+    # :meth:`ract.loop_controller.LoopController._run_laziness_gate`.
+    "laziness.gate_error",
+    # ``memory.probe_scheduler_error`` -- loop controller caught
+    # an exception from the probe scheduler and downgraded to a
+    # WARN log; probes are best-effort telemetry, never
+    # load-bearing on the run. Producer:
+    # :meth:`ract.loop_controller.LoopController._run_probes`.
+    "memory.probe_scheduler_error",
+    # ``memory.composition_runner_error`` -- loop controller
+    # caught an exception from the context-composition runner and
+    # downgraded to a WARN log. Producer:
+    # :meth:`ract.loop_controller.LoopController._run_composition`.
+    "memory.composition_runner_error",
+    # ``memory.cascade_error`` -- one index in the memory cascade
+    # (semantic / symbol / lexical) failed to attach; the watcher
+    # records the cascade continued with the survivors. Producer:
+    # :meth:`ract.memory.watcher.MemoryWatcher._emit_cascade_error`.
+    "memory.cascade_error",
+    # ``memory.freshness_gap`` -- memory watcher detected an index
+    # whose freshness is trailing the workspace clock beyond the
+    # policy threshold. Producer:
+    # :meth:`ract.memory.watcher.MemoryWatcher._emit_freshness_gap`.
+    "memory.freshness_gap",
 ]
 
 

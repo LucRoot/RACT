@@ -378,7 +378,7 @@ def _knot_to_json(
         return json.dumps(data, sort_keys=True, indent=2)
 
     if knot.schema_version >= 3:
-        data: dict[str, Any] = {
+        data: dict[str, Any] = {  # type: ignore[no-redef]
             "schema": "sidecar/v3",
             "plan_id": knot.plan_id.hex(),
             "step_id": knot.step_id.hex(),
@@ -548,7 +548,7 @@ def _knot_from_json(payload: str) -> Rootknot:
         )
     if schema == "sidecar/v3":
         gate_results_raw = data.get("gate_results", [])
-        gate_results: list[GateResult] = []
+        gate_results: list[GateResult] = []  # type: ignore[no-redef]
         for gr in gate_results_raw:
             gate_results.append(
                 GateResult(

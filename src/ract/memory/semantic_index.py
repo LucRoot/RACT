@@ -209,7 +209,7 @@ class SemanticIndex:
         # test paths that never open a store do not pay the
         # LanceDB import cost.
         import lancedb  # type: ignore[import-not-found]
-        import pyarrow as pa  # type: ignore[import-not-found]
+        import pyarrow as pa  # type: ignore[import-not-found,import-untyped]
 
         self._pa = pa
         self._store_path: Path = Path(store_path).resolve()

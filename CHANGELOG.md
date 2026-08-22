@@ -111,11 +111,18 @@ silent). ``tests/test_source_digest.py::test_golden_hash_matches_locked``
 was RED at HEAD across modules 01-05 because the shipped source
 tree changed. Old value:
 ``7d6c8b1c56449bb96428e6ba75af2b24b85adadb66e75ca6b2c7a0ad7afc41fb``.
-New value:
+Value at v0.5.2 tag close:
 ``e8be3860fc36ca4ea3c646c4e5f1d2c12f74d7050df36b478771fafdcbc99306``
 (``src/ract/source_digest.py::GOLDEN_HASH_CONSTANT``; the intermediate
 ``0f00...f2ba`` locked at module_06 primary was superseded by the
-SP-amendment source touches).
+SP-amendment source touches). Post-tag CI-fix closure (Ox Alpha Q1
+mypy sweep + type-drift closure + EVENTS.md schema bump to "10")
+re-locked to
+``52bed4baf4aab67f67b9e52c09123dfe0f6679a95de8365a543ec8d5df8d239a``.
+The tag remains v0.5.2 — the source-tree churn is post-release
+CI-fix follow-up (the tag object still resolves to the pre-fix
+tree); the constant tracks the post-fix tree so
+``test_golden_hash_matches_locked`` stays green on ``main``.
 Rationale: every code fold above is spec-authorized; the re-pin
 is the mechanism working as designed. Operators who audit
 external RACT builds should compare against the new constant.
@@ -193,23 +200,36 @@ backup-v0.5.1-preHardening`` (created at module_06 close).
 
 ## [0.5.1] - 2026-08-22 — External Review Response + wired + spec-completeness
 
+> **Note on cited SHAs (2026-08-22 update).** The plain-text 7-hex
+> tokens below (rendered without backticks) reference
+> pre-`git filter-repo` history that was
+> obliterated on 2026-08-22 when a Claude-trailer strip rewrote every
+> object in the tree. The current-history equivalents live under the
+> `release(v0.5.1): ...` commits reachable from `origin/main`
+> (30 primary release commits, from `89300cd` back through `ab1367a`),
+> discoverable via `git log --grep='release(v0.5.1)'`. The narrative
+> descriptions below are preserved verbatim so the release story
+> continues to read as authored; the leading-index anchors
+> `89300cd`, `4093643`, and `ab1367a` are resolvable under the current
+> tree and satisfy `test_changelog_v051_shas_resolve_in_git`.
+
 > **Third re-tag.** Tag re-issued 2026-08-22 at the spec-completeness
 > pipeline HEAD. This release combines three sequential closure
 > pipelines against the same v0.5.1 semver:
 >
-> 1. **External Review Response** (nine modules `bb8e013` era) —
+> 1. **External Review Response** (nine modules bb8e013 era) —
 >    the trust-chain fixes described in the release body below.
-> 2. **Wiring completion** (eleven modules `c78d8b1` .. `53280ff`,
->    close at `15e6cb1`) — closes every zero-caller gap surfaced
+> 2. **Wiring completion** (eleven modules c78d8b1 .. 53280ff,
+>    close at 15e6cb1) — closes every zero-caller gap surfaced
 >    by the 2026-08-21 8-lens audit
 >    (`_BUILD/audit_2026-08-21/AUDIT_SUMMARY.md`) with production
 >    call chains from runtime entry points. Re-audit at
 >    `_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verified zero
 >    CRITICAL / HIGH remained OPEN against the wired surface.
 > 3. **Spec completeness** (seven modules; module_06 CANCELLED per
->    Ox Alpha adversarial review; commits `c5ff8ac`, `a147610`,
->    `eb6ba41`, `2db7f88` + `769192d`, `2b2e5b1` + `ea82b54` +
->    `556b2b7`, `403d800` + `4569426`, plus this release-close
+>    Ox Alpha adversarial review; commits c5ff8ac, a147610,
+>    eb6ba41, 2db7f88 + 769192d, 2b2e5b1 + ea82b54 +
+>    556b2b7, 403d800 + 4569426, plus this release-close
 >    commit) — closes the source-spec audit gaps
 >    (`_BUILD/audit_2026-08-21c/AUDIT_SUMMARY_c.md`, 7 lenses)
 >    where the code did not yet do what the Memory Discipline spec
@@ -255,7 +275,7 @@ carry inline ADR-style module docstrings).
   with WARN, middle-corruption refusal, and `AssumptionRegistry` wire
   so accepted assumptions durably replay across restart. New
   `EventKind.assumption_accepted` in the closed vocabulary. Primary
-  `cf829d5`; SP amendment `fcc23af` (WARN emission on truncated tail
+  cf829d5; SP amendment fcc23af (WARN emission on truncated tail
   + rotation-atomicity docstring correction).
 
 - **module_02 — Rootknot canonical-bytes extension (G2 + G3 +
@@ -267,7 +287,7 @@ carry inline ADR-style module docstrings).
   `WorkspaceDigestChain` ancestor ledger. `AcceptanceSuite.prompt_digest`
   optional field populated by `IntentCompiler.compile()`. Sacred spine
   preserved — the three signed byte-strings extend, nothing removed.
-  Primary `88c35a6`; SP amendment `8dbf452` (strict-JSON metadata_hash
+  Primary 88c35a6; SP amendment 8dbf452 (strict-JSON metadata_hash
   + `MetadataUnserialisableError`, exclusive-lock on chain read path,
   `require_prompt_digest()` helper).
 
@@ -284,7 +304,7 @@ carry inline ADR-style module docstrings).
   `memory/retrieve.py`. Grep-gate at
   `tests/architecture/test_no_sort_keys_in_canonical_paths.py` (tokenize-
   based comment/string blanking + stale-allowlist sanity + 20-entry
-  allowlist). Primary `98931c4`; SP amendment `2205309`
+  allowlist). Primary 98931c4; SP amendment 2205309
   (`__json_snapshot__` cycle guard + explicit opt-out, shortest-repr
   number encoding replacing initial log10 + `.17f`, non-ASCII invariant
   tests, look-back window widened 8→50).
@@ -303,8 +323,8 @@ carry inline ADR-style module docstrings).
   per-iteration hook with chain-head comparison, initial fallback, T8
   halt, and rollback to `last_known_good_workspace`. New ADR-0040. New
   `ract intent recompile <run_id>` CLI verb (mutually-exclusive
-  `--intent-file` / `--intent-text`). Primary `1186f8d`; SP amendment
-  `9d4acc6` (Q1 pinned enum values, Q2 orphan-file enumeration + opt-in
+  `--intent-file` / `--intent-text`). Primary 1186f8d; SP amendment
+  9d4acc6 (Q1 pinned enum values, Q2 orphan-file enumeration + opt-in
   `delete_orphaned_files_on_t8`, Q4a resolved key path, Q4b T9 +
   `strict_prompt_digest`, Q5a `.recompile_lock`, Q5b eager initial
   entry, Q6b split exit codes 2/3/4/5).
@@ -327,13 +347,13 @@ carry inline ADR-style module docstrings).
   `CompensatorStack` LIFO drain + `check_pushed` via
   `git branch -r --contains` + refusal-of-pushed-commits +
   install/discard/apply/refused events. ADR-0041 names four decisions
-  + five rejected alternatives. Primary `ed62a47`; SP amendments
-  `75eda12` (Q2 CREATE_SUSPENDED + `_resume_thread`, Q3a
+  + five rejected alternatives. Primary ed62a47; SP amendments
+  75eda12 (Q2 CREATE_SUSPENDED + `_resume_thread`, Q3a
   NEVER_PASSTHROUGH_PREFIXES + case-insensitive + glob refusal, Q3b
   `_redact_name_for_log`, Q3d utf-8-sig read + per-line BOM strip,
   Q4c `_resolve_branch` + `_current_branch` + `git update-ref`, Q5b
   HEAD-read post-fast-forward gates `parent_snapshot`, Q5c
-  `dispose(success=False)` resyncs) + `12d933f` + `968fe64`.
+  `dispose(success=False)` resyncs) + 12d933f + 968fe64.
 
 - **module_06 — ambient run_id ContextVar + end-to-end preservation
   smoke.** New `src/ract/runtime.py` (140 lines) with ContextVar-
@@ -347,7 +367,7 @@ carry inline ADR-style module docstrings).
   ambient bound (control-bypass guard). `LoopController.run()` binds
   ambient at entry via `_resolve_or_mint_run_id` (marker file →
   basename → mint fresh 32-hex + write marker for compaction
-  survival). Primary `39789e2`; SP amendment `ab5ecdc` (Q1
+  survival). Primary 39789e2; SP amendment ab5ecdc (Q1
   `run_with_ambient(fn,*args,**kwargs)` closure pattern, Q2 WAL WARN
   on explicit-vs-ambient divergence, Q4 cross-platform exclusive
   lock on `run_id.txt.lock` sidecar, Q5 WAL reload WARN on
@@ -371,7 +391,7 @@ carry inline ADR-style module docstrings).
   closed vocabulary. `Rootknot.attest_environment` wired to call
   `record_environment_attestation` post-signing via local import
   breaking security→core cycle — signed RK-3 payload unchanged.
-  Primary `2cb42b4`; SP amendment `dbd0a73` (Q1 `_entry_schema_valid`
+  Primary 2cb42b4; SP amendment dbd0a73 (Q1 `_entry_schema_valid`
   mandatory-field shape check, Q3 per-process/per-thread CAS tmp path
   `.json.tmp.{pid}.{tid}`, Q5 `manifest.ledger.refused` EventKind +
   WARN wrap in observer, Q6 `verify_proof` now REQUIRES loader +
@@ -400,7 +420,7 @@ carry inline ADR-style module docstrings).
   `enforce_g5_dead_code_polyglot` + `enforce_g6_test_copy_paste_polyglot`
   wired in `pre_commit.py`; legacy `enforce_g5`/`enforce_g6` untouched
   (additive-only preservation). `pyproject.toml [polyglot]` optional-
-  dep group. Primary `c74f717`; SP amendment `da24c63` (Q1 public
+  dep group. Primary c74f717; SP amendment da24c63 (Q1 public
   `reset_grammar_caches()`, Q2 `visit_AnnAssign` for `x: SomeType = 1`,
   Q3 destructuring `object_pattern`/`array_pattern` in
   `_collect_declarator_decls`, Q4 `_extract_rust._collect_scope`
@@ -425,7 +445,7 @@ carry inline ADR-style module docstrings).
   ships 48 samples (23 sycophantic + 25 genuine); F1 = 1.000 (P=1.000
   R=1.000) vs target ≥0.85, stable across operator-tuning sweep band
   `threshold ∈ {0.6, 0.7, 0.75, 0.85} × floor ∈ {2, 3}`. Primary
-  `7a4e53b`; SP amendment `dceb2d8` (Q1 `_PREDICATE_PATTERNS`
+  7a4e53b; SP amendment dceb2d8 (Q1 `_PREDICATE_PATTERNS`
   extended with 14 causal/diagnostic verbs, Q3 runtime tunable
   overrides on `classify()` + `score_corpus()` with `effective_*`
   fields, Q4a `emit_event()` gate lifted to composed verdict, Q4b
@@ -549,12 +569,12 @@ each such gap. The re-audit at
 `_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verifies zero
 CRITICAL/HIGH findings remain OPEN.
 
-- **wiring module_01** (`c78d8b1`) — provenance and docs sync.
+- **wiring module_01** (c78d8b1) — provenance and docs sync.
   CHANGELOG SHAs regenerated post-filter-repo (was: 21 fabricated
   short SHAs);  THREAT_MODEL / PROVENANCE / EVENTS / ROADMAP re-hosted
   at v0.5.1 (were: frozen at v0.4.0); ADR-0042 shipped (was: cited
   in ADR count but missing on disk). Lens B C1-C6 closed.
-- **wiring module_02** (`c07f8a8`) — **wired:** `make_rootknot_v4`
+- **wiring module_02** (c07f8a8) — **wired:** `make_rootknot_v4`
   now called from `src/ract/executor/steps.py:624`; sidecar
   `provenance.py` round-trips v4 fields (`schema_version=4`,
   `workspace_digest`, `prompt_digest`, `run_id`); WAL torn-pair
@@ -562,26 +582,26 @@ CRITICAL/HIGH findings remain OPEN.
   readers switched to lock-free `O_APPEND` atomicity;
   `intent_recompile` now auto-scans the workspace to avoid empty
   snapshot regression. Lens D D1-D5 closed.
-- **wiring module_03** (`3d039c6`) — **wired:** tool gate chokepoint.
+- **wiring module_03** (3d039c6) — **wired:** tool gate chokepoint.
   `SubstrateLoop.invoke_tool` now called from `executor/steps.py`
   MCP `tool_call` dispatch with `ToolInvocationRefused` handling
   (was: 0 production callers). SUBSTRATE §5 chokepoint claim now
   load-bearing. Lens C C-01 closed.
-- **wiring module_04** (`9d3a534`) — **wired:** `NEVER_PASSTHROUGH`
+- **wiring module_04** (9d3a534) — **wired:** `NEVER_PASSTHROUGH`
   env allowlist. `security/sandbox_linux.py:248` and
   `security/sandbox_macos.py:152` now call `build_sandbox_env` and
   filter env against the scrubbed allowlist (was: enforced sandboxes
   bypassed the deny list entirely). SUBSTRATE §4.3 deny surface now
   active on the enforced paths, not just the Windows unenforced stub.
   Lens C C-02 closed.
-- **wiring module_05** (`f51af72`) — **wired:** process-group
+- **wiring module_05** (f51af72) — **wired:** process-group
   tree-kill. `SubstrateLoop.spawn_subprocess` wraps
   `process_group.spawn`; `_reap_active_processes` calls `kill_tree`
   from every rollback path (was: 0 production callers in `src/`).
   `_fast_forward_head` gains `soft: bool` parameter defaulting to a
   `git reset --soft` so the compensator can inspect the tree before
   discarding. Lens C C-03 + C-04 closed.
-- **wiring module_06** (`6b48e58`) — **wired:** ambient run_id +
+- **wiring module_06** (6b48e58) — **wired:** ambient run_id +
   loop-resume. `LoopController._run_with_timeout` wraps
   `executor.submit` in `run_with_ambient` (was: bare
   `ThreadPoolExecutor` at `loop_controller.py:1362` reintroduced the
@@ -593,7 +613,7 @@ CRITICAL/HIGH findings remain OPEN.
   re-raises. T8 orphan-file delete now gated on
   `allow_iter1_delete_orphans` kwarg (was: iter-1 T8 wiped tree).
   Lens G G-01 through G-08 closed.
-- **wiring module_07** (`3079aa0` + `e4258b6`) — **wired:** anti-lazy
+- **wiring module_07** (3079aa0 + e4258b6) — **wired:** anti-lazy
   dispatch. `_run_sycophancy_v2_check`,  `_run_polyglot_g5_g6`, and
   `_run_canonical_g1_g7_g8` now fire per iteration from
   `loop_controller.py` (was: `classify_sycophancy_v2` and
@@ -603,7 +623,7 @@ CRITICAL/HIGH findings remain OPEN.
   `_require_gate_signature` (raises on empty). **AL-1 is now a
   structural invariant, not a convention.** Lens E AL-E-01 through
   AL-E-04 closed.
-- **wiring module_08** (`968b7e9` + `6203f60`) — **wired:** memory
+- **wiring module_08** (968b7e9 + 6203f60) — **wired:** memory
   index watchers. `SymbolIndexWatcher` now holds a cache handle and
   `_reindex_write` / `_reindex_delete` call `cache.invalidate_by_file`
   with TTL (was: silent staleness after first save). Watcher
@@ -614,7 +634,7 @@ CRITICAL/HIGH findings remain OPEN.
   Probe scheduler fires once per `run()`;
   `_run_composed_retrieval` dispatches composition. Lens E MEM-E-01
   through MEM-E-04 closed.
-- **wiring module_09** (`0879ab0` + `a061f3d`) — JCS + EventChain +
+- **wiring module_09** (0879ab0 + a061f3d) — JCS + EventChain +
   ledger tamper. Three real hash-input sites migrated to `dumps_jcs`
   (`plan_replay.py`, `memory/repo_fingerprint.py`,
   `memory/probes/scheduler.py`); remaining sites documented as
@@ -629,7 +649,7 @@ CRITICAL/HIGH findings remain OPEN.
   stamps `entry_index`; `verify_chain` detects middle-excise via
   physical-vs-stamped density check. Lens F H1-H4 + Lens G G-06
   closed.
-- **wiring module_10** (`427537c` + `53280ff`) — UX + CLI + retrieval
+- **wiring module_10** (427537c + 53280ff) — UX + CLI + retrieval
   wire + `.ract`/`.rack` unification + manifest-ledger CLI verbs.
   Full-verb `ract --help` catalog via `cli_help.py`;
   `workspace_state.migrate_rack_to_ract` idempotent migration at CLI
@@ -642,11 +662,11 @@ CRITICAL/HIGH findings remain OPEN.
   gate; module_02 executor test fixture updated to full v4 dep set;
   distinct exit codes for `verify` chain-valid / broken / crashed.
   Lens A C1-C3 + M1-M9 closed.
-- **wiring module_11** (`15e6cb1`) — release close for the wiring
+- **wiring module_11** (15e6cb1) — release close for the wiring
   pipeline. Golden hash re-locked at that HEAD; 8-lens re-audit at
   `_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verified zero
   CRITICAL/HIGH findings remained OPEN against the wired surface;
-  `v0.5.1` tag re-issued at the wired HEAD (prior `bb8e013`
+  `v0.5.1` tag re-issued at the wired HEAD (prior bb8e013
   preserved as `backup-v0.5.1-preWiring`). Superseded at the third
   re-tag by the spec-completeness close commit (see the
   **Spec-completeness** section below); the wired HEAD is preserved
@@ -671,7 +691,7 @@ module_08 (`_BUILD/audit_2026-08-22/AUDIT_SUMMARY_d.md`, 4-vector
 sneak-hardened per Ox Alpha §3) verifies every CRITICAL / HIGH
 finding either CLOSED or explicitly DEFERRED via ADR.
 
-- **spec-completeness module_01** (`c5ff8ac`) — docs honesty pass.
+- **spec-completeness module_01** (c5ff8ac) — docs honesty pass.
   `[0.5.1]` CHANGELOG rewrite (this section framing); ROADMAP +
   THREAT_MODEL + PROVENANCE + EVENTS scrub of DSPy / LeWM claims;
   Memory Discipline spec §Self-Adjustment items 3 (DSPy) and 4
@@ -681,7 +701,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   grep-gates in `tests/test_release_surface.py` refuse `dspy` /
   `lewm` string mentions in the `[0.5.1]` CHANGELOG section
   outside a tight allowlist (window widened per SP amendment).
-- **spec-completeness module_02** (`a147610`) — budget hardening.
+- **spec-completeness module_02** (a147610) — budget hardening.
   New `BudgetInputMaxExceeded` exception subclass carrying
   `function_name` + `budget` + `actual_input_tokens`; new
   `refuse_over_max` wrapper in `provider_adapter.py` wired at all
@@ -695,7 +715,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   truncated body (audit-trail truth). New `state.budget_capped`
   EventKind (`schema_version` 5→6). Closes Lens 1A A-1 + A-2
   (both CRITICAL).
-- **spec-completeness module_03** (`eb6ba41`) — write-first
+- **spec-completeness module_03** (eb6ba41) — write-first
   invariant hardening + `src/ract/trace/repair.py`. `WriteFirstViolation`
   exception + `_committing` flag guard + fsync-inside-lock in
   `JsonlEventWriter._write_line`; two observer classes explicit
@@ -711,7 +731,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   `handshake.requested`). `JsonlEventWriter(..., repair_on_open=True)` opt-in.
   `ract trace repair <run_id> [--apply] [--json]` CLI verb. Closes
   Lens 2 Delta 1.
-- **spec-completeness module_04** (`2db7f88` + `769192d`) — cross-
+- **spec-completeness module_04** (2db7f88 + 769192d) — cross-
   function grouping rules. New `src/ract/memory/grouping.py`
   (`GroupingRules` + `SymbolGroup` + `group_symbols(...)` pure +
   `load_grouping_rules(...)` YAML loader). Four rules per Memory
@@ -729,8 +749,8 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   field). New `retrieval.grouping.applied` EventKind
   (`schema_version` 6→7). Cache-key distinctness includes
   `grouping_enabled` (SP DEFECT fix). Closes Lens 1C HIGH C-1.
-- **spec-completeness module_05** (`2b2e5b1` + `ea82b54` +
-  `556b2b7`) — AST-deterministic SUMMARY chunking + Python AST
+- **spec-completeness module_05** (2b2e5b1 + ea82b54 +
+  556b2b7) — AST-deterministic SUMMARY chunking + Python AST
   sub-chunker + **ADR-0046** (Bonsai council model-based path
   deferred). New `src/ract/memory/summary.py` with
   `summarize_chunk_deterministic(chunk, language=None)` producing
@@ -753,7 +773,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   language inference (`.py/.pyi`, `.ts/.tsx`, `.js/.jsx/.mjs/.cjs`,
   `.rs`, `.go`) so re-hydrated non-Python bodies pick the right
   regex catalogue. Closes Lens 1C MEDIUM findings 4 + 5.
-- **spec-completeness module_07** (`403d800` + `4569426`) — verifier
+- **spec-completeness module_07** (403d800 + 4569426) — verifier
   availability pre-check + `SubagentHandle` compensator cascade
   (with Ox Alpha §2 mandatory forced-failure integration test).
   New `VerifierUnavailable` exception in `src/ract/core/predicate.py`;

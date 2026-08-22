@@ -355,7 +355,7 @@ class Harness:
             from ract.executor.loop import SubstrateLoop
             from ract.executor.tool_gate import ToolRegistry
 
-            self.substrate_loop = SubstrateLoop(
+            self.substrate_loop: SubstrateLoop | None = SubstrateLoop(
                 repo_root=self.project_dir,
                 parent_snapshot="0" * 40,
                 tool_registry=ToolRegistry(),
