@@ -518,7 +518,7 @@ def _kill_descendants_only(
     Emits ``orphan_reaped`` when descendants were actually observed
     before the reap fired.
     """
-    orphan_pids = _enumerate_group_descendants(handle)
+    orphan_total, orphan_pids = _enumerate_group_descendants(handle)
     if _IS_WINDOWS:
         if handle.job_handle is not None:
             try:
@@ -547,15 +547,34 @@ def _kill_descendants_only(
                 pass
             except Exception:  # noqa: BLE001 -- best-effort orphan reap
                 pass
-    if orphan_pids:
-        _emit_orphan_reaped(orphan_pids)
+    if orphan_total > 0:
+        _emit_orphan_reaped(orphan_total, orphan_pids)
 
 
-def _enumerate_group_descendants(handle: ProcessGroupHandle) -> list[int]:
-    """Best-effort list of live descendant PIDs (excluding parent).
+# Cap on the pids list attached to orphan_reaped events (bounded
+# payload size). SP amendment (cross-family Q6 DEFECT): the ``count``
+# field on the event now reflects TOTAL observed descendants pre-cap;
+# the ``pids`` list is capped at _ORPHAN_PID_CAP so a runaway subagent
+# leaking 200 grandchildren reports count=200 + first 32 pids rather
+# than count=32 which misled operators about scale.
+_ORPHAN_PID_CAP = 32
+
+
+def _enumerate_group_descendants(
+    handle: ProcessGroupHandle,
+) -> tuple[int, list[int]]:
+    """Best-effort ``(total_count, capped_pids)`` for descendant PIDs.
 
     Used purely for the ``orphan_reaped`` event payload -- if this
-    fails we still reap; we just report an empty list.
+    fails we still reap; we just report ``(0, [])``.
+
+    SP amendment (cross-family Q6 DEFECT): returns a tuple so the
+    event payload's ``count`` reflects the FULL count of live
+    descendants pre-cap, while ``pids`` is truncated at
+    :data:`_ORPHAN_PID_CAP` to bound payload size. Pre-amendment the
+    caller took ``len(returned_list)`` which equalled the truncated
+    length -- an operator reading ``count=32`` in a leak-of-200
+    scenario was misled about the scale of the leak.
     """
     parent_pid = handle.pid
     pids: list[int] = []
@@ -607,7 +626,8 @@ def _enumerate_group_descendants(handle: ProcessGroupHandle) -> list[int]:
                         pids.append(pid_int)
             except (OSError, subprocess.TimeoutExpired):
                 pass
-    return pids[:32]
+    total = len(pids)
+    return total, pids[:_ORPHAN_PID_CAP]
 
 
 def _emit_pid_reuse_detected(
@@ -637,16 +657,24 @@ def _emit_pid_reuse_detected(
     )
 
 
-def _emit_orphan_reaped(pids: list[int]) -> None:
-    """Emit ``substrate.subagent.orphan_reaped`` when descendants survived parent."""
+def _emit_orphan_reaped(total: int, pids: list[int]) -> None:
+    """Emit ``substrate.subagent.orphan_reaped`` when descendants survived parent.
+
+    ``total`` is the FULL count of live descendants observed pre-cap;
+    ``pids`` is the (possibly truncated) list. SP amendment
+    (cross-family Q6 DEFECT): pre-amendment ``count`` reflected the
+    truncated list length only -- misleading for leaks larger than
+    :data:`_ORPHAN_PID_CAP`.
+    """
     try:
         from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
 
         _emit_event(
             "substrate.subagent.orphan_reaped",  # type: ignore[arg-type]
             {
-                "count": len(pids),
+                "count": int(total),
                 "pids": [int(p) for p in pids],
+                "pids_truncated": bool(total > len(pids)),
             },
         )
     except Exception:  # noqa: BLE001 -- never fail kill on trace error
@@ -675,7 +703,8 @@ def _kill_tree_posix(
         # to killing the parent only. This never fires from
         # SubstrateLoop's own spawn path; only exercised when a
         # caller wraps a foreign Popen. Guard the single-pid kill
-        # with an identity re-check so a reused PID is not signaled.
+        # with an identity MATCH check so a reused OR gone PID is
+        # never signaled per-pid.
         if handle.popen.poll() is None and _reverify_ok(handle):
             handle.popen.kill()
         _wait_reap(handle.popen)
@@ -683,7 +712,13 @@ def _kill_tree_posix(
 
     try:
         if grace_period_seconds > 0.0:
-            if _reverify_ok(handle):
+            # SP amendment (Ox Alpha Q2 + cross-family Q2 DEFECT):
+            # killpg is a GROUP primitive -- fire on MATCH or GONE,
+            # skip only on MISMATCH. Pre-amendment, GONE also
+            # skipped killpg which orphaned reparented children if
+            # parent exited during the grace loop.
+            verdict = _identity_verdict(handle)
+            if verdict in (_IDENTITY_MATCH, _IDENTITY_GONE):
                 try:
                     os.killpg(pgid, signal.SIGTERM)  # type: ignore[attr-defined]
                 except (ProcessLookupError, PermissionError):
@@ -696,40 +731,80 @@ def _kill_tree_posix(
                     break
                 time.sleep(0.05)
 
-        if _reverify_ok(handle):
+        verdict = _identity_verdict(handle)
+        if verdict in (_IDENTITY_MATCH, _IDENTITY_GONE):
             try:
                 os.killpg(pgid, signal.SIGKILL)  # type: ignore[attr-defined]
             except (ProcessLookupError, PermissionError):
                 # Nothing left to reap.
                 pass
+        # MISMATCH -> refuse killpg (already emitted pid_reuse_detected
+        # via _identity_verdict); descendants that were spawned before
+        # the parent's PID got reused live under the ORIGINAL group,
+        # but the pgid IDENTIFIER now aliases the new tenant's group
+        # (POSIX pgid == leader's original pid). Safe to leak here --
+        # the alternative is killing an innocent tenant.
     finally:
         _wait_reap(handle.popen)
 
 
-def _reverify_ok(handle: ProcessGroupHandle) -> bool:
-    """Per-signal identity re-check (Ox Alpha co-build Fork 2 (b)-lite).
+# Identity verdict tri-state (SP Ox Alpha Q2 DEFECT amendment).
+#
+# MATCH -> stored identity matches current; safe to signal parent PID +
+#          group primitives.
+# GONE  -> pid is definitively dead; parent-PID signals must be
+#          SKIPPED (would signal a possibly-reused PID) but group
+#          primitives (killpg / TerminateJobObject) MAY still fire.
+#          The pgid / Job Object were captured at spawn and are safe
+#          -- on POSIX with start_new_session the pgid is refcounted
+#          alive while any group member survives; on Windows the
+#          job_handle is HANDLE-safe while held. This is exactly the
+#          DA-A F-4 case: parent gone but reparented descendants
+#          survive; we MUST proceed with group kill.
+# MISMATCH -> pid reused by an unrelated tenant. Refuse ALL signals,
+#             including group primitives (the pgid identifier IS the
+#             parent's original pid + if it was reused as a new
+#             group leader's pgid, killpg would hit them too).
+#             Emit pid_reuse_detected.
+_IDENTITY_MATCH = "match"
+_IDENTITY_GONE = "gone"
+_IDENTITY_MISMATCH = "mismatch"
 
-    Returns True when either (a) identity was never captured
-    (handle un-guardable, degrade to trust) OR (b) the stored
-    identity still matches the pid's current identity.
 
-    Returns False + emits ``pid_reuse_detected`` when the pid was
-    reallocated between spawn and now. Caller MUST skip the signal.
+def _identity_verdict(handle: ProcessGroupHandle) -> str:
+    """Per-signal identity re-check returning tri-state verdict.
 
-    A ``None`` current identity (pid gone) also returns False -- no
-    live process, no signal to send; the pgid / Job Object sweep in
-    the caller still handles any surviving descendants.
+    SP amendment (Ox Alpha Q2 DEFECT + cross-family Q2 DEFECT
+    converged): the pre-amendment ``_reverify_ok`` returned False
+    for BOTH "gone" and "mismatch", causing callers to skip signals
+    in the gone case. That REINTRODUCED the DA-A F-4 class bug for
+    grace-period reaps + any per-signal window where parent exited
+    between top-level check and signal. Fix: three-state verdict
+    lets callers proceed with group primitives when the pid is
+    gone (safe: pgid/JobObject are refcounted / handle-safe) and
+    only refuse on genuine mismatch.
     """
     stored = handle.identity
     if stored is None:
-        return True
+        return _IDENTITY_MATCH
     current = current_identity(stored.pid)
     if current is None:
-        return False
+        return _IDENTITY_GONE
     if same_process(stored, current):
-        return True
+        return _IDENTITY_MATCH
     _emit_pid_reuse_detected(stored, current)
-    return False
+    return _IDENTITY_MISMATCH
+
+
+def _reverify_ok(handle: ProcessGroupHandle) -> bool:
+    """Legacy shim -- returns True on MATCH only.
+
+    Retained for backward compatibility with callers that want the
+    "always safe to send bare-PID signal" check. Prefer
+    :func:`_identity_verdict` at group-primitive sites so GONE can
+    still fire the pgid / Job Object reap.
+    """
+    return _identity_verdict(handle) == _IDENTITY_MATCH
 
 
 def _kill_tree_windows(
@@ -757,6 +832,10 @@ def _kill_tree_windows(
                 kernel32.CloseHandle(handle.job_handle)
                 handle.job_handle = None
         except OSError:
+            # SP amendment (Ox Alpha Q2 DEFECT): taskkill is per-pid
+            # so it's UNSAFE on mismatch (would target reused PID).
+            # Fire on MATCH only; on GONE the Job Object attempt
+            # already covered the descendants; on MISMATCH refuse.
             if _reverify_ok(handle):
                 _taskkill_tree(handle.pid)
         except Exception:  # noqa: BLE001

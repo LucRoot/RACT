@@ -219,21 +219,54 @@ def _read_windows_creation_ftime(pid: int) -> int | None:
 # ---------------------------------------------------------------------------
 
 
+def _posix_pid_exists(pid: int) -> bool:
+    """Existence probe on POSIX: does a process with ``pid`` exist right now?
+
+    Uses ``os.kill(pid, 0)`` which sends signal 0 (no-op probe).
+    Returns True iff the pid names a live process AND we have
+    permission to signal it (PermissionError also means "exists but
+    unreachable" -> True, since the process is definitively live).
+    """
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
 def current_identity(pid: int) -> ProcessIdentity | None:
     """Fetch the current ``(pid, creation_time_ns)`` for a live pid.
 
-    Returns ``None`` when the process is gone (no PID slot present)
-    OR when identity metadata could not be read. Callers use the
-    ``None`` return to distinguish "process definitively dead"
-    (safe to skip the signal) from "identity mismatch"
-    (dangerous -- may kill the wrong tenant).
+    Returns ``None`` when the process is DEFINITIVELY DEAD (no PID
+    slot present). Callers use the ``None`` return to distinguish
+    "process gone" (kill_tree top-level routes to
+    ``_kill_descendants_only`` via pgid/Job Object) from "identity
+    mismatch" (dangerous -- may kill the wrong tenant, refuse).
 
     Order of attempts:
-    - Windows: ``GetProcessTimes`` FILETIME.
+    - Windows: ``GetProcessTimes`` FILETIME. Returns ``None`` when
+      OpenProcess fails (process gone or access denied). Callers
+      must treat ``None`` as "cannot verify -- assume dead".
     - Linux + Linux-shaped POSIX: ``/proc/{pid}/stat`` field 22,
-      then ``/proc/{pid}`` inode ctime as fallback.
-    - Other POSIX (macOS, BSD without /proc): ``None`` (degrades
-      to bare-pid, logs at debug level).
+      then ``/proc/{pid}`` inode ctime as fallback. If BOTH fail,
+      probe via ``os.kill(pid, 0)`` -- if the pid EXISTS (macOS/BSD
+      live process without /proc) return ``(pid, 0)`` fallback
+      identity so caller degrades gracefully. If the pid does NOT
+      exist, return ``None`` (definitively dead).
+
+    SP amendment (Ox Alpha Q1 DEFECT): pre-amendment the POSIX
+    fallback returned ``(pid, 0)`` unconditionally when both /proc
+    reads failed, INCLUDING when the pid was dead. That broke the
+    None contract that :func:`kill_tree` relies on: dead pid ->
+    ``(pid, 0)`` -> ``same_process(stored_with_real_ctime, (pid, 0))``
+    False -> false ``pid_reuse_detected`` emit on every normal
+    dispose-after-exit. Now the fallback probes existence first.
 
     Never raises. The identity guard is best-effort by design --
     an over-eager raise would block a reap the operator asked for.
@@ -250,11 +283,19 @@ def current_identity(pid: int) -> ProcessIdentity | None:
     if stime is None:
         stime = _read_posix_ctime_ns_fallback(pid)
     if stime is None:
-        # No identity source available. Return a zero-ctime identity
-        # so the caller can still compare equal-to-stored-zero if the
-        # spawn-time capture also returned zero (matched-fallback
-        # case). This preserves progress on macOS/BSD without /proc
-        # while remaining safe when both sides degrade uniformly.
+        # SP amendment (Ox Alpha Q1 DEFECT): existence probe before
+        # returning the (pid, 0) fallback. If the pid is DEAD we
+        # MUST return None so kill_tree's None-branch fires (routes
+        # to descendants-only via pgid) instead of the mismatch-
+        # branch (which would emit a false pid_reuse_detected).
+        if not _posix_pid_exists(pid):
+            return None
+        # No identity source available BUT pid exists (macOS/BSD
+        # live process without /proc). Return the (pid, 0) fallback
+        # so the caller can still compare equal-to-stored-zero if
+        # the spawn-time capture also returned zero (matched-
+        # fallback case). This preserves progress on macOS while
+        # remaining safe when both sides degrade uniformly.
         return ProcessIdentity(pid=pid, creation_time_ns=0)
     return ProcessIdentity(pid=pid, creation_time_ns=stime)
 

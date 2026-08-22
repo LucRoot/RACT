@@ -193,6 +193,21 @@ class SubprocessSubagentHandle:
                 self._captured_job_handle = _try_create_job_object(pid)
             except Exception:  # noqa: BLE001 -- best-effort retro-bind
                 self._captured_job_handle = None
+            # SP amendment (cross-family Q4 QUESTION fold): when the
+            # retroactive Job Object bind fails (foreign Popen was
+            # already in a job that refused AssignProcessToJobObject,
+            # or _try_create_job_object hit a Win7-era nested-job
+            # limitation, or ctypes missing), emit a diagnostic log
+            # so operators can debug why dispose falls back to
+            # per-pid taskkill instead of atomic Job Object reap.
+            if self._captured_job_handle is None:
+                _LOG.info(
+                    "SubprocessSubagentHandle: foreign Popen pid=%s "
+                    "retroactive Job Object bind refused -- dispose "
+                    "will fall back to guarded taskkill. Common cause: "
+                    "process already in a foreign Job Object.",
+                    pid,
+                )
         else:
             # Fork 5 (POSIX): read the process's ACTUAL pgid from
             # the OS. When the foreign spawn used start_new_session
