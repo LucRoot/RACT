@@ -272,6 +272,17 @@ NEVER_PASSTHROUGH: frozenset[str] = frozenset(
         "SSH_ASKPASS",
         "GIT_CONFIG_GLOBAL",
         "GIT_CONFIG_SYSTEM",
+        # SP amendment (Ox Alpha Q1 DEFECT): git config env
+        # smuggle -- GIT_CONFIG_COUNT + GIT_CONFIG_KEY_N +
+        # GIT_CONFIG_VALUE_N inject arbitrary git config keys
+        # (e.g., core.fsmonitor=/tmp/evil, core.pager,
+        # protocol.ext.allow) at runtime, bypassing the
+        # GIT_CONFIG_GLOBAL / GIT_CONFIG_SYSTEM denial entirely.
+        # This closes the exact bypass Ox called out. See also
+        # NEVER_PASSTHROUGH_PREFIXES: GIT_CONFIG_ catches
+        # GIT_CONFIG_KEY_N / VALUE_N for any N.
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_NOSYSTEM",
         "GIT_TRACE",
         "GIT_TRACE_PACKET",
         "GIT_TRACE_SETUP",
@@ -333,6 +344,22 @@ NEVER_PASSTHROUGH: frozenset[str] = frozenset(
         "PIP_INDEX_URL",
         "PIP_EXTRA_INDEX_URL",
         "PIP_TRUSTED_HOST",
+        # SP amendment (Ox Alpha + cross-family SP Q2 fold): prefix
+        # `NPM_CONFIG_` and `PIP_` were dropped from
+        # NEVER_PASSTHROUGH_PREFIXES because they false-positive on
+        # legitimate CI patterns (NPM_CONFIG_LOGLEVEL,
+        # NPM_CONFIG_REGISTRY). The clearly-dangerous specifics are
+        # enumerated instead.
+        "NPM_CONFIG_CAFILE",
+        "NPM_CONFIG_CA",
+        "NPM_CONFIG_STRICT_SSL",
+        "NPM_CONFIG_IGNORE_SCRIPTS",
+        "NPM_CONFIG_USERCONFIG",
+        "NPM_CONFIG_GLOBALCONFIG",
+        "NPM_CONFIG_SCRIPT_SHELL",
+        "PIP_TARGET",
+        "PIP_INSTALL_OPTION",
+        "PIP_GLOBAL_OPTION",
         "RUSTFLAGS",
         "MAKEFLAGS",
         "GOFLAGS",
@@ -348,6 +375,164 @@ NEVER_PASSTHROUGH: frozenset[str] = frozenset(
         # already noted as a residual risk of the stub itself.
         "XDG_CONFIG_HOME",
         "XDG_DATA_HOME",
+        # ---- v0.5.2 module_02 SP amendment (Ox Alpha DEFECT folds) ----
+        # These were missed in the primary commit; each is a textbook
+        # library-injection / code-exec vector that a reasonable attacker
+        # tries first. Grouped by family and cross-referenced back to
+        # the co-build/SP finding.
+        #
+        # -- Additional glibc dlopen vectors (Ox Alpha SP Q1 DEFECT):
+        # `GCONV_PATH` is a classic: glibc iconv_open() dlopens a .so
+        # from GCONV_PATH when asked for an unknown charset -- textbook
+        # library injection missed by the LD_ prefix (not LD-prefixed).
+        # `HOSTALIASES` + `RES_OPTIONS` + `LOCALDOMAIN` are DNS-behavior
+        # + resolver-config primitives that redirect name lookups.
+        "GCONV_PATH",
+        "HOSTALIASES",
+        "RES_OPTIONS",
+        "LOCALDOMAIN",
+        # -- Additional macOS malloc names (Ox Alpha SP Q1 DEFECT):
+        # `Malloc` prefix catches these + the ones enumerated above.
+        "MallocStackLoggingNoCompact",
+        "MallocNanoZone",
+        "MallocErrorAbort",
+        "MallocCorruptionAbort",
+        "MallocCheckHeapStart",
+        "MallocCheckHeapEach",
+        "MallocCheckHeapAbort",
+        "MallocDoNotProtectPrelude",
+        "MallocDoNotProtectPostlude",
+        # -- OpenSSL engine / provider dlopen (Ox Alpha SP Q1 DEFECT):
+        # `OPENSSL_CONF` points to a config file whose
+        # `[openssl_init] engines = engine_section` +
+        # `dynamic_path = /path/evil.so` dlopens arbitrary code -- a
+        # classic .so injection vector. `OPENSSL_MODULES` +
+        # `OPENSSL_ENGINES` redirect provider / engine search dirs
+        # to attacker-controlled locations.
+        "OPENSSL_CONF",
+        "OPENSSL_MODULES",
+        "OPENSSL_ENGINES",
+        # -- GnuTLS priority-file weakening:
+        "GNUTLS_SYSTEM_PRIORITY_FILE",
+        # -- Kerberos config redirect (Ox Alpha SP Q1 DEFECT):
+        # `KRB5_CONFIG` points to attacker-owned krb5.conf with weak
+        # enctypes + rogue KDC pointers. `KRB5CCNAME` redirects the
+        # credential cache to a writable location.
+        "KRB5_CONFIG",
+        "KRB5CCNAME",
+        # -- .NET CoreCLR profiler injection (Ox Alpha SP Q1 DEFECT):
+        # THE canonical .NET code-injection primitive.
+        # `COR_ENABLE_PROFILING=1` + `COR_PROFILER={CLSID}` +
+        # `COR_PROFILER_PATH=/path/evil.dll` loads the DLL into every
+        # .NET Framework process; CoreCLR variants under `CORECLR_`.
+        "COR_ENABLE_PROFILING",
+        "COR_PROFILER",
+        "COR_PROFILER_PATH",
+        "COR_PROFILER_PATH_32",
+        "COR_PROFILER_PATH_64",
+        "CORECLR_ENABLE_PROFILING",
+        "CORECLR_PROFILER",
+        "CORECLR_PROFILER_PATH",
+        "CORECLR_PROFILER_PATH_32",
+        "CORECLR_PROFILER_PATH_64",
+        # -- .NET host redirect (Ox Alpha SP Q1 DEFECT):
+        # `DOTNET_ROOT` re-roots the dotnet host so every `dotnet`
+        # command runs an attacker-controlled runtime. `MSBUILD_EXE_PATH`
+        # redirects msbuild binary.
+        "DOTNET_ROOT",
+        "DOTNET_ROOT(X86)",
+        "DOTNET_ROOT_X86",
+        "DOTNET_MULTILEVEL_LOOKUP",
+        "MSBUILD_EXE_PATH",
+        # -- JVM build-tool javaagent injection (Ox Alpha SP Q1 DEFECT):
+        # `MAVEN_OPTS`, `GRADLE_OPTS`, `SBT_OPTS`, `LEIN_JVM_OPTS`
+        # are all shelled into the JVM as `-javaagent:/path/evil.jar`
+        # is honored; bypasses JAVA_TOOL_OPTIONS deny.
+        "MAVEN_OPTS",
+        "GRADLE_OPTS",
+        "SBT_OPTS",
+        "LEIN_JVM_OPTS",
+        "ANT_OPTS",
+        # -- Version-manager root redirects (Ox Alpha SP Q1 DEFECT):
+        # Redirect the toolchain root and every `python` / `rustc` /
+        # `ruby` / `node` call runs the attacker's binary.
+        "RUSTUP_HOME",
+        "PYENV_ROOT",
+        "PYENV_VERSION",
+        "RBENV_ROOT",
+        "RBENV_VERSION",
+        "NVM_DIR",
+        "VOLTA_HOME",
+        "ASDF_DATA_DIR",
+        # -- Lua dlopen (Ox Alpha SP Q1 DEFECT):
+        # `LUA_CPATH` dlopens C modules from attacker paths; `LUA_INIT`
+        # runs code on interpreter startup. Common in CI via neovim,
+        # openresty, redis, wireshark. LUA_PATH_5_x + LUA_INIT_5_x
+        # are Lua-version-scoped equivalents.
+        "LUA_PATH",
+        "LUA_CPATH",
+        "LUA_INIT",
+        "LUA_PATH_5_4",
+        "LUA_PATH_5_3",
+        "LUA_CPATH_5_4",
+        "LUA_CPATH_5_3",
+        "LUA_INIT_5_4",
+        "LUA_INIT_5_3",
+        # -- PHP ini injection (Ox Alpha SP Q1 DEFECT):
+        # `PHPRC` points to php.ini which can set
+        # `auto_prepend_file = /path/evil.php` = arbitrary code exec.
+        # `PHP_INI_SCAN_DIR` extends the ini scan directory.
+        "PHPRC",
+        "PHP_INI_SCAN_DIR",
+        # -- Erlang / Elixir runtime exec (Ox Alpha SP Q1 DEFECT):
+        # `ERL_FLAGS` + `ERL_AFLAGS` are prepended to `erl` args;
+        # `-eval 'os:cmd("...")` = shell exec.
+        "ERL_FLAGS",
+        "ERL_AFLAGS",
+        "ERL_ZFLAGS",
+        # -- Container runtime tool subversion (Ox Alpha SP Q1 DEFECT):
+        # `DOCKER_HOST=tcp://attacker:2375` reroutes every `docker`
+        # command to attacker's daemon. `DOCKER_CONFIG` redirects
+        # config dir whose `credHelper` field executes an arbitrary
+        # binary. Podman + buildkit equivalents.
+        "DOCKER_HOST",
+        "DOCKER_CERT_PATH",
+        "DOCKER_CONTEXT",
+        "DOCKER_CONFIG",
+        "DOCKER_TLS_VERIFY",
+        "CONTAINER_HOST",
+        "CONTAINER_CONNECTION",
+        "BUILDKIT_HOST",
+        # Kubernetes:
+        "KUBECONFIG",
+        # -- systemd unit-path redirect (Ox Alpha SP Q1 DEFECT):
+        "SYSTEMD_UNIT_PATH",
+        # -- Wget / curl config file redirect (Ox Alpha SP Q1 DEFECT):
+        # `WGETRC` / `CURL_HOME` point at rc files that can set
+        # `output` / `post_file` / `--proxy` / `--cacert` etc.
+        "WGETRC",
+        "CURL_HOME",
+        # -- Bash exported function injection (Ox Alpha SP Q1 DEFECT):
+        # `BASH_FUNC_name%%=() { ...; }` is the ShellShock-legacy way
+        # to inject shell functions via env. Prefix `BASH_` covers
+        # the whole family plus `BASH_ENV` (already enumerated) and
+        # `BASH_XTRACEFD` (fd redirect, minor). Added to
+        # NEVER_PASSTHROUGH_PREFIXES below.
+        # -- Go proxy / sumdb (Ox Alpha SP Q1 DEFECT):
+        # `GOPROXY=direct` or attacker URL = supply-chain redirection.
+        # `GOSUMDB=off` disables checksum verification.
+        "GOPROXY",
+        "GOSUMDB",
+        "GOPRIVATE",
+        "GONOSUMCHECK",
+        "GONOSUMDB",
+        # Composer (PHP) home redirect:
+        "COMPOSER_HOME",
+        # -- macOS: DYLD debug-print family (Ox Alpha SP Q1 DEFECT):
+        # `DYLD_IMAGE_SUFFIX=_debug` swaps every dylib for its `_debug`
+        # variant; if the attacker planted `foo_debug.dylib` in a
+        # searched dir, dyld loads it instead.  Caught by DYLD_ prefix
+        # -- listed here for auditability.
     }
 )
 
@@ -368,17 +553,23 @@ NEVER_PASSTHROUGH: frozenset[str] = frozenset(
 # with dangerous names -- enumeration is the right tool there.
 NEVER_PASSTHROUGH_PREFIXES: frozenset[str] = frozenset(
     {
-        # Credential-shape families (v0.5.1 baseline)
+        # Credential-shape families (v0.5.1 baseline).
+        # SP amendment (Q2 fold): `NPM_` and `DOCKER_` dropped from
+        # this credential-prefix set -- they were false-positiving on
+        # legitimate CI env vars (NPM_CONFIG_LOGLEVEL,
+        # DOCKER_HOST configured for build). The dangerous specifics
+        # (NPM_TOKEN, DOCKER_PASSWORD, DOCKER_HOST, DOCKER_CONFIG,
+        # DOCKER_CERT_PATH) are enumerated in NEVER_PASSTHROUGH
+        # exacts above. `PYPI_` / `TWINE_` retained: no legitimate
+        # non-credential name in those families.
         "AWS_",
         "OPENAI_",
         "ANTHROPIC_",
         "GOOGLE_",
         "OPENROUTER_",
         "DEEPSEEK_",
-        "NPM_",
         "PYPI_",
         "TWINE_",
-        "DOCKER_",
         "SLACK_",
         "AZURE_",
         "GCP_",
@@ -394,20 +585,49 @@ NEVER_PASSTHROUGH_PREFIXES: frozenset[str] = frozenset(
         # `_JAVA_*` -- undocumented JVM auto-options (`_JAVA_OPTIONS`
         # is the canonical instance).
         "_JAVA_",
-        # `MALLOC_` -- glibc + macOS malloc-debugging redirections
-        # (MALLOC_CHECK_, MALLOC_TRACE, MALLOC_PERTURB_,
-        # MallocScribble, etc).
+        # `MALLOC_` -- glibc malloc-debugging (MALLOC_CHECK_,
+        # MALLOC_TRACE, MALLOC_PERTURB_, MALLOC_ARENA_MAX, ...).
         "MALLOC_",
-        # `NPM_CONFIG_` (upper-case; lowercase caught by casefold
-        # deny compare) -- every entry is a registry / cafile /
-        # ignore-scripts poisoning surface. Deny the whole family;
-        # legitimate build steps configure npm via package.json /
-        # .npmrc under the worktree, not via env.
-        "NPM_CONFIG_",
-        # `PIP_` -- pip config env vars (PIP_INDEX_URL /
-        # PIP_TRUSTED_HOST / PIP_CONFIG_FILE / PIP_CERT). Every
-        # one is either registry redirect or trust-store poison.
-        "PIP_",
+        # SP amendment (Ox Alpha SP Q1 DEFECT): macOS malloc names
+        # are CamelCase (MallocStackLogging etc.) so upper-form
+        # startswith("MALLOC") catches them all. Case-sensitive
+        # deny code path uppercases both sides so the check is
+        # robust to `MallocXxx` seen in the union.
+        "MALLOC",
+        # SP amendment (Ox Alpha SP Q1 DEFECT): git config env
+        # smuggle -- GIT_CONFIG_COUNT + GIT_CONFIG_KEY_N +
+        # GIT_CONFIG_VALUE_N is the bypass for GIT_CONFIG_GLOBAL /
+        # SYSTEM denial. Prefix `GIT_CONFIG_` catches every N.
+        # Fine that this ALSO catches GIT_CONFIG_GLOBAL /
+        # GIT_CONFIG_SYSTEM already in the exact set -- redundant
+        # deny is safe; not-in-deny is not.
+        "GIT_CONFIG_",
+        # SP amendment (Ox Alpha SP Q1 DEFECT): bash exported
+        # function injection (`BASH_FUNC_name%%=() { ...; }`) is
+        # ShellShock-legacy. Prefix catches BASH_FUNC_*,
+        # BASH_XTRACEFD, and BASH_ENV (exact set). BASH_VERSION /
+        # BASH_VERSINFO etc. are read-only harmless -- but they
+        # get denied too, and a legit build system never asks to
+        # pass them through as env-controlled.
+        "BASH_",
+        # SP amendment (Ox Alpha SP Q1 DEFECT): .NET profiler
+        # injection family (COR_ prefix catches Framework;
+        # CORECLR_ prefix catches Core).
+        "COR_",
+        "CORECLR_",
+        "COMPLUS_",  # legacy .NET runtime knobs, similar surface
+        # NOTE: `NPM_CONFIG_` and `PIP_` prefixes were CONSIDERED
+        # for the primary commit but DROPPED at SP fold (cross-family
+        # reviewer + Ox Alpha SP Q2 DEFECT verdict): legitimate CI
+        # workflows use NPM_CONFIG_LOGLEVEL, NPM_CONFIG_REGISTRY,
+        # PIP_INDEX_URL etc. Blanket-deny would force operators to
+        # abandon RACT for their real npm/pip work.  Dangerous
+        # specifics are enumerated as exact names above
+        # (PIP_CONFIG_FILE / PIP_INDEX_URL / PIP_TRUSTED_HOST for
+        # pip). npm's classic subversion path is `NPM_CONFIG_CAFILE`
+        # / `NPM_CONFIG_CA` / `NPM_CONFIG_STRICT_SSL` -- enumerated
+        # in a follow-up dispatch; add to NEVER_PASSTHROUGH exacts
+        # as they surface without the aggressive prefix.
     }
 )
 
@@ -568,6 +788,11 @@ _REFUSED_FAMILY_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
             "GLIBC_TUNABLES",
             "LOCPATH",
             "NLSPATH",
+            # SP amendment additions:
+            "GCONV_PATH",
+            "HOSTALIASES",
+            "RES_OPTIONS",
+            "LOCALDOMAIN",
         ),
         # macOS malloc names use CamelCase (upper == "MALLOC..." with
         # no underscore); catch via bare `MALLOC` prefix in addition
@@ -584,8 +809,18 @@ _REFUSED_FAMILY_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
             "PERL5OPT", "PERL5LIB", "PERLIO", "PERL5DB",
             "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "CLASSPATH", "JAVA_OPTS",
             "BASH_ENV", "ENV", "ZDOTDIR", "PROMPT_COMMAND", "CDPATH", "IFS",
+            # SP amendment additions:
+            "PHPRC", "PHP_INI_SCAN_DIR",
+            "ERL_FLAGS", "ERL_AFLAGS", "ERL_ZFLAGS",
+            "LUA_PATH", "LUA_CPATH", "LUA_INIT",
+            "LUA_PATH_5_4", "LUA_PATH_5_3", "LUA_CPATH_5_4",
+            "LUA_CPATH_5_3", "LUA_INIT_5_4", "LUA_INIT_5_3",
+            "OPENSSL_CONF", "OPENSSL_MODULES", "OPENSSL_ENGINES",
+            "GNUTLS_SYSTEM_PRIORITY_FILE",
+            "KRB5_CONFIG", "KRB5CCNAME",
+            "MAVEN_OPTS", "GRADLE_OPTS", "SBT_OPTS", "LEIN_JVM_OPTS", "ANT_OPTS",
         ),
-        ("_JAVA_",),
+        ("_JAVA_", "BASH_", "COR_", "CORECLR_", "COMPLUS_"),
     ),
     (
         "trust_store",
@@ -611,8 +846,12 @@ _REFUSED_FAMILY_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
             "GIT_TRACE", "GIT_TRACE_PACKET", "GIT_TRACE_SETUP",
             "GIT_HTTP_LOW_SPEED_LIMIT", "GIT_HTTP_LOW_SPEED_TIME",
             "GIT_PROXY_COMMAND",
+            # SP amendment additions:
+            "GIT_CONFIG_COUNT", "GIT_CONFIG_NOSYSTEM",
         ),
-        (),
+        # SP amendment: GIT_CONFIG_ prefix (catches GIT_CONFIG_KEY_N /
+        # GIT_CONFIG_VALUE_N smuggle path Ox Alpha flagged).
+        ("GIT_CONFIG_",),
     ),
     (
         "editor",
@@ -621,7 +860,13 @@ _REFUSED_FAMILY_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
     ),
     (
         "windows_module",
-        ("PSMODULEPATH",),
+        (
+            "PSMODULEPATH",
+            # SP amendment: .NET host / MSBuild redirects.
+            "DOTNET_ROOT", "DOTNET_ROOT(X86)", "DOTNET_ROOT_X86",
+            "DOTNET_MULTILEVEL_LOOKUP",
+            "MSBUILD_EXE_PATH",
+        ),
         ("_NT_",),
     ),
     (
@@ -630,20 +875,40 @@ _REFUSED_FAMILY_RULES: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
             "CARGO_HOME", "GOPATH", "GOMODCACHE", "GOROOT",
             "RUSTFLAGS", "MAKEFLAGS", "GOFLAGS",
             "XDG_CONFIG_HOME", "XDG_DATA_HOME",
+            # SP amendment additions:
+            "PIP_TARGET", "PIP_INSTALL_OPTION", "PIP_GLOBAL_OPTION",
+            "NPM_CONFIG_CAFILE", "NPM_CONFIG_CA", "NPM_CONFIG_STRICT_SSL",
+            "NPM_CONFIG_IGNORE_SCRIPTS", "NPM_CONFIG_USERCONFIG",
+            "NPM_CONFIG_GLOBALCONFIG", "NPM_CONFIG_SCRIPT_SHELL",
+            "RUSTUP_HOME", "PYENV_ROOT", "PYENV_VERSION",
+            "RBENV_ROOT", "RBENV_VERSION", "NVM_DIR", "VOLTA_HOME",
+            "ASDF_DATA_DIR", "COMPOSER_HOME",
+            "GOPROXY", "GOSUMDB", "GOPRIVATE", "GONOSUMCHECK", "GONOSUMDB",
+            "WGETRC", "CURL_HOME",
+            "DOCKER_HOST", "DOCKER_CERT_PATH", "DOCKER_CONTEXT",
+            "DOCKER_CONFIG", "DOCKER_TLS_VERIFY",
+            "CONTAINER_HOST", "CONTAINER_CONNECTION", "BUILDKIT_HOST",
+            "KUBECONFIG",
+            "SYSTEMD_UNIT_PATH",
+            "PIP_CONFIG_FILE", "PIP_INDEX_URL", "PIP_EXTRA_INDEX_URL",
+            "PIP_TRUSTED_HOST",
         ),
-        ("NPM_CONFIG_", "PIP_"),
+        (),
     ),
     (
         "credential",
         # Leaf-name credentials whose prefix does NOT match one of the
-        # credential-family prefixes below (GITHUB / GH / no shared root).
+        # credential-family prefixes below (GITHUB / GH / NPM / DOCKER
+        # dropped their prefixes at Q2 amendment fold).
         (
             "GITHUB_TOKEN",
             "GH_TOKEN",
+            "NPM_TOKEN",
+            "DOCKER_PASSWORD",
         ),
         (
             "AWS_", "OPENAI_", "ANTHROPIC_", "GOOGLE_", "OPENROUTER_",
-            "DEEPSEEK_", "NPM_", "PYPI_", "TWINE_", "DOCKER_", "SLACK_",
+            "DEEPSEEK_", "PYPI_", "TWINE_", "SLACK_",
             "AZURE_", "GCP_", "STRIPE_",
         ),
     ),
@@ -698,12 +963,14 @@ class SandboxEnvResult:
       ``"default"`` -- whichever source contributed the largest set of
       names; ties resolve to the more explicit source.
     - ``refused_family_counts`` (v0.5.2 module_02) is a dict mapping
-      each family bucket ("loader", "interpreter", "trust_store",
-      "egress", "git_tool", "editor", "windows_module",
-      "build_cache", "credential", "glob_shape", "other") to the
-      count of denied allowlist entries in that bucket. Every entry
-      counted in ``never_passthrough_denied`` also increments one
-      bucket here. Empty dict when no denials fired.
+      each family bucket to the count of denied allowlist entries in
+      that bucket. SP amendment (both reviewers Q4 RISK verdict):
+      the schema is FIXED -- every ``FAMILY_KEYS`` entry is always
+      present with its count (0 when nothing in the family denied).
+      This is what external SIEM correlation tools expect (stable
+      key set); an empty dict on a clean run would force the SIEM
+      to distinguish "field missing" from "zero denials" -- which is
+      exactly the ambiguity a SIEM should not carry.
     """
 
     env: dict[str, str]
@@ -712,6 +979,29 @@ class SandboxEnvResult:
     credential_shaped_unblocked_count: int = 0
     allowlist_source: str = "default"
     refused_family_counts: dict[str, int] = field(default_factory=dict)
+
+
+# SP amendment (Ox Alpha + cross-family Q4 RISK): FIXED schema for
+# ``refused_family_counts`` -- every bucket always present. External
+# SIEM tools key on these; a missing bucket ≠ zero denials.
+FAMILY_KEYS: tuple[str, ...] = (
+    "loader",
+    "interpreter",
+    "trust_store",
+    "egress",
+    "git_tool",
+    "editor",
+    "windows_module",
+    "build_cache",
+    "credential",
+    "glob_shape",
+    "other",
+)
+
+
+def _zeroed_family_counts() -> dict[str, int]:
+    """SP amendment (Q4): return the fixed schema, all buckets at 0."""
+    return {family: 0 for family in FAMILY_KEYS}
 
 
 # ---------------------------------------------------------------------------
@@ -869,7 +1159,10 @@ def build_sandbox_env(
     credential_shaped_unblocked = 0
     scrubbed_env: dict[str, str] = {}
     denied_keys: set[str] = set()
-    refused_family_counts: dict[str, int] = {}
+    # SP amendment (Q4): initialize with FIXED schema (all buckets at 0)
+    # so external SIEMs never have to distinguish "field missing" from
+    # "zero denials".
+    refused_family_counts: dict[str, int] = _zeroed_family_counts()
     for key, source in union.items():
         name = union_original.get(key, key)
         if _is_never_passthrough(name, extra_denied_set):
