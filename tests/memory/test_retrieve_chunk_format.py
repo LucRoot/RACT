@@ -97,11 +97,22 @@ def test_format_chunk_body_only_leaves_body_when_no_prefix():
     assert got.body == body
 
 
-def test_format_chunk_summary_without_provider_is_placeholder():
+def test_format_chunk_summary_without_provider_returns_deterministic_body():
+    """Post-module_05: SUMMARY without provider returns an AST-
+    deterministic body (was: ``"summary unavailable"`` placeholder).
+
+    Contract locked here: the shipping SUMMARY path in v0.5.1 no longer
+    emits the placeholder that Lens 1C finding 4 (MEDIUM) surfaced.
+    :attr:`Chunk.summary_pending` is ``False`` whenever the
+    deterministic summary body is non-empty. The Bonsai council model
+    remains the v0.6 provider slot per ADR-0046.
+    """
     chunk = _chunk()
     got = format_chunk(chunk, ChunkFormat.SUMMARY, provider=None)
-    assert got.body == "summary unavailable"
-    assert got.summary_pending is True
+    assert got.body != "summary unavailable"
+    assert got.body.startswith("def greet():")
+    assert "control:" in got.body
+    assert got.summary_pending is False
 
 
 def test_format_chunk_summary_with_provider_uses_provider():
