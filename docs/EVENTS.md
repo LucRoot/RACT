@@ -1,5 +1,5 @@
 ---
-schema_version: "6"
+schema_version: "7"
 ---
 
 # RACT event schema
@@ -700,4 +700,74 @@ Fiber-lifecycle event kinds (``fiber.activated`` / ``fiber.disposed``
 / ``fiber.failed``) are NOT part of the closed vocabulary in v0.5.1
 per the audit's Delta 1 recommendation (§5.2 loops-as-fibers not
 adopted); their addition would be a schema_version bump.
+
+## v0.5.1 spec-completeness module_04 -- cross-function grouping (schema_version 7)
+
+Module_04 (Lens 1C HIGH C-1 closure) adds :mod:`ract.memory.grouping`
+and wires it into :func:`ract.memory.retrieve.retrieve` at bundle-
+assembly time. The retrieve primitive emits one
+``retrieval.grouping.applied`` event per grouping rule that fired
+against a primary symbol seated at the cascade's final level.
+Producers:
+
+- `retrieval.grouping.applied` — `ract.memory.retrieve._extend_with_grouping`
+  (called from `_build_and_emit` after the four-level cascade
+  packs its primaries).
+
+### `retrieval.grouping.applied`
+
+Emitted when one of the four grouping rules
+(``dataclass_methods`` / ``trait_impls`` / ``test_subject`` /
+``function_type_aliases``) fires for a primary symbol seated in the
+bundle. One event per (primary, rule) pair; a primary that matched
+no rule emits no event. The event carries the count of companions
+actually seated at this format cascade level AND the count of
+companions the rule identified but the budget floor dropped, so an
+auditor can distinguish "no rule fired" from "rule fired but budget
+starved every companion".
+
+Fields:
+
+- `call_id` (string; hex) — parity with the other `retrieval.*`
+  kinds; identifies the retrieve call the grouping ran under.
+- `primary_symbol_id` (int) — id of the primary symbol; `-1` when
+  the primary had no id (test fixtures).
+- `companion_count` (int) — number of companions seated into the
+  bundle at this format cascade level.
+- `rule_fired` (string) — one of `dataclass_methods` /
+  `trait_impls` / `test_subject` / `function_type_aliases`
+  (see :data:`ract.memory.grouping.LEGAL_RULES`).
+- `companion_format` (string) — the `ChunkFormat` value the
+  companions were rendered under (`full` / `body` / `sig` /
+  `summary`). Empty string when `companion_count == 0`.
+- `dropped_companion_count` (int) — companions the rule identified
+  but the budget floor dropped (even at SIGNATURE).
+
+Example payload:
+
+```json
+{
+  "call_id": "b13a4c0f9e6b3d2a5c8f9e1b4d2a7c6f",
+  "primary_symbol_id": 4712,
+  "companion_count": 3,
+  "rule_fired": "dataclass_methods",
+  "companion_format": "full",
+  "dropped_companion_count": 0
+}
+```
+
+Budget cascade for companions (bundle-level, not the four-level
+primary cascade): grouping runs AFTER the primary cascade has
+packed its winners. Each companion is tried at the caller's
+`format` first; on non-fit, downgraded to `sig`; on further
+non-fit, added to :attr:`RetrievalBundle.dropped_companions` and
+counted in `dropped_companion_count`. The primary is never
+downgraded to seat a companion.
+
+Backward compatibility: :attr:`RetrievalQuery.grouping_enabled`
+defaults to `True`; a caller who sets it to `False` gets today's
+pre-module_04 behavior (no grouping, no events). The event kind
+extends the closed vocabulary under schema_version 7.
+
+<!-- schema_version: 7 — v0.5.1 spec-completeness module_04 (added retrieval.grouping.applied) -->
 

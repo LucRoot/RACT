@@ -47,6 +47,10 @@ PROBE_EVALUATED: str = "probe.evaluated"
 # ``seat_state_section`` when a state_context section is truncated
 # to satisfy the master spec's 15%-of-input_target sub-budget cap.
 STATE_BUDGET_CAPPED: str = "state.budget_capped"
+# v0.5.1 spec-completeness module_04 (Lens 1C C-1). Emitted by the
+# retrieve primitive at bundle-assembly time when a cross-function
+# grouping rule fires and adds companions to the bundle.
+RETRIEVAL_GROUPING_APPLIED: str = "retrieval.grouping.applied"
 
 
 MEMORY_EVENT_KINDS: frozenset[str] = frozenset(
@@ -59,6 +63,7 @@ MEMORY_EVENT_KINDS: frozenset[str] = frozenset(
         RETRIEVAL_REFUSED,
         PROBE_EVALUATED,
         STATE_BUDGET_CAPPED,
+        RETRIEVAL_GROUPING_APPLIED,
     }
 )
 
@@ -181,6 +186,31 @@ def emit_probe_evaluated(sink: EventSink, payload: dict[str, Any]) -> None:
     _emit(sink, PROBE_EVALUATED, payload)
 
 
+def emit_retrieval_grouping_applied(
+    sink: EventSink, payload: dict[str, Any]
+) -> None:
+    """Emit ``retrieval.grouping.applied`` — a grouping rule fired
+    for one primary symbol and (possibly) seated companions.
+
+    Payload keys (docs/EVENTS.md carries the schema):
+
+    - ``call_id`` (str) — hex identifier for the retrieve call.
+    - ``primary_symbol_id`` (int) — id of the primary symbol; ``-1``
+      when the primary had no id (test fixtures).
+    - ``companion_count`` (int) — number of companions actually
+      seated into the returned bundle at this format cascade level
+      (excludes companions that fell below the budget floor).
+    - ``rule_fired`` (str) — one of ``dataclass_methods`` /
+      ``trait_impls`` / ``test_subject`` / ``function_type_aliases``.
+    - ``companion_format`` (str) — the :class:`ChunkFormat` value
+      the companions were rendered under (``full`` / ``sig``).
+      Empty when ``companion_count == 0``.
+    - ``dropped_companion_count`` (int) — number of companions the
+      rule identified but the budget floor dropped.
+    """
+    _emit(sink, RETRIEVAL_GROUPING_APPLIED, payload)
+
+
 def emit_state_budget_capped(sink: EventSink, payload: dict[str, Any]) -> None:
     """Emit ``state.budget_capped`` — state_context truncated to 15% cap.
 
@@ -206,6 +236,7 @@ __all__ = [
     "NullEventSink",
     "PROBE_EVALUATED",
     "RETRIEVAL_CASCADED",
+    "RETRIEVAL_GROUPING_APPLIED",
     "RETRIEVAL_REFUSED",
     "RETRIEVAL_REQUESTED",
     "RETRIEVAL_SATISFIED",
@@ -214,6 +245,7 @@ __all__ = [
     "emit_budget_exceeded",
     "emit_probe_evaluated",
     "emit_retrieval_cascaded",
+    "emit_retrieval_grouping_applied",
     "emit_retrieval_refused",
     "emit_retrieval_requested",
     "emit_retrieval_satisfied",
