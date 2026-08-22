@@ -112,11 +112,22 @@ was RED at HEAD across modules 01-05 because the shipped source
 tree changed. Old value:
 ``7d6c8b1c56449bb96428e6ba75af2b24b85adadb66e75ca6b2c7a0ad7afc41fb``.
 New value:
-``0f00795c8438280860211af968855b82f0ae552170bb8aed2a2e7b92c492f2ba``
-(``src/ract/source_digest.py::GOLDEN_HASH_CONSTANT``).
+``e8be3860fc36ca4ea3c646c4e5f1d2c12f74d7050df36b478771fafdcbc99306``
+(``src/ract/source_digest.py::GOLDEN_HASH_CONSTANT``; the intermediate
+``0f00...f2ba`` locked at module_06 primary was superseded by the
+SP-amendment source touches).
 Rationale: every code fold above is spec-authorized; the re-pin
 is the mechanism working as designed. Operators who audit
 external RACT builds should compare against the new constant.
+
+Diffstat summary (Ox Alpha SP Q3 fold: tamper-evidence beyond
+the narration): `git diff --stat 300f8b22..v0.5.2 -- src/`
+reports **26 files changed, 6293 insertions(+), 152 deletions(-)**
+concentrated in the six hardening-module surfaces named above.
+An auditor recomputing the golden hash at the tagged commit
+should observe the new constant match; a mismatch against a
+different constant with the same tag SHA indicates a
+build-tree-tamper vector and MUST NOT be accepted as authorized.
 
 ### New CLI verbs / flags
 

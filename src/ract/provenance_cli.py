@@ -14,7 +14,18 @@ import argparse
 import sys
 from pathlib import Path
 
-from ract.core.provenance import ProvenanceIndex, _knot_from_json
+from ract.core.provenance import (
+    ProvenanceIndex,
+    RootknotUnknownSidecarFormat,
+    _knot_from_json,
+)
+
+
+def _unknown_sidecar_format() -> type[Exception]:
+    # v0.5.2 module_06 SP Q8 fold: return the exception class as a
+    # small helper so the except clause reads cleanly without a
+    # bare-import-then-reference in the except line.
+    return RootknotUnknownSidecarFormat
 from ract.core.rootknot import (
     _KNOWN_SCHEMA_VERSIONS,
     _ZERO_DIGEST,
@@ -109,6 +120,17 @@ def verify_artifact(
             )
         return False, (
             f"sidecar refused: {exc.reason}"
+        )
+    except _unknown_sidecar_format() as exc:
+        # v0.5.2 module_06 SP Q8 fold: give the operator a sharp
+        # diagnostic for a named-but-unknown sidecar/vN literal
+        # instead of the generic "sidecar unparseable" message.
+        # Pairs with the write-side header schema-allowlist so a
+        # sidecar/v9 payload lands here with a clear cause.
+        return False, (
+            f"unknown sidecar schema literal: {exc}; known values "
+            "are 'sidecar/v2', 'sidecar/v3', 'sidecar/v4' (or absent "
+            "for the legacy v0.3 v1 shape)"
         )
     except Exception as exc:  # noqa: BLE001 - malformed sidecar is a verification failure
         return False, f"sidecar unparseable: {exc}"
