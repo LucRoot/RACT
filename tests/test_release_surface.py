@@ -1104,17 +1104,21 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
     ``retrieval.grouping.applied`` (Lens 1C HIGH C-1 closure, cross-
     function grouping rules) — schema bumps to "7".
 
-    Also verifies the seven v0.5.1 EventKind literals that are
+    v0.5.1 spec-completeness module_07 added
+    ``subagent.disposed`` (Lens 2 Delta 3 closure, SubagentHandle
+    cascade on non-T1 halt) — schema bumps to "8".
+
+    Also verifies the eight v0.5.1 EventKind literals that are
     load-bearing gate entries are present in ``LEGAL_EVENT_KINDS``.
     """
     text = (_REPO_ROOT / "docs" / "EVENTS.md").read_text(encoding="utf-8")
     match = re.search(r'^schema_version:\s*"(\d+)"', text, flags=re.MULTILINE)
     assert match, "docs/EVENTS.md frontmatter missing schema_version"
     doc_version = match.group(1)
-    assert doc_version == "7", (
-        f"docs/EVENTS.md schema_version {doc_version!r} != expected '7'. "
-        "v0.5.1 spec-completeness module_04 added "
-        "``retrieval.grouping.applied``; bump the frontmatter + document "
+    assert doc_version == "8", (
+        f"docs/EVENTS.md schema_version {doc_version!r} != expected '8'. "
+        "v0.5.1 spec-completeness module_07 added "
+        "``subagent.disposed``; bump the frontmatter + document "
         "the payload per docs/EVENTS.md's own rule."
     )
 
@@ -1129,6 +1133,7 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
         "process.reaped",
         "state.budget_capped",
         "retrieval.grouping.applied",
+        "subagent.disposed",
     )
     missing = [k for k in required if k not in LEGAL_EVENT_KINDS]
     assert not missing, (

@@ -63,6 +63,10 @@ from ract.executor.process_group import (
     kill_tree,
     spawn,
 )
+from ract.executor.subagent_handle import (
+    SubagentHandle,
+    emit_subagent_disposed_event,
+)
 from ract.executor.runtime import ContainerBackend
 from ract.executor.tool_gate import (
     ToolBudget,
@@ -210,6 +214,16 @@ class SubstrateLoop:
         # are appended on spawn, removed after ``_reap_active_processes``
         # or explicit deregistration on natural exit.
         self._active_process_handles: list[ProcessGroupHandle] = []
+        # v0.5.1 spec-completeness module_07 (Lens 2 Delta 3): SubagentHandle
+        # cascade. Orthogonal to :attr:`_active_process_handles`: process
+        # handles cover DIRECT subprocess trees the loop spawned via
+        # :meth:`spawn_step_subprocess`; subagent handles cover
+        # long-lived helper resources (Whisperer / Fence / LSP / embedding
+        # sidecars) that the loop launches on-demand. A NON-T1 dispose
+        # cascades every registered handle LIFO so a leaked subagent
+        # does not survive rollback. T1 (success) discards the list --
+        # the caller's natural cleanup path handles the resources.
+        self._active_subagent_handles: list[SubagentHandle] = []
         # v0.5.1 wiring module_05 (module_04 SP Q5 defer closure): the
         # sandbox backend's :meth:`enter` context yields a rendered
         # command (``BwrapCommand`` on Linux, ``SeatbeltProfile`` on
@@ -344,6 +358,13 @@ class SubstrateLoop:
             # unwinding so SUBSTRATE §7 rollback contract holds even
             # when a step raises unexpectedly.
             self._reap_active_processes(reason="run_step_exception")
+            # v0.5.1 spec-completeness module_07 (Lens 2 Delta 3):
+            # a step_runner may have spawned a subagent whose
+            # cascade contract runs on ANY halt path -- not just
+            # loop-level dispose(). Reap subagents on the same
+            # exception unwind so a raise mid-step does not leak a
+            # long-lived helper past the step boundary.
+            self._reap_subagent_handles(reason="run_step_exception")
             raise
         finally:
             if container is not None and self.container_backend is not None:
@@ -629,6 +650,87 @@ class SubstrateLoop:
         except ValueError:
             pass
 
+    # ---- v0.5.1 spec-completeness module_07 (Lens 2 Delta 3) ----------
+
+    def register_subagent_handle(self, handle: SubagentHandle) -> None:
+        """Register a subagent handle for cascade-on-non-T1-halt.
+
+        v0.5.1 spec-completeness module_07 (Lens 2 Delta 3). Called by
+        subagent-shape spawners (Legacy Whisperer / Chesterton's
+        Fence / language servers / embedding sidecars) so the loop
+        owns the disposal contract structurally rather than by
+        convention. Handles are appended in registration order and
+        drained LIFO on ``dispose(success=False)`` (or
+        ``_reap_subagent_handles`` invoked from the ``run_step``
+        exception path). T1 disposal DISCARDS the list; the caller's
+        natural cleanup handles the resources on success paths.
+
+        The handle SHOULD satisfy the
+        :class:`ract.executor.subagent_handle.SubagentHandle` protocol
+        (``descriptor`` dict + ``is_alive()`` + ``dispose(reason)``);
+        the concrete
+        :class:`~ract.executor.subagent_handle.SubprocessSubagentHandle`
+        and
+        :class:`~ract.executor.subagent_handle.InlineSubagentHandle`
+        cover the two common shapes. Registration is idempotent per
+        handle identity: a second register of the same object is a
+        no-op.
+        """
+        if handle in self._active_subagent_handles:
+            return
+        self._active_subagent_handles.append(handle)
+
+    def deregister_subagent_handle(self, handle: SubagentHandle) -> None:
+        """Remove ``handle`` without disposal.
+
+        v0.5.1 spec-completeness module_07. Used when a caller has
+        already disposed the subagent on the natural-exit path and
+        does not want the cascade to double-dispose. Safe to call on
+        a handle not currently in the list (no-op).
+        """
+        try:
+            self._active_subagent_handles.remove(handle)
+        except ValueError:
+            pass
+
+    def _reap_subagent_handles(self, *, reason: str) -> int:
+        """LIFO dispose every registered subagent handle. Returns count reaped.
+
+        v0.5.1 spec-completeness module_07 (Lens 2 Delta 3). Called
+        from every non-T1 dispose path (:meth:`dispose` with
+        ``success=False``) AND from the ``run_step`` exception path
+        so a step_runner that raised mid-flight cannot leak a
+        subagent past the step boundary. Each handle's
+        :meth:`SubagentHandle.dispose` is invoked with the same
+        ``reason`` and the outcome (ok / fail) is emitted as a
+        ``subagent.disposed`` event so the trace log shows exactly
+        which subagents cascaded on which halt cause. Failures do
+        NOT propagate: a raise inside dispose is caught, logged,
+        and the next handle is disposed. Clearing the list at the
+        end is unconditional so a re-drain never double-disposes.
+        """
+        handles = list(self._active_subagent_handles)
+        if not handles:
+            return 0
+        reaped = 0
+        # LIFO drain: most-recently-registered dispose first (matches
+        # the compensator-stack shape from commit_compensator.py).
+        for handle in reversed(handles):
+            try:
+                ok = handle.dispose(reason)
+            except Exception as exc:  # noqa: BLE001 -- dispose is best-effort
+                _KNOT_LOGGER.warning(
+                    "subagent dispose raised (reason=%s, descriptor=%r): %s",
+                    reason,
+                    getattr(handle, "descriptor", {}),
+                    exc,
+                )
+                ok = False
+            emit_subagent_disposed_event(handle, reason=reason, ok=ok)
+            reaped += 1
+        self._active_subagent_handles = []
+        return reaped
+
     def _reap_active_processes(self, *, reason: str) -> int:
         """SIGKILL every registered handle + descendant tree.
 
@@ -690,6 +792,13 @@ class SubstrateLoop:
             # contract) but leaving the list populated across loop
             # disposal is a foot-gun for reusable loop instances.
             self._active_process_handles = []
+            # v0.5.1 spec-completeness module_07 (Lens 2 Delta 3):
+            # subagent handles also DISCARD on T1 -- successful loop
+            # completion is not a rollback; the caller's natural
+            # cleanup handles subagent teardown. Clearing prevents
+            # a reusable loop instance from carrying stale handles
+            # into the next run.
+            self._active_subagent_handles = []
             return []
         # v0.5.1 wiring module_05 (Lens C C-03): reap the process tree
         # BEFORE draining the compensator stack -- a running child that
@@ -697,6 +806,19 @@ class SubstrateLoop:
         # ``git reset``, and a mid-drain SIGKILL leaves no time for the
         # child to observe the reset.
         self._reap_active_processes(
+            reason=reason or "dispose_unsuccessful",
+        )
+        # v0.5.1 spec-completeness module_07 (Lens 2 Delta 3): CASCADE
+        # subagent handles on non-T1 disposal. Ordering: subagent
+        # dispose runs BEFORE compensator drain because a subagent
+        # (e.g. an LSP server) may hold worktree file handles open
+        # in the same shape as a leaked descendant, and dispose is
+        # graceful-first with SIGKILL fallback (via
+        # SubprocessSubagentHandle.dispose -> kill_tree). This
+        # ordering matches _reap_active_processes -> compensator
+        # drain. Failures do not propagate; each handle's outcome
+        # is emitted as ``subagent.disposed`` for the audit trail.
+        self._reap_subagent_handles(
             reason=reason or "dispose_unsuccessful",
         )
         outcomes = self.compensator_stack.drain(

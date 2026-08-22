@@ -1,5 +1,5 @@
 ---
-schema_version: "7"
+schema_version: "8"
 ---
 
 # RACT event schema
@@ -770,4 +770,58 @@ pre-module_04 behavior (no grouping, no events). The event kind
 extends the closed vocabulary under schema_version 7.
 
 <!-- schema_version: 7 — v0.5.1 spec-completeness module_04 (added retrieval.grouping.applied) -->
+
+## v0.5.1 spec-completeness module_07 -- subagent cascade (schema_version 8)
+
+The kind below extends the closed vocabulary under schema_version 8.
+Producer:
+:meth:`ract.executor.loop.SubstrateLoop._reap_subagent_handles`
+(module `src/ract/executor/loop.py`). Fires once per subagent handle
+disposed on a non-T1 halt (or from the ``run_step`` exception path).
+
+### `subagent.disposed`
+
+Emitted per subagent handle disposed during a non-T1 cascade. Covers
+long-lived helper resources -- Legacy Whisperer, Chesterton's Fence,
+LSP language servers, embedding sidecars -- registered via
+:meth:`SubstrateLoop.register_subagent_handle` that the loop OWNS
+the disposal contract for on any non-success halt path.
+
+Payload:
+
+```json
+{
+  "kind": "subprocess",
+  "descriptor": {
+    "role": "whisperer",
+    "label": "legacy_whisperer[intent=refactor_extract]"
+  },
+  "reason": "dispose_unsuccessful",
+  "ok": true
+}
+```
+
+Fields:
+
+- `kind` — short role string. Common values are `"subprocess"`
+  (`SubprocessSubagentHandle`), `"inline"` (`InlineSubagentHandle`),
+  or a caller-supplied identifier.
+- `descriptor` — free-form dict the caller attached at registration.
+  Typically names the specific subagent role + a per-instance
+  label so the audit trail can distinguish two Whisperers running
+  in parallel.
+- `reason` — the cascade cause. Common values: `"dispose_unsuccessful"`
+  (from `SubstrateLoop.dispose(success=False)`),
+  `"run_step_exception"` (from the ``run_step`` exception unwind),
+  or a caller-supplied string.
+- `ok` — `true` on successful dispose (either an idempotent
+  no-op on an already-disposed handle or the handle's `dispose`
+  returned `True`), `false` when the handle's `dispose` returned
+  `False` or raised.
+
+Backward compatibility: the event kind is additive. The prior
+schema_version 7 stays valid for readers that need not surface
+subagent cascades; readers at schema_version 8 gain the new kind.
+
+<!-- schema_version: 8 — v0.5.1 spec-completeness module_07 (added subagent.disposed) -->
 
