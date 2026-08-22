@@ -4401,7 +4401,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"[ract] wrote default prompt to {prompt_file}")
 
-        print(f"[ract] wrote {target} using the '{args.init_provider}' preset")
+        print(f"[ract] wrote {init_target} using the '{args.init_provider}' preset")
         print("[ract] set the required environment variables and run:")
         print('  ract "your intent here" --dry-run')
         return 0
