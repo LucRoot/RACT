@@ -328,6 +328,15 @@ def canonical_query_payload(query: RetrievalQuery) -> dict[str, Any]:
             sorted(query.file_scope) if query.file_scope is not None else None
         ),
         "exclude_paths": sorted(query.exclude_paths),
+        # v0.5.1 module_04 SP Q4 DEFECT fix: two queries that differ
+        # ONLY in ``grouping_enabled`` produce different bundles
+        # (companions seated vs not); if the canonical projection
+        # omitted this field, they would share a cache key and a
+        # cached bundle from one setting could be returned to a
+        # caller with the other. Including it costs a one-time cache
+        # invalidation on upgrade -- a correctness win, and the cache
+        # rebuilds lazily on next retrieve.
+        "grouping_enabled": bool(getattr(query, "grouping_enabled", True)),
     }
 
 
