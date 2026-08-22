@@ -147,4 +147,66 @@ ADR-0023).
   verify` walks both; missing-entry or broken-chain fails
   `verify_chain`.
 
-<!-- RACT 0.5.1 -->
+## v0.5.2 additions -- Rootknot signature hardening (module_01)
+
+Closes deep-audit A F-1 / F-2 / F-5 (systemic v4-label attack
+surface) and Ox Alpha M-1 (DOWNGRADE via relabel-and-resign) and
+M-2 (forward-compat drift on unknown majors).
+
+- **Known-schema allowlist.** `_KNOWN_SCHEMA_VERSIONS =
+  frozenset({1, 2, 3, 4})`. Any knot with a `schema_version`
+  outside the allowlist is refused at construction time
+  (`Rootknot.__post_init__` raises `RootknotSchemaViolation`) and
+  at verify time (`RK-UNKNOWN-SCHEMA` predicate). This is
+  fail-closed by design: a v0.5 tool reading a v0.6 sidecar
+  refuses with an actionable reason ("upgrade the verifier")
+  rather than silently reinterpreting under weaker semantics.
+- **v4-label-implies-v4-fields.** A knot labelled
+  `schema_version == 4` whose `workspace_digest`,
+  `prompt_digest`, or `run_id` is empty is refused at
+  construction (F-1 closure) AND at verify
+  (`RK-V4-LABEL-MISMATCH`, F-2 closure). The verifier check is
+  authoritative because `copy` / `pickle` deserialisation paths
+  bypass `__post_init__`.
+- **Minimum-schema policy.** `verify_workspace(...)` and
+  `verify_artifact(...)` grow a `min_schema_version: int | None`
+  kwarg. When set, any knot with `schema_version <
+  min_schema_version` is refused with `RK-DOWNGRADE-REFUSED`.
+  Default `None` preserves the backward-compat contract that
+  v0.5.0 v1/v2/v3 payloads still verify. `ract provenance verify
+  --min-schema 4` sets strict.
+
+**Operator-visible CLI change** -- `ract provenance verify`
+grows one flag:
+
+```
+ract provenance verify PATH --min-schema INT
+```
+
+When `--min-schema 4` is set and the sidecar labels
+`schema_version=1`, the verifier prints:
+
+```
+invalid
+schema_version=1 below policy floor 4; refusing the weaker
+attestation (deep-audit A M-1 DOWNGRADE defence).
+```
+
+When the sidecar labels `schema_version=4` but the v4 fields
+were stripped by an attacker:
+
+```
+invalid
+v4 schema-label but v4 fields empty: ['workspace_digest',
+'prompt_digest', 'run_id']; the label carries no attestation
+guarantee (deep-audit A F-1). Re-sign under a v3 factory or
+supply the missing fields.
+```
+
+Regression tests (all under `tests/`):
+- `property/test_rootknot_v4_post_init_validation.py` (F-1 / F-5)
+- `unit/test_rootknot_downgrade_defense.py` (M-1)
+- `unit/test_rootknot_forward_compat_reject.py` (M-2)
+- `unit/test_rootknot_v4_missing_field_verify_fails.py` (F-2)
+
+<!-- RACT 0.5.2 -->

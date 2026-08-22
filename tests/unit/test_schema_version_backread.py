@@ -161,12 +161,22 @@ def test_v4_marks_payload_with_schema_version_4(
 def test_field_inclusion_guarded_by_is_set_not_schema_version(
     session_key: SessionKey,
 ) -> None:
-    """Depth 2.3.b: field-set guard is authoritative, not schema_version.
+    """Depth 2.3.b (v0.5.2 module_01 update): the v3 half of the
+    original invariant is preserved -- a v3 knot ARTIFICIALLY populated
+    with the v4 fields still emits them in canonical bytes because the
+    per-field ``if ... is not None`` guard in ``canonical_bytes()`` is
+    what governs inclusion, not the schema label.
 
-    A v3 knot ARTIFICIALLY populated with the new fields (bypassing the
-    v3 factory that never sets them) still includes them in canonical
-    bytes — the guard checks is-set, not schema version. Conversely, a
-    v4 knot ARTIFICIALLY constructed without the fields excludes them.
+    The v4-without-fields half of the original test has been REVERSED
+    by v0.5.2 hardening module_01 (deep-audit A F-1 closure):
+    ``Rootknot.__post_init__`` now REFUSES a ``schema_version == 4``
+    construction whose ``workspace_digest`` / ``prompt_digest`` /
+    ``run_id`` are empty, because the v4 label carries no attestation
+    guarantee if the fields it names are absent. That reversal is the
+    invariant Ox Alpha M-1 / F-1 asked for: labels must imply payload.
+
+    The reversal is covered by
+    ``tests/property/test_rootknot_v4_post_init_validation.py``.
     """
     from ract.core.rootknot import GeneratorRef
     from ract.core.types import make_plan_id, make_step_id
@@ -196,9 +206,18 @@ def test_field_inclusion_guarded_by_is_set_not_schema_version(
     body = v3_with_fields.canonical_bytes()
     assert b"workspace_digest" in body
 
-    v4_without_fields = Rootknot(**base_kwargs, schema_version=4)
-    body2 = v4_without_fields.canonical_bytes()
-    assert b"workspace_digest" not in body2
+    # v0.5.2 module_01: the v4-without-fields construction now raises
+    # rather than minting an under-attested knot.
+    from ract.core.rootknot import RootknotSchemaViolation
+
+    with pytest.raises(RootknotSchemaViolation) as excinfo:
+        Rootknot(**base_kwargs, schema_version=4)
+    assert excinfo.value.schema_version == 4
+    assert set(excinfo.value.missing_fields) == {
+        "workspace_digest",
+        "prompt_digest",
+        "run_id",
+    }
 
 
 def test_v0_5_0_verifier_would_reject_v4_schema_version() -> None:
