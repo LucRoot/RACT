@@ -97,6 +97,33 @@ _KNOWN_SIDECAR_SCHEMAS: dict[str, frozenset[int]] = {
 }
 
 
+def snapshot_registry() -> dict[str, frozenset[int]]:
+    """Return a shallow-copy snapshot of the registry.
+
+    v0.5.2 module_04 SP amendment (cross-family Q6 DEFECT verdict):
+    ``_KNOWN_SIDECAR_SCHEMAS`` is a module-level mutable dict. Test
+    fixtures adding ad-hoc types via :func:`register_sidecar_type`
+    would previously bleed across test files (pytest ordering
+    breakage). Tests now snapshot before mutation + restore in a
+    teardown via :func:`restore_registry`.
+
+    Production callers do not need to snapshot -- the registry is
+    RACT-owned + populated at import.
+    """
+    return dict(_KNOWN_SIDECAR_SCHEMAS)
+
+
+def restore_registry(snapshot: dict[str, frozenset[int]]) -> None:
+    """Restore the registry to a prior snapshot.
+
+    Companion to :func:`snapshot_registry`. Test fixtures call
+    ``snapshot -> mutate -> restore`` to keep registrations
+    hermetic across test files.
+    """
+    _KNOWN_SIDECAR_SCHEMAS.clear()
+    _KNOWN_SIDECAR_SCHEMAS.update(snapshot)
+
+
 def register_sidecar_type(sidecar_type: str, known_versions: frozenset[int]) -> None:
     """Register a sidecar_type + its allowed schema versions.
 
@@ -181,9 +208,43 @@ class SidecarRunIdMismatch(SidecarHeaderError):
         self.expected_run_id = expected_run_id
 
 
-class SidecarUnknownSchema(SidecarHeaderError):
-    """Sidecar header ``schema_version`` is not in the sidecar_type's
-    allowlist.
+class SidecarSchemaError(SidecarHeaderError):
+    """Base for every schema-version refusal (write-time or read-time).
+
+    v0.5.2 module_04 SP amendment (cross-family Q3 DEFECT verdict):
+    callers catch this to handle any schema-version refusal without
+    having to distinguish write vs read failure paths.
+    """
+
+
+class SidecarUnknownSchemaAtWrite(SidecarSchemaError):
+    """schema_version outside allowlist at BUILD/WRITE time -- no
+    filesystem path exists yet.
+
+    Attributes: ``sidecar_type``, ``header_schema_version``,
+    ``known_versions``.
+    """
+
+    def __init__(
+        self,
+        *,
+        sidecar_type: str,
+        header_schema_version: Any,
+        known_versions: frozenset[int],
+    ) -> None:
+        super().__init__(
+            f"schema_version={header_schema_version!r} not in known "
+            f"versions for sidecar_type={sidecar_type!r}: "
+            f"{sorted(known_versions)}"
+        )
+        self.sidecar_type = sidecar_type
+        self.header_schema_version = header_schema_version
+        self.known_versions = known_versions
+
+
+class SidecarUnknownSchemaAtRead(SidecarSchemaError):
+    """schema_version outside allowlist at READ time -- real path
+    exists.
 
     Attributes: ``path``, ``sidecar_type``, ``header_schema_version``,
     ``known_versions``.
@@ -206,6 +267,12 @@ class SidecarUnknownSchema(SidecarHeaderError):
         self.sidecar_type = sidecar_type
         self.header_schema_version = header_schema_version
         self.known_versions = known_versions
+
+
+# Backward-compat alias: SidecarUnknownSchema resolves to the READ-time
+# subclass so pre-amendment except-clauses continue to work when the
+# refusal was at read-time (the common case).
+SidecarUnknownSchema = SidecarUnknownSchemaAtRead
 
 
 class SidecarDowngradeRefused(SidecarHeaderError):
@@ -318,9 +385,10 @@ def build_sidecar_header(
     known = _KNOWN_SIDECAR_SCHEMAS[sidecar_type]
     if schema_version not in known:
         # We do NOT have a path here -- write-side check pre-writes.
-        # Raise a bare error rather than the read-side variant.
-        raise SidecarUnknownSchema(
-            path=Path("<pre-write>"),
+        # SP amendment (cross-family Q3 DEFECT): raise the WRITE-time
+        # subclass so callers logging ``exc.path`` on the READ-time
+        # variant do not receive a synthetic ``<pre-write>`` path.
+        raise SidecarUnknownSchemaAtWrite(
             sidecar_type=sidecar_type,
             header_schema_version=schema_version,
             known_versions=known,
@@ -521,12 +589,36 @@ def read_sidecar_header(
                 header_payload: Any = None
             else:
                 header_payload = json.loads(first)
+            # SP amendment (Ox Alpha A Q4 DEFECT sub-finding):
+            # shape-misdeclaration guard. A caller passing
+            # is_jsonl=True on an envelope file whose entire
+            # content is one JSON object (dumps_jcs is compact)
+            # would parse the whole object AS the header. If that
+            # object has no ``kind`` field, the file would
+            # SILENTLY hit the legacy-fallback path, skipping the
+            # binding check. Detect: parsed first-line dict that
+            # contains a ``sidecar_header`` nested key AND no
+            # top-level ``kind`` field is the ENVELOPE layout
+            # mis-declared as JSONL.
+            if (
+                isinstance(header_payload, dict)
+                and "sidecar_header" in header_payload
+                and header_payload.get("kind") != HEADER_KIND
+            ):
+                raise SidecarHeaderMissing(
+                    f"sidecar {path!s}: called with is_jsonl=True "
+                    f"but the file appears to be envelope layout "
+                    f"(nested 'sidecar_header' key detected). Call "
+                    f"read_sidecar_header with is_jsonl=False."
+                )
         else:
             body = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(body, dict):
                 header_payload = None
             else:
                 header_payload = body.get("sidecar_header")
+    except SidecarHeaderMissing:
+        raise
     except (OSError, ValueError) as exc:
         # File unreadable / JSON invalid. In strict mode refuse; in
         # non-strict mode treat as legacy (fall through).
@@ -547,12 +639,87 @@ def read_sidecar_header(
                 f"mode). Set strict=False to accept v0.5.1-and-earlier "
                 f"sidecars with a synthetic legacy stamp."
             )
+        # SP amendment (cross-family Q5 DEFECT): require sidecar_type
+        # even in non-strict mode -- a caller reading a sidecar MUST
+        # declare what type they expect. Prevents the "unknown"
+        # sidecar_type routing key leak into downstream code.
+        if sidecar_type is None:
+            raise ValueError(
+                f"sidecar {path!s}: read_sidecar_header requires "
+                f"sidecar_type when strict=False (F-3.2 binding "
+                f"contract). Pass the expected type discriminant."
+            )
         synthetic = _synthetic_legacy_run_id(path)
+        # SP amendment (cross-family Q2 + Ox Alpha A Q2 DEFECT):
+        # closing the "run A writes headerless, run B consumes
+        # same path" bleed under the legacy-fallback path. Two
+        # refuse conditions, both operative in non-strict:
+        #
+        # (i) Caller passed ``expected_run_id`` explicitly -- they
+        #     are asking to validate the sidecar's run_id, and the
+        #     synthetic RUN-LEGACY-* stamp will never match a real
+        #     run_id. Refuse (Ox Alpha A DEFECT: legacy branch
+        #     used to early-return, silently skipping the
+        #     expected_run_id check the caller requested).
+        #
+        # (ii) Caller did NOT pass expected_run_id but an ambient
+        #      run_id is bound (implicit expectation via ambient
+        #      plumbing). If ambient != synthetic (which is always
+        #      the case -- synthetic is path-derived, ambient is
+        #      run-scoped), refuse. Preserves the "pure
+        #      observability read without any bound run" mode
+        #      (both expected_run_id and ambient are None) as the
+        #      only path to accept a legacy stamp silently.
+        try:
+            from ract.runtime import get_current_run_id  # noqa: PLC0415
+
+            _ambient = get_current_run_id()
+        except Exception:  # noqa: BLE001
+            _ambient = None
+        _refuse_target: str | None = None
+        if expected_run_id is not None:
+            _refuse_target = expected_run_id
+        elif _ambient is not None and _ambient != synthetic:
+            _refuse_target = _ambient
+        if _refuse_target is not None:
+            _emit_header_trace_event(
+                "sidecar.header.mismatch_refused",
+                {
+                    "path": str(path),
+                    "header_run_id": synthetic,
+                    "expected_run_id": _refuse_target,
+                    "reason": "legacy_fallback_binding_refused",
+                },
+            )
+            raise SidecarRunIdMismatch(
+                path=path,
+                header_run_id=synthetic,
+                expected_run_id=_refuse_target,
+            )
+        # SP amendment (Ox Alpha A Q2 incidental min_schema fold):
+        # the legacy branch also used to skip the
+        # ``min_schema_version`` floor. A caller demanding >= 4
+        # would silently accept a synthetic v3 stamp. Enforce the
+        # floor here too so the caller's downgrade-refusal policy
+        # applies uniformly to legacy sidecars.
+        if (
+            min_schema_version is not None
+            and _LEGACY_SCHEMA_VERSION < min_schema_version
+        ):
+            _emit_header_trace_event(
+                "sidecar.header.missing_refused",
+                {"path": str(path), "reason": "legacy_below_min_schema"},
+            )
+            raise SidecarDowngradeRefused(
+                path=path,
+                header_schema_version=_LEGACY_SCHEMA_VERSION,
+                min_schema_version=min_schema_version,
+            )
         header = SidecarHeader(
             kind=HEADER_KIND,
             schema_version=_LEGACY_SCHEMA_VERSION,
             run_id=synthetic,
-            sidecar_type=sidecar_type or "unknown",
+            sidecar_type=sidecar_type,
             created_at="0000-00-00T00:00:00Z",
             ract_version="pre-header",
             synthetic_legacy=True,
@@ -584,7 +751,7 @@ def read_sidecar_header(
                 "sidecar.header.missing_refused",
                 {"path": str(path), "reason": "unknown_schema"},
             )
-            raise SidecarUnknownSchema(
+            raise SidecarUnknownSchemaAtRead(
                 path=path,
                 sidecar_type=sidecar_type,
                 header_schema_version=header.schema_version,
@@ -655,7 +822,25 @@ def write_json_sidecar_with_header(
 
     raw = dumps_jcs(merged)
     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
-    path.write_text(text, encoding="utf-8")
+    # SP amendment (Ox Alpha Q7 DEFECT verdict): tmp + os.replace so
+    # a reader NEVER observes a partial write. Previously only the
+    # loop_state persist path had this atomicity discipline; now
+    # every caller of the write helper inherits it. On serialization
+    # failure the tmp file is cleaned up in a finally clause so no
+    # ``.tmp`` litter accumulates.
+    import os as _os  # noqa: PLC0415
+
+    tmp_path = path.parent / (path.name + ".tmp")
+    try:
+        tmp_path.write_text(text, encoding="utf-8")
+        _os.replace(str(tmp_path), str(path))
+    except Exception:
+        try:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        except OSError:
+            pass
+        raise
     _emit_header_trace_event(
         "sidecar.header.written",
         {
@@ -675,13 +860,18 @@ __all__ = [
     "SidecarHeaderError",
     "SidecarHeaderMissing",
     "SidecarRunIdMismatch",
+    "SidecarSchemaError",
     "SidecarUnknownSchema",
+    "SidecarUnknownSchemaAtRead",
+    "SidecarUnknownSchemaAtWrite",
     "build_sidecar_header",
     "header_as_jsonl_line",
     "json_body_with_header",
     "known_versions_for",
     "read_sidecar_header",
     "register_sidecar_type",
+    "restore_registry",
+    "snapshot_registry",
     "write_json_sidecar_with_header",
 ]
 

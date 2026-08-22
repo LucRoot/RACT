@@ -232,7 +232,17 @@ def test_explicit_env_overrides_sandbox_env(tmp_path: Path) -> None:
 
 
 def test_no_sandbox_env_falls_through_to_parent_env(tmp_path: Path) -> None:
-    """Windows unenforced stub yields no env; spawn gets env=None."""
+    """Windows unenforced stub yields no sandbox env; spawn used to
+    get env=None (child inherits parent os.environ wholesale).
+
+    v0.5.2 module_04 SP amendment (Ox Alpha B Q3 supplemental S1
+    DEFECT): env=None no longer falls through unchanged. The
+    substrate strips RACT_* keys from a copy of os.environ (so
+    an attacker's parent-shell RACT_RUN_ID cannot poison the
+    child's ambient) before passing the cleaned env to Popen.
+    Non-RACT parent env variables still pass through, preserving
+    the pre-amendment behavior for PATH / HOME / etc.
+    """
     loop = _loop(tmp_path)
     assert loop._current_sandbox_env is None
 
@@ -262,7 +272,15 @@ def test_no_sandbox_env_falls_through_to_parent_env(tmp_path: Path) -> None:
     with patch("ract.executor.loop.spawn", side_effect=_fake_spawn):
         loop.spawn_step_subprocess([sys.executable, "-c", "pass"])
 
-    assert captured["env"] is None
+    # Post-amendment: env is a stripped copy of os.environ (not
+    # None). Non-RACT keys survive; RACT_* keys have been stripped.
+    env_out = captured["env"]
+    assert env_out is not None
+    assert isinstance(env_out, dict)
+    for key in env_out:
+        assert not key.upper().startswith("RACT_"), (
+            f"RACT_* key {key!r} leaked through env=None path"
+        )
 
 
 # ---------------------------------------------------------------------------
