@@ -6,16 +6,21 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.5.1] - 2026-08-20 — External Review Response
+## [0.5.1] - 2026-08-21 — External Review Response (fully wired)
 
-> **Wiring gap disclaimer.** The 2026-08-21 8-lens audit
+> **Wiring status.** Tag re-issued 2026-08-21 at the wiring-completion
+> pipeline HEAD. The 2026-08-21 8-lens audit
 > (`_BUILD/audit_2026-08-21/AUDIT_SUMMARY.md`) found that several
-> v0.5.1 modules shipped clean-tested API surfaces with zero
-> production callers. This release ships the primitive surface;
-> production wire-in is completed by the v0.5.1 wiring completion
-> pipeline (`docs/RACT_v0.5.1_WIRING_COMPLETION_SPEC.md`, modules
-> 02-10) with the re-tag landing at module_11 close. Per-module
-> "wired: X, Y, Z" addenda land as the wiring pipeline advances.
+> primitives shipped clean-tested API surfaces with zero production
+> callers. The v0.5.1 wiring-completion pipeline
+> (`docs/RACT_v0.5.1_WIRING_COMPLETION_SPEC.md`, modules 01-11) closes
+> every CRITICAL and HIGH finding via ten wiring commits (`c78d8b1` ..
+> `53280ff`) plus this release-close commit. Re-audit at module_11
+> (`_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md`) verifies each
+> primitive now has at least one production call chain from a runtime
+> entry point. The prior tag `bb8e013` is preserved as
+> `backup-v0.5.1-preWiring` and superseded. See the **Wired** section
+> below for the per-module wire-in map.
 
 Patch release for the External Review Response pipeline
 (`_BUILD/ract_v0.5.1_external_review_response/`). This release closes
@@ -326,7 +331,121 @@ carry inline ADR-style module docstrings).
   20-entry documented allowlist. Test gate:
   `tests/architecture/test_no_sort_keys_in_canonical_paths.py`.
 - **Full suite.** Green modulo known skips (see per-module gate
-  scorecards in `_BUILD/ract_v0.5.1_external_review_response/`).
+  scorecards in `_BUILD/ract_v0.5.1_external_review_response/` +
+  `_BUILD/ract_v0.5.1_wiring_completion/`).
+
+### Wired (v0.5.1 wiring-completion pipeline)
+
+The 2026-08-21 8-lens audit
+(`_BUILD/audit_2026-08-21/AUDIT_SUMMARY.md`) found that several v0.5.1
+primitives shipped with **zero production callers** — clean-tested API
+surface, but the runtime paths still called the pre-v0.5.1 shape.
+The wiring-completion pipeline
+(`docs/RACT_v0.5.1_WIRING_COMPLETION_SPEC.md`, modules 01-11) closes
+each such gap. The re-audit at
+`_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verifies zero
+CRITICAL/HIGH findings remain OPEN.
+
+- **wiring module_01** (`c78d8b1`) — provenance and docs sync.
+  CHANGELOG SHAs regenerated post-filter-repo (was: 21 fabricated
+  short SHAs);  THREAT_MODEL / PROVENANCE / EVENTS / ROADMAP re-hosted
+  at v0.5.1 (were: frozen at v0.4.0); ADR-0042 shipped (was: cited
+  in ADR count but missing on disk). Lens B C1-C6 closed.
+- **wiring module_02** (`c07f8a8`) — **wired:** `make_rootknot_v4`
+  now called from `src/ract/executor/steps.py:624`; sidecar
+  `provenance.py` round-trips v4 fields (`schema_version=4`,
+  `workspace_digest`, `prompt_digest`, `run_id`); WAL torn-pair
+  regression fixed in `assumption_registry.py`; Windows chain
+  readers switched to lock-free `O_APPEND` atomicity;
+  `intent_recompile` now auto-scans the workspace to avoid empty
+  snapshot regression. Lens D D1-D5 closed.
+- **wiring module_03** (`3d039c6`) — **wired:** tool gate chokepoint.
+  `SubstrateLoop.invoke_tool` now called from `executor/steps.py`
+  MCP `tool_call` dispatch with `ToolInvocationRefused` handling
+  (was: 0 production callers). SUBSTRATE §5 chokepoint claim now
+  load-bearing. Lens C C-01 closed.
+- **wiring module_04** (`9d3a534`) — **wired:** `NEVER_PASSTHROUGH`
+  env allowlist. `security/sandbox_linux.py:248` and
+  `security/sandbox_macos.py:152` now call `build_sandbox_env` and
+  filter env against the scrubbed allowlist (was: enforced sandboxes
+  bypassed the deny list entirely). SUBSTRATE §4.3 deny surface now
+  active on the enforced paths, not just the Windows unenforced stub.
+  Lens C C-02 closed.
+- **wiring module_05** (`f51af72`) — **wired:** process-group
+  tree-kill. `SubstrateLoop.spawn_subprocess` wraps
+  `process_group.spawn`; `_reap_active_processes` calls `kill_tree`
+  from every rollback path (was: 0 production callers in `src/`).
+  `_fast_forward_head` gains `soft: bool` parameter defaulting to a
+  `git reset --soft` so the compensator can inspect the tree before
+  discarding. Lens C C-03 + C-04 closed.
+- **wiring module_06** (`6b48e58`) — **wired:** ambient run_id +
+  loop-resume. `LoopController._run_with_timeout` wraps
+  `executor.submit` in `run_with_ambient` (was: bare
+  `ThreadPoolExecutor` at `loop_controller.py:1362` reintroduced the
+  exact bug module_06 was written to close). Full loop-resume
+  protocol added (`_LOOP_STATE_SIDECAR_NAME`, `on_pause`, `on_resume`,
+  `resume`, `start_index` persisted, `last_known_good_workspace`
+  rehydrated). `core/loop.py` chain-init `except Exception: pass`
+  replaced with a narrow tri-arm handler; `SuiteChainCorruptError`
+  re-raises. T8 orphan-file delete now gated on
+  `allow_iter1_delete_orphans` kwarg (was: iter-1 T8 wiped tree).
+  Lens G G-01 through G-08 closed.
+- **wiring module_07** (`3079aa0` + `e4258b6`) — **wired:** anti-lazy
+  dispatch. `_run_sycophancy_v2_check`,  `_run_polyglot_g5_g6`, and
+  `_run_canonical_g1_g7_g8` now fire per iteration from
+  `loop_controller.py` (was: `classify_sycophancy_v2` and
+  `enforce_g5/g6_polyglot` had 0 live callers; G1/G7/G8 had no
+  `enforce_gN`). Every `*GateOutcome` in `antilazy/pre_commit.py`
+  carries a `rootknot_signature` validated in `__post_init__` via
+  `_require_gate_signature` (raises on empty). **AL-1 is now a
+  structural invariant, not a convention.** Lens E AL-E-01 through
+  AL-E-04 closed.
+- **wiring module_08** (`968b7e9` + `6203f60`) — **wired:** memory
+  index watchers. `SymbolIndexWatcher` now holds a cache handle and
+  `_reindex_write` / `_reindex_delete` call `cache.invalidate_by_file`
+  with TTL (was: silent staleness after first save). Watcher
+  constructor accepts `graph_populator` + `semantic_index` and
+  cascades on every reindex with per-index counters +
+  `memory.freshness_gap` event. `budget_registry
+  .get_with_capability_clamp` narrows via `apply_runtime_narrowing`.
+  Probe scheduler fires once per `run()`;
+  `_run_composed_retrieval` dispatches composition. Lens E MEM-E-01
+  through MEM-E-04 closed.
+- **wiring module_09** (`0879ab0` + `a061f3d`) — JCS + EventChain +
+  ledger tamper. Three real hash-input sites migrated to `dumps_jcs`
+  (`plan_replay.py`, `memory/repo_fingerprint.py`,
+  `memory/probes/scheduler.py`); remaining sites documented as
+  human-report/storage-only in the JCS grep-gate allowlist; the gate
+  now also forbids `sha256(json.dumps(sort_keys=True))` +
+  `.encode(...)` on hash inputs. `EventChain` no longer resets on
+  fresh writer construction —  `writer.py::_reseed_tip_from_disk`
+  walks the tail, seeds from the last parseable event, refuses on
+  UTF-8 decode failure. `EventReader.load` / `iter_events` now
+  tail-tolerant + middle-strict + WARN (was: only ledger that
+  hard-failed on truncated tail). `manifest_ledger._build_entry`
+  stamps `entry_index`; `verify_chain` detects middle-excise via
+  physical-vs-stamped density check. Lens F H1-H4 + Lens G G-06
+  closed.
+- **wiring module_10** (`427537c` + `53280ff`) — UX + CLI + retrieval
+  wire + `.ract`/`.rack` unification + manifest-ledger CLI verbs.
+  Full-verb `ract --help` catalog via `cli_help.py`;
+  `workspace_state.migrate_rack_to_ract` idempotent migration at CLI
+  entry; `ract retrieval query` now calls the real `retrieve()`
+  primitive (was: documented stub); `ract manifest ledger
+  {verify,inspect,show,proof}` verbs added; duplicate marketplace
+  dispatch deleted (tombstone comment kept); `--auto` refuses on
+  non-TTY stdin with exit 3; bare `ract retrieval` / `memory` /
+  `plan` exit 0 after help; README verb index regenerated + drift
+  gate; module_02 executor test fixture updated to full v4 dep set;
+  distinct exit codes for `verify` chain-valid / broken / crashed.
+  Lens A C1-C3 + M1-M9 closed.
+- **wiring module_11** (this commit) — release close. Golden hash
+  re-locked; 8-lens re-audit at
+  `_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verifies zero
+  CRITICAL/HIGH findings remain OPEN; `v0.5.1` tag re-issued at the
+  wired HEAD (prior `bb8e013` preserved as
+  `backup-v0.5.1-preWiring`); `HANDSHAKE_PUSH_COMMANDS.md` written
+  for operator-gated push.
 
 ### Known limitations (carried to the v0.6 hardening backlog)
 
@@ -382,8 +501,35 @@ The nine external-review-response modules each queued their own
   subset that force-flips `used_regex_fallback` to True defers to
   v0.6.
 
+Deferred from the wiring-completion pipeline (see
+`_BUILD/ract_v0.5.1_wiring_completion/module_XX.md`):
+
+- **8 doc footers still carry pre-v0.5.1 stamps** (wiring Lens B M3
+  residual). Four of twelve older docs were bumped to a v0.5.1
+  footer; the rest keep their v0.1.1 / v0.2.0 / v0.4.0-rc1 stamps
+  because their content did not change materially. A bulk footer
+  refresh defers to v0.6.
+- **`index.md` framing** (wiring Lens B M4 residual). The doc index
+  CHANGELOG link + footer land at v0.5.1 but the v0.3 framing +
+  solo v0.2.0 release-note link remain.
+- **`RACT_v0.4.1_INTENT_FIDELITY_SPEC.md` and
+  `RACT_v0.5.0_PRE_PUSH_CLEANUP_SPEC.md`** (wiring Lens B M8 OPEN)
+  are cited in older CHANGELOG entries but not present under
+  `docs/`. Reconstruction defers to v0.6.
+- **Manifest-ledger `verify_chain` external anchoring** (wiring
+  Lens F H4 SP Q3 PARTIAL residual). The physical-vs-stamped-index
+  density check catches naive middle-excise; a full-recompute + a
+  correlated tail-truncate + pre-module_09 excise class still
+  require external anchoring (Merkle root pinned in a signed
+  Rootknot). Documented in `verify_chain` docstring; defers to v0.6.
+- **Loop-controller L1/L2/L3 low-severity items** (wiring Lens G
+  G-09/G-10/G-11) — `OSError` transparency in a specific error
+  path, dup-digest short-circuit micro-optimisation, and
+  `check_t2` docstring polish. Non-blocking.
+
 Complete Flagged gaps roll per module is preserved in the pipeline
-fragments at `_BUILD/ract_v0.5.1_external_review_response/module_0N.md`.
+fragments at `_BUILD/ract_v0.5.1_external_review_response/module_0N.md`
+and `_BUILD/ract_v0.5.1_wiring_completion/module_0N.md`.
 
 ## [0.5.0] - 2026-08-19 — Memory Discipline
 

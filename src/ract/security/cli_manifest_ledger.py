@@ -60,7 +60,7 @@ def manifest_ledger_command(args: list[str]) -> int:
         help="Emit machine-readable JSON output.",
     )
 
-    verify_p = sub.add_parser(
+    sub.add_parser(
         "verify",
         parents=[common],
         help="Run verify_chain and print valid/broken-at.",
@@ -98,10 +98,7 @@ def manifest_ledger_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     try:
-        from ract.security.manifest_ledger import (
-            LedgerCorruptError,
-            ManifestLedger,
-        )
+        from ract.security.manifest_ledger import ManifestLedger
     except ImportError as exc:
         print(f"[ract] manifest ledger: unavailable: {exc}", file=sys.stderr)
         return 1

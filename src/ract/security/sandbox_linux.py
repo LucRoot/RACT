@@ -61,7 +61,6 @@ from ract.security.sandbox import (
 from ract.security.sandbox_env import (
     SandboxEnvResult,
     build_sandbox_env,
-    default_allowlist_path,
 )
 
 
