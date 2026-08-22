@@ -215,7 +215,7 @@ class SubprocessSubagentHandle:
             # capture the caller's group (safe -- killpg on our own
             # group would kill us, so we detect + refuse below).
             try:
-                pgid = os.getpgid(pid)
+                pgid = os.getpgid(pid)  # type: ignore[attr-defined]
             except (ProcessLookupError, PermissionError, OSError):
                 pgid = None
             except AttributeError:  # non-POSIX fallback
@@ -225,7 +225,7 @@ class SubprocessSubagentHandle:
             # bare-Popen kill.
             if pgid is not None:
                 try:
-                    self_pgid = os.getpgid(0)
+                    self_pgid = os.getpgid(0)  # type: ignore[attr-defined]
                 except Exception:  # noqa: BLE001
                     self_pgid = -1
                 if pgid == self_pgid:

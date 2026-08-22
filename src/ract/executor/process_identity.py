@@ -157,7 +157,7 @@ def _read_windows_creation_ftime(pid: int) -> int | None:
     try:
         import ctypes
 
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
 
         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
         open_process = kernel32.OpenProcess

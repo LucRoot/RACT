@@ -1,5 +1,5 @@
 ---
-schema_version: "8"
+schema_version: "10"
 ---
 
 # RACT event schema
@@ -947,4 +947,90 @@ Emitted when the header `run_id` differs from the verifier's
 Payload: `path`, `header_run_id`, `expected_run_id`.
 
 <!-- schema_version: 9 — v0.5.2 hardening pipeline modules 03/04/06 (added 10 kinds) -->
+
+### `budget.clamp_refused`
+
+Emitted by :func:`ract.memory.budget_registry.request_budget`
+when a probe-informed clamp would drop the input target below
+the caller's declared floor. The registry refuses the clamp and
+returns the original target unchanged.
+
+Payload: `call_id`, `declared_target`, `proposed_target`,
+`floor`, `reason`.
+
+### `budget.adjusted_by_probes`
+
+Emitted by :func:`ract.memory.budget_registry.request_budget`
+when a probe-informed clamp is applied; the reduced input target
+replaces the caller's declared value.
+
+Payload: `call_id`, `declared_target`, `adjusted_target`,
+`probe_signal`.
+
+### `tool.invocation.bypassed`
+
+Emitted by :func:`ract.executor.steps.run_step` when the step
+skipped a declared tool invocation (dry-run guard, allowlist
+refusal, or precondition failure). The event lets the trace
+distinguish "tool was never asked for" from "tool was requested
+but refused before dispatch".
+
+Payload: `tool_id`, `reason`, `step_id`.
+
+### `laziness.skipped`
+
+Emitted by :func:`ract.antilazy.pre_commit` when the pre-commit
+gate elects NOT to run for the current diff (small edit,
+docs-only, or explicit operator opt-out). Distinct from
+`laziness.violated` (gate ran and found a violation).
+
+Payload: `reason`, `diff_summary`.
+
+### `whisperer.classifier_error`
+
+Emitted by the loop controller when the sycophancy classifier
+raises; the controller downgrades to a WARN log so the run
+continues.
+
+Payload: `error_kind`, `message`.
+
+### `laziness.gate_error`
+
+Emitted by the loop controller when the anti-laziness gate
+raises; the controller downgrades to a WARN log.
+
+Payload: `error_kind`, `message`.
+
+### `memory.probe_scheduler_error`
+
+Emitted by the loop controller when the probe scheduler raises;
+probes are best-effort telemetry, never load-bearing on the run.
+
+Payload: `error_kind`, `message`.
+
+### `memory.composition_runner_error`
+
+Emitted by the loop controller when the context-composition
+runner raises; the controller downgrades to a WARN log.
+
+Payload: `error_kind`, `message`.
+
+### `memory.cascade_error`
+
+Emitted by :meth:`ract.memory.watcher.MemoryWatcher` when one
+index in the memory cascade (semantic / symbol / lexical) fails
+to attach; the watcher records that the cascade continued with
+the survivors.
+
+Payload: `index`, `error_kind`, `message`.
+
+### `memory.freshness_gap`
+
+Emitted by :meth:`ract.memory.watcher.MemoryWatcher` when an
+index's freshness is trailing the workspace clock beyond the
+policy threshold.
+
+Payload: `index`, `gap_ms`, `threshold_ms`.
+
+<!-- schema_version: 10 — v0.5.2 CI-fix closure (added 10 kinds already emitted in src/) -->
 

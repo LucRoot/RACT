@@ -316,7 +316,7 @@ def _extract_docstring(body: str, language: str | None) -> str:
             return _first_line("\n".join(parts))
         return ""
     if language == "go":
-        parts: list[str] = []
+        parts: list[str] = []  # type: ignore[no-redef]
         for match in _GO_DOC_RE.finditer(body):
             parts.append(match.group(1))
             if len(parts) >= 5:

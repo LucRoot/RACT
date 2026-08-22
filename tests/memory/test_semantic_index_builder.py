@@ -174,9 +174,27 @@ def test_update_symbol_replaces_stale_chunks(tmp_path: Path):
         assert refreshed
         report = update_symbol(refreshed[0].id, store, symbols)
         assert report.inserted >= 1
-        # The updated body should be reachable via search.
-        hits = store.search("return a + b + 1", top_k=5)
-        assert any("+ 1" in h.body for h in hits)
+        # The updated body must live under the symbol's chunk rows in
+        # the store. Vector search against ``SyntheticHashEmbedding``
+        # (a hash-derived fallback with no semantic meaning) is not a
+        # reliable oracle for content freshness -- the cosine to
+        # "return a + b + 1" is essentially random and top_k=5 can
+        # omit the updated chunk on some platforms. Read the rows
+        # for this symbol_id directly instead; the stale-chunks
+        # invariant is that update_symbol deleted the old body and
+        # inserted the new one.
+        symbol_chunks = list(
+            store.iter_chunks(filter={"symbol_id": int(refreshed[0].id)})
+        )
+        assert symbol_chunks, (
+            "update_symbol reported inserted>=1 but no chunks landed under "
+            f"symbol_id={refreshed[0].id}"
+        )
+        assert any("+ 1" in ch.body for ch in symbol_chunks), (
+            "update_symbol left symbol chunks in place but none carry the "
+            "updated body; stale-chunk invariant violated. Bodies: "
+            f"{[ch.body[:60] for ch in symbol_chunks]}"
+        )
 
 
 def test_update_symbol_returns_zero_when_symbol_absent(tmp_path: Path):

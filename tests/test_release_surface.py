@@ -1115,6 +1115,19 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
     ``subagent.disposed`` (Lens 2 Delta 3 closure, SubagentHandle
     cascade on non-T1 halt) — schema bumps to "8".
 
+    v0.5.2 hardening pipeline modules 03/04/06 added 10 kinds
+    (``substrate.subagent.*`` + ``runtime.run_id.*`` +
+    ``sidecar.header.*`` + ``trace.*``) — schema bumps to "9".
+
+    v0.5.2 CI-fix closure (Ox Alpha Q1 mypy sweep) added the ten
+    already-emitted kinds the Literal had drifted from
+    (``budget.clamp_refused``, ``budget.adjusted_by_probes``,
+    ``tool.invocation.bypassed``, ``laziness.skipped``,
+    ``whisperer.classifier_error``, ``laziness.gate_error``,
+    ``memory.probe_scheduler_error``,
+    ``memory.composition_runner_error``, ``memory.cascade_error``,
+    ``memory.freshness_gap``) — schema bumps to "10".
+
     Also verifies the eight v0.5.1 EventKind literals that are
     load-bearing gate entries are present in ``LEGAL_EVENT_KINDS``.
     """
@@ -1122,11 +1135,11 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
     match = re.search(r'^schema_version:\s*"(\d+)"', text, flags=re.MULTILINE)
     assert match, "docs/EVENTS.md frontmatter missing schema_version"
     doc_version = match.group(1)
-    assert doc_version == "8", (
-        f"docs/EVENTS.md schema_version {doc_version!r} != expected '8'. "
-        "v0.5.1 spec-completeness module_07 added "
-        "``subagent.disposed``; bump the frontmatter + document "
-        "the payload per docs/EVENTS.md's own rule."
+    assert doc_version == "10", (
+        f"docs/EVENTS.md schema_version {doc_version!r} != expected '10'. "
+        "v0.5.2 CI-fix closure added ten already-emitted kinds to "
+        "``EventKind`` (see docstring above); bump the frontmatter + "
+        "document the payloads per docs/EVENTS.md's own rule."
     )
 
     # v0.5.1 kinds that must be in the closed literal.

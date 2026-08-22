@@ -4376,14 +4376,20 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
         config = get_preset(args.init_provider)
-        target = Path("ract.yaml")
-        if target.exists():
+        # NOTE: ``target`` was bound as ``str`` at line 4052 in the
+        # help-verb branch of this same ``main`` function; a fresh
+        # local name keeps mypy's flow-narrowing happy without
+        # bleeding the earlier binding here.
+        init_target: Path = Path("ract.yaml")
+        if init_target.exists():
             print(
-                f"[ract] {target} already exists; refusing to overwrite.",
+                f"[ract] {init_target} already exists; refusing to overwrite.",
                 file=sys.stderr,
             )
             return 1
-        target.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+        init_target.write_text(
+            yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
+        )
 
         prompts_dir = Path(config.get("prompts_dir", "prompts"))
         prompt_file = prompts_dir / "manager.txt"

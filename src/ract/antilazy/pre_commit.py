@@ -120,7 +120,7 @@ def _canonical_report_projection(report: Any) -> Any:
     try:
         from dataclasses import asdict, is_dataclass
 
-        if is_dataclass(report):
+        if is_dataclass(report) and not isinstance(report, type):
             return _stringify_leaves(asdict(report))
     except Exception:  # noqa: BLE001
         pass
@@ -190,7 +190,10 @@ def _compute_gate_signature(
     try:
         from ract.canonical import dumps_jcs  # noqa: PLC0415
 
-        canonical_bytes = dumps_jcs(payload).encode("utf-8")
+        # ``dumps_jcs`` already returns UTF-8-encoded canonical bytes;
+        # no re-encode needed (mypy caught the double-encode via
+        # ``bytes.encode`` attr-error).
+        canonical_bytes = dumps_jcs(payload)
     except Exception:  # noqa: BLE001
         canonical_bytes = repr(payload).encode("utf-8", errors="replace")
     digest = hashlib.sha256(canonical_bytes).hexdigest()

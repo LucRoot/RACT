@@ -805,7 +805,7 @@ class LoopController:
             _os.lseek(fd, 0, _os.SEEK_SET)
             for _attempt in range(3):
                 try:
-                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
                     return
                 except OSError:
                     _time.sleep(0.01)
@@ -832,7 +832,7 @@ class LoopController:
 
             _os.lseek(fd, 0, _os.SEEK_SET)
             try:
-                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
             except OSError:
                 pass
         else:
@@ -1532,7 +1532,7 @@ class LoopController:
             ]
         except (KeyError, TypeError, ValueError):
             return False
-        self._resume_snapshot = {
+        self._resume_snapshot = {  # type: ignore[assignment]
             "iterations": iterations,
             "iterations_count": int(payload.get("iterations_count", len(iterations))),
             "previous_score": payload.get("previous_score"),
@@ -1558,7 +1558,7 @@ class LoopController:
             # rebuild ``_loop_state`` from the suite) can seed the
             # loop state's ``last_known_good_workspace`` field after
             # ``build_loop_state`` returns.
-            self._resume_last_known_good = snap
+            self._resume_last_known_good = snap  # type: ignore[assignment]
         return True
 
     def resume(
