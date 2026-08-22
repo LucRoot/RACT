@@ -392,13 +392,30 @@ def test_build_cache_names_denied(name: str, value: str) -> None:
     assert result.refused_family_counts.get("build_cache") == 1
 
 
-def test_npm_config_prefix_family_denied() -> None:
-    """A future NPM_CONFIG_* variant is refused via prefix."""
-    seeded = {"NPM_CONFIG_REGISTRY": "https://attacker/npm"}
+def test_npm_config_registry_covered_by_enumerated_deny() -> None:
+    """NPM_CONFIG_REGISTRY handling.
+
+    SP amendment (Q2 fold): NPM_CONFIG_ prefix was DROPPED because it
+    false-positived on legitimate CI knobs (NPM_CONFIG_LOGLEVEL etc).
+    The dangerous specifics (NPM_CONFIG_CAFILE, NPM_CONFIG_STRICT_SSL,
+    NPM_CONFIG_IGNORE_SCRIPTS, NPM_CONFIG_SCRIPT_SHELL) are enumerated.
+    NPM_CONFIG_REGISTRY intentionally passes through (private registry
+    is a valid CI pattern); the trust-store poisoning surface is
+    NPM_CONFIG_CAFILE + NPM_CONFIG_STRICT_SSL which ARE denied.
+    """
+    seeded = {
+        "NPM_CONFIG_REGISTRY": "https://internal-registry.corp/npm",
+        "NPM_CONFIG_CAFILE": "/tmp/attacker.pem",
+    }
     result = build_sandbox_env(
-        process_env=seeded, manifest_passthrough=("NPM_CONFIG_REGISTRY",)
+        process_env=seeded,
+        manifest_passthrough=("NPM_CONFIG_REGISTRY", "NPM_CONFIG_CAFILE"),
     )
-    assert "NPM_CONFIG_REGISTRY" not in result.env
+    # Registry passes (legit CI pattern):
+    assert result.env["NPM_CONFIG_REGISTRY"] == "https://internal-registry.corp/npm"
+    # CAFILE (trust-store hijack) is denied:
+    assert "NPM_CONFIG_CAFILE" not in result.env
+    assert result.never_passthrough_denied == 1
 
 
 # ---------------------------------------------------------------------------
@@ -443,13 +460,39 @@ def test_glob_shape_classified_as_glob_shape() -> None:
     assert _classify_refused_family("LD_?") == "glob_shape"
 
 
-def test_refused_family_counts_bucket_missing_families_absent() -> None:
-    """A run with only loader denials has no interpreter/git buckets."""
+def test_refused_family_counts_uses_fixed_schema() -> None:
+    """SP amendment (Q4): every bucket present, zeros where no denial fired.
+
+    Both reviewers flagged the primary's sparse-dict emit as a
+    SIEM-instability RISK: external correlation tools can't distinguish
+    "field missing" from "zero denials". Amendment locks the schema.
+    """
+    from ract.security.sandbox_env import FAMILY_KEYS
+
     seeded = {"LD_PRELOAD": "/tmp/x"}
     result = build_sandbox_env(
         process_env=seeded, manifest_passthrough=("LD_PRELOAD",)
     )
-    assert result.refused_family_counts == {"loader": 1}
+    # Every bucket present.
+    assert set(result.refused_family_counts.keys()) == set(FAMILY_KEYS)
+    # Loader fired.
+    assert result.refused_family_counts["loader"] == 1
+    # Every other bucket is zero.
+    for family in FAMILY_KEYS:
+        if family != "loader":
+            assert result.refused_family_counts[family] == 0, (
+                f"{family} expected 0, got {result.refused_family_counts[family]}"
+            )
+
+
+def test_refused_family_counts_clean_run_all_zero() -> None:
+    """Zero-denial run still emits full schema (Q4 fold)."""
+    from ract.security.sandbox_env import FAMILY_KEYS
+
+    seeded = {"PATH": "/usr/bin", "HOME": "/home/lucas"}
+    result = build_sandbox_env(process_env=seeded)
+    assert set(result.refused_family_counts.keys()) == set(FAMILY_KEYS)
+    assert all(v == 0 for v in result.refused_family_counts.values())
 
 
 # ---------------------------------------------------------------------------
