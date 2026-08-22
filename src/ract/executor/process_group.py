@@ -45,6 +45,12 @@ from pathlib import Path
 from typing import Any
 
 from ract.core.module_identity import _module_knot, register_module_knot
+from ract.executor.process_identity import (
+    ProcessIdentity,
+    capture_identity,
+    current_identity,
+    same_process,
+)
 
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
@@ -94,6 +100,16 @@ class ProcessGroupHandle:
     job_handle: Any | None = None
     argv: tuple[str, ...] = ()
     spawned_at: float = field(default_factory=time.monotonic)
+    # v0.5.2 hardening module_03 (DA-A F-4 + Ox Alpha M-5):
+    # ``(pid, creation_time_ns)`` captured at spawn. ``None`` when the
+    # identity source refused (macOS without /proc, exotic sandboxes).
+    # Guards subsequent kill_tree signals against PID reuse -- if the
+    # pid was reallocated between spawn and reap, ``same_process(...)``
+    # returns False and the caller emits ``pid_reuse_detected`` +
+    # skips the signal. Bare-Popen synthesis paths (e.g. from
+    # :class:`SubprocessSubagentHandle` dispose) capture identity on
+    # the synthesised handle before invoking kill_tree.
+    identity: ProcessIdentity | None = None
 
     @property
     def pid(self) -> int:
@@ -168,11 +184,18 @@ def spawn(
         # a resume failure still leaves the process suspended, which
         # is loud in Task Manager -- preferable to a silent race.
         _resume_thread(popen)
+        # v0.5.2 hardening module_03: capture identity AFTER Job
+        # Object bind + resume so the child is fully running when we
+        # read its creation FILETIME. GetProcessTimes on a
+        # CREATE_SUSPENDED process returns a valid FILETIME (creation
+        # is a distinct concept from thread-suspended); safe order.
+        identity = capture_identity(popen.pid)
         return ProcessGroupHandle(
             popen=popen,
             pgid=None,
             job_handle=job_handle,
             argv=argv_tuple,
+            identity=identity,
         )
 
     # POSIX path.
@@ -187,11 +210,13 @@ def spawn(
     )
     # After start_new_session, the child called setsid() so its PGID
     # equals its PID.
+    identity = capture_identity(popen.pid)
     return ProcessGroupHandle(
         popen=popen,
         pgid=popen.pid,
         job_handle=None,
         argv=argv_tuple,
+        identity=identity,
     )
 
 
@@ -417,10 +442,61 @@ def kill_tree(
     terminate; tests may set False to inspect the handle post-reap.
 
     Idempotent: reaping an already-dead tree is a no-op.
+
+    v0.5.2 hardening module_03 (DA-A F-4 + Ox Alpha M-5):
+
+    - Unconditional. The pre-hardening short-circuit that skipped
+      kill_tree when ``handle.popen.poll() is not None`` (parent
+      exited) was WRONG: reparented children survive parent exit
+      and killpg / TerminateJobObject can still reach them. This
+      primitive now fires regardless of parent state.
+    - PID-reuse guarded. When ``handle.identity`` is present,
+      re-verify via :func:`process_identity.current_identity`
+      before ANY signal. On mismatch, emit
+      ``substrate.subagent.pid_reuse_detected`` and REFUSE the
+      signal -- killing the wrong tenant is worse than a leaked
+      descendant.
     """
-    # Nothing to do if the parent is already reaped and no descendants
-    # can plausibly remain (best-effort -- we still try killpg / job
-    # terminate on POSIX because grandchildren can outlive the parent).
+    # ---- PID-reuse guard (DA-A F-4 + Ox Alpha M-5) --------------------
+    #
+    # Fetch current identity of the stored PID. Three outcomes:
+    #   1) Stored identity is None -> spawn-time capture failed
+    #      (e.g. non-Linux POSIX without /proc). We degrade to
+    #      bare-pid trust; proceed with the kill. This preserves
+    #      forward progress on macOS while still hardening every
+    #      platform where identity is readable.
+    #   2) Current identity is None -> the PID is gone. Descendants
+    #      may still exist -- on POSIX under a still-populated
+    #      pgid, on Windows under a still-populated Job Object.
+    #      Proceed with the pgid / Job Object reap (which does NOT
+    #      target the exited parent's PID directly), but SKIP any
+    #      per-pid fallback that would signal the possibly-reused
+    #      PID.
+    #   3) Both present + do NOT match -> PID reused. Emit
+    #      ``pid_reuse_detected`` + SKIP the signal.
+    stored = handle.identity
+    if stored is not None:
+        current = current_identity(stored.pid)
+        if current is None:
+            # Parent PID is gone. This is exactly the DA-A F-4
+            # scenario we're hardening: continue on to the pgid /
+            # Job Object reap so reparented descendants get caught.
+            # Route through a helper that suppresses the per-pid
+            # taskkill/kill fallback path when the parent is gone.
+            _kill_descendants_only(handle, close_handle=close_handle)
+            return
+        if not same_process(stored, current):
+            _emit_pid_reuse_detected(stored, current)
+            # Refuse the signal. Descendants that were spawned before
+            # the parent exited are separately covered by the pgid /
+            # Job Object bag; on POSIX we can still killpg safely
+            # because pgid is captured at spawn (an unrelated new
+            # process cannot join our pgid). Delegate to the
+            # descendants-only helper which uses pgid / Job Object
+            # ONLY, never per-pid.
+            _kill_descendants_only(handle, close_handle=close_handle)
+            return
+    # Identity check passed (or was un-guardable). Proceed.
     if _IS_WINDOWS:
         _kill_tree_windows(handle, close_handle=close_handle)
         return
@@ -428,10 +504,169 @@ def kill_tree(
     _kill_tree_posix(handle, grace_period_seconds=grace_period_seconds)
 
 
+def _kill_descendants_only(
+    handle: ProcessGroupHandle, *, close_handle: bool
+) -> None:
+    """Reap descendants without touching the parent PID (identity-guard skip path).
+
+    Used when the parent PID is gone or reused. Reparented children
+    can still live under the pgid (POSIX) or Job Object (Windows)
+    that were captured at spawn; those handles are SAFE to signal
+    because they refer to the original parent's group / bag which
+    cannot be joined by an unrelated tenant.
+
+    Emits ``orphan_reaped`` when descendants were actually observed
+    before the reap fired.
+    """
+    orphan_pids = _enumerate_group_descendants(handle)
+    if _IS_WINDOWS:
+        if handle.job_handle is not None:
+            try:
+                import ctypes
+
+                kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+                terminate = kernel32.TerminateJobObject
+                terminate.restype = ctypes.c_int
+                terminate.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+                terminate(handle.job_handle, 1)
+                if close_handle:
+                    kernel32.CloseHandle(handle.job_handle)
+                    handle.job_handle = None
+            except Exception:  # noqa: BLE001 -- best-effort orphan reap
+                pass
+        # No taskkill fallback here: without a Job Object, per-pid
+        # taskkill against a possibly-reused PID is the exact
+        # foot-gun we're guarding against.
+    else:
+        if handle.pgid is not None:
+            try:
+                import signal
+
+                os.killpg(handle.pgid, signal.SIGKILL)  # type: ignore[attr-defined]
+            except (ProcessLookupError, PermissionError):
+                pass
+            except Exception:  # noqa: BLE001 -- best-effort orphan reap
+                pass
+    if orphan_pids:
+        _emit_orphan_reaped(orphan_pids)
+
+
+def _enumerate_group_descendants(handle: ProcessGroupHandle) -> list[int]:
+    """Best-effort list of live descendant PIDs (excluding parent).
+
+    Used purely for the ``orphan_reaped`` event payload -- if this
+    fails we still reap; we just report an empty list.
+    """
+    parent_pid = handle.pid
+    pids: list[int] = []
+    if _IS_WINDOWS:
+        # ``wmic process where ParentProcessId=<pid> get ProcessId``
+        # walks one level; recursion is not attempted here (payload
+        # is diagnostic, bounded at 32 entries).
+        try:
+            result = subprocess.run(
+                [
+                    "wmic",
+                    "process",
+                    "where",
+                    f"ParentProcessId={parent_pid}",
+                    "get",
+                    "ProcessId",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if not line or not line.isdigit():
+                    continue
+                pid_int = int(line)
+                if pid_int != parent_pid:
+                    pids.append(pid_int)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    else:
+        if handle.pgid is not None:
+            # ``pgrep -g <pgid>`` returns every PID in the group.
+            try:
+                result = subprocess.run(
+                    ["pgrep", "-g", str(handle.pgid)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=5,
+                )
+                for line in result.stdout.splitlines():
+                    line = line.strip()
+                    if not line or not line.isdigit():
+                        continue
+                    pid_int = int(line)
+                    if pid_int != parent_pid:
+                        pids.append(pid_int)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
+    return pids[:32]
+
+
+def _emit_pid_reuse_detected(
+    stored: "ProcessIdentity", current: "ProcessIdentity"
+) -> None:
+    """Emit ``substrate.subagent.pid_reuse_detected`` on identity mismatch."""
+    try:
+        from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+        _emit_event(
+            "substrate.subagent.pid_reuse_detected",  # type: ignore[arg-type]
+            {
+                "stored_pid": int(stored.pid),
+                "stored_ctime": int(stored.creation_time_ns),
+                "current_ctime": int(current.creation_time_ns),
+            },
+        )
+    except Exception:  # noqa: BLE001 -- never fail kill on trace error
+        pass
+    _LOG.warning(
+        "process_group.kill_tree: REFUSED signal against pid=%s -- "
+        "creation_time_ns changed from %s to %s (PID reused). "
+        "Reaping pgid/Job Object descendants only.",
+        stored.pid,
+        stored.creation_time_ns,
+        current.creation_time_ns,
+    )
+
+
+def _emit_orphan_reaped(pids: list[int]) -> None:
+    """Emit ``substrate.subagent.orphan_reaped`` when descendants survived parent."""
+    try:
+        from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+        _emit_event(
+            "substrate.subagent.orphan_reaped",  # type: ignore[arg-type]
+            {
+                "count": len(pids),
+                "pids": [int(p) for p in pids],
+            },
+        )
+    except Exception:  # noqa: BLE001 -- never fail kill on trace error
+        pass
+
+
 def _kill_tree_posix(
     handle: ProcessGroupHandle, *, grace_period_seconds: float
 ) -> None:
-    """POSIX process-group reap."""
+    """POSIX process-group reap.
+
+    v0.5.2 hardening module_03 (Ox Alpha co-build Fork 2 verdict
+    (b)-lite): re-verify identity before EACH signal. Cost is
+    ~microseconds (one /proc read) and closes a race the top-level
+    guard could not: between the top-level check and the actual
+    killpg delivery, the group leader could exit and its pgid could
+    be reused by an unrelated process that became group leader (pgid
+    IS the leader's original PID). One check at the top of kill_tree
+    is not enough for a grace-period reap that fires two signals.
+    """
     import signal
 
     pgid = handle.pgid
@@ -439,39 +674,75 @@ def _kill_tree_posix(
         # Spawned without start_new_session (defensive) -- fall back
         # to killing the parent only. This never fires from
         # SubstrateLoop's own spawn path; only exercised when a
-        # caller wraps a foreign Popen.
-        if handle.popen.poll() is None:
+        # caller wraps a foreign Popen. Guard the single-pid kill
+        # with an identity re-check so a reused PID is not signaled.
+        if handle.popen.poll() is None and _reverify_ok(handle):
             handle.popen.kill()
         _wait_reap(handle.popen)
         return
 
     try:
         if grace_period_seconds > 0.0:
-            try:
-                os.killpg(pgid, signal.SIGTERM)  # type: ignore[attr-defined]
-            except (ProcessLookupError, PermissionError):
-                # Group already gone or unreachable -- proceed to
-                # SIGKILL sweep anyway.
-                pass
+            if _reverify_ok(handle):
+                try:
+                    os.killpg(pgid, signal.SIGTERM)  # type: ignore[attr-defined]
+                except (ProcessLookupError, PermissionError):
+                    # Group already gone or unreachable -- proceed to
+                    # SIGKILL sweep anyway.
+                    pass
             deadline = time.monotonic() + grace_period_seconds
             while time.monotonic() < deadline:
                 if handle.popen.poll() is not None:
                     break
                 time.sleep(0.05)
 
-        try:
-            os.killpg(pgid, signal.SIGKILL)  # type: ignore[attr-defined]
-        except (ProcessLookupError, PermissionError):
-            # Nothing left to reap.
-            pass
+        if _reverify_ok(handle):
+            try:
+                os.killpg(pgid, signal.SIGKILL)  # type: ignore[attr-defined]
+            except (ProcessLookupError, PermissionError):
+                # Nothing left to reap.
+                pass
     finally:
         _wait_reap(handle.popen)
+
+
+def _reverify_ok(handle: ProcessGroupHandle) -> bool:
+    """Per-signal identity re-check (Ox Alpha co-build Fork 2 (b)-lite).
+
+    Returns True when either (a) identity was never captured
+    (handle un-guardable, degrade to trust) OR (b) the stored
+    identity still matches the pid's current identity.
+
+    Returns False + emits ``pid_reuse_detected`` when the pid was
+    reallocated between spawn and now. Caller MUST skip the signal.
+
+    A ``None`` current identity (pid gone) also returns False -- no
+    live process, no signal to send; the pgid / Job Object sweep in
+    the caller still handles any surviving descendants.
+    """
+    stored = handle.identity
+    if stored is None:
+        return True
+    current = current_identity(stored.pid)
+    if current is None:
+        return False
+    if same_process(stored, current):
+        return True
+    _emit_pid_reuse_detected(stored, current)
+    return False
 
 
 def _kill_tree_windows(
     handle: ProcessGroupHandle, *, close_handle: bool
 ) -> None:
-    """Windows Job Object reap with taskkill fallback."""
+    """Windows Job Object reap with taskkill fallback.
+
+    v0.5.2 hardening module_03 (Ox Alpha co-build Fork 2 (b)-lite):
+    TerminateJobObject on ``handle.job_handle`` is reuse-safe
+    because Windows does not reuse the HANDLE value while we hold
+    it open. taskkill fallback IS reuse-vulnerable (it takes a
+    bare PID) so it goes through :func:`_reverify_ok`.
+    """
     if handle.job_handle is not None:
         try:
             import ctypes
@@ -486,11 +757,14 @@ def _kill_tree_windows(
                 kernel32.CloseHandle(handle.job_handle)
                 handle.job_handle = None
         except OSError:
-            _taskkill_tree(handle.pid)
+            if _reverify_ok(handle):
+                _taskkill_tree(handle.pid)
         except Exception:  # noqa: BLE001
-            _taskkill_tree(handle.pid)
+            if _reverify_ok(handle):
+                _taskkill_tree(handle.pid)
     else:
-        _taskkill_tree(handle.pid)
+        if _reverify_ok(handle):
+            _taskkill_tree(handle.pid)
     _wait_reap(handle.popen)
 
 

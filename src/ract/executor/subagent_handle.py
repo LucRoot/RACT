@@ -47,15 +47,24 @@ References:
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from ract.core.module_identity import _module_knot, register_module_knot
+from ract.executor.process_identity import (
+    ProcessIdentity,
+    capture_identity,
+)
 
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
+
+
+_IS_WINDOWS = sys.platform == "win32"
 
 
 _LOG = logging.getLogger(__name__)
@@ -144,6 +153,76 @@ class SubprocessSubagentHandle:
     descriptor: dict[str, Any] = field(default_factory=dict)
     kind: str = "subprocess"
     _disposed: bool = False
+    # v0.5.2 hardening module_03 (DA-A F-4 + Ox Alpha M-5): identity
+    # captured at construction time so the eventual dispose can verify
+    # the pid was not reused between register and cascade. ``None``
+    # when the popen was ``None`` at construction or identity source
+    # refused.
+    _spawn_identity: ProcessIdentity | None = field(default=None, init=False)
+    # v0.5.2 hardening module_03 (Ox Alpha co-build Fork 5): foreign
+    # Popens (raw Popen not routed through :func:`process_group.spawn`)
+    # get their pgid (POSIX) / Job Object (Windows) captured
+    # retroactively at construction time. Without this, dispose
+    # synthesised a bare ProcessGroupHandle at kill-time with pgid=None
+    # and job_handle=None -- exactly the DA-A F-4 weak path. Now the
+    # handle captures whatever the OS already had (POSIX: os.getpgid;
+    # Windows: attempt AssignProcessToJobObject on the running popen)
+    # so kill_tree can use the group / Job Object primitive.
+    _captured_pgid: int | None = field(default=None, init=False)
+    _captured_job_handle: Any | None = field(default=None, init=False)
+
+    def __post_init__(self) -> None:
+        # Capture identity + retroactive pgid/Job Object binding at
+        # construction. Best-effort; any failure degrades to bare-pid.
+        if self.popen is None:
+            return
+        pid = self.popen.pid
+        self._spawn_identity = capture_identity(pid)
+        if _IS_WINDOWS:
+            # Fork 5 (Windows): attempt to bind the running foreign
+            # process to a fresh Job Object. Windows allows
+            # AssignProcessToJobObject on a process that is not
+            # already in a job (or in a job that allows nesting on
+            # Win8+). If it refuses, kill_tree falls back to
+            # guarded taskkill.
+            from ract.executor.process_group import (  # noqa: PLC0415
+                _try_create_job_object,
+            )
+
+            try:
+                self._captured_job_handle = _try_create_job_object(pid)
+            except Exception:  # noqa: BLE001 -- best-effort retro-bind
+                self._captured_job_handle = None
+        else:
+            # Fork 5 (POSIX): read the process's ACTUAL pgid from
+            # the OS. When the foreign spawn used start_new_session
+            # or setpgid, we capture the real group; otherwise we
+            # capture the caller's group (safe -- killpg on our own
+            # group would kill us, so we detect + refuse below).
+            try:
+                pgid = os.getpgid(pid)
+            except (ProcessLookupError, PermissionError, OSError):
+                pgid = None
+            except AttributeError:  # non-POSIX fallback
+                pgid = None
+            # Refuse to capture our own pgid -- killpg would kill
+            # RACT itself. Log + leave pgid None so dispose uses
+            # bare-Popen kill.
+            if pgid is not None:
+                try:
+                    self_pgid = os.getpgid(0)
+                except Exception:  # noqa: BLE001
+                    self_pgid = -1
+                if pgid == self_pgid:
+                    _LOG.warning(
+                        "SubprocessSubagentHandle: foreign Popen pid=%s "
+                        "shares pgid with RACT (%s); refusing pgid "
+                        "capture -- kill will target parent only",
+                        pid,
+                        pgid,
+                    )
+                    pgid = None
+            self._captured_pgid = pgid
 
     def is_alive(self) -> bool:
         if self._disposed:
@@ -153,6 +232,32 @@ class SubprocessSubagentHandle:
         return self.popen.poll() is None
 
     def dispose(self, reason: str) -> bool:
+        """Reap the subagent + every descendant. Unconditional tree-kill.
+
+        v0.5.2 hardening module_03 (DA-A F-4 + Ox Alpha M-5):
+
+        - No parent-exited short-circuit. The pre-hardening path
+          skipped :func:`kill_tree` when ``self.popen.poll() is not
+          None`` on the theory that a dead parent means no children.
+          FALSE: children that fork()d then had their parent exit
+          get reparented to init/system, still running under the
+          original UID; on Windows the Job Object leaks the whole
+          tree unless we terminate it. Tree-kill fires
+          unconditionally now; the ``path`` field on the
+          ``substrate.subagent.tree_kill_invoked`` event records
+          which state the parent was in.
+        - Identity guard. The synthesised
+          :class:`ProcessGroupHandle` carries
+          ``self._spawn_identity`` (captured in ``__post_init__``);
+          :func:`kill_tree` re-verifies before every signal and
+          refuses on PID reuse (emitting
+          ``substrate.subagent.pid_reuse_detected``).
+        - Foreign-Popen bind. ``self._captured_pgid`` /
+          ``self._captured_job_handle`` were populated in
+          ``__post_init__`` -- the synthesised handle carries them
+          so :func:`kill_tree` reaches the process group / Job
+          Object bag rather than falling back to per-pid taskkill.
+        """
         if self._disposed:
             # Idempotent: a second dispose on a disposed handle is a
             # no-op that returns True.
@@ -160,33 +265,35 @@ class SubprocessSubagentHandle:
         if self.popen is None:
             self._disposed = True
             return True
-        # SP amendment (Ox Alpha + cross-family second reviewer D2 converged): short-circuit
-        # when the underlying Popen has ALREADY exited (e.g. because
-        # the loop's :meth:`SubstrateLoop._reap_active_processes` ran
-        # first on a Popen registered in BOTH the process-handle and
-        # subagent-handle lists, or because the subprocess exited
-        # naturally between register and cascade). Without the
-        # short-circuit, kill_tree on a dead process group would emit
-        # a false ok=False event and log a misleading "compensator
-        # failed" warning. poll() is None means "still running";
-        # anything else is a valid exit code and the process is
-        # gone.
-        if self.popen.poll() is not None:
-            self._disposed = True
-            return True
         # Route through the module_05 process-group tree-killer so a
         # leaked grandchild is caught structurally (the whole reason
         # the primitive exists per Lens C C-03).
         from ract.executor.process_group import ProcessGroupHandle, kill_tree
 
+        # Determine dispose path for telemetry BEFORE the kill fires.
         try:
-            # Build a minimal ProcessGroupHandle around the Popen so
-            # kill_tree gets the fields it needs. spawned_at is
-            # best-effort; latency is a secondary telemetry axis.
+            poll_result = self.popen.poll()
+        except Exception:  # noqa: BLE001 -- poll rarely raises, guard anyway
+            poll_result = None
+        path = "poll_exited" if poll_result is not None else "explicit"
+
+        try:
+            # Build a ProcessGroupHandle around the Popen carrying the
+            # identity + retroactive pgid/Job Object binding captured
+            # at construction. kill_tree uses those to reach the
+            # process group / Job Object bag rather than per-pid.
             handle = ProcessGroupHandle(
                 popen=self.popen,
+                pgid=self._captured_pgid,
+                job_handle=self._captured_job_handle,
                 argv=tuple(getattr(self.popen, "args", ()) or ()),
                 spawned_at=time.monotonic(),
+                identity=self._spawn_identity,
+            )
+            _emit_tree_kill_invoked(
+                handle=handle,
+                path=path,
+                reason=reason,
             )
             kill_tree(handle)
             self._disposed = True
@@ -197,6 +304,13 @@ class SubprocessSubagentHandle:
                 reason,
                 self.kind,
                 exc,
+            )
+            _emit_tree_kill_invoked(
+                handle=None,
+                path="error",
+                reason=reason,
+                popen_pid=getattr(self.popen, "pid", None),
+                identity=self._spawn_identity,
             )
             # Mark disposed anyway to prevent retry loops on the same
             # dead handle; the failure is logged for the operator.
@@ -248,6 +362,53 @@ class InlineSubagentHandle:
         return ok
 
 
+def _emit_tree_kill_invoked(
+    *,
+    handle: Any,
+    path: str,
+    reason: str,
+    popen_pid: int | None = None,
+    identity: ProcessIdentity | None = None,
+) -> None:
+    """Emit ``substrate.subagent.tree_kill_invoked`` unconditionally.
+
+    Fires every time :meth:`SubprocessSubagentHandle.dispose` calls
+    into :func:`kill_tree`, regardless of whether the parent Popen
+    already exited. Payload carries the pid, spawn-time
+    ``creation_time_ns``, the ``path`` field (``"poll_exited"`` /
+    ``"explicit"`` / ``"error"``), and the caller's ``reason``.
+
+    The ``"poll_exited"`` path is the load-bearing DA-A F-4
+    telemetry: pre-hardening this path was skipped; post-hardening
+    it fires and the event proves it.
+    """
+    try:
+        from ract.trace.sink import emit as _emit_event  # noqa: PLC0415
+
+        pid = None
+        ctime = None
+        if handle is not None:
+            pid = getattr(handle, "pid", None)
+            ident = getattr(handle, "identity", None)
+            if ident is not None:
+                ctime = int(ident.creation_time_ns)
+        if pid is None and popen_pid is not None:
+            pid = int(popen_pid)
+        if ctime is None and identity is not None:
+            ctime = int(identity.creation_time_ns)
+        _emit_event(
+            "substrate.subagent.tree_kill_invoked",  # type: ignore[arg-type]
+            {
+                "pid": int(pid) if pid is not None else -1,
+                "creation_time_ns": int(ctime) if ctime is not None else 0,
+                "path": str(path),
+                "reason": str(reason),
+            },
+        )
+    except Exception:  # noqa: BLE001 -- never fail dispose on trace error
+        pass
+
+
 def emit_subagent_disposed_event(
     handle: SubagentHandle,
     *,
@@ -285,6 +446,7 @@ __all__ = [
     "InlineSubagentHandle",
     "SubagentHandle",
     "SubprocessSubagentHandle",
+    "_emit_tree_kill_invoked",
     "emit_subagent_disposed_event",
 ]
 

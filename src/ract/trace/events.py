@@ -199,6 +199,40 @@ EventKind = Literal[
     # first-class trace signal an auditor can grep to reconstruct
     # which subagents cascaded on which halt cause.
     "subagent.disposed",
+    # v0.5.2 hardening module_03 (DA-A F-4 + Ox Alpha M-5). Three
+    # new kinds cover subagent-lifecycle observability:
+    #
+    # ``substrate.subagent.tree_kill_invoked`` -- fires every time
+    # :meth:`SubprocessSubagentHandle.dispose` calls into
+    # :func:`process_group.kill_tree`, regardless of whether the
+    # parent Popen has already exited. Payload carries ``pid``,
+    # ``creation_time_ns`` (spawn-time identity), and ``path`` one
+    # of ``"poll_exited"`` / ``"timeout"`` / ``"explicit"`` /
+    # ``"error"``. The ``poll_exited`` path is the load-bearing
+    # DA-A F-4 fix: pre-hardening the short-circuit skipped tree-
+    # kill in that case and grandchildren were leaked; now it fires
+    # unconditionally.
+    "substrate.subagent.tree_kill_invoked",
+    # ``substrate.subagent.pid_reuse_detected`` -- fires when
+    # :func:`process_identity.same_process` refuses a signal because
+    # the pid's live creation_time_ns no longer matches the value
+    # captured at spawn. Payload carries ``stored_pid``,
+    # ``stored_ctime`` (creation_time_ns from spawn), and
+    # ``current_ctime`` (creation_time_ns of the pid RIGHT NOW).
+    # The event MUST cause the caller to skip the signal -- killing
+    # the wrong tenant would be worse than a leaked descendant.
+    "substrate.subagent.pid_reuse_detected",
+    # ``substrate.subagent.orphan_reaped`` -- fires when tree-kill
+    # actually terminated live descendants after the parent Popen
+    # exited. Payload carries ``count`` (int; number of descendants
+    # observed alive pre-kill) and ``pids`` (list of ints; capped
+    # at 32 to bound payload size). Distinct from
+    # ``tree_kill_invoked`` because ``tree_kill_invoked`` fires
+    # unconditionally on every dispose while ``orphan_reaped`` only
+    # fires when we ACTUALLY caught reparented descendants -- the
+    # audit signal an operator uses to confirm the DA-A F-4 defense
+    # is doing real work.
+    "substrate.subagent.orphan_reaped",
 ]
 
 
