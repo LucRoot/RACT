@@ -107,9 +107,21 @@ class Chunk:
       chunk symbols; ``"i/N"`` for sub-chunks; ``"oversize:i/N"`` for
       oversize sub-chunks).
     - ``start_line`` / ``end_line`` — 1-indexed inclusive source lines.
-    - ``summary_pending`` — ``True`` when a SUMMARY-format render was
-      requested but no provider was supplied; the placeholder body is
-      ``"summary unavailable"`` and callers should surface this state.
+    - ``summary_pending`` — ``False`` on every SUMMARY-format render
+      that produces a non-empty body. In v0.5.1 the SUMMARY branch of
+      :func:`format_chunk` calls
+      :func:`ract.memory.summary.summarize_chunk_deterministic` when
+      no provider is supplied and returns a real deterministic body
+      (signature + docstring + control-flow shape + external calls),
+      so the flag is ``True`` only in the degenerate case of an
+      empty body (chunk with empty ``body`` AND empty ``signature``
+      — the deterministic path still emits ``"control: none"`` in
+      practice, keeping the body non-empty). Pre-module_05 semantics
+      (``True`` + body ``"summary unavailable"`` whenever no provider
+      supplied) are gone; the Bonsai-council model-based path is
+      deferred to v0.6 per ADR-0046. SP amendment 2026-08-21
+      (Ox Alpha Q3-3): field docstring rewritten; pre-amendment text
+      described the removed placeholder behaviour.
     - ``metadata`` — free-form key/value map for downstream consumers;
       the retrieve primitive attaches ``source_index`` (``symbol`` /
       ``graph`` / ``semantic`` / ``symbol_from_graph``) and other
@@ -202,6 +214,32 @@ def chunk_from_symbol(row: SymbolRow, source: str | bytes) -> Chunk:
     )
 
 
+def _infer_language_from_path(file_path: str) -> str | None:
+    """Best-effort language inference from a file path's suffix.
+
+    ``ChunkRow`` does not carry a language column (semantic-index
+    schema is v0.5.0-stable). To keep SUMMARY control-flow counters
+    from mis-defaulting to Python on non-Python bodies flowing through
+    the semantic index, this helper maps common suffixes to the
+    language labels the shipped chunkers use. Unknown suffixes return
+    ``None`` (callers preserve the pre-module_05 behaviour).
+
+    Module_05 SP amendment (nemotron_ultra Q10 item 5).
+    """
+    lower = file_path.lower()
+    if lower.endswith(".py") or lower.endswith(".pyi"):
+        return "python"
+    if lower.endswith((".ts", ".tsx")):
+        return "typescript"
+    if lower.endswith((".js", ".jsx", ".mjs", ".cjs")):
+        return "javascript"
+    if lower.endswith(".rs"):
+        return "rust"
+    if lower.endswith(".go"):
+        return "go"
+    return None
+
+
 def chunk_from_chunk_row(chunk_row: Any, source_index_label: str = "semantic") -> Chunk:
     """Build a :class:`Chunk` from a module_04
     :class:`~ract.memory.semantic_index.ChunkRow`.
@@ -211,6 +249,13 @@ def chunk_from_chunk_row(chunk_row: Any, source_index_label: str = "semantic") -
     ``chunk_locator`` starts with ``"oversize:"``. The retrieve
     primitive reads this flag and either surfaces the chunk with a
     truncation note or excludes it with a ``chunk too large`` marker.
+
+    Language is inferred from :attr:`ChunkRow.file_path` suffix via
+    :func:`_infer_language_from_path` so downstream SUMMARY formatting
+    picks the correct per-language control-flow keyword catalog
+    (module_05 SP amendment: pre-amendment behaviour set
+    ``language=None`` which caused non-Python bodies to fall back to
+    the Python regex catalogue for control-flow counting).
     """
     locator = chunk_row.chunk_locator
     oversize = locator.startswith("oversize:")
@@ -219,7 +264,7 @@ def chunk_from_chunk_row(chunk_row: Any, source_index_label: str = "semantic") -
         symbol_id=chunk_row.symbol_id,
         symbol_name=_extract_symbol_name(chunk_row),
         file_path=chunk_row.file_path,
-        language=None,
+        language=_infer_language_from_path(chunk_row.file_path),
         kind=chunk_row.chunk_kind,
         signature=chunk_row.signature or "",
         body=chunk_row.body,

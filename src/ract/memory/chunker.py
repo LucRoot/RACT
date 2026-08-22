@@ -41,10 +41,23 @@ via :func:`ract.memory.chunk.format_chunk` in SUMMARY mode
 AST-deterministic body, module_05; ADR-0046 pins the Bonsai model path
 as v0.6).
 
-Byte-identical reassembly: concatenating the sub-chunk bodies in
-locator order reproduces the original body byte-for-byte. This is a
-hard invariant asserted by
+Byte-identical reassembly (piece level): the AST splitter
+(:func:`_split_python_ast_boundaries`) is structurally guaranteed to
+produce pieces whose concatenation reproduces the original body
+byte-for-byte, and the guarantee is asserted by the Hypothesis
+property in
 :mod:`tests.property.test_ast_sub_chunks_cover_function_body`.
+
+Reassembly at the ``ChunkRow`` level is one indirection removed:
+:func:`chunk_symbol` prepends ``{signature}\\n`` to each piece so
+concatenating the raw ChunkRow bodies would duplicate the signature.
+Callers that want to reassemble the original body iterate sub-chunks
+in locator order and strip the signature prefix (the
+:class:`ract.memory.chunk.ChunkFormat.BODY_ONLY` render does exactly
+this via :func:`ract.memory.chunk._strip_signature`). SP amendment
+2026-08-21 (Ox Alpha Q3-2): docstring reworded to distinguish
+piece-level vs ChunkRow-level reassembly; pre-amendment text
+overclaimed body-level byte-identity.
 """
 
 from __future__ import annotations
@@ -406,12 +419,23 @@ def chunk_symbol(row: SymbolRow, source: str | bytes) -> list["ChunkRow"]:
 
     Small symbols produce one chunk. Symbols whose ``token_count``
     exceeds :data:`MAX_TOKENS_PER_CHUNK` are split at logical
-    boundaries (blank-line separated blocks); each sub-chunk carries
-    the parent signature and a locator like ``"1/3"``.
+    boundaries (per-language AST for Python via
+    :func:`_split_python_ast_boundaries`; blank-line-group heuristic
+    fallback for other languages and unparseable Python — see
+    :func:`_split_semantic_boundaries`); each sub-chunk carries the
+    parent signature and a locator like ``"1/3"``.
 
-    Reassembly is deterministic: sub-chunk locators are sorted
-    ``"i/N"`` for ``i in 0..N-1``; concatenating the bodies in
-    locator order reproduces the original body.
+    Reassembly is deterministic at the piece level: sub-chunk
+    locators are sorted ``"i/N"`` for ``i in 0..N-1`` and the AST
+    splitter is structurally guaranteed to produce pieces whose
+    concatenation reproduces the original body byte-for-byte (see
+    :mod:`tests.property.test_ast_sub_chunks_cover_function_body`).
+    Reassembly from the RAW ``ChunkRow.body`` values is one
+    indirection removed: :func:`chunk_symbol` prepends
+    ``{signature}\\n`` before each piece, so a caller reassembling
+    the original body must strip that prefix per chunk (or use the
+    :class:`ract.memory.chunk.ChunkFormat.BODY_ONLY` render which
+    does exactly that).
 
     If a single logical sub-chunk still exceeds
     :data:`MAX_TOKENS_PER_CHUNK`, it is emitted as-is with the
