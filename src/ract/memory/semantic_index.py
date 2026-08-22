@@ -144,6 +144,22 @@ class ChunkRow(NamedTuple):
     - ``vector`` — the embedding. ``None`` on chunks the builder
       has not yet embedded; a live search never reads ``None``
       vectors because the builder embeds before insert.
+    - ``sub_chunk_method`` — module_05 SP amendment (cross-family SP reviewer
+      Q10 item 1). Names the splitter that produced this row when it
+      is a sub-chunk: one of :data:`~ract.memory.chunker.SUB_CHUNK_METHOD_AST`
+      / :data:`~ract.memory.chunker.SUB_CHUNK_METHOD_BLANK_LINE`, or
+      ``None`` for single-chunk symbols (no split ran) and for rows
+      re-hydrated from the LanceDB store (persistence deferred to
+      v0.6 with the schema bump). Downstream may branch on the
+      splitter that fired without re-reading the chunker source.
+    - ``language`` — module_05 SP amendment (cross-family SP reviewer Q10 item
+      5). Threaded from :attr:`~ract.memory.symbol_index.SymbolRow.language`
+      at chunk-build time so downstream SUMMARY formatting selects
+      the correct per-language control-flow keyword catalog on rows
+      that pre-date the store's language column. ``None`` for rows
+      re-hydrated from LanceDB (persistence deferred to v0.6);
+      callers derive language from :attr:`file_path` suffix in that
+      case (see :func:`ract.memory.chunk._infer_language_from_path`).
     """
 
     chunk_id: str
@@ -159,6 +175,8 @@ class ChunkRow(NamedTuple):
     end_line: int | None
     updated_at: int
     vector: list[float] | None
+    sub_chunk_method: str | None = None
+    language: str | None = None
 
 
 class SemanticIndex:
