@@ -626,6 +626,23 @@ class SubstrateLoop:
         effective_env = env
         if effective_env is None and self._current_sandbox_env is not None:
             effective_env = dict(self._current_sandbox_env)
+
+        # v0.5.2 module_04 (DA-B F-3.1 closure): inject ambient
+        # RACT_RUN_ID into the child env so
+        # :func:`ract.runtime.bootstrap_ambient_from_env` at subagent
+        # boot can rebind the ContextVar the parent had at spawn
+        # time. Any parent-supplied RACT_RUN_ID value (attacker
+        # sneak-vector) was already stripped by
+        # :func:`ract.security.sandbox_env.strip_ract_internal_keys`
+        # -- but we also strip here defensively when the caller
+        # passed an ``env`` dict WITHOUT going through the sandbox
+        # path (Windows unenforced stub, ad-hoc test callers).
+        #
+        # Ox Alpha co-build Bug #3 fold: capture ambient ONCE per
+        # spawn to close the async ContextVar race window.
+        _ambient_snapshot = _capture_ambient_run_id_once()
+        effective_env = _inject_ract_run_id_env(effective_env, _ambient_snapshot)
+
         handle = spawn(
             argv,
             env=effective_env,
@@ -635,6 +652,8 @@ class SubstrateLoop:
             stderr=stderr,
         )
         self._active_process_handles.append(handle)
+        # Emit trace event AFTER spawn so child_pid is real.
+        _emit_run_id_env_injected(effective_env, handle)
         return handle
 
     def _deregister_process_handle(self, handle: ProcessGroupHandle) -> None:
@@ -1195,6 +1214,139 @@ def _extract_sandbox_env(sandbox_ctx: object) -> dict[str, str] | None:
         # but a foreign backend might slip in non-string values.
         return {str(k): str(v) for k, v in env_attr.items()}
     return None
+
+
+def _capture_ambient_run_id_once() -> str | None:
+    """Snapshot the ambient run_id at spawn-time (single source of
+    truth per spawn call).
+
+    v0.5.2 module_04 Ox Alpha co-build bug fold (Bug #3 -- async
+    ContextVar race). Reading :func:`get_current_run_id` more than
+    once per spawn creates a window where a concurrent binder
+    swaps the ambient between reads; the injected env value and the
+    parent-side observability event could reference different
+    ids. Callers MUST route every ambient consultation for one
+    spawn through this snapshot.
+
+    Returns the ambient value at call time, or ``None`` when no
+    ambient is bound.
+    """
+    from ract.runtime import get_current_run_id  # noqa: PLC0415
+
+    return get_current_run_id()
+
+
+def _inject_ract_run_id_env(
+    env: dict[str, str] | None,
+    ambient: str | None,
+) -> dict[str, str] | None:
+    """Return an env dict with a fresh RACT_RUN_ID from ambient.
+
+    v0.5.2 module_04 (DA-B F-3.1 closure).
+
+    - ``env=None`` + no ambient: return ``None`` (child inherits
+      parent env unchanged, matching pre-module_04 behavior).
+    - ``env=None`` + ambient bound: build a bare
+      ``{RACT_RUN_ID: <ambient>}`` mini-env. NOTE: this mode is
+      intentionally narrow because a bare env would drop PATH /
+      HOME and break most subprocesses. Callers that rely on
+      env=None SHOULD ensure the loop's sandbox env is populated
+      (:attr:`_current_sandbox_env`) first; the module_02 wiring
+      handles this for every sandboxed step.
+    - ``env=<dict>`` + ambient bound: STRIP any inbound RACT_RUN_ID
+      key (attacker sneak-vector defense) then re-inject the
+      ambient value. Case-insensitive strip on Windows.
+    - ``env=<dict>`` + no ambient: STRIP any inbound RACT_RUN_ID
+      key (still defends against poisoning even outside a bound
+      run) and pass through the rest.
+
+    The strip step mirrors
+    :func:`ract.security.sandbox_env.strip_ract_internal_keys` --
+    kept inline here so this method is safe to call from ad-hoc
+    test callers that bypass the sandbox path.
+    """
+    from ract.runtime import RACT_RUN_ID_ENV_KEY  # noqa: PLC0415
+    from ract.security.sandbox_env import (  # noqa: PLC0415
+        strip_ract_internal_keys,
+    )
+
+    # ``ambient`` is passed in as the capture-once snapshot from
+    # :func:`_capture_ambient_run_id_once` (Ox Alpha Bug #3 fold).
+    if env is None:
+        if not ambient:
+            return None
+        return {RACT_RUN_ID_ENV_KEY: ambient}
+
+    cleaned, stripped = strip_ract_internal_keys(env)
+    if stripped:
+        _emit_env_stripped_from_parent(stripped)
+    if ambient:
+        cleaned[RACT_RUN_ID_ENV_KEY] = ambient
+    return cleaned
+
+
+def _emit_env_stripped_from_parent(stripped_names: list[str]) -> None:
+    """Emit ``runtime.run_id.env_stripped_from_parent`` per stripped key.
+
+    v0.5.2 module_04. Fires when
+    :func:`_inject_ract_run_id_env` discards a RACT-owned env key
+    from the caller's env dict -- an audit signal that an attacker
+    may have attempted a sneak, OR that a well-meaning caller
+    plumbed the key manually (which we now forbid).
+
+    Payload carries a HASH of the stripped value, not the raw value,
+    so a poisoned run_id string does not appear in the trace log.
+    """
+    try:
+        from ract.trace.sink import emit as _emit  # noqa: PLC0415
+        import hashlib as _hl  # noqa: PLC0415
+
+        for name in stripped_names:
+            _emit(
+                "runtime.run_id.env_stripped_from_parent",  # type: ignore[arg-type]
+                {
+                    "stripped_key": name,
+                    "stripped_value_hash": _hl.sha256(
+                        f"{name}=".encode("utf-8")
+                    ).hexdigest()[:16],
+                },
+            )
+    except Exception:  # noqa: BLE001 -- audit signal
+        pass
+
+
+def _emit_run_id_env_injected(
+    env: dict[str, str] | None, handle: object
+) -> None:
+    """Emit ``runtime.run_id.env_injected`` for a spawned subagent.
+
+    v0.5.2 module_04. Fires when
+    :meth:`SubstrateLoop.spawn_step_subprocess` has actually plumbed
+    RACT_RUN_ID into a spawned child. When the env has no
+    RACT_RUN_ID (no ambient at parent), no event is emitted --
+    child will orphan-generate at boot and emit its OWN
+    ``orphan_generated`` event with its own run_id.
+    """
+    try:
+        from ract.runtime import RACT_RUN_ID_ENV_KEY  # noqa: PLC0415
+        from ract.trace.sink import emit as _emit  # noqa: PLC0415
+
+        if env is None:
+            return
+        rid = env.get(RACT_RUN_ID_ENV_KEY)
+        if not rid:
+            return
+        child_pid = getattr(handle, "pid", -1)
+        _emit(
+            "runtime.run_id.env_injected",  # type: ignore[arg-type]
+            {
+                "run_id": str(rid),
+                "child_pid": int(child_pid) if isinstance(child_pid, int) else -1,
+                "source": "spawn_step_subprocess",
+            },
+        )
+    except Exception:  # noqa: BLE001 -- audit signal
+        pass
 
 
 def _emit_process_reaped(handle: object, *, reason: str) -> None:
