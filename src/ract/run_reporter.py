@@ -255,7 +255,11 @@ class RunReporter:
         # for callers that only use the legacy reporter surface.
         from ract.trace.writer import EventReader
 
-        events = list(EventReader.iter_events(events_path))
+        # v0.5.2 module_05 (Fork 4 (b)): deliberate materialization
+        # -- report renderers fold every event to build counts,
+        # milestones, iterations. Streaming fold would work but
+        # requires a bigger refactor deferred to v0.6.
+        events = EventReader.read_all_events(events_path)
         if not events:
             return {
                 "final_decision": "unknown",

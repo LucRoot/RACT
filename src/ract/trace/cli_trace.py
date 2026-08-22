@@ -47,7 +47,11 @@ def _run_events_path(runs_root: Path, run_id: str) -> Path:
 
 
 def _load_events(path: Path) -> list[Event]:
-    return list(EventReader.iter_events(path))
+    # v0.5.2 module_05 (Fork 4 (b)): deliberate materialization
+    # -- the CLI trace subcommands render everything at once and
+    # the file lives within a single run's events.jsonl (bounded
+    # size in practice).
+    return EventReader.read_all_events(path)
 
 
 def _events_up_to_step(events: list[Event], step_hex: str) -> list[Event]:
@@ -477,6 +481,68 @@ def cmd_repair(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_verify(args: argparse.Namespace) -> int:
+    """Verify a run's event-log hash chain (v0.5.2 module_05).
+
+    Warm path by default: reads
+    ``<run_dir>/{run_id}.verify.json`` sidecar and replays only
+    the delta past ``last_verified_offset``. Cold verify
+    (``--cold``) ignores the sidecar and re-reads the whole
+    file from GENESIS. On a suspected-tamper investigation,
+    always use ``--cold``.
+
+    Prints one status line + a summary. Exit codes:
+
+    - 0 -- VALID or TORN_TAIL (chain is resumable)
+    - 1 -- INVALID (structural refusal recoverable as a dataclass)
+    - 2 -- TAMPERED (hash mismatch OR mutated payload)
+    - 3 -- no event log at the resolved path
+    """
+    from ract.trace.verify import verify_trace as _verify_trace
+
+    log_path = _run_events_path(args.runs_root, args.run_id)
+    if not log_path.is_file():
+        print(f"[ract] no event log at {log_path}", file=sys.stderr)
+        return 3
+    result = _verify_trace(
+        log_path,
+        run_id_hex=args.run_id,
+        force_cold=args.cold,
+    )
+    payload = {
+        "run_id": args.run_id,
+        "log_path": str(log_path),
+        "status": result.status,
+        "verified_head": result.verified_head,
+        "verified_offset": result.verified_offset,
+        "events_verified": result.events_verified,
+        "events_torn": result.events_torn,
+        "events_tampered": result.events_tampered,
+        "reason": result.reason,
+        "is_valid": result.is_valid,
+        "is_healthy": result.is_healthy,
+        "tamper_details": result.tamper_details,
+    }
+    if args.json_output:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"[ract trace verify] {args.run_id}")
+        print(f"  status: {result.status}")
+        print(f"  events verified: {result.events_verified}")
+        if result.events_torn:
+            print(f"  events torn: {result.events_torn}")
+        if result.events_tampered:
+            print(f"  events tampered: {result.events_tampered}")
+            if result.tamper_details:
+                print(f"  tamper offset: {result.tamper_details.get('offset')}")
+        print(f"  reason: {result.reason}")
+    if result.status == "TAMPERED":
+        return 2
+    if result.status == "INVALID":
+        return 1
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Top-level dispatch
 # ---------------------------------------------------------------------------
@@ -552,6 +618,26 @@ def _trace_command(argv: list[str]) -> int:
     )
     repair_parser.add_argument("--json", action="store_true", dest="json_output")
 
+    verify_parser = subparsers.add_parser(
+        "verify",
+        help=(
+            "Verify a run's event-log hash chain (warm sidecar by "
+            "default; --cold for full-file replay)."
+        ),
+    )
+    verify_parser.add_argument("run_id")
+    verify_parser.add_argument(
+        "--cold",
+        action="store_true",
+        help=(
+            "Ignore any warm-verify sidecar and re-verify from "
+            "GENESIS. Use when tamper is suspected."
+        ),
+    )
+    verify_parser.add_argument(
+        "--json", action="store_true", dest="json_output"
+    )
+
     parsed = parser.parse_args(argv)
     if parsed.verb == "replay":
         return cmd_replay(parsed)
@@ -563,10 +649,20 @@ def _trace_command(argv: list[str]) -> int:
         return cmd_to_test(parsed)
     if parsed.verb == "repair":
         return cmd_repair(parsed)
+    if parsed.verb == "verify":
+        return cmd_verify(parsed)
     return 1  # pragma: no cover — argparse enforces
 
 
-__all__ = ["_trace_command", "cmd_diff", "cmd_fork", "cmd_replay", "cmd_to_test"]
+__all__ = [
+    "_trace_command",
+    "cmd_diff",
+    "cmd_fork",
+    "cmd_replay",
+    "cmd_repair",
+    "cmd_to_test",
+    "cmd_verify",
+]
 
 
 # RACT 0.4.0

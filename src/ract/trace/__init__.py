@@ -29,6 +29,15 @@ from ract.trace.sink import (
     has_writer,
     set_writer,
 )
+from ract.trace.verify import (
+    TRACE_VERIFY_SIDECAR_SCHEMA,
+    TRACE_VERIFY_SIDECAR_TYPE,
+    TraceVerifyResult,
+    TraceVerifyStatus,
+    cold_verify,
+    persist_verify_sidecar,
+    verify_trace,
+)
 from ract.trace.writer import EventReader, JsonlEventWriter, RedactionProfile
 
 __all__ = [
@@ -41,8 +50,13 @@ __all__ = [
     "LEGAL_EVENT_KINDS",
     "OtlpExporter",
     "RedactionProfile",
+    "TRACE_VERIFY_SIDECAR_SCHEMA",
+    "TRACE_VERIFY_SIDECAR_TYPE",
+    "TraceVerifyResult",
+    "TraceVerifyStatus",
     "canonical_payload_bytes",
     "clear_writer",
+    "cold_verify",
     "current_writer",
     "emit",
     "event_to_span_attributes",
@@ -50,7 +64,9 @@ __all__ = [
     "hash_event",
     "install_otlp_exporter",
     "new_event_id",
+    "persist_verify_sidecar",
     "set_writer",
+    "verify_trace",
 ]
 
 
