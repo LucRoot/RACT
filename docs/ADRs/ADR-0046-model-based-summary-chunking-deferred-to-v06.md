@@ -229,14 +229,15 @@ provider.
   the summarizer is wired as a shipping caller.
 - Non-Python AST sub-chunker paths (TypeScript / Rust / Go) ship in
   v0.5.1 as blank-line heuristic fallbacks. The dispatch function
-  `chunker._split_semantic_boundaries` returns the method marker
-  (`SUB_CHUNK_METHOD_AST` / `SUB_CHUNK_METHOD_BLANK_LINE`) so
-  regression tests can assert which branch fired, but the value is
-  NOT threaded into `ChunkRow` metadata in v0.5.1 — the schema
-  addition is deferred to v0.6 so downstream consumers can observe
-  the method. Full AST boundary support for TS/Rust/Go also remains
-  v0.6 alongside the five deferred language chunkers
-  (Java / Kotlin / C# / C / C++). SP amendment 2026-08-21
-  (Ox Alpha Q3-1): corrected wording; pre-amendment text claimed
-  "explicit `sub_chunk_method` metadata" ships, which was false
-  because `chunk_symbol` discards the returned method value.
+  `chunker._split_semantic_boundaries` returns a method marker
+  (`SUB_CHUNK_METHOD_AST` / `SUB_CHUNK_METHOD_BLANK_LINE`) which is
+  threaded through `ChunkRow.sub_chunk_method` and surfaced on
+  `Chunk.sub_chunk_method` for downstream observability (SP fold-
+  through of the initial Ox Alpha Q3-1 finding). Full AST boundary
+  support for TS/Rust/Go remains v0.6 alongside the five deferred
+  language chunkers (Java / Kotlin / C# / C / C++). SP amendment
+  2026-08-21 (Ox Alpha Q3-1 initial finding): pre-amendment text
+  in this section claimed metadata shipped when the dispatch value
+  was in fact `del`eted in `chunk_symbol`. The follow-through
+  wired the value through instead of merely amending the wording,
+  so the claim is now true rather than softened.

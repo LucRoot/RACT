@@ -147,6 +147,7 @@ def _build_chunk(
     locator: str,
     signature: str | None,
     stamp: int,
+    sub_chunk_method: str | None = None,
 ) -> "ChunkRow":
     from ract.memory.semantic_index import ChunkRow  # avoid import cycle at load
 
@@ -168,6 +169,8 @@ def _build_chunk(
         end_line=row.end_line,
         updated_at=stamp,
         vector=None,
+        sub_chunk_method=sub_chunk_method,
+        language=row.language,
     )
 
 
@@ -228,6 +231,35 @@ def _split_blank_line_groups(body: str) -> list[str]:
     if not pieces:
         pieces = [body]
     return pieces
+
+
+def _resolve_end_lineno(node: ast.AST) -> int:
+    """Return the maximum ``end_lineno`` reached by ``node`` or any of its
+    descendants, falling back to ``node.lineno`` when nothing recorded one.
+
+    Module_05 SP amendment (cross-family SP reviewer Q10 item 2). Pre-amendment the
+    caller read ``getattr(stmt, 'end_lineno', None) or lineno``; on complex
+    nested statements (Python <3.8 or trees built without full lineno
+    propagation) ``end_lineno`` can be ``None`` on the outer node while
+    inner children still carry it. Collapsing to ``lineno`` truncated the
+    slice to a single line, which then failed the byte-identical
+    reassembly check inside :func:`_split_python_ast_boundaries` and
+    triggered a fallthrough to the blank-line heuristic — losing the
+    semantic boundary the AST walker was supposed to protect.
+
+    Walking children with :func:`ast.walk` and taking the max
+    ``end_lineno`` (with ``lineno`` as the floor) covers the nested-
+    control-flow case without depending on any specific stdlib version.
+    """
+    best: int = getattr(node, "lineno", 1) or 1
+    for child in ast.walk(node):
+        child_end = getattr(child, "end_lineno", None)
+        if child_end is not None and child_end > best:
+            best = child_end
+        child_line = getattr(child, "lineno", None)
+        if child_line is not None and child_line > best:
+            best = child_line
+    return best
 
 
 def _split_python_ast_boundaries(body: str) -> list[str] | None:
@@ -311,7 +343,7 @@ def _split_python_ast_boundaries(body: str) -> list[str] | None:
 
     for stmt in inner:
         lineno = stmt.lineno
-        end_lineno = getattr(stmt, "end_lineno", None) or lineno
+        end_lineno = _resolve_end_lineno(stmt)
         if _is_control_flow(stmt):
             _flush_run()
             segments.append((lineno, end_lineno))
@@ -471,12 +503,13 @@ def chunk_symbol(row: SymbolRow, source: str | bytes) -> list["ChunkRow"]:
     if tokens <= MAX_TOKENS_PER_CHUNK:
         return [_build_chunk(row, body, chunk_kind, "0/1", signature, stamp)]
     # Split. Per-language dispatch (Python → stdlib AST boundaries;
-    # others → blank-line fallback). ``sub_method`` is currently only
-    # asserted by regression tests; if a caller needs to surface it
-    # downstream, thread it through :class:`ChunkRow` in a future
-    # follow-up.
+    # others → blank-line fallback). ``sub_method`` is surfaced on
+    # every emitted :class:`ChunkRow` (module_05 SP amendment
+    # cross-family SP reviewer Q10 item 1) so downstream can observe which
+    # splitter fired without having to re-read the chunker source.
+    # The value is not persisted to LanceDB in v0.5.1 (schema stability);
+    # rows re-hydrated from disk carry ``sub_chunk_method=None``.
     logical_pieces, sub_method = _split_semantic_boundaries(body, row.language)
-    del sub_method  # v0.5.1: value observed via test surface only.
     resolved_pieces: list[str] = []
     for piece in logical_pieces:
         piece_tokens = estimate_tokens(piece)
@@ -531,6 +564,7 @@ def chunk_symbol(row: SymbolRow, source: str | bytes) -> list["ChunkRow"]:
                 locator=locator,
                 signature=signature,
                 stamp=stamp,
+                sub_chunk_method=sub_method,
             )
         )
     return chunks

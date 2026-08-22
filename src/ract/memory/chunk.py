@@ -144,6 +144,7 @@ class Chunk:
     start_line: int | None
     end_line: int | None
     summary_pending: bool = False
+    sub_chunk_method: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -224,7 +225,7 @@ def _infer_language_from_path(file_path: str) -> str | None:
     language labels the shipped chunkers use. Unknown suffixes return
     ``None`` (callers preserve the pre-module_05 behaviour).
 
-    Module_05 SP amendment (nemotron_ultra Q10 item 5).
+    Module_05 SP amendment (cross-family SP reviewer Q10 item 5).
     """
     lower = file_path.lower()
     if lower.endswith(".py") or lower.endswith(".pyi"):
@@ -250,21 +251,32 @@ def chunk_from_chunk_row(chunk_row: Any, source_index_label: str = "semantic") -
     primitive reads this flag and either surfaces the chunk with a
     truncation note or excludes it with a ``chunk too large`` marker.
 
-    Language is inferred from :attr:`ChunkRow.file_path` suffix via
+    Language is threaded from :attr:`ChunkRow.language` when present
+    (module_05 SP amendment cross-family SP reviewer Q10 item 5 — the chunker
+    now populates that field from :attr:`SymbolRow.language` at
+    build time). When the ChunkRow was re-hydrated from LanceDB and
+    carries ``language=None`` (persistence deferred to v0.6), the
+    language falls back to :attr:`ChunkRow.file_path` suffix via
     :func:`_infer_language_from_path` so downstream SUMMARY formatting
-    picks the correct per-language control-flow keyword catalog
-    (module_05 SP amendment: pre-amendment behaviour set
-    ``language=None`` which caused non-Python bodies to fall back to
-    the Python regex catalogue for control-flow counting).
+    still picks the correct per-language control-flow keyword catalog.
+
+    :attr:`ChunkRow.sub_chunk_method` (which splitter fired for the
+    seed row) is surfaced onto the returned :attr:`Chunk.sub_chunk_method`
+    (module_05 SP amendment cross-family SP reviewer Q10 item 1). Re-hydrated
+    rows carry ``None`` for the same v0.5.1 persistence-deferred
+    reason.
     """
     locator = chunk_row.chunk_locator
     oversize = locator.startswith("oversize:")
+    threaded_language = getattr(chunk_row, "language", None)
+    if threaded_language is None:
+        threaded_language = _infer_language_from_path(chunk_row.file_path)
     return Chunk(
         chunk_id=chunk_row.chunk_id,
         symbol_id=chunk_row.symbol_id,
         symbol_name=_extract_symbol_name(chunk_row),
         file_path=chunk_row.file_path,
-        language=_infer_language_from_path(chunk_row.file_path),
+        language=threaded_language,
         kind=chunk_row.chunk_kind,
         signature=chunk_row.signature or "",
         body=chunk_row.body,
@@ -274,6 +286,7 @@ def chunk_from_chunk_row(chunk_row: Any, source_index_label: str = "semantic") -
         chunk_locator=locator,
         start_line=chunk_row.start_line,
         end_line=chunk_row.end_line,
+        sub_chunk_method=getattr(chunk_row, "sub_chunk_method", None),
         metadata={"source_index": source_index_label},
     )
 
@@ -365,6 +378,7 @@ def format_chunk(
         start_line=chunk.start_line,
         end_line=chunk.end_line,
         summary_pending=pending,
+        sub_chunk_method=chunk.sub_chunk_method,
         metadata=dict(chunk.metadata),
     )
 

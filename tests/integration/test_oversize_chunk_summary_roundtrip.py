@@ -1,6 +1,6 @@
 """Integration test: oversize sub-chunk → SUMMARY format round-trip.
 
-Module_05 SP amendment (nemotron_ultra Q10 item 6). The pre-amendment
+Module_05 SP amendment (cross-family SP reviewer Q10 item 6). The pre-amendment
 test surface asserted SUMMARY formatting and oversize marking
 separately but not the composed path — an oversize function body
 passed through :func:`ract.memory.chunker.chunk_symbol` then rendered
@@ -162,6 +162,150 @@ def test_oversize_locator_survives_summary_round_trip() -> None:
     # Oversize flag preserved through SUMMARY rendering.
     assert summary_chunk.oversize is True
     assert summary_chunk.chunk_locator == chunk.chunk_locator
+
+
+def test_oversize_composed_summary_carries_calls_line() -> None:
+    """Amendment 4 (cross-family SP reviewer Q10 item 6): the composed path
+    ``chunk_symbol`` (oversize) → ``format_chunk(SUMMARY)`` on a body
+    that contains explicit external calls MUST surface a
+    ``calls:`` line (in addition to ``control:``). The pre-amendment
+    surface asserted SUMMARY formatting and oversize marking
+    separately; this locks the round-trip.
+    """
+    lines = ["def worker(events):"]
+    # Repeated call targets so the summary has something to surface.
+    for i in range(220):
+        lines.append(f"    result_{i} = compute({i})")
+        lines.append(f"    log_event(result_{i})")
+    lines.append("    for evt in events:")
+    lines.append("        handle(evt)")
+    body = "\n".join(lines) + "\n"
+
+    row = _big_python_row(body)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        chunks = chunk_symbol(row, body)
+    assert len(chunks) >= 2
+
+    # At least one sub-chunk's SUMMARY body must carry BOTH the
+    # `control:` line and the `calls:` line — proves the composed
+    # path fires (not just SUMMARY formatting or oversize marking
+    # separately).
+    saw_control_and_calls = False
+    for chunk_row in chunks:
+        chunk = chunk_from_chunk_row(chunk_row)
+        summary_chunk = format_chunk(chunk, ChunkFormat.SUMMARY)
+        if (
+            "control:" in summary_chunk.body
+            and "calls:" in summary_chunk.body
+        ):
+            saw_control_and_calls = True
+            break
+    assert saw_control_and_calls, (
+        "expected at least one composed oversize→SUMMARY round-trip "
+        "to surface both control: and calls: markers"
+    )
+
+
+def test_sub_chunk_method_surfaced_on_chunkrow_and_chunk() -> None:
+    """Amendment 1 (cross-family SP reviewer Q10 item 1): ``sub_chunk_method``
+    must be observable on the emitted :class:`ChunkRow` and on the
+    :class:`Chunk` derived via :func:`chunk_from_chunk_row`. Pre-
+    amendment the value was ``del sub_method``'d in chunk_symbol and
+    downstream had no way to observe which splitter fired.
+    """
+    from ract.memory.chunker import SUB_CHUNK_METHOD_AST
+
+    # Python body large enough to split, with AST-parseable structure
+    # so the dispatcher picks the AST path.
+    lines = ["def big():"]
+    for i in range(200):
+        lines.append(f"    x{i} = compute({i})")
+    lines.append("    if True:")
+    for i in range(200):
+        lines.append(f"        y{i} = handle({i})")
+    body = "\n".join(lines) + "\n"
+
+    row = _big_python_row(body)
+    chunks = chunk_symbol(row, body)
+    assert len(chunks) >= 2
+
+    # Every emitted ChunkRow carries the AST method.
+    for chunk_row in chunks:
+        assert chunk_row.sub_chunk_method == SUB_CHUNK_METHOD_AST
+        # Language threaded through from SymbolRow.
+        assert chunk_row.language == "python"
+        # And propagates onto the Chunk view.
+        chunk = chunk_from_chunk_row(chunk_row)
+        assert chunk.sub_chunk_method == SUB_CHUNK_METHOD_AST
+        # And survives a SUMMARY format round-trip.
+        summary_chunk = format_chunk(chunk, ChunkFormat.SUMMARY)
+        assert summary_chunk.sub_chunk_method == SUB_CHUNK_METHOD_AST
+
+
+def test_sub_chunk_method_none_on_unsplit_symbol() -> None:
+    """Single-chunk (unsplit) symbols carry ``sub_chunk_method=None``
+    because no splitter ran. Guards against a future refactor that
+    populates the field on every row (which would blur the signal).
+    """
+    row = SymbolRow(
+        id=99,
+        name="tiny",
+        kind="function",
+        file_path="/repo/src/tiny.py",
+        start_line=1,
+        end_line=2,
+        signature="def tiny()",
+        docstring=None,
+        visibility=None,
+        parent_symbol_id=None,
+        language="python",
+        content_hash=None,
+        token_count=None,
+        updated_at=1,
+    )
+    small_body = "def tiny():\n    return 1\n"
+    chunks = chunk_symbol(row, small_body)
+    assert len(chunks) == 1
+    assert chunks[0].sub_chunk_method is None
+    # Language still threaded even on unsplit path.
+    assert chunks[0].language == "python"
+
+
+def test_defensive_end_lineno_walks_nested_control_flow() -> None:
+    """Amendment 2 (cross-family SP reviewer Q10 item 2): the AST splitter
+    resolves ``end_lineno`` via a recursive child walk. Verifies the
+    helper directly against a nested-control-flow node whose outer
+    ``end_lineno`` might be missing on some trees.
+    """
+    import ast
+
+    from ract.memory.chunker import _resolve_end_lineno
+
+    src = (
+        "if outer:\n"
+        "    if middle:\n"
+        "        if inner:\n"
+        "            pass\n"
+    )
+    tree = ast.parse(src)
+    outer_if = tree.body[0]
+    # Outer's end_lineno should reach line 4 (the innermost pass),
+    # whether from outer.end_lineno or via the child walk.
+    assert _resolve_end_lineno(outer_if) >= 4
+    # Simulate a node with no end_lineno anywhere: build a bare Pass
+    # with only lineno set; the helper must not crash and must
+    # return at least lineno.
+
+    class _NakedNode(ast.AST):
+        _fields: tuple[str, ...] = ()
+
+        def __init__(self, lineno: int) -> None:
+            super().__init__()
+            self.lineno = lineno
+
+    naked = _NakedNode(lineno=17)
+    assert _resolve_end_lineno(naked) == 17
 
 
 def test_infer_language_from_path_suffixes() -> None:
