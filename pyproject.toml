@@ -23,6 +23,7 @@ dependencies = [
     # v0.5.0 memory-discipline (module_02 symbol index). ADR-0032.
     "tree-sitter>=0.23,<0.27",
     "tree-sitter-python>=0.25,<0.26",
+    "tree-sitter-javascript>=0.23,<0.26",
     "tree-sitter-typescript>=0.23,<0.24",
     "tree-sitter-rust>=0.24,<0.25",
     "tree-sitter-go>=0.25,<0.26",
