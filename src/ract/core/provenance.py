@@ -823,7 +823,7 @@ def verify_workspace(
         # construction, but ``copy``/pickle restore paths bypass
         # ``__init__``, so the verifier is what closes the attack.
         if knot.schema_version == 4:
-            # v0.5.2 module_01 SP amendment (Ox Alpha + nemotron Q5):
+            # v0.5.2 module_01 SP amendment (Ox Alpha + cross-family Q5):
             # zero-digest sentinel is truthy bytes; explicit sentinel
             # check plugs the bypass.
             from ract.core.rootknot import _ZERO_DIGEST as _ZD
@@ -1027,7 +1027,7 @@ def _classify_violation(
         )
     if knot.schema_version == 4:
         missing_v4: list[str] = []
-        # v0.5.2 module_01 SP amendment (Ox Alpha + nemotron Q5):
+        # v0.5.2 module_01 SP amendment (Ox Alpha + cross-family Q5):
         # zero-digest sentinel treated as missing here too so the
         # classifier surfaces the sharp diagnostic.
         from ract.core.rootknot import _ZERO_DIGEST as _ZD

@@ -458,6 +458,11 @@ class LinuxSandbox:
                         "credential_shaped_unblocked_count": (
                             rendered.env_result.credential_shaped_unblocked_count
                         ),
+                        # v0.5.2 module_02 (DA-A F-3 close): per-family
+                        # bucket counts for the denied allowlist entries.
+                        "refused_family_counts": dict(
+                            rendered.env_result.refused_family_counts
+                        ),
                     },
                 )
             )

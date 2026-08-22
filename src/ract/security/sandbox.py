@@ -253,6 +253,17 @@ class UnenforcedSandbox:
                         "credential_shaped_unblocked_count": (
                             result.credential_shaped_unblocked_count
                         ),
+                        # v0.5.2 module_02 (DA-A F-3 close):
+                        # per-family bucket counts for the denied
+                        # allowlist entries. Auditors correlate
+                        # ``loader``/``interpreter``/``trust_store``/
+                        # ``egress``/``git_tool``/``editor``/
+                        # ``windows_module``/``build_cache``/
+                        # ``credential`` families to specific attack
+                        # classes without leaking any env-var name.
+                        "refused_family_counts": dict(
+                            result.refused_family_counts
+                        ),
                     },
                 )
             )

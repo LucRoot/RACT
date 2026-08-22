@@ -201,6 +201,9 @@ def test_all_three_backends_emit_identical_env_scrubbed_payload_shape(
         # credential-shape detector count -- non-zero flags a new
         # credential family the deny surface does not yet recognise.
         "credential_shaped_unblocked_count",
+        # v0.5.2 module_02 (DA-A F-3 close): per-family bucket counts
+        # for the denied allowlist entries.
+        "refused_family_counts",
     }
     for backend_name, event in events_by_backend.items():
         assert set(event.details.keys()) == expected_keys, (

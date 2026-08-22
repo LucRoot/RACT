@@ -1,6 +1,6 @@
 """v0.5.2 hardening module_01 SP amendment -- zero-digest bypass.
 
-Both Ox Alpha and nemotron_ultra flagged Q5 as a real gap: the
+Both Ox Alpha and the cross-family reviewer flagged Q5 as a real gap: the
 original ``if not self.workspace_digest`` treated
 ``Digest(b"\x00" * 32)`` as "set" because a zero-filled bytes
 subclass is truthy. Semantically the sentinel binds nothing, so it
