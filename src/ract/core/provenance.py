@@ -39,7 +39,12 @@ from ract.core.module_identity import _module_knot, register_module_knot
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
 
-from ract.core.rootknot import GateResult, GeneratorRef, Rootknot
+from ract.core.rootknot import (
+    _KNOWN_SCHEMA_VERSIONS,
+    GateResult,
+    GeneratorRef,
+    Rootknot,
+)
 from ract.core.types import Digest, PlanId, Result, StepId, digest_bytes
 
 
@@ -599,6 +604,7 @@ def verify_workspace(
     approved_gate_exceptions: set[str] | None = None,
     accepted_partial_taint_runs: set[bytes] | None = None,
     strict: bool = False,
+    min_acceptable_schema_version: int | None = None,
 ) -> Result[None, ProvenanceViolation]:
     """Check RK-1, RK-2, RK-3 (v2 sidecars), and AL-1 (v3 sidecars).
 
@@ -623,8 +629,66 @@ def verify_workspace(
       ids read from ``HandshakeRegistry``).
     - AL-1.3: ``knot.reversal_taint == "clean"`` OR the run identified
       by ``knot.plan_id`` appears in ``accepted_partial_taint_runs``.
+
+    v0.5.2 hardening module_01 additions (deep-audit A closure):
+
+    - **Known-versions allowlist** -- any knot whose
+      ``schema_version`` is not in
+      :data:`ract.core.rootknot._KNOWN_SCHEMA_VERSIONS` fails with
+      ``RK-UNKNOWN-SCHEMA`` (Ox Alpha M-2 -- previously a v9 knot fell
+      through the ``schema_version < 3`` gate under v3 semantics).
+    - **v4-label-implies-v4-fields** -- a knot labelled
+      ``schema_version == 4`` whose ``workspace_digest``,
+      ``prompt_digest`` or ``run_id`` are empty fails with
+      ``RK-V4-LABEL-MISMATCH`` (F-1/F-2/F-5 -- previously a
+      SessionKey-holder could mint a v4-labelled attestation binding
+      nothing because ``canonical_bytes()`` emitted the fields only
+      when truthy and the verifier never checked). Ox Alpha co-build
+      (2026-08-22) confirmed this verifier-side check must stay
+      authoritative because deserialisation paths (``copy``/pickle)
+      bypass ``Rootknot.__post_init__``.
+    - **min_acceptable_schema_version** -- when set, any knot whose
+      ``schema_version`` is below the floor fails with
+      ``RK-DOWNGRADE-REFUSED`` (Ox Alpha M-1 -- previously the
+      verifier had no policy floor, so a v4 knot relabelled as v1 and
+      resigned by the same key-holder verified as a weaker
+      attestation). Default ``None`` preserves the backward-compat
+      contract that v0.5.0 v1/v3 payloads keep verifying; operator
+      sets to 4 for strict deployments (see
+      ``docs/PROVENANCE.md`` v0.5.2 additions).
     """
-    knots = index.all_knots()
+    # v0.5.2 module_01: ``Rootknot.__post_init__`` now enforces
+    # v4-label-implies-v4-fields + known-versions allowlist at
+    # construction time. That means loading a malformed sidecar (e.g.
+    # a historic v4-labelled attestation with absent fields) raises
+    # :class:`ract.core.rootknot.RootknotSchemaViolation` before we
+    # ever get here. Convert that into a first-class
+    # :class:`ProvenanceViolation` result so the operator sees the
+    # sharp diagnostic instead of an unhandled exception. Ox Alpha
+    # co-build (2026-08-22) Fork 3 gotcha #2: the verifier-side
+    # ``_check_rk3`` check is still authoritative because
+    # ``copy``/pickle restore paths bypass ``__post_init__`` -- this
+    # try/except is the belt-and-braces load-path surface.
+    from ract.core.rootknot import RootknotSchemaViolation
+
+    try:
+        knots = index.all_knots()
+    except RootknotSchemaViolation as exc:
+        return Result.err(
+            ProvenanceViolation(
+                file=None,
+                predicate=(
+                    "RK-V4-LABEL-MISMATCH"
+                    if exc.missing_fields
+                    else "RK-UNKNOWN-SCHEMA"
+                ),
+                detail=(
+                    f"sidecar refused during load: {exc.reason} "
+                    "(construction-time invariant enforced by "
+                    "Rootknot.__post_init__)"
+                ),
+            )
+        )
     canonical_cache: dict[Digest, bytes] = {}
 
     def canonical_digest(knot: Rootknot) -> Digest:
@@ -687,6 +751,34 @@ def verify_workspace(
         return _check_al1(knot)
 
     def _check_rk3(knot: Rootknot) -> bool:
+        # v0.5.2 module_01 gate #1: known-versions allowlist. Reject
+        # unknown majors BEFORE any semantic dispatch (deep-audit A
+        # M-2). Historically ``if knot.schema_version < 3`` funnelled
+        # unknown v9 through the v3 branch under drifted semantics;
+        # the allowlist closes that door.
+        if knot.schema_version not in _KNOWN_SCHEMA_VERSIONS:
+            return False
+        # v0.5.2 module_01 gate #2: operator-configurable minimum
+        # (Ox Alpha M-1). ``None`` = no floor (backward-compat with
+        # v0.5.0 dispatch that accepted v1/v2/v3 by design).
+        if (
+            min_acceptable_schema_version is not None
+            and knot.schema_version < min_acceptable_schema_version
+        ):
+            return False
+        # v0.5.2 module_01 gate #3: v4-label-implies-v4-fields
+        # (deep-audit A F-1/F-2/F-5). This branch is the
+        # verifier-side authoritative check per Ox Alpha co-build --
+        # ``Rootknot.__post_init__`` enforces the same invariant at
+        # construction, but ``copy``/pickle restore paths bypass
+        # ``__init__``, so the verifier is what closes the attack.
+        if knot.schema_version == 4:
+            if not knot.workspace_digest:
+                return False
+            if not knot.prompt_digest:
+                return False
+            if not knot.run_id:
+                return False
         # v1 sidecars: RK-3 skips (per lateral chain branch A). ``strict``
         # refuses them (per module_06 step 5). Under module_05's stricter
         # bar ``strict`` also refuses v2 sidecars — see ``_check_al1``.
@@ -808,6 +900,7 @@ def verify_workspace(
                 approved_gate_exceptions=approved_gate_exceptions,
                 accepted_partial_taint_runs=accepted_partial_taint_runs,
                 strict=strict,
+                min_acceptable_schema_version=min_acceptable_schema_version,
             )
             return Result.err(violation)
         # module_05: emit per-verified knot so the reporter's rootknot
@@ -843,8 +936,59 @@ def _classify_violation(
     approved_gate_exceptions: set[str] | None = None,
     accepted_partial_taint_runs: set[bytes] | None = None,
     strict: bool = False,
+    min_acceptable_schema_version: int | None = None,
 ) -> ProvenanceViolation:
     """Return the most specific predicate that fails for ``knot``."""
+    # v0.5.2 module_01: schema-invariant classifications come first so
+    # the operator sees the sharpest diagnostic (an unknown-major or
+    # downgrade attempt shadows a v3-shape rk3 sub-clause). Deep-audit
+    # A M-1 / M-2 / F-1 closure.
+    if knot.schema_version not in _KNOWN_SCHEMA_VERSIONS:
+        return ProvenanceViolation(
+            file=knot.workspace_path,
+            predicate="RK-UNKNOWN-SCHEMA",
+            detail=(
+                f"schema_version={knot.schema_version} not in "
+                f"{sorted(_KNOWN_SCHEMA_VERSIONS)}; refusing rather "
+                "than reinterpreting under weaker semantics "
+                "(deep-audit A M-2). Upgrade the verifier to a build "
+                "that knows this major, or re-sign the artifact under "
+                "an implemented schema_version."
+            ),
+        )
+    if (
+        min_acceptable_schema_version is not None
+        and knot.schema_version < min_acceptable_schema_version
+    ):
+        return ProvenanceViolation(
+            file=knot.workspace_path,
+            predicate="RK-DOWNGRADE-REFUSED",
+            detail=(
+                f"schema_version={knot.schema_version} below policy "
+                f"floor {min_acceptable_schema_version}; refusing the "
+                "weaker attestation (deep-audit A M-1 DOWNGRADE "
+                "defence)."
+            ),
+        )
+    if knot.schema_version == 4:
+        missing_v4: list[str] = []
+        if not knot.workspace_digest:
+            missing_v4.append("workspace_digest")
+        if not knot.prompt_digest:
+            missing_v4.append("prompt_digest")
+        if not knot.run_id:
+            missing_v4.append("run_id")
+        if missing_v4:
+            return ProvenanceViolation(
+                file=knot.workspace_path,
+                predicate="RK-V4-LABEL-MISMATCH",
+                detail=(
+                    "v4 schema-label but v4 fields empty: "
+                    f"{missing_v4}. The label carries no attestation "
+                    "guarantee when the fields it names are absent "
+                    "(deep-audit A F-1)."
+                ),
+            )
     artifact_path = index.workspace_root / knot.workspace_path
     if not artifact_path.exists():
         return ProvenanceViolation(

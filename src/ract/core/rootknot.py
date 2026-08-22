@@ -44,6 +44,59 @@ _ZERO_DIGEST: Digest = Digest(b"\x00" * 32)
 
 
 # ---------------------------------------------------------------------------
+# v0.5.2 hardening module_01 -- schema-version invariants.
+#
+# ``_KNOWN_SCHEMA_VERSIONS`` is the allowlist of payload shapes this
+# code base implements. Any other integer is refused at construction
+# time (``__post_init__``) and again at verify time (see
+# ``ract.core.provenance``); the pair closes deep-audit A M-2
+# (forward-compat drift where unknown v9 was silently reinterpreted
+# under v3 semantics) and the DA-A M-1 relabel-then-resign class of
+# DOWNGRADE attack when the operator sets a floor.
+#
+# Ox Alpha co-build (2026-08-22) picked "fail-closed at both edges"
+# over WARN-and-proceed: an attacker labelling a weak knot with an
+# unimplemented major (say v42) must not be able to fall back to the
+# weakest implemented semantics. Fail-closed at construction makes
+# the invariant total; fail-closed at verify remains the authoritative
+# check because deserialisation paths (copy/pickle) bypass
+# ``__post_init__``.
+# ---------------------------------------------------------------------------
+
+
+_KNOWN_SCHEMA_VERSIONS: frozenset[int] = frozenset({1, 2, 3, 4})
+
+
+class RootknotSchemaViolation(ValueError):
+    """Raised when a :class:`Rootknot` construction violates schema invariants.
+
+    Two invariants are enforced at ``__post_init__``:
+
+    - ``schema_version`` must be a member of
+      :data:`_KNOWN_SCHEMA_VERSIONS` (deep-audit A M-2 closure).
+    - ``schema_version == 4`` requires ``workspace_digest``,
+      ``prompt_digest`` and ``run_id`` to be non-empty
+      (deep-audit A F-1 / F-2 / F-5 closure).
+
+    The attributes ``schema_version``, ``missing_fields`` and
+    ``reason`` are structured so CLI callers can format the human
+    message without regex-scraping the exception text.
+    """
+
+    def __init__(
+        self,
+        *,
+        schema_version: int,
+        missing_fields: list[str],
+        reason: str,
+    ) -> None:
+        super().__init__(reason)
+        self.schema_version = schema_version
+        self.missing_fields = list(missing_fields)
+        self.reason = reason
+
+
+# ---------------------------------------------------------------------------
 # v0.4 ALM module_05 — Gate result value carried inside the v3 Rootknot.
 # ---------------------------------------------------------------------------
 
@@ -174,6 +227,61 @@ class Rootknot:
     workspace_digest: Digest | None = None
     prompt_digest: Digest | None = None
     run_id: str = ""
+
+    # ------------------------------------------------------------------
+    # v0.5.2 hardening module_01 -- construction-time schema invariants.
+    # ------------------------------------------------------------------
+
+    def __post_init__(self) -> None:
+        """Enforce v4-label-implies-v4-fields and known-versions allowlist.
+
+        Deep-audit A closure (F-1/F-2/F-5 systemic +
+        M-2 forward-compat). Ox Alpha co-build (2026-08-22) confirms
+        validate-only semantics -- this hook must never mutate
+        (frozen dataclass, and normalisation would drift bytes across
+        the sign/attest copy chain). It raises
+        :class:`RootknotSchemaViolation` on either invariant miss so
+        the failure surfaces at the exact construction site.
+
+        Note (Ox Alpha Fork 3 corner case #2): ``copy.copy`` /
+        ``copy.deepcopy`` / pickle restore Rootknots WITHOUT calling
+        ``__init__`` / ``__post_init__``. The verifier-side check in
+        :func:`ract.core.provenance._check_rk3` (F-2 closure) remains
+        the authoritative gate; this hook is defense-in-depth for the
+        99% of paths that construct through the normal factories /
+        sign chain.
+        """
+        if self.schema_version not in _KNOWN_SCHEMA_VERSIONS:
+            raise RootknotSchemaViolation(
+                schema_version=self.schema_version,
+                missing_fields=[],
+                reason=(
+                    f"unknown schema_version {self.schema_version}; "
+                    f"known: {sorted(_KNOWN_SCHEMA_VERSIONS)}. Verifier "
+                    "refuses unknown majors rather than silently "
+                    "reinterpreting under weaker semantics (see "
+                    "deep-audit A M-2)."
+                ),
+            )
+        if self.schema_version == 4:
+            missing: list[str] = []
+            if not self.workspace_digest:
+                missing.append("workspace_digest")
+            if not self.prompt_digest:
+                missing.append("prompt_digest")
+            if not self.run_id:
+                missing.append("run_id")
+            if missing:
+                raise RootknotSchemaViolation(
+                    schema_version=4,
+                    missing_fields=missing,
+                    reason=(
+                        "v4 schema-label requires all v4 fields "
+                        f"non-empty; missing: {missing}. The v4 label "
+                        "carries no attestation guarantee if the fields "
+                        "it names are absent (see deep-audit A F-1)."
+                    ),
+                )
 
     # ------------------------------------------------------------------
     # Deprecated v0.3 alias for the field renamed by module_06.

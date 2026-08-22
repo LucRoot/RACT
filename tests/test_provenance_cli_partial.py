@@ -113,7 +113,7 @@ def test_cli_print_header_says_partial_when_ok_message_starts_with_partial(
     """
     import ract.provenance_cli as pcli
 
-    def fake_verify(artifact, workspace_root=None):
+    def fake_verify(artifact, workspace_root=None, *, min_schema_version=None):
         return True, "valid (partial: environment_signature, manifest_digest unset)"
 
     monkeypatch.setattr(pcli, "verify_artifact", fake_verify)

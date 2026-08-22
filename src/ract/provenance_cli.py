@@ -15,7 +15,11 @@ import sys
 from pathlib import Path
 
 from ract.core.provenance import ProvenanceIndex, _knot_from_json
-from ract.core.rootknot import _ZERO_DIGEST
+from ract.core.rootknot import (
+    _KNOWN_SCHEMA_VERSIONS,
+    _ZERO_DIGEST,
+    RootknotSchemaViolation,
+)
 from ract.core.types import digest_bytes
 
 
@@ -29,13 +33,23 @@ def _sidecar_path(artifact_path: Path) -> Path:
 
 
 def verify_artifact(
-    artifact_path: Path, workspace_root: Path | None = None
+    artifact_path: Path,
+    workspace_root: Path | None = None,
+    *,
+    min_schema_version: int | None = None,
 ) -> tuple[bool, str]:
     """Verify the Rootknot for ``artifact_path``.
 
     Returns ``(ok, message)``. Checks:
       1. the artifact exists and its digest matches the rootknot's ``artifact_digest``,
-      2. the signature verifies against the embedded generator public key.
+      2. the signature verifies against the embedded generator public key,
+      3. v0.5.2 module_01: the sidecar's ``schema_version`` is a
+         known major (rejects an unknown v9 relabel per deep-audit
+         A M-2) and, when ``min_schema_version`` is set, is at least
+         that floor (rejects a v4-then-relabel-as-v1 DOWNGRADE per
+         Ox Alpha M-1). ``min_schema_version=None`` (the default)
+         preserves the v0.5.1 behaviour that v1/v2/v3 sidecars still
+         verify without an explicit policy.
 
     The public key is NOT read from the key store; it is read from the
     sidecar's ``generator.public_key_id``. This makes verification
@@ -56,6 +70,21 @@ def verify_artifact(
         try:
             index = ProvenanceIndex(workspace_root)
             knot = index.load(artifact_path)
+        except RootknotSchemaViolation as exc:
+            # v0.5.2 module_01: surface the sharp diagnostic when
+            # the index holds a v4-labelled sidecar with missing
+            # fields (deep-audit A F-1) or an unknown-major relabel
+            # (M-2), rather than a generic "index load failed".
+            return False, (
+                f"sidecar refused: {exc.reason}"
+                if not exc.missing_fields
+                else (
+                    f"v4 schema-label but v4 fields empty: "
+                    f"{exc.missing_fields}; the label carries no "
+                    "attestation guarantee. Re-sign under a v3 factory "
+                    "or supply the missing fields."
+                )
+            )
         except Exception as exc:  # noqa: BLE001 - surface any index failure
             return False, f"no sidecar and index load failed: {exc}"
         if knot is None:
@@ -63,16 +92,53 @@ def verify_artifact(
                 f"no rootknot for {artifact_path} (sidecar {sidecar.name} absent, "
                 "not in index)"
             )
-        return _check_knot(knot, artifact_path)
+        return _check_knot(knot, artifact_path, min_schema_version)
 
     try:
         knot = _knot_from_json(payload)
+    except RootknotSchemaViolation as exc:
+        # v0.5.2 module_01: distinguish v4-label-mismatch from
+        # unknown-major from generic parse failure so the operator
+        # sees the specific attack shape.
+        if exc.missing_fields:
+            return False, (
+                f"v4 schema-label but v4 fields empty: {exc.missing_fields}; "
+                "the label carries no attestation guarantee (deep-audit A "
+                "F-1). Re-sign under a v3 factory or supply the missing "
+                "fields."
+            )
+        return False, (
+            f"sidecar refused: {exc.reason}"
+        )
     except Exception as exc:  # noqa: BLE001 - malformed sidecar is a verification failure
         return False, f"sidecar unparseable: {exc}"
-    return _check_knot(knot, artifact_path)
+    return _check_knot(knot, artifact_path, min_schema_version)
 
 
-def _check_knot(knot, artifact_path: Path) -> tuple[bool, str]:
+def _check_knot(
+    knot, artifact_path: Path, min_schema_version: int | None = None
+) -> tuple[bool, str]:
+    # v0.5.2 module_01 (deep-audit A M-1 / M-2): schema-invariant
+    # checks come first so a downgrade or unknown-major relabel is
+    # reported with the sharp reason rather than shadowed by a
+    # digest / signature message.
+    if knot.schema_version not in _KNOWN_SCHEMA_VERSIONS:
+        return False, (
+            f"schema_version={knot.schema_version} not in "
+            f"{sorted(_KNOWN_SCHEMA_VERSIONS)}; refusing rather than "
+            "reinterpreting under weaker semantics (deep-audit A "
+            "M-2). Upgrade the verifier or re-sign under an "
+            "implemented major."
+        )
+    if (
+        min_schema_version is not None
+        and knot.schema_version < min_schema_version
+    ):
+        return False, (
+            f"schema_version={knot.schema_version} below policy floor "
+            f"{min_schema_version}; refusing the weaker attestation "
+            "(deep-audit A M-1 DOWNGRADE defence)."
+        )
     # 1. artifact digest
     actual = digest_bytes(artifact_path.read_bytes())
     if actual != knot.artifact_digest:
@@ -205,12 +271,29 @@ def _provenance_command(args: list[str]) -> int:
         default=None,
         help="Workspace root (for SQLite index fallback). Inferred if omitted.",
     )
+    verify_p.add_argument(
+        "--min-schema",
+        type=int,
+        default=None,
+        help=(
+            "Minimum acceptable schema_version. When set, the verifier "
+            "refuses any sidecar labelled below this floor with a "
+            "RK-DOWNGRADE-REFUSED reason -- closes the deep-audit A "
+            "M-1 relabel-and-resign attack. Default (unset) preserves "
+            "backward compatibility with v1/v2/v3 sidecars. Set to 4 "
+            "for strict v0.5.1-and-later attestation deployments."
+        ),
+    )
     parsed = parser.parse_args(args)
 
     if parsed.action == "verify":
         artifact = Path(parsed.file).resolve()
         ws = Path(parsed.workspace).resolve() if parsed.workspace else None
-        ok, message = verify_artifact(artifact, workspace_root=ws)
+        ok, message = verify_artifact(
+            artifact,
+            workspace_root=ws,
+            min_schema_version=parsed.min_schema,
+        )
         # Module_04: a v2/v3 sidecar with unset extended fields returns
         # ok=True with a ``valid (partial: … unset)`` message. The header
         # print reflects the message rather than a hardcoded ``valid`` so
