@@ -199,7 +199,8 @@ def test_set_iterations_validates():
 
 
 @pytest.mark.parametrize(
-    "line", ["/set", "/set stream", "/set stream maybe", "/set mode wild", "/set nothing on"]
+    "line",
+    ["/set", "/set stream", "/set stream maybe", "/set mode wild", "/set nothing on"],
 )
 def test_bad_set_commands_change_nothing(line):
     session, calls, console = _session()
@@ -361,7 +362,9 @@ def test_repl_verb_refuses_without_a_terminal(capsys, monkeypatch):
     assert "needs a terminal" in capsys.readouterr().err
 
 
-def test_bare_ract_without_a_terminal_keeps_the_intent_required_error(monkeypatch, capsys):
+def test_bare_ract_without_a_terminal_keeps_the_intent_required_error(
+    monkeypatch, capsys
+):
     monkeypatch.setattr("sys.stdin.isatty", lambda: False, raising=False)
     with pytest.raises(SystemExit) as exc:
         cli.main([])
@@ -373,7 +376,9 @@ def test_bare_ract_in_a_terminal_opens_the_session(monkeypatch):
     opened = []
     monkeypatch.setattr("sys.stdin.isatty", lambda: True, raising=False)
     monkeypatch.setattr("sys.stdout.isatty", lambda: True, raising=False)
-    monkeypatch.setattr("ract.repl.run_repl", lambda config=None: opened.append(config) or 0)
+    monkeypatch.setattr(
+        "ract.repl.run_repl", lambda config=None: opened.append(config) or 0
+    )
     assert cli.main([]) == 0
     assert opened == [Path("ract.yaml")]
 
@@ -382,7 +387,9 @@ def test_repl_verb_passes_the_config_through(monkeypatch):
     opened = []
     monkeypatch.setattr("sys.stdin.isatty", lambda: True, raising=False)
     monkeypatch.setattr("sys.stdout.isatty", lambda: True, raising=False)
-    monkeypatch.setattr("ract.repl.run_repl", lambda config=None: opened.append(config) or 0)
+    monkeypatch.setattr(
+        "ract.repl.run_repl", lambda config=None: opened.append(config) or 0
+    )
     assert cli.main(["repl", "--config", "my.yaml"]) == 0
     assert opened == [Path("my.yaml")]
 
@@ -401,7 +408,9 @@ def _capture_run_ract(monkeypatch):
 
 
 @pytest.mark.parametrize("intent", ["fix the bug", "docs", "--help me", "report"])
-def test_built_argv_reaches_run_ract_with_the_intent_intact(intent, tmp_path, monkeypatch):
+def test_built_argv_reaches_run_ract_with_the_intent_intact(
+    intent, tmp_path, monkeypatch
+):
     """The argv the session builds must parse in the real CLI, including awkward intents."""
     seen = _capture_run_ract(monkeypatch)
     monkeypatch.chdir(tmp_path)

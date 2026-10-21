@@ -30,9 +30,7 @@ def test_install_sh_syntax_is_valid():
 
 
 _SCRIPT = Path(__file__).parent.parent / "scripts" / "install.sh"
-_unix_only = pytest.mark.skipif(
-    sys.platform == "win32", reason="requires a Unix shell"
-)
+_unix_only = pytest.mark.skipif(sys.platform == "win32", reason="requires a Unix shell")
 
 
 def _make_stub_python(stub_dir: Path, log: Path) -> None:

@@ -8,7 +8,9 @@ MANAGER_TEXT = "You are a planning manager. Respond with ONLY a single JSON obje
 
 
 def _make_workspace(root):
-    (root / "hello.py").write_text("def greet(name):\n    return name\n", encoding="utf-8")
+    (root / "hello.py").write_text(
+        "def greet(name):\n    return name\n", encoding="utf-8"
+    )
     (root / "manager.txt").write_text(MANAGER_TEXT, encoding="utf-8")
     (root / "ract.yaml").write_text("manager_provider: bolt\n", encoding="utf-8")
     (root / ".ract").mkdir()

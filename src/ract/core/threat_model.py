@@ -91,9 +91,7 @@ class Authorization:
         return self.decision != PolicyDecision.REFUSE and not self.refusals
 
 
-def _action_text(
-    action: dict[str, Any] | str, *, include_artifact: bool = True
-) -> str:
+def _action_text(action: dict[str, Any] | str, *, include_artifact: bool = True) -> str:
     """Extract a searchable text form of an action.
 
     ``include_artifact=False`` leaves out the target file name, so editing

@@ -796,7 +796,7 @@ class Executor:
     _TARGET_FILE_MAX_BYTES = 128 * 1024
 
     def _target_file_block(
-        self, expected_artifact: str | None, context: str
+        self, expected_artifact: str | None, context: str | None
     ) -> tuple[str, bool]:
         """Return ``(block, replaces_existing)`` for the step's target file.
 
@@ -826,7 +826,10 @@ class Executor:
             text = target.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
             return "", True
-        return f"Current contents of {rel}:\n--- {rel} ---\n{text}\n--- end {rel} ---", True
+        return (
+            f"Current contents of {rel}:\n--- {rel} ---\n{text}\n--- end {rel} ---",
+            True,
+        )
 
     def _execute_provider_step_with_fallback(
         self,

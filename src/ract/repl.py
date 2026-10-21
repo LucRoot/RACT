@@ -36,14 +36,23 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/run <intent>", "Plan and execute an intent."),
     ("/plan <intent>", "Plan only. Shows the plan, writes nothing."),
     ("/loop <intent>", "Run the quality-anchored loop until done or regressed."),
-    ("/set <name> <value>", "Change a setting: dry-run, stream, auto, mode, iterations."),
+    (
+        "/set <name> <value>",
+        "Change a setting: dry-run, stream, auto, mode, iterations.",
+    ),
     ("/settings", "Show the current settings."),
-    ("/session [new|<id>]", "Show, restart or switch the session that carries context between turns."),
+    (
+        "/session [new|<id>]",
+        "Show, restart or switch the session that carries context between turns.",
+    ),
     ("/config", "Validate the active config (same as ract config validate)."),
     ("/providers", "List configured providers and the manager provider."),
     ("/doctor [--check-providers]", "Run setup diagnostics against the active config."),
     ("/report [--last]", "Show what the last run changed and why."),
-    ("/<verb> ...", "Any other RACT verb, for example /whisper, /fence, /auction, /status."),
+    (
+        "/<verb> ...",
+        "Any other RACT verb, for example /whisper, /fence, /auction, /status.",
+    ),
     ("/clear", "Clear the screen."),
     ("/help", "Show this list."),
     ("/exit", "Leave the session (Ctrl-D also works)."),
@@ -63,9 +72,7 @@ class ReplState:
     auto: bool = False
     mode: str = "default"
     max_iterations: int = 10
-    session_id: str = field(
-        default_factory=lambda: time.strftime("repl-%Y%m%d-%H%M%S")
-    )
+    session_id: str = field(default_factory=lambda: time.strftime("repl-%Y%m%d-%H%M%S"))
     # True once a turn has completed and saved the session, so the next turn
     # resumes it. A failed first turn leaves this False and the next turn
     # starts the session again instead of resuming one that does not exist.
@@ -177,11 +184,17 @@ class ReplSession:
         if name in self._verbs:
             self._run_verb(name, args)
             return True
-        self._console.error(f"unknown command /{escape(name)}. Type /help for the list.")
+        self._console.error(
+            f"unknown command /{escape(name)}. Type /help for the list."
+        )
         return True
 
     def _cmd_help(self, args: list[str]) -> bool:
-        self._console.table("RACT session", ["Command", "What it does"], [[escape(cell) for cell in row] for row in HELP_ROWS])
+        self._console.table(
+            "RACT session",
+            ["Command", "What it does"],
+            [[escape(cell) for cell in row] for row in HELP_ROWS],
+        )
         return True
 
     def _cmd_exit(self, args: list[str]) -> bool:
@@ -224,7 +237,9 @@ class ReplSession:
         return True
 
     def _cmd_config(self, args: list[str]) -> bool:
-        self._run_verb("config", args or ["validate", "--config", str(self.state.config)])
+        self._run_verb(
+            "config", args or ["validate", "--config", str(self.state.config)]
+        )
         return True
 
     def _cmd_providers(self, args: list[str]) -> bool:
@@ -257,7 +272,9 @@ class ReplSession:
                     slot.get("url", ""),
                 ]
             )
-        self._console.table("Providers", ["name", "role", "adapter", "model", "url"], rows)
+        self._console.table(
+            "Providers", ["name", "role", "adapter", "model", "url"], rows
+        )
         if error:
             self._console.warning(error)
         return True
@@ -271,7 +288,10 @@ class ReplSession:
             ["auto (approve each step)", _flag(s.auto)],
             ["mode", s.mode],
             ["iterations (for /loop)", str(s.max_iterations)],
-            ["session", f"{s.session_id}{' (resumes next turn)' if s.session_started else ''}"],
+            [
+                "session",
+                f"{s.session_id}{' (resumes next turn)' if s.session_started else ''}",
+            ],
             ["turns this session", str(s.turns)],
         ]
         self._console.table("Settings", ["setting", "value"], rows)
@@ -385,7 +405,11 @@ class ReplSession:
             code = self._dispatch(argv)
         except SystemExit as exc:
             # argparse exits on usage errors and ``parser.error``.
-            code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
+            code = (
+                exc.code
+                if isinstance(exc.code, int)
+                else (0 if exc.code is None else 1)
+            )
         except KeyboardInterrupt:
             self._console.print("")
             self._console.warning("interrupted. Nothing further was run for that line.")

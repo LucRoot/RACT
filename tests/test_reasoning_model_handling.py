@@ -167,7 +167,11 @@ def _plan() -> Plan:
     return Plan(
         assumption="a",
         confidence=0.9,
-        steps=[Step(action="edit hello.py", provider_hint="x", expected_artifact="hello.py")],
+        steps=[
+            Step(
+                action="edit hello.py", provider_hint="x", expected_artifact="hello.py"
+            )
+        ],
     )
 
 
@@ -232,14 +236,20 @@ def _run_step(tmp_path, *, artifact="hello.py", context=""):
     plan = Plan(
         assumption="a",
         confidence=0.9,
-        steps=[Step(action="add a docstring", provider_hint="x", expected_artifact=artifact)],
+        steps=[
+            Step(
+                action="add a docstring", provider_hint="x", expected_artifact=artifact
+            )
+        ],
     )
     executor.execute(intent="i", plan=plan, context=context)
     return adapter.last_user
 
 
 def test_existing_target_file_is_shown_to_the_step(tmp_path):
-    (tmp_path / "hello.py").write_text("def greet(name):\n    return name\n", encoding="utf-8")
+    (tmp_path / "hello.py").write_text(
+        "def greet(name):\n    return name\n", encoding="utf-8"
+    )
     prompt = _run_step(tmp_path)
     assert "--- hello.py ---" in prompt
     assert "def greet(name):" in prompt
@@ -247,7 +257,9 @@ def test_existing_target_file_is_shown_to_the_step(tmp_path):
 
 
 def test_target_file_is_not_repeated_when_context_already_has_it(tmp_path):
-    (tmp_path / "hello.py").write_text("def greet(name):\n    return name\n", encoding="utf-8")
+    (tmp_path / "hello.py").write_text(
+        "def greet(name):\n    return name\n", encoding="utf-8"
+    )
     context = "--- hello.py ---\ndef greet(name):\n    return name\n"
     prompt = _run_step(tmp_path, context=context)
     assert prompt.count("def greet(name):") == 1

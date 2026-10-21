@@ -59,7 +59,6 @@ def _reset_ambient_run_id_and_env() -> object:
             os.environ[k] = v
 
 
-
 @pytest.fixture
 def fake_model_server() -> object:
     """Factory for the scripted fake model server (``tests/fixtures``).

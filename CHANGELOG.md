@@ -38,6 +38,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `mypy src --platform linux` failed on `Executor._target_file_block`, which received
+  `str | None` for a `str` parameter. The parameter now accepts `None`, which the function
+  already handled. Nine files from this release were not `ruff format` clean; they are now.
+  `scripts/ci_parity.py` runs the CI lint, format and type-check commands locally, plus mypy for
+  Linux and macOS when run on another platform.
+
 - `scripts/install.sh`: `--venv` takes an optional directory (default `.venv`) and no longer
   swallows the next option; the script is executable; the clone directory no longer has to be
   named `RACT`; a failed pip install outside a venv suggests `--venv` (PEP 668).

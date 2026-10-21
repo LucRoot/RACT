@@ -83,4 +83,6 @@ def describe_output_problem(raw: dict[str, Any] | None, *, wanted: str) -> str:
         return f"The model returned an empty response instead of a {wanted}."
     snippet = visible[:200].replace("\n", " ")
     ellipsis = "..." if len(visible) > 200 else ""
-    return f"The response did not contain a usable {wanted}. It began: {snippet}{ellipsis}"
+    return (
+        f"The response did not contain a usable {wanted}. It began: {snippet}{ellipsis}"
+    )
