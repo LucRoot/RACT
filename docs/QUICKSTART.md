@@ -73,7 +73,11 @@ ract> /exit
 | `/<verb>` | Any other RACT verb, for example `/whisper` or `/fence`. |
 
 Each turn after the first resumes the same session, so a follow-up like "now add a test for
-it" has the earlier work as context. Ctrl-C stops a running turn and returns to the prompt.
+it" has the earlier work as context.
+
+Known limits in this release: Ctrl-C at the prompt clears the line, but Ctrl-C during a
+running turn takes effect only when the turn ends. Line history and tab completion work on
+Linux and macOS, where Python has `readline`; on Windows the session has neither yet.
 Ctrl-D or `/exit` leaves. Scripts and CI keep using `ract run '<intent>'`.
 
 ## Scaffold your first project

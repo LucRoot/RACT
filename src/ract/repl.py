@@ -12,7 +12,8 @@ each line into an argv for the same dispatcher the one-shot CLI uses, so there
 is one code path for running an intent and no second set of behavior to drift.
 
 Line editing and history come from the standard library ``readline`` where the
-platform has it. Nothing here adds a dependency.
+platform has it: Linux and macOS. Python on Windows has no ``readline``, so there the
+session has no history or completion. Nothing here adds a dependency.
 """
 
 from __future__ import annotations

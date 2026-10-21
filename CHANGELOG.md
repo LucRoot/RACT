@@ -14,7 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   opens a prompt. Plain text runs as an intent. `/plan`, `/loop`, `/set`, `/settings`,
   `/session`, `/providers`, `/config`, `/doctor`, `/report` and every other verb work as slash
   commands. Context carries between turns through a session id, history and tab completion use
-  `readline` where available, and a failing command never ends the session. It dispatches
+  `readline` on Linux and macOS (Python on Windows has no `readline`, so on Windows the session
+  has neither yet), and a failing command never ends the session. It dispatches
   through `ract.cli.main`, so tier policy and approval modes are unchanged. No new dependency.
 - A step that replaces an existing file now sees that file's current contents and is told to
   return the complete updated file.
