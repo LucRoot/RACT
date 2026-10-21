@@ -26,7 +26,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
-# Keep in step with the lint-format-type job in .github/workflows/ci.yml.
+# The lint-format-type job in .github/workflows/ci.yml, command for command.
+# tests/test_ci_parity.py fails when the two differ.
 CI_COMMANDS: list[list[str]] = [
     ["ruff", "check", "src", "tests", "scripts", "evals"],
     ["ruff", "format", "--check", "src", "tests", "scripts", "evals"],
@@ -41,19 +42,23 @@ KNOWN_ENVIRONMENT = {
     ),
 }
 
-# Native-Windows mypy only: typeshed declares no readline functions on win32.
-# CI runs Linux, where they exist, so these lines do not reach CI.
-NATIVE_WINDOWS_ONLY = re.compile(
-    r"src[\\/]ract[\\/]repl\.py:\d+: error: Module has no attribute"
-)
-
 _MYPY_ERROR = re.compile(r"^\S+:\d+: error:")
 
 
 def commands() -> list[list[str]]:
-    cmds = [list(c) for c in CI_COMMANDS]
-    if sys.platform != "linux":
-        cmds.append(["mypy", "src", "--platform", "linux"])
+    """CI's commands, adapted so a non-Linux machine checks what CI checks.
+
+    CI type-checks on Linux. Elsewhere a native ``mypy src`` reports errors
+    CI never sees (on Windows, typeshed has no ``readline`` functions), so it
+    is replaced by ``--platform linux``; ``--platform darwin`` is added for
+    macOS users.
+    """
+    cmds: list[list[str]] = []
+    for cmd in CI_COMMANDS:
+        if cmd == ["mypy", "src"] and sys.platform != "linux":
+            cmds.append(["mypy", "src", "--platform", "linux"])
+        else:
+            cmds.append(list(cmd))
     if sys.platform != "darwin":
         cmds.append(["mypy", "src", "--platform", "darwin"])
     return cmds
@@ -63,7 +68,6 @@ def _run_mypy(cmd: list[str]) -> bool:
     proc = subprocess.run(
         [sys.executable, "-m", *cmd], cwd=REPO, capture_output=True, text=True
     )
-    native = cmd == ["mypy", "src"] and sys.platform == "win32"
     real: list[str] = []
     for line in proc.stdout.splitlines():
         if not _MYPY_ERROR.match(line):
@@ -73,8 +77,6 @@ def _run_mypy(cmd: list[str]) -> bool:
         )
         if label:
             print(f"  known-environment: {label}: {line}")
-        elif native and NATIVE_WINDOWS_ONLY.search(line):
-            print(f"  native-windows-only: {line}")
         else:
             real.append(line)
     for line in real:
