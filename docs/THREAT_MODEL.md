@@ -316,6 +316,85 @@ not enforce end-to-end.
   Bounds stale-cache-miss windows introduced by network-share
   event reordering to a single scan interval.
 
+## v0.6 agentic execution amendment (proposed)
+
+Status: proposed with ADR-0047 and ADR-0048, awaiting operator review. No
+code described in this section exists yet. Sections above describe the
+v0.5.2 design; the first subsection below says how much of it the code
+enforces today.
+
+### What the code enforces today
+
+Read this before relying on any statement above.
+
+- No sandbox backend executes anything. The Linux backend renders a
+  bubblewrap command and the macOS backend renders a Seatbelt profile; neither
+  is run, and there is no Landlock or seccomp call. Only the scrubbed
+  environment is applied, and only on the substrate spawn path.
+- `resolve_backend` has no caller and `--allow-unenforced-sandbox` does not
+  exist as a flag.
+- The production substrate loop runs without a manifest, a sandbox backend
+  or a handshake registry.
+- A tier-2 action is treated as allowed and creates no handshake.
+- `.ract/handshakes.json` is unsigned, and `ract handshakes approve`
+  authenticates nobody.
+- The operator key, the per-run sandbox keys and the ALM verifier keys live
+  under `.ract/` inside the workspace.
+- `.ract/hooks/*.json` commands run with the full environment.
+- The diff applier and the artifact writer accept `..` in paths.
+
+Tier 3 is still refused everywhere: `RACT_TIER_3_ENABLED` is `False` and no
+code path runs a shell for the model. ADR-0047 and ADR-0048 record a
+decision for each item above.
+
+### Capability tiers for the new tools
+
+| Tier | Tools | Default |
+|---|---|---|
+| T0 | `read_file`, `list_dir`, `glob`, `grep`, `repo_map`, git status, diff, log, show, blame | Allow |
+| T1 | `write_file`, `edit_file`, `apply_patch`, `delete_file`, `move_file`, `git_add` (step worktree only) | Allow with Rootknot, after review |
+| T2 | Writes to control files and executable configuration, `git_commit`, branch and worktree creation, `git init` | Ask in a session; handshake when headless |
+| T3 | `run_command`, `run_tests`, `build`, `lint`, `typecheck`, `format`, remote git, `web_fetch`, `web_search`, unmapped MCP tools | Refused unless a signed operator grant opens it for this project; then asked or matched against signed rules |
+
+### Changes to the tier-3 rule
+
+`RACT_TIER_3_ENABLED` stays `False`. A verified operator grant
+(`.ract/policy.yaml` with a detached Ed25519 signature from a
+passphrase-protected key outside the workspace) opens tier 3 for one
+project. A user-level kill switch refuses every grant on a machine. The
+manifest still cannot lift its own ban. See ADR-0048 D1 to D3.
+
+### New refuse-list entries
+
+8. Any tool write, at any tier, into `.git/`, `.ract/`, `.agents/`, other
+   agents' configuration directories, or the key store.
+9. Tool reads of `.git/` and `.ract/` internals (git tools cover the
+   legitimate uses).
+10. Shells and inline-code interpreters in argv mode. Shell mode asks for
+    every invocation.
+11. RACT governance verbs (`policy`, `handshakes`, `intent`,
+    `operator-queue`, `config`, `provider`) run from inside a run.
+12. Allow rules that name a bare interpreter or runner.
+13. Approval from any source other than the operator's terminal or a signed
+    record (Invariant A-1).
+
+### Trust labels
+
+Content entering the model's context is labeled `operator`, `workspace` or
+`external`. After `external` content enters a step, tier-2 and tier-3
+actions in that step need an explicit allow-once approval. Repository
+hooks, skills, MCP servers, policy and guidance load only for projects the
+operator has trusted. See ADR-0048 D9 and D12.
+
+### Sandbox reporting
+
+`ract doctor` reports filesystem, network, process and environment
+enforcement separately as `enforced`, `reported only` or `absent`. On
+Windows the default command backend enforces process limits and the
+environment scrub and does not confine the filesystem or network; a grant
+must say `sandbox: best_effort` to run commands there. WSL2 and containers
+are the enforced paths on Windows. See ADR-0048 D7.
+
 ## Reporting
 
 See [SECURITY.md](../SECURITY.md) for the vulnerability reporting
