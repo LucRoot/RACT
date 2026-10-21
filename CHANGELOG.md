@@ -38,6 +38,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Paths from model output are resolved inside the project or refused. `DiffApplier` took target
+  paths from diff headers and accepted `../` and absolute paths; `Executor._write_artifact`
+  refused absolute paths silently but wrote `..` paths. Both now use
+  `ract.workspace_path.resolve_workspace_path`, which refuses `..`, absolute paths outside the
+  project, writes through symlinks or junctions, writes under `.git` or `.ract`, `/proc/*/root`,
+  and on Windows UNC and device paths, drive-relative paths, reserved device names, alternate
+  data streams, trailing dots or spaces and 8.3 short names. A refused write fails the step with
+  a hint instead of being skipped.
 - `mypy src --platform linux` failed on `Executor._target_file_block`, which received
   `str | None` for a `str` parameter. The parameter now accepts `None`, which the function
   already handled. Nine files from this release were not `ruff format` clean; they are now.

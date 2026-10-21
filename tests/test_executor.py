@@ -6,10 +6,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from ract.executor import Executor, ExecutionReport
 from ract.hook_system import HookManager
 from ract.manager import Plan, Step
 from ract.rooted import Rooted
+from ract.workspace_path import WorkspacePathRefused
 
 
 class FakeDiffApplier:
@@ -196,18 +199,40 @@ def test_executor_writes_artifact_to_nested_project_dir(tmp_path):
     assert "def greet():" in artifact_path.read_text(encoding="utf-8")
 
 
-def test_executor_skips_writing_absolute_artifact_path(tmp_path):
+def test_executor_refuses_absolute_artifact_path_outside_project(tmp_path):
+    # Before S-001 an absolute path was skipped silently and the run still
+    # reported the artifact as produced. It is now a refused step with a hint.
     adapter = FakeAdapter("mock", response_content="hello world")
     router = FakeRouter(adapter)
     executor = Executor(router, project_dir=tmp_path)
+    outside = (tmp_path.parent / "outside.txt").as_posix()
     plan = _make_plan(
-        [Step(action="greet", provider_hint="mock", expected_artifact="/etc/passwd")]
+        [Step(action="greet", provider_hint="mock", expected_artifact=outside)]
     )
 
     result = executor.execute(intent="test intent", plan=plan)
 
-    assert result.is_ok()
-    assert not (tmp_path / "etc" / "passwd").exists()
+    assert not result.is_ok()
+    assert "outside the project" in (result.error or "")
+    assert result.hint
+    assert not (tmp_path.parent / "outside.txt").exists()
+
+
+def test_executor_refuses_parent_segment_artifact_path(tmp_path):
+    adapter = FakeAdapter("mock", response_content="hello world")
+    router = FakeRouter(adapter)
+    project = tmp_path / "project"
+    project.mkdir()
+    executor = Executor(router, project_dir=project)
+    plan = _make_plan(
+        [Step(action="greet", provider_hint="mock", expected_artifact="../escaped.txt")]
+    )
+
+    result = executor.execute(intent="test intent", plan=plan)
+
+    assert not result.is_ok()
+    assert "'..'" in (result.error or "")
+    assert not (tmp_path / "escaped.txt").exists()
 
 
 def test_executor_approval_callback_can_block_step():
@@ -1083,8 +1108,10 @@ def test_write_artifact_rejects_absolute_path(tmp_path):
     router = FakeRouter(FakeAdapter("mock"))
     executor = Executor(router, project_dir=tmp_path)
     absolute_path = str(Path(tmp_path.anchor) / "evil.txt")
-    executor._write_artifact(absolute_path, "evil")
+    with pytest.raises(WorkspacePathRefused, match="outside the project"):
+        executor._write_artifact(absolute_path, "evil")
     assert not (tmp_path / "evil.txt").exists()
+    assert not Path(absolute_path).exists()
 
 
 def test_check_load_bearing_returns_empty_when_no_project_dir():

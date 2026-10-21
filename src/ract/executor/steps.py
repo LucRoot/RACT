@@ -24,6 +24,11 @@ register_module_knot(__name__, _MODULE_KNOT)
 from ract.artifact_store import Artifact as StoreArtifact, ArtifactStore
 from ract.artifact_tracker import ArtifactTracker, TrackedArtifact
 from ract.diff_applier import DiffApplier
+from ract.workspace_path import (
+    WorkspacePathRefused,
+    require_workspace_path,
+    resolve_workspace_path,
+)
 from ract.duplication_guard import DuplicationGuard
 from ract.error_classifier import classify_error
 from ract.handshake_registry import HandshakeRegistry
@@ -310,7 +315,12 @@ class Executor:
             return False, content, ""
         if self.diff_applier is None:
             return True, content, "Diff detected but no DiffApplier configured."
-        target = self.project_dir / expected_artifact
+        resolved = resolve_workspace_path(
+            self.project_dir, expected_artifact, purpose="write"
+        )
+        if resolved.value is None:
+            return True, content, f"Diff apply failed: {resolved.error}"
+        target = resolved.value
         if not target.is_file():
             return (
                 True,
@@ -497,10 +507,12 @@ class Executor:
             return
         if not expected_artifact:
             return
-        target = Path(expected_artifact)
-        if target.is_absolute():
-            return
-        full_path = self.project_dir / target
+        # Raises WorkspacePathRefused for '..', absolute paths outside the
+        # project, links, .git/.ract and the Windows path forms in ADR-0047 D2.
+        # Before, an absolute path was skipped silently and '..' was written.
+        full_path = require_workspace_path(
+            self.project_dir, expected_artifact, purpose="write"
+        )
         full_path.parent.mkdir(parents=True, exist_ok=True)
         cleaned = self._strip_markdown_fences(content)
         full_path.write_text(cleaned, encoding="utf-8")
@@ -1350,7 +1362,19 @@ class Executor:
                             hint="novelty",
                         )
 
-            self._write_artifact(step.expected_artifact, content)
+            try:
+                self._write_artifact(step.expected_artifact, content)
+            except WorkspacePathRefused as refused:
+                return Rooted(
+                    value=None,
+                    assumption=(
+                        f"Step {index} writes {step.expected_artifact} inside the project."
+                    ),
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}"],
+                    error=f"Step {index} not written: {refused}",
+                    hint=refused.refusal.hint,
+                )
 
             # Charge the novelty budget only after a successful write so partial
             # failures do not consume points.

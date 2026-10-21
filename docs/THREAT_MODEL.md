@@ -341,7 +341,9 @@ Read this before relying on any statement above.
 - The operator key, the per-run sandbox keys and the ALM verifier keys live
   under `.ract/` inside the workspace.
 - `.ract/hooks/*.json` commands run with the full environment.
-- The diff applier and the artifact writer accept `..` in paths.
+- Fixed in v0.6: the diff applier and the artifact writer accepted `..`
+  and, for the diff applier, absolute paths. Both now go through
+  `ract.workspace_path.resolve_workspace_path` (ADR-0047 D2).
 
 Tier 3 is still refused everywhere: `RACT_TIER_3_ENABLED` is `False` and no
 code path runs a shell for the model. ADR-0047 and ADR-0048 record a

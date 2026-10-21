@@ -16,6 +16,8 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from ract.workspace_path import resolve_workspace_path
+
 
 @dataclass(frozen=True)
 class DiffApplyResult:
@@ -79,16 +81,43 @@ class DiffApplier:
                 ops.append((" ", line))
         return start, ops
 
+    def _resolve(self, header_path: str) -> tuple[Path, str | None]:
+        """Resolve a diff header path inside the project, or say why not.
+
+        LR:: Header paths come from model output. Joining them onto the
+        project directory let ``../`` and absolute paths write outside it.
+        """
+        resolved = resolve_workspace_path(
+            self.project_dir, header_path, purpose="write"
+        )
+        if resolved.value is None:
+            return (
+                self.project_dir / "<refused>",
+                f"{resolved.error}. hint: {resolved.hint}",
+            )
+        return resolved.value, None
+
     def apply_diff(self, diff_text: str) -> list[DiffApplyResult]:
         """Apply all hunks in *diff_text* and return per-file results."""
         results: list[DiffApplyResult] = []
         current_file: Path | None = None
+        current_refusal: str | None = None
         current_hunk: list[str] = []
 
         def flush_hunk() -> None:
             nonlocal current_hunk
             if current_file is not None and current_hunk:
-                results.append(self._apply_hunk(current_file, current_hunk))
+                if current_refusal is not None:
+                    results.append(
+                        DiffApplyResult(
+                            path=current_file,
+                            applied=False,
+                            backup=None,
+                            message=current_refusal,
+                        )
+                    )
+                else:
+                    results.append(self._apply_hunk(current_file, current_hunk))
                 current_hunk = []
 
         for raw_line in diff_text.splitlines():
@@ -99,17 +128,16 @@ class DiffApplier:
                 # path resolves correctly.
                 if raw_line.startswith("--- "):
                     stripped = raw_line[4:].strip().removeprefix("a/")
-                    current_file = self.project_dir / stripped
-                elif raw_line.startswith("+++ "):
+                else:
                     stripped = raw_line[4:].strip().removeprefix("b/")
-                    current_file = self.project_dir / stripped
+                current_file, current_refusal = self._resolve(stripped)
                 continue
             if raw_line.startswith("diff --git") or raw_line.startswith("index "):
                 flush_hunk()
                 # Extract file path from "diff --git a/... b/..." or use next +++ line.
                 match = re.search(r"diff --git a/(.+?) b/(.+?)$", raw_line)
                 if match:
-                    current_file = self.project_dir / match.group(2)
+                    current_file, current_refusal = self._resolve(match.group(2))
                 continue
             if raw_line.startswith("@@"):
                 if current_hunk:
