@@ -465,4 +465,71 @@ class WorktreeManager:
                 )
 
 
+def _git_in(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def apply_commit_to_working_tree(
+    repo: Path, before: str, after: str
+) -> tuple[list[str], list[str], str]:
+    """Copy a step commit's changes into the working tree, unstaged.
+
+    LR:: S-011 stopgap until ADR-0047 D6 (review, then apply). The step was
+    committed on its own branch. Here each changed file is checked out from
+    the step commit and then dropped from the index, so the operator sees an
+    ordinary unstaged change, HEAD and the branch do not move, and git's own
+    line-ending conversion applies. RACT's ``.ract/`` state is never copied.
+    A file whose working-tree content no longer matches ``before`` was
+    changed by someone else during the step; it is left alone and the step's
+    patch for it is saved under ``.ract/pending/``.
+
+    Returns (applied paths, skipped paths, patch path or "").
+    """
+    if not before or not after or before == after:
+        return [], [], ""
+    listing = _git_in(
+        repo,
+        "diff",
+        "--name-status",
+        "--no-renames",
+        "-z",
+        before,
+        after,
+        "--",
+        ".",
+        ":(exclude).ract",
+    )
+    fields = [f for f in listing.stdout.split("\0") if f]
+    changes = list(zip(fields[0::2], fields[1::2]))
+    applied: list[str] = []
+    skipped: list[str] = []
+    for status, path in changes:
+        untouched = _git_in(repo, "diff", "--quiet", before, "--", path).returncode == 0
+        if not untouched:
+            skipped.append(path)
+            continue
+        if status.startswith("D"):
+            (repo / path).unlink(missing_ok=True)
+        else:
+            _git_in(repo, "checkout", after, "--", path)
+            _git_in(repo, "reset", "-q", "--", path)
+        applied.append(path)
+    patch_path = ""
+    if skipped:
+        pending = repo / ".ract" / "pending"
+        pending.mkdir(parents=True, exist_ok=True)
+        target = pending / f"{after[:12]}.patch"
+        diff = _git_in(repo, "diff", "--binary", before, after, "--", *skipped)
+        target.write_text(diff.stdout, encoding="utf-8")
+        patch_path = target.relative_to(repo).as_posix()
+    return applied, skipped, patch_path
+
+
 # RACT 0.4.0

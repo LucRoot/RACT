@@ -51,6 +51,7 @@ from ract.core.transaction import ResourceBudget, TransactionOutcome
 from ract.executor.loop import SubstrateLoop, SubstrateStepSpec
 from ract.executor.steps import ExecutionReport, Executor
 from ract.executor.worktree import (
+    apply_commit_to_working_tree,
     WorktreeManager,
     ensure_clean_tracked_tree,
     ensure_git_repo,
@@ -207,6 +208,10 @@ def run_via_substrate(
         repo_root=harness.project_dir,
         parent_snapshot=parent_snapshot,
         worktree_manager=WorktreeManager(harness.project_dir),
+        # S-011: never move the operator's branch. Each step's commit stays
+        # on its rootact/step/* branch; its changes reach the working tree
+        # through apply_commit_to_working_tree below.
+        advance_head=False,
         # container_backend / sandbox_backend / manifest deliberately
         # omitted — the shim keeps the legacy Executor.execute semantics
         # while adding worktree isolation. Module_03's sandbox path
@@ -296,6 +301,31 @@ def run_via_substrate(
                 provenance=["harness.substrate_adapter", f"step:{index + 1}"],
                 error=(
                     f"Step {index + 1} rolled back after execution: {record.reason}"
+                ),
+            )
+
+        applied, skipped, patch_path = apply_commit_to_working_tree(
+            harness.project_dir,
+            record.parent_snapshot_before,
+            record.parent_snapshot_after,
+        )
+        if skipped:
+            return Rooted(
+                value=None,
+                assumption=(
+                    f"Step {index + 1}'s changes apply to files that did not "
+                    "change during the step."
+                ),
+                confidence=0.0,
+                provenance=["harness.substrate_adapter", f"step:{index + 1}"],
+                error=(
+                    f"Step {index + 1} changed {', '.join(skipped)}, which also "
+                    "changed in your working tree during the step. Those files "
+                    f"were left as they are; the step's patch is in {patch_path}."
+                ),
+                hint=(
+                    f"Review {patch_path} and apply it with `git apply` if you "
+                    "want it. Files applied: " + (", ".join(applied) or "none")
                 ),
             )
 

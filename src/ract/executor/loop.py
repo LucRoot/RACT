@@ -153,9 +153,15 @@ class SubstrateLoop:
         tool_registry: ToolRegistry | None = None,
         tool_declared_ids: frozenset[str] | None = None,
         tool_budget: ToolBudget | None = None,
+        advance_head: bool = True,
     ) -> None:
         self.repo_root = Path(repo_root)
         self.parent_snapshot = parent_snapshot
+        # S-011 stopgap: when False, a committed step stays on its own
+        # ``rootact/step/*`` branch and the checked-out branch is never
+        # moved. The production adapter sets this; the caller then copies
+        # the step's changes into the working tree as unstaged edits.
+        self.advance_head = advance_head
         self.worktrees = worktree_manager or WorktreeManager(repo_root)
         self.container_backend = container_backend
         self.handshakes = handshake_registry
@@ -978,6 +984,22 @@ class SubstrateLoop:
         # ``self.parent_snapshot`` at parent_before so loop-state and
         # git-state do not diverge silently.
         head_before = parent_before
+        if not self.advance_head:
+            # The step commit lives on its step branch only. The loop's own
+            # chain still advances so the next step starts from this one.
+            self.parent_snapshot = new_sha
+            self._committed_step_ids.add(txn.step_id)
+            _remove_worktree_only(self.repo_root, wt.path)
+            record = StepRecord(
+                step_id=txn.step_id,
+                outcome=TransactionOutcome.COMMITTED,
+                parent_snapshot_before=parent_before,
+                parent_snapshot_after=new_sha,
+                branch=wt.branch,
+            )
+            self.records.append(record)
+            _emit_step_event(record, "step.committed")
+            return record
         # v0.5.1 wiring module_05 (Lens C C-04 closure): when a soft
         # commit compensator is about to be installed on this
         # accumulator, advance HEAD via ``git update-ref`` so the
