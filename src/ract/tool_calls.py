@@ -40,6 +40,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from ract.canonical import dumps_jcs
 from ract.model_output import describe_output_problem, finish_reason, strip_reasoning
 from ract.rooted import Rooted
 
@@ -795,7 +796,12 @@ class LoopGuard:
 
     @staticmethod
     def key(call: ToolCall) -> str:
-        return call.name + ":" + json.dumps(call.arguments, sort_keys=True, default=str)
+        try:
+            canonical = dumps_jcs(call.arguments).decode("utf-8")
+        except (TypeError, ValueError):
+            # Python-style calls can carry sets or bytes, which JSON lacks.
+            canonical = repr(sorted(call.arguments.items(), key=lambda kv: kv[0]))
+        return call.name + ":" + canonical
 
     def record_call(self, call: ToolCall) -> str | None:
         key = self.key(call)
