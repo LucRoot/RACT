@@ -203,7 +203,7 @@ backup-v0.5.1-preHardening`` (created at module_06 close).
 > **Note on cited SHAs (2026-08-22 update).** The plain-text 7-hex
 > tokens below (rendered without backticks) reference
 > pre-`git filter-repo` history that was
-> obliterated on 2026-08-22 when a Claude-trailer strip rewrote every
+> obliterated on 2026-08-22 when a history rewrite replaced every
 > object in the tree. The current-history equivalents live under the
 > `release(v0.5.1): ...` commits reachable from `origin/main`
 > (30 primary release commits, from `89300cd` back through `ab1367a`),
@@ -677,9 +677,8 @@ CRITICAL/HIGH findings remain OPEN.
 The 2026-08-21 source-spec audit
 (`_BUILD/audit_2026-08-21c/AUDIT_SUMMARY_c.md`, 7 lenses) checked
 the wired v0.5.1 surface against two source design documents — the
-Memory Discipline spec and the v0.2 Spatiotemporal Composability
-Primitive (Kairos-free salvage items only, per the operator's
-Kairos hard-wall). The wiring pipeline had closed every zero-caller
+Memory Discipline spec and a second internal design document
+(salvage items only). The wiring pipeline had closed every zero-caller
 gap; the source-spec audit surfaced a distinct class of findings —
 places where the code did not yet do what the spec prescribed, or
 where docs claimed a mechanism the code did not ship. The v0.5.1

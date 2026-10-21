@@ -37,8 +37,7 @@ Contract (Ox Alpha §2 forced-failure test gate):
 
 References:
 
-- v0.2-primitive Lens 2 Delta 3 (source-doc audit
-  ``_BUILD/audit_2026-08-21c/lens_2_v02_primitive_vs_kairos_wall.md``).
+- Source-doc audit, lens 2, Delta 3 (``_BUILD/audit_2026-08-21c``).
 - Ox Alpha pipeline critique
   ``_BUILD/ract_v0.5.1_spec_completeness/ox_alpha_reviews/pipeline_challenge_2026-08-21.md``
   §2 (forced-failure integration test required).
