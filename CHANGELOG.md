@@ -22,6 +22,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with streamed text, native tool calls, the JSON fallback envelope, reasoning output,
   truncation, stalls and server faults, plus request recording. Usable from pytest and from the
   command line for walkthroughs. Standard library only; nothing in `src/` imports it.
+- `ract.tool_calls`: reads a model reply as tool calls, a final answer, or a named failure.
+  It tries native `tool_calls`, then `<tool_call>` tags, Harmony channel markup, fenced JSON,
+  RACT's JSON envelope, bare JSON and Python-style calls, and records which form worked.
+  Unparsed tool-call markup is never accepted as an answer. Unique near-miss tool names and
+  argument keys are repaired and the repair is reported; ambiguous ones are refused with a hint.
+  A reply cut off at the output limit is explained with token counts. Loop guards stop a turn
+  that repeats the same call three times or hits the same failure twice. Nothing in the module
+  runs a tool; the agent loop that will use it is proposed in ADR-0047.
 
 ### Fixed
 
