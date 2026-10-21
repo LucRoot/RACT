@@ -304,28 +304,29 @@ def run_via_substrate(
                 ),
             )
 
-        applied, skipped, patch_path = apply_commit_to_working_tree(
+        outcome = apply_commit_to_working_tree(
             harness.project_dir,
             record.parent_snapshot_before,
             record.parent_snapshot_after,
         )
-        if skipped:
+        if outcome.skipped:
+            left = "; ".join(f"{p} ({why})" for p, why in outcome.skipped.items())
             return Rooted(
                 value=None,
                 assumption=(
-                    f"Step {index + 1}'s changes apply to files that did not "
-                    "change during the step."
+                    f"Step {index + 1}'s changes can be applied without touching "
+                    "anything already in the working tree."
                 ),
                 confidence=0.0,
                 provenance=["harness.substrate_adapter", f"step:{index + 1}"],
                 error=(
-                    f"Step {index + 1} changed {', '.join(skipped)}, which also "
-                    "changed in your working tree during the step. Those files "
-                    f"were left as they are; the step's patch is in {patch_path}."
+                    f"Step {index + 1} left these paths as they are: {left}. "
+                    f"The step's changes for them are in {outcome.patch_path}."
                 ),
                 hint=(
-                    f"Review {patch_path} and apply it with `git apply` if you "
-                    "want it. Files applied: " + (", ".join(applied) or "none")
+                    f"Review {outcome.patch_path} and apply it with `git apply` "
+                    "if you want it. Applied: "
+                    + (", ".join(outcome.applied) or "nothing")
                 ),
             )
 

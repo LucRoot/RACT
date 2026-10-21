@@ -19,6 +19,7 @@ can list them without the git graph silently accumulating.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -476,9 +477,60 @@ def _git_in(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+@dataclass(frozen=True)
+class WorkingTreeApply:
+    """What ``apply_commit_to_working_tree`` did.
+
+    ``skipped`` maps each path left alone to the reason, in plain words.
+    ``patch_path`` is the saved patch for the skipped paths, relative to the
+    repository, or "" when nothing was skipped.
+    """
+
+    applied: tuple[str, ...]
+    skipped: dict[str, str]
+    patch_path: str
+
+
+def _classify_for_apply(repo: Path, status: str, path: str, before: str) -> str:
+    """Return "write", "delete", "noop", or a reason the path is a conflict.
+
+    LR:: The first version asked git whether the path still matched
+    ``before``. git ignores untracked and ignored files, so an untracked file
+    at a path the step adds (the default ``output.txt`` artifact) counted as
+    untouched and was overwritten. Classification now looks at the
+    filesystem first, and anything it cannot classify is a conflict.
+    """
+    from ract.workspace_path import resolve_workspace_path  # noqa: PLC0415
+
+    kind = status[:1]
+    if kind not in {"A", "M", "D"}:
+        return f"change type {status!r} is not applied automatically"
+    resolved = resolve_workspace_path(repo, path, purpose="write")
+    if resolved.value is None:
+        return resolved.error or "path refused"
+    full = resolved.value
+    exists = os.path.lexists(full)
+    if exists and (os.path.islink(full) or os.path.isdir(full)):
+        return "a directory or link is at that path in your working tree"
+    if kind == "A":
+        if exists:
+            return "a file already exists at that path in your working tree"
+        return "write"
+    tracked = _git_in(repo, "ls-files", "--error-unmatch", "--", path).returncode == 0
+    if kind == "D" and not exists:
+        return "noop"
+    if not exists:
+        return "you deleted this file during the step"
+    if not tracked:
+        return "the file is not tracked by git in your working tree"
+    if _git_in(repo, "diff", "--quiet", before, "--", path).returncode != 0:
+        return "you changed this file during the step"
+    return "delete" if kind == "D" else "write"
+
+
 def apply_commit_to_working_tree(
     repo: Path, before: str, after: str
-) -> tuple[list[str], list[str], str]:
+) -> WorkingTreeApply:
     """Copy a step commit's changes into the working tree, unstaged.
 
     LR:: S-011 stopgap until ADR-0047 D6 (review, then apply). The step was
@@ -486,14 +538,15 @@ def apply_commit_to_working_tree(
     the step commit and then dropped from the index, so the operator sees an
     ordinary unstaged change, HEAD and the branch do not move, and git's own
     line-ending conversion applies. RACT's ``.ract/`` state is never copied.
-    A file whose working-tree content no longer matches ``before`` was
-    changed by someone else during the step; it is left alone and the step's
-    patch for it is saved under ``.ract/pending/``.
 
-    Returns (applied paths, skipped paths, patch path or "").
+    Nothing the operator has is overwritten or deleted. A path is applied only
+    when it is absent (for an addition), or a tracked regular file whose
+    content still equals ``before`` (for a change or deletion). Every other
+    state, and any error while classifying, leaves the path alone; the step's
+    patch for those paths is saved under ``.ract/pending/``.
     """
     if not before or not after or before == after:
-        return [], [], ""
+        return WorkingTreeApply((), {}, "")
     listing = _git_in(
         repo,
         "diff",
@@ -509,18 +562,26 @@ def apply_commit_to_working_tree(
     fields = [f for f in listing.stdout.split("\0") if f]
     changes = list(zip(fields[0::2], fields[1::2]))
     applied: list[str] = []
-    skipped: list[str] = []
+    skipped: dict[str, str] = {}
     for status, path in changes:
-        untouched = _git_in(repo, "diff", "--quiet", before, "--", path).returncode == 0
-        if not untouched:
-            skipped.append(path)
-            continue
-        if status.startswith("D"):
-            (repo / path).unlink(missing_ok=True)
-        else:
-            _git_in(repo, "checkout", after, "--", path)
+        try:
+            verdict = _classify_for_apply(repo, status, path, before)
+        except OSError as exc:
+            verdict = f"could not inspect the path: {exc}"
+        if verdict == "noop":
+            applied.append(path)
+        elif verdict == "delete":
+            (repo / path).unlink()
+            applied.append(path)
+        elif verdict == "write":
+            checkout = _git_in(repo, "checkout", after, "--", path)
             _git_in(repo, "reset", "-q", "--", path)
-        applied.append(path)
+            if checkout.returncode != 0:
+                skipped[path] = f"git could not write it: {checkout.stderr.strip()}"
+            else:
+                applied.append(path)
+        else:
+            skipped[path] = verdict
     patch_path = ""
     if skipped:
         pending = repo / ".ract" / "pending"
@@ -529,7 +590,7 @@ def apply_commit_to_working_tree(
         diff = _git_in(repo, "diff", "--binary", before, after, "--", *skipped)
         target.write_text(diff.stdout, encoding="utf-8")
         patch_path = target.relative_to(repo).as_posix()
-    return applied, skipped, patch_path
+    return WorkingTreeApply(tuple(applied), skipped, patch_path)
 
 
 # RACT 0.4.0

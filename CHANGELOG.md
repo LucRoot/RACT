@@ -49,7 +49,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   commit, an unchanged working file and a staged reversal; a read-only question or a denied
   approval also left a commit. Each step's commit now stays on its `rootact/step/*` branch and
   its changes appear in the working tree as unstaged edits. RACT's `.ract/` state is never
-  copied. A file you changed during the step is left alone and the step's patch is saved under
+  copied. Nothing in your working tree is overwritten or deleted: a path is applied only when
+  it is absent (for a new file) or a tracked file still identical to the step's starting point.
+  Anything else, including an untracked or ignored file, a directory or a link at the path, or a
+  file you edited or deleted during the step, is left alone and the step's patch is saved under
   `.ract/pending/`. This is a stopgap; ADR-0047 D6 (review before apply) replaces it.
 - Interactive session: after a turn that failed once the session had been saved, every later
   intent failed with "Session ... already exists" until `/session new`. The session now resumes
