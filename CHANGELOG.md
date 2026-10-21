@@ -38,6 +38,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract doctor` without `--check-providers` contacts no provider, as before, and now says so: the
+  title reads "config checks passed" and a closing line names `ract doctor --check-providers`.
+  `--json` output gains `providers_contacted`. The `--init-provider` hint now suggests that
+  check before the first intent. A config pointing at a server that was not running used to
+  report every check as passed.
 - A run no longer commits onto your branch. The worktree-per-step path committed each step and
   moved the checked-out branch with `git reset --soft`, leaving an unrequested `rootact step`
   commit, an unchanged working file and a staged reversal; a read-only question or a denied

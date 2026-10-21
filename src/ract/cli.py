@@ -1364,6 +1364,7 @@ def _doctor_command(args: list[str]) -> int:
                 {
                     "passed": passed,
                     "total": total,
+                    "providers_contacted": bool(parsed.check_providers),
                     "checks": [
                         {
                             "check": result.name,
@@ -1378,7 +1379,12 @@ def _doctor_command(args: list[str]) -> int:
         )
         return 0 if passed == total else 1
 
-    console.rule(f"Doctor: {passed}/{total} checks passed")
+    # LR:: Without --check-providers the doctor reads files and config only.
+    # "7/7 checks passed" for a server that was never started sent first-run
+    # users straight into a failing intent (UX baseline UX-05). The title and
+    # a closing line now say what was and was not checked.
+    scope = "checks passed" if parsed.check_providers else "config checks passed"
+    console.rule(f"Doctor: {passed}/{total} {scope}")
     console.table(
         title="",
         columns=["Status", "Check", "Message"],
@@ -1391,6 +1397,11 @@ def _doctor_command(args: list[str]) -> int:
             for result in results
         ],
     )
+    if not parsed.check_providers:
+        console.print(
+            "Providers were not contacted. To check that each one answers, run: "
+            "ract doctor --check-providers"
+        )
     return 0 if passed == total else 1
 
 
@@ -3257,7 +3268,9 @@ def _config_command(args: list[str]) -> int:
             )
             print(f"[ract] wrote default prompt to {prompt_file}")
         print(f"[ract] wrote ract.yaml using the '{parsed.provider}' preset")
-        print("[ract] set the required environment variables and run:")
+        print("[ract] set the required environment variables, then check that")
+        print("[ract] the provider answers and try a dry run:")
+        print("  ract doctor --check-providers")
         print('  ract "your intent here" --dry-run')
         return 0
 
@@ -4446,7 +4459,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[ract] wrote default prompt to {prompt_file}")
 
         print(f"[ract] wrote {init_target} using the '{args.init_provider}' preset")
-        print("[ract] set the required environment variables and run:")
+        print("[ract] set the required environment variables, then check that")
+        print("[ract] the provider answers and try a dry run:")
+        print("  ract doctor --check-providers")
         print('  ract "your intent here" --dry-run')
         return 0
 
