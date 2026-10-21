@@ -6,6 +6,41 @@ All notable changes to RACT (Root Agentic Coding Tool) are documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Interactive session. `ract` with no arguments on a terminal, or `ract repl [--config PATH]`,
+  opens a prompt. Plain text runs as an intent. `/plan`, `/loop`, `/set`, `/settings`,
+  `/session`, `/providers`, `/config`, `/doctor`, `/report` and every other verb work as slash
+  commands. Context carries between turns through a session id, history and tab completion use
+  `readline` where available, and a failing command never ends the session. It dispatches
+  through `ract.cli.main`, so tier policy and approval modes are unchanged. No new dependency.
+- A step that replaces an existing file now sees that file's current contents and is told to
+  return the complete updated file.
+
+### Fixed
+
+- `scripts/install.sh`: `--venv` takes an optional directory (default `.venv`) and no longer
+  swallows the next option; the script is executable; the clone directory no longer has to be
+  named `RACT`; a failed pip install outside a venv suggests `--venv` (PEP 668).
+- Manager provider resolution: an unset `manager_provider` no longer produces "Provider slot
+  'local' is not configured". RACT uses a provider named `local` or the only provider, and
+  otherwise says what to set. `ract config validate` and `ract doctor` report keys indented
+  under `project:`, the unread `prompt_file:` key, `type:` for `adapter:`, and
+  `max_output_tokens:` for `max_tokens:`.
+- `max_tokens` in a provider slot is honored. `local_http` sends no output limit by default
+  and its default timeout is 600 s (was 60 s). An invalid value is reported as a slot error.
+- Reasoning models: `<think>` blocks are stripped from plans and step output, and a truncated
+  or reasoning-only response is reported as such (`finish_reason=length`) instead of as a JSON
+  parse error.
+- The executor refuses to write an empty answer to `expected_artifact`, so a failed step no
+  longer truncates an existing file to zero bytes.
+- Step context no longer includes `ract.yaml`, `manager.txt`, the prompts directory or
+  `.ract/`, which caused models to answer steps with the planner prompt's JSON format.
+- Capability tier 3 matches whole words, so "execute the tests" and the file name `src/ssh.py`
+  are no longer refused. `run the shell command`, `exec(`, `curl`, `ssh` and `publish` still are.
+
 ## [0.5.2] - 2026-08-22 — Deep-Audit Hardening
 
 Six-module hardening release layered on the v0.5.1 spec-completeness

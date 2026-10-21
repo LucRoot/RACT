@@ -63,8 +63,14 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --venv)
-            VENV_DIR="${2:-.venv}"
-            shift 2
+            # The directory is optional: `--venv` alone means `.venv`.
+            if [[ $# -ge 2 && "$2" != --* ]]; then
+                VENV_DIR="$2"
+                shift 2
+            else
+                VENV_DIR=".venv"
+                shift
+            fi
             ;;
         --edit)
             INSTALL_FLAGS="-e"
@@ -76,7 +82,9 @@ Usage: install.sh [options]
 
 Options:
   --local       Install from the current source tree instead of PyPI.
-  --venv DIR    Create and install into a virtual environment at DIR.
+  --venv [DIR]  Create and install into a virtual environment at DIR
+                (default: .venv). Recommended on Ubuntu/Debian, where
+                system-wide pip is blocked (PEP 668).
   --edit        Install in editable mode (only with --local).
   --help        Show this message.
 EOF
@@ -89,11 +97,9 @@ EOF
     esac
 done
 
-PWD_BASENAME=$(basename "$PWD")
-if [[ "$PWD_BASENAME" != "$RACT_NAME" ]]; then
-    warn "current directory basename is '$PWD_BASENAME'; expected '$RACT_NAME' (case-sensitive)."
-    warn "clone with: git clone $REPO_URL $RACT_NAME && cd $RACT_NAME"
-    exit 1
+if [[ "$INSTALL_FLAGS" == "-e" && "$SOURCE" != "local" ]]; then
+    warn "--edit only applies with --local; ignoring."
+    INSTALL_FLAGS=""
 fi
 
 if [[ -n "$VENV_DIR" ]]; then
@@ -104,19 +110,32 @@ if [[ -n "$VENV_DIR" ]]; then
     PYTHON_CMD=$(command -v python)
 fi
 
+# PEP 668 (Ubuntu 23.04+, Debian 12+, recent Homebrew): system pip refuses to
+# install. Print the fix instead of leaving the user with pip's raw error.
+pip_install() {
+    if ! "$PYTHON_CMD" -m pip install "$@"; then
+        if [[ -z "$VENV_DIR" && -z "${VIRTUAL_ENV:-}" ]]; then
+            warn "pip failed outside a virtual environment."
+            warn "if the error was 'externally-managed-environment', rerun with:"
+            warn "  bash scripts/install.sh --local --venv"
+        fi
+        exit 1
+    fi
+}
+
 if [[ "$SOURCE" == "local" ]]; then
     SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
     PROJECT_DIR=$(dirname "$SCRIPT_DIR")
     if [[ -n "$INSTALL_FLAGS" ]]; then
         log "installing RACT in editable mode from $PROJECT_DIR"
-        "$PYTHON_CMD" -m pip install "$INSTALL_FLAGS" "$PROJECT_DIR"
+        pip_install "$INSTALL_FLAGS" "$PROJECT_DIR"
     else
         log "installing RACT from local source at $PROJECT_DIR"
-        "$PYTHON_CMD" -m pip install "$PROJECT_DIR"
+        pip_install "$PROJECT_DIR"
     fi
 else
     log "installing RACT from PyPI"
-    "$PYTHON_CMD" -m pip install --upgrade ract
+    pip_install --upgrade ract
 fi
 
 if command -v ract >/dev/null 2>&1; then
@@ -126,5 +145,10 @@ if command -v ract >/dev/null 2>&1; then
 else
     warn "ract command not found on PATH after install."
     warn "you may need to add your Python scripts directory to PATH."
+fi
+
+if [[ -n "$VENV_DIR" ]]; then
+    # `source` above only affected this script's shell, not the caller's.
+    log "activate it in your shell with: source $VENV_DIR/bin/activate"
 fi
 # RACT 0.1.1 - Trust and tooling

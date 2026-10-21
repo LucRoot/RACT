@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ract.model_output import describe_output_problem, strip_reasoning
 from ract.providers.base import ProviderAdapter
 from ract.rooted import DEFAULT_CONFIDENCE_FLOOR, Rooted
 from ract.temperature_router import TemperatureRouter
@@ -166,15 +167,20 @@ class Manager:
 
         raw = response_rooted.unwrap()
         message = raw.get("choices", [{}])[0].get("message", {})
-        content = message.get("content", "")
-        parsed = _extract_json(content)
+        content = message.get("content") or ""
+        # Inline <think> blocks can contain JSON-looking fragments; parse only
+        # what the model presented as its answer.
+        parsed = _extract_json(strip_reasoning(content))
         if parsed is None:
             return Rooted(
                 value=None,
                 assumption="The management LM returns a JSON plan matching the expected schema.",
                 confidence=0.0,
                 provenance=["manager.plan"],
-                error="Could not parse JSON plan from model response.",
+                error=(
+                    "Could not parse JSON plan from model response. "
+                    + describe_output_problem(raw, wanted="JSON plan")
+                ),
             )
 
         steps = []

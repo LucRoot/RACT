@@ -15,6 +15,7 @@ from typing import Any
 
 import yaml
 
+from ract.config_check import find_config_problems, resolve_manager_provider
 from ract.harness import _default_manager_prompt_path
 from ract.providers.router import ProviderRouter
 
@@ -59,6 +60,9 @@ class RactDoctor:
         results.append(self._check_project_name(config))
         results.append(self._check_manager_provider(config))
         results.append(self._check_providers(config))
+        layout = self._check_config_layout(config)
+        if layout is not None:
+            results.append(layout)
         if check_providers:
             results.extend(self._check_provider_reachability(config))
         results.append(self._check_prompt_file(config))
@@ -120,24 +124,40 @@ class RactDoctor:
         )
 
     def _check_manager_provider(self, config: dict[str, Any]) -> CheckResult:
-        manager = config.get("manager_provider")
-        if not manager:
+        manager, error = resolve_manager_provider(config)
+        if manager is None:
             return CheckResult(
                 name="manager_provider",
                 passed=False,
-                message="manager_provider is not set.",
+                message=error or "manager_provider is not set.",
             )
-        providers = config.get("providers", {})
-        if manager not in providers:
+        if not config.get("manager_provider"):
+            # The runner tolerates this by picking a provider; doctor is the
+            # strict check, so it asks for the explicit line.
             return CheckResult(
                 name="manager_provider",
                 passed=False,
-                message=f"manager_provider '{manager}' is not defined in providers.",
+                message=(
+                    f"manager_provider is not set; RACT would fall back to "
+                    f"'{manager}'. Add a top-level line "
+                    f"'manager_provider: {manager}' to make this explicit."
+                ),
             )
         return CheckResult(
             name="manager_provider",
             passed=True,
             message=f"Manager provider '{manager}' is configured.",
+        )
+
+    def _check_config_layout(self, config: dict[str, Any]) -> CheckResult | None:
+        """Report misplaced or unread keys; ``None`` when the layout is clean."""
+        problems = find_config_problems(config)
+        if not problems:
+            return None
+        return CheckResult(
+            name="config_layout",
+            passed=False,
+            message=" ".join(problems),
         )
 
     def _check_providers(self, config: dict[str, Any]) -> CheckResult:

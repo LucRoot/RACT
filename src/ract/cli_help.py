@@ -66,6 +66,7 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     "memory": "Init, apply-narrowings, and inspect memory-discipline indexes.",
     "retrieval": "Search the retrieval adapter; query the three memory indexes.",
     "intent": "Operator-signed intent recompile appending a new suite version.",
+    "repl": "Open an interactive session: type intents, use /commands, keep context.",
     # Handshake / approval
     "handshakes": "List, approve, reject, defer, or review pending handshakes.",
     "operator-queue": "List or drain the operator-approval queue.",

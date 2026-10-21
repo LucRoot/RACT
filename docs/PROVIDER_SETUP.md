@@ -33,6 +33,49 @@ providers:
 
 The `model` value is passed to the server but may be ignored by local servers.
 
+### Where the keys go
+
+`manager_provider`, `providers`, `prompts_dir` and `context_budget_tokens` are
+top-level keys. The `project:` block holds only `name`. If you indent
+`manager_provider` or `providers` under `project:`, RACT does not read them.
+`ract config validate` and `ract doctor` report this, along with these other
+mistakes:
+
+- `prompt_file:` is not a RACT setting. RACT reads the manager prompt from
+  `<prompts_dir>/manager.txt` (default `prompts/manager.txt`) and falls back to
+  the bundled prompt.
+- A provider slot uses `adapter:`, not `type:`.
+- The output cap is `max_tokens:`, not `max_output_tokens:`.
+
+If `manager_provider` is not set, RACT uses a provider named `local`, or the
+only provider you defined. With several providers and no `local`, it stops and
+tells you to set `manager_provider`.
+
+### Output limit and reasoning models
+
+`max_tokens` is a per-provider setting:
+
+```yaml
+providers:
+  bolt:
+    adapter: local_http
+    url: http://127.0.0.1:8080/v1
+    model: my-reasoning-model
+    max_tokens: 8192   # an integer, or "none" to send no limit
+    timeout: 900       # seconds; local_http defaults to 600
+```
+
+For `local_http`, RACT sends no output limit unless you set one, so the server's
+own limit (`n-predict`, context size) applies. Hosted `openai` providers keep
+the per-call default unless you set `max_tokens`.
+
+Reasoning models write their thinking first, then the
+answer. If the limit is reached during thinking, the response has no answer and
+`finish_reason` is `length`. RACT now says so, with the size of the reasoning it
+received, instead of reporting a JSON parse error. Raise `max_tokens` or remove
+it. RACT also strips `<think>...</think>` blocks from answers, and it refuses to
+write an empty answer over an existing file.
+
 ### Ollama
 
 ```yaml

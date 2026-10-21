@@ -143,7 +143,7 @@ class RactConsole:
             "\n"
             "[italic]Quick commands:[/]\n"
             "  [bold]ract --init-provider local[/]     · scaffold a project for a local model\n"
-            "  [bold]ract 'your intent' --loop[/]       · run a quality-anchored build loop\n"
+            "  [bold]ract run 'your intent' --loop[/]   · run a quality-anchored build loop\n"
             "  [bold]ract report --last[/]              · see what changed and why\n"
             "  [bold]ract whisper --intent '...'[/]     · get a codebase dialect brief\n"
             "  [bold]ract auction list[/]               · review dead-code candidates\n"

@@ -91,8 +91,14 @@ class Authorization:
         return self.decision != PolicyDecision.REFUSE and not self.refusals
 
 
-def _action_text(action: dict[str, Any] | str) -> str:
-    """Extract a searchable text form of an action."""
+def _action_text(
+    action: dict[str, Any] | str, *, include_artifact: bool = True
+) -> str:
+    """Extract a searchable text form of an action.
+
+    ``include_artifact=False`` leaves out the target file name, so editing
+    ``src/ssh.py`` is not classified by the word in its path.
+    """
     if isinstance(action, str):
         return action
     parts = []
@@ -105,15 +111,53 @@ def _action_text(action: dict[str, Any] | str) -> str:
             args = tool.get("arguments") or tool.get("args", {})
             if isinstance(args, dict):
                 parts.extend(str(v) for v in args.values())
-    if "expected_artifact" in action:
+    if include_artifact and "expected_artifact" in action:
         parts.append(str(action["expected_artifact"]))
     return " ".join(parts)
+
+
+# Tier-3 vocabulary. Matched as whole words or phrases, never as substrings.
+# LR:: The original check was ``token in text`` over the plan step's prose. That
+# classed "execute the tests" (contains "exec"), "a shell-free approach"
+# ("shell"), and any word containing "ssh" or "scp" as external/destructive,
+# and the executor then refused the step with no way to proceed. Whole-word
+# matching keeps the intended hits ("exec(...)", "run curl", "ssh host",
+# "publish to PyPI") and stops refusing ordinary English.
+_TIER3_TOKENS = (
+    "rm -rf",
+    "rm -r",
+    "del /f /s",
+    "rmdir /s",
+    "publish",
+    "publishes",
+    "publishing",
+    "published",
+    "pypi",
+    "npm publish",
+    "cargo publish",
+    "curl",
+    "wget",
+    "ssh",
+    "scp",
+    "exec",
+    "shell",
+    "subprocess",
+    "os.system",
+)
+_TIER3_RE = re.compile(
+    r"(?<![\w])(?:"
+    + "|".join(re.escape(t) for t in sorted(_TIER3_TOKENS, key=len, reverse=True))
+    + r")(?![\w])"
+)
+_PUBLISH_RE = re.compile(r"(?<![\w])publish(?:es|ed|ing)?(?![\w])")
 
 
 def classify_action(action: dict[str, Any] | str) -> CapabilityTier:
     """Classify a plan action or tool call into a capability tier.
 
-    Classification is deterministic from schema fields, not free-text parsing.
+    A structured ``tool_call`` is classified from its tool name. Free-text plan
+    actions are matched against a fixed vocabulary as whole words, so the
+    result does not depend on substrings of unrelated words.
     """
     text = _action_text(action).lower()
     tool_name = ""
@@ -123,27 +167,9 @@ def classify_action(action: dict[str, Any] | str) -> CapabilityTier:
             tool_name = str(tool.get("name", "")).lower()
 
     # Tier 3: external / destructive.
-    tier3_tokens = {
-        "rm -rf",
-        "rm -r",
-        "del /f /s",
-        "rmdir /s",
-        "publish",
-        "pypi",
-        "npm publish",
-        "cargo publish",
-        "curl",
-        "wget",
-        "ssh",
-        "scp",
-        "exec",
-        "shell",
-        "subprocess",
-        "os.system",
-    }
     if tool_name in {"shell", "exec", "system", "run_command"}:
         return CapabilityTier.TIER_3_EXTERNAL
-    if any(token in text for token in tier3_tokens):
+    if _TIER3_RE.search(_action_text(action, include_artifact=False).lower()):
         return CapabilityTier.TIER_3_EXTERNAL
 
     # Tier 2: environment mutation.
@@ -321,7 +347,7 @@ def authorize_action(
 
     # Publishing to package registries.
     lowered = text.lower()
-    if "publish" in lowered and not allow_tier_3:
+    if _PUBLISH_RE.search(lowered) and not allow_tier_3:
         refusals.append(
             Refusal(
                 action=text,

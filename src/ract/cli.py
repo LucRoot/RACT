@@ -17,6 +17,7 @@ from ract.builtin_skill_library import BuiltinSkillLibrary
 from ract.chestertons_fence import ChestertonsFence
 from ract.code_review_mode import CodeReviewMode
 from ract.compression_novelty_detector import CompressionNoveltyDetector
+from ract.config_check import find_config_problems, resolve_manager_provider
 from ract.consolidate import ConsolidationScanner, MergeProposal
 from ract.dead_code_auction import DeadCodeAuction
 from ract.skill_marketplace import SkillMarketplace
@@ -145,7 +146,29 @@ CLI_VERBS: tuple[str, ...] = (
     # ``--intent-file`` XOR ``--intent-text``. USE_CASES.jsonl carries
     # a single accepted entry for the composed ``intent recompile``.
     "intent",
+    # Interactive session: ``ract`` with no arguments on a terminal, or
+    # ``ract repl [--config PATH]``. See ``ract.repl``.
+    "repl",
 )
+
+
+def _repl_command(args: list[str]) -> int:
+    """Handle 'ract repl [--config <path>]': open the interactive session."""
+    parser = argparse.ArgumentParser(
+        prog="ract repl",
+        description="Open an interactive RACT session in this directory.",
+    )
+    parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
+    parsed = parser.parse_args(args)
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        print(
+            "[ract] ract repl needs a terminal. For scripts use: ract run '<intent>'",
+            file=sys.stderr,
+        )
+        return 3
+    from ract.repl import run_repl
+
+    return run_repl(parsed.config)
 
 
 def _source_digest_command(args: list[str]) -> int:
@@ -2068,7 +2091,10 @@ def _whisper_command(args: list[str]) -> int:
         return 1
 
     router = ProviderRouter(config.get("providers", {}))
-    manager_provider = config.get("manager_provider", "local")
+    manager_provider, manager_error = resolve_manager_provider(config)
+    if manager_provider is None:
+        print(f"[ract] {manager_error}", file=sys.stderr)
+        return 1
     adapter_rooted = router.get_adapter(manager_provider)
     if not adapter_rooted.is_ok():
         print(
@@ -2307,7 +2333,10 @@ def _fence_command(args: list[str]) -> int:
         return 0
 
     router = ProviderRouter(config.get("providers", {}))
-    manager_provider = config.get("manager_provider", "local")
+    manager_provider, manager_error = resolve_manager_provider(config)
+    if manager_provider is None:
+        print(f"[ract] {manager_error}", file=sys.stderr)
+        return 1
     adapter_rooted = router.get_adapter(manager_provider)
     if not adapter_rooted.is_ok():
         print(
@@ -3166,6 +3195,15 @@ def _config_command(args: list[str]) -> int:
             for err in errors:
                 print(f"[ract] {err['field']}: {err['message']}", file=sys.stderr)
             return 1
+        # The preflight check only covers file shape. Also confirm the manager
+        # provider resolves and surface keys that are misplaced or never read.
+        loaded = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
+        _, manager_error = resolve_manager_provider(loaded)
+        if manager_error:
+            print(f"[ract] manager_provider: {manager_error}", file=sys.stderr)
+            return 1
+        for problem in find_config_problems(loaded):
+            print(f"[ract] warning: {problem}", file=sys.stderr)
         print("[ract] config is valid")
         return 0
 
@@ -4071,6 +4109,12 @@ def main(argv: list[str] | None = None) -> int:
     # first token; every flag downstream still applies.
     if argv and argv[0] == "run":
         argv = argv[1:]
+    elif argv and argv[0] == "repl":
+        return _repl_command(argv[1:])
+    elif not argv and sys.stdin.isatty() and sys.stdout.isatty():
+        # Bare ``ract`` in a terminal opens the interactive session.
+        # Scripts and CI (no TTY) keep the "intent is required" error.
+        return _repl_command([])
     if argv and argv[0] == "skills":
         return _skills_command(argv[1:])
     if argv and argv[0] == "mcp":

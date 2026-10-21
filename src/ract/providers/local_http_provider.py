@@ -16,10 +16,21 @@ from ract.providers.openai_provider import OpenAICompatibleProvider
 class LocalHttpProvider(OpenAICompatibleProvider):
     """Adapter for a local OpenAI-compatible HTTP server."""
 
+    # LR:: Local compute is not metered, and local models are often reasoning
+    # models whose thinking length is unpredictable. A fixed cap that was
+    # invisible to the user truncated a reasoning model's plan mid-JSON. Without an
+    # explicit ``max_tokens`` in the provider block, send no cap and let the
+    # server's own limit (``--n-predict``) apply.
+    _uncapped_by_default = True
+
     def __init__(self, config: dict[str, Any]) -> None:
         # LR:: Force no authentication for local servers and default model to 'local'.
         config.setdefault("api_key", "no-key")
         config.setdefault("model", "local")
+        # LR:: A 60 s read timeout suits a hosted API. A local 70B-class model
+        # generating thousands of reasoning tokens at ~30 tok/s needs minutes,
+        # and a timeout here triggers retries that redo the whole generation.
+        config.setdefault("timeout", 600.0)
         super().__init__(config)
 
     @property

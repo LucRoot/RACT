@@ -157,6 +157,10 @@ ALLOWED_IMPORT_ROOTS = {
     # Both are stdlib platform-conditional imports.
     "msvcrt",
     "fcntl",
+    # Interactive session (``ract.repl``): stdlib ``readline`` gives line
+    # editing, history and tab completion where the platform has it. The
+    # import is optional and falls back to plain ``input()``.
+    "readline",
     # v0.5.1 external-review response (module_06): the ambient-run_id
     # mint path in ``core/workspace_digest.py`` and the operator-key
     # HMAC path in ``core/intent_recompile.py`` use stdlib ``secrets``

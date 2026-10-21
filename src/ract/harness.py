@@ -16,6 +16,7 @@ from typing import Any
 import yaml
 
 from ract.codebase_historian import CodebaseHistorian
+from ract.config_check import resolve_manager_provider
 from ract.contracts.whisperer import WhispererContract
 from ract.coverage_delta import (
     gate as coverage_gate,
@@ -58,8 +59,11 @@ from ract.token_budget import TokenBudget
 # Files that are eligible for automatic context curation. Binary or noisy
 # suffixes are skipped so the token budget is spent on readable project state.
 _CONTEXT_SUFFIXES = {".py", ".md", ".txt", ".yaml", ".yml", ".json"}
+# RACT control files that describe how to run, not what to build.
+_CONTEXT_IGNORE_FILES = {"ract.yaml", "ract.yml", "manager.txt"}
 _CONTEXT_IGNORE_DIRS = {
     "__pycache__",
+    ".ract",
     ".venv",
     ".git",
     "node_modules",
@@ -182,19 +186,29 @@ def _curate_context(
     project_dir: Path,
     intent: str,
     max_tokens: int,
+    prompts_dir: str = "prompts",
 ) -> str:
     """Build a context block of whole files that fit inside the token budget.
 
     Returns an empty string if no eligible files are found, so the harness
     degrades gracefully on empty or non-code projects.
+
+    RACT's own control files (``ract.yaml``, any ``manager.txt``, the prompts
+    directory, ``.ract/``) are never part of the context. LR:: A manager prompt
+    that says "reply with ONLY a JSON plan" was being pasted into every
+    execution step as if it were project source, and the model obeyed it by
+    returning another plan instead of the requested file.
     """
     candidates: list[tuple[Path, float, str]] = []
+    prompts_prefix = prompts_dir.strip("/\\").replace("\\", "/") + "/"
     for file_path in project_dir.rglob("*"):
         if not file_path.is_file():
             continue
         if file_path.suffix.lower() not in _CONTEXT_SUFFIXES:
             continue
         if any(part in _CONTEXT_IGNORE_DIRS for part in file_path.parts):
+            continue
+        if file_path.name.lower() in _CONTEXT_IGNORE_FILES:
             continue
         try:
             stat = file_path.stat()
@@ -205,7 +219,7 @@ def _curate_context(
             continue
         rel = file_path.relative_to(project_dir).as_posix()
         # Skip the harness's own prompt files; they are handled by Manager.
-        if rel.startswith("prompts/"):
+        if rel.startswith(prompts_prefix) or rel.startswith("prompts/"):
             continue
         relevance = _context_relevance(file_path, intent)
         candidates.append((file_path, relevance, content))
@@ -562,7 +576,15 @@ class Harness:
         config = config_rooted.unwrap()
         project_dir = path.parent
         router = ProviderRouter(config.get("providers", {}))
-        manager_provider = config.get("manager_provider", "local")
+        manager_provider, manager_error = resolve_manager_provider(config)
+        if manager_provider is None:
+            return Rooted(
+                value=None,
+                assumption="A manager provider is configured in ract.yaml.",
+                confidence=0.0,
+                provenance=["harness.from_config_path"],
+                error=manager_error,
+            )
         adapter_rooted = router.get_adapter(manager_provider)
         if not adapter_rooted.is_ok():
             return Rooted(
@@ -692,7 +714,12 @@ class Harness:
         arrives.
         """
         budget = int(self.config.get("context_budget_tokens", 4096))
-        context_block = _curate_context(self.project_dir, intent, budget)
+        context_block = _curate_context(
+            self.project_dir,
+            intent,
+            budget,
+            prompts_dir=str(self.config.get("prompts_dir", "prompts")),
+        )
         retrieval_block = self._retrieval_block(intent)
         whisper_block = ""
         if self.legacy_whisperer is not None:

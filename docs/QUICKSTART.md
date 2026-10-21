@@ -30,8 +30,13 @@ pip install ract
 ```bash
 git clone <repository> RACT
 cd RACT
-./scripts/install.sh --local --venv
+./scripts/install.sh --local --venv        # creates ./.venv
+source .venv/bin/activate
 ```
+
+On Debian, Ubuntu and other systems that mark the system Python as externally
+managed (PEP 668), a plain `pip install` fails. Use `--venv` as above, or
+`--venv /path/to/dir` to choose the location.
 
 Verify the installation:
 
@@ -42,6 +47,34 @@ ract --help
 
 The CLI will greet you with a short tagline. If you are on macOS, enjoy the same wheel without the fan noise.
 
+
+## Work inside a session
+
+Run `ract` with no arguments in a terminal to open an interactive session. Type an
+intent and press Enter. Lines that start with `/` are commands.
+
+```text
+$ ract
+ract> add input validation to the login endpoint
+ract> /plan split the config loader into two modules
+ract> /set stream on
+ract> /doctor --check-providers
+ract> /exit
+```
+
+| Command | What it does |
+|---------|--------------|
+| `<text>` or `/run <intent>` | Plan and execute the intent. |
+| `/plan <intent>` | Plan only. Nothing is written. |
+| `/loop <intent>` | Run the quality-anchored loop. |
+| `/set dry-run\|stream\|auto on\|off` | Change how turns run. `/set mode` and `/set iterations` also work. |
+| `/settings`, `/session [new\|id]` | Show settings, or restart or switch the session that carries context. |
+| `/providers`, `/config`, `/doctor`, `/report` | Inspect the setup and the last run. |
+| `/<verb>` | Any other RACT verb, for example `/whisper` or `/fence`. |
+
+Each turn after the first resumes the same session, so a follow-up like "now add a test for
+it" has the earlier work as context. Ctrl-C stops a running turn and returns to the prompt.
+Ctrl-D or `/exit` leaves. Scripts and CI keep using `ract run '<intent>'`.
 
 ## Scaffold your first project
 

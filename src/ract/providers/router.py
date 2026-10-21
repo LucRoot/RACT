@@ -96,7 +96,16 @@ class ProviderRouter:
                 error=f"Unknown provider adapter: {adapter_name}",
             )
 
-        adapter = cls(config)
+        try:
+            adapter = cls(config)
+        except (ValueError, TypeError) as exc:
+            return Rooted(
+                value=None,
+                assumption=f"Provider slot '{name}' has a valid configuration.",
+                confidence=0.0,
+                provenance=["router.get_adapter"],
+                error=f"Provider slot '{name}' is misconfigured: {exc}",
+            )
         self._adapters[name] = adapter
         return Rooted(
             value=adapter,

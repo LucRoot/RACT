@@ -149,11 +149,16 @@ Or from source:
 git clone https://github.com/LucRoot/RACT.git RACT
 cd RACT
 ./scripts/install.sh --local --venv
+source .venv/bin/activate
 ```
 
 See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
 
 ## Quickstart
+
+Run `ract` with no arguments to work inside an interactive session (`/plan`, `/loop`,
+`/doctor`, `/set`, and every verb as a slash command). The commands below also work one at a
+time from the shell.
 
 ```bash
 ract init --template python-package --provider local
@@ -193,6 +198,7 @@ module_10, Lens A M8 closure).
 - `ract memory` — Init, apply-narrowings, and inspect memory-discipline indexes.
 - `ract retrieval` — Search the retrieval adapter; query the three memory indexes.
 - `ract intent` — Operator-signed intent recompile appending a new suite version.
+- `ract repl` — Open an interactive session: type intents, use /commands, keep context.
 - `ract handshakes` — List, approve, reject, defer, or review pending handshakes.
 - `ract operator-queue` — List or drain the operator-approval queue.
 - `ract whisper` — Add or list free-form legacy operator notes.

@@ -21,10 +21,48 @@ from ract.retry_policy import RetryConfig, RetryPolicy
 from ract.rooted import Rooted
 
 
+_NO_CAP_WORDS = {"none", "null", "off", "unlimited", "unbounded", "no"}
+
+
+def _parse_max_tokens(raw: Any) -> int | None:
+    """Return the configured output cap, or ``None`` for "no cap".
+
+    ``max_tokens: none`` (or ``0``, ``unlimited``) means the request omits the
+    field entirely and the server decides. A positive integer is a hard cap.
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        text = raw.strip().lower()
+        if text in _NO_CAP_WORDS:
+            return None
+        try:
+            raw = int(text)
+        except ValueError:
+            raise ValueError(
+                f"max_tokens must be a positive integer or 'none', got {raw!r}"
+            ) from None
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise ValueError(
+            f"max_tokens must be a positive integer or 'none', got {raw!r}"
+        )
+    if raw <= 0:
+        return None
+    return raw
+
+
 class OpenAICompatibleProvider(ProviderAdapter):
     """Adapter for OpenAI-compatible HTTP endpoints."""
 
+    # Subclasses for servers the user runs themselves (llama.cpp, vLLM) set this
+    # so that, absent an explicit ``max_tokens``, the request carries no output
+    # cap and the server's own limit applies. Reasoning models spend an
+    # unpredictable share of any fixed cap on thinking before they answer.
+    _uncapped_by_default = False
+
     def __init__(self, config: dict[str, Any]) -> None:
+        self._max_tokens_configured = "max_tokens" in config
+        self._max_tokens_override = _parse_max_tokens(config.get("max_tokens"))
         self.url = config.get(
             "url",
             config.get(
@@ -129,6 +167,39 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 return True
         return False
 
+    def _effective_max_tokens(self, requested: int) -> int | None:
+        """Decide the output cap for one request.
+
+        An explicit ``max_tokens`` in the provider config always wins (``none``
+        removes the cap). Otherwise self-hosted adapters send no cap, and
+        hosted adapters use the caller's default.
+        """
+        if self._max_tokens_configured:
+            return self._max_tokens_override
+        if self._uncapped_by_default:
+            return None
+        return requested
+
+    def _build_payload(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        model: str | None,
+        max_tokens: int,
+        temperature: float,
+        stream: bool,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": model or self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "stream": stream,
+        }
+        cap = self._effective_max_tokens(max_tokens)
+        if cap is not None:
+            payload["max_tokens"] = cap
+        return payload
+
     def _post_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send a single chat-completions request and return parsed JSON."""
         if self._rate_bucket is not None:
@@ -152,13 +223,13 @@ class OpenAICompatibleProvider(ProviderAdapter):
         max_tokens: int = 512,
         temperature: float = 0.3,
     ) -> Rooted[dict[str, Any]]:
-        payload = {
-            "model": model or self.model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "stream": False,
-        }
+        payload = self._build_payload(
+            messages,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            stream=False,
+        )
         start = time.perf_counter()
         data, last_error = self._retry_policy.execute(
             lambda: self._post_completion(payload),
@@ -233,13 +304,13 @@ class OpenAICompatibleProvider(ProviderAdapter):
         Each yielded value is a single server-sent event chunk.  The caller is
         responsible for accumulating ``choices[0].delta.content`` values.
         """
-        payload = {
-            "model": model or self.model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "stream": True,
-        }
+        payload = self._build_payload(
+            messages,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            stream=True,
+        )
         try:
             with self.client.stream(
                 "POST",

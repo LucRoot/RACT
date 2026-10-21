@@ -32,6 +32,7 @@ from ract.load_bearing_guard import LoadBearingGuard
 from ract.manager import Plan, Step
 from ract.compression_novelty_detector import CompressionNoveltyDetector
 from ract.mcp_adapter import McpToolRegistry
+from ract.model_output import describe_output_problem, strip_reasoning
 from ract.novelty_budget import NoveltyBudget
 from ract.provenance_tracker import Artifact as ProvenanceArtifact, ProvenanceTracker
 from ract.providers.base import ProviderAdapter
@@ -652,13 +653,25 @@ class Executor:
         """Collect a streaming completion into a synthetic raw response dict."""
         start = time.perf_counter()
         collected: list[str] = []
+        thinking: list[str] = []
+        final_reason = ""
         for chunk_rooted in adapter.complete_stream(
             messages, max_tokens=1024, temperature=temperature
         ):
             if not chunk_rooted.is_ok():
                 return chunk_rooted
             chunk = chunk_rooted.unwrap()
-            delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+            choice = (chunk.get("choices") or [{}])[0]
+            delta_obj = choice.get("delta") or {}
+            delta = delta_obj.get("content") or ""
+            # Reasoning models stream their thinking separately. It is not part
+            # of the artifact, but keeping its size lets a truncated response be
+            # diagnosed instead of reported as a mystery empty answer.
+            thought = delta_obj.get("reasoning_content") or ""
+            if thought:
+                thinking.append(thought)
+            if choice.get("finish_reason"):
+                final_reason = str(choice["finish_reason"])
             if delta:
                 collected.append(delta)
                 if stream_callback is not None:
@@ -670,8 +683,12 @@ class Executor:
             value={
                 "choices": [
                     {
-                        "message": {"content": content},
+                        "message": {
+                            "content": content,
+                            "reasoning_content": "".join(thinking),
+                        },
                         "delta": {"content": content},
+                        "finish_reason": final_reason,
                     }
                 ],
                 "_ract_latency_ms": latency_ms,
@@ -774,6 +791,43 @@ class Executor:
             "provider_breakdown": provider_breakdown,
         }
 
+    # Largest existing target file shown to a step in full. Larger files are
+    # left to context curation so one step cannot spend the whole window.
+    _TARGET_FILE_MAX_BYTES = 128 * 1024
+
+    def _target_file_block(
+        self, expected_artifact: str | None, context: str
+    ) -> tuple[str, bool]:
+        """Return ``(block, replaces_existing)`` for the step's target file.
+
+        LR:: A step writes its whole answer to ``expected_artifact``. If the
+        file already exists, the model has to see its current contents or it
+        will invent a replacement and overwrite real work. Context curation
+        may skip the file (budget, ranking), so the target is always supplied
+        here. When curation already included it, only the instruction is added.
+        The path must resolve inside the project directory.
+        """
+        if not expected_artifact or self.project_dir is None:
+            return "", False
+        try:
+            root = Path(self.project_dir).resolve()
+            target = (root / expected_artifact).resolve()
+            target.relative_to(root)
+        except (OSError, ValueError):
+            return "", False
+        if not target.is_file():
+            return "", False
+        rel = target.relative_to(root).as_posix()
+        if f"--- {rel} ---" in (context or ""):
+            return "", True
+        try:
+            if target.stat().st_size > self._TARGET_FILE_MAX_BYTES:
+                return "", True
+            text = target.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return "", True
+        return f"Current contents of {rel}:\n--- {rel} ---\n{text}\n--- end {rel} ---", True
+
     def _execute_provider_step_with_fallback(
         self,
         step: Step,
@@ -809,6 +863,16 @@ class Executor:
         user_content = (
             f"Task: {step.action}\nExpected artifact: {step.expected_artifact}"
         )
+        target_block, replaces_existing = self._target_file_block(
+            step.expected_artifact, context
+        )
+        if replaces_existing:
+            user_content += (
+                "\nThis file already exists and your answer replaces it. "
+                "Return the complete updated file, not a diff or a fragment."
+            )
+        if target_block:
+            user_content = f"{target_block}\n\n{user_content}"
         if context:
             user_content = f"{context}\n\n{user_content}"
         messages = [
@@ -1085,7 +1149,30 @@ class Executor:
                     )
                 raw, content, metrics = step_result.unwrap()
 
+            content = strip_reasoning(content)
             content = self._normalize_model_output(content, step.expected_artifact)
+
+            # An empty answer must never overwrite the target file. A reasoning
+            # model that runs out of output budget returns exactly this, and the
+            # old behavior silently truncated the user's file to zero bytes.
+            if step.expected_artifact and not content.strip():
+                return Rooted(
+                    value=None,
+                    assumption=(
+                        f"Step {index} produces content for {step.expected_artifact}."
+                    ),
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}"],
+                    error=(
+                        f"Step {index} produced no content for "
+                        f"{step.expected_artifact}; nothing was written. "
+                        + describe_output_problem(
+                            raw if isinstance(raw, dict) else None,
+                            wanted="artifact",
+                        )
+                    ),
+                    hint="empty_output",
+                )
 
             is_diff, content, diff_message = self._apply_diff_if_needed(
                 step.expected_artifact, content
