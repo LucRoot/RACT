@@ -7,6 +7,27 @@ before any code lands. Amends ADR-0012 on one point (D1). Companion to
 ADR-0047 (tool layer, agent loop, review and undo), which this ADR does not
 repeat.
 
+## Decisions for the operator
+
+Each is argued below with its rejected alternatives.
+
+1. Open tier 3 per project through a signed operator grant, keeping
+   `RACT_TIER_3_ENABLED` at `False` (D1). This amends ADR-0012.
+2. Key custody: an Ed25519 key outside every workspace, always
+   passphrase-protected, with a short in-memory unlock window (D2).
+3. Tier 2 asks instead of running silently (R1).
+4. Handshake approvals written outside a session must be signed (R2).
+5. Keys move out of `.ract/` (R3).
+6. The production substrate gets a manifest, handshakes and a sandbox
+   backend (R4).
+7. Only `external` content disables allowlist rules for the rest of a step
+   (D9), revisited if approvals per task run high (D6 metric).
+8. Windows runs commands as `best_effort`, reported as not confining the
+   filesystem or network (D7).
+9. `unrestricted` mode exists only under a grant with `max_mode` set (D6).
+10. A guided first grant (D13) so a new user reaches a signed test-runner
+    rule in under two minutes.
+
 ## Context
 
 A coding tool that cannot run the tests cannot check its own work. Today
@@ -134,6 +155,13 @@ Tier map for the section 2 tools (section 1 tools are in ADR-0047 D1):
 - Rotation: `ract policy keygen --rotate` pins a new key; grants signed with
   the old key stop verifying and the session says which grant needs
   re-signing.
+- Unlock window. After the operator enters the passphrase, the decrypted
+  signing key stays in process memory for 10 minutes by default
+  (configurable in user config, 0 disables), is never written to disk, and
+  is cleared on exit or `/permissions lock`. Without it, every "allow
+  always" costs a passphrase prompt, and operators drift to `unrestricted`
+  to avoid prompts, which is worse. The window covers signing only; it never
+  answers an approval.
 
 ### D3. The grant and the policy layers
 
@@ -370,6 +398,15 @@ in `allowlist` or `unrestricted` mode with a matching rule. Anything else
 becomes an ADR-0006 handshake and the step blocks at the commit boundary
 (ADR-0011). It unlocks only with a signed approval record (R2).
 
+**No timers.** An approval never resolves itself after a delay. A prompt
+that nobody can answer (stdin closed, the session ending, an unattended
+run) resolves as `denied`, and the event stream records that as the reason.
+
+**Approval fatigue metric.** The J4 and web-fetch walkthroughs record the
+number of approvals per task. If the median goes above three, the D9
+`external` rule is revisited before release, because operators who are
+asked too often approve without reading.
+
 **Invariant A-1: no model output can approve.** Approvals come from exactly
 two sources: keystrokes on the session terminal read by RACT's own prompt
 reader, and approval records signed with the pinned operator key. Model
@@ -465,7 +502,11 @@ the hash-chained trace and in a per-step `commands.jsonl` sidecar:
 
 Binding the `commands.jsonl` digest into the step's Rootknot needs an
 optional field in the Rootknot payload, which is a sacred-spine change. It
-is deferred to its own ADR. Until then the trace chain is the attestation.
+is deferred to its own ADR. Until then the trace chain is the attestation,
+and the harness verdict and `ract verify` must say so in plain words
+("command records are in the trace; they are not part of the signed
+Rootknot"). The Rootknot field ADR is scheduled before `ract verify`
+(board card B-039).
 
 ### D11. Network tools and data egress
 
@@ -504,6 +545,34 @@ Opening an untrusted project in a session asks once and shows what would be
 loaded. Headless runs never ask: an untrusted project loads none of it and
 prints a notice. `--bare` loads none of it even for a trusted project. Until
 the hook design lands, hook commands run with the scrubbed environment.
+
+### D13. A guided first grant
+
+Without help, reaching `run_tests` takes four steps: keygen, init, editing
+`policy.yaml`, and signing. `ract policy init --guided` (and `/permissions`
+in a session) does it in one flow: it detects the test runner from the
+repository, proposes the narrowest rule (for example
+`[python, -m, pytest]` with network off and a 15-minute limit), explains
+each field in one line, shows the resulting `policy.yaml` as a diff, creates
+the key if there is none, and signs once. Acceptance: a new user goes from
+no grant to a signed `pytest` rule in under two minutes in a real terminal,
+with the transcript saved as a walkthrough.
+
+### Implementation slices
+
+Each slice ends with a real-terminal walkthrough of the journeys it
+touches.
+
+1. Tool layer with review and undo (ADR-0047).
+2. Policy loader, keygen, sign, guided grant, status line (D2, D3, D13).
+3. `run_tests` in `ask` mode on the existing process group (D5, D11).
+4. Windows enforcement work for commands (Job Object limits, the
+   low-integrity evaluation), right after the first `run_command` slice.
+5. Allowlist mode, session approvals and the approval prompt polish (D4,
+   D6).
+6. Sandbox execution on Linux and macOS (D7).
+7. Git tools (D8).
+8. Network tools (D11).
 
 ## Compatibility
 
@@ -608,7 +677,8 @@ with and without a grant; untrusted-project hooks and `--bare`.
 - Windows filesystem confinement is not in the default. Low integrity level
   and AppContainer are evaluated during implementation.
 - Landlock and seccomp on Linux need a module of their own.
-- Binding command records into the Rootknot needs a sacred-spine ADR (D10).
+- Binding command records into the Rootknot needs a sacred-spine ADR (D10);
+  schedule it before `ract verify` (B-039).
 - Outbound secret scanning on provider requests and transcript redaction
   are section 7.
 - Per-server MCP tier mapping is section 5.

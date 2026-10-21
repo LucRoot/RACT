@@ -29,7 +29,15 @@ the numbering of the v0.6 brief.
 | `cf335c3` | ADR-0047, ADR-0048, and the "v0.6 agentic execution amendment" in `docs/THREAT_MODEL.md`. Docs only. |
 | `1c5d3f1` | CI parity: `mypy --platform linux` type error fixed, nine files `ruff format` clean, `scripts/ci_parity.py`. |
 | `98c6f93` | Tool-call extraction amendments: duplicate JSON keys refused, `invalid_arguments` and `too_many_calls` outcomes, prose around parsed calls reported. |
-| this commit | ADR details (placeholder parent snapshot, hook environment, quoted calls under D9); gated UX steps marked. Docs only. |
+| `1832340` | ADR details (placeholder parent snapshot, hook environment, quoted calls under D9); gated UX steps marked. Docs only. |
+| `8526884` | Loop-guard key uses canonical JCS (the canonical-path architecture gate caught `sort_keys=True`). |
+| `bed555d` | One path resolver for model-supplied paths; the diff applier and artifact writer no longer accept `..` or outside paths. |
+| `7db01ac` | A failed turn no longer wedges the session. |
+| `9cc9cd0` | Runs never commit onto the operator's branch (stopgap until review before apply). |
+| `43f11ab` | `ract doctor` says what it checked and points at `--check-providers`. |
+| `dc1f32b`, `54d4050` | `scripts/ci_parity.py` mirrors the CI lint and type job, with a drift test. |
+| `124ce56` | Docs state that Windows has no line history or completion yet, and how Ctrl-C behaves during a turn. |
+| this commit | ADR additions: decisions list, unlock window, guided first grant, implementation slices, no-timer approvals, approval-fatigue metric, resume rule. Docs only. |
 
 ## Next
 

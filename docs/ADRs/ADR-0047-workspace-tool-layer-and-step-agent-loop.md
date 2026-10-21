@@ -38,9 +38,12 @@ ADR does about each. Tier-3, handshake and key findings are in ADR-0048.
 
 | Finding | Where | This ADR |
 |---|---|---|
-| `DiffApplier` takes target paths from diff headers and accepts `../` and absolute paths. | `src/ract/diff_applier.py:102-112` | Closes: every path goes through the D2 resolver. Shipped first as a defect fix (it is wrong today, before any new capability). |
-| `Executor._write_artifact` refuses absolute paths but accepts `..`. | `src/ract/executor/steps.py:484-507` | Closes, same resolver. |
-| The production `SubstrateLoop` gets no manifest, no sandbox backend and no handshake registry, its parent snapshot is the placeholder `"0" * 40`, and `run_via_substrate` gives steps no predicates, so every step commits unconditionally. In the UX baseline this path committed a step onto the user's branch (`docs/ux/baseline/defects.md`, UX-01). Failure to route a tool call through the loop is not silent: it logs a warning and emits `tool.invocation.bypassed`. | `src/ract/harness.py:372-376`, `src/ract/executor/substrate_adapter.py:206-214` | Closes for the agent loop: D6 requires a manifest, the D3 path policy and the step's predicates on every mutating step. The sandbox part is ADR-0048 D7. |
+| `DiffApplier` takes target paths from diff headers and accepts `../` and absolute paths. | `src/ract/diff_applier.py:102-112` | Closed in `bed555d` (S-001): every path goes through the D2 resolver. |
+| `Executor._write_artifact` refuses absolute paths but accepts `..`. | `src/ract/executor/steps.py:484-507` | Closed in `bed555d` (S-001) with the D2 resolver, together with the `DiffApplier` row above. |
+| The production `SubstrateLoop` gets no manifest, no sandbox backend and no handshake registry, its parent snapshot is the placeholder `"0" * 40`, and `run_via_substrate` gives steps no predicates, so every step commits unconditionally. In the UX baseline this path committed a step onto the user's branch (`docs/ux/baseline/defects.md`, UX-01). Stopgap shipped in `9cc9cd0`
+(S-011): the production adapter no longer moves the operator's branch and
+copies each step's changes into the working tree as unstaged edits. D6 is
+the real fix. Failure to route a tool call through the loop is not silent: it logs a warning and emits `tool.invocation.bypassed`. | `src/ract/harness.py:372-376`, `src/ract/executor/substrate_adapter.py:206-214` | Closes for the agent loop: D6 requires a manifest, the D3 path policy and the step's predicates on every mutating step. The sandbox part is ADR-0048 D7. |
 | `tool.invocation.pre`, `post`, `refused` and `compensator.*` are emitted but are missing from `EventKind`, so a live trace writer drops them. | `src/ract/trace/events.py:47-391`, `src/ract/executor/tool_gate.py`, `src/ract/executor/commit_compensator.py` | Closes: kinds registered, and a test fails if any emitted kind is unregistered. Shipped as a defect fix with the event stream work. |
 | Nothing denies `.ract/**` to tools or commands. `.ract/` holds the operator key, sandbox and verifier keys, hook definitions and the env allowlist. | `src/ract/core/intent_recompile.py`, `src/ract/security/keys.py:81-101`, `src/ract/security/alm_verifier_key.py`, `src/ract/hook_system.py:45-94` | Closes for tools (D3). Commands and key custody are ADR-0048 D2 and D4. |
 | `.ract/hooks/*.json` commands run with the full environment, no gate and no scrub. | `src/ract/hook_system.py:45-94` | Defers the gating design to ADR-0048 D12. The environment scrub ships now as a defect fix. |
@@ -345,6 +348,12 @@ session (a control file, executable configuration, `git init`) asks now: an
 defined in ADR-0048 D6. ADR-0006 deferred handshakes apply only when nobody
 can answer: headless runs and CI. The rule is the same in both places; only
 the place the answer comes from differs.
+
+**Resume.** Session approvals are not restored by `/resume`. A tier-2 or
+tier-3 action that had an allow-for-this-session approval in the earlier
+session asks again, and the prompt says why ("approvals from session
+s-0192 do not carry over"). Signed allow-always rules in the grant still
+apply.
 
 ### D7. Events: one ordered stream
 
