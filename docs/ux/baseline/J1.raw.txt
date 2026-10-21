@@ -1,0 +1,38 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+]0;<repo>\.venv\Scripts\ract.exe[?25h[m[38;2;255;191;0m[1m⚠[m [38;2;30;144;255m[1m ract.yaml not found. Run /config for details or leave and run ract --init-provider local.
+[mract> explain what this folder contains
+[38;2;30;144;255m[1m intent: [38;2;0;206;209m[3mexplain what this folder contains
+[m[38;2;30;144;255m[1m session: [38;2;0;206;209m[3mrepl-20261021-153249
+[m[38;2;255;76;76m[1m✗[m [38;2;30;144;255m[1m failed: Configuration file not found: ract.yaml[38;2;255;191;0m
+⚠[m [38;2;30;144;255m[1m that command ended with exit code 1[m
+ract> /help
+[38;2;212;175;55m[1mRACT session[m
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃[1m Command                     [22m┃[1m What it does                                   [22m┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ <text>                      │ Run the text as an intent (same as /run        │
+│                             │ <text>).                                       │
+│ /run <intent>               │ Plan and execute an intent.                    │
+│ /plan <intent>              │ Plan only. Shows the plan, writes nothing.     │
+│ /loop <intent>              │ Run the quality-anchored loop until done or    │
+│                             │ regressed.                                     │
+│ /set <name> <value>         │ Change a setting: dry-run, stream, auto, mode, │
+│                             │ iterations.                                    │
+│ /settings                   │ Show the current settings.                     │
+│ /session [new|<id>]         │ Show, restart or switch the session that       │
+│                             │ carries context between turns.                 │
+│ /config                     │ Validate the active config (same as ract       │
+│                             │ config validate).                              │
+│ /providers                  │ List configured providers and the manager      │
+│                             │ provider.                                      │
+│ /doctor [--check-providers] │ Run setup diagnostics against the active       │
+│                             │ config.                                        │
+│ /report [--last]            │ Show what the last run changed and why.        │
+│ /<verb> ...                 │ Any other RACT verb, for example /whisper,     │
+│                             │ /fence, /auction, /status.                     │
+│ /clear                      │ Clear the screen.                              │
+│ /help                       │ Show this list.                                │
+│ /exit                       │ Leave the session (Ctrl-D also works).         │
+└─────────────────────────────┴────────────────────────────────────────────────┘
+ract> /exit
+[?9001l[?1004l

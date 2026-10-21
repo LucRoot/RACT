@@ -1,0 +1,12 @@
+   0.065s out 
+   2.058s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   2.069s out ract> 
+   2.090s  in 'summarize the README\r'
+   2.090s out summarize the README\n
+   2.100s out  intent: summarize the README\n session: repl-20261021-153532\n
+   2.998s out ✗  failed: Planning failed: Could not parse JSON plan from model response. The model hit its output limit (finish_reason=length) before finishing the JSON plan. It had already produced 780 characters 
+   8.044s  in 'summarize the README\r'
+   8.045s  in '/exit\r'
+   8.045s out summarize the README\n
+   8.057s out  intent: summarize the README\n session: repl-20261021-153532\n✗  failed: Session 'repl-20261021-153532' already exists. Use --resume to continue it or --force to overwrite.\n⚠  that command ended wit
+   8.193s out 

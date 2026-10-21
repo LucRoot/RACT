@@ -1,0 +1,16 @@
+   0.155s out 
+   2.447s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   2.495s out 
+   2.525s out ract> 
+   2.527s  in '/settings\r'
+   2.597s out /settings\nSettings\n┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓\n┃ setting                  ┃ value                ┃\n┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩\n│ config            
+   4.149s  in '/providers\r'
+   4.150s out /providers\n
+   4.195s out Providers\n┏━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n┃ name  ┃ role    ┃ adapter    ┃ model      ┃ url                       ┃\n┡━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━
+   4.212s out ract> 
+   6.229s  in '/session\r'
+   6.229s out /session\n
+   6.271s out  session repl-20261021-153351 (not started)\nract> 
+   7.311s  in '/exit\r'
+   7.311s out /exit\n
+   7.436s out 

@@ -1,0 +1,34 @@
+# J1b: First run following the printed hint
+# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:33
+## following the hint: `ract --init-provider local`
+$ ract --init-provider local
+[ract] wrote default prompt to prompts\manager.txt
+[ract] wrote ract.yaml using the 'local' preset
+[ract] set the required environment variables and run:
+  ract "your intent here" --dry-run
+[exit 0, 2.35s]
+
+## then `ract doctor`
+$ ract doctor
+────────────────────────── Doctor: 7/7 checks passed ───────────────────────────
+┏━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Status ┃ Check            ┃ Message                                      ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ PASS   │ config_exists    │ Found ract.yaml.                             │
+│ PASS   │ config_parse     │ ract.yaml parses cleanly.                    │
+│ PASS   │ project_name     │ Project name is 'my-ract-project'.           │
+│ PASS   │ manager_provider │ Manager provider 'local' is configured.      │
+│ PASS   │ providers        │ 1 provider(s) configured.                    │
+│ PASS   │ prompt_file      │ Manager prompt found at prompts\manager.txt. │
+│ PASS   │ skills           │ No skill configured; optional.               │
+└────────┴──────────────────┴──────────────────────────────────────────────┘
+[exit 0, 6.04s]
+
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+ract> explain what this folder contains
+ intent: explain what this folder contains
+ session: repl-20261021-153304
+✗  failed: Planning failed: Provider call failed: Request failed after 3 attempts: [WinError 10061] No connection could be made because the target machine actively refused it
+⚠  that command ended with exit code 1
+ract> /exit

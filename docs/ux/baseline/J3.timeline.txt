@@ -1,0 +1,15 @@
+   0.212s out 
+   4.718s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   4.739s out 
+   5.131s out ract> 
+   5.141s  in 'where is the config loader and who calls it?\r'
+   5.184s out where is the config loader and who calls it?\n
+   6.466s out  intent: where is the config loader and who calls it?\n
+   6.484s out 
+   6.510s out  session: repl-20261021-153403\n
+   6.530s out 
+  10.401s out ▸ assumptions:\n
+  10.416s out   • The config loader lives in src/app/config.py.\n  • Step 1 (Explain where the config loader is defined and who calls it) produced artifact: output.txt\n▸ results:\n───── Step 1: Explain where the c
+  15.469s  in '/exit\r'
+  15.469s out /exit\n
+  15.627s out 

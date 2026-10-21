@@ -1,0 +1,25 @@
+   0.143s out 
+   5.700s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   5.884s out ract> 
+   5.901s  in 'tests/test_calc.py::test_add fails, fix it\r'
+   5.926s out tests/test_calc.py::test_add fails, fix it\n
+   6.404s out  intent: tests/test_calc.py::test_add fails, fix it\n
+   6.427s out 
+   6.442s out  session: repl-20261021-153421\n
+  12.486s  in '/report --last\r'
+  12.486s  in '/exit\r'
+  13.070s out ▸ assumptions:\n
+  13.089s out   • The failing test is caused by add() subtracting.\n  • Step 1 (Fix add() in src/calc.py so it adds) produced artifact: src/calc.py\n▸ results:\n
+  13.112s out ───────────────── Step 1: Fix add() in src/calc.py so it adds ──────────────────\n
+  13.137s out 
+  13.165s out def add(a, b):\n    return a + bdef sub(a, b):\n    return a - b
+  13.230s out ▸ quality score: 0.425\n
+  13.244s out 
+  13.343s out ract> 
+  13.370s out /report --last\n
+  13.538s out ────────────────────────────────── Run Report ──────────────────────────────────\n
+  13.560s out No loop report found. Showing the most recent session instead.RACT Session Report: repl-20261021-153421\n========================\nIntent: tests/test_calc.py::test_add fails, fix it\nAssumption: no pl
+  13.583s out \n
+  13.625s out ract> 
+  13.635s out /exit\n
+  13.802s out 

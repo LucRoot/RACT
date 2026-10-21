@@ -30,6 +30,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   A reply cut off at the output limit is explained with token counts. Loop guards stop a turn
   that repeats the same call three times or hits the same failure twice. Nothing in the module
   runs a tool; the agent loop that will use it is proposed in ADR-0047.
+- UX walkthrough tooling: `tests/ux/terminal_driver.py` runs a program in a real pseudo-terminal
+  (ConPTY on Windows, `pty` elsewhere) and records output with timestamps;
+  `python -m tests.ux.run_baseline` runs the session journeys against the fake model server and
+  saves transcripts, timings and redacted paths. Baseline transcripts and a defect list for the
+  current session are in `docs/ux/baseline/`.
 
 ### Fixed
 

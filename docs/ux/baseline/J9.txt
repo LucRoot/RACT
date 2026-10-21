@@ -1,0 +1,19 @@
+# J9: Weak or reasoning model
+# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:35
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+ract> summarize the README
+ intent: summarize the README
+ session: repl-20261021-153532
+✗  failed: Planning failed: Could not parse JSON plan from model response. The model hit its output limit (finish_reason=length) before finishing the JSON plan. It had already produced 780 characters of reasoning. Remove or raise 'max_tokens' on this provider in ract.yaml, and check the server's own limit (llama-server: --n-predict) and context size.
+⚠  that command ended with exit code 1
+ract> summarize the README
+ intent: summarize the README
+ session: repl-20261021-153532
+✗  failed: Session 'repl-20261021-153532' already exists. Use --resume to continue it or --force to overwrite.
+⚠  that command ended with exit code 1
+ract> /exit
+
+## harness notes
+- hidden reasoning sent back to the model: False
+- hidden reasoning shown on screen: False

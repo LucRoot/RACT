@@ -1,0 +1,15 @@
+{
+  "name": "baseline_j6_today",
+  "description": "Today's flow against a slow model: 8 s before the plan arrives, for interrupt timing.",
+  "model": "fake-slow",
+  "turns": [
+    {
+      "reply": {
+        "kind": "text",
+        "content": "{\"assumption\": \"slow\", \"confidence\": 0.85, \"steps\": [{\"action\": \"Explain the project\", \"provider_hint\": \"local\", \"expected_artifact\": \"\"}]}",
+        "first_byte_delay": 8
+      },
+      "repeat": true
+    }
+  ]
+}

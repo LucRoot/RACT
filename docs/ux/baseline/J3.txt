@@ -1,0 +1,21 @@
+# J3: Ask about the code (read-only)
+# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:34
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+ract> where is the config loader and who calls it?
+ intent: where is the config loader and who calls it?
+ session: repl-20261021-153403
+▸ assumptions:
+  • The config loader lives in src/app/config.py.
+  • Step 1 (Explain where the config loader is defined and who calls it) produced artifact: output.txt
+▸ results:
+───── Step 1: Explain where the config loader is defined and who calls it ──────
+The config loader is `load_config` in src/app/config.py. It reads app.yaml and is called from src/app/main.py at startup.
+▸ quality score: 0.425
+ract> /exit
+
+## harness notes
+- git status after the turn: D  output.txt
+?? .ract/
+?? prompts/
+?? ract.yaml

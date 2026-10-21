@@ -1,0 +1,204 @@
+{
+  "J1": {
+    "startup_to_prompt_s": 3.68,
+    "inputs": [
+      {
+        "input": "explain what this folder contains",
+        "first_visible_output_s": 0.001,
+        "longest_silence_s": 0.177
+      },
+      {
+        "input": "/help",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.045
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 14.44,
+    "notes": []
+  },
+  "J1b": {
+    "startup_to_prompt_s": 2.88,
+    "inputs": [
+      {
+        "input": "explain what this folder contains",
+        "first_visible_output_s": 0.006,
+        "longest_silence_s": 25.041
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 53.48,
+    "notes": []
+  },
+  "J2": {
+    "startup_to_prompt_s": 2.527,
+    "inputs": [
+      {
+        "input": "/settings",
+        "first_visible_output_s": 0.07,
+        "longest_silence_s": 0.07
+      },
+      {
+        "input": "/providers",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.045
+      },
+      {
+        "input": "/session",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 1.041
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 9.68,
+    "notes": []
+  },
+  "J3": {
+    "startup_to_prompt_s": 5.14,
+    "inputs": [
+      {
+        "input": "where is the config loader and who calls it?",
+        "first_visible_output_s": 0.043,
+        "longest_silence_s": 5.053
+      }
+    ],
+    "exit_code": 0,
+    "model_requests": 2,
+    "wall_s": 18.03,
+    "notes": [
+      "git status after the turn: D  output.txt\n?? .ract/\n?? prompts/\n?? ract.yaml"
+    ]
+  },
+  "J4": {
+    "startup_to_prompt_s": 5.901,
+    "inputs": [
+      {
+        "input": "tests/test_calc.py::test_add fails, fix it",
+        "first_visible_output_s": 0.025,
+        "longest_silence_s": 0.479
+      },
+      {
+        "input": "/report --last",
+        "first_visible_output_s": 0.584,
+        "longest_silence_s": 0.584
+      }
+    ],
+    "exit_code": 0,
+    "model_requests": 2,
+    "wall_s": 15.33,
+    "notes": [
+      "git diff --stat after the turn: (no change)",
+      "src/calc.py after: def add(a, b):\\n    return a - b\\n\\n\\ndef sub(a, b):\\n    return a - b\\n"
+    ]
+  },
+  "J6": {
+    "startup_to_prompt_s": 2.381,
+    "ctrl_c_to_prompt_s": null,
+    "inputs": [
+      {
+        "input": "explain this project",
+        "first_visible_output_s": 0.245,
+        "longest_silence_s": 0.245
+      },
+      {
+        "input": "^C",
+        "first_visible_output_s": 17.826,
+        "longest_silence_s": 0.0
+      },
+      {
+        "input": "/settings",
+        "first_visible_output_s": 7.813,
+        "longest_silence_s": 7.813
+      }
+    ],
+    "exit_code": 0,
+    "model_requests": 2,
+    "wall_s": 24.97,
+    "notes": []
+  },
+  "J7": {
+    "startup_to_prompt_s": 2.995,
+    "inputs": [
+      {
+        "input": "/session",
+        "first_visible_output_s": 0.024,
+        "longest_silence_s": 0.114
+      },
+      {
+        "input": "/resume",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.0
+      },
+      {
+        "input": "/sessions",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.054
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 19.73,
+    "notes": []
+  },
+  "J8": {
+    "exit_codes": [
+      {
+        "argv": [
+          "-p",
+          "where is the config loader?"
+        ],
+        "stdin": false,
+        "exit": 2
+      },
+      {
+        "argv": [
+          "where is the config loader?",
+          "--json"
+        ],
+        "stdin": false,
+        "exit": 0
+      },
+      {
+        "argv": [],
+        "stdin": true,
+        "exit": 2
+      }
+    ],
+    "wall_s": 14.17,
+    "notes": []
+  },
+  "J9": {
+    "startup_to_prompt_s": 2.09,
+    "inputs": [
+      {
+        "input": "summarize the README",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.898
+      },
+      {
+        "input": "summarize the README",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.012
+      }
+    ],
+    "exit_code": 0,
+    "model_requests": 1,
+    "wall_s": 10.15,
+    "notes": [
+      "hidden reasoning sent back to the model: False",
+      "hidden reasoning shown on screen: False"
+    ]
+  },
+  "J10": {
+    "startup_to_prompt_s": 3.345,
+    "inputs": [
+      {
+        "input": "summarize the README",
+        "first_visible_output_s": 0.018,
+        "longest_silence_s": 15.944
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 21.78,
+    "notes": []
+  }
+}

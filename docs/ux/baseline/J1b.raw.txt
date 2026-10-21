@@ -1,0 +1,8 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+]0;<repo>\.venv\Scripts\ract.exe[?25h[mract> explain what this folder contains
+[38;2;30;144;255m[1m intent: [38;2;0;206;209m[3mexplain what this folder contains
+[m[38;2;30;144;255m[1m session: [38;2;0;206;209m[3mrepl-20261021-153304
+[m[38;2;255;76;76m[1m✗[m [38;2;30;144;255m[1m failed: Planning failed: Provider call failed: Request failed after 3 attempts: [WinError 10061] No connection could be made because the target machine actively refused it
+[m[38;2;255;191;0m[1m⚠[m [38;2;30;144;255m[1m that command ended with exit code 1
+[mract> /exit
+[?9001l[?1004l

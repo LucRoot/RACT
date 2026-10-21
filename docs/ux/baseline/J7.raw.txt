@@ -1,0 +1,9 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+]0;<repo>\.venv\Scripts\ract.exe[?25h[mract> /session
+[38;2;30;144;255m[1m session repl-20261021-153512 (not started)
+[mract> /resume
+[38;2;255;76;76m[1m✗[m [38;2;30;144;255m[1m unknown command /resume. Type /help for the list.
+[mract> /sessions[38;2;255;76;76m[1m
+✗[m [38;2;30;144;255m[1m unknown command /sessions. Type /help for the list.
+[mract> /exit
+[?9001l[?1004l

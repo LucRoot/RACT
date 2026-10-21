@@ -1,0 +1,22 @@
+{
+  "name": "baseline_j4_today",
+  "description": "Today's flow for 'fix the failing test': a one-step plan that rewrites src/calc.py, then the full corrected file.",
+  "model": "fake-coder",
+  "turns": [
+    {
+      "reply": {
+        "kind": "text",
+        "content": "{\"assumption\": \"The failing test is caused by add() subtracting.\", \"confidence\": 0.85, \"steps\": [{\"action\": \"Fix add() in src/calc.py so it adds\", \"provider_hint\": \"local\", \"expected_artifact\": \"src/calc.py\"}]}",
+        "chunk_size": 24
+      }
+    },
+    {
+      "reply": {
+        "kind": "text",
+        "content": "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n",
+        "chunk_size": 12
+      },
+      "repeat": true
+    }
+  ]
+}

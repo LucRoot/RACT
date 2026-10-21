@@ -1,0 +1,16 @@
+   0.161s out 
+   3.606s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   3.617s out 
+   3.656s out ⚠  ract.yaml not found. Run /config for details or leave and run ract --init-provider local.\n
+   3.664s out ract> 
+   3.680s  in 'explain what this folder contains\r'
+   3.680s out explain what this folder contains\n
+   3.858s out  intent: explain what this folder contains\n
+   3.869s out  session: repl-20261021-153249\n
+   3.884s out ✗  failed: Configuration file not found: ract.yaml\n⚠  that command ended with exit code 1\nract> 
+   6.929s  in '/help\r'
+   6.929s  in '/exit\r'
+   6.929s out /help\n
+   6.974s out RACT session\n┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n┃ Command                     ┃ What it does                                   ┃\n┡━━━━━━━━━━━━━━━━━━━━━
+   6.984s out ract> /exit\n
+   7.125s out 

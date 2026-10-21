@@ -1,0 +1,13 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+]0;<repo>\.venv\Scripts\ract.exe[?25h[mract> where is the config loader and who calls it?
+[38;2;30;144;255m[1m intent: [38;2;0;206;209m[3mwhere is the config loader and who calls it?
+[m[38;2;30;144;255m[1m session: [38;2;0;206;209m[3mrepl-20261021-153403
+[m[38;2;218;112;214m[1m▸ assumptions:
+[m  • The config loader lives in src/app/config.py.
+  • Step 1 (Explain where the config loader is defined and who calls it) produced artifact: output.txt[38;2;218;112;214m[1m
+▸ results:[38;2;212;175;55m[22m
+───── [mStep 1: Explain where the config loader is defined and who calls it [38;2;212;175;55m──────[m
+The config loader is `load_config` in src/app/config.py. It reads app.yaml and is called from src/app/main.py at startup.[38;2;218;112;214m[1m
+▸ quality score: 0.425[m
+ract> /exit
+[?9001l[?1004l

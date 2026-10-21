@@ -1,0 +1,22 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+]0;<repo>\.venv\Scripts\ract.exe[?25h[mract> tests/test_calc.py::test_add fails, fix it
+[38;2;30;144;255m[1m intent: [38;2;0;206;209m[3mtests/test_calc.py::test_add fails, fix it
+[m[38;2;30;144;255m[1m session: [38;2;0;206;209m[3mrepl-20261021-153421
+[m[38;2;218;112;214m[1m▸ assumptions:
+[m  • The failing test is caused by add() subtracting.
+  • Step 1 (Fix add() in src/calc.py so it adds) produced artifact: src/calc.py[38;2;218;112;214m[1m
+▸ results:
+[m[38;2;212;175;55m───────────────── [mStep 1: Fix add() in src/calc.py so it adds [38;2;212;175;55m──────────────────
+[m[?25ldef add(a, b):
+    return a + b[14;1Hdef sub(a, b):
+    return a - b[17;1H[?25h[38;2;218;112;214m[1m▸ quality score: 0.425
+[mract> /report --last
+[38;2;212;175;55m────────────────────────────────── [mRun Report [38;2;212;175;55m──────────────────────────────────
+[?25l[mNo loop report found. Showing the most recent session instead.[22;1HRACT Session Report: repl-20261021-153421
+========================
+Intent: tests/test_calc.py::test_add fails, fix it
+Assumption: no plan
+Confidence: 0.0[28;1HOutcomes:
+  - Fix add() in src/calc.py so it adds -> src/calc.py[?25h
+ract> /exit
+[?9001l[?1004l

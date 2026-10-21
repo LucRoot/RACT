@@ -1,0 +1,28 @@
+# J2: Daily start in a configured repo
+# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:33
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+ract> /settings
+Settings
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ setting                  ┃ value                ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ config                   │ ract.yaml            │
+│ dry-run                  │ off                  │
+│ stream                   │ off                  │
+│ auto (approve each step) │ off                  │
+│ mode                     │ default              │
+│ iterations (for /loop)   │ 10                   │
+│ session                  │ repl-20261021-153351 │
+│ turns this session       │ 0                    │
+└──────────────────────────┴──────────────────────┘
+ract> /providers
+Providers
+┏━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ name  ┃ role    ┃ adapter    ┃ model      ┃ url                       ┃
+┡━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ local │ manager │ local_http │ fake-coder │ http://127.0.0.1:55075/v1 │
+└───────┴─────────┴────────────┴────────────┴───────────────────────────┘
+ract> /session
+ session repl-20261021-153351 (not started)
+ract> /exit

@@ -1,0 +1,40 @@
+# J8: Headless use
+# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:35
+$ ract -p where is the config loader?
+usage: ract [-h] [--config CONFIG] [--dry-run]
+            [--mode {default,documentation,git}] [--session SESSION_ID]
+            [--resume] [--force] [--rollback] [--project-doc PROJECT_DOC]
+            [--yolo | --auto] [--reload] [--loop]
+            [--max-iterations MAX_ITERATIONS] [--allow-debt]
+            [--allow-load-bearing] [--allow-novelty-overrun] [--version]
+            [--json] [--about] [--init-provider INIT_PROVIDER] [--self-test]
+            [--review-diff REVIEW_DIFF] [--stream] [--welcome]
+            [intent]
+ract: error: unrecognized arguments: -p
+[exit 2, 2.10s]
+
+$ ract where is the config loader? --json
+ intent: where is the config loader?
+▸ assumptions:
+  • The config loader lives in src/app/config.py.
+  • Step 1 (Explain where the config loader is defined and who calls it) produced artifact: output.txt
+▸ results:
+───── Step 1: Explain where the config loader is defined and who calls it ──────
+The config loader is `load_config` in src/app/config.py. It reads app.yaml and is called from src/app/main.py at startup.
+▸ quality score: 0.425
+[exit 0, 6.87s]
+
+$ ract  < stdin
+usage: ract [-h] [--config CONFIG] [--dry-run]
+            [--mode {default,documentation,git}] [--session SESSION_ID]
+            [--resume] [--force] [--rollback] [--project-doc PROJECT_DOC]
+            [--yolo | --auto] [--reload] [--loop]
+            [--max-iterations MAX_ITERATIONS] [--allow-debt]
+            [--allow-load-bearing] [--allow-novelty-overrun] [--version]
+            [--json] [--about] [--init-provider INIT_PROVIDER] [--self-test]
+            [--review-diff REVIEW_DIFF] [--stream] [--welcome]
+            [intent]
+ract: error: intent is required unless --self-test or --review-diff is used
+[exit 2, 3.47s]
+
+

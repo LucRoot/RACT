@@ -1,0 +1,17 @@
+   0.142s out 
+   3.057s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   3.072s out 
+   3.323s out ract> 
+   3.345s  in 'summarize the README\r'
+   3.363s out summarize the README\n
+   3.746s out  intent: summarize the README\n
+   3.757s out 
+   3.784s out  session: repl-20261021-153543\n
+   3.804s out 
+  11.858s  in '/exit\r'
+  19.727s out ✗  failed: Planning failed: Provider call failed: Request failed after 3 attempts: [WinError 10061] No connection could be made because the target machine actively refused it\n
+  19.750s out 
+  19.772s out ⚠  that command ended with exit code 1\n
+  19.781s out 
+  19.797s out ract> /exit\n
+  19.946s out 

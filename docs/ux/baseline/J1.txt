@@ -1,0 +1,60 @@
+# J1: First run in an empty directory, no config
+# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:32
+## bare `ract` without a terminal
+$ ract 
+usage: ract [-h] [--config CONFIG] [--dry-run]
+            [--mode {default,documentation,git}] [--session SESSION_ID]
+            [--resume] [--force] [--rollback] [--project-doc PROJECT_DOC]
+            [--yolo | --auto] [--reload] [--loop]
+            [--max-iterations MAX_ITERATIONS] [--allow-debt]
+            [--allow-load-bearing] [--allow-novelty-overrun] [--version]
+            [--json] [--about] [--init-provider INIT_PROVIDER] [--self-test]
+            [--review-diff REVIEW_DIFF] [--stream] [--welcome]
+            [intent]
+ract: error: intent is required unless --self-test or --review-diff is used
+[exit 2, 3.83s]
+
+## `ract "explain ..."` without a terminal and without config
+$ ract explain what this folder contains
+ intent: explain what this folder contains
+✗  failed: Configuration file not found: ract.yaml
+[exit 1, 2.50s]
+
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+⚠  ract.yaml not found. Run /config for details or leave and run ract --init-provider local.
+ract> explain what this folder contains
+ intent: explain what this folder contains
+ session: repl-20261021-153249
+✗  failed: Configuration file not found: ract.yaml
+⚠  that command ended with exit code 1
+ract> /help
+RACT session
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Command                     ┃ What it does                                   ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ <text>                      │ Run the text as an intent (same as /run        │
+│                             │ <text>).                                       │
+│ /run <intent>               │ Plan and execute an intent.                    │
+│ /plan <intent>              │ Plan only. Shows the plan, writes nothing.     │
+│ /loop <intent>              │ Run the quality-anchored loop until done or    │
+│                             │ regressed.                                     │
+│ /set <name> <value>         │ Change a setting: dry-run, stream, auto, mode, │
+│                             │ iterations.                                    │
+│ /settings                   │ Show the current settings.                     │
+│ /session [new|<id>]         │ Show, restart or switch the session that       │
+│                             │ carries context between turns.                 │
+│ /config                     │ Validate the active config (same as ract       │
+│                             │ config validate).                              │
+│ /providers                  │ List configured providers and the manager      │
+│                             │ provider.                                      │
+│ /doctor [--check-providers] │ Run setup diagnostics against the active       │
+│                             │ config.                                        │
+│ /report [--last]            │ Show what the last run changed and why.        │
+│ /<verb> ...                 │ Any other RACT verb, for example /whisper,     │
+│                             │ /fence, /auction, /status.                     │
+│ /clear                      │ Clear the screen.                              │
+│ /help                       │ Show this list.                                │
+│ /exit                       │ Leave the session (Ctrl-D also works).         │
+└─────────────────────────────┴────────────────────────────────────────────────┘
+ract> /exit

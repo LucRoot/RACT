@@ -1,0 +1,22 @@
+{
+  "name": "baseline_j3_today",
+  "description": "Today's plan-then-step flow for a read-only question: the manager returns a one-step plan, the step returns prose.",
+  "model": "fake-coder",
+  "turns": [
+    {
+      "reply": {
+        "kind": "text",
+        "content": "{\"assumption\": \"The config loader lives in src/app/config.py.\", \"confidence\": 0.85, \"steps\": [{\"action\": \"Explain where the config loader is defined and who calls it\", \"provider_hint\": \"local\", \"expected_artifact\": \"\"}]}",
+        "chunk_size": 24
+      }
+    },
+    {
+      "reply": {
+        "kind": "text",
+        "content": "The config loader is `load_config` in src/app/config.py. It reads app.yaml and is called from src/app/main.py at startup.",
+        "chunk_size": 10
+      },
+      "repeat": true
+    }
+  ]
+}

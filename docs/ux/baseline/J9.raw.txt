@@ -1,0 +1,13 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+]0;<repo>\.venv\Scripts\ract.exe[?25h[mract> summarize the README
+[38;2;30;144;255m[1m intent: [38;2;0;206;209m[3msummarize the README[38;2;30;144;255m[23m
+ session: [38;2;0;206;209m[3mrepl-20261021-153532
+[m[38;2;255;76;76m[1m✗[m [38;2;30;144;255m[1m failed: Planning failed: Could not parse JSON plan from model response. The model hit its output limit (finish_reason=length) before finishing the JSON plan. It had already produced 780 characters of reasoning. Remove or raise 'max_tokens' on this provider in ract.yaml, and check the server's own limit (llama-server: --n-predict) and context size.[38;2;255;191;0m
+⚠[m [38;2;30;144;255m[1m that command ended with exit code 1[m
+ract> summarize the README
+[38;2;30;144;255m[1m intent: [38;2;0;206;209m[3msummarize the README[38;2;30;144;255m[23m
+ session: [38;2;0;206;209m[3mrepl-20261021-153532[38;2;255;76;76m[23m
+✗[m [38;2;30;144;255m[1m failed: Session 'repl-20261021-153532' already exists. Use --resume to continue it or --force to overwrite.[38;2;255;191;0m
+⚠[m [38;2;30;144;255m[1m that command ended with exit code 1[m
+ract> /exit
+[?9001l[?1004l

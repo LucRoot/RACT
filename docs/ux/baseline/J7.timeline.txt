@@ -1,0 +1,20 @@
+   0.134s out 
+   2.876s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   2.918s out 
+   2.992s out ract> 
+   2.995s  in '/session\r'
+   3.019s out /session\n
+   3.069s out  session repl-20261021-153512 (not started)\n
+   3.082s out 
+   3.182s out ract> 
+   4.233s  in '/resume\r'
+   4.233s  in '/sessions\r'
+   4.233s  in '/exit\r'
+   4.233s out /resume\n
+   4.287s out ✗  unknown command /resume. Type /help for the list.\n
+   4.299s out 
+   4.324s out ract> 
+   4.359s out /sessions\n✗  unknown command /sessions. Type /help for the list.\n
+   4.377s out ract> 
+   4.404s out /exit\n
+   4.527s out 

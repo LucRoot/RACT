@@ -1,0 +1,31 @@
+{
+  "name": "baseline_j9_today",
+  "description": "Today's flow with a reasoning model whose plan is cut off by the output limit, then a reasoning-only reply.",
+  "model": "fake-weak",
+  "turns": [
+    {
+      "reply": {
+        "kind": "truncated",
+        "reasoning": "Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. Let me think about the plan in detail. ",
+        "content": "{\"assumption\": \"The READ"
+      }
+    },
+    {
+      "reply": {
+        "kind": "reasoning",
+        "style": "inline",
+        "reasoning": "hidden plan thoughts",
+        "content": "{\"assumption\": \"README summary\", \"confidence\": 0.85, \"steps\": [{\"action\": \"Summarize README.md\", \"provider_hint\": \"local\", \"expected_artifact\": \"\"}]}"
+      }
+    },
+    {
+      "reply": {
+        "kind": "reasoning",
+        "style": "field",
+        "reasoning": "I should not show this.",
+        "content": ""
+      },
+      "repeat": true
+    }
+  ]
+}
