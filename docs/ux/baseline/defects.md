@@ -9,7 +9,10 @@ findings do not depend on it. No run against a real model yet: the operator
 has not supplied `RACT_DEMO_BASE_URL` and `RACT_DEMO_MODEL`.
 
 Severity: S1 blocks the journey, loses data or loses trust. S2 is confusing
-or slow. S3 is polish. "Card" is the board card expected to fix it; "new"
+or slow. S3 is polish. "Not testable today (gated)" marks a journey step
+that needs the tool layer, which waits for operator ratification; it is
+recorded so the later walkthrough can close it, and it is not counted as a
+failure of the current build. "Card" is the board card expected to fix it; "new"
 means no card covers it yet.
 
 Each journey is compared with the golden transcript of the same name. Where
@@ -25,8 +28,8 @@ today's flow has no counterpart (no tools exist yet), the defect says so.
 | UX-04 | J10, J1b | S1 | Provider down: 16 to 25 s of silence while three retries run, then a raw `[WinError 10061]` message. No hint, no named URL, no statement of workspace state. | `J10.txt`, `J1b.txt`, `metrics.json` | B-012 (`error.surfaced`), B-015 |
 | UX-05 | J1b | S1 | Following the printed first-run hint (`ract --init-provider local`) writes a config for a server that is not running. `ract doctor` then reports 7/7 checks passed. The first intent fails as in UX-04. | `J1b.txt` | B-015 |
 | UX-06 | J3 | S1 | A read-only question writes a file (`output.txt`) and commits it to the user's branch (same path as UX-01). | `J3.txt` harness notes | new (ADR-0047 D6: read-only work writes nothing) |
-| UX-07 | J3, J4 | S1 | The model cannot read files. The J3 answer comes from the plan text alone; nothing it says is checked against the code. | `J3.txt`; requests recorded by the fake server carry no file content | B-010, B-011 (gated) |
-| UX-08 | J4 | S1 | No diff, no test run, no undo hint. The run claims `produced artifact: src/calc.py` while the file on disk is unchanged. | `J4.txt` | B-011, B-013, B-014, B-023 |
+| UX-07 | J3, J4 | not testable today (gated) | The model cannot read files. The J3 answer comes from the plan text alone; nothing it says is checked against the code. | `J3.txt`; requests recorded by the fake server carry no file content | B-010, B-011 (gated) |
+| UX-08 | J4 | not testable today (gated) | No diff, no test run, no undo hint. The run claims `produced artifact: src/calc.py` while the file on disk is unchanged. | `J4.txt` | B-011, B-013, B-014, B-023 |
 | UX-09 | J8 | S1 | No headless mode: `ract -p` is an argparse error (exit 2). Piped stdin is ignored (exit 2, "intent is required"). `--json` prints the human output, not JSON. | `J8.txt` | B-035 |
 | UX-10 | J3, J4, J10 | S2 | Silence while waiting: 5 s in J3, 16 s in J10, 25 s in J1b, with no heartbeat. The golden standard is a sign of life every 2 s. | `metrics.json` `longest_silence_s` | B-012 |
 | UX-11 | J4 | S2 | Step output loses line breaks between blocks: `return a + bdef sub(a, b):`. The run report runs lines together: `Confidence: 0.0Outcomes:`. | `J4.txt` | B-012 |

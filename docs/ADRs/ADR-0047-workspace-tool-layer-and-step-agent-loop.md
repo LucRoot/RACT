@@ -40,7 +40,7 @@ ADR does about each. Tier-3, handshake and key findings are in ADR-0048.
 |---|---|---|
 | `DiffApplier` takes target paths from diff headers and accepts `../` and absolute paths. | `src/ract/diff_applier.py:102-112` | Closes: every path goes through the D2 resolver. Shipped first as a defect fix (it is wrong today, before any new capability). |
 | `Executor._write_artifact` refuses absolute paths but accepts `..`. | `src/ract/executor/steps.py:484-507` | Closes, same resolver. |
-| The production `SubstrateLoop` gets no manifest, no sandbox backend and no handshake registry, and `run_via_substrate` gives steps no predicates, so every step commits unconditionally. | `src/ract/harness.py:372`, `src/ract/executor/substrate_adapter.py:206-214` | Closes for the agent loop: D6 requires a manifest, the D3 path policy and the step's predicates on every mutating step. The sandbox part is ADR-0048 D7. |
+| The production `SubstrateLoop` gets no manifest, no sandbox backend and no handshake registry, its parent snapshot is the placeholder `"0" * 40`, and `run_via_substrate` gives steps no predicates, so every step commits unconditionally. In the UX baseline this path committed a step onto the user's branch (`docs/ux/baseline/defects.md`, UX-01). Failure to route a tool call through the loop is not silent: it logs a warning and emits `tool.invocation.bypassed`. | `src/ract/harness.py:372-376`, `src/ract/executor/substrate_adapter.py:206-214` | Closes for the agent loop: D6 requires a manifest, the D3 path policy and the step's predicates on every mutating step. The sandbox part is ADR-0048 D7. |
 | `tool.invocation.pre`, `post`, `refused` and `compensator.*` are emitted but are missing from `EventKind`, so a live trace writer drops them. | `src/ract/trace/events.py:47-391`, `src/ract/executor/tool_gate.py`, `src/ract/executor/commit_compensator.py` | Closes: kinds registered, and a test fails if any emitted kind is unregistered. Shipped as a defect fix with the event stream work. |
 | Nothing denies `.ract/**` to tools or commands. `.ract/` holds the operator key, sandbox and verifier keys, hook definitions and the env allowlist. | `src/ract/core/intent_recompile.py`, `src/ract/security/keys.py:81-101`, `src/ract/security/alm_verifier_key.py`, `src/ract/hook_system.py:45-94` | Closes for tools (D3). Commands and key custody are ADR-0048 D2 and D4. |
 | `.ract/hooks/*.json` commands run with the full environment, no gate and no scrub. | `src/ract/hook_system.py:45-94` | Defers the gating design to ADR-0048 D12. The environment scrub ships now as a defect fix. |
@@ -207,7 +207,9 @@ Per model turn:
 2. Read the reply with `ract.tool_calls.extract` (the extraction ladder
    built in this branch). It returns validated calls with the rung that
    read them and any visible repairs, a final answer, or a named failure
-   (`markup_unparsed`, `truncated`, `empty`, `unknown_tool`). Unparsed tool
+   (`markup_unparsed`, `truncated`, `empty`, `unknown_tool`,
+   `invalid_arguments`, `too_many_calls`), with the length of any prose
+   around the calls. Unparsed tool
    markup is never accepted as an answer and never written to a file.
 3. Run the calls serially, in the order given (ADR-0009), each through the
    gate. A refusal goes back to the model as a tool result and is recorded
@@ -293,7 +295,8 @@ line within 300 ms of the first mutating call, with the worktree ready in
 under 3 s on a 10,000-file repository on local disk, and a heartbeat while it
 is not.
 
-**Base snapshot.** The worktree starts from a synthetic commit of the
+**Base snapshot.** This replaces today's placeholder parent snapshot
+(`"0" * 40` in `harness.py`). The worktree starts from a synthetic commit of the
 current working tree: committed files plus uncommitted and untracked (not
 ignored) changes, built with a temporary index (`GIT_INDEX_FILE`) so the
 operator's index, branch and stash are never touched. Files matching

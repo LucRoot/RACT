@@ -25,8 +25,11 @@ the numbering of the v0.6 brief.
 |---|---|
 | `109dc41` | Scripted fake OpenAI-compatible model server for tests and walkthroughs (`tests/fixtures/`). |
 | `85a56ca` | `ract.tool_calls`: tool-call extraction ladder, unparsed-markup refusal, truncation explanation, unique-only repairs, loop guards. Pure; no caller until the agent loop lands. |
-| `b4230a1` | Real-terminal walkthrough tooling (`tests/ux/`) and the UX baseline with 20 defects (`docs/ux/baseline/`). |
-| this commit | ADR-0047, ADR-0048, and the "v0.6 agentic execution amendment" in `docs/THREAT_MODEL.md`. Docs only. |
+| `b4230a1` | Real-terminal walkthrough tooling (`tests/ux/`) and the UX baseline: 20 findings, 7 S1 defects and 2 steps not testable until the tool layer exists (`docs/ux/baseline/`). |
+| `cf335c3` | ADR-0047, ADR-0048, and the "v0.6 agentic execution amendment" in `docs/THREAT_MODEL.md`. Docs only. |
+| `1c5d3f1` | CI parity: `mypy --platform linux` type error fixed, nine files `ruff format` clean, `scripts/ci_parity.py`. |
+| `98c6f93` | Tool-call extraction amendments: duplicate JSON keys refused, `invalid_arguments` and `too_many_calls` outcomes, prose around parsed calls reported. |
+| this commit | ADR details (placeholder parent snapshot, hook environment, quoted calls under D9); gated UX steps marked. Docs only. |
 
 ## Next
 
@@ -90,11 +93,11 @@ The ADRs give each one with its rejected alternatives. Short form:
 
 - `ed27155`: full suite excluding `tests/memory`: 3134 passed, 24 skipped,
   0 failed.
-- UX baseline at `85a56ca`: 9 S1 defects. The worst: a turn commits onto the
+- UX baseline at `85a56ca`: 7 S1 defects, plus 2 steps not testable until the tool layer exists. The worst: a turn commits onto the
   user's branch and leaves the working file unchanged; Ctrl-C is ignored
   until the turn ends; one failed turn blocks every later one in the
   session. Details in `docs/ux/baseline/defects.md`.
-- `mypy --platform linux` reports one type error at
-  `src/ract/executor/steps.py:867` that predates this work.
+- `mypy --platform linux` reported one type error at
+  `src/ract/executor/steps.py:867` from the first round; fixed in `1c5d3f1`.
 
 <!-- RACT 0.6 roadmap -->

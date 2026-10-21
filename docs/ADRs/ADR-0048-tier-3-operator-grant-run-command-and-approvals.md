@@ -36,7 +36,7 @@ performs. This ADR is written against the code at `ed27155`:
 | Tier 2 `REQUIRE_HANDSHAKE` counts as allowed: `Authorization.allowed` only rejects `REFUSE`, and the executor creates no handshake. ADR-0009 says the opposite. | `src/ract/core/threat_model.py:89-91`, `src/ract/executor/steps.py:983-994` | Recommendation R1 below. |
 | `.ract/handshakes.json` is plain JSON with no lock, no atomic write and no signature; `ract handshakes approve` authenticates nobody. | `src/ract/handshake_registry.py:56,69-85`, `src/ract/cli.py:219-320` | Recommendation R2 below; D6 for tier 3. |
 | The operator HMAC key, the per-run sandbox keys and the ALM verifier keys live inside the workspace, readable by anything that can read the project. | `.ract/operator.key`, `.ract/sandbox/*.key`, `.ract/alm/*.key` | Recommendation R3 below; D2. |
-| `.ract/hooks/*.json` commands run with the full environment and no gate. | `src/ract/hook_system.py:45-94` | D12. Environment scrub ships now as a defect fix. |
+| `.ract/hooks/*.json` commands run with `os.environ.copy()` plus `RACT_*` context values, so a hook sees every API key in the operator's environment, and no gate applies. | `src/ract/hook_system.py:45-94` (environment built at 50-60) | D12. Environment scrub ships now as a defect fix. |
 | The Job Object sets only kill-on-close. `ResourceBudget`, `StepTransaction.timeout_seconds` and `ProcessPolicy` are not enforced; `spawn` has no timeout. | `src/ract/executor/process_group.py:132,354-411`, `src/ract/core/transaction.py:48-68` | D5 enforces limits for commands. |
 | Without a sandbox, a child process inherits `os.environ` minus `RACT_*`, provider API keys included. | `src/ract/executor/loop.py:1231` | D5 builds every command environment from the allowlist. |
 | `.ract/sandbox_env.allowlist` is read from the step worktree, so a write to it widens the environment for the next spawn. | `src/ract/security/sandbox_env.py:1345` | D3: an allowlist file widens only when it is part of a signed grant. |
@@ -433,6 +433,14 @@ Once a step has taken in `external` content, the rest of that step can reach
 tier 2 or tier 3 only through an explicit allow-once approval. Allowlist
 rules, session approvals and unrestricted mode stop applying. Headless, the
 action becomes a handshake.
+
+A call that the model quotes from content it read is still parsed as a
+call (`ract.tool_calls` reports the prose around it as `prose_before` and
+`prose_after`). Parsing grants nothing: the call goes through the tier gate,
+the matching rules and this trust rule like any other. Test:
+`test_f5_a_quoted_fenced_call_is_marked_as_inside_prose` in
+`tests/test_tool_calls.py`, and the end-to-end case in the D9 red-team
+tests once the loop exists.
 
 Workspace content stays eligible for allowlist rules. A repository is the
 operator's own code, and a rule that cannot survive reading a file would
