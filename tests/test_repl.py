@@ -125,6 +125,57 @@ def test_failed_first_turn_does_not_resume_a_session_that_was_never_saved():
     assert "--resume" not in calls[1]
 
 
+def test_failed_turn_that_saved_its_session_is_resumed(tmp_path):
+    # S-013: a turn can fail after the run layer saved the session.
+    config = tmp_path / "ract.yaml"
+    session, calls, _ = _session(codes=[1, 0], config=config)
+    sessions = tmp_path / ".ract" / "sessions"
+    sessions.mkdir(parents=True)
+    session.handle("first")
+    (sessions / f"{session.state.session_id}.json").write_text("{}", encoding="utf-8")
+    session.handle("second")
+    assert "--resume" in calls[1]
+
+
+def test_session_does_not_wedge_after_a_failed_turn_end_to_end(
+    tmp_path, monkeypatch, fake_model_server
+):
+    # S-013 regression, real dispatcher: the first turn fails in planning
+    # (truncated reasoning), the second must run instead of failing with
+    # "Session ... already exists".
+    server = fake_model_server("baseline_j9_today")
+    (tmp_path / "prompts").mkdir()
+    (tmp_path / "prompts" / "manager.txt").write_text(
+        (Path(__file__).resolve().parent.parent / "prompts" / "manager.txt").read_text(
+            encoding="utf-8"
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "ract.yaml").write_text(
+        "project:\n  name: demo\nmanager_provider: local\nproviders:\n  local:\n"
+        f"    adapter: local_http\n    url: {server.base_url}\n    model: fake-weak\n"
+        "    max_retries: 0\nprompts_dir: prompts\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    messages: list[str] = []
+
+    class _Console:
+        def __getattr__(self, name):
+            return lambda *a, **k: messages.append(" ".join(str(x) for x in a))
+
+    session = ReplSession(
+        Path("ract.yaml"), read_line=lambda _p: "", console=_Console()
+    )
+    first = session._run_intent("summarize the README")
+    after_first = len(server.chat_requests)
+    session._run_intent("summarize the README")
+    assert first != 0
+    assert after_first >= 1
+    # A wedged session fails before it calls the model; a working one calls it.
+    assert len(server.chat_requests) > after_first
+
+
 def test_session_new_starts_fresh_and_named_session_resumes():
     session, calls, _ = _session()
     session.handle("first")

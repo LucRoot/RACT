@@ -38,6 +38,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Interactive session: after a turn that failed once the session had been saved, every later
+  intent failed with "Session ... already exists" until `/session new`. The session now resumes
+  whenever its file exists on disk.
 - Paths from model output are resolved inside the project or refused. `DiffApplier` took target
   paths from diff headers and accepted `../` and absolute paths; `Executor._write_artifact`
   refused absolute paths silently but wrote `..` paths. Both now use

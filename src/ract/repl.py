@@ -377,10 +377,21 @@ class ReplSession:
         # neither starts nor resumes one.
         if not dry and not loop:
             argv += ["--session", s.session_id]
-            if s.session_started:
+            if s.session_started or self._session_saved():
                 argv.append("--resume")
         argv += ["--", intent]
         return argv
+
+    def _session_saved(self) -> bool:
+        """True when the run layer has already saved this session to disk.
+
+        LR:: A turn that fails after planning starts still saves its session.
+        Tracking only successful turns left the next turn without ``--resume``,
+        and every later intent failed with "Session ... already exists" until
+        the operator found ``/session new``. The file on disk is the fact.
+        """
+        sessions = self.state.config.parent / ".ract" / "sessions"
+        return (sessions / f"{self.state.session_id}.json").is_file()
 
     def _run_intent(
         self, intent: str, *, dry_run: bool | None = None, loop: bool = False
