@@ -1,0 +1,12 @@
+{
+  "name": "j9_weak_model",
+  "description": "Weak local model without native tools. One malformed envelope, then a valid one, then a reasoning-heavy answer with hidden thought in reasoning_content.",
+  "model": "fake-weak",
+  "tools_supported": false,
+  "turns": [
+    {"reply": {"kind": "json_envelope", "raw": "Sure! {\"tool\": \"read_file\", \"arguments\": {\"path\": \"README.md\"}"}},
+    {"reply": {"kind": "json_envelope", "envelope": {"tool": "read_file", "arguments": {"path": "README.md"}}}},
+    {"reply": {"kind": "reasoning", "style": "field", "reasoning": "The user wants a summary. The README says the project is a calculator. I should not put this thinking in the answer.", "content": "{\"final\": \"README.md describes a small calculator library with add and subtract.\"}"}},
+    {"reply": {"kind": "reasoning", "style": "inline", "reasoning": "Thinking out loud inside think tags.", "content": "{\"final\": \"Done.\"}"}, "repeat": true}
+  ]
+}

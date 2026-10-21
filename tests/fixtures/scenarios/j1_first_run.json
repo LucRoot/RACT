@@ -1,0 +1,10 @@
+{
+  "name": "j1_first_run",
+  "description": "First run. The tool-call probe succeeds, then a short greeting streams.",
+  "model": "fake-coder",
+  "tools_supported": true,
+  "turns": [
+    {"match": {"last_message": "(?i)probe"}, "reply": {"kind": "tool_calls", "calls": [{"name": "echo", "arguments": {"text": "ok"}}]}},
+    {"reply": {"kind": "text", "content": "Hello. I can read, search and edit files in this project. Ask me about the code or give me a task.", "chunk_size": 12}, "repeat": true}
+  ]
+}

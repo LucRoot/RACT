@@ -1,0 +1,10 @@
+{
+  "name": "j3_ask_code",
+  "description": "Read-only question. The model searches, reads two files, then streams an answer with file and line references.",
+  "model": "fake-coder",
+  "turns": [
+    {"reply": {"kind": "tool_calls", "calls": [{"name": "grep", "arguments": {"pattern": "def load_config", "path": "src"}}], "arg_fragment_size": 7}},
+    {"reply": {"kind": "tool_calls", "calls": [{"name": "read_file", "arguments": {"path": "src/app/config.py", "offset": 1, "limit": 60}}, {"name": "read_file", "arguments": {"path": "src/app/main.py", "offset": 1, "limit": 40}}]}},
+    {"reply": {"kind": "text", "content": "The config loader is `load_config` in src/app/config.py:12. It reads `app.yaml`, expands environment variables, and is called once from src/app/main.py:8 at startup.", "chunk_size": 10, "chunk_delay": 0.02}}
+  ]
+}

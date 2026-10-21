@@ -1,0 +1,10 @@
+{
+  "name": "j1_no_tools",
+  "description": "First run against a server that ignores the tools parameter. The probe gets plain text, so the client falls back to the JSON envelope.",
+  "model": "fake-plain",
+  "tools_supported": false,
+  "turns": [
+    {"match": {"last_message": "(?i)probe"}, "reply": {"kind": "text", "content": "Sure, here is the echo: ok"}},
+    {"reply": {"kind": "json_envelope", "envelope": {"final": "Hello. I answer in the JSON format you asked for."}}, "repeat": true}
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "j10_faults",
+  "description": "Every fault in sequence, one per request: 429 with and without Retry-After, 500, 503, reset mid-stream, non-JSON body, missing choices, empty message, truncation, never responding.",
+  "model": "fake-faulty",
+  "turns": [
+    {"reply": {"kind": "fault", "fault": "http_429", "retry_after": 1}},
+    {"reply": {"kind": "fault", "fault": "http_429"}},
+    {"reply": {"kind": "fault", "fault": "http_500"}},
+    {"reply": {"kind": "fault", "fault": "http_503"}},
+    {"reply": {"kind": "fault", "fault": "reset_mid_stream", "after_chunks": 2}},
+    {"reply": {"kind": "fault", "fault": "non_json"}},
+    {"reply": {"kind": "fault", "fault": "missing_choices"}},
+    {"reply": {"kind": "fault", "fault": "empty_message"}},
+    {"reply": {"kind": "truncated", "reasoning": "Long hidden thought that runs out of budget before", "content": ""}},
+    {"reply": {"kind": "fault", "fault": "never_respond"}}
+  ]
+}

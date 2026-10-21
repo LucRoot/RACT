@@ -59,4 +59,30 @@ def _reset_ambient_run_id_and_env() -> object:
             os.environ[k] = v
 
 
+
+@pytest.fixture
+def fake_model_server() -> object:
+    """Factory for the scripted fake model server (``tests/fixtures``).
+
+    ``server = fake_model_server("j3_ask_code")`` starts a server on an
+    ephemeral 127.0.0.1 port and returns it; ``server.base_url`` ends in
+    ``/v1`` and ``server.requests`` holds what the client sent. Every server
+    the test starts is stopped at teardown.
+    """
+    from tests.fixtures.fake_model_server import FakeModelServer  # noqa: PLC0415
+
+    started: list[FakeModelServer] = []
+
+    def _start(scenario: object) -> FakeModelServer:
+        server = FakeModelServer(scenario).start()  # type: ignore[arg-type]
+        started.append(server)
+        return server
+
+    try:
+        yield _start
+    finally:
+        for server in started:
+            server.stop()
+
+
 # RACT 0.5.2 (CI-fix)

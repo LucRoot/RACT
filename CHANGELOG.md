@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   through `ract.cli.main`, so tier policy and approval modes are unchanged. No new dependency.
 - A step that replaces an existing file now sees that file's current contents and is told to
   return the complete updated file.
+- Test fixture: a scripted OpenAI-compatible model server (`tests/fixtures/fake_model_server.py`)
+  with streamed text, native tool calls, the JSON fallback envelope, reasoning output,
+  truncation, stalls and server faults, plus request recording. Usable from pytest and from the
+  command line for walkthroughs. Standard library only; nothing in `src/` imports it.
 
 ### Fixed
 

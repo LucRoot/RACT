@@ -1,0 +1,8 @@
+{
+  "name": "j6_slow",
+  "description": "Slow local model: long silence before the first byte, then a slow stream with a mid-stream stall. For heartbeat and interrupt tests.",
+  "model": "fake-slow",
+  "turns": [
+    {"reply": {"kind": "text", "content": "This answer arrives slowly, a few characters at a time, the way a large model on a laptop CPU does.", "first_byte_delay": 6, "chunk_size": 4, "chunk_delay": 0.4, "stall": {"after_chunk": 8, "seconds": 5}}, "repeat": true}
+  ]
+}
