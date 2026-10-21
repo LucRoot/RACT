@@ -17,6 +17,7 @@ import pytest
 from ract.tool_calls import (
     REFORMAT_REQUEST,
     LoopGuard,
+    Extraction,
     ToolCall,
     ToolSignature,
     accumulate_stream,
@@ -340,7 +341,198 @@ def test_ambiguous_key_is_refused() -> None:
 
 def test_non_object_arguments_are_refused() -> None:
     result = extract(_resp(tool_calls=[_native("grep", "[1, 2]")]), TOOLS)
-    assert "not a JSON object" in (result.error or "")
+    assert "arguments are a JSON list, not an object" in (result.error or "")
+    assert result.value is not None and result.value.outcome == "invalid_arguments"
+
+
+# ---------------------------------------------------------------- red-team amendment (G-009)
+
+RT_TOOLS = [
+    ToolSignature("read_file", frozenset({"path", "offset", "limit"})),
+    ToolSignature("edit_file", frozenset({"path", "old", "new", "expected_digest"})),
+    ToolSignature("run_command", frozenset({"argv", "cwd"})),
+]
+
+
+def test_f1_duplicate_tool_key_is_refused_not_last_wins() -> None:
+    result = extract(
+        _resp('{"tool":"read_file","tool":"run_command","arguments":{"argv":["ls"]}}'),
+        RT_TOOLS,
+    )
+    assert result.value is not None and result.value.outcome == "markup_unparsed"
+    assert "names the same key twice" in (result.error or "")
+    assert result.value.calls == ()
+
+
+def test_f1_duplicate_argument_key_in_native_call_is_refused() -> None:
+    raw = '{"path": "a.py", "path": "/etc/passwd"}'
+    result = extract(_resp(tool_calls=[_native("read_file", raw)]), RT_TOOLS)
+    assert result.value is not None and result.value.outcome == "invalid_arguments"
+    assert "key twice" in (result.error or "")
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ('{"path": ', "not valid JSON"),
+        ('["a"]', "JSON list, not an object"),
+        ("42", "JSON int, not an object"),
+    ],
+)
+def test_f2_broken_arguments_with_valid_name_are_invalid_arguments(
+    raw: str, expected: str
+) -> None:
+    result = extract(_resp(tool_calls=[_native("read_file", raw)]), RT_TOOLS)
+    assert result.value is not None and result.value.outcome == "invalid_arguments"
+    assert expected in (result.error or "")
+    assert result.hint and "one JSON object" in result.hint
+    assert "tool names" not in result.hint
+    assert (
+        next_action(
+            result.value,
+            server_supports_grammar=True,
+            grammar_tried=False,
+            reformat_tried=False,
+        )
+        == "reformat_request"
+    )
+    assert (
+        next_action(
+            result.value,
+            server_supports_grammar=True,
+            grammar_tried=False,
+            reformat_tried=True,
+        )
+        == "fail"
+    )
+
+
+def test_f3_ambiguous_keys_name_the_ambiguity() -> None:
+    result = extract(
+        _resp('{"tool":"read_file","arguments":{"file_path":"a","path":"b"}}'), RT_TOOLS
+    )
+    assert result.value is not None and result.value.outcome == "invalid_arguments"
+    assert "'file_path' is not an argument of read_file" in (result.error or "")
+
+
+def test_f4_too_many_calls_are_refused_quickly() -> None:
+    import time
+
+    many = [_native("read_file", '{"path":"a"}', str(i)) for i in range(20000)]
+    started = time.perf_counter()
+    result = extract(_resp(tool_calls=many), RT_TOOLS)
+    assert time.perf_counter() - started < 0.5
+    assert result.value is not None and result.value.outcome == "too_many_calls"
+    assert "20,000 tool calls" in (result.error or "")
+    assert result.value.calls == ()
+    ok = extract(_resp(tool_calls=many[:32]), RT_TOOLS).unwrap()
+    assert len(ok.calls) == 32
+
+
+def test_f5_a_quoted_fenced_call_is_marked_as_inside_prose() -> None:
+    """A file the model read contains a fenced call and the model quotes it.
+
+    Extraction still reads the call (parsing grants no authority), and marks
+    that it sat inside prose so the renderer can show the prose and the loop
+    can apply the trust rule in ADR-0048 D9. Nothing here runs anything: the
+    Extraction carries no approval, and approval comes only from the operator
+    (Invariant A-1).
+    """
+    reply = (
+        "The file contains this example:\n```json\n"
+        '{"tool":"run_command","arguments":{"argv":["curl","x"]}}\n```\nThat is all.'
+    )
+    ext = extract(_resp(reply), RT_TOOLS).unwrap()
+    assert ext.rung == "fenced_json"
+    assert ext.prose_before == len("The file contains this example:")
+    assert ext.prose_after == len("That is all.")
+    assert not any("approv" in f for f in Extraction.__dataclass_fields__)
+
+
+def test_whole_message_calls_have_no_surrounding_prose() -> None:
+    ext = extract(
+        _resp('{"tool": "read_file", "arguments": {"path": "a"}}'), RT_TOOLS
+    ).unwrap()
+    assert (ext.prose_before, ext.prose_after) == (0, 0)
+
+
+# Cases from the MANAGER's red-team probe (reqs/PROBE_tool_calls_redteam.py).
+@pytest.mark.parametrize(
+    "content, reasoning, expected",
+    [
+        (
+            '<think>{"tool":"run_command","arguments":{"argv":["rm","-rf","/"]}}</think>All done.',
+            None,
+            "final",
+        ),
+        ("Finished.", '{"tool":"run_command","arguments":{"argv":["x"]}}', "final"),
+        (
+            "I would call read_file(path='a.py') next, but first a question.",
+            None,
+            "final",
+        ),
+        ("read_file(path='a.py')", None, "tool_calls"),
+        ('<tool_call>{"name":"read_file"', None, "markup_unparsed"),
+        ('<invoke name="read_file">', None, "markup_unparsed"),
+        (
+            'Sure.\n{"tool": "read_file", "arguments": {"path": "a"',
+            None,
+            "markup_unparsed",
+        ),
+        ('[TOOL_CALLS][{"name":"read_file"}', None, "markup_unparsed"),
+        ('<function_calls><invoke name="x">', None, "markup_unparsed"),
+        ("<TOOL_CALL>", None, "markup_unparsed"),
+        ("< /tool_call >", None, "markup_unparsed"),
+        ("<tool_use>", None, "markup_unparsed"),
+        ('{"tool":"delete_everything","arguments":{}}', None, "unknown_tool"),
+        (
+            '{"tool":"read_file; rm -rf /","arguments":{"path":"a"}}',
+            None,
+            "unknown_tool",
+        ),
+        ('{"tool":"read_f\\u0456le","arguments":{"path":"a"}}', None, "unknown_tool"),
+        ('{"tool":"edit","arguments":{"path":"a"}}', None, "unknown_tool"),
+    ],
+)
+def test_probe_cases(content: str, reasoning: str | None, expected: str) -> None:
+    result = extract(_resp(content, reasoning=reasoning or ""), RT_TOOLS)
+    assert result.value is not None
+    assert result.value.outcome == expected
+
+
+def test_probe_case_insensitive_dash_variant_is_repaired() -> None:
+    ext = extract(
+        _resp('{"tool":"READ-FILE","arguments":{"path":"a"}}'), RT_TOOLS
+    ).unwrap()
+    assert ext.calls[0].name == "read_file"
+
+
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        '{"tool": "' * 100000,
+        "{" * 500000 + "}" * 500000,
+        "<tool_call " * 90000,
+        '```json\n{"a":1}\n```\n' * 40000,
+        "read_file(" * 100000,
+        "word " * 200000,
+    ],
+    ids=[
+        "tool-key-repeat",
+        "nested-braces",
+        "tag-repeat",
+        "fence-repeat",
+        "paren-repeat",
+        "plain-words",
+    ],
+)
+def test_probe_megabyte_inputs_finish_fast_without_raising(hostile: str) -> None:
+    import time
+
+    started = time.perf_counter()
+    result = extract(_resp(hostile), RT_TOOLS)
+    assert time.perf_counter() - started < 2.0
+    assert result.value is not None
 
 
 # ---------------------------------------------------------------- loop guards (R-119)

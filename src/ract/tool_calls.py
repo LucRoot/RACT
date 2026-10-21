@@ -63,8 +63,15 @@ Outcome = Literal[
     "truncated",
     "empty",
     "unknown_tool",
+    "invalid_arguments",
+    "too_many_calls",
 ]
 NextAction = Literal["grammar_retry", "reformat_request", "fail", "none"]
+
+# More calls than this in one reply are refused as a whole. The loop budget
+# would stop execution later, but the list would still reach the renderer and
+# the approval prompts.
+MAX_CALLS_PER_REPLY = 32
 
 REFORMAT_REQUEST = (
     "Your last reply could not be read as a tool call or a final answer. "
@@ -116,6 +123,12 @@ class Extraction:
     explanation: str = ""
     raw_text: str = ""
     problems: tuple[str, ...] = field(default_factory=tuple)
+    # Characters of visible text before the first and after the last parsed
+    # call. Non-zero means the calls sat inside prose (for example a fenced
+    # example the model quoted from a file it read). Parsing grants nothing;
+    # the loop's trust rule (ADR-0048 D9) decides what such a call may do.
+    prose_before: int = 0
+    prose_after: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +172,30 @@ _FENCE_RE = re.compile(
 
 ParsedCall = tuple[str, Any]
 
+
+class _DuplicateKeyError(ValueError):
+    """A JSON object names the same key twice.
+
+    ``json.loads`` keeps the last value, so ``{"tool": "read_file", "tool":
+    "run_command"}`` would silently become ``run_command``, and another
+    reader might keep the first. Such a reply is refused instead.
+    """
+
+
+def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in out:
+            raise _DuplicateKeyError(f"duplicate key {key!r}")
+        out[key] = value
+    return out
+
+
+def _loads(text: str) -> Any:
+    """``json.loads`` that refuses duplicate keys at any depth."""
+    return json.loads(text, object_pairs_hook=_no_duplicates)
+
+
 # A call form longer than this is not parsed as Python; it is almost certainly
 # prose or code, and ``ast.parse`` cost grows with input size.
 _PYTHONIC_MAX_CHARS = 20_000
@@ -186,8 +223,8 @@ def _calls_from_json_text(
     text: str, *, allow_envelope: bool, allow_named: bool = True
 ) -> list[ParsedCall] | None:
     try:
-        data = json.loads(text)
-    except (json.JSONDecodeError, ValueError):
+        data = _loads(text)
+    except (json.JSONDecodeError, ValueError, RecursionError):
         return None
     items = data if isinstance(data, list) else [data]
     calls = [
@@ -219,8 +256,8 @@ def _parse_harmony(text: str) -> list[ParsedCall] | None:
     calls: list[ParsedCall] = []
     for name, body in matches:
         try:
-            args = json.loads(body.strip() or "{}")
-        except json.JSONDecodeError:
+            args = _loads(body.strip() or "{}")
+        except (json.JSONDecodeError, ValueError, RecursionError):
             return None
         calls.append((name.removeprefix("functions."), args))
     return calls
@@ -364,6 +401,9 @@ def _native_calls(message: Mapping[str, Any]) -> list[tuple[str, Any, str]] | No
     raw = message.get("tool_calls")
     if not isinstance(raw, list) or not raw:
         return None
+    if len(raw) > MAX_CALLS_PER_REPLY:
+        # Signal "too many" without decoding thousands of entries.
+        return [("", None, "")] * (MAX_CALLS_PER_REPLY + 1)
     calls = []
     for i, item in enumerate(raw):
         function = item.get("function", {}) if isinstance(item, dict) else {}
@@ -376,20 +416,56 @@ def _native_calls(message: Mapping[str, Any]) -> list[tuple[str, Any, str]] | No
     return calls
 
 
-def _decode_arguments(raw: Any) -> dict[str, Any] | None:
+def _decode_arguments(raw: Any) -> tuple[dict[str, Any] | None, str]:
+    """Return (arguments, problem). Problem is empty when arguments is a dict."""
     if isinstance(raw, dict):
-        return dict(raw)
-    if isinstance(raw, str):
-        if not raw.strip():
-            return {}
-        try:
-            value = json.loads(raw)
-        except json.JSONDecodeError:
-            return None
-        return value if isinstance(value, dict) else None
+        return dict(raw), ""
     if raw is None:
-        return {}
-    return None
+        return {}, ""
+    if not isinstance(raw, str):
+        return None, f"arguments are a {type(raw).__name__}, not a JSON object"
+    if not raw.strip():
+        return {}, ""
+    try:
+        value = _loads(raw)
+    except _DuplicateKeyError as exc:
+        return None, f"arguments name a key twice ({exc})"
+    except (json.JSONDecodeError, RecursionError):
+        snippet = raw[:80] + ("..." if len(raw) > 80 else "")
+        return None, f"arguments are not valid JSON: {snippet!r}"
+    if not isinstance(value, dict):
+        return None, f"arguments are a JSON {type(value).__name__}, not an object"
+    return value, ""
+
+
+def _has_duplicate_keys(text: str) -> bool:
+    """True when some JSON object in the reply names a key twice."""
+    candidates = [text.strip(), *_FENCE_RE.findall(text), *_TAG_RE.findall(text)]
+    for candidate in candidates:
+        try:
+            _loads(candidate.strip())
+        except _DuplicateKeyError:
+            return True
+        except (json.JSONDecodeError, ValueError, RecursionError):
+            continue
+    return False
+
+
+def _prose_around(text: str, rung: Rung) -> tuple[int, int]:
+    """Visible characters before the first and after the last call span."""
+    patterns = {"tag": _TAG_RE, "harmony": _HARMONY_RE, "fenced_json": _FENCE_RE}
+    pattern = patterns.get(rung)
+    if pattern is None:
+        return 0, 0
+    spans = [m.span() for m in pattern.finditer(text)]
+    if not spans:
+        return 0, 0
+    before = text[: spans[0][0]]
+    after = text[spans[-1][1] :]
+    if rung == "harmony":
+        # Harmony channel headers before the call are markup, not prose.
+        before = re.sub(r"<\|[^|]*\|>[^<]*", "", before)
+    return len(before.strip()), len(after.strip())
 
 
 def explain_truncation(
@@ -458,6 +534,16 @@ def extract(
                 rung = rung_name
                 break
 
+    if parsed is not None and len(parsed) > MAX_CALLS_PER_REPLY:
+        native_count = len(message.get("tool_calls") or [])
+        count = native_count if rung == "native" else len(parsed)
+        return _failure(
+            "too_many_calls",
+            content,
+            f"The reply asked for {count:,} tool calls; RACT reads at most "
+            f"{MAX_CALLS_PER_REPLY} per reply. Nothing from it was run.",
+        )
+
     if parsed is None:
         final = _final_from_envelope(visible)
         if final is not None:
@@ -468,11 +554,17 @@ def extract(
                 "The reply was a final answer in the JSON envelope.",
             )
         if contains_tool_markup(visible):
+            reason = (
+                "The reply contains a JSON object that names the same key twice, "
+                "so which tool or argument was meant is ambiguous."
+                if _has_duplicate_keys(visible)
+                else "The reply contains tool-call markup RACT could not read."
+            )
             return _failure(
                 "markup_unparsed",
                 content,
-                "The reply contains tool-call markup RACT could not read, so it was "
-                "not used as an answer. RACT asks the model to restate it once.",
+                reason + " It was not used as an answer. RACT asks the model "
+                "to restate it once.",
             )
         if (
             finish_reason(dict(response) if isinstance(response, Mapping) else None)
@@ -497,42 +589,57 @@ def extract(
             "The reply was plain text with no tool-call markup.",
         )
 
+    assert rung is not None
     calls: list[ToolCall] = []
-    problems: list[str] = []
+    name_problems: list[str] = []
+    arg_problems: list[str] = []
     for name, raw_args, call_id in parsed:
         resolved, name_repair, problem = _repair_name(name, by_name)
         if resolved is None:
-            problems.append(problem)
+            name_problems.append(problem)
             continue
-        arguments = _decode_arguments(raw_args)
+        arguments, problem = _decode_arguments(raw_args)
         if arguments is None:
-            problems.append(f"arguments for {resolved} are not a JSON object")
+            arg_problems.append(f"{resolved}: {problem}")
             continue
         fixed, key_repairs, problem = _repair_keys(arguments, by_name[resolved])
         if fixed is None:
-            problems.append(problem)
+            arg_problems.append(problem)
             continue
         repairs = ((name_repair,) if name_repair else ()) + tuple(key_repairs)
-        assert rung is not None
         calls.append(ToolCall(resolved, fixed, call_id, rung, repairs))
 
-    if problems:
+    if name_problems or arg_problems:
+        problems = name_problems + arg_problems
+        outcome: Outcome
+        if name_problems:
+            outcome = "unknown_tool"
+            hint = "Use one of the listed tool names exactly."
+        else:
+            outcome = "invalid_arguments"
+            hint = "Arguments must be one JSON object using the listed keys, each key once."
         return Rooted(
             value=Extraction(
-                outcome="unknown_tool",
-                rung=rung,
-                raw_text=content,
-                problems=tuple(problems),
+                outcome=outcome, rung=rung, raw_text=content, problems=tuple(problems)
             ),
             assumption="Every tool call in the reply names one known tool with valid arguments.",
             confidence=0.0,
             provenance=["tool_calls.extract", f"rung:{rung}"],
             error="; ".join(problems),
-            hint="Use one of the listed tool names and argument keys exactly.",
+            hint=hint,
         )
+    if rung == "native":
+        before, after = len(visible.strip()), 0
+    else:
+        before, after = _prose_around(visible, rung)
     return _ok(
         Extraction(
-            outcome="tool_calls", calls=tuple(calls), rung=rung, raw_text=content
+            outcome="tool_calls",
+            calls=tuple(calls),
+            rung=rung,
+            raw_text=content,
+            prose_before=before,
+            prose_after=after,
         ),
         f"The reply's tool calls were read from the {rung} form.",
         rung=rung,
@@ -546,8 +653,8 @@ def _final_from_envelope(text: str) -> str | None:
     if not candidate.startswith("{"):
         return None
     try:
-        data = json.loads(candidate)
-    except json.JSONDecodeError:
+        data = _loads(candidate)
+    except (json.JSONDecodeError, ValueError, RecursionError):
         return None
     if (
         isinstance(data, dict)
@@ -574,6 +681,7 @@ def _failure(outcome: Outcome, raw: str, explanation: str) -> Rooted[Extraction]
         "markup_unparsed": "tool-parse-failed",
         "truncated": "output_limit",
         "empty": "empty_output",
+        "too_many_calls": "Ask for fewer tool calls per reply.",
     }
     return Rooted(
         value=Extraction(outcome=outcome, raw_text=raw, explanation=explanation),
@@ -594,10 +702,15 @@ def next_action(
 ) -> NextAction:
     """Which network rung to try after a failed read, or ``fail``.
 
-    Only unreadable replies climb the ladder. Truncation is handled by a retry
-    with a higher limit (see ``explain_truncation``) and unknown tools go back
-    to the model as a refusal it can correct.
+    Unreadable replies climb the whole ladder. Replies with a readable shape
+    but bad arguments, or too many calls, get the reformat request only: a
+    grammar retry would constrain the format, which was not the problem.
+    Truncation is handled by a retry with a higher limit (see
+    ``explain_truncation``) and unknown tools go back to the model as a
+    refusal it can correct.
     """
+    if extraction.outcome in {"invalid_arguments", "too_many_calls"}:
+        return "fail" if reformat_tried else "reformat_request"
     if extraction.outcome != "markup_unparsed" and extraction.outcome != "empty":
         return "none"
     if server_supports_grammar and not grammar_tried:
