@@ -279,6 +279,10 @@ def test_after_ctrl_c_the_next_request_starts_at_once(
     session = spawn([str(ract)], cwd=str(ws), env=env, cols=100, rows=40)
     try:
         assert session.expect(r"ract> ", 30)
+        # These tests are about interrupts; the session starts in `default`
+        # mode (asks before a change), so let the step run without asking.
+        session.send_line("/mode auto-accept")
+        assert session.expect(r"auto-accept: changes are applied", 15)
         session.send_line("fix add")
         assert session.expect(r"waiting on model", 15)
         session.ctrl_c()
@@ -339,6 +343,10 @@ def test_quitting_right_after_a_mid_stream_interrupt_leaves_no_step_state(
     session = spawn([str(ract)], cwd=str(ws), env=env, cols=100, rows=40)
     try:
         assert session.expect(r"ract> ", 30)
+        # These tests are about interrupts; the session starts in `default`
+        # mode (asks before a change), so let the step run without asking.
+        session.send_line("/mode auto-accept")
+        assert session.expect(r"auto-accept: changes are applied", 15)
         session.send_line("fix add")
         assert session.expect(r"--- src/calc.py ---", 30)  # mid-stream
         session.ctrl_c()

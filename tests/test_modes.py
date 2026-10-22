@@ -5,12 +5,15 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from ract.approval_callback import console_approval_callback
 from ract.manager import Step
 from tests.test_repl import _session
+from tests.test_session_turn import _repo
+from tests.ux.terminal_driver import spawn
 
 
 def test_mode_shows_and_switches(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,6 +71,31 @@ def _ract_exe() -> str:
     return str(
         Path(sys.executable).with_name("ract.exe" if os.name == "nt" else "ract")
     )
+
+
+@pytest.mark.parametrize(("reply", "written"), [("y", True), ("n", False)])
+def test_default_mode_asks_before_the_change_in_a_real_session(
+    tmp_path: Path, fake_model_server: Any, reply: str, written: bool
+) -> None:
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+    before = (ws / "src" / "calc.py").read_text(encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
+    session = spawn([_ract_exe()], cwd=str(ws), env=env, cols=100, rows=40)
+    try:
+        # The OPERATOR's start mode: a real session starts in `default` and
+        # asks with no /mode command (B-034).
+        assert session.expect(r"\| default \|", 30)  # the status line
+        session.send_line("fix add")
+        assert session.expect(r"Approve step: .*src/calc\.py\? \[y/N\]", 60)
+        session.send_line(reply)
+        assert session.expect(r"ract> ", 60)
+    finally:
+        if session.alive():
+            session.send_line("/exit")
+        session.close(timeout=15)
+    after = (ws / "src" / "calc.py").read_text(encoding="utf-8")
+    assert (after != before) is written
 
 
 @pytest.mark.parametrize(

@@ -138,6 +138,13 @@ class ReplSession:
 
             console = default_console
         self.state = ReplState(config=config or Path("ract.yaml"))
+        # B-034, OPERATOR decision 2026-10-22: a real session starts in
+        # `default` (ask before changing a file). Auto-accept becomes the
+        # start only after per-hunk review (B-014) exists. The status line
+        # reads permission_mode(), derived from the same switch the
+        # executor's approval reads, so label and behavior cannot differ.
+        if self._event_mode and sys.stdin.isatty():
+            self.state.auto = True
         self._dispatch = dispatch
         self._read_line = read_line or input
         self._console = console

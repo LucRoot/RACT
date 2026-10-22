@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Session modes: `/mode plan` (the planner proposes, nothing runs or is written), `/mode default`
+  (RACT asks before each step that changes a file; a step that only answers is not asked
+  about), `/mode auto-accept` (changes are applied without asking). The session starts in
+  `default`. The mode is in the status line and comes from the same setting the approval
+  uses. `unrestricted` is refused: it needs the tier-3 policy, which this release does not
+  have.
 - `/undo` and `/redo` in the session, `ract undo` and `ract redo` in the shell: reverse the last
   turn's file changes from its backup. Files the turn replaced are restored and files it created
   are removed; a file you changed after the turn is listed and left alone unless you pass
