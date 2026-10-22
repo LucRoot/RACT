@@ -149,6 +149,7 @@ def _merge_reports(
     artifacts: dict[str, Any] = {}
     metrics: dict[str, Any] = {}
     refusals: list[Any] = []
+    unsigned: list[str] = []
     for rep in reports:
         step_results.extend(rep.step_results)
         for a in rep.assumptions:
@@ -158,6 +159,7 @@ def _merge_reports(
         artifacts.update(rep.artifacts)
         metrics.update(rep.metrics)
         refusals.extend(rep.refusals)
+        unsigned.extend(rep.unsigned_artifacts)
     return ExecutionReport(
         intent=intent,
         step_results=step_results,
@@ -167,6 +169,7 @@ def _merge_reports(
         plan=plan,
         metrics=metrics,
         refusals=refusals,
+        unsigned_artifacts=unsigned,
     )
 
 

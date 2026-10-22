@@ -16,6 +16,8 @@ Every file RACT writes carries a signed provenance capability called a **Rootkno
 
 The Rootknot is the boundary between machine output and project truth: a verifiable answer to the question "where did this come from?"
 
+Current state: this release does not yet sign the files a `ract` run writes, and a missing Rootknot does not halt the loop. Each run that writes files says so. See `docs/PROVENANCE.md`.
+
 ## Model-agnostic by design
 
 RACT does not lock you to one provider. You can run it against a local `llama-server`, a cheap frontier endpoint, or a cloud API. The goal is to give you ownership of your pipeline — your data, your models, your costs.

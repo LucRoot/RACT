@@ -1402,6 +1402,10 @@ def _doctor_command(args: list[str]) -> int:
             "Providers were not contacted. To check that each one answers, run: "
             "ract doctor --check-providers"
         )
+    console.print(
+        "Provenance: files written by ract runs are not signed with a Rootknot "
+        "in this release. See docs/PROVENANCE.md."
+    )
     return 0 if passed == total else 1
 
 
@@ -4651,6 +4655,16 @@ def main(argv: list[str] | None = None) -> int:
         for i, step_result in enumerate(report.step_results, start=1):
             console.rule(f"Step {i}: {step_result.step.action}")
             console.print(step_result.content)
+    if report.unsigned_artifacts:
+        # LR:: Rootknot signing is not wired into CLI runs yet (S-015). Say
+        # so on every run that wrote files, instead of implying they are
+        # signed.
+        names = ", ".join(report.unsigned_artifacts)
+        console.warning(
+            f"provenance: {len(report.unsigned_artifacts)} file(s) written without "
+            f"a Rootknot ({names}). Signing is not wired into this release; "
+            "see docs/PROVENANCE.md."
+        )
     score = QualityScorecard().compute_score(report.plan)
     console.direct(f"quality score: {score}")
     return 0

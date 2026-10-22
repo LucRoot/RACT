@@ -260,7 +260,7 @@ rule-like intents) `iso_perturb.json`.
 
 ## What makes RACT different
 
-- **Provenance-anchored artifacts** — every file the loop writes carries a signed `Rootknot` binding it to its plan step, assumption, generator, and parent artifacts. See [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
+- **Provenance-anchored artifacts** — every file the loop writes is meant to carry a signed `Rootknot` binding it to its plan step, assumption, generator, and parent artifacts. In this release `ract` runs do not sign files yet, and each run that writes files says so. See [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
 - **Assumption-driven programming** — assumptions live in a registry with a four-state lifecycle (`proposed`, `active`, `discharged`, `violated`); violations propagate through the dependency graph.
 - **Milestone-halting recursion** — the loop halts on completion, regression, provenance violation, assumption cascade, budget exhaustion, handshake block, or provider fault, each with a distinct termination cause. On a refactoring task this spends measurably fewer tokens than a naive fixed-iteration loop — see [`evals/benchmarks/refactor-token-usage/report.md`](evals/benchmarks/refactor-token-usage/report.md).
 - **Operator Handshake** — high-risk actions queue for async review instead of blocking the loop.

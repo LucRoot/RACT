@@ -70,6 +70,10 @@ class ExecutionReport:
     plan: Plan | None = None
     metrics: dict[str, Any] = field(default_factory=dict)
     refusals: list[Refusal] = field(default_factory=list)
+    # Files this run wrote that got no Rootknot. Signing needs the v4
+    # dependencies (see install_v4_provenance_deps); until the harness wires
+    # them this lists every written file, and the CLI says so.
+    unsigned_artifacts: list[str] = field(default_factory=list)
 
 
 class Executor:
@@ -491,7 +495,7 @@ class Executor:
             return remainder
         return content
 
-    def _write_artifact(self, expected_artifact: str, content: str) -> None:
+    def _write_artifact(self, expected_artifact: str, content: str) -> bool:
         """Persist generated content to the project's expected artifact path.
 
         LR:: Writing is gated by project_dir because the Executor is also used in
@@ -504,9 +508,9 @@ class Executor:
         binds provenance to artifacts (per ADR-0001 and docs/PROVENANCE.md).
         """
         if self.project_dir is None:
-            return
+            return True
         if not expected_artifact:
-            return
+            return True
         # Raises WorkspacePathRefused for '..', absolute paths outside the
         # project, links, .git/.ract and the Windows path forms in ADR-0047 D2.
         # Before, an absolute path was skipped silently and '..' was written.
@@ -516,9 +520,9 @@ class Executor:
         full_path.parent.mkdir(parents=True, exist_ok=True)
         cleaned = self._strip_markdown_fences(content)
         full_path.write_text(cleaned, encoding="utf-8")
-        self._record_provenance(full_path, cleaned)
+        return self._record_provenance(full_path, cleaned)
 
-    def _record_provenance(self, full_path: Path, content: str) -> None:
+    def _record_provenance(self, full_path: Path, content: str) -> bool:
         """Sign and index the artifact just written, if provenance is configured.
 
         Failures here are logged, not raised: a provenance recording error must
@@ -547,7 +551,7 @@ class Executor:
             or self.session_key is None
             or self.project_dir is None
         ):
-            return
+            return False
         # v4 dep-completeness check: all six providers/signers must be
         # populated. Missing any one is a wiring gap upstream and we
         # decline to sign rather than emit a weaker attestation.
@@ -566,7 +570,7 @@ class Executor:
                 "providers); see wiring module_02 harness plumbing.",
                 flush=True,
             )
-            return
+            return False
         try:
             from ract.core.rootknot import make_rootknot_v4
             from ract.core.types import digest_bytes
@@ -649,11 +653,13 @@ class Executor:
                 run_id=run_id,
             )
             self.provenance_index.save(knot, full_path)
+            return True
         except Exception as exc:  # noqa: BLE001 - log and continue (see docstring)
             print(
                 f"[executor] v4 provenance recording failed for {full_path}: {exc}",
                 flush=True,
             )
+            return False
 
     def _stream_completion(
         self,
@@ -975,6 +981,7 @@ class Executor:
         assumptions = [plan.assumption]
 
         refusals: list[Refusal] = []
+        unsigned_artifacts: list[str] = []
         for index, step in enumerate(plan.steps, start=1):
             if approval_callback is not None and not approval_callback(step):
                 return Rooted(
@@ -1363,7 +1370,8 @@ class Executor:
                         )
 
             try:
-                self._write_artifact(step.expected_artifact, content)
+                if not self._write_artifact(step.expected_artifact, content):
+                    unsigned_artifacts.append(step.expected_artifact)
             except WorkspacePathRefused as refused:
                 return Rooted(
                     value=None,
@@ -1444,6 +1452,7 @@ class Executor:
                 plan=plan,
                 metrics=aggregated_metrics,
                 refusals=refusals,
+                unsigned_artifacts=unsigned_artifacts,
                 artifacts=(
                     {
                         "hook_results": hook_results,

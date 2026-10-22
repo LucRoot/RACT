@@ -4,6 +4,14 @@ RACT is independent of any private system, and every artifact it writes is
 cryptographically bound to its origin. This document points at commands and
 source symbols rather than prose.
 
+## Current state
+
+In this release a `ract` run signs nothing. `Executor.install_v4_provenance_deps`
+has no production caller, so `_record_provenance` writes no sidecar and no index
+row. A run that writes files says so, and `ract doctor` repeats it. The design
+below is what the signing path enforces once the harness wires it (board card
+S-015; ADR-0048 R3 and R4).
+
 ## What a Rootknot attests
 
 Every file the recursion loop writes carries a **Rootknot** — a signed
