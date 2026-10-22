@@ -433,3 +433,34 @@ def test_the_internal_provider_command_is_refused_headless(tmp_path: Path) -> No
     assert result.returncode == 3, result.stdout + result.stderr
     assert not marker.exists()
     assert "internal provider runs a command" in result.stderr
+
+
+# ---------------------------------------------------------------- no terminal (G-041 item 3)
+
+
+def test_no_terminal_no_escape_sequences_no_prompts(tmp_path: Path) -> None:
+    """The container case: stdin closed, stdout and stderr pipes, no TTY. No
+    escape sequence on either stream, nothing that waits for an answer, and
+    the documented exit codes."""
+    missing = tmp_path / "missing"
+    missing.mkdir()
+    down = _repo(tmp_path, "http://127.0.0.1:9/v1")
+    (down / "ract.yaml").write_text(
+        (down / "ract.yaml")
+        .read_text(encoding="utf-8")
+        .replace(
+            "    model: fake-coder\n", "    model: fake-coder\n    max_retries: 0\n"
+        ),
+        encoding="utf-8",
+    )
+    _plant_hook(down, tmp_path / "hook.ran")  # would ask on a terminal
+
+    cases = [(missing, 2), (down, 6)]
+    for ws, code in cases:
+        for fmt in ("text", "json", "stream-json"):
+            result = _ract(ws, "-p", "fix add", "--output-format", fmt)
+            assert result.returncode == code, (ws, fmt, result.stderr)
+            for stream in (result.stdout, result.stderr):
+                assert ANSI not in stream
+                assert "[r]un once" not in stream and "[y]es" not in stream
+    assert not (tmp_path / "hook.ran").exists()

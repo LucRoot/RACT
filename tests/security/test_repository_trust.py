@@ -321,3 +321,50 @@ def test_doctor_flags_var_syntax_outside_api_key(tmp_path: Path) -> None:
     results = RactDoctor(tmp_path / "ract.yaml").diagnose()
     text = " ".join(r.message for r in results)
     assert "field 'url' uses ${...}, which only api_key expands" in text
+
+
+# ---------------------------------------------------------------- --loop (G-047 b)
+
+
+@pytest.mark.parametrize(
+    "answer, allowed, stored",
+    [("y", True, False), ("t", True, True), ("n", False, False), ("", False, False)],
+)
+def test_loop_asks_before_running_an_untrusted_projects_tests(
+    tmp_path: Path, state: dict[str, str], answer: str, allowed: bool, stored: bool
+) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    assert (
+        trust.confirm_loop(ws, interactive=True, ask=lambda prompt: answer) is allowed
+    )
+    assert trust.has_trust_record(ws) is stored
+
+
+def test_loop_without_a_terminal_says_what_runs(
+    tmp_path: Path, state: dict[str, str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+
+    def ask(prompt: str) -> str:
+        raise AssertionError("asked without a terminal")
+
+    assert trust.confirm_loop(ws, interactive=False, ask=ask) is True
+    assert "pytest imports conftest.py" in capsys.readouterr().err
+
+
+def test_trust_on_a_repository_without_items_covers_loop(
+    tmp_path: Path, state: dict[str, str]
+) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / "ract.yaml").write_text("project:\n  name: x\n", encoding="utf-8")
+    result = _ract(ws, state, "trust")
+    assert result.returncode == 0
+    assert trust.has_trust_record(ws)
+
+    def ask(prompt: str) -> str:
+        raise AssertionError("asked although trusted")
+
+    assert trust.confirm_loop(ws, interactive=True, ask=ask) is True

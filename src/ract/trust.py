@@ -167,6 +167,45 @@ def is_trusted(root: Path | str) -> bool:
     return _read_store().get(repository_key(root)) == digest(root, items)
 
 
+def has_trust_record(root: Path | str) -> bool:
+    """True when the operator ran `ract trust` here and nothing changed since."""
+    return _read_store().get(repository_key(root)) == digest(root)
+
+
+def confirm_loop(root: Path | str, *, interactive: bool, ask: Any = input) -> bool:
+    """Whether `--loop` may run this project's tests here.
+
+    LR:: `--loop` runs the project's test suite every iteration, and pytest
+    imports `conftest.py` and the test modules: that is the project's own
+    code, run on the operator's machine with the operator's environment. In
+    a repository the operator has not trusted, a terminal asks first.
+    Without a terminal the `--loop` flag the operator typed is the consent,
+    and one line says what runs.
+    """
+    if has_trust_record(root):
+        return True
+    what = (
+        "--loop runs this project's tests every iteration; pytest imports "
+        "conftest.py and the test modules, which runs the project's own code."
+    )
+    if not interactive:
+        print(f"note: {what}", file=sys.stderr, flush=True)
+        return True
+    print(what, file=sys.stderr, flush=True)
+    try:
+        answer = (
+            str(ask("Run them? [y]es, or [t]rust this repository, [N]o: "))
+            .strip()
+            .lower()
+        )
+    except (EOFError, KeyboardInterrupt):
+        answer = "n"
+    if answer in {"t", "trust"}:
+        trust(root)
+        return True
+    return answer in {"y", "yes"}
+
+
 def trust(root: Path | str) -> str:
     """Record the operator's trust in this repository's current items."""
     store = _read_store()

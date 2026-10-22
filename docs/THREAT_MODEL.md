@@ -362,8 +362,10 @@ Read this before relying on any statement above.
   asks once; without a terminal, and in `ract -p --bare`, it skips them and
   says so. A CI job grants trust from its own command line: `ract trust` as
   an earlier step, or `ract -p --trust-project` for one run; no setting in
-  the repository can. Still open: `--loop` runs the project's tests (pytest imports
-  `conftest.py`) without asking.
+  the repository can. `--loop` runs the project's tests every iteration (pytest imports
+  `conftest.py`): in a repository without a trust record a terminal asks
+  first, and without a terminal the typed `--loop` flag is the consent and
+  one line says what runs.
 - Fixed in v0.6: a key from the operator's environment (`${VAR}` or the
   `OPENAI_API_KEY` fallback) was sent to whatever URL a `ract.yaml` named. It
   now goes only to a host paired with that variable outside the project

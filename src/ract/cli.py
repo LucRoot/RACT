@@ -186,7 +186,12 @@ def _trust_command(args: list[str]) -> int:
         return 0
     items = trust.trust_items(root)
     if not items:
-        print(f"nothing to trust in {root}: it asks RACT to run no command of its own")
+        trust.trust(root)
+        print(
+            f"Trusted {root}. It asks RACT to run no command of its own; trust "
+            "also lets --loop run its tests without asking. Undo with: "
+            "ract trust --remove"
+        )
         return 0
     print(f"Trusting {root} to have RACT run or contact:")
     for item in items:
@@ -4698,6 +4703,17 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--loop and --dry-run are mutually exclusive")
 
     if args.loop:
+        from ract import trust as _trust
+
+        if not _trust.confirm_loop(
+            args.config.resolve().parent,
+            interactive=sys.stdin.isatty() and sys.stderr.isatty(),
+        ):
+            console.error(
+                "not run: --loop runs this project's tests. hint: run `ract trust` "
+                "here to allow it, or run without --loop"
+            )
+            return 3
         controller = LoopController(
             args.config,
             max_iterations=args.max_iterations,
