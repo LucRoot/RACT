@@ -13,6 +13,7 @@ Two variants:
 
 from __future__ import annotations
 
+import importlib.util
 import shutil
 from pathlib import Path
 
@@ -76,10 +77,13 @@ def test_probe_lsp_uses_dedicated_probe_fixture_per_language():
 
 
 @pytest.mark.skipif(
-    shutil.which("jedi-language-server") is None
-    and shutil.which("pylsp") is None
-    and shutil.which("pyright-langserver") is None,
-    reason="No Python LSP binary on PATH; live probe skipped",
+    importlib.util.find_spec("multilspy") is None
+    or (
+        shutil.which("jedi-language-server") is None
+        and shutil.which("pylsp") is None
+        and shutil.which("pyright-langserver") is None
+    ),
+    reason="multilspy or a Python LSP binary is missing; the live probe is skipped (B-068)",
 )
 def test_probe_lsp_python_live(tmp_path: Path):
     # Give the probe a real repo root with a real file so multilspy
@@ -91,3 +95,20 @@ def test_probe_lsp_python_live(tmp_path: Path):
 
 
 # RACT 0.5.0
+
+
+def test_probe_reports_a_missing_multilspy_in_plain_words(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # B-068: no install. The package's absence is simulated where the import happens.
+    from ract.memory import lsp
+
+    def missing() -> None:
+        raise ModuleNotFoundError("No module named 'multilspy'")
+
+    monkeypatch.setattr(lsp, "_load_multilspy", missing)
+    (tmp_path / "x.py").write_text("def x(): pass" + chr(10), encoding="utf-8")
+    r = lsp.probe_lsp("python", tmp_path)
+    assert r.available is False
+    assert "multilspy" in (r.error_message or "")
+    assert "Traceback" not in (r.error_message or "")
