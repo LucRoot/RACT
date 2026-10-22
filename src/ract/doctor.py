@@ -17,6 +17,7 @@ import yaml
 
 from ract.config_check import find_config_problems, resolve_manager_provider
 from ract.harness import _default_manager_prompt_path
+from ract.providers.capability_probe import ProviderProbe, probe_configured
 from ract.providers.router import ProviderRouter
 
 
@@ -40,6 +41,8 @@ class RactDoctor:
     def __init__(self, config_path: Path) -> None:
         self.config_path = Path(config_path)
         self.project_dir = self.config_path.parent
+        # Filled by diagnose(check_providers=True): one probe per provider (B-056).
+        self.probes: list[ProviderProbe] = []
 
     def diagnose(self, *, check_providers: bool = False) -> list[CheckResult]:
         """Return a list of diagnostic checks.
@@ -65,6 +68,8 @@ class RactDoctor:
             results.append(layout)
         if check_providers:
             results.extend(self._check_provider_reachability(config))
+            self.probes = probe_configured(config.get("providers", {}))
+            results.extend(self._check_provider_capabilities(self.probes))
         results.append(self._check_prompt_file(config))
         results.append(self._check_skills(config))
         return results
@@ -230,6 +235,30 @@ class RactDoctor:
                         message=f"Provider '{name}' is not reachable: {error}",
                     )
                 )
+        return results
+
+    def _check_provider_capabilities(
+        self, probes: list[ProviderProbe]
+    ) -> list[CheckResult]:
+        """One row per provider. It passes when chat works; the detail lines are
+        printed by the CLI, which has the full findings."""
+        results: list[CheckResult] = []
+        for probe in probes:
+            failed = [f for f in probe.findings if f.status in {"failed", "not tried"}]
+            if probe.chat_works:
+                message = "chat works"
+                gaps = [f.label for f in probe.findings if f.status == "not supported"]
+                if gaps:
+                    message += f"; not supported: {', '.join(gaps)}"
+            else:
+                message = failed[0].detail if failed else "chat did not work"
+            results.append(
+                CheckResult(
+                    name=f"provider_capabilities:{probe.name}",
+                    passed=probe.chat_works or not probe.probed,
+                    message=message,
+                )
+            )
         return results
 
     def _check_prompt_file(self, config: dict[str, Any]) -> CheckResult:

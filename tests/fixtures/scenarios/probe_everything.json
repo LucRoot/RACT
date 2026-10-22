@@ -1,0 +1,10 @@
+{
+  "name": "probe_everything",
+  "description": "B-056: chat, streaming, native tool calls and reasoning text; /models names no context size.",
+  "model": "fake-coder",
+  "tools_supported": true,
+  "turns": [
+    {"match": {"last_message": "(?i)call the echo tool"}, "reply": {"kind": "tool_calls", "calls": [{"name": "echo", "arguments": {"text": "hi"}}]}},
+    {"reply": {"kind": "reasoning", "content": "ok", "reasoning": "The user wants the word ok.", "chunk_size": 4}, "repeat": true}
+  ]
+}

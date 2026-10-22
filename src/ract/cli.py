@@ -1520,6 +1520,24 @@ def _doctor_egress(*, json_output: bool) -> int:
     return 0
 
 
+def _print_provider_probe(probe: Any) -> None:
+    """One provider block of ``ract doctor --check-providers`` (B-056)."""
+    from rich.markup import escape
+
+    named = "  (named by this repository's ract.yaml)" if probe.repo_named else ""
+    console.print(
+        escape(f"provider {probe.name} ({probe.url})  model: {probe.model}{named}")
+    )
+    for finding in probe.findings:
+        label = f"  {finding.label}:"
+        status = finding.status
+        if finding.detail:
+            status += f" ({finding.detail})"
+        console.print(escape(f"{label:<20}{status}"))
+        if finding.next_step:
+            console.print(escape(f"{'':<20}{finding.next_step}"))
+
+
 def _doctor_command(args: list[str]) -> int:
     """Handle 'ract doctor [--config <path>] [--check-providers]'.
 
@@ -1572,7 +1590,8 @@ def _doctor_command(args: list[str]) -> int:
         pruned = prune_step_branches(project_root, parsed.prune_days)
     step_branches = list_step_branches(project_root)
 
-    results = RactDoctor(parsed.config).diagnose(check_providers=parsed.check_providers)
+    doctor = RactDoctor(parsed.config)
+    results = doctor.diagnose(check_providers=parsed.check_providers)
     sandbox = sandbox_status()
     passed = sum(1 for r in results if r.passed)
     total = len(results)
@@ -1606,6 +1625,7 @@ def _doctor_command(args: list[str]) -> int:
                         }
                         for result in results
                     ],
+                    "providers": [probe.to_dict() for probe in doctor.probes],
                 },
                 indent=2,
             )
@@ -1630,6 +1650,8 @@ def _doctor_command(args: list[str]) -> int:
             for result in results
         ],
     )
+    for probe in doctor.probes:
+        _print_provider_probe(probe)
     if not parsed.check_providers:
         console.print(
             "Providers were not contacted. To check that each one answers, run: "
