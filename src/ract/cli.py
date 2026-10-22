@@ -84,6 +84,7 @@ def toggle_mode(mode: str) -> str:
 # entry fails CI.
 CLI_VERBS: tuple[str, ...] = (
     "run",
+    "trust",
     "skills",
     "mcp",
     "retrieval",
@@ -150,6 +151,49 @@ CLI_VERBS: tuple[str, ...] = (
     # ``ract repl [--config PATH]``. See ``ract.repl``.
     "repl",
 )
+
+
+def _trust_command(args: list[str]) -> int:
+    """Handle 'ract trust [--list | --remove] [--config PATH]' (S-025)."""
+    from ract import trust
+
+    parser = argparse.ArgumentParser(
+        prog="ract trust",
+        description=(
+            "Trust this repository's own commands and endpoints: hook commands, "
+            "MCP servers, an internal provider command, coverage and mutation "
+            "gates, web retrieval. Untrusted, RACT asks on a terminal and skips "
+            "them everywhere else."
+        ),
+    )
+    parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--list", action="store_true", help="list trusted repositories")
+    group.add_argument(
+        "--remove", action="store_true", help="remove trust for this one"
+    )
+    parsed = parser.parse_args(args)
+    root = parsed.config.resolve().parent
+    if parsed.list:
+        for key in trust.trusted_repositories():
+            print(key)
+        return 0
+    if parsed.remove:
+        if trust.untrust(root):
+            print(f"no longer trusted: {root}")
+        else:
+            print(f"was not trusted: {root}")
+        return 0
+    items = trust.trust_items(root)
+    if not items:
+        print(f"nothing to trust in {root}: it asks RACT to run no command of its own")
+        return 0
+    print(f"Trusting {root} to have RACT run or contact:")
+    for item in items:
+        print(f"  {item.line()}")
+    trust.trust(root)
+    print("Trusted until any of these changes. Undo with: ract trust --remove")
+    return 0
 
 
 def _repl_command(args: list[str]) -> int:
@@ -4201,6 +4245,8 @@ def main(argv: list[str] | None = None) -> int:
         # Bare ``ract`` in a terminal opens the interactive session.
         # Scripts and CI (no TTY) keep the "intent is required" error.
         return _repl_command([])
+    if argv and argv[0] == "trust":
+        return _trust_command(argv[1:])
     if argv and argv[0] == "skills":
         return _skills_command(argv[1:])
     if argv and argv[0] == "mcp":

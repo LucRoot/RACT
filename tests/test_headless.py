@@ -297,22 +297,42 @@ def test_a_repository_hook_does_not_run_headless(
         {
             "kind": "hook",
             "name": "pre_audit",
-            "reason": "untrusted project (headless run)",
+            "reason": "--bare" if bare else "the project is not trusted",
         }
     ]
-    assert "not loaded in a headless run" in result.stderr
+    assert "not loaded in this headless run" in result.stderr
 
 
 def test_the_same_hook_runs_on_the_interactive_run_path(
     tmp_path: Path, fake_model_server: Any
 ) -> None:
-    """Control for the test above: the planted hook is a working hook."""
+    """Control for the test above: the planted hook is a working hook. Since
+    S-025 it runs only once the repository is trusted (state kept in a
+    temporary directory, never the real user state)."""
     server = fake_model_server("baseline_j4_today")
     ws = _repo(tmp_path, server.base_url)
     marker = tmp_path / "hook.ran"
     _plant_hook(ws, marker)
+    state = tmp_path / "state"
+    state.mkdir()
+    env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
+    env.update({"LOCALAPPDATA": str(state), "XDG_STATE_HOME": str(state)})
 
-    result = _ract(ws, "--config", "ract.yaml", "fix add")
+    def run(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, "-m", "ract.cli", *args],
+            cwd=ws,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=240,
+            env=env,
+            stdin=subprocess.DEVNULL,
+        )
+
+    assert run("trust").returncode == 0
+    result = run("--config", "ract.yaml", "fix add")
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert marker.exists()

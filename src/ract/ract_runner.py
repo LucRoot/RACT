@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 
+import sys
 from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
-from ract import turn_context
+from ract import trust, turn_context
 from ract.executor import ExecutionReport
 from ract.harness import Harness
 from ract.harness_report_enricher import enrich_harness_run
@@ -151,6 +152,28 @@ def _save_session(
 
 
 def run_ract(
+    config_path: Path, intent: str, **kwargs: Any
+) -> Rooted[ExecutionReport | Plan]:
+    """Run a complete RACT cycle for *intent* (see ``_run_ract``).
+
+    LR:: A repository's own commands and endpoints (hooks, MCP servers, the
+    internal provider command, coverage and mutation gates, web retrieval)
+    ran on every run with no question (S-025). Before anything is loaded,
+    the repository's trust is decided: trusted, or nothing to trust, runs as
+    before; otherwise a terminal is asked once per process, and anything
+    else skips them with one line. A caller that already decided (headless
+    runs, `--bare`) has turned them off and is not asked again.
+    """
+    if turn_context.extensions_off():
+        return _run_ract(config_path, intent, **kwargs)
+    interactive = sys.stdin.isatty() and sys.stderr.isatty()
+    if trust.decide(Path(config_path).resolve().parent, interactive=interactive):
+        return _run_ract(config_path, intent, **kwargs)
+    with turn_context.repository_extensions_off():
+        return _run_ract(config_path, intent, **kwargs)
+
+
+def _run_ract(
     config_path: Path,
     intent: str,
     *,

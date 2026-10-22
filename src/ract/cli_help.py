@@ -73,6 +73,7 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     "whisper": "Add or list free-form legacy operator notes.",
     "auction": "List or resolve entries in the dead-code auction.",
     "fence": "List or resolve Chesterton's fence entries.",
+    "trust": "Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.",
     # Skills / marketplace
     "skills": "List and inspect builtin and installed skills.",
     "marketplace": "(alias) Same as skills marketplace; browse skill packages.",

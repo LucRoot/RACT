@@ -446,6 +446,11 @@ class ReplSession:
         self._renderer = PlainRenderer(write)
         self._events.subscribe(self._renderer)
         self._events.emit("session.started", self._session_facts())
+        # Ask about the repository's own commands now, on the main thread,
+        # before any turn; the answer holds for the session (S-025).
+        from ract import trust
+
+        trust.decide(self.state.config.resolve().parent, interactive=True)
 
     def _session_facts(self) -> dict[str, Any]:
         from ract.executor.worktree import current_branch

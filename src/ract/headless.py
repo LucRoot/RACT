@@ -260,6 +260,7 @@ def _run(
     err: TextIO,
 ) -> int:
     from ract.session_turn import TurnRequest, run_turn
+    from ract.trust import is_trusted
     from ract.turn_context import CancelSignal, repository_extensions_off
 
     cancel = CancelSignal()
@@ -274,11 +275,19 @@ def _run(
         write_lock=threading.RLock(),
     )
 
+    # A trusted repository's extensions run (`ract trust` was the operator's
+    # decision); `--bare` loads none even then. An untrusted one: none, and
+    # nobody is asked (S-025).
+    trusted = not args.bare and is_trusted(Path(args.config).resolve().parent)
+
     def work() -> None:
         try:
             # The run prints notes to stdout from deep inside; stdout belongs
             # to the result here.
-            with contextlib.redirect_stdout(err), repository_extensions_off():
+            with (
+                contextlib.redirect_stdout(err),
+                contextlib.nullcontext() if trusted else repository_extensions_off(),
+            ):
                 box["code"] = run_turn(stream, request, turn=1, cancel=cancel)
         finally:
             done.set()
@@ -290,14 +299,20 @@ def _run(
     previous = _install_terminate_handlers(on_terminate)
     started = time.monotonic()
     provider, model = _provider_and_model(Path(args.config))
-    skipped = [
-        {**ext, "reason": "untrusted project (headless run)"}
-        for ext in repository_extensions(Path(args.config))
-    ]
+    reason = "--bare" if args.bare else "the project is not trusted"
+    skipped = (
+        []
+        if trusted
+        else [
+            {**ext, "reason": reason}
+            for ext in repository_extensions(Path(args.config))
+        ]
+    )
     if skipped:
         names = ", ".join(f"{e['kind']} {e['name']}" for e in skipped)
         print(
-            f"note: not loaded in a headless run (the project is not trusted): {names}",
+            f"note: not loaded in this headless run ({reason}): {names}. "
+            "To allow them: ract trust",
             file=err,
         )
     stream.emit(

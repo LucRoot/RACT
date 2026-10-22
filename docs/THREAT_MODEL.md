@@ -352,6 +352,20 @@ Read this before relying on any statement above.
   under `.ract/` inside the workspace.
 - Fixed in v0.6: `.ract/hooks/*.json` commands ran with the full
   environment; they now get the scrubbed default allowlist.
+- Fixed in v0.6: a repository's own commands and endpoints ran with no
+  question when the operator ran `ract` in it: hook commands, MCP servers,
+  an `internal` provider command, coverage and mutation gates switched on in
+  its `ract.yaml`, and a web search endpoint. They now run only for a
+  repository the operator trusts (`ract trust`; the record lives in the user
+  state directory, keyed by the repository root, and ends when any of those
+  items changes). On a terminal RACT lists them with the exact command and
+  asks once; without a terminal, and in `ract -p --bare`, it skips them and
+  says so. Still open: `--loop` runs the project's tests (pytest imports
+  `conftest.py`) without asking.
+- Fixed in v0.6: a key from the operator's environment (`${VAR}` or the
+  `OPENAI_API_KEY` fallback) was sent to whatever URL a `ract.yaml` named. It
+  now goes only to a host paired with that variable outside the project
+  (`docs/PROVIDER_SETUP.md`, security notes).
 - Fixed in v0.6: the diff applier and the artifact writer accepted `..`
   and, for the diff applier, absolute paths. Both now go through
   `ract.workspace_path.resolve_workspace_path` (ADR-0047 D2).

@@ -158,6 +158,10 @@ See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
 
 ## Quickstart
 
+In a repository you cloned, RACT first lists any commands the repository
+asks it to run (hooks, MCP servers, test gates) and runs them only if you
+say so; `ract trust` records the decision until those files change.
+
 Run `ract` with no arguments to work inside an interactive session (`/plan`, `/loop`,
 `/doctor`, `/set`, and every verb as a slash command). The commands below also work one at a
 time from the shell.
@@ -231,6 +235,7 @@ module_10, Lens A M8 closure).
 - `ract whisper` — Add or list free-form legacy operator notes.
 - `ract auction` — List or resolve entries in the dead-code auction.
 - `ract fence` — List or resolve Chesterton's fence entries.
+- `ract trust` — Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.
 - `ract skills` — List and inspect builtin and installed skills.
 - `ract marketplace` — (alias) Same as skills marketplace; browse skill packages.
 - `ract mcp` — Manage and invoke MCP tools registered with RACT.
