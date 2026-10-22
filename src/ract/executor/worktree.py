@@ -509,7 +509,43 @@ _SNAPSHOT_EXCLUDES = (
 )
 
 
-def snapshot_working_tree(repo: Path) -> str:
+SNAPSHOT_MAX_FILE_BYTES = 2 * 1024 * 1024
+SNAPSHOT_TIMEOUT_SECONDS = 120.0
+
+_SECRET_GLOBS = (".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_ed25519")
+
+
+def is_secret_shaped(path: str) -> bool:
+    """True for paths the snapshot leaves out because they usually hold secrets."""
+    import fnmatch
+
+    name = path.replace("\\", "/").rsplit("/", 1)[-1]
+    return any(fnmatch.fnmatchcase(name, pattern) for pattern in _SECRET_GLOBS)
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    """A base snapshot commit and the files it left out because of their size."""
+
+    sha: str
+    left_out: tuple[str, ...] = ()
+
+
+def _candidates_for_size_check(repo: Path) -> list[str]:
+    """Untracked (not ignored) and modified tracked files: the ones add will hash."""
+    untracked = _git_in(repo, "ls-files", "-z", "--others", "--exclude-standard")
+    modified = _git_in(repo, "diff", "--name-only", "-z")
+    names = [n for n in untracked.stdout.split("\0") if n]
+    names += [n for n in modified.stdout.split("\0") if n]
+    return sorted(set(names))
+
+
+def take_snapshot(
+    repo: Path,
+    *,
+    max_file_bytes: int = SNAPSHOT_MAX_FILE_BYTES,
+    timeout: float = SNAPSHOT_TIMEOUT_SECONDS,
+) -> Snapshot:
     """Commit the working tree as it is now, without touching the operator's git state.
 
     LR:: A step's worktree used to start from HEAD, and a run refused a tree
@@ -518,34 +554,65 @@ def snapshot_working_tree(repo: Path) -> str:
     place without isolation (AUD-002), and a later step could not see files an
     earlier step had created (AUD-001). The base is now a commit of the
     working tree itself: tracked changes and untracked, not-ignored files,
-    minus ``.ract/`` and secret-shaped files. It is built in a temporary
-    index (``GIT_INDEX_FILE``), so the operator's index, branch, stash and
-    working tree are unchanged; the commit is referenced only by the step
-    branches made from it. ADR-0047 D6.
+    minus ``.ract/``, secret-shaped files and files over ``max_file_bytes``
+    (a dataset or model that is not in .gitignore would otherwise stall the
+    run and fill the object store). It is built in a temporary index
+    (``GIT_INDEX_FILE``) that starts as a copy of the operator's index, so
+    unchanged tracked files keep git's stat cache and are not re-hashed; the
+    operator's index, branch, stash and files are unchanged. The temporary
+    index is removed on every path. ADR-0047 D6.
 
-    Raises ``WorktreeError`` when git cannot build it.
+    Raises ``WorktreeError`` when git cannot build it in ``timeout`` seconds.
     """
     import os as _os
+    import shutil as _shutil
     import tempfile as _tempfile
 
     head = _git_in(repo, "rev-parse", "--verify", "-q", "HEAD")
     head_sha = head.stdout.strip() if head.returncode == 0 else ""
-    fd, index_path = _tempfile.mkstemp(prefix="ract-index-")
-    _os.close(fd)
-    _os.unlink(index_path)  # git creates it; an empty file is not a valid index
+    left_out: list[str] = []
+    for name in _candidates_for_size_check(repo):
+        try:
+            if (Path(repo) / name).stat().st_size > max_file_bytes:
+                left_out.append(name)
+        except OSError:
+            continue
+    tmp_dir = _tempfile.mkdtemp(prefix="ract-snapshot-")
+    index_path = _os.path.join(tmp_dir, "index")
     env = dict(_os.environ)
     env["GIT_INDEX_FILE"] = index_path
     try:
-        if head_sha:
+        operator_index = _git_in(
+            repo, "rev-parse", "--git-path", "index"
+        ).stdout.strip()
+        operator_index_path = Path(operator_index)
+        if not operator_index_path.is_absolute():
+            operator_index_path = Path(repo) / operator_index_path
+        if operator_index_path.is_file():
+            _shutil.copyfile(operator_index_path, index_path)
+        elif head_sha:
             _git_bytes(repo, "read-tree", head_sha, env=env)
-        add = _git_bytes(repo, "add", "-A", "--", ".", env=env)
+        excludes = [f":(exclude,literal){name}" for name in left_out]
+        try:
+            add = subprocess.run(
+                ["git", "-C", str(repo), "add", "-A", "--", ".", *excludes],
+                capture_output=True,
+                check=False,
+                env=env,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise WorktreeError(
+                f"snapshotting the working tree took longer than {timeout:.0f} s; "
+                "add large generated or data directories to .gitignore"
+            ) from exc
         if add.returncode != 0:
             raise WorktreeError(
                 "could not snapshot the working tree: "
                 + add.stderr.decode("utf-8", "replace").strip()
             )
-        # Then drop RACT state and secret-shaped files from the snapshot
-        # index (only this temporary index; the operator's is untouched).
+        # Drop RACT state and secret-shaped files from the snapshot index
+        # (only this temporary index; the operator's is untouched).
         _git_bytes(
             repo,
             "rm",
@@ -580,13 +647,14 @@ def snapshot_working_tree(repo: Path) -> str:
                 "could not commit the snapshot: "
                 + commit.stderr.decode("utf-8", "replace").strip()
             )
-        return commit.stdout.decode().strip()
+        return Snapshot(commit.stdout.decode().strip(), tuple(left_out))
     finally:
-        for leftover in (index_path, index_path + ".lock"):
-            try:
-                _os.unlink(leftover)
-            except OSError:
-                pass
+        _shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def snapshot_working_tree(repo: Path) -> str:
+    """Commit id of ``take_snapshot(repo)``."""
+    return take_snapshot(repo).sha
 
 
 @dataclass(frozen=True)
@@ -639,6 +707,7 @@ def _classify_for_apply(
     path: str,
     before: str,
     created_by_run: frozenset[str] = frozenset(),
+    left_out: frozenset[str] = frozenset(),
 ) -> str:
     """Return "write", "delete", "noop", or a reason the path is a conflict.
 
@@ -656,6 +725,10 @@ def _classify_for_apply(
     kind = status[:1]
     if kind not in {"A", "M", "D"}:
         return f"change type {status!r} is not applied automatically"
+    if path in left_out or is_secret_shaped(path):
+        # The step never saw this file (left out of its snapshot), so it
+        # cannot have a valid change to it.
+        return "RACT left this file out of the step's snapshot and does not change it"
     resolved = resolve_workspace_path(repo, path, purpose="write")
     if resolved.value is None:
         return resolved.error or "path refused"
@@ -691,6 +764,7 @@ def apply_commit_to_working_tree(
     after: str,
     *,
     created_by_run: frozenset[str] = frozenset(),
+    left_out: frozenset[str] = frozenset(),
 ) -> WorkingTreeApply:
     """Copy a step commit's changes into the working tree, without touching the index.
 
@@ -737,7 +811,9 @@ def apply_commit_to_working_tree(
     skipped: dict[str, str] = {}
     for status, path in changes:
         try:
-            verdict = _classify_for_apply(repo, status, path, before, created_by_run)
+            verdict = _classify_for_apply(
+                repo, status, path, before, created_by_run, left_out
+            )
             if verdict == "noop":
                 applied.append(path)
             elif verdict == "delete":

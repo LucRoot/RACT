@@ -54,7 +54,8 @@ from ract.executor.worktree import (
     apply_commit_to_working_tree,
     WorktreeManager,
     changed_path_additions,
-    snapshot_working_tree,
+    SNAPSHOT_MAX_FILE_BYTES,
+    take_snapshot,
     ensure_git_repo,
 )
 from ract.manager import Plan, Step
@@ -207,7 +208,15 @@ def run_via_substrate(
     # S-011b: the first step's base is a snapshot of the working tree as it
     # is, uncommitted changes included, so a dirty tree (RACT's own earlier
     # turns leave one) keeps isolation instead of forcing the in-place path.
-    parent_snapshot = snapshot_working_tree(harness.project_dir)
+    snapshot = take_snapshot(harness.project_dir)
+    parent_snapshot = snapshot.sha
+    if snapshot.left_out:
+        print(
+            "note: left out of this run's snapshot (over "
+            f"{SNAPSHOT_MAX_FILE_BYTES // (1024 * 1024)} MiB), so the run cannot change "
+            "them: " + ", ".join(snapshot.left_out),
+            flush=True,
+        )
     applied_so_far: list[str] = []
     created_by_run: set[str] = set()
 
@@ -316,6 +325,7 @@ def run_via_substrate(
             record.parent_snapshot_before,
             record.parent_snapshot_after,
             created_by_run=frozenset(created_by_run),
+            left_out=frozenset(snapshot.left_out),
         )
         created_by_run.update(
             changed_path_additions(

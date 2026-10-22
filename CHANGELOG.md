@@ -41,7 +41,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Every run keeps worktree isolation, including the second run and multi-step plans. A run's
   first step now starts from a snapshot of your working tree (uncommitted and untracked files
-  included; `.ract/` and secret-shaped files left out), built in a temporary index so your
+  included; `.ract/`, secret-shaped files and files over 2 MiB left out and never changed by the
+  run, with a note naming the large ones), built in a temporary index so your
   index, branch and stash are untouched. Before, a run after any edit found the tree dirty and
   silently wrote in place with no isolation, and a step could not change a file an earlier step
   had created. Applying a step is now content-based and never touches the index; untracked

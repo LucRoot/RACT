@@ -342,3 +342,84 @@ def test_untracked_operator_file_is_protected_but_run_created_file_is_not(
 
     assert "untracked" in mine.skipped["notes.txt"]
     assert run_made.applied == ("notes.txt",)
+
+
+# ---------------------------------------------------------------- G-020 constraints
+
+
+def test_large_files_are_left_out_and_cannot_be_changed(tmp_path: Path) -> None:
+    from ract.executor.worktree import take_snapshot
+
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
+    (ws / "data.bin").write_bytes(b"x" * (3 * 1024 * 1024))
+
+    snap = take_snapshot(ws)
+
+    assert snap.left_out == ("data.bin",)
+    assert (
+        "data.bin"
+        not in _git(ws, "ls-tree", "-r", "--name-only", snap.sha).splitlines()
+    )
+    result = apply_commit_to_working_tree(
+        ws, snap.sha, snap.sha, left_out=frozenset(snap.left_out)
+    )
+    assert result.applied == ()
+
+
+def test_change_to_a_left_out_or_secret_path_is_refused(tmp_path: Path) -> None:
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
+    before, after = _step(
+        ws, lambda w: (w / ".env").write_text("TOKEN=x\n", encoding="utf-8")
+    )
+
+    result = apply_commit_to_working_tree(ws, before, after)
+
+    assert "left this file out" in result.skipped[".env"]
+    assert not (ws / ".env").exists()
+
+
+def test_crlf_file_the_operator_did_not_touch_is_applied(tmp_path: Path) -> None:
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\ntwo\n"})
+    _git(ws, "config", "core.autocrlf", "true")
+    (ws / "a.txt").unlink()
+    _git(ws, "checkout", "--", "a.txt")  # rewritten with CRLF under autocrlf
+    assert b"\r\n" in (ws / "a.txt").read_bytes()
+    before, after = _step(
+        ws, lambda w: (w / "a.txt").write_text("one\nthree\n", encoding="utf-8")
+    )
+
+    result = apply_commit_to_working_tree(ws, before, after)
+
+    assert result.applied == ("a.txt",), result.skipped
+    assert (ws / "a.txt").read_bytes().replace(b"\r\n", b"\n") == b"one\nthree\n"
+
+
+def test_failed_snapshot_leaves_no_temporary_index(tmp_path: Path) -> None:
+    import tempfile
+
+    import pytest
+
+    from ract.executor.worktree import WorktreeError, take_snapshot
+
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
+    temp = Path(tempfile.gettempdir())
+    before = {p.name for p in temp.glob("ract-snapshot-*")}
+
+    with pytest.raises(WorktreeError, match="took longer"):
+        take_snapshot(ws, timeout=0.000001)
+
+    assert {p.name for p in temp.glob("ract-snapshot-*")} == before
+
+
+def test_normal_run_prints_no_in_place_note(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    server = fake_model_server("baseline_j4_today")
+    ws = rb._workspace(tmp_path, "ws", git=True, files=rb.CALC_FILES)
+    rb._configure(ws, server.base_url, "fake-coder")
+    _commit_all(ws)
+
+    result = _ract(ws, "fix add")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "writes directly into your files" not in result.stdout
