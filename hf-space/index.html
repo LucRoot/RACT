@@ -111,7 +111,7 @@ ract --init-provider openrouter</code></pre>
             <h2>Run a Root-Knot-anchored loop</h2>
             <pre><code>ract 'refactor the config loader to use dataclasses' --loop</code></pre>
             <p>
-                Every generated file carries the <strong>Root Knot</strong> (<code>_ROOT_KNOT = object()</code>). Unsigned drift breaks the loop instead of compounding.
+                Every generated file is meant to carry a signed <strong>Rootknot</strong>. The signing library and verifier exist; in this release normal runs do not sign yet, and each run names the files it wrote without one.
             </p>
         </div>
 
