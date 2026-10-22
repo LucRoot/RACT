@@ -337,3 +337,53 @@ def test_setup_from_bare_ract_says_the_session_opens(tmp_path: Path) -> None:
     wizard.run(tmp_path, interactive=True, io=io, opens_session=True)
 
     assert said[-1].startswith("Opening the session")
+
+
+def test_the_memory_suggestion_follows_the_machine_not_the_minute(
+    tmp_path: Path,
+) -> None:
+    # G-059: 64 GB machine with 4 GB free right now (a busy machine).
+    _git_init(tmp_path)
+    busy = host_probe.HostProfile(
+        "Linux",
+        "x86_64",
+        "3.11.9",
+        8,
+        64 * host_probe.GB,
+        4 * host_probe.GB,
+        50 * host_probe.GB,
+        "2.45.0",
+        None,
+    )
+    io, said, asked = _io(["l", "", "skip"], [])
+    io.probe = lambda: busy
+
+    assert wizard.run(tmp_path, interactive=True, io=io) == 0
+
+    text = "\n".join(said)
+    assert "this machine has 64 GB, 4.0 GB free right now" in text
+    assert any("[38.4]" in a for a in asked)  # 60 percent of the total
+    assert "Suggested model: Qwen2.5-Coder 32B Instruct" in text
+    assert "only 4.0 GB is free right now; close other programs" in text
+
+
+@pytest.mark.parametrize(
+    ("files", "expected"),
+    [
+        ({}, "create hello.py that prints a greeting"),
+        ({"main.py": "print(1)\n"}, "explain what this project does"),
+    ],
+)
+def test_the_session_opens_with_a_first_request_that_fits(
+    tmp_path: Path, files: dict[str, str], expected: str
+) -> None:
+    # G-058: the golden J1 ends at a prompt with a suggested first command.
+    _git_init(tmp_path)
+    for name, body in files.items():
+        (tmp_path / name).write_text(body, encoding="utf-8")
+    io, said, _ = _io([""], [SERVER])
+
+    wizard.run(tmp_path, interactive=True, io=io, opens_session=True)
+
+    assert said[-1].startswith("Opening the session. Try: ")
+    assert expected in said[-1]

@@ -14,7 +14,9 @@ from typing import Any
 
 import yaml
 
-# Share of available memory offered by default for the model.
+# Share of TOTAL memory offered by default for the model. The model fits
+# the machine, not the minute: a share of the memory free while other
+# programs run under-recommended on a busy machine (G-059).
 DEFAULT_SHARE = 0.6
 
 
@@ -46,8 +48,8 @@ def load() -> tuple[str, list[Tier]]:
     return str(data["reviewed"]), sorted(tiers, key=lambda t: t.needs_gb)
 
 
-def default_dedicated_gb(available_gb: float | None) -> float | None:
-    return None if available_gb is None else round(available_gb * DEFAULT_SHARE, 1)
+def default_dedicated_gb(total_gb: float | None) -> float | None:
+    return None if total_gb is None else round(total_gb * DEFAULT_SHARE, 1)
 
 
 def recommend(dedicated_gb: float | None) -> Recommendation:

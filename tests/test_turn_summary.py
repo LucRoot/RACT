@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -51,32 +50,34 @@ def test_instructions_conditions_and_negations_are_not_claims(text: str) -> None
 # ---------------------------------------------------------------- diffstat
 
 
-def test_diffstat_counts_modified_new_and_deleted(tmp_path: Path) -> None:
-    def git(*args: str) -> None:
-        subprocess.run(
-            ["git", "-c", "user.name=d", "-c", "user.email=d@example.invalid", *args],
-            cwd=tmp_path,
-            check=True,
-            capture_output=True,
-        )
+def test_diffstat_counts_only_what_the_turn_changed(tmp_path: Path) -> None:
+    # G-059: from the turn's backup, not git HEAD, and with no git at all.
+    project = tmp_path / "project"  # not a git repository
+    before = tmp_path / "backup"
+    project.mkdir()
+    before.mkdir()
+    # The operator had already edited a.py (two uncommitted lines) before
+    # the turn; the turn then changed one more line.
+    (before / "a.py").write_text("one\nmine 1\nmine 2\n", encoding="utf-8")
+    (project / "a.py").write_text("ONE\nmine 1\nmine 2\n", encoding="utf-8")
+    (before / "gone.py").write_text("x\ny\n", encoding="utf-8")
+    (project / "new.md").write_text("a\nb\nc\n", encoding="utf-8")
+    (project / "logo.bin").write_bytes(b"\xff\xfe\x00")
 
-    git("init", "-q")
-    (tmp_path / "a.py").write_text("one\ntwo\n", encoding="utf-8")
-    (tmp_path / "gone.py").write_text("x\n", encoding="utf-8")
-    git("add", "-A")
-    git("commit", "-q", "-m", "init")
-    (tmp_path / "a.py").write_text("one\nTWO\nthree\n", encoding="utf-8")
-    (tmp_path / "new.md").write_text("a\nb\nc\n", encoding="utf-8")
-    (tmp_path / "gone.py").unlink()
+    stats = diffstat(
+        project,
+        ["a.py", "new.md", "gone.py", "logo.bin"],
+        before,
+        {"a.py", "gone.py"},
+    )
 
-    stats = diffstat(tmp_path, ["a.py", "new.md", "gone.py"])
-
-    assert stats["a.py"] == {"added": 2, "removed": 1}
+    assert stats["a.py"] == {"added": 1, "removed": 1}
     assert stats["new.md"] == {"new": 3}
-    assert stats["gone.py"] == {"added": 0, "removed": 1}
-    assert describe_change("a.py", stats["a.py"]) == "a.py (+2 -1)"
+    assert stats["gone.py"] == {"deleted": True}
+    assert stats["logo.bin"] == {"binary": True}
+    assert describe_change("a.py", stats["a.py"]) == "a.py (+1 -1)"
     assert describe_change("new.md", stats["new.md"]) == "new.md (new, 3 lines)"
-    assert diffstat(tmp_path, []) == {}
+    assert diffstat(project, [], before, set()) == {}
 
 
 # ----------------------------------------------------------------- render

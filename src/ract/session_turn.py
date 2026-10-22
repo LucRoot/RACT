@@ -308,7 +308,17 @@ def run_turn(
         return 5
 
     # B-038: facts for the summary, observed by RACT, not reported by the model.
-    stats = turn_summary.diffstat(project, changed) if changed else {}
+    turn_backup = backup_box[0] if backup_box else None
+    stats = (
+        turn_summary.diffstat(
+            project,
+            changed,
+            turn_backup.folder if turn_backup is not None else None,
+            set(turn_backup.saved) if turn_backup is not None else set(),
+        )
+        if changed
+        else {}
+    )
     undo_folder = (
         f"{(undo_backup.UNDO_DIR / backup_box[0].turn_id).as_posix()}/"
         if backup_box and backup_box[0].saved

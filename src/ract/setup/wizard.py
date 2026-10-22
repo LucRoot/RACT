@@ -251,6 +251,21 @@ class Io:
     environ: Any = field(default_factory=lambda: os.environ)
 
 
+# Files setup itself creates, which say nothing about the user's project.
+_SETUP_FILES = {CONFIG_NAME, DRAFT_NAME, "prompts", ".git", ".ract"}
+
+
+def _first_request(directory: Path) -> str:
+    """One first request that fits this directory (G-058, golden J1)."""
+    try:
+        own = [p for p in directory.iterdir() if p.name not in _SETUP_FILES]
+    except OSError:
+        own = []
+    if own:
+        return "explain what this project does and how it is laid out"
+    return "create hello.py that prints a greeting, with a test for it"
+
+
 def _extra(answers: Answers) -> tuple[str, ...]:
     return (answers.local_url,) if answers.local_url else ()
 
@@ -299,12 +314,15 @@ def _choose_server(
 
 def _local_guidance(io: Io, profile: host_probe.HostProfile, answers: Answers) -> None:
     gb = host_probe.GB
+    total = None if profile.total_ram_bytes is None else profile.total_ram_bytes / gb
     available = (
         None
         if profile.available_ram_bytes is None
         else profile.available_ram_bytes / gb
     )
-    suggested = tiers.default_dedicated_gb(available)
+    suggested = tiers.default_dedicated_gb(total)
+    if total is not None and available is not None:
+        io.say(f"  this machine has {total:.0f} GB, {available:.1f} GB free right now")
     prompt = (
         f"How many GB of memory should the model use? [{suggested:g}] "
         if suggested is not None
@@ -320,6 +338,11 @@ def _local_guidance(io: Io, profile: host_probe.HostProfile, answers: Answers) -
         f"Suggested model: {advice.tier.display} (about {advice.tier.weights_gb:g} GB): {advice.reason}."
     )
     io.say(f"  {advice.tier.note}")
+    if available is not None and available < advice.tier.weights_gb:
+        io.say(
+            f"  only {available:.1f} GB is free right now; close other programs "
+            "before loading it"
+        )
     io.say("Start it with one of these (setup does not download anything):")
     for line in tiers.install_steps(advice.tier):
         io.say(f"  {line}")
@@ -477,7 +500,7 @@ def _run(
             io.say("  ran: git init")
 
     if opens_session:
-        io.say("Opening the session. Type a request, or /help for commands.")
+        io.say(f"Opening the session. Try: {_first_request(directory)}")
     else:
         io.say(
             'Next: run `ract` to open a session here, or try: ract -p --ask "what does this project do?"'

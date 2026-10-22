@@ -464,3 +464,38 @@ def test_no_terminal_no_escape_sequences_no_prompts(tmp_path: Path) -> None:
                 assert ANSI not in stream
                 assert "[r]un once" not in stream and "[y]es" not in stream
     assert not (tmp_path / "hook.ran").exists()
+
+
+# ------------------------------------------------- G-060: legacy --json, no intent
+
+
+def test_legacy_json_flag_prints_the_result_object(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    # UX-09: `--json` with an intent printed the human output.
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+
+    result = _ract(ws, "fix add", "--json")
+
+    assert result.returncode == 0, result.stderr
+    [line] = result.stdout.splitlines()
+    obj = json.loads(line)
+    assert obj["schema"] == "ract.result/1" and obj["outcome"] == "done"
+
+
+def test_legacy_json_flag_refuses_run_flags_it_cannot_honor(tmp_path: Path) -> None:
+    result = _ract(tmp_path, "fix add", "--json", "--dry-run")
+
+    assert result.returncode == 2
+    assert "cannot be combined with --dry-run" in result.stderr
+    assert result.stdout == ""
+
+
+def test_no_intent_without_a_terminal_gives_the_next_step(tmp_path: Path) -> None:
+    (tmp_path / "ract.yaml").write_text("providers: {}\n", encoding="utf-8")
+
+    result = _ract(tmp_path)
+
+    assert result.returncode == 2
+    assert 'hint: use ract -p "your request" for a one-off run' in result.stderr

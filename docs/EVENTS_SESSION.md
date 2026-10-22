@@ -133,7 +133,7 @@ next turn (`turn.started` with `queued: true`).
 |---|---|
 | `turn.started` | `input` (string, what the operator typed, redacted), `queued` (boolean, true when it was typed during the previous turn) |
 | `turn.interrupting` | `elapsed_ms` (integer, since the interrupt was received), `cancellable` (boolean, false when a model call cannot be stopped and will finish without writing), `detail` (string, one line) |
-| `turn.finished` | `outcome` (`done`, `failed`, `interrupted`, `budget`, `refused`), `duration_ms` (integer), `verdict` (string, one sentence), `workspace` (string, one line, for example `"2 files changed; nothing else touched"`), `changed` (list of paths), `diffstat` (object: per changed path `{added, removed}`, `{new: lines}`, `{deleted: true}` or `{binary: true}`, against HEAD), `undo` (string or null: the folder holding the previous versions of the files this turn replaced), `checkpoint` (string or null), `verification` (object, below), `provenance` (object, below) |
+| `turn.finished` | `outcome` (`done`, `failed`, `interrupted`, `budget`, `refused`), `duration_ms` (integer), `verdict` (string, one sentence), `workspace` (string, one line, for example `"2 files changed; nothing else touched"`), `changed` (list of paths), `diffstat` (object: per changed path `{added, removed}`, `{new: lines}`, `{deleted: true}` or `{binary: true}`, counting only this turn's change: the turn's backup holds each replaced file's previous bytes), `undo` (string or null: the folder holding the previous versions of the files this turn replaced), `checkpoint` (string or null), `verification` (object, below), `provenance` (object, below) |
 
 `verification`:
 

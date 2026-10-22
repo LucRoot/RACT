@@ -12,8 +12,8 @@ ran none, and nothing else.
 
 from __future__ import annotations
 
+import difflib
 import re
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -69,49 +69,60 @@ def unverified_claims(text: str) -> list[str]:
     return found
 
 
-def _git(project: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args], cwd=project, capture_output=True, text=True, timeout=30
-    )
-
-
-def diffstat(project: Path, paths: list[str]) -> dict[str, dict[str, Any]]:
-    """Lines added and removed per changed path, against HEAD.
-
-    A path git does not know (a new, untracked file) reports its line
-    count as ``new``; a path that no longer exists reports ``deleted``.
-    One ``git diff --numstat`` for all paths; empty when git is absent.
-    """
-    if not paths:
-        return {}
-    stats: dict[str, dict[str, Any]] = {}
+def _lines(data: bytes) -> list[str] | None:
     try:
-        out = _git(project, "diff", "--numstat", "HEAD", "--", *paths)
-    except (OSError, subprocess.SubprocessError) as exc:
-        print(f"note: could not count changed lines: {exc}", flush=True)
-        return {}
-    if out.returncode == 0:
-        for line in out.stdout.splitlines():
-            parts = line.split("\t")
-            if len(parts) == 3:
-                added, removed, path = parts
-                stats[path] = (
-                    {"binary": True}
-                    if added == "-"
-                    else {"added": int(added), "removed": int(removed)}
-                )
+        return data.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        return None
+
+
+def diffstat(
+    project: Path, paths: list[str], before: Path | None, saved: set[str]
+) -> dict[str, dict[str, Any]]:
+    """Lines added and removed per changed path, by this turn only.
+
+    LR:: The previous bytes of every file the turn replaced are in the
+    turn's backup (``before``, holding ``saved``), so the count is exactly
+    what RACT changed. Comparing with git HEAD also counted the operator's
+    own uncommitted edits to the same file and did not work outside a git
+    repository (G-059). A path with no backup was created by the turn and
+    counts as ``new``; a backed-up path that is gone counts as ``deleted``.
+    """
+    stats: dict[str, dict[str, Any]] = {}
     for path in paths:
-        if path in stats:
-            continue
         full = project / path
-        if not full.exists():
+        try:
+            after = full.read_bytes() if full.is_file() else None
+            old = (
+                (before / path).read_bytes()
+                if before is not None and path in saved
+                else None
+            )
+        except OSError as exc:
+            print(f"note: could not count changed lines in {path}: {exc}", flush=True)
+            continue
+        if old is None:
+            if after is not None:
+                new_lines = _lines(after)
+                stats[path] = (
+                    {"binary": True} if new_lines is None else {"new": len(new_lines)}
+                )
+            continue
+        if after is None:
             stats[path] = {"deleted": True}
-        elif full.is_file():
-            try:
-                lines = full.read_bytes().count(b"\n")
-            except OSError:
-                continue
-            stats[path] = {"new": lines}
+            continue
+        old_lines, new_lines = _lines(old), _lines(after)
+        if old_lines is None or new_lines is None:
+            stats[path] = {"binary": True}
+            continue
+        added = removed = 0
+        matcher = difflib.SequenceMatcher(a=old_lines, b=new_lines, autojunk=False)
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag in ("replace", "delete"):
+                removed += i2 - i1
+            if tag in ("replace", "insert"):
+                added += j2 - j1
+        stats[path] = {"added": added, "removed": removed}
     return stats
 
 

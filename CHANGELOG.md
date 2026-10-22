@@ -16,7 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   how long and how many tokens. When the reply says tests pass (or "verified", "done and
   tested") in a turn where RACT ran none, a line says that nothing checked it. Prose after a file
   change is labelled `model summary`. `turn.finished` carries `diffstat`, `undo` and
-  `verification.claims`.
+  `verification.claims`. Line counts compare each file with its copy from before the turn, so
+  your own uncommitted edits are not counted and no git repository is needed.
+- `ract "<intent>" --json` prints the `ract.result/1` object, as `ract -p "<intent>"
+  --output-format json` does; with run flags that path cannot take it is a usage error. Before,
+  `--json` with an intent printed the human output.
 - `ract setup`: first-run setup. It checks the machine, offers a model server already running on
   a default port (llama.cpp, Ollama, LM Studio, vLLM) or one named in `RACT_BASE_URL`, and
   otherwise asks local or cloud. For a local model it suggests one that fits the memory you give
@@ -26,7 +30,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`--reconfigure` writes a draft and shows the diff), runs one tiny request, offers `git init`,
   and prints the next command. `--answers FILE`, `--print-defaults` and `--yolo` work without a
   terminal. Bare `ract` in a directory without `ract.yaml` offers setup, and every "configuration
-  file not found" error points to it.
+  file not found" error points to it. The memory suggestion is a share of the machine's total
+  memory, shown with what is free right now and a warning when that is less than the model
+  needs. When setup opens the session it suggests a first request.
 - Egress ledger. Every request RACT sends to another host (model providers, health checks, web
   search, MCP servers over HTTP, GitHub releases, the skill marketplace) leaves one record in
   `egress.jsonl` in the user state directory: purpose, host, status, time, bytes each way and

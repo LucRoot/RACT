@@ -709,11 +709,6 @@ _EXEMPT_SITES: dict[str, str] = {
         "for anti-lazy patchdiff analysis. Called from anti-lazy "
         "dispatch chain, not from model tool_use."
     ),
-    "turn_summary.py": (
-        "operator-visible report: one read-only `git diff --numstat HEAD` per "
-        "turn to count the lines each changed file gained and lost (B-038). "
-        "Fixed argument list, no model involvement."
-    ),
     "setup/host_probe.py": (
         "operator-invoked-diagnostic: `ract setup` reads git --version "
         "and, on macOS, sysctl and vm_stat for memory size. Fixed "

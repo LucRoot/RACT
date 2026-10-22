@@ -202,6 +202,53 @@ def _trust_command(args: list[str]) -> int:
     return 0
 
 
+# Run flags that `ract -p` does not take, so `--json` cannot honor them.
+_JSON_INCOMPATIBLE = (
+    ("dry_run", "--dry-run"),
+    ("loop", "--loop"),
+    ("session_id", "--session"),
+    ("resume", "--resume"),
+    ("yolo", "--yolo"),
+    ("auto", "--auto"),
+    ("stream", "--stream"),
+    ("project_doc", "--project-doc"),
+    ("force", "--force"),
+    ("rollback", "--rollback"),
+)
+
+
+def _intent_as_json(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    """`ract "<intent>" --json`: the ract.result/1 object, as `ract -p` prints it.
+
+    LR:: `--json` with an intent printed the human output (UX-09). A flag
+    called --json that does not print JSON is a false claim (G-060), so it
+    is an alias for `ract -p "<intent>" --output-format json`, and a usage
+    error when combined with run flags that path does not take.
+    """
+    given = [flag for attr, flag in _JSON_INCOMPATIBLE if getattr(args, attr, None)]
+    if getattr(args, "mode", "default") not in (None, "default"):
+        given.append("--mode")
+    if given:
+        parser.error(
+            f"--json prints the ract.result/1 object and cannot be combined with "
+            f"{', '.join(given)}. hint: drop them, or use ract -p for scripts"
+        )
+    from ract.headless import run_headless
+
+    flags = ["--ask"] if getattr(args, "ask", False) else []
+    return run_headless(
+        [
+            "-p",
+            args.intent,
+            "--output-format",
+            "json",
+            "--config",
+            str(args.config),
+            *flags,
+        ]
+    )
+
+
 def _offer_setup(ask: Any = input) -> bool:
     """Bare `ract` in a directory without ract.yaml: offer setup first (D-021).
 
@@ -4738,7 +4785,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if not args.intent:
+        # G-060: a pipe or script without an intent gets the next step.
+        print(
+            'hint: use ract -p "your request" for a one-off run, or pipe text '
+            "into ract -p; ract setup creates a config.",
+            file=sys.stderr,
+        )
         parser.error("intent is required unless --self-test or --review-diff is used")
+
+    if args.json_output:
+        return _intent_as_json(parser, args)
 
     console.user_input("intent", args.intent)
     if args.mode != "default":
