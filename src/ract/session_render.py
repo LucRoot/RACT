@@ -13,8 +13,27 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from ract.session_events import SessionEvent
+from ract.session_events import SessionEvent, safe_text
 from ract.turn_summary import describe_change
+
+# B-053a: a plan of this many steps or more prints the checklist block.
+CHECKLIST_MIN_STEPS = 2
+_MARKS = {
+    "pending": "[ ]",
+    "running": "[>]",
+    "done": "[x]",
+    "failed": "[!]",
+    "refused": "[!]",
+    "skipped": "[-]",
+}
+# The harness's word for each outcome. An outcome outside this map is shown as is.
+_VERDICTS = {
+    "done": "passed",
+    "failed": "failed",
+    "refused": "refused",
+    "skipped": "skipped",
+}
+_MAX_FILE_CHARS = 40
 
 # The plain renderer prints the first heartbeat after 2 s and then one every
 # 10 s. A line every 2 s would be the right sign of life for a person
@@ -33,10 +52,18 @@ class PlainRenderer:
     """Line-oriented rendering of session events."""
 
     def __init__(
-        self, write: Callable[[str], Any], *, show_reasoning: bool = False
+        self,
+        write: Callable[[str], Any],
+        *,
+        show_reasoning: bool = False,
+        width: int = 80,
     ) -> None:
         self._write = write
         self._show_reasoning = show_reasoning
+        self._width = width
+        # Step records for the checklist, keyed by step number; None for a
+        # one-step plan, which keeps the short lines.
+        self._checklist: dict[Any, dict[str, Any]] | None = None
         self._mid_line = False
         self._last_heartbeat_ms = -1
         self._reasoning_chars = 0
@@ -110,6 +137,7 @@ class PlainRenderer:
         self._text_target = None
         self._plan = {}
         self._cost = {}
+        self._checklist = None
         self._wrote_file = False
         self._labelled_summary = False
         if d.get("queued"):
@@ -123,6 +151,9 @@ class PlainRenderer:
     def _on_plan_proposed(self, d: dict[str, Any]) -> None:
         self._plan = dict(d)
         steps = d.get("steps") or []
+        if len(steps) >= CHECKLIST_MIN_STEPS:
+            self._start_checklist(d, steps)
+            return
         confidence = d.get("confidence")
         conf = (
             f", confidence {confidence:.2f}"
@@ -136,8 +167,52 @@ class PlainRenderer:
             target = f" -> {step['target']}" if step.get("target") else ""
             self._line(f"  {step.get('n')}. {step.get('action', '')}{target}")
 
+    def _start_checklist(self, d: dict[str, Any], steps: list[dict[str, Any]]) -> None:
+        self._checklist = {
+            step.get("n"): {
+                "action": step.get("action", ""),
+                "target": step.get("target"),
+                "file": step.get("target"),
+                "state": "pending",
+                "seconds": 0.0,
+                "hint": "",
+            }
+            for step in steps
+        }
+        self._line(f"Plan ({len(steps)} steps):")
+        if d.get("assumption"):
+            self._line(f"  assumes: {d['assumption']}")
+        for n in self._checklist:
+            self._line(self._checklist_line(n))
+
+    def _checklist_line(self, n: Any) -> str:
+        """One step as ``[mark] n. action -> file (seconds) verdict``, within the width."""
+        step = self._checklist[n]
+        state = step["state"]
+        mark = _MARKS.get(state, "[?]")
+        where = safe_text(str(step["file"] or "answer"))
+        if len(where) > _MAX_FILE_CHARS:
+            where = where[: _MAX_FILE_CHARS - 3] + "..."
+        tail = ""
+        if state in _VERDICTS:
+            tail = f" ({step['seconds']:.1f}s) {_VERDICTS[state]}"
+        head = f"{mark} {n}. "
+        rest = f" -> {where}{tail}"
+        action = safe_text(str(step["action"]))
+        room = self._width - len(head) - len(rest)
+        if len(action) > room:
+            action = action[: max(room - 3, 0)] + "..."
+        line = head + action + rest
+        if len(line) > self._width:
+            line = line[: self._width - 3] + "..."
+        return line
+
     def _on_step_started(self, d: dict[str, Any]) -> None:
         self._text_target = None
+        if self._checklist is not None and d.get("n") in self._checklist:
+            self._checklist[d["n"]]["state"] = "running"
+            self._line(self._checklist_line(d["n"]))
+            return
         target = f" -> {d['target']}" if d.get("target") else ""
         self._line(f"[step {d.get('n')}] {d.get('action', '')}{target}")
 
@@ -147,6 +222,18 @@ class PlainRenderer:
         outcome = d.get("outcome", "?")
         if d.get("artifact") and outcome == "done":
             self._wrote_file = True
+        if self._checklist is not None and d.get("n") in self._checklist:
+            step = self._checklist[d["n"]]
+            step.update(
+                state=outcome,
+                seconds=seconds,
+                file=d.get("artifact") or step["target"],
+                hint=d.get("hint") or "",
+            )
+            self._line(self._checklist_line(d["n"]))
+            if outcome != "done" and step["hint"]:
+                self._line(f"  hint: {safe_text(str(step['hint']))}")
+            return
         what = f" {d['artifact']}" if d.get("artifact") and outcome == "done" else ""
         self._line(f"[step {d.get('n')}] {outcome}{what} ({seconds:.1f}s)")
         if outcome != "done" and d.get("hint"):
@@ -276,6 +363,14 @@ class PlainRenderer:
         """
         self._text_target = None
         seconds = int(d.get("duration_ms", 0)) / 1000
+        if self._checklist is not None:
+            # A step that never ended (an interrupted turn) stays unchecked.
+            for step in self._checklist.values():
+                if step["state"] == "running":
+                    step["state"] = "pending"
+            self._line(f"Plan ({len(self._checklist)} steps), final:")
+            for n in self._checklist:
+                self._line(self._checklist_line(n))
         self._line(f"  {d.get('verdict') or d.get('outcome', '')}")
         changed = d.get("changed")
         if changed is None:
