@@ -54,7 +54,7 @@ from ract.providers.router import ProviderRouter
 from ract.rooted import Rooted
 from ract.token_budget import TokenBudget
 from ract.workspace_path import is_never_sent
-from ract import turn_context
+from ract import turn_context, write_gate
 from ract.session_events import plan_event_data
 
 
@@ -853,6 +853,14 @@ class Harness:
                 error="Interrupted before execution; nothing was run.",
                 hint="interrupted",
             )
+        # S-026 follow-up (G-051): a question-like step that names an existing
+        # file is answered, not written, decided before any step runs.
+        plan, answer_notes = write_gate.answer_instead(plan, self.project_dir)
+        for note in answer_notes:
+            if turn_context.has_reporter():
+                turn_context.report("notice", {"level": "info", "text": note})
+            else:
+                print(f"note: {note}", flush=True)
         turn_context.report("plan.proposed", plan_event_data(plan))
 
         dependency_graph = DependencyGraph()

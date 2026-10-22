@@ -52,12 +52,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - MCP tool calls (over HTTP and to stdio servers), GitHub release names and notes were sent
   without the secret scan that provider requests get; they are scanned now. A text release asset
   that holds a secret-shaped value is refused instead of uploaded.
-- A step's reply no longer replaces a file with something that is plainly not that file. Before
-  any write to an existing file: a step whose action asks for information (read, show, explain,
-  list, find, review, check, summarize, describe) is refused; a Python, JSON, YAML, TOML or INI
-  file that parsed must still parse; any other file over 50 lines is not cut to under a tenth of
-  its size unless the step says it deletes or truncates. A refused step writes nothing and the
-  hint names `/ask`. Every file a turn replaces or deletes keeps its previous bytes under
+- A step's reply no longer replaces a file with something that is plainly not that file. A step
+  whose action asks for information (read, show, explain, list, find, review, check, summarize,
+  describe, with no write verb such as fix or update) and names an existing file is run as an
+  answer step: its reply is shown as the answer, a note says the file is not written. Before any
+  other write to an existing file, a Python, JSON, YAML, TOML or INI file that parsed must still
+  parse, and any other file over 50 lines is not cut to under a tenth of its size unless the step
+  says it deletes or truncates. A refused step writes nothing and the hint names `/ask`. Every file a turn replaces or deletes keeps its previous bytes under
   `.ract/undo/<turn>/`, named in the turn summary; the newest 20 turns are kept. With a model
   that followed the v0.5.2 prompt, asking about a file could replace it with the answer.
 - A step refused by RACT itself was reported with the hint "start your model server"; the hint

@@ -72,10 +72,38 @@ def test_the_read_probe_leaves_calc_py_unchanged(
         ws, "run", "--config", "ract.yaml", "--", "what does src/calc.py do?"
     )
 
-    assert result.returncode == 1, result.stdout + result.stderr
+    assert result.returncode == 0, result.stdout + result.stderr
     assert (ws / "src" / "calc.py").read_bytes() == before
     assert _git(ws, "status", "--porcelain") == ""
-    assert "refused to replace src/calc.py" in result.stdout + result.stderr
+    assert _git(ws, "branch", "--list", "rootact/step/*") == ""
+    assert "src/calc.py, which is not written" in result.stdout
+
+
+def test_the_read_probe_shows_the_reply_as_the_answer(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    # G-051: the reply is what the user asked for; show it, write nothing.
+    server = fake_model_server(_one_step("read src/calc.py", "src/calc.py", PROSE))
+    ws = _repo(tmp_path, server.base_url)
+    before = (ws / "src" / "calc.py").read_bytes()
+
+    result = _ract(
+        ws, "-p", "what does src/calc.py do?", "--output-format", "stream-json"
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (ws / "src" / "calc.py").read_bytes() == before
+    events = [json.loads(line) for line in result.stdout.splitlines()]
+    answer = "".join(
+        e["data"]["text"]
+        for e in events
+        if e["kind"] == "agent.text.delta" and e["data"].get("channel") == "answer"
+    )
+    assert PROSE in answer
+    notices = [e["data"]["text"] for e in events if e["kind"] == "notice"]
+    assert any("src/calc.py, which is not written" in n for n in notices)
+    # The step prompt asked for an answer, not a file.
+    assert "no file is written" in json.dumps(server.chat_requests[1].body)
 
 
 def test_prose_for_a_python_file_is_refused_whatever_the_verb(
@@ -175,6 +203,57 @@ def test_question_verbs_never_replace_an_existing_file() -> None:
             )
     assert not reads_like_a_question("fix add in src/calc.py")
     assert not reads_like_a_question("")
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        "check the loader and fix the typo",
+        "Review greeter.py and update the docstring",
+        "read the file and rewrite it with one helper",
+    ],
+)
+def test_a_write_verb_makes_a_question_verb_a_change(action: str) -> None:
+    # D-019: "check X and fix Y" writes; the parse and size gates still apply.
+    assert not reads_like_a_question(action)
+    check_replacement("src/calc.py", b"x = 1\n", "x = 2\n", action)
+    with pytest.raises(ReplacementRefused) as refused:
+        check_replacement("src/calc.py", b"x = 1\n", "x is now two.", action)
+    assert refused.value.rule == "parse"
+
+
+def test_answer_instead_converts_only_question_steps_on_existing_files(
+    tmp_path: Path,
+) -> None:
+    from ract.manager import Plan, Step
+    from ract.write_gate import answer_instead
+
+    (tmp_path / "calc.py").write_text("x = 1\n", encoding="utf-8")
+    plan = Plan(
+        assumption="a",
+        confidence=0.9,
+        steps=[
+            Step(
+                action="read calc.py",
+                provider_hint="local",
+                expected_artifact="calc.py",
+            ),
+            Step(
+                action="list the todos",
+                provider_hint="local",
+                expected_artifact="TODO.md",
+            ),
+            Step(
+                action="fix calc.py", provider_hint="local", expected_artifact="calc.py"
+            ),
+        ],
+    )
+
+    converted, notes = answer_instead(plan, tmp_path)
+
+    assert [s.expected_artifact for s in converted.steps] == ["", "TODO.md", "calc.py"]
+    assert len(notes) == 1 and "step 1" in notes[0]
+    assert answer_instead(plan, None) == (plan, [])
 
 
 def test_binary_old_content_is_not_judged() -> None:
