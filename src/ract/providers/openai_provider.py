@@ -9,6 +9,8 @@ chat completions endpoint (e.g., llama-server, vLLM, or a local proxy).
 
 import json
 import os
+import re
+import sys
 import time
 from collections.abc import Iterator
 from typing import Any
@@ -52,6 +54,43 @@ def _parse_max_tokens(raw: Any) -> int | None:
     return raw
 
 
+_ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def key_hosts(env_var: str) -> set[str]:
+    """Hosts a key read from ``env_var`` may be sent to.
+
+    The provider presets pair each key variable with its provider's URL; the
+    operator's own OPENAI_BASE_URL pairs OPENAI_API_KEY with that host; and
+    RACT_KEY_HOSTS (``VAR=host[,VAR=host]``) adds pairs the operator chooses.
+    All three live outside the project, so a repository cannot add a pair.
+    """
+    from ract.provider_presets import PRESETS
+
+    hosts: set[str] = set()
+    for preset in PRESETS.values():
+        for spec in (preset.get("providers") or {}).values():
+            if not isinstance(spec, dict):
+                continue
+            ref = _ENV_REFERENCE.fullmatch(str(spec.get("api_key", "")))
+            if ref and ref.group(1) == env_var and spec.get("url"):
+                hosts.add(_host(str(spec["url"])))
+    if env_var == "OPENAI_API_KEY":
+        hosts.add(_host(os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")))
+    for pair in os.environ.get("RACT_KEY_HOSTS", "").split(","):
+        name, _, host = pair.strip().partition("=")
+        if name == env_var and host:
+            hosts.add(host.strip().lower())
+    return hosts
+
+
+def _host(url: str) -> str:
+    """Lowercased host and port of ``url`` (the part a key is paired with)."""
+    from urllib.parse import urlsplit
+
+    return urlsplit(url).netloc.lower()
+
+
 class OpenAICompatibleProvider(ProviderAdapter):
     """Adapter for OpenAI-compatible HTTP endpoints."""
 
@@ -71,7 +110,36 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
             ),
         ).rstrip("/")
-        self.api_key = config.get("api_key", os.environ.get("OPENAI_API_KEY", "no-key"))
+        # LR:: A key from the operator's environment went to whatever host the
+        # project's ract.yaml named, so a cloned repository could set
+        # `url: https://attacker` and receive OPENAI_API_KEY on the first
+        # planning call (S-025). And `api_key: ${VAR}`, which the presets and
+        # `ract doctor` use, was never expanded: the literal text was sent as
+        # the key, so preset cloud providers could not authenticate. Now an
+        # environment key, by fallback or by `${VAR}`, is read and sent only
+        # to its own host (key_hosts); a literal key in ract.yaml goes where
+        # ract.yaml says.
+        raw_key = config.get("api_key")
+        reference = (
+            _ENV_REFERENCE.fullmatch(raw_key) if isinstance(raw_key, str) else None
+        )
+        env_var = (
+            reference.group(1)
+            if reference
+            else ("OPENAI_API_KEY" if raw_key is None else None)
+        )
+        self._env_key_withheld = False
+        self._env_var = env_var
+        if env_var is None:
+            self.api_key = str(raw_key)
+        else:
+            value = os.environ.get(env_var)
+            if value and _host(self.url) in key_hosts(env_var):
+                self.api_key = value
+            else:
+                self.api_key = "no-key"
+                self._env_key_withheld = bool(value)
+        self._withheld_notice_sent = False
         self.model = config.get("model", "gpt-4o-mini")
         self.timeout = float(config.get("timeout", 60.0))
         self.max_retries = int(config.get("max_retries", 3))
@@ -207,6 +275,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
 
     def _post_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send a single chat-completions request and return parsed JSON."""
+        self._notify_withheld_key()
         if self._rate_bucket is not None:
             self._rate_bucket.acquire(1, timeout=self._rate_acquire_timeout)
         response = self.client.post(
@@ -288,11 +357,33 @@ class OpenAICompatibleProvider(ProviderAdapter):
             provenance=["openai.complete"],
         )
 
+    def _notify_withheld_key(self) -> None:
+        """Say once that the environment key was not sent to this host."""
+        if not self._env_key_withheld or self._withheld_notice_sent:
+            return
+        self._withheld_notice_sent = True
+        text = (
+            f"{self._env_var} was not sent to {_host(self.url)}: a key from your "
+            "environment goes only to its own provider's host. To use this host, "
+            f"name it in RACT_KEY_HOSTS ({self._env_var}={_host(self.url)})"
+            + (
+                ", or set OPENAI_BASE_URL to it"
+                if self._env_var == "OPENAI_API_KEY"
+                else ""
+            )
+            + "."
+        )
+        if turn_context.has_reporter():
+            turn_context.report("notice", {"level": "warning", "text": text})
+        else:
+            print(f"note: {text}", file=sys.stderr, flush=True)
+
     def _stream_headers(self) -> dict[str, str]:
         """Return headers used for streaming chat-completions requests.
 
         Subclasses may override this to omit authentication for local servers.
         """
+        self._notify_withheld_key()
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",

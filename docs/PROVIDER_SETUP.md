@@ -224,6 +224,16 @@ The router scores providers by how well they match a step's hint. A provider nam
 
 - Never commit API keys to version control.
 - Use environment variables or a secrets manager.
+- A key read from your environment, through `api_key: ${VAR}` or the
+  `OPENAI_API_KEY` fallback when `api_key` is left out, is sent only to that
+  key's own provider: the hosts in the presets above (`OPENAI_API_KEY` to
+  `api.openai.com`, `OPENROUTER_API_KEY` to `openrouter.ai`, and so on), the
+  host in your own `OPENAI_BASE_URL` for `OPENAI_API_KEY`, and the pairs you
+  list in `RACT_KEY_HOSTS`, for example
+  `RACT_KEY_HOSTS=OPENAI_API_KEY=gateway.example.com`. All three live outside
+  the project, so a `ract.yaml` in a repository you cloned cannot send your
+  key to a host of its choosing. When a key is withheld, RACT says which
+  variable and which host, once per run, and never prints the value.
 - RACT's safety guardrails block `eval()`, `exec()`, `subprocess...shell=True`, and bare `except:` in generated content.
 
 <!-- RACT 0.1.1 - Trust and tooling -->
