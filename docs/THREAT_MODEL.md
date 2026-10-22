@@ -378,6 +378,21 @@ Read this before relying on any statement above.
   that local model servers work, which means a repository can still aim
   chat requests at any port on this machine; whatever listens there gets a
   JSON chat body it did not expect.
+- Designed for v0.6, before any loader exists (S-033): role files are data
+  (ADR-0049), and a role file inside a cloned repository is written by the
+  repository's author, so it is the same class of input as a hook file. A
+  role carries a prompt, a tool allowlist, a tier and a model. The rules
+  (ADR-0049 D11): built-in roles are pinned by the source digest; a
+  repository role loads only in a trusted repository, as a trust item whose
+  bytes are in the trust digest; it can only narrow a built-in role (remove
+  tools, lower the tier) and never add a tool, raise a tier, change the
+  model or turn off a gate; every file has a 16 KiB limit, a closed set of
+  keys and `yaml.safe_load`; no field is ever run as a command; the loader
+  reads one fixed directory through the workspace path rules. Its prompt
+  text is labeled data that never overrides the system rules. Residual: a
+  trusted repository's role prompt still reaches the model as text, which
+  is prompt injection the operator accepted by trusting the repository; the
+  narrowing rule keeps it from gaining tools or tiers.
 - Fixed in v0.6: the diff applier and the artifact writer accepted `..`
   and, for the diff applier, absolute paths. Both now go through
   `ract.workspace_path.resolve_workspace_path` (ADR-0047 D2).

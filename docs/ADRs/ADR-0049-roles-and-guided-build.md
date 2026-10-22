@@ -78,8 +78,9 @@ One file per role in `src/ract/roles/<role>.yaml`, shipped in the package:
   error, escalate, or stop).
 
 Golden tests pin the prompt sentences real models see, as the manager
-prompt test does. A repository cannot add or change a role: roles load from
-the package only.
+prompt test does. Built-in roles load from the package. A repository role
+file is hostile input; D11 states the only way one loads (narrowing a
+built-in role, in a trusted repository).
 
 ### D3. Handoffs are artifacts
 
@@ -179,6 +180,102 @@ trust as a repository-named provider (S-030: a `network` trust item).
 `/model <role> <provider>` accepts only a provider that exists in the
 configuration.
 
+### D9. Large outputs are offloaded; the model reads slices
+
+A 7B-class model with an 8k window cannot take a 200 KiB test log, and
+pasting one in would push out the plan and the file being edited. So:
+
+- **Threshold: 8 KiB** for any single output that would enter a model
+  request (a test or check log, a tool result, a search result, a file
+  read). 8 KiB is about 2,000 tokens, a quarter of an 8k window. Smaller
+  outputs go in whole.
+- **Where it lives.** A larger output is stored whole as an artifact of
+  the turn in the user state directory, beside the D3 artifacts, never in
+  the workspace. It is signed when provenance wiring lands (S-015b).
+- **Who summarizes: the harness, never a model.** The summary holds the
+  exit status, the total lines and bytes, for a test run the failing test
+  ids (the runner's own summary lines), then the first 20 and the last 40
+  lines, capped at 4 KiB, and the pointer `artifact:<turn>/<name>`. A model
+  summary would put a model's claim where the user reads facts (the reason
+  SUMMARIZER was cut).
+- **`read_slice(target, start_line, end_line)`** joins the read-only slice
+  (ADR-0047 D1, after B-010a, which creates the slice's tools). The target
+  is an artifact pointer of the current run or a workspace path. One call
+  returns at most 200 lines and 16 KiB. A workspace path goes through
+  `workspace_path` for reading and the send rule (`.git`, `.ract` and
+  secret-named files are never sent); a pointer resolves only inside the
+  run's artifact folder, its name checked with `require_name`. A file
+  with a NUL byte in its first 8 KiB is refused as binary. The returned
+  text passes the outbound secret scan (S-022) before it enters a request.
+- **What a 7B model with an 8k window sees on a failing run:** one line of
+  exit status and size, the failing test ids, the last 40 lines (where
+  pytest prints the assertion), the first 20, and the pointer. About 1,500
+  tokens. It asks `read_slice` for more only when it needs it.
+
+Tests (named now, written with the code): `test_a_5_mib_log_reaches_the_model_as_a_bounded_summary`,
+`test_read_slice_refuses_parent_segments_absolute_and_protected_paths`,
+`test_read_slice_refuses_a_binary_file`, `test_read_slice_returns_at_most_200_lines_and_16_kib`,
+`test_read_slice_pointer_cannot_leave_the_run_folder`.
+
+### D10. The model never ends the loop; the limit stops and asks
+
+**A loop never ends because the model says it is finished.** Many agent
+designs end when the model emits a completion tag; RACT does not. Done is
+decided by the VERIFIER's recorded result and the anti-lazy gates (D4,
+INTENT invariant 8). A reply that contains "task complete", "TASK_COMPLETE"
+or any other tag has no effect on control flow: it is answer text, and a
+success claim in it is reported as unverified (D4).
+
+**At the limit RACT stops and asks.** When `--max-iterations` or the
+per-role retry bound (D5: two retries) is reached, RACT stops and shows:
+the last verifier summary (as in D9), the files the turn touched with line
+counts, and the number of attempts. On a terminal it asks: retry with a
+note, edit the plan, or stop (the default). A retry the user chooses runs
+one more round of the same size, recorded as an event by the operator.
+RACT never loops silently and never raises its own limit. Without a
+terminal it stops with outcome `budget` and exit 4, and the same context is
+in the result.
+
+Tests: `test_a_completion_tag_does_not_end_a_run_with_a_failing_result`,
+`test_the_loop_limit_stops_with_context_and_waits`,
+`test_headless_loop_limit_exits_4_with_context`,
+`test_no_role_output_widens_the_retry_bound`.
+
+### D11. Roles from a repository are hostile input (S-033)
+
+A role file inside a cloned repository was written by the repository's
+author. It is the same class of input as the hooks defect (S-025) and the
+path defects (S-028), and a role carries levers: a prompt, a tool
+allowlist, a tier and a model. The role loader card stays blocked until
+these rules are accepted.
+
+1. **Built-in roles are pinned by the source digest.** They ship as package
+   data the digest covers; editing one changes the digest.
+2. **A repository role loads only through the trust store.** Each file is a
+   trust item of kind `role`, listed by `ract trust`, and its bytes are in
+   the trust digest; one changed byte makes the repository untrusted again.
+3. **It narrows, never widens.** A repository role names a built-in role and
+   may remove tools from its allowlist or lower its tier. It cannot add a
+   tool, raise a tier, change the model or provider, or turn off a gate.
+4. **Limits and schema.** At most 16 KiB per file; a closed set of keys (an
+   unknown key is an error naming it); the name checked with
+   `require_name`; `yaml.safe_load` only; no includes. Prompt text from a
+   repository role goes into a labeled block of data and never overrides
+   the rules in the system prompt.
+5. **No field is a command.** Nothing in a role is executed, passed through
+   a shell or used as an argv. Acceptance checks a role proposes are
+   proposals (D3) and run only under the ADR-0048 policy.
+6. **One fixed directory.** The loader reads `.ract/roles/`, resolved
+   through `workspace_path`, and never a path named by another file. A
+   symlink that leaves the project is refused.
+
+Tests: a repository role that adds a tool, raises the tier, or names a
+command is refused with the key named; an unknown key, a 1 MiB file, the
+name `../x`, and a symlink to a file outside the project are each refused
+with a plain message; untrusted, it is not loaded and `ract trust --list`
+shows it; trusted and then changed by one byte, it is untrusted again; an
+edited built-in role fails the source digest test.
+
 ## Model integration
 
 - **Capability probe.** Chat, streaming, native tool calling (one request
@@ -222,6 +319,12 @@ Ungated, in order, each its own commit with tests:
 4. The VERIFIER's `VerificationResult` type, wired to the coverage and
    mutation gates only. It runs no new commands.
 5. The playbook loader and the explain-code playbook.
+6. The offload store and the harness summary (D9), about 2 hours.
+7. `read_slice` (D9), about 3 hours, after B-010a.
+8. The loop-limit stop and the completion-tag test (D10), about 2 hours,
+   with the loop runner.
+9. Repository roles under the D11 rules, about 3 hours, after the role
+   loader (item 1) and the MANAGER's acceptance of D11.
 
 Design only until ratified: EDITOR, the command-running VERIFIER, REVIEWER
 calls that send diffs to a second provider, and anything at tier 2 or 3.
@@ -237,6 +340,10 @@ calls that send diffs to a second provider, and anything at tier 2 or 3.
 | Running a proposed acceptance check (D3) | ADR-0048 command policy | gated; until then a check is shown, not run |
 | Repository playbooks (D7) | S-025 trust and the hostile-input loader in D7 | ungated design; the loader is its own card |
 | `roles:` routing to a host the operator did not choose (D8) | S-030 network trust | ungated design; uses the existing trust items |
+| Offload store and harness summary (D9) | nothing gated | ungated |
+| `read_slice` (D9) | B-010a (the read-only slice's tools) | after B-010a |
+| The loop-limit stop (D10) | the loop runner and the VERIFIER record | ungated design; code with the loop |
+| Repository roles (D11) | S-025 trust store; the role loader | rules accepted first; loader after |
 | VERIFIER result type (D3, D4) | the existing coverage and mutation gates | ungated |
 | VERIFIER running tests, lint, type checks | ADR-0048 D5 `run_command` and tier 3 | gated |
 | EDITOR | ADR-0047 D1, D4 write tools (T1) and D6 review and apply | gated |
