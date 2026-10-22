@@ -18,6 +18,7 @@ from typing import Any
 
 from ract.providers.base import ProviderAdapter
 from ract.rooted import Rooted
+from ract.workspace_path import resolve_workspace_path
 
 
 class ChestertonsFence:
@@ -79,6 +80,20 @@ class ChestertonsFence:
         self, path: Path | str, lines: tuple[int, int] | None = None
     ) -> Rooted[str]:
         """Return a plausible reason the code at *path* exists."""
+        resolved = resolve_workspace_path(self.project_dir, path, purpose="send")
+        if resolved.value is None:
+            # The excerpt goes to a provider, so the S-018 rule applies:
+            # nothing from .git/ or .ract/, no secret-shaped file, no ract.yaml.
+            return Rooted(
+                value="",
+                assumption="Target file may be sent to a model.",
+                confidence=0.0,
+                provenance=["chestertons_fence.inspect"],
+                error=resolved.error,
+                hint=resolved.hint,
+            )
+        # Keep the caller's spelling of the root so _relative_path still works
+        # when project_dir is not the resolved (realpath) form.
         target = Path(path)
         if not target.is_absolute():
             target = self.project_dir / target

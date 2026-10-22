@@ -4,11 +4,15 @@ _SENTINEL = object()
 
 
 import json
+import re
 from pathlib import Path
 from string import Template
 from typing import Any, Dict, List, Optional, Union
 
 from ract.manager import Plan, Step
+
+
+_SKILL_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
 class _SentinelType:
@@ -37,6 +41,20 @@ class SkillRegistry:
         self.skills_dir = self.base_dir / _SKILLS_DIR_NAME
         self.skills_dir.mkdir(parents=True, exist_ok=True)
 
+    def skill_file(self, name: str) -> Path:
+        """Path of the skill's JSON file; refuses names that are not one file name.
+
+        LR:: The name comes from ract.yaml (``skill:``) and the CLI, and was
+        joined straight into the path, so ``../../config`` loaded any .json
+        file and rendered its ``template`` into the plan prompt (S-018b).
+        """
+        if not _SKILL_NAME_RE.fullmatch(name or "") or ".." in name:
+            raise ValueError(
+                f"skill name {name!r} must be letters, digits, '.', '_' or '-', "
+                "starting with a letter or digit"
+            )
+        return self.skills_dir / f"{name}.json"
+
     def register(
         self,
         name: str,
@@ -55,8 +73,7 @@ class SkillRegistry:
         tools: list[str] | None
             Optional list of tool names associated with the skill.
         """
-        if not name:
-            raise ValueError("Skill name must be a non‑empty string")
+        skill_path = self.skill_file(name)
         if isinstance(tools, _SentinelType):
             resolved_tools: Optional[List[str]] = None
         else:
@@ -66,7 +83,6 @@ class SkillRegistry:
             "template": template,
             "tools": resolved_tools or [],
         }
-        skill_path = self.skills_dir / f"{name}.json"
         with skill_path.open("w", encoding="utf-8") as fp:
             json.dump(skill_data, fp, indent=2)
 
@@ -89,7 +105,7 @@ class SkillRegistry:
         KeyError
             If no skill with the given name exists.
         """
-        skill_path = self.skills_dir / f"{name}.json"
+        skill_path = self.skill_file(name)
         if not skill_path.is_file():
             raise KeyError(f"Skill '{name}' not found")
         with skill_path.open("r", encoding="utf-8") as fp:

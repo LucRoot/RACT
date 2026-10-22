@@ -24,10 +24,11 @@ the resolved location:
 - for writes: no existing component inside the root may be a symlink or a
   junction, nothing may be written under ``.git`` or ``.ract`` (a write to
   ``.git/hooks`` or ``.ract/hooks`` becomes code execution later), and no
-  secret-shaped file is written (the model is never shown one, so it has no
-  valid replacement for it);
+  secret-shaped file or ``ract.yaml`` is written (the model is never shown
+  one, so it has no valid replacement for it);
 - for ``send`` (the file's content goes into a model request): nothing under
-  ``.git`` or ``.ract`` and no secret-shaped name (``.env``, ``*.key`` ...).
+  ``.git`` or ``.ract``, no secret-shaped name (``.env``, ``*.key`` ...) and
+  no ``ract.yaml``/``ract.yml`` (it can hold literal api keys).
   ``.ract/operator.key`` and a ``.git/config`` remote URL with a token were
   reaching the provider in the step prompt before the write was refused
   (AUD-003). ``is_never_sent`` is the same rule for callers that already
@@ -67,12 +68,18 @@ def is_secret_shaped(path: str) -> bool:
     return any(fnmatch.fnmatchcase(name, pattern) for pattern in SECRET_NAME_GLOBS)
 
 
+# RACT's own config can hold literal api_key values.
+NEVER_SENT_NAMES = frozenset({"ract.yaml", "ract.yml"})
+
+
 def is_never_sent(relative_path: str) -> bool:
-    """True when a root-relative path is under ``.git``/``.ract`` or secret-shaped."""
+    """True for a root-relative path under ``.git``/``.ract``, secret-shaped, or ract.yaml."""
     parts = [p for p in re.split(r"[\\/]", relative_path) if p and p != "."]
     if any(part.casefold() in PROTECTED_WRITE_DIRS for part in parts):
         return True
-    return bool(parts) and is_secret_shaped(parts[-1])
+    if not parts:
+        return False
+    return parts[-1].casefold() in NEVER_SENT_NAMES or is_secret_shaped(parts[-1])
 
 
 _WINDOWS_RESERVED = frozenset(
@@ -278,6 +285,14 @@ def _location_checks(
                 "secret_shaped",
                 f"{rel_parts[-1]!r} usually holds secrets and RACT does not write it",
                 "Edit credential files yourself. Name a different file.",
+            )
+        if rel_parts[-1].casefold() in NEVER_SENT_NAMES:
+            # A model that rewrites RACT's config could point the next run
+            # at another provider; the operator edits it.
+            return _refuse(
+                "ract_config",
+                f"{rel_parts[-1]!r} is RACT's configuration and RACT does not write it",
+                "Edit ract.yaml yourself. Name a project file.",
             )
     if purpose == "send" and is_never_sent("/".join(rel_parts)):
         return _refuse(

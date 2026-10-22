@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from ract.rooted import Rooted
+from ract.workspace_path import is_never_sent
 
 
 @dataclass(frozen=True)
@@ -140,13 +141,14 @@ class KeywordRetrievalAdapter(RetrievalAdapter):
         files: list[Path] = []
         for ext in self.extensions:
             files.extend(self.project_dir.rglob(f"*{ext}"))
-        # Exclude build and hidden directories.
+        # Exclude caches, and everything the S-018 rule keeps out of model
+        # requests: .git/ and .ract/ in any letter case, secret-shaped names
+        # and ract.yaml (snippets of these files go into the plan prompt).
         return [
             f
             for f in files
-            if ".ract" not in f.parts
-            and ".git" not in f.parts
-            and "__pycache__" not in f.parts
+            if "__pycache__" not in f.parts
+            and not is_never_sent(f.relative_to(self.project_dir).as_posix())
         ]
 
     def _score(self, query: str, content: str) -> float:

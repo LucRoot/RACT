@@ -36,10 +36,10 @@ class BuiltinSkillLibrary:
 
     def install(self, name: str, registry: SkillRegistry) -> Path:
         """Copy a built-in skill into the project's skill registry."""
-        source = self.builtin_dir / f"{name}.json"
+        target = registry.skill_file(name)
+        source = self.builtin_dir / target.name
         if not source.is_file():
             raise KeyError(f"Built-in skill not found: {name}")
-        target = registry.skills_dir / f"{name}.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
         return target
