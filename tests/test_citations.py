@@ -225,3 +225,19 @@ def test_control_characters_never_reach_the_reasons(repo: Path) -> None:
 def test_results_follow_the_order_of_appearance(repo: Path) -> None:
     results = verify(repo, extract("ten.py:9 then nope.py:1 then ten.py:2"))
     assert [r.citation.path for r in results] == ["ten.py", "nope.py", "ten.py"]
+
+
+def test_a_line_number_with_thousands_of_digits_is_not_checked_and_does_not_raise(
+    repo: Path,
+) -> None:
+    text = "see src/a.py:" + "9" * 5000 + " and ten.py:2"
+    results = verify(repo, extract(text))
+    assert results[0].status == "not checked"
+    assert results[0].reason == "src/a.py: line number too large"
+    assert results[1].status == "verified"
+
+
+def test_a_range_end_with_many_digits_is_not_checked(repo: Path) -> None:
+    results = verify(repo, extract("see ten.py:1-" + "1" * 40))
+    assert results[0].status == "not checked"
+    assert "too large" in results[0].reason

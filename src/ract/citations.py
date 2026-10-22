@@ -7,6 +7,10 @@ only after it passes that check, and at most ``MAX_CHECKED`` citations are
 checked per answer. The result strings carry the path and the symbol only,
 never file content, and they pass through ``safe_text``.
 
+The symbol check is a substring match: the symbol must appear as text in the
+cited lines. It does not parse the code, so a name inside a comment counts.
+A bare name with no separator and no extension (``x:1``) is not a citation.
+
 The turn summary that shows the counts is a later card (B-037b).
 """
 
@@ -21,6 +25,8 @@ from ract.session_events import safe_text
 from ract.workspace_path import resolve_workspace_path
 
 MAX_CHECKED = 50
+# A line number this large is not checked: its text is never converted to an int.
+TOO_LARGE_LINE = 10**10
 MAX_FILE_BYTES = 2 * 1024 * 1024
 # Top-level names that are never opened, whatever the resolver says.
 _NEVER_OPENED_TOP = frozenset({".git", ".ract", ".rack"})
@@ -75,15 +81,22 @@ def _symbol_before(text: str, position: int) -> str | None:
     return None
 
 
+def _line_number(digits: str) -> int:
+    """The line number in *digits*. Anything over nine digits is TOO_LARGE_LINE."""
+    if len(digits) > 9:
+        return TOO_LARGE_LINE
+    return int(digits)
+
+
 def extract(text: str) -> list[Citation]:
     """Every citation in *text*, in order of appearance."""
     found: list[Citation] = []
     for match in _CITE_RE.finditer(text):
-        start = int(match.group("start"))
+        start = _line_number(match.group("start"))
         if match.group("end") is not None:
-            end = int(match.group("end"))
+            end = _line_number(match.group("end"))
         elif match.group("second") is not None:
-            end = int(match.group("second"))
+            end = _line_number(match.group("second"))
         else:
             end = start
         found.append(
@@ -96,8 +109,8 @@ def extract(text: str) -> list[Citation]:
             )
         )
     for match in _BACKTICK_LINE_RE.finditer(text):
-        start = int(match.group("start"))
-        end = int(match.group("end")) if match.group("end") else start
+        start = _line_number(match.group("start"))
+        end = _line_number(match.group("end")) if match.group("end") else start
         found.append(
             Citation(
                 path=match.group("path"),
@@ -118,6 +131,8 @@ def _read_capped(path: Path) -> bytes:
 
 def _check_one(root: Path, citation: Citation) -> Result:
     path = safe_text(citation.path)
+    if max(citation.start, citation.end) >= TOO_LARGE_LINE:
+        return Result(citation, "not checked", f"{path}: line number too large")
     top = citation.path.replace("\\", "/").split("/", 1)[0]
     if top in _NEVER_OPENED_TOP:
         return Result(citation, "not checked", f"{path} is protected, not checked")
