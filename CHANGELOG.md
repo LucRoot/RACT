@@ -39,6 +39,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Every run keeps worktree isolation, including the second run and multi-step plans. A run's
+  first step now starts from a snapshot of your working tree (uncommitted and untracked files
+  included; `.ract/` and secret-shaped files left out), built in a temporary index so your
+  index, branch and stash are untouched. Before, a run after any edit found the tree dirty and
+  silently wrote in place with no isolation, and a step could not change a file an earlier step
+  had created. Applying a step is now content-based and never touches the index; untracked
+  files of yours are never changed; per-file errors are reported with what was already applied;
+  the saved patch is byte-exact and the hint names the step branch. When a run does write in
+  place (not a git repository, or `substrate_loop: false`), it says so.
 - `.ract/` no longer shows as untracked in `git status`: a run adds it once to the clone-local
   `.git/info/exclude` (your `.gitignore` is not touched). `ract doctor` lists RACT's
   `rootact/step/*` branches with the oldest one's age, and `ract doctor --prune-step-branches

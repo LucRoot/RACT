@@ -30,7 +30,6 @@ from ract.duplication_guard import DuplicationGuard
 from ract.executor import ExecutionReport, Executor
 from ract.executor.worktree import (
     WorktreeError,
-    ensure_clean_tracked_tree,
     ensure_git_repo,
 )
 from ract.git_mode import GitMode
@@ -816,13 +815,23 @@ class Harness:
         # site; Executor internals are unchanged.
         use_substrate = bool(self.config.get("substrate_loop", True))
         substrate_ready = False
+        legacy_reason = "substrate_loop is off in ract.yaml"
         if use_substrate and self.project_dir is not None:
             try:
                 ensure_git_repo(self.project_dir)
-                ensure_clean_tracked_tree(self.project_dir)
                 substrate_ready = True
             except WorktreeError:
-                substrate_ready = False
+                legacy_reason = "this directory is not a git repository"
+        if self.project_dir is not None and not (use_substrate and substrate_ready):
+            # LR:: The in-place path has no worktree, no step branch and no
+            # rollback point. It used to be taken silently, including after
+            # RACT's own edits left the tree dirty (AUD-002). Say so on every
+            # run that takes it.
+            print(
+                f"note: {legacy_reason}; RACT writes directly into your files for "
+                "this run (no worktree isolation, no step record).",
+                flush=True,
+            )
         if use_substrate and substrate_ready:
             # Local import breaks a cycle:
             #   harness → substrate_adapter → core.loop → loop_planner → harness.

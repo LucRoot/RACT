@@ -477,6 +477,118 @@ def _git_in(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _git_bytes(
+    repo: Path, *args: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[bytes]:
+    """Run git and keep stdout as bytes (file contents, patches)."""
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, check=False, env=env
+    )
+
+
+def _literal(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run a git command whose path arguments are file names, not pathspecs.
+
+    LR:: Without this, ``lib/[ab].py`` is a glob and ``:x`` is pathspec
+    magic, so a per-file check could match a different file (AUD-011).
+    """
+    return _git_in(repo, "--literal-pathspecs", *args)
+
+
+# Paths a base snapshot never contains, so they never reach a step worktree:
+# RACT's own state, and files that usually hold secrets (an untracked .env
+# that is not ignored would otherwise be copied into the worktree).
+_SNAPSHOT_EXCLUDES = (
+    ".ract",
+    ":(glob)**/.env",
+    ":(glob)**/.env.*",
+    ":(glob)**/*.pem",
+    ":(glob)**/*.key",
+    ":(glob)**/id_rsa",
+    ":(glob)**/id_ed25519",
+)
+
+
+def snapshot_working_tree(repo: Path) -> str:
+    """Commit the working tree as it is now, without touching the operator's git state.
+
+    LR:: A step's worktree used to start from HEAD, and a run refused a tree
+    with uncommitted tracked changes. After RACT applied a step as unstaged
+    edits, the next run hit that refusal and silently fell back to writing in
+    place without isolation (AUD-002), and a later step could not see files an
+    earlier step had created (AUD-001). The base is now a commit of the
+    working tree itself: tracked changes and untracked, not-ignored files,
+    minus ``.ract/`` and secret-shaped files. It is built in a temporary
+    index (``GIT_INDEX_FILE``), so the operator's index, branch, stash and
+    working tree are unchanged; the commit is referenced only by the step
+    branches made from it. ADR-0047 D6.
+
+    Raises ``WorktreeError`` when git cannot build it.
+    """
+    import os as _os
+    import tempfile as _tempfile
+
+    head = _git_in(repo, "rev-parse", "--verify", "-q", "HEAD")
+    head_sha = head.stdout.strip() if head.returncode == 0 else ""
+    fd, index_path = _tempfile.mkstemp(prefix="ract-index-")
+    _os.close(fd)
+    _os.unlink(index_path)  # git creates it; an empty file is not a valid index
+    env = dict(_os.environ)
+    env["GIT_INDEX_FILE"] = index_path
+    try:
+        if head_sha:
+            _git_bytes(repo, "read-tree", head_sha, env=env)
+        add = _git_bytes(repo, "add", "-A", "--", ".", env=env)
+        if add.returncode != 0:
+            raise WorktreeError(
+                "could not snapshot the working tree: "
+                + add.stderr.decode("utf-8", "replace").strip()
+            )
+        # Then drop RACT state and secret-shaped files from the snapshot
+        # index (only this temporary index; the operator's is untouched).
+        _git_bytes(
+            repo,
+            "rm",
+            "-r",
+            "-q",
+            "--cached",
+            "--ignore-unmatch",
+            "--",
+            *_SNAPSHOT_EXCLUDES,
+            env=env,
+        )
+        tree = _git_bytes(repo, "write-tree", env=env)
+        if tree.returncode != 0:
+            raise WorktreeError("could not write the snapshot tree")
+        commit_args = [
+            "commit-tree",
+            tree.stdout.decode().strip(),
+            "-m",
+            "ract: base snapshot of the working tree",
+        ]
+        if head_sha:
+            commit_args[2:2] = ["-p", head_sha]
+        identity = dict(env)
+        identity.setdefault("GIT_AUTHOR_NAME", "ract")
+        identity.setdefault("GIT_AUTHOR_EMAIL", "ract@localhost")
+        identity.setdefault("GIT_COMMITTER_NAME", "ract")
+        identity.setdefault("GIT_COMMITTER_EMAIL", "ract@localhost")
+        identity.pop("GIT_INDEX_FILE", None)
+        commit = _git_bytes(repo, *commit_args, env=identity)
+        if commit.returncode != 0:
+            raise WorktreeError(
+                "could not commit the snapshot: "
+                + commit.stderr.decode("utf-8", "replace").strip()
+            )
+        return commit.stdout.decode().strip()
+    finally:
+        for leftover in (index_path, index_path + ".lock"):
+            try:
+                _os.unlink(leftover)
+            except OSError:
+                pass
+
+
 @dataclass(frozen=True)
 class WorkingTreeApply:
     """What ``apply_commit_to_working_tree`` did.
@@ -491,14 +603,53 @@ class WorkingTreeApply:
     patch_path: str
 
 
-def _classify_for_apply(repo: Path, status: str, path: str, before: str) -> str:
+def changed_path_additions(
+    repo: Path, before: str, after: str, applied: tuple[str, ...]
+) -> set[str]:
+    """Paths a step added (status A) that were applied to the working tree."""
+    listing = _git_in(
+        repo,
+        "diff",
+        "--name-status",
+        "--no-renames",
+        "--diff-filter=A",
+        "-z",
+        before,
+        after,
+    )
+    fields = [f for f in listing.stdout.split("\0") if f]
+    added = set(fields[1::2])
+    return {path for path in applied if path in added}
+
+
+def _blob_of_working_file(repo: Path, path: str) -> str | None:
+    """Blob id git would store for the working file (clean filters applied)."""
+    result = _literal(repo, "hash-object", "--path", path, "--", path)
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _blob_in(repo: Path, commit: str, path: str) -> str | None:
+    result = _git_in(repo, "rev-parse", "--verify", "-q", f"{commit}:{path}")
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _classify_for_apply(
+    repo: Path,
+    status: str,
+    path: str,
+    before: str,
+    created_by_run: frozenset[str] = frozenset(),
+) -> str:
     """Return "write", "delete", "noop", or a reason the path is a conflict.
 
-    LR:: The first version asked git whether the path still matched
-    ``before``. git ignores untracked and ignored files, so an untracked file
-    at a path the step adds (the default ``output.txt`` artifact) counted as
-    untouched and was overwritten. Classification now looks at the
-    filesystem first, and anything it cannot classify is a conflict.
+    LR:: Safety is decided by content, not by git's tracking state. A path
+    is safe to change only when the working file still equals the step's
+    base (``before``), which is a snapshot of the working tree when the
+    step started, so files an earlier step applied count as unchanged
+    (AUD-001). An earlier version asked whether the path was tracked and
+    refused step 1's new files; the version before that asked ``git diff``,
+    which ignores untracked files and overwrote one. Anything that cannot be
+    classified is a conflict.
     """
     from ract.workspace_path import resolve_workspace_path  # noqa: PLC0415
 
@@ -513,37 +664,49 @@ def _classify_for_apply(repo: Path, status: str, path: str, before: str) -> str:
     if exists and (os.path.islink(full) or os.path.isdir(full)):
         return "a directory or link is at that path in your working tree"
     if kind == "A":
-        if exists:
-            return "a file already exists at that path in your working tree"
-        return "write"
-    tracked = _git_in(repo, "ls-files", "--error-unmatch", "--", path).returncode == 0
-    if kind == "D" and not exists:
-        return "noop"
+        return (
+            "a file already exists at that path in your working tree"
+            if exists
+            else "write"
+        )
+    base_blob = _blob_in(repo, before, path)
     if not exists:
-        return "you deleted this file during the step"
-    if not tracked:
-        return "the file is not tracked by git in your working tree"
-    if _git_in(repo, "diff", "--quiet", before, "--", path).returncode != 0:
+        return "noop" if kind == "D" else "you deleted this file during the step"
+    if base_blob is None:
+        return "the step's starting point has no copy of this file to compare with"
+    if _blob_of_working_file(repo, path) != base_blob:
         return "you changed this file during the step"
+    tracked = _literal(repo, "ls-files", "--error-unmatch", "--", path).returncode == 0
+    if not tracked and path not in created_by_run:
+        # git keeps no copy of an untracked file the operator made, so a
+        # change to it could not be undone from git. Files an earlier step of
+        # this run created are untracked too, and those may change (AUD-001).
+        return "the file is yours and untracked, so git has no copy to restore it from"
     return "delete" if kind == "D" else "write"
 
 
 def apply_commit_to_working_tree(
-    repo: Path, before: str, after: str
+    repo: Path,
+    before: str,
+    after: str,
+    *,
+    created_by_run: frozenset[str] = frozenset(),
 ) -> WorkingTreeApply:
-    """Copy a step commit's changes into the working tree, unstaged.
+    """Copy a step commit's changes into the working tree, without touching the index.
 
     LR:: S-011 stopgap until ADR-0047 D6 (review, then apply). The step was
-    committed on its own branch. Here each changed file is checked out from
-    the step commit and then dropped from the index, so the operator sees an
-    ordinary unstaged change, HEAD and the branch do not move, and git's own
-    line-ending conversion applies. RACT's ``.ract/`` state is never copied.
+    committed on its own branch. Each changed file is written from the step
+    commit through ``git cat-file --filters``, so git's line-ending and
+    smudge rules apply, while HEAD, the branch and the index are never
+    touched: a file the operator staged keeps its staged version (AUD-010).
+    RACT's ``.ract/`` state is never copied.
 
     Nothing the operator has is overwritten or deleted. A path is applied only
-    when it is absent (for an addition), or a tracked regular file whose
-    content still equals ``before`` (for a change or deletion). Every other
-    state, and any error while classifying, leaves the path alone; the step's
-    patch for those paths is saved under ``.ract/pending/``.
+    when it is absent (for an addition), or when the working file still
+    equals the step's base (for a change or deletion). Every other state, and
+    any error on a path, leaves that path alone with a reason (AUD-009); the
+    step's patch for those paths is saved under ``.ract/pending/`` as bytes,
+    so ``git apply`` works for binary and non-UTF-8 files (AUD-004).
     """
     if not before or not after or before == after:
         return WorkingTreeApply((), {}, "")
@@ -559,36 +722,57 @@ def apply_commit_to_working_tree(
         ".",
         ":(exclude).ract",
     )
+    if listing.returncode != 0:
+        # A failed listing must not read as "the step changed nothing" (AUD-012).
+        return WorkingTreeApply(
+            (),
+            {
+                "(all paths)": f"git could not list the step's changes: {listing.stderr.strip()}"
+            },
+            "",
+        )
     fields = [f for f in listing.stdout.split("\0") if f]
     changes = list(zip(fields[0::2], fields[1::2]))
     applied: list[str] = []
     skipped: dict[str, str] = {}
     for status, path in changes:
         try:
-            verdict = _classify_for_apply(repo, status, path, before)
-        except OSError as exc:
-            verdict = f"could not inspect the path: {exc}"
-        if verdict == "noop":
-            applied.append(path)
-        elif verdict == "delete":
-            (repo / path).unlink()
-            applied.append(path)
-        elif verdict == "write":
-            checkout = _git_in(repo, "checkout", after, "--", path)
-            _git_in(repo, "reset", "-q", "--", path)
-            if checkout.returncode != 0:
-                skipped[path] = f"git could not write it: {checkout.stderr.strip()}"
-            else:
+            verdict = _classify_for_apply(repo, status, path, before, created_by_run)
+            if verdict == "noop":
                 applied.append(path)
-        else:
-            skipped[path] = verdict
+            elif verdict == "delete":
+                (repo / path).unlink()
+                applied.append(path)
+            elif verdict == "write":
+                content = _git_bytes(repo, "cat-file", "--filters", f"{after}:{path}")
+                if content.returncode != 0:
+                    skipped[path] = "git could not read the step's version of this file"
+                    continue
+                target = repo / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(content.stdout)
+                applied.append(path)
+            else:
+                skipped[path] = verdict
+        except OSError as exc:
+            skipped[path] = f"could not change it: {exc.strerror or exc}"
     patch_path = ""
-    if skipped:
+    real_skips = [p for p in skipped if p != "(all paths)"]
+    if real_skips:
         pending = repo / ".ract" / "pending"
         pending.mkdir(parents=True, exist_ok=True)
         target = pending / f"{after[:12]}.patch"
-        diff = _git_in(repo, "diff", "--binary", before, after, "--", *skipped)
-        target.write_text(diff.stdout, encoding="utf-8")
+        diff = _git_bytes(
+            repo,
+            "--literal-pathspecs",
+            "diff",
+            "--binary",
+            before,
+            after,
+            "--",
+            *real_skips,
+        )
+        target.write_bytes(diff.stdout)
         patch_path = target.relative_to(repo).as_posix()
     return WorkingTreeApply(tuple(applied), skipped, patch_path)
 

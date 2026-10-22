@@ -53,9 +53,9 @@ from ract.executor.steps import ExecutionReport, Executor
 from ract.executor.worktree import (
     apply_commit_to_working_tree,
     WorktreeManager,
-    ensure_clean_tracked_tree,
+    changed_path_additions,
+    snapshot_working_tree,
     ensure_git_repo,
-    resolve_head_sha,
 )
 from ract.manager import Plan, Step
 from ract.rooted import Rooted
@@ -204,8 +204,12 @@ def run_via_substrate(
     # shim keeps the failure mode local rather than trusting a stale
     # caller check.
     ensure_git_repo(harness.project_dir)
-    ensure_clean_tracked_tree(harness.project_dir)
-    parent_snapshot = resolve_head_sha(harness.project_dir)
+    # S-011b: the first step's base is a snapshot of the working tree as it
+    # is, uncommitted changes included, so a dirty tree (RACT's own earlier
+    # turns leave one) keeps isolation instead of forcing the in-place path.
+    parent_snapshot = snapshot_working_tree(harness.project_dir)
+    applied_so_far: list[str] = []
+    created_by_run: set[str] = set()
 
     loop = SubstrateLoop(
         repo_root=harness.project_dir,
@@ -311,9 +315,24 @@ def run_via_substrate(
             harness.project_dir,
             record.parent_snapshot_before,
             record.parent_snapshot_after,
+            created_by_run=frozenset(created_by_run),
         )
+        created_by_run.update(
+            changed_path_additions(
+                harness.project_dir,
+                record.parent_snapshot_before,
+                record.parent_snapshot_after,
+                outcome.applied,
+            )
+        )
+        applied_so_far.extend(outcome.applied)
         if outcome.skipped:
             left = "; ".join(f"{p} ({why})" for p, why in outcome.skipped.items())
+            where = (
+                f" The step's changes for them are in {outcome.patch_path}."
+                if outcome.patch_path
+                else ""
+            )
             return Rooted(
                 value=None,
                 assumption=(
@@ -323,13 +342,18 @@ def run_via_substrate(
                 confidence=0.0,
                 provenance=["harness.substrate_adapter", f"step:{index + 1}"],
                 error=(
-                    f"Step {index + 1} left these paths as they are: {left}. "
-                    f"The step's changes for them are in {outcome.patch_path}."
+                    f"Step {index + 1} left these paths as they are: {left}.{where} "
+                    "Already applied to your files in this run: "
+                    + (", ".join(applied_so_far) or "nothing")
+                    + "."
                 ),
                 hint=(
-                    f"Review {outcome.patch_path} and apply it with `git apply` "
-                    "if you want it. Applied: "
-                    + (", ".join(outcome.applied) or "nothing")
+                    (
+                        f"Review {outcome.patch_path} and apply it with `git apply`, or "
+                        if outcome.patch_path
+                        else ""
+                    )
+                    + f"see the step's full commit on branch {record.branch}."
                 ),
             )
 
