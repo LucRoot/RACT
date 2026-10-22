@@ -449,10 +449,12 @@ class ReplSession:
                 else None
             )
             name = escape(safe_text(args[0]))
+            root = self.state.config.resolve().parent
             if (
                 isinstance(url, str)
                 and url
                 and trust.repository_named_host(url) is not None
+                and not trust.is_trusted(root)
             ):
                 self._console.error(
                     f"provider '{name}' uses a host that this repository's ract.yaml named. "

@@ -162,13 +162,6 @@ def test_a_repository_named_host_is_refused_until_trusted(
 
 
 @pytest.mark.skip(
-    reason="not run in this pass: needs a second turn through the dispatcher"
-)
-def test_the_next_turn_request_reaches_the_second_server() -> None:
-    pass
-
-
-@pytest.mark.skip(
     reason="not run in this pass: turns are in-process in this build; no child process to pass it to"
 )
 def test_a_child_process_turn_receives_the_override_as_an_argument() -> None:
@@ -180,3 +173,67 @@ def test_a_child_process_turn_receives_the_override_as_an_argument() -> None:
 )
 def test_a_switch_during_a_turn_applies_from_the_next_turn() -> None:
     pass
+
+
+def test_a_trusted_repository_lets_the_switch_through(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _config(
+        tmp_path / "ract.yaml", second_url="https://models.example.invalid/v1"
+    )
+    monkeypatch.setattr(
+        trust, "repository_named_host", lambda url: "models.example.invalid"
+    )
+    monkeypatch.setattr(trust, "is_trusted", lambda root: True)
+    session, _ = _session(config)
+    session.handle("/model second")
+    assert config_check.session_manager() == "second"
+
+
+def test_an_untrusted_repository_refuses_the_named_host(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _config(
+        tmp_path / "ract.yaml", second_url="https://models.example.invalid/v1"
+    )
+    monkeypatch.setattr(
+        trust, "repository_named_host", lambda url: "models.example.invalid"
+    )
+    monkeypatch.setattr(trust, "is_trusted", lambda root: False)
+    session, console = _session(config)
+    session.handle("/model second")
+    assert config_check.session_manager() is None
+    assert "ract trust" in console.text
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="ESCALATE (B-058b): the manager switch is read by resolve_manager_provider, but a step picks its provider by hint in ProviderRouter.select_for_hint (executor/steps.py), which does not read it. The second server gets nothing. Strict xfail until the BUILDER decides.",
+)
+def test_the_next_turn_reaches_the_second_server_and_not_the_first(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    first = fake_model_server("j1_first_run")
+    second = fake_model_server("j1_first_run")
+    config = tmp_path / "ract.yaml"
+    config.write_text(
+        "project:\n  name: demo\n"
+        "manager_provider: local\n"
+        "providers:\n"
+        "  local:\n"
+        "    adapter: local_http\n"
+        f"    url: {first.base_url}\n"
+        "    model: fake-coder\n"
+        "    max_retries: 0\n"
+        "  second:\n"
+        "    adapter: local_http\n"
+        f"    url: {second.base_url}\n"
+        "    model: fake-coder\n"
+        "    max_retries: 0\n",
+        encoding="utf-8",
+    )
+    session, _ = _session(config)
+    session.handle("/model second")
+    session.handle("/ask say hello")
+    assert len(second.chat_requests) >= 1
+    assert first.chat_requests == []
