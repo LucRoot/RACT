@@ -4408,8 +4408,10 @@ def main(argv: list[str] | None = None) -> int:
             "ract setup --answers FILE (template: ract setup --print-defaults)",
             file=sys.stderr,
         )
-    if argv and argv[0] in ("undo", "redo"):
-        return _undo_command(argv[0], argv[1:])
+    if argv and argv[0] == "undo":
+        return _undo_command("undo", argv[1:])
+    if argv and argv[0] == "redo":
+        return _undo_command("redo", argv[1:])
     if argv and argv[0] == "setup":
         from ract.setup import wizard
 
