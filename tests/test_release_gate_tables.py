@@ -208,6 +208,21 @@ def _run_gate(root: Path) -> tuple[int, str]:
     return proc.returncode, proc.stdout
 
 
+@pytest.mark.parametrize("sev", ["s1", "S 1", "P1", ""])
+def test_a_severity_outside_s1_s2_s3_is_a_table_error_naming_the_row(sev: str) -> None:
+    gate = _gate()
+    errors = gate.validate(gate.parse_defects(_table(_row("UX-40", sev, "open"))))
+    assert errors and "UX-40" in errors[0]
+
+
+def test_a_gate_with_a_bad_severity_exits_1_even_with_no_open_s1(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "fixture", _table(_row("UX-41", "s1", "fixed (B-043)")))
+    code, out = _run_gate(tmp_path)
+    assert code == 1 and "UX-41" in out
+
+
 def test_the_real_tree_is_held_by_the_two_gated_journey_rows() -> None:
     # G-098: UX-07 (J3) and UX-08 (J4) are severity 1 and blocked by the tool layer.
     code, out = _run_gate(REPO)

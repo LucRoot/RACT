@@ -30,6 +30,8 @@ from pathlib import Path
 
 DEFAULT_ROOT = Path(__file__).resolve().parent.parent
 
+SEVERITIES = ("S1", "S2", "S3")
+
 _STATUS_RE = re.compile(
     r"^(?:"
     r"open"
@@ -100,6 +102,11 @@ def validate(rows: list[Row]) -> list[str]:
     errors: list[str] = []
     for row in rows:
         where = f"{row.id} (line {row.line})"
+        if row.sev not in SEVERITIES:
+            errors.append(
+                f"{where}: severity {row.sev!r} is not S1, S2 or S3 (blank counts as wrong)"
+            )
+            continue
         if row.status is None:
             errors.append(f"{where}: no Status cell; the table needs a Status column")
             continue
