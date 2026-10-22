@@ -370,6 +370,14 @@ Read this before relying on any statement above.
   `OPENAI_API_KEY` fallback) was sent to whatever URL a `ract.yaml` named. It
   now goes only to a host paired with that variable outside the project
   (`docs/PROVIDER_SETUP.md`, security notes).
+- Fixed in v0.6: a `ract.yaml` could name any host as the model provider,
+  and RACT sent the user's request and the project context there. A provider
+  host that is not loopback and not one the operator chose (a preset,
+  `OPENAI_BASE_URL`, `RACT_KEY_HOSTS`) is now a trust item; an untrusted run
+  sends nothing to it and names the host. Residual: loopback is exempt so
+  that local model servers work, which means a repository can still aim
+  chat requests at any port on this machine; whatever listens there gets a
+  JSON chat body it did not expect.
 - Fixed in v0.6: the diff applier and the artifact writer accepted `..`
   and, for the diff applier, absolute paths. Both now go through
   `ract.workspace_path.resolve_workspace_path` (ADR-0047 D2).
