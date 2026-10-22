@@ -1,5 +1,5 @@
 # J7: Resume an earlier session
-# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:35
+# build: after the tool-call extraction ladder  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:35
 ## interactive session
  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
 ract> /session

@@ -1,5 +1,5 @@
 # J4: Fix the failing test
-# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:34
+# build: after the tool-call extraction ladder  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:34
 ## interactive session
  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
 ract> tests/test_calc.py::test_add fails, fix it

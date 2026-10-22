@@ -1,5 +1,5 @@
 # J1: First run in an empty directory, no config
-# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:32
+# build: after the tool-call extraction ladder  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:32
 ## bare `ract` without a terminal
 $ ract 
 usage: ract [-h] [--config CONFIG] [--dry-run]

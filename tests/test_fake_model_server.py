@@ -641,7 +641,7 @@ def test_provider_non_streaming_smoke(fake_model_server: Any, adapter: str) -> N
     assert sent.body["stream"] is False
     assert "authorization" not in sent.headers  # redacted by the recorder either way
     if adapter == "local_http":
-        assert "max_tokens" not in sent.body  # uncapped by default (ed27155)
+        assert "max_tokens" not in sent.body  # uncapped by default (Phase 0)
     else:
         assert sent.body["max_tokens"] == 512
 

@@ -115,7 +115,7 @@
     "model_requests": 1,
     "wall_s": 14.26,
     "notes": [
-      "re-measured at f0ba667 after the driver Ctrl-C fix; the first capture (85a56ca) never delivered Ctrl-C"
+      "re-measured after the UX-21 fix, once the driver delivered Ctrl-C; the first capture never delivered Ctrl-C"
     ]
   },
   "J7": {

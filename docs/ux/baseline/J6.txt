@@ -1,5 +1,5 @@
 # J6: Interrupt during a slow turn
-# build: f0ba667  terminal: 80x40 pseudo-terminal  run: 2026-10-21 18:19
+# build: after the UX-21 fix  terminal: 80x40 pseudo-terminal  run: 2026-10-21 18:19
 ## interactive session
  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
 ract> explain this project

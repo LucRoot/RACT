@@ -1,7 +1,8 @@
 # UX baseline: defects
 
-Build `85a56ca` (the session behavior is the same as `ed27155`; later commits
-add test fixtures and an unused parser). Captured on Windows 11 in a ConPTY
+Build: after the tool-call extraction ladder landed (the session behavior is
+the same as at the end of Phase 0; the later commits add test fixtures and
+an unused parser). Captured on Windows 11 in a ConPTY
 pseudo-terminal at 80 columns against the scripted fake model server, with
 `python -m tests.ux.run_baseline`. A full test suite was running on the same
 machine during capture, so absolute times are pessimistic; the relative
@@ -23,7 +24,7 @@ today's flow has no counterpart (no tools exist yet), the defect says so.
 | Id | Journey | Sev | What happens | Evidence | Card |
 |---|---|---|---|---|---|
 | UX-01 | J4 | S1 | A "fix the failing test" turn commits the step onto the user's current branch. HEAD moves to a `rootact step 1` commit that also contains `.ract/gravity_index.json`. The working file is left unfixed, and the index holds a staged change that reverts the commit. `git diff` shows nothing, so the user sees no change and has an extra commit. | `J4.txt` harness notes; reproduced separately with `git log --all` and `git status` | new (ADR-0047 D6 replaces this path) |
-| UX-02 | J6 | S1 | Ctrl-C during a turn takes effect only when the model call returns: the main thread is blocked in the HTTP read. With an 8 s model delay the prompt came back 5.9 s after Ctrl-C, with "interrupted. Nothing further was run for that line." Correction: the first capture reported 17.8 s and no acknowledgement; that was the walkthrough driver, which did not deliver Ctrl-C at all (fixed, see `tests/ux/terminal_driver.py`). J6 was re-measured with the fixed driver at `f0ba667`, same session code. | `J6.timeline.txt`, `metrics.json` J6 | B-033 |
+| UX-02 | J6 | S1 | Ctrl-C during a turn takes effect only when the model call returns: the main thread is blocked in the HTTP read. With an 8 s model delay the prompt came back 5.9 s after Ctrl-C, with "interrupted. Nothing further was run for that line." Correction: the first capture reported 17.8 s and no acknowledgement; that was the walkthrough driver, which did not deliver Ctrl-C at all (fixed, see `tests/ux/terminal_driver.py`). J6 was re-measured with the fixed driver after the UX-21 fix, same session code. | `J6.timeline.txt`, `metrics.json` J6 | B-033 |
 | UX-03 | J9 | S1 | After a failed turn, the next intent fails with "Session ... already exists. Use --resume to continue it or --force to overwrite." The session is stuck until the user runs `/session new`, which nothing suggests. | `J9.txt` | new (defect in `repl.py` session carry-over) |
 | UX-04 | J10, J1b | S1 | Provider down: 16 to 25 s of silence while three retries run, then a raw `[WinError 10061]` message. No hint, no named URL, no statement of workspace state. | `J10.txt`, `J1b.txt`, `metrics.json` | B-012 (`error.surfaced`), B-015 |
 | UX-05 | J1b | S1 | Following the printed first-run hint (`ract --init-provider local`) writes a config for a server that is not running. `ract doctor` then reports 7/7 checks passed. The first intent fails as in UX-04. | `J1b.txt` | B-015 |

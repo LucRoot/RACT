@@ -1,5 +1,5 @@
 # J1b: First run following the printed hint
-# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:33
+# build: after the tool-call extraction ladder  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:33
 ## following the hint: `ract --init-provider local`
 $ ract --init-provider local
 [ract] wrote default prompt to prompts\manager.txt

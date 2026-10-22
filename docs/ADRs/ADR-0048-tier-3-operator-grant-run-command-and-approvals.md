@@ -47,7 +47,7 @@ The design has to hold on Windows, the operator's primary platform.
 ## Enforcement today
 
 The threat model and ADR-0012 describe more enforcement than the code
-performs. This ADR is written against the code at `ed27155`:
+performs. This ADR is written against the code at the end of Phase 0:
 
 | Finding | Where | This ADR |
 |---|---|---|
@@ -440,7 +440,7 @@ does not enforce. `best_effort` permits it; every such command records
 command would use, and one line per property: filesystem, network,
 processes, environment, each `enforced`, `reported only` or `absent`. Until
 phase 2 lands it reports every platform as not enforcing, which is the truth
-at `ed27155`.
+at the end of Phase 0.
 
 ### D8. Git as tools
 

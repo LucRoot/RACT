@@ -444,8 +444,14 @@ def _redact(text: str, tmp: Path) -> str:
 
 
 def _build() -> str:
+    """The last commit's subject, for the transcript header.
+
+    LR:: Transcripts are tracked files, and tracked files cite subjects, tags
+    or card ids, never a commit hash: a history rewrite changes every hash
+    and leaves the citation pointing at nothing (BOARD G-025, S-023).
+    """
     head = subprocess.run(
-        ["git", "rev-parse", "--short", "HEAD"],
+        ["git", "log", "-1", "--format=%s"],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -456,7 +462,7 @@ def _build() -> str:
         capture_output=True,
         text=True,
     ).stdout.strip()
-    return head + ("+src-changes" if dirty else "")
+    return f'"{head}"' + (" +src-changes" if dirty else "")
 
 
 if __name__ == "__main__":

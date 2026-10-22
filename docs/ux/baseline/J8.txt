@@ -1,5 +1,5 @@
 # J8: Headless use
-# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:35
+# build: after the tool-call extraction ladder  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:35
 $ ract -p where is the config loader?
 usage: ract [-h] [--config CONFIG] [--dry-run]
             [--mode {default,documentation,git}] [--session SESSION_ID]

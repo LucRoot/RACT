@@ -13,7 +13,7 @@ Through v0.5.2 a plan step is one chat completion. The executor
 (`src/ract/executor/steps.py`, `Executor.execute`) sends the step to the
 provider, takes the visible answer, and writes it to `expected_artifact`.
 The model cannot read a second file, search the tree, edit part of a file,
-or see what its change did. Since `ed27155` the step at least sees the
+or see what its change did. Since Phase 0 (interactive session and setup fixes) the step at least sees the
 current contents of the file it replaces, but it still has to return the
 whole file in one answer.
 
@@ -33,14 +33,14 @@ write guards in `Executor.execute`, and `Rooted[T]` (`src/ract/rooted.py`).
 ## Enforcement today
 
 The design below builds on code that does less than the documentation says.
-These are the facts at `ed27155` that matter for a tool layer, with what this
+These are the facts at the end of Phase 0 that matter for a tool layer, with what this
 ADR does about each. Tier-3, handshake and key findings are in ADR-0048.
 
 | Finding | Where | This ADR |
 |---|---|---|
-| `DiffApplier` takes target paths from diff headers and accepts `../` and absolute paths. | `src/ract/diff_applier.py:102-112` | Closed in `bed555d` (S-001): every path goes through the D2 resolver. |
-| `Executor._write_artifact` refuses absolute paths but accepts `..`. | `src/ract/executor/steps.py:484-507` | Closed in `bed555d` (S-001) with the D2 resolver, together with the `DiffApplier` row above. |
-| The production `SubstrateLoop` gets no manifest, no sandbox backend and no handshake registry, its parent snapshot is the placeholder `"0" * 40`, and `run_via_substrate` gives steps no predicates, so every step commits unconditionally. In the UX baseline this path committed a step onto the user's branch (`docs/ux/baseline/defects.md`, UX-01). Stopgap shipped in `9cc9cd0`
+| `DiffApplier` takes target paths from diff headers and accepts `../` and absolute paths. | `src/ract/diff_applier.py:102-112` | Closed by S-001: every path goes through the D2 resolver. |
+| `Executor._write_artifact` refuses absolute paths but accepts `..`. | `src/ract/executor/steps.py:484-507` | Closed by S-001 with the D2 resolver, together with the `DiffApplier` row above. |
+| The production `SubstrateLoop` gets no manifest, no sandbox backend and no handshake registry, its parent snapshot is the placeholder `"0" * 40`, and `run_via_substrate` gives steps no predicates, so every step commits unconditionally. In the UX baseline this path committed a step onto the user's branch (`docs/ux/baseline/defects.md`, UX-01). Stopgap shipped as S-011
 (S-011): the production adapter no longer moves the operator's branch and
 copies each step's changes into the working tree as unstaged edits. D6 is
 the real fix. Failure to route a tool call through the loop is not silent: it logs a warning and emits `tool.invocation.bypassed`. | `src/ract/harness.py:372-376`, `src/ract/executor/substrate_adapter.py:206-214` | Closes for the agent loop: D6 requires a manifest, the D3 path policy and the step's predicates on every mutating step. The sandbox part is ADR-0048 D7. |
@@ -182,7 +182,7 @@ approval; that rule lives in ADR-0048 D4.
   edit only what it has read.
 - `write_file` on an existing file needs `expected_digest`; on a new file it
   needs `create=True` and refuses if the file exists. An empty body is
-  refused (the rule from `ed27155`).
+  refused (the rule from Phase 0).
 - `apply_patch` takes a unified diff and is all-or-nothing across hunks and
   files. Every header path goes through D2.
 - `delete_file` and `move_file` need `expected_digest`; `move_file` refuses
