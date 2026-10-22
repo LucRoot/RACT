@@ -160,6 +160,39 @@ providers:
 
 RACT expands `${...}` placeholders from the environment at runtime. Keep secrets out of the config file by using environment variables.
 
+## Provider presets
+
+`ract --init-provider <preset>` writes a starter `ract.yaml`. Cloud presets keep
+the key in an environment variable; the file holds only the `${NAME}` reference.
+Every preset is tested against the fake model server in this repository. No
+preset has been run against a real server yet.
+
+| Preset | Address | Key variable | How to start | Tested |
+|---|---|---|---|---|
+| `ollama` | `http://127.0.0.1:11434/v1` | none | start Ollama and pull a model; see Ollama's documentation | tested against the fake server |
+| `local` | `http://127.0.0.1:11434/v1` | none | the same as `ollama` (the older name) | tested against the fake server |
+| `llamacpp` | `http://127.0.0.1:8080/v1` | none | start `llama-server` with a model; see the llama.cpp server documentation | tested against the fake server |
+| `lmstudio` | `http://127.0.0.1:1234/v1` | none | load a model in LM Studio and start its local server | tested against the fake server |
+| `vllm` | `http://127.0.0.1:8000/v1` | none | start the vLLM OpenAI-compatible server with a model | tested against the fake server |
+| `openai` | `https://api.openai.com/v1` | `${OPENAI_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
+| `anthropic` | `https://api.anthropic.com/v1` | `${ANTHROPIC_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
+| `zai` | `https://api.z.ai/v1` | `${ZAI_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
+| `moonshot` | `https://api.moonshot.cn/v1` | `${MOONSHOT_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
+| `openrouter` | `https://openrouter.ai/api/v1` | `${OPENROUTER_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
+
+For the local presets, the test sends a chat request to the fake server through the
+provider class. For the cloud presets, the test checks the configuration and the
+key pairing only; no request is sent. Their "tested" entry means that check, and
+it is not a request test.
+
+The "How to start" column names the tool's own documentation. Those start
+commands are not checked in this repository, so treat them as unverified.
+
+The `llamacpp`, `lmstudio` and `vllm` presets leave `model` as a placeholder.
+A llama.cpp server in router mode serves several models and needs one of them
+named. Read the names with `GET /v1/models` on the server, then put one in
+`model`.
+
 ## Multiple providers
 
 You can define more than one provider. The manager uses `manager_provider` to choose which model plans the work. Each step can then request a provider by hint:

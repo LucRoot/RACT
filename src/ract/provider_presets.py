@@ -28,6 +28,58 @@ PRESETS: dict[str, dict[str, Any]] = {
         "prompts_dir": "prompts",
         "context_budget_tokens": 4096,
     },
+    "ollama": {
+        "project": {"name": "my-ract-project"},
+        "manager_provider": "ollama",
+        "providers": {
+            "ollama": {
+                "adapter": "local_http",
+                "url": "http://127.0.0.1:11434/v1",
+                "model": "local-model",
+            }
+        },
+        "prompts_dir": "prompts",
+        "context_budget_tokens": 4096,
+    },
+    "llamacpp": {
+        "project": {"name": "my-ract-project"},
+        "manager_provider": "llamacpp",
+        "providers": {
+            "llamacpp": {
+                "adapter": "local_http",
+                "url": "http://127.0.0.1:8080/v1",
+                "model": "<set the model name your server lists>",
+            }
+        },
+        "prompts_dir": "prompts",
+        "context_budget_tokens": 4096,
+    },
+    "lmstudio": {
+        "project": {"name": "my-ract-project"},
+        "manager_provider": "lmstudio",
+        "providers": {
+            "lmstudio": {
+                "adapter": "local_http",
+                "url": "http://127.0.0.1:1234/v1",
+                "model": "<set the model name your server lists>",
+            }
+        },
+        "prompts_dir": "prompts",
+        "context_budget_tokens": 4096,
+    },
+    "vllm": {
+        "project": {"name": "my-ract-project"},
+        "manager_provider": "vllm",
+        "providers": {
+            "vllm": {
+                "adapter": "local_http",
+                "url": "http://127.0.0.1:8000/v1",
+                "model": "<set the model name your server serves>",
+            }
+        },
+        "prompts_dir": "prompts",
+        "context_budget_tokens": 4096,
+    },
     "openai": {
         "project": {"name": "my-ract-project"},
         "manager_provider": "openai",
