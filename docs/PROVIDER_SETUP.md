@@ -206,6 +206,16 @@ providers:
 - `retry_max_delay`: cap on the delay between retries.
 - `retry_on_429`: whether to retry HTTP 429 rate-limit responses.
 
+Server errors (5xx), 408 and 429 are retried. Other 4xx errors are not, because
+a retry will not fix a wrong key or a bad request. When the server sends a
+`Retry-After` header, RACT waits for the time it asks for, up to 120 seconds.
+A longer wait stops the retries. While RACT waits, it says so on the terminal,
+for example: `the provider is rate-limiting; trying again in 8 s (attempt 2 of 4)`.
+Pressing Ctrl-C ends the wait within a quarter of a second.
+
+A streamed answer is retried only before its first piece of text reaches the
+screen. After that, a dropped connection ends the answer, so no text is shown twice.
+
 ## Streaming
 
 If the adapter advertises the `streaming` capability, RACT can stream deltas as they arrive:
@@ -215,6 +225,29 @@ ract "explain this code" --config ract.yaml --stream
 ```
 
 Streaming is optional; if the adapter does not support it, RACT falls back to a non-streaming completion.
+
+## Checking what a provider can do
+
+`ract doctor --check-providers` sends a few small requests to each configured
+provider and reports what it can do: chat, streaming, native tool calling,
+reasoning text and context size. Each line is a fact from one of those
+requests, or `unknown` with the reason. A gap has a next step. A server that
+does not support tool calls still works: RACT uses its text fallback, which
+is fine for small steps. The report never prints a key. `--json` prints the
+same facts as data.
+
+A provider whose key variable is not set is not contacted. The report names
+the variable to set.
+
+## Reasoning effort
+
+`/set reasoning off|low|medium|high` asks a reasoning model to think less or more.
+It applies to the current session only, and starts at `off` in each new session.
+With `off`, no request carries the setting. A provider that has no setting for it
+gets its requests unchanged, and RACT prints one line that says the setting is
+ignored. Only the OpenAI endpoint is mapped so far. That mapping is unverified
+against the repository documentation, so treat it as a best guess until it is
+checked against a real server.
 
 ## Capability-based routing
 

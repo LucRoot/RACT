@@ -18,6 +18,7 @@ from typing import Any
 import httpx
 
 from ract.providers.base import ProviderAdapter
+from ract.providers import reasoning
 from ract.providers.rate_limit import TokenBucket
 from ract import egress_ledger, egress_scan, turn_context
 from ract.retry_policy import (
@@ -372,6 +373,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
         cap = self._effective_max_tokens(max_tokens)
         if cap is not None:
             payload["max_tokens"] = cap
+        payload = reasoning.apply(payload, url=self.url, provider=self.name)
         # S-022: the last check before anything leaves for the provider, over
         # every string in the payload (tool-call arguments included).
         payload, redacted = egress_scan.scan_payload(payload)

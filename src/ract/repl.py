@@ -29,6 +29,8 @@ from typing import Any
 
 from rich.markup import escape
 
+from ract.providers import reasoning
+
 # Verbs that accept ``--config`` and should follow the session's config path
 # when the operator did not pass one.
 _CONFIG_AWARE_VERBS = frozenset({"doctor", "report"})
@@ -145,6 +147,7 @@ class ReplSession:
         # executor's approval reads, so label and behavior cannot differ.
         if self._event_mode and sys.stdin.isatty():
             self.state.auto = True
+        reasoning.reset_session_effort()
         self._dispatch = dispatch
         self._read_line = read_line or input
         self._console = console
@@ -448,6 +451,7 @@ class ReplSession:
                 f"{s.session_id}{' (resumes next turn)' if s.session_started else ''}",
             ],
             ["turns this session", str(s.turns)],
+            ["reasoning effort", reasoning.session_effort()],
         ]
         self._console.table("Settings", ["setting", "value"], rows)
         return True
@@ -455,7 +459,7 @@ class ReplSession:
     def _cmd_set(self, args: list[str]) -> bool:
         if len(args) != 2:
             self._console.error(
-                "usage: /set <dry-run|stream|auto|mode|iterations> <value>"
+                "usage: /set <dry-run|stream|auto|mode|iterations|reasoning> <value>"
             )
             return True
         name, value = args[0].lower().replace("_", "-"), args[1].lower()
@@ -474,6 +478,12 @@ class ReplSession:
                 self._console.error("mode is default, documentation or git")
                 return True
             s.mode = value
+        elif name == "reasoning":
+            try:
+                reasoning.set_session_effort(value)
+            except ValueError as exc:
+                self._console.error(escape(str(exc)))
+                return True
         elif name == "iterations":
             try:
                 count = int(value)
