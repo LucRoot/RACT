@@ -155,7 +155,52 @@ def _save_session(
     store.save(session_id, asdict(state))
 
 
+def _configured_budget(config_path: Path) -> int | None:
+    """``token_budget`` from the config, or None. An unreadable config gives None;
+    _run_ract reports that as it always has."""
+    import yaml  # noqa: PLC0415 -- read once per run, before the cycle starts
+
+    from ract import run_token_budget as token_budget  # noqa: PLC0415
+
+    try:
+        data = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return token_budget.parse(data.get(token_budget.KEY))
+
+
 def run_ract(
+    config_path: Path, intent: str, **kwargs: Any
+) -> Rooted[ExecutionReport | Plan]:
+    """Run one RACT cycle inside the run's token budget (B-065).
+
+    The budget is read from ``token_budget`` in the config. Every request the
+    run makes counts against it; see ``ract.run_token_budget``.
+    """
+    from ract import run_token_budget as token_budget  # noqa: PLC0415
+
+    override = kwargs.pop("token_budget", None)
+    try:
+        limit = (
+            token_budget.parse(override)
+            if override is not None
+            else _configured_budget(config_path)
+        )
+    except token_budget.BudgetConfigError as exc:
+        return Rooted(
+            value=None,
+            assumption="token_budget is valid.",
+            confidence=0.0,
+            provenance=["ract_runner.run_ract"],
+            error=str(exc),
+        )
+    with token_budget.run_budget(limit):
+        return _trusted_run(config_path, intent, **kwargs)
+
+
+def _trusted_run(
     config_path: Path, intent: str, **kwargs: Any
 ) -> Rooted[ExecutionReport | Plan]:
     """Run a complete RACT cycle for *intent* (see ``_run_ract``).

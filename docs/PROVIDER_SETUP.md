@@ -296,6 +296,28 @@ Only `--check-providers` does, and the live advice needs it.
 - A `${VAR}` key is checked for presence only. The value is never shown.
   The line names the variable and, when it is not paired, the host.
 
+## Token budget
+
+`token_budget` in `ract.yaml` sets a hard limit on the tokens one run may use:
+a whole number above zero, or leave it out (or set it to `null`) for no limit.
+
+```yaml
+token_budget: 200000
+```
+
+The count is the input and output tokens each provider reports for its
+responses. A request that would start with the count at or over the limit is
+not sent. The run stops with the message `stopped: this run used N tokens;
+token_budget is M`, and exits with code 4.
+
+- A response with no usage numbers is not counted. The run says once that the
+  budget is not enforced for that provider.
+- A retry counts only when its response reports usage.
+- A value that is not a positive whole number (for example `0`, `-5`, `many`
+  or `1.5`) is an error, and `ract doctor` names the key.
+
+`--token-budget N` on `ract run` or `ract -p` overrides the file for that run.
+
 ## Capability-based routing
 
 The router scores providers by how well they match a step's hint. A provider named or tagged for a hint is preferred. If no specific match exists, the first configured provider is used.

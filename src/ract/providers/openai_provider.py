@@ -21,6 +21,7 @@ from ract.providers.base import ProviderAdapter
 from ract.providers import reasoning
 from ract.providers.rate_limit import TokenBucket
 from ract import egress_ledger, egress_scan, turn_context
+from ract import run_token_budget as token_budget
 from ract.retry_policy import (
     RetryConfig,
     RetryPolicy,
@@ -415,6 +416,15 @@ class OpenAICompatibleProvider(ProviderAdapter):
             temperature=temperature,
             stream=False,
         )
+        budget = token_budget.current()
+        if budget is not None and budget.exhausted():
+            return Rooted(
+                value=None,
+                assumption="The run is within its token budget.",
+                confidence=0.0,
+                provenance=["openai.complete"],
+                error=budget.stop_message(),
+            )
         start = time.perf_counter()
         with turn_context.on_abort(self.client.close):
             data, last_error = self._retry_policy.execute(
@@ -427,6 +437,9 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 cancelled=turn_context.cancelled,
             )
         latency_ms = int((time.perf_counter() - start) * 1000)
+
+        if last_error is None and budget is not None and data is not None:
+            budget.add_usage(data.get("usage"), self.name)
 
         if last_error is not None:
             if isinstance(last_error, httpx.HTTPStatusError):
@@ -523,6 +536,16 @@ class OpenAICompatibleProvider(ProviderAdapter):
         if refusal is not None:
             yield refusal
             return
+        budget = token_budget.current()
+        if budget is not None and budget.exhausted():
+            yield Rooted(
+                value=None,
+                assumption="The run is within its token budget.",
+                confidence=0.0,
+                provenance=["openai.complete_stream"],
+                error=budget.stop_message(),
+            )
+            return
         payload = self._build_payload(
             messages,
             model=model,
@@ -563,6 +586,8 @@ class OpenAICompatibleProvider(ProviderAdapter):
                             except json.JSONDecodeError:
                                 continue
                             streamed = True
+                            if budget is not None and chunk.get("usage"):
+                                budget.add_usage(chunk["usage"], self.name)
                             yield Rooted(
                                 value=chunk,
                                 assumption="The provider returned a valid streaming chunk.",

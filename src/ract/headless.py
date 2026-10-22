@@ -67,6 +67,14 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
     parser.add_argument(
+        "--token-budget",
+        dest="token_budget",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Stop before a request that would start at or over N tokens for this run.",
+    )
+    parser.add_argument(
         "--bare",
         action="store_true",
         help="load no repository-supplied extension (hooks, MCP servers, skills); "
@@ -310,6 +318,7 @@ def _run(
         ask=args.ask,
         write_lock=threading.RLock(),
         refuse_changes=not args.accept_edits,
+        token_budget=args.token_budget,
     )
 
     # A trusted repository's extensions run (`ract trust` was the operator's

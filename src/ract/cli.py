@@ -4655,6 +4655,15 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="Path to a project document JSON file whose goal/notes prepend the intent.",
     )
+    parser.add_argument(
+        "--token-budget",
+        dest="token_budget",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Stop before a request that would start at or over N tokens for this run. "
+        "Overrides token_budget in ract.yaml.",
+    )
     # v0.5.1 wiring module_10 (Lens A N2): --yolo and --auto share a
     # single mutually-exclusive group so argparse rejects the combination
     # at parse time. Prior behavior silently let --auto win over --yolo.
@@ -4961,6 +4970,7 @@ def main(argv: list[str] | None = None) -> int:
     result = run_ract(
         args.config,
         args.intent,
+        token_budget=args.token_budget,
         dry_run=args.dry_run,
         mode=args.mode,
         session_id=args.session_id,

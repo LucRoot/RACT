@@ -68,6 +68,13 @@ def find_config_problems(config: dict[str, Any]) -> list[str]:
             "(the bundled default is used when that file is absent)."
         )
 
+    from ract.run_token_budget import BudgetConfigError, parse
+
+    try:
+        parse(config.get("token_budget"))
+    except BudgetConfigError as exc:
+        problems.append(str(exc))
+
     providers = config.get("providers")
     if isinstance(providers, dict):
         for name, settings in providers.items():

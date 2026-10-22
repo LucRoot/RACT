@@ -49,6 +49,8 @@ class TurnRequest:
     # `default` mode with no terminal to ask (`ract -p` without
     # `--accept-edits`): a step that changes a file is refused (B-034).
     refuse_changes: bool = False
+    # A per-run token budget from --token-budget; None uses token_budget in ract.yaml (B-065).
+    token_budget: int | None = None
 
 
 # (pattern on the error text, hint). First match wins. Every hint names the
@@ -118,6 +120,8 @@ _DEFAULT_HINT = "run `ract doctor --check-providers` to check the setup, then tr
 # codes"), checked in order: a connection refused is "provider unavailable",
 # not "refused by policy".
 _EXIT_CODES: tuple[tuple[re.Pattern[str], int], ...] = (
+    # A run that used its token_budget (B-065): exit 4, a budget was exhausted.
+    (re.compile(r"stopped: this run used", re.I), 4),
     (
         re.compile(
             r"actively refused|unreachable|Request failed|ConnectError|timed out"
@@ -272,6 +276,7 @@ def run_turn(
             result: Any = run_ract(
                 request.config,
                 request.intent,
+                token_budget=request.token_budget,
                 dry_run=request.dry_run,
                 mode=request.mode,
                 session_id=request.session_id,
@@ -373,7 +378,11 @@ def run_turn(
             workspace=workspace,
             turn=turn,
         )
-        finished("failed", "The turn failed.", [])
+        if error_text.startswith("stopped: this run used"):
+            # A token budget stop (B-065): its own outcome, exit 4.
+            finished("budget", "Stopped: the run used its token budget.", [])
+        else:
+            finished("failed", "The turn failed.", [])
         return exit_code_for(error_text)
 
     value = result.unwrap()
