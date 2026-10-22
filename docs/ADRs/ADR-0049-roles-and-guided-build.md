@@ -293,12 +293,16 @@ plan checklist uses (B-053a, one renderer):
 - `approve`: run the plan as shown.
 - `skip <n>`: drop step n and every step that depends on it, and name them.
   Step m depends on step n when m targets the file n targets, or m's action
-  names n's target path. A skipped step is reported as "skipped by you".
+  names n's target path. That second test is a text match on model text, so
+  it can miss a dependency; a missed one fails safe (the dependent step
+  fails with a plain error and writes nothing it should not), and since the
+  dependents found are named, the user can skip more. A skipped step is
+  reported as "skipped by you".
 - `edit <n>`: change step n's text or target once. The edited plan goes
   through the plan validator, the workspace path rules and `answer_instead`,
   and is shown again; nothing has run. No model is called for an edit.
 - `cancel`: nothing runs and no file changes; in a session the turn ends
-  with outcome `refused` and exit 0.
+  with outcome `refused` (an existing `turn.finished` outcome) and exit 0.
 
 Nothing the user types is run: an edited step is data for the validator,
 and every string shown passes `safe_text`.
@@ -306,14 +310,20 @@ and every string shown passes `safe_text`.
 **After approval.** A step whose target is on the approved plan runs
 without asking again. A step that would write a file the approved plan did
 not list (a diff that touches another file, for example) still asks, so an
-approval covers exactly what the user saw.
+approval covers exactly what the user saw. The approval replaces only the
+question. An approved step still passes every gate: the write gate, the
+path rules, the secret scan, the tier checks and the trust store.
+
+**`plan_hash`** is the sha256 of the canonical JSON (sorted keys) of the
+steps' `n`, `action` and `target`. The assumption and confidence are left
+out, so a re-planned plan with the same steps does not ask twice.
 
 **Events** (added to `docs/EVENTS_SESSION.md` when the code lands, after
 the MANAGER reviews this list):
 
 | Kind | Fields |
 |---|---|
-| `plan.approval_requested` | `plan_hash` (string, sha256 of the canonical plan), `steps` (as in `plan.proposed`) |
+| `plan.approval_requested` | `plan_hash` (string, as defined above), `steps` (as in `plan.proposed`) |
 | `plan.approval_answered` | `plan_hash`, `answer` (`approve`, `skip`, `edit`, `cancel`), `kept` (list of step numbers), `skipped` (list of `{n, reason}`, where reason is `user` or `depends on step <k>`), `edited` (step number or null) |
 
 An `edit` emits `plan.approval_answered` with `answer` `edit`, then a new
@@ -330,7 +340,7 @@ Consumers that read only `plan.proposed` see nothing different.
 
 **If decision O is answered differently.** If the OPERATOR keeps per-step
 questions only: `plan.approval_requested` is never emitted, and nothing
-else in this section changes. If he wants approval for every plan,
+else in this section changes. If the OPERATOR wants approval for every plan,
 including one step: the threshold drops from two steps to one and the
 per-step question for a one-step plan goes away. The event shape is the
 same under every answer.
