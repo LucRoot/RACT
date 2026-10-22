@@ -257,8 +257,99 @@ def summary(records: list[dict[str, Any]]) -> dict[str, Any]:
     return {**total, "by_host": by_host}
 
 
+# Sites that send no content, so the secret scan has nothing to check.
+EXEMPT: tuple[tuple[str, str], ...] = (
+    (
+        "provider health check (GET /models)",
+        "sends only the API key, to its own provider",
+    ),
+    ("GitHub release list", "sends only the token"),
+    ("skill marketplace catalog and downloads", "downloads only"),
+    (
+        "embedding model download (ract memory, RACT_EMBED_ONLINE=1)",
+        "made by the sentence-transformers library; not recorded",
+    ),
+    ("language-server downloads (ract memory)", "made by multilspy; not recorded"),
+)
+
+
+def now() -> str:
+    """The current time in the ledger's format, for ``since``."""
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+
+
+def since(
+    records: list[dict[str, Any]], start: str, *, this_process: bool = False
+) -> list[dict[str, Any]]:
+    """Records at or after ``start`` (from ``now()``), optionally this process's only."""
+    pid = os.getpid()
+    return [
+        r
+        for r in records
+        if str(r.get("t", "")) >= start and (not this_process or r.get("pid") == pid)
+    ]
+
+
+def cost(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """The ``cost`` object of ract.result/1 for these records.
+
+    Token totals are null when no model request reported any; a partly
+    reported set counts what was reported and says how many were not.
+    """
+    totals = summary(records)
+    model = [r for r in records if r.get("kind") == "model"]
+    reported = len(model) - totals["unreported"]
+    by_purpose: dict[str, int] = {}
+    for r in model:
+        n = int(r.get("tokens_in") or 0) + int(r.get("tokens_out") or 0)
+        by_purpose[str(r.get("purpose"))] = by_purpose.get(str(r.get("purpose")), 0) + n
+    return {
+        "tokens_in": totals["tokens_in"] if reported else None,
+        "tokens_out": totals["tokens_out"] if reported else None,
+        "by_purpose": by_purpose if reported else {},
+        "total_usd": None,
+        "requests": totals["requests"],
+        "unreported": totals["unreported"],
+        "bytes_out": totals["bytes_out"],
+        "bytes_in": totals["bytes_in"],
+    }
+
+
+def describe(records: list[dict[str, Any]]) -> list[str]:
+    """Plain lines for /cost and `ract doctor --egress`."""
+    if not records:
+        return ["no requests left this machine"]
+    totals = summary(records)
+
+    def line(label: str, s: dict[str, Any]) -> str:
+        tokens = (
+            "tokens not reported"
+            if s["tokens_in"] == 0 and s["tokens_out"] == 0 and s["unreported"]
+            else f"{s['tokens_in']} tokens in, {s['tokens_out']} out"
+            + (
+                f" ({s['unreported']} requests did not report)"
+                if s["unreported"]
+                else ""
+            )
+        )
+        return (
+            f"{label}: {s['requests']} request{'s' if s['requests'] != 1 else ''}, "
+            f"{tokens}, {s['bytes_out']} bytes sent, {s['bytes_in']} received"
+        )
+
+    lines = [line("total", totals)]
+    for host, s in sorted(totals["by_host"].items()):
+        lines.append("  " + line(host, s))
+    return lines
+
+
 __all__ = [
+    "EXEMPT",
     "LedgerTransport",
+    "cost",
+    "describe",
+    "now",
+    "since",
     "client",
     "ledger_path",
     "purpose",

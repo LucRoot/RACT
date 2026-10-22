@@ -6,6 +6,7 @@ never content (no path, query, header or body).
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -205,3 +206,113 @@ def test_no_httpx_request_bypasses_the_ledger() -> None:
             if _HTTPX_CALL.search(line):
                 offenders.append(f"{path.relative_to(SRC)}:{n}: {line.strip()}")
     assert not offenders, "use ract.egress_ledger.client():\n" + "\n".join(offenders)
+
+
+# ------------------------------------------------------------------ readers
+
+
+def _plan_and_fix(usage: bool) -> Any:
+    from tests.fixtures.fake_model_server import Scenario
+    from tests.test_session_turn import FIXED, _plan
+
+    return Scenario.from_dict(
+        {
+            "usage": usage,
+            "turns": [
+                {"reply": {"kind": "text", "content": _plan("src/calc.py")}},
+                {"reply": {"kind": "text", "content": FIXED}},
+            ],
+        }
+    )
+
+
+def test_headless_json_cost_comes_from_the_ledger(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    server = fake_model_server(_plan_and_fix(usage=True))
+    ws = _repo(tmp_path, server.base_url)
+
+    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+
+    assert result.returncode == 0, result.stderr
+    cost = json.loads(result.stdout)["cost"]
+    assert cost["requests"] == 2 and cost["unreported"] == 0
+    assert cost["tokens_in"] > 0 and cost["tokens_out"] > 0
+    assert set(cost["by_purpose"]) == {"plan", "step 1"}
+    assert cost["total_usd"] is None
+
+
+def test_unreported_tokens_are_null_not_zero(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    server = fake_model_server(_plan_and_fix(usage=False))
+    ws = _repo(tmp_path, server.base_url)
+
+    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+
+    cost = json.loads(result.stdout)["cost"]
+    assert (cost["tokens_in"], cost["tokens_out"]) == (None, None)
+    assert cost["requests"] == 2 and cost["unreported"] == 2
+
+
+def test_cost_in_the_session_shows_only_this_session(ledger: Path) -> None:
+    import os
+
+    from tests.test_repl import _session
+
+    egress_ledger.write(
+        {
+            "t": "2000-01-01T00:00:00.000+00:00",
+            "pid": os.getpid(),
+            "kind": "model",
+            "host": "old.example",
+            "tokens_in": 9,
+        }
+    )
+    session, _, console = _session()
+    egress_ledger.write(
+        {
+            "t": egress_ledger.now(),
+            "pid": os.getpid(),
+            "kind": "model",
+            "host": "127.0.0.1",
+            "purpose": "plan",
+            "bytes_out": 10,
+            "bytes_in": 20,
+            "tokens_in": 3,
+            "tokens_out": 4,
+        }
+    )
+
+    session.handle("/cost")
+
+    assert (
+        "total: 1 request, 3 tokens in, 4 out, 10 bytes sent, 20 received"
+        in console.text
+    )
+    assert "old.example" not in console.text
+    assert str(ledger) in console.text
+
+
+def test_doctor_egress_lists_history_and_exempt_sites(
+    ledger: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from ract import cli
+
+    egress_ledger.write(
+        {
+            "t": egress_ledger.now(),
+            "pid": 1,
+            "kind": "mcp",
+            "host": "mcp.example.invalid",
+            "bytes_out": 5,
+            "bytes_in": 6,
+        }
+    )
+
+    assert cli.main(["doctor", "--egress", "--json"]) == 0
+
+    out = json.loads(capsys.readouterr().out)
+    assert out["ledger"] == str(ledger)
+    assert out["summary"]["by_host"]["mcp.example.invalid"]["requests"] == 1
+    assert {e["site"] for e in out["exempt"]} >= {"GitHub release list"}

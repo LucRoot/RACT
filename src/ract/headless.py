@@ -29,6 +29,7 @@ import uuid
 from pathlib import Path
 from typing import Any, TextIO
 
+from ract import egress_ledger
 from ract.session_events import EventStream, JsonlSink, SessionEvent
 from ract.session_render import PlainRenderer
 
@@ -184,7 +185,11 @@ def build_prompt(argument: str | None, piped: str) -> str:
 
 
 def result_object(
-    events: list[SessionEvent], *, session: str, exit_code: int
+    events: list[SessionEvent],
+    *,
+    session: str,
+    exit_code: int,
+    cost: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The `ract.result/1` object, assembled from the session's events."""
     finished = next((e.data for e in reversed(events) if e.kind == "turn.finished"), {})
@@ -207,13 +212,10 @@ def result_object(
         or {"status": "not-run", "runs": []},
         "provenance": finished.get("provenance")
         or {"signed": False, "unsigned_files": []},
-        # Token counts are not collected yet; null means unknown.
-        "cost": {
-            "tokens_in": None,
-            "tokens_out": None,
-            "by_purpose": {},
-            "total_usd": None,
-        },
+        # From the egress ledger (B-044); token counts are null when the
+        # provider reported none.
+        "cost": cost
+        or {"tokens_in": None, "tokens_out": None, "by_purpose": {}, "total_usd": None},
         "denials": [],
         "events_path": None,
     }
@@ -279,6 +281,7 @@ def _run(
     from ract.turn_context import CancelSignal, repository_extensions_off
 
     cancel = CancelSignal()
+    ledger_start = egress_ledger.now()
     terminated = threading.Event()
     done = threading.Event()
     box: dict[str, int] = {}
@@ -359,17 +362,41 @@ def _run(
         cancel.set()
         done.wait(_INTERRUPT_GRACE_SECONDS)
         return _finish(
-            stream, events, args, session, out, EXIT_INTERRUPTED, "interrupted", started
+            stream,
+            events,
+            args,
+            session,
+            out,
+            EXIT_INTERRUPTED,
+            "interrupted",
+            started,
+            ledger_start=ledger_start,
         )
     finally:
         _restore_handlers(previous)
     if terminated.is_set():
         done.wait(_INTERRUPT_GRACE_SECONDS)
         return _finish(
-            stream, events, args, session, out, EXIT_TERMINATED, "terminated", started
+            stream,
+            events,
+            args,
+            session,
+            out,
+            EXIT_TERMINATED,
+            "terminated",
+            started,
+            ledger_start=ledger_start,
         )
     return _finish(
-        stream, events, args, session, out, box.get("code", 1), "exit", started
+        stream,
+        events,
+        args,
+        session,
+        out,
+        box.get("code", 1),
+        "exit",
+        started,
+        ledger_start=ledger_start,
     )
 
 
@@ -382,6 +409,8 @@ def _finish(
     code: int,
     reason: str,
     started: float,
+    *,
+    ledger_start: str,
 ) -> int:
     if code in (EXIT_INTERRUPTED, EXIT_TERMINATED) and not any(
         e.kind == "turn.finished" for e in events
@@ -408,10 +437,13 @@ def _finish(
             "duration_ms": int((time.monotonic() - started) * 1000),
         },
     )
+    turn_cost = egress_ledger.cost(
+        egress_ledger.since(egress_ledger.read(), ledger_start, this_process=True)
+    )
     if args.output_format == "json":
         out.write(
             json.dumps(
-                result_object(events, session=session, exit_code=code),
+                result_object(events, session=session, exit_code=code, cost=turn_cost),
                 ensure_ascii=False,
             )
             + "\n"

@@ -1380,6 +1380,44 @@ def _plan_command(args: list[str]) -> int:
     return 0 if report.success else 1
 
 
+def _doctor_egress(*, json_output: bool) -> int:
+    """`ract doctor --egress`: the last 7 days of the egress ledger (B-044)."""
+    from datetime import datetime, timedelta, timezone
+
+    from ract import egress_ledger
+
+    start = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat(
+        timespec="milliseconds"
+    )
+    records = egress_ledger.since(egress_ledger.read(), start)
+    path = egress_ledger.ledger_path()
+    if json_output:
+        print(
+            json.dumps(
+                {
+                    "ledger": str(path),
+                    "since": start,
+                    "summary": egress_ledger.summary(records),
+                    "exempt": [
+                        {"site": site, "reason": why}
+                        for site, why in egress_ledger.EXEMPT
+                    ],
+                },
+                indent=2,
+            )
+        )
+        return 0
+    console.rule("Egress: the last 7 days")
+    for line in egress_ledger.describe(records):
+        console.print(line)
+    console.print(f"ledger: {path}")
+    console.print("Sent without a secret scan because they carry no content:")
+    for site, why in egress_ledger.EXEMPT:
+        console.print(f"  {site}: {why}")
+    console.print("Every site and its checks: docs/EGRESS.md")
+    return 0
+
+
 def _doctor_command(args: list[str]) -> int:
     """Handle 'ract doctor [--config <path>] [--check-providers]'.
 
@@ -1414,7 +1452,15 @@ def _doctor_command(args: list[str]) -> int:
             "(default 14). Each one records what a step committed."
         ),
     )
+    parser.add_argument(
+        "--egress",
+        action="store_true",
+        help="Show what left this machine in the last 7 days (the egress ledger) "
+        "and the sites exempt from the secret scan.",
+    )
     parsed = parser.parse_args(args)
+    if parsed.egress:
+        return _doctor_egress(json_output=parsed.json_output)
 
     from ract.executor.worktree import list_step_branches, prune_step_branches
 

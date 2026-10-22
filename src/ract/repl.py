@@ -50,6 +50,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ),
     ("/config", "Validate the active config (same as ract config validate)."),
     ("/providers", "List configured providers and the manager provider."),
+    ("/cost", "Requests, tokens and bytes sent off this machine in this session."),
     ("/doctor [--check-providers]", "Run setup diagnostics against the active config."),
     ("/report [--last]", "Show what the last run changed and why."),
     (
@@ -81,6 +82,14 @@ class ReplState:
     # starts the session again instead of resuming one that does not exist.
     session_started: bool = False
     turns: int = 0
+    # When the session began, in the egress ledger's time format (/cost).
+    started_at: str = field(default_factory=lambda: _ledger_now())
+
+
+def _ledger_now() -> str:
+    from ract import egress_ledger
+
+    return egress_ledger.now()
 
 
 Dispatch = Callable[[list[str]], int]
@@ -140,6 +149,7 @@ class ReplSession:
             "providers": self._cmd_providers,
             "doctor": self._cmd_doctor,
             "report": self._cmd_report,
+            "cost": self._cmd_cost,
             "clear": self._cmd_clear,
         }
         self._events: Any = None
@@ -283,6 +293,19 @@ class ReplSession:
 
     def _cmd_report(self, args: list[str]) -> bool:
         self._run_verb("report", args or ["--last"])
+        return True
+
+    def _cmd_cost(self, args: list[str]) -> bool:
+        from ract import egress_ledger
+
+        records = egress_ledger.since(
+            egress_ledger.read(), self.state.started_at, this_process=True
+        )
+        for line in egress_ledger.describe(records):
+            self._console.print(line)
+        self._console.print(
+            f"ledger: {egress_ledger.ledger_path()} (ract doctor --egress for history)"
+        )
         return True
 
     def _cmd_config(self, args: list[str]) -> bool:
