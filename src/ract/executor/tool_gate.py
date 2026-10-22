@@ -709,6 +709,16 @@ _EXEMPT_SITES: dict[str, str] = {
         "for anti-lazy patchdiff analysis. Called from anti-lazy "
         "dispatch chain, not from model tool_use."
     ),
+    "setup/host_probe.py": (
+        "operator-invoked-diagnostic: `ract setup` reads git --version "
+        "and, on macOS, sysctl and vm_stat for memory size. Fixed "
+        "argument lists, no model involvement."
+    ),
+    "setup/wizard.py": (
+        "operator-invoked: `ract setup` runs git rev-parse to see whether "
+        "the directory is a repository, and git init only when the "
+        "operator answers yes or sets git_init in the answers file."
+    ),
 }
 
 

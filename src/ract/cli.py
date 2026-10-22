@@ -84,6 +84,7 @@ def toggle_mode(mode: str) -> str:
 # entry fails CI.
 CLI_VERBS: tuple[str, ...] = (
     "run",
+    "setup",
     "trust",
     "skills",
     "mcp",
@@ -4296,6 +4297,10 @@ def main(argv: list[str] | None = None) -> int:
         # Bare ``ract`` in a terminal opens the interactive session.
         # Scripts and CI (no TTY) keep the "intent is required" error.
         return _repl_command([])
+    if argv and argv[0] == "setup":
+        from ract.setup import wizard
+
+        return wizard.main(argv[1:])
     if argv and argv[0] == "trust":
         return _trust_command(argv[1:])
     if argv and argv[0] == "skills":

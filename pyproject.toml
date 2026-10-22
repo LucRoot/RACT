@@ -91,6 +91,7 @@ include = [
     "src/ract/py.typed",
     "src/ract/default_prompts/manager.txt",
     "src/ract/project_templates/*.json",
+    "src/ract/setup/model_tiers.yaml",
 ]
 
 [tool.pytest.ini_options]

@@ -1,0 +1,51 @@
+# Local model guidance for `ract setup` (B-015).
+#
+# Guidance, not a guarantee: sizes are approximate for 4-bit (Q4_K_M)
+# weights, and "needs_gb" adds room for the context window and the runtime.
+# Setup recommends the largest entry whose needs_gb fits the memory the user
+# dedicates. Public models only. Change this file, not the code, when better
+# models appear, and update `reviewed`.
+reviewed: "2026-10-22"
+tiers:
+  - id: qwen2.5-coder-1.5b
+    display: Qwen2.5-Coder 1.5B Instruct
+    weights_gb: 1.0
+    needs_gb: 2.5
+    note: small and fast; fine for questions, weak at larger edits
+    ollama: qwen2.5-coder:1.5b
+    llama_cpp_hf: Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF:Q4_K_M
+  - id: qwen2.5-coder-3b
+    display: Qwen2.5-Coder 3B Instruct
+    weights_gb: 2.0
+    needs_gb: 3.5
+    note: a usable floor for small edits
+    ollama: qwen2.5-coder:3b
+    llama_cpp_hf: Qwen/Qwen2.5-Coder-3B-Instruct-GGUF:Q4_K_M
+  - id: qwen2.5-coder-7b
+    display: Qwen2.5-Coder 7B Instruct
+    weights_gb: 4.7
+    needs_gb: 6.5
+    note: good everyday coding model for 8 to 16 GB machines
+    ollama: qwen2.5-coder:7b
+    llama_cpp_hf: Qwen/Qwen2.5-Coder-7B-Instruct-GGUF:Q4_K_M
+  - id: qwen2.5-coder-14b
+    display: Qwen2.5-Coder 14B Instruct
+    weights_gb: 9.0
+    needs_gb: 11.5
+    note: noticeably stronger; slower on CPU-only machines
+    ollama: qwen2.5-coder:14b
+    llama_cpp_hf: Qwen/Qwen2.5-Coder-14B-Instruct-GGUF:Q4_K_M
+  - id: qwen3-coder-30b-a3b
+    display: Qwen3-Coder 30B-A3B Instruct (mixture of experts)
+    weights_gb: 18.6
+    needs_gb: 21.0
+    note: large but only about 3B parameters active per token, so it runs faster than its size suggests
+    ollama: qwen3-coder:30b
+    llama_cpp_hf: null
+  - id: qwen2.5-coder-32b
+    display: Qwen2.5-Coder 32B Instruct
+    weights_gb: 19.9
+    needs_gb: 23.0
+    note: strongest dense model here; slow without a GPU
+    ollama: qwen2.5-coder:32b
+    llama_cpp_hf: Qwen/Qwen2.5-Coder-32B-Instruct-GGUF:Q4_K_M
