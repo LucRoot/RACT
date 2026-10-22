@@ -599,3 +599,36 @@ def test_a_failed_step_leaves_no_step_branch(
     assert result.returncode != 0
     assert _step_branches(ws) == [], result.stdout + result.stderr
     assert _git(ws, "worktree", "list", "--porcelain").count("worktree ") == 1
+
+
+def test_a_batch_killed_at_the_budget_leaves_a_usable_snapshot(
+    tmp_path: Path,
+) -> None:
+    """Full-suite gate failure: under load the budget killed a `git add`
+    batch, its index.lock stayed beside the temporary index, and write-tree
+    failed ("could not write the snapshot tree"), so the run failed."""
+    import pytest
+
+    import ract.executor.worktree as wt
+
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
+    (ws / "a.txt").write_text("edited\n", encoding="utf-8")
+    _many_untracked(ws, 5)
+    real_run = subprocess.run
+
+    def killed_batch(args: list[str], **kwargs: Any) -> Any:
+        if "--pathspec-from-file=-" in args:
+            index = kwargs["env"]["GIT_INDEX_FILE"]
+            Path(index + ".lock").write_bytes(b"")  # what a killed git leaves
+            raise subprocess.TimeoutExpired(args, kwargs.get("timeout") or 0)
+        return real_run(args, **kwargs)
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(wt.subprocess, "run", killed_batch)
+    try:
+        snap = wt.take_snapshot(ws)
+    finally:
+        mp.undo()
+
+    assert len(snap.over_time) == 5
+    assert _git(ws, "show", f"{snap.sha}:a.txt") == "edited"

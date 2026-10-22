@@ -517,6 +517,7 @@ SNAPSHOT_MAX_FILE_BYTES = 2 * 1024 * 1024
 SNAPSHOT_MAX_UNTRACKED = 2_000
 SNAPSHOT_BUDGET_SECONDS = 20.0
 _UNTRACKED_BATCH = 200
+_BATCH_GRACE_SECONDS = 10.0
 _PROGRESS_AFTER_SECONDS = 2.0
 
 
@@ -710,10 +711,17 @@ def take_snapshot(
                     capture_output=True,
                     check=False,
                     env=env,
-                    timeout=max(remaining(), 1.0),
+                    # The budget decides whether a batch starts; a batch that
+                    # has started gets time to finish (one is about 0.1 s,
+                    # several seconds under heavy load). Killing it at the
+                    # budget's edge threw the work away (G-020 gate failure).
+                    timeout=max(remaining(), 0.0) + _BATCH_GRACE_SECONDS,
                 )
             except subprocess.TimeoutExpired:
-                # git writes the index only at the end, so this batch is not in it.
+                # git writes the index only at the end, so this batch is not
+                # in it. A killed git leaves index.lock beside the temporary
+                # index, and write-tree then fails; the lock is ours to remove.
+                Path(index_path + ".lock").unlink(missing_ok=True)
                 over_time = untracked[i:]
                 break
             if added.returncode != 0:
@@ -748,7 +756,10 @@ def take_snapshot(
         )
         tree = _git_bytes(repo, "write-tree", env=env)
         if tree.returncode != 0:
-            raise WorktreeError("could not write the snapshot tree")
+            raise WorktreeError(
+                "could not write the snapshot tree: "
+                + tree.stderr.decode("utf-8", "replace").strip()
+            )
         commit_args = [
             "commit-tree",
             tree.stdout.decode().strip(),
