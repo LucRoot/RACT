@@ -52,6 +52,8 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
         "/session [new|<id>]",
         "Show, restart or switch the session that carries context between turns.",
     ),
+    ("/sessions", "List recent sessions: id, time, turns, cost and last request."),
+    ("/resume <id|latest>", "Switch to a saved session and show its last request."),
     ("/config", "Validate the active config (same as ract config validate)."),
     ("/providers", "List configured providers and the manager provider."),
     ("/cost", "Requests, tokens and bytes sent off this machine in this session."),
@@ -168,6 +170,8 @@ class ReplSession:
             "set": self._cmd_set,
             "settings": self._cmd_settings,
             "session": self._cmd_session,
+            "sessions": self._cmd_sessions,
+            "resume": self._cmd_resume,
             "config": self._cmd_config,
             "providers": self._cmd_providers,
             "model": self._cmd_model,
@@ -561,6 +565,80 @@ class ReplSession:
         # Switching to a named session assumes it already exists; "new" does not.
         s.session_started = target != "new"
         self._console.success(f"session = {s.session_id}")
+        return True
+
+    def _cmd_sessions(self, args: list[str]) -> bool:
+        from ract.session_listing import LIST_LIMIT, list_rows, sessions_dir
+
+        rows, total = list_rows(sessions_dir(self.state.config))
+        if not rows:
+            self._console.info("no sessions yet")
+            return True
+        table = [
+            [
+                escape(row.session_id),
+                time.strftime("%Y-%m-%d %H:%M", time.localtime(row.updated)),
+                "-",
+                "-",
+                escape(row.request or f"unreadable session ({row.unreadable})"),
+            ]
+            for row in rows
+        ]
+        self._console.table(
+            "Sessions", ["Id", "Updated", "Turns", "Cost", "Last request"], table
+        )
+        if total > LIST_LIMIT:
+            self._console.info(f"{len(rows)} of {total} sessions")
+        return True
+
+    def _cmd_resume(self, args: list[str]) -> bool:
+        from ract.session_listing import (
+            closest_id,
+            find_row,
+            latest_row,
+            list_rows,
+            sessions_dir,
+        )
+        from ract.undo_backup import require_name
+
+        if len(args) != 1:
+            self._console.error("usage: /resume <id|latest>")
+            return True
+        directory = sessions_dir(self.state.config)
+        if args[0] == "latest":
+            row = latest_row(directory)
+            if row is None:
+                _, total = list_rows(directory, limit=0)
+                self._console.info(
+                    "no sessions yet" if total == 0 else "no readable session to resume"
+                )
+                return True
+        else:
+            try:
+                session_id = require_name(args[0], "session id")
+            except ValueError:
+                self._console.error(
+                    f"'{escape(args[0][:50])}' is not a session id; not resumed"
+                )
+                return True
+            row = find_row(directory, session_id)
+            if row is None:
+                hint = closest_id(directory, session_id)
+                suffix = f"; did you mean {escape(hint)}?" if hint else ""
+                self._console.error(f"no session {escape(session_id)}{suffix}")
+                return True
+        if row.unreadable:
+            self._console.error(
+                f"unreadable session: {escape(row.session_id)} ({row.unreadable}); "
+                "not resumed"
+            )
+            return True
+        s = self.state
+        s.session_id = row.session_id
+        s.session_started = True
+        self._console.success(
+            f"resumed {escape(row.session_id)}, last request: {escape(row.request)}"
+        )
         return True
 
     # ------------------------------------------------------------- execution
