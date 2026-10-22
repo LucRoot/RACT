@@ -69,6 +69,14 @@ def test_run_that_writes_a_file_names_it_as_unsigned(
     assert "1 file(s) written without a Rootknot (src/calc.py)" in out
     verify = _ract(ws, "provenance", "verify", "src/calc.py")
     assert verify.returncode != 0
+    verify_text = " ".join(verify.stdout.split())
+    assert verify.stdout.splitlines()[0] == "unsigned"
+    assert "not evidence of tampering" in verify_text
+    assert "invalid" not in verify_text
+    # PHILOSOPHY: "attested" appears only when all three signatures land.
+    import re
+
+    assert not re.search(r"attested", result.stdout, re.IGNORECASE)
 
 
 def test_doctor_states_that_runs_do_not_sign(tmp_path: Path) -> None:

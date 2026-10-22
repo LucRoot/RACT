@@ -54,7 +54,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   no sidecar or index row was written, silently. A run that writes files now names the files it
   wrote without a Rootknot, `ract doctor` states that runs do not sign in this release, and the
   README, `docs/PROVENANCE.md` and `docs/PHILOSOPHY.md` describe the current state. Wiring the
-  signing path waits on the operator decisions in ADR-0048 (R3, R4).
+  signing path waits on the operator decisions in ADR-0048 (R3, R4). `ract provenance verify`
+  reports a file with no recorded Rootknot as `unsigned` and says this is not evidence of
+  tampering; `invalid` is kept for a Rootknot that fails to verify. `docs/index.md` and
+  `docs/SIGNATURE.md` carry the same current-state note.
 - `ract doctor` without `--check-providers` contacts no provider, as before, and now says so: the
   title reads "config checks passed" and a closing line names `ract doctor --check-providers`.
   `--json` output gains `providers_contacted`. The `--init-provider` hint now suggests that

@@ -12,11 +12,11 @@ When a model hallucinates, the damage is usually not the wrong answer. The damag
 
 ## The Rootknot
 
-Every file RACT writes carries a signed provenance capability called a **Rootknot**. It records the plan step, assumption, generator, parent artifacts, and artifact digest, and it can be cryptographically verified. If the recursion loop ever produces an artifact whose Rootknot is missing or invalid, the loop halts with a provenance violation rather than compounding unsigned work.
+Every file RACT writes is meant to carry a signed provenance capability called a **Rootknot**. It records the plan step, assumption, generator, parent artifacts, and artifact digest, and it can be cryptographically verified.
 
 The Rootknot is the boundary between machine output and project truth: a verifiable answer to the question "where did this come from?"
 
-Current state: this release does not yet sign the files a `ract` run writes, and a missing Rootknot does not halt the loop. Each run that writes files says so. See `docs/PROVENANCE.md`.
+Current state: the signing library and verifier exist and are tested, but a normal `ract` run does not sign the files it writes yet, and a missing Rootknot does not halt the loop. Each run that writes files says so. See `docs/PROVENANCE.md`.
 
 ## Model-agnostic by design
 

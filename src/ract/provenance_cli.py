@@ -3,7 +3,8 @@
 Implements ``ract provenance verify <path>``: loads the sidecar next to the
 artifact, reconstructs the Rootknot, recomputes the artifact digest, and
 verifies the ed25519 signature against the public key embedded in the
-Rootknot's ``GeneratorRef``. Prints ``valid`` / ``invalid`` and exits 0/1.
+Rootknot's ``GeneratorRef``. Prints ``valid``, ``partial``, ``unsigned`` (no
+Rootknot recorded) or ``invalid``, and exits 0 for valid or partial, 1 otherwise.
 
 This is the public audit surface promised by ``docs/PROVENANCE.md``.
 """
@@ -34,6 +35,12 @@ from ract.core.rootknot import (
     RootknotSchemaViolation,
 )
 from ract.core.types import digest_bytes
+
+
+# A file with no recorded Rootknot is "unsigned", which is a different fact
+# from a Rootknot that fails to verify. The command reports the two
+# differently.
+NO_ROOTKNOT_PREFIX = "no Rootknot was recorded"
 
 
 def _sidecar_path(artifact_path: Path) -> Path:
@@ -102,8 +109,10 @@ def verify_artifact(
             return False, f"no sidecar and index load failed: {exc}"
         if knot is None:
             return False, (
-                f"no rootknot for {artifact_path} (sidecar {sidecar.name} absent, "
-                "not in index)"
+                f"{NO_ROOTKNOT_PREFIX} for {artifact_path.name}: no sidecar "
+                f"({sidecar.name}) and no index entry. This is not evidence of "
+                "tampering: ract runs do not sign the files they write in this "
+                "release (see docs/PROVENANCE.md)."
             )
         return _check_knot(knot, artifact_path, min_schema_version)
 
@@ -340,6 +349,8 @@ def _provenance_command(args: list[str]) -> int:
         # the partial state is visible on the first line.
         if ok:
             header = "partial" if message.startswith("valid (partial:") else "valid"
+        elif message.startswith(NO_ROOTKNOT_PREFIX):
+            header = "unsigned"
         else:
             header = "invalid"
         print(header)

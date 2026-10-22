@@ -21,7 +21,7 @@ See `src/ract/rooted.py`.
 
 # Provenance Capability — The Rootknot
 
-The second unmistakable RACT signature is the **Rootknot**: a signed provenance capability attached to every artifact the loop writes.
+The second unmistakable RACT signature is the **Rootknot**: a signed provenance capability meant for every artifact the loop writes. In this release normal `ract` runs do not sign yet; see `docs/PROVENANCE.md`.
 
 ```python
 from ract.core.rootknot import Rootknot
@@ -42,7 +42,7 @@ A file on disk tells you what the code is; a Rootknot tells you where it came fr
 
 ## Where It Appears
 
-- Every artifact written by the executor carries a Rootknot sidecar.
+- Every artifact written by the executor carries a Rootknot sidecar once signing is wired (not yet in this release).
 - The loop halts with `TerminationCause.PROVENANCE_VIOLATION` if a Rootknot is missing or invalid.
 - Tests verify signing, tamper detection, and key rotation survival.
 
