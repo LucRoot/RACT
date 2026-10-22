@@ -341,7 +341,16 @@ def run_via_substrate(
                 ),
             )
 
-        if turn_context.cancelled():
+        with turn_context.persisting() as allowed:
+            if allowed:
+                outcome = apply_commit_to_working_tree(
+                    harness.project_dir,
+                    record.parent_snapshot_before,
+                    record.parent_snapshot_after,
+                    created_by_run=frozenset(created_by_run),
+                    left_out=frozenset(snapshot.left_out),
+                )
+        if not allowed:
             # The step committed on its own branch while the turn was being
             # interrupted. Do not touch the working tree.
             return Rooted(
@@ -355,13 +364,6 @@ def run_via_substrate(
                 ),
                 hint="interrupted",
             )
-        outcome = apply_commit_to_working_tree(
-            harness.project_dir,
-            record.parent_snapshot_before,
-            record.parent_snapshot_after,
-            created_by_run=frozenset(created_by_run),
-            left_out=frozenset(snapshot.left_out),
-        )
         created_by_run.update(
             changed_path_additions(
                 harness.project_dir,

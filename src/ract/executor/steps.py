@@ -956,6 +956,8 @@ class Executor:
         errors: list[str] = []
         hints: list[str] = []
         for adapter in candidates:
+            if turn_context.cancelled():
+                break  # an interrupted turn tries no further provider
             try:
                 if stream and "streaming" in adapter.capabilities():
                     response_rooted = self._stream_completion(
@@ -1495,21 +1497,12 @@ class Executor:
                             hint="novelty",
                         )
 
-            if turn_context.cancelled():
-                return Rooted(
-                    value=None,
-                    assumption=f"Step {index} runs in a turn that was not interrupted.",
-                    confidence=0.0,
-                    provenance=[f"executor.step:{index}"],
-                    error=(
-                        f"Interrupted during step {index}; its answer arrived "
-                        "after the interrupt and was not written."
-                    ),
-                    hint="interrupted",
-                )
             try:
-                if not self._write_artifact(step.expected_artifact, content):
-                    unsigned_artifacts.append(step.expected_artifact)
+                with turn_context.persisting() as allowed:
+                    if allowed and not self._write_artifact(
+                        step.expected_artifact, content
+                    ):
+                        unsigned_artifacts.append(step.expected_artifact)
             except WorkspacePathRefused as refused:
                 return Rooted(
                     value=None,
@@ -1520,6 +1513,19 @@ class Executor:
                     provenance=[f"executor.step:{index}"],
                     error=f"Step {index} not written: {refused}",
                     hint=refused.refusal.hint,
+                )
+
+            if not allowed:
+                return Rooted(
+                    value=None,
+                    assumption=f"Step {index} runs in a turn that was not interrupted.",
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}"],
+                    error=(
+                        f"Interrupted during step {index}; its answer arrived "
+                        "after the interrupt and was not written."
+                    ),
+                    hint="interrupted",
                 )
 
             # Charge the novelty budget only after a successful write so partial

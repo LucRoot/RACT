@@ -373,6 +373,8 @@ class RecordedRequest:
     path: str
     headers: dict[str, str]
     body: Any
+    # time.perf_counter() when the request arrived, for latency tests.
+    received: float = 0.0
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -719,7 +721,11 @@ class FakeModelServer:
     ) -> int:
         with self._lock:
             ordinal = len(self._requests) + 1
-            self._requests.append(RecordedRequest(ordinal, method, path, headers, body))
+            self._requests.append(
+                RecordedRequest(
+                    ordinal, method, path, headers, body, time.perf_counter()
+                )
+            )
             return ordinal
 
     def _next_chat_ordinal(self) -> int:

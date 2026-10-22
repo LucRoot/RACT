@@ -381,17 +381,18 @@ def run_ract(
             Rooted[ExecutionReport | Plan],
             harness.planner.plan(planning_intent).with_step("ract_runner.dry_run"),
         )
-        if turn_context.cancelled():
-            return result  # an interrupted turn leaves no history (see below)
-        if result.is_ok() and project_doc_obj is not None:
-            plan = result.unwrap()
-            if isinstance(plan, Plan):
-                project_doc_obj._sections["plan"] = plan.steps
-                project_doc_obj.save(str(project_doc))
-        if memory_arena is not None:
-            assert session_id is not None  # guarded by _memory_arena_for
-            memory_arena.save(_memory_arena_path(config_path, session_id))
-        _save_session(session_id, store, intent, result)
+        with turn_context.persisting() as allowed:
+            if not allowed:
+                return result  # an interrupted turn leaves no history (see below)
+            if result.is_ok() and project_doc_obj is not None:
+                plan = result.unwrap()
+                if isinstance(plan, Plan):
+                    project_doc_obj._sections["plan"] = plan.steps
+                    project_doc_obj.save(str(project_doc))
+            if memory_arena is not None:
+                assert session_id is not None  # guarded by _memory_arena_for
+                memory_arena.save(_memory_arena_path(config_path, session_id))
+            _save_session(session_id, store, intent, result)
         return result
 
     approval_callback: Callable[[Step], bool] | None = None
@@ -426,31 +427,37 @@ def run_ract(
         )
 
     result = _execute_once()
-    if turn_context.cancelled():
-        # LR:: An interrupted turn's worker can still be waiting on the model
-        # when the prompt is back; when the reply finally arrives, nothing
-        # from it may be kept. Without this the late worker saved the
-        # interrupted intent into the session history, the memory arena and
-        # the project document (G-027).
-        return result
-    if result.is_ok() and project_doc_obj is not None:
-        value = result.unwrap()
-        if isinstance(value, ExecutionReport):
-            project_doc_obj._sections["plan"] = [sr.step for sr in value.step_results]
-        elif isinstance(value, Plan):
-            project_doc_obj._sections["plan"] = value.steps
-        project_doc_obj.save(str(project_doc))
+    # LR:: An interrupted turn's worker can still be waiting on the model
+    # when the prompt is back; when the reply finally arrives, nothing from
+    # it may be kept. Without this the late worker saved the interrupted
+    # intent into the session history, the memory arena and the project
+    # document (G-027). The check runs under the session's write lock, so
+    # it cannot race the next turn's write (G-029).
+    with turn_context.persisting() as allowed:
+        if not allowed:
+            return result
+        if result.is_ok() and project_doc_obj is not None:
+            value = result.unwrap()
+            if isinstance(value, ExecutionReport):
+                project_doc_obj._sections["plan"] = [
+                    sr.step for sr in value.step_results
+                ]
+            elif isinstance(value, Plan):
+                project_doc_obj._sections["plan"] = value.steps
+            project_doc_obj.save(str(project_doc))
 
     if reload and result.is_ok():
         second = _execute_once()
         if not second.is_ok():
             return second
 
-    if memory_arena is not None:
-        assert session_id is not None
-        memory_arena.save(_memory_arena_path(config_path, session_id))
-
-    _save_session(session_id, store, intent, result)
+    with turn_context.persisting() as allowed:
+        if not allowed:
+            return result
+        if memory_arena is not None:
+            assert session_id is not None
+            memory_arena.save(_memory_arena_path(config_path, session_id))
+        _save_session(session_id, store, intent, result)
     return result
 
 

@@ -236,11 +236,12 @@ class OpenAICompatibleProvider(ProviderAdapter):
             stream=False,
         )
         start = time.perf_counter()
-        data, last_error = self._retry_policy.execute(
-            lambda: self._post_completion(payload),
-            self._is_retryable,
-            on_retry=turn_context.on_retry,
-        )
+        with turn_context.on_abort(self.client.close):
+            data, last_error = self._retry_policy.execute(
+                lambda: self._post_completion(payload),
+                lambda exc: not turn_context.cancelled() and self._is_retryable(exc),
+                on_retry=turn_context.on_retry,
+            )
         latency_ms = int((time.perf_counter() - start) * 1000)
 
         if last_error is not None:
@@ -318,12 +319,15 @@ class OpenAICompatibleProvider(ProviderAdapter):
             stream=True,
         )
         try:
-            with self.client.stream(
-                "POST",
-                f"{self.url}/chat/completions",
-                headers=self._stream_headers(),
-                json=payload,
-            ) as response:
+            with (
+                turn_context.on_abort(self.client.close),
+                self.client.stream(
+                    "POST",
+                    f"{self.url}/chat/completions",
+                    headers=self._stream_headers(),
+                    json=payload,
+                ) as response,
+            ):
                 response.raise_for_status()
                 for line in response.iter_lines():
                     line = line.strip()

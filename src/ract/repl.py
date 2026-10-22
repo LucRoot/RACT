@@ -141,6 +141,8 @@ class ReplSession:
         self._events: Any = None
         self._renderer: Any = None
         self._worker_done: threading.Event | None = None
+        # One per session, shared by every turn's worker (G-029).
+        self._write_lock = threading.RLock()
 
     # ------------------------------------------------------------------ loop
 
@@ -471,17 +473,15 @@ class ReplSession:
     def _event_turn(self, intent: str, *, dry: bool) -> int:
         from ract.session_turn import TurnRequest, run_turn
 
+        from ract.turn_context import CancelSignal
+
         s = self.state
-        if self._worker_done is not None and not self._worker_done.is_set():
-            self._events.emit(
-                "notice",
-                {
-                    "level": "info",
-                    "text": "waiting for the interrupted turn's model call to end; "
-                    "it will not write anything",
-                },
-            )
-            self._worker_done.wait()
+        # LR:: The next turn used to wait here for an interrupted turn's
+        # worker, up to the provider's 60 s read timeout (G-029). It no longer
+        # has to: Ctrl-C closes the worker's HTTP request (CancelSignal), and
+        # every write runs under the session's write lock with the cancel
+        # checked inside it (turn_context.persisting), so a late worker can
+        # neither write nor interleave with this turn's writes.
         request = TurnRequest(
             config=s.config,
             intent=intent,
@@ -490,9 +490,10 @@ class ReplSession:
             dry_run=dry,
             mode=s.mode,
             auto=s.auto,
+            write_lock=self._write_lock,
         )
         turn_no = s.turns + 1
-        cancel = threading.Event()
+        cancel = CancelSignal()
         # LR:: Completion is signalled with an Event the worker sets, not by
         # Thread.join or is_alive: a KeyboardInterrupt that lands inside
         # Thread.join can leave the thread object reporting not-alive while

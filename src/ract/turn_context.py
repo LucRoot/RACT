@@ -22,6 +22,7 @@ reporter, the same way it sees the ambient run id.
 from __future__ import annotations
 
 import os
+import sys
 import threading
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
@@ -39,6 +40,46 @@ _report_error: ContextVar[str | None] = ContextVar(
     "ract_turn_report_error", default=None
 )
 _written: ContextVar[list[str] | None] = ContextVar("ract_turn_written", default=None)
+_write_lock: ContextVar[Any] = ContextVar("ract_turn_write_lock", default=None)
+
+
+class CancelSignal(threading.Event):
+    """A turn's cancel event that also aborts the work in flight.
+
+    LR:: After Ctrl-C the worker thread was left blocked in the model's HTTP
+    read until the reply came or the 60 s read timeout passed, and the next
+    turn waited for it (G-029). Code that starts a blocking request
+    registers an abort with ``on_abort`` (the provider registers closing
+    its HTTP client); ``set()`` runs every registered abort, from the
+    thread that cancels. On Windows a closed client ends the blocked read
+    in about a millisecond.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._aborts_lock = threading.Lock()
+        self._aborts: list[Callable[[], object]] = []
+
+    def add_abort(self, abort: Callable[[], object]) -> None:
+        with self._aborts_lock:
+            self._aborts.append(abort)
+
+    def remove_abort(self, abort: Callable[[], object]) -> None:
+        with self._aborts_lock:
+            if abort in self._aborts:
+                self._aborts.remove(abort)
+
+    def set(self) -> None:
+        super().set()
+        with self._aborts_lock:
+            aborts, self._aborts = list(self._aborts), []
+        for abort in aborts:
+            try:
+                abort()
+            except Exception as exc:  # noqa: BLE001 -- one failed abort must not stop the others
+                print(
+                    f"[turn_context] abort failed: {exc}", file=sys.stderr, flush=True
+                )
 
 
 def bind(
@@ -46,16 +87,66 @@ def bind(
     reporter: Reporter | None = None,
     *,
     written: list[str] | None = None,
+    write_lock: Any = None,
 ) -> None:
-    """Make ``event``, ``reporter`` and the ``written`` list the current turn.
+    """Make the turn's cancel event, reporter, written list and write lock current.
 
     ``written`` collects the workspace-relative paths RACT wrote into the
-    operator's files during the turn (``record_written``). None clears all
-    three.
+    operator's files during the turn (``record_written``). ``write_lock`` is
+    the session's, shared by every turn, so a write from an interrupted
+    turn and a write from the next turn never interleave (``persisting``).
+    None clears them all.
     """
     _cancel.set(event)
     _reporter.set(reporter)
     _written.set(written)
+    _write_lock.set(write_lock)
+
+
+@contextmanager
+def on_abort(abort: Callable[[], object]) -> Iterator[None]:
+    """Run ``abort`` if the turn is cancelled while this block runs.
+
+    If the turn is already cancelled, ``abort`` runs at once, so a request
+    started after the cancel ends immediately too.
+    """
+    event = _cancel.get()
+    if not isinstance(event, CancelSignal):
+        yield
+        return
+    event.add_abort(abort)
+    if event.is_set():
+        event.remove_abort(abort)
+        abort()
+    try:
+        yield
+    finally:
+        event.remove_abort(abort)
+
+
+@contextmanager
+def persisting() -> Iterator[bool]:
+    """Hold the session's write lock and say whether this turn may write.
+
+    LR:: Checking ``cancelled()`` and then writing is a race: the cancel can
+    land between the two, and the next turn's write can start while this
+    one is half done. Every path that persists (history, memory arena,
+    project document, a step's apply, the in-place write) runs inside this
+    block and writes only when it yields True. The check happens with the
+    lock held, so a worker that is already writing finishes before the next
+    turn's write starts, and a worker that arrives after the cancel writes
+    nothing.
+
+    >>> with turn_context.persisting() as allowed:
+    ...     if allowed:
+    ...         store.save(...)
+    """
+    lock = _write_lock.get()
+    if lock is None:
+        yield not cancelled()
+        return
+    with lock:
+        yield not cancelled()
 
 
 def record_written(root: Path | str, paths: Iterable[Path | str]) -> None:

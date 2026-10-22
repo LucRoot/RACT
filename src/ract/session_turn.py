@@ -40,6 +40,8 @@ class TurnRequest:
     dry_run: bool = False
     mode: str = "default"
     auto: bool = False
+    # The session's write lock, shared by every turn (turn_context.persisting).
+    write_lock: Any = None
 
 
 # (pattern on the error text, hint). First match wins. Every hint names the
@@ -181,7 +183,7 @@ def run_turn(
 
     reporter = _TurnReporter(stream, turn, cancel)
     written: list[str] = []
-    turn_context.bind(cancel, reporter, written=written)
+    turn_context.bind(cancel, reporter, written=written, write_lock=request.write_lock)
     started = time.monotonic()
     project = Path(request.config).resolve().parent
     stream.emit("turn.started", {"input": request.intent, "queued": queued}, turn=turn)
