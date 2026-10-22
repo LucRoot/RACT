@@ -36,7 +36,7 @@ from ract.mutation_merge_gate import MergePolicy, MutationMergeGateEngine
 from ract.mutation_runner import run_mutation_tests
 from ract.providers.router import ProviderRouter
 from ract.openapi_client_generator import OpenApiClientGenerator
-from ract.doctor import RactDoctor
+from ract.doctor import RactDoctor, sandbox_status
 from ract.openapi_server_generator import OpenApiServerGenerator
 from ract.plan_replay import PlanReplay
 from ract.plan_serializers import load_plan, save_plan
@@ -1355,6 +1355,7 @@ def _doctor_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     results = RactDoctor(parsed.config).diagnose(check_providers=parsed.check_providers)
+    sandbox = sandbox_status()
     passed = sum(1 for r in results if r.passed)
     total = len(results)
 
@@ -1365,6 +1366,13 @@ def _doctor_command(args: list[str]) -> int:
                     "passed": passed,
                     "total": total,
                     "providers_contacted": bool(parsed.check_providers),
+                    "sandbox": {
+                        "platform": sandbox.platform,
+                        "backend": sandbox.backend,
+                        "backend_binary_found": sandbox.backend_binary is not None,
+                        "executes_commands": sandbox.executes_commands,
+                        "properties": sandbox.properties,
+                    },
                     "checks": [
                         {
                             "check": result.name,
@@ -1406,6 +1414,25 @@ def _doctor_command(args: list[str]) -> int:
         "Provenance: files written by ract runs are not signed with a Rootknot "
         "in this release. See docs/PROVENANCE.md."
     )
+    found = (
+        f"{sandbox.backend} found on PATH"
+        if sandbox.backend_binary
+        else (
+            "no sandbox backend for this platform"
+            if sandbox.backend == "none"
+            else f"{sandbox.backend} not found on PATH"
+        )
+    )
+    console.print(
+        f"Sandbox ({sandbox.platform}): {found}; "
+        + (
+            "commands run inside it."
+            if sandbox.executes_commands
+            else "no backend runs commands in this build."
+        )
+    )
+    for prop, state in sandbox.properties.items():
+        console.print(f"  {prop}: {state}")
     return 0 if passed == total else 1
 
 

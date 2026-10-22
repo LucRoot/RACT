@@ -268,4 +268,57 @@ class RactDoctor:
         )
 
 
+@dataclass(frozen=True)
+class SandboxStatus:
+    """What command sandboxing this build provides on this machine.
+
+    LR:: The Linux and macOS backends render a bubblewrap command or a
+    Seatbelt profile and never execute it, and no Landlock or seccomp call
+    exists (THREAT_MODEL, "What the code enforces today"). ``ract doctor``
+    reports that from facts rather than from the design, and is written so
+    the report changes by itself when a backend starts executing.
+    """
+
+    platform: str
+    backend: str
+    backend_binary: str | None
+    executes_commands: bool
+    properties: dict[str, str]
+
+
+# Flip a backend here only in the commit that makes it execute the rendered
+# command; the doctor output and its tests follow from this table.
+_BACKEND_EXECUTES: dict[str, bool] = {
+    "linux-bwrap": False,
+    "macos-sandbox-exec": False,
+    "none": False,
+}
+
+
+def sandbox_status(system: str | None = None) -> SandboxStatus:
+    """Return the sandbox facts for ``system`` (default: this machine).
+
+    Only looks for binaries on PATH. Starts no process.
+    """
+    import platform as _platform
+    import shutil
+
+    name = system or _platform.system()
+    if name == "Linux":
+        backend, binary = "linux-bwrap", shutil.which("bwrap")
+    elif name == "Darwin":
+        backend, binary = "macos-sandbox-exec", shutil.which("sandbox-exec")
+    else:
+        backend, binary = "none", None
+    executes = _BACKEND_EXECUTES[backend] and binary is not None
+    state = "enforced" if executes else "not enforced in this build"
+    properties = {
+        "filesystem": state,
+        "network": state,
+        "process limits": state,
+        "environment": "scrubbed by allowlist on the substrate spawn path",
+    }
+    return SandboxStatus(name, backend, binary, executes, properties)
+
+
 # RACT 0.1.1 - Trust and tooling

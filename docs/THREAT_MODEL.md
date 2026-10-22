@@ -54,6 +54,12 @@ was rejected in favor of the compile-time hard-off.
 
 ## Sandbox enforcement
 
+This section describes the design. In this build no backend executes a
+command: the Linux and macOS backends render their command or profile and
+stop there, and no Landlock or seccomp call exists. `ract doctor` prints
+what this machine actually enforces. See "What the code enforces today"
+below.
+
 - **Linux:** Bubblewrap (namespace isolation) + Landlock (filesystem
   allowlist) + seccomp-bpf (syscall filter). Public docs:
   <https://github.com/containers/bubblewrap>,
@@ -63,7 +69,8 @@ was rejected in favor of the compile-time hard-off.
   profile. Public docs: Apple's sandboxing documentation.
 - **Windows:** No shipped OS-enforced sandbox in this module (see
   ADR-0012 "Negative / follow-ups"). ``resolve_backend`` refuses to
-  start unless the operator sets ``--allow-unenforced-sandbox``. The
+  start unless the operator sets ``--allow-unenforced-sandbox`` (designed;
+  the flag does not exist yet, and nothing calls ``resolve_backend``). The
   flag is loud in the event log and stamped into the run report.
 
 The sandbox derives its policy from the manifest: filesystem

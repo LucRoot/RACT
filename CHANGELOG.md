@@ -39,6 +39,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract doctor` reports sandboxing as it is in this build: per platform, whether a backend binary
+  is on PATH, that no backend runs commands yet, and filesystem, network and process limits as
+  not enforced (`--json` carries the same under `sandbox`). The Linux and macOS backends render
+  a bubblewrap command or Seatbelt profile and never execute it. `docs/THREAT_MODEL.md` and the
+  README now say the sandbox described there is the design, and that `--allow-unenforced-sandbox`
+  does not exist yet.
 - Provenance is reported honestly. `ract` runs have not been signing the files they write: the
   executor's Rootknot dependencies (`install_v4_provenance_deps`) have no production caller, so
   no sidecar or index row was written, silently. A run that writes files now names the files it

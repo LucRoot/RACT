@@ -125,7 +125,9 @@ plus the closed-IP wordlist gate. See `CHANGELOG.md` `[0.4.1]`.
 
 v0.4.0 was the first release where **the environment decides**, not the
 model. Substrate: every plan step runs in its own git worktree under an
-OS-enforced sandbox derived from a `CapabilityManifest`; every model
+OS-enforced sandbox derived from a `CapabilityManifest` (designed; in this
+build the sandbox backends do not execute commands yet, and `ract doctor`
+shows what is enforced on your machine); every model
 action is a member of a closed Pydantic union; every run emits a
 hash-chained event log at `evals/runs/<run_id>/events.jsonl` and
 optionally OpenTelemetry spans; termination T1 reads: every required
