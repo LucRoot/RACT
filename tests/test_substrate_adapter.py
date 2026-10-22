@@ -468,7 +468,12 @@ def test_harness_run_falls_back_to_legacy_when_workspace_not_git(tmp_path):
     assert executor_execute.called, "legacy executor should run on non-git workspace"
 
 
-def test_harness_run_falls_back_to_legacy_when_tree_dirty(tmp_path):
+def test_harness_run_keeps_isolation_when_tree_dirty(tmp_path):
+    """S-011b: a dirty tree is a valid start (the base is a snapshot of it).
+
+    This test used to assert the opposite: a dirty tracked file sent the run
+    to the in-place executor without isolation (AUD-002).
+    """
     _init_git_repo(tmp_path)
     # Dirty a tracked file.
     (tmp_path / "seed.txt").write_text("dirty\n", encoding="utf-8")
@@ -487,8 +492,8 @@ def test_harness_run_falls_back_to_legacy_when_tree_dirty(tmp_path):
     harness.executor.execute = executor_execute  # type: ignore[assignment]
     with patch("ract.executor.substrate_adapter.run_via_substrate") as mock_adapter:
         harness.run("w")
-    assert not mock_adapter.called, "adapter should NOT run on dirty tree"
-    assert executor_execute.called, "legacy executor should run on dirty tree"
+    assert mock_adapter.called, "adapter should run on a dirty tree"
+    assert not executor_execute.called, "in-place executor must not run on a dirty tree"
 
 
 # RACT 0.4.0
