@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- The end of each turn is the harness's account, one fact per line: the verdict; what changed
+  with lines added and removed (`src/calc.py (+1 -1)`); where the previous versions are; whether
+  RACT ran tests; what the plan assumed, with the planner's confidence; how many model requests,
+  how long and how many tokens. When the reply says tests pass (or "verified", "done and
+  tested") in a turn where RACT ran none, a line says that nothing checked it. Prose after a file
+  change is labelled `model summary`. `turn.finished` carries `diffstat`, `undo` and
+  `verification.claims`.
 - `ract setup`: first-run setup. It checks the machine, offers a model server already running on
   a default port (llama.cpp, Ollama, LM Studio, vLLM) or one named in `RACT_BASE_URL`, and
   otherwise asks local or cloud. For a local model it suggests one that fits the memory you give

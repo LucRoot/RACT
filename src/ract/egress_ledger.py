@@ -162,6 +162,7 @@ def _record(record: dict[str, Any]) -> None:
                 "tokens_in": totals["tokens_in"],
                 "tokens_out": totals["tokens_out"],
                 "by_purpose": totals["by_purpose"],
+                "requests": sum(1 for r in records if r.get("kind") == "model"),
                 "total_usd": None,
                 "context_used": None,
                 "context_limit": None,

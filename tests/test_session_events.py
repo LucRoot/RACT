@@ -229,7 +229,10 @@ def test_plain_renderer_streams_text_then_finishes_on_its_own_line() -> None:
         ),
     )
     assert "The loader is in config.py:12.\n" in text
-    assert text.rstrip().endswith("Answered. | no files changed | 2.1s")
+    # B-038: the summary is one fact per line, assembled by the harness.
+    assert text.rstrip().endswith(
+        "  Answered.\n  changed: nothing\n  verified: RACT ran no tests this turn\n  2.1 s"
+    )
 
 
 def test_plain_renderer_heartbeat_first_at_2s_then_every_10s() -> None:

@@ -67,7 +67,7 @@ def test_json_result_on_stdout_progress_on_stderr(
     assert obj["schema"] == "ract.result/1"
     assert (obj["outcome"], obj["exit_code"], obj["turns"]) == ("done", 0, 1)
     assert obj["changed"] == ["src/calc.py"]
-    assert obj["verification"] == {"status": "not-run", "runs": []}
+    assert obj["verification"] == {"status": "not-run", "runs": [], "claims": []}
     assert obj["provenance"] == {"signed": False, "unsigned_files": ["src/calc.py"]}
     assert set(obj) >= {"session", "verdict", "final_text", "cost", "denials"}
     assert ANSI not in result.stdout

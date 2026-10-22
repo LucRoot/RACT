@@ -14,6 +14,7 @@ from collections.abc import Callable
 from typing import Any, Protocol
 
 from ract.session_events import SessionEvent
+from ract.turn_summary import describe_change
 
 # The plain renderer prints the first heartbeat after 2 s and then one every
 # 10 s. A line every 2 s would be the right sign of life for a person
@@ -42,6 +43,11 @@ class PlainRenderer:
         # (channel, path) of the text being written, so a file's content is
         # introduced by its name and never runs into answer text (UX-11).
         self._text_target: tuple[str, str | None] | None = None
+        # Facts gathered during the turn for its summary (B-038).
+        self._plan: dict[str, Any] = {}
+        self._cost: dict[str, Any] = {}
+        self._wrote_file = False
+        self._labelled_summary = False
 
     # -- helpers
 
@@ -102,6 +108,10 @@ class PlainRenderer:
         self._last_heartbeat_ms = -1
         self._reasoning_chars = 0
         self._text_target = None
+        self._plan = {}
+        self._cost = {}
+        self._wrote_file = False
+        self._labelled_summary = False
         if d.get("queued"):
             self._line(f"running queued: {d.get('input', '')}")
 
@@ -111,6 +121,7 @@ class PlainRenderer:
             self._line("  the model call is still finishing and will write nothing")
 
     def _on_plan_proposed(self, d: dict[str, Any]) -> None:
+        self._plan = dict(d)
         steps = d.get("steps") or []
         confidence = d.get("confidence")
         conf = (
@@ -134,6 +145,8 @@ class PlainRenderer:
         self._text_target = None
         seconds = int(d.get("duration_ms", 0)) / 1000
         outcome = d.get("outcome", "?")
+        if d.get("artifact") and outcome == "done":
+            self._wrote_file = True
         what = f" {d['artifact']}" if d.get("artifact") and outcome == "done" else ""
         self._line(f"[step {d.get('n')}] {outcome}{what} ({seconds:.1f}s)")
         if outcome != "done" and d.get("hint"):
@@ -142,6 +155,12 @@ class PlainRenderer:
     def _on_agent_text_delta(self, d: dict[str, Any]) -> None:
         text = str(d.get("text", ""))
         target = (str(d.get("channel", "answer")), d.get("path"))
+        if target[0] == "answer" and self._wrote_file and not self._labelled_summary:
+            # Prose after the turn changed files is the model's account of
+            # what it did, a claim; the harness summary follows (R-113).
+            self._line("model summary:")
+            self._labelled_summary = True
+            self._text_target = target
         if target != self._text_target:
             if target[0] == "artifact":
                 self._line(f"--- {target[1]} ---")
@@ -230,7 +249,8 @@ class PlainRenderer:
         self._line(f"  approval {d.get('id')}: {d.get('choice')} ({d.get('by')})")
 
     def _on_cost_updated(self, d: dict[str, Any]) -> None:
-        return  # shown in turn.finished and on request; a line per update is noise
+        # Shown once in the turn summary; a line per update is noise.
+        self._cost = dict(d)
 
     def _on_error_surfaced(self, d: dict[str, Any]) -> None:
         self._line(f"error: {d.get('message', '')}")
@@ -245,19 +265,64 @@ class PlainRenderer:
         self._line(f"{prefix}: {d.get('text', '')}")
 
     def _on_turn_finished(self, d: dict[str, Any]) -> None:
+        """The harness's account of the turn (B-038), never the model's.
+
+        Every line is something RACT observed: what changed and by how
+        much, the way back, whether RACT ran a verifier, what the plan
+        assumed, and what the turn cost.
+        """
         self._text_target = None
-        parts = [d.get("verdict") or d.get("outcome", "")]
-        if d.get("workspace"):
-            parts.append(str(d["workspace"]))
-        elif d.get("changed") is not None:  # None: not a git repository
-            changed = d["changed"]
-            parts.append(
-                f"changed: {', '.join(changed)}" if changed else "no files changed"
+        seconds = int(d.get("duration_ms", 0)) / 1000
+        self._line(f"  {d.get('verdict') or d.get('outcome', '')}")
+        changed = d.get("changed")
+        if changed is None:
+            self._line("  changed: not tracked here (not a git repository)")
+        elif changed:
+            stats = d.get("diffstat") or {}
+            shown = [describe_change(p, stats.get(p)) for p in changed[:10]]
+            more = f" and {len(changed) - 10} more" if len(changed) > 10 else ""
+            self._line(
+                f"  changed: {', '.join(shown)}{more}; unstaged, review with git diff"
             )
-        provenance = d.get("provenance") or {}
-        if provenance.get("unsigned_files"):
-            parts.append(f"unsigned: {len(provenance['unsigned_files'])}")
+        else:
+            self._line("  changed: nothing")
+        if d.get("undo"):
+            self._line(f"  way back: previous versions in {d['undo']}")
         if d.get("checkpoint"):
-            parts.append(f"checkpoint {d['checkpoint']}, /undo to revert")
-        parts.append(f"{int(d.get('duration_ms', 0)) / 1000:.1f}s")
-        self._line("  " + " | ".join(str(p) for p in parts if p))
+            self._line(f"  checkpoint {d['checkpoint']}, /undo to revert")
+        verification = d.get("verification") or {}
+        if verification.get("status") in (None, "not-run"):
+            self._line("  verified: RACT ran no tests this turn")
+        else:
+            self._line(f"  verified: {verification.get('status')}")
+        for claim in verification.get("claims") or []:
+            self._line(f'  the reply says "{claim}"; nothing in this turn checked that')
+        if self._plan.get("assumption") and changed:
+            confidence = self._plan.get("confidence")
+            conf = (
+                f"planner confidence {confidence:.2f}, "
+                if isinstance(confidence, (int, float))
+                else ""
+            )
+            self._line(f"  assumed: {self._plan['assumption']} ({conf}not checked)")
+        unsigned = (d.get("provenance") or {}).get("unsigned_files") or []
+        if unsigned:
+            self._line(
+                f"  unsigned: {len(unsigned)} file{'s' if len(unsigned) != 1 else ''}"
+            )
+        self._line("  " + self._cost_line(seconds))
+
+    def _cost_line(self, seconds: float) -> str:
+        requests = self._cost.get("requests")
+        parts = []
+        if isinstance(requests, int):
+            parts.append(f"{requests} model request{'s' if requests != 1 else ''}")
+        parts.append(f"{seconds:.1f} s")
+        if self._cost:
+            tin, tout = self._cost.get("tokens_in"), self._cost.get("tokens_out")
+            parts.append(
+                "tokens not reported"
+                if tin is None and tout is None
+                else f"{tin or 0} tokens in / {tout or 0} out"
+            )
+        return ", ".join(parts)

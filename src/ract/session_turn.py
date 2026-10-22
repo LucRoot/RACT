@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ract import egress_ledger, turn_context, undo_backup
+from ract import egress_ledger, turn_context, turn_summary, undo_backup
 from ract.executor.worktree import working_tree_status
 from ract.session_events import EventStream, Heartbeat, TextWriter, plan_event_data
 
@@ -307,7 +307,19 @@ def run_turn(
         # The session has already reported the interrupt; say nothing more.
         return 5
 
-    def finished(outcome: str, verdict: str, unsigned: list[str]) -> None:
+    # B-038: facts for the summary, observed by RACT, not reported by the model.
+    stats = turn_summary.diffstat(project, changed) if changed else {}
+    undo_folder = (
+        f"{(undo_backup.UNDO_DIR / backup_box[0].turn_id).as_posix()}/"
+        if backup_box and backup_box[0].saved
+        else None
+    )
+
+    def finished(
+        outcome: str, verdict: str, unsigned: list[str], claims: list[str] | None = None
+    ) -> None:
+        verification = dict(_NOT_VERIFIED)
+        verification["claims"] = list(claims or [])
         stream.emit(
             "turn.finished",
             {
@@ -316,8 +328,10 @@ def run_turn(
                 "verdict": verdict,
                 "workspace": workspace,
                 "changed": changed,
+                "diffstat": stats,
+                "undo": undo_folder,
                 "checkpoint": None,
-                "verification": dict(_NOT_VERIFIED),
+                "verification": verification,
                 "provenance": _provenance(unsigned),
             },
             turn=turn,
@@ -364,7 +378,13 @@ def run_turn(
             },
             turn=turn,
         )
-    finished("done", verdict, unsigned)
+    # A reply that says tests pass, in a turn where RACT ran none (R-113).
+    answer = "\n".join(
+        sr.content
+        for sr in getattr(value, "step_results", [])
+        if not sr.step.expected_artifact and sr.step.tool_call is None
+    )
+    finished("done", verdict, unsigned, turn_summary.unverified_claims(answer))
     return 0
 
 

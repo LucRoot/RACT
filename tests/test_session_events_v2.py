@@ -262,7 +262,7 @@ def test_turn_reports_plan_steps_and_artifact_text(
         t["channel"] == "artifact" and t["path"] == "src/calc.py" for t in texts
     )
     finished = events[-1].data
-    assert finished["verification"] == {"status": "not-run", "runs": []}
+    assert finished["verification"] == {"status": "not-run", "runs": [], "claims": []}
     assert finished["provenance"] == {
         "signed": False,
         "unsigned_files": ["src/calc.py"],

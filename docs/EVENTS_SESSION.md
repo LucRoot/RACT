@@ -133,7 +133,7 @@ next turn (`turn.started` with `queued: true`).
 |---|---|
 | `turn.started` | `input` (string, what the operator typed, redacted), `queued` (boolean, true when it was typed during the previous turn) |
 | `turn.interrupting` | `elapsed_ms` (integer, since the interrupt was received), `cancellable` (boolean, false when a model call cannot be stopped and will finish without writing), `detail` (string, one line) |
-| `turn.finished` | `outcome` (`done`, `failed`, `interrupted`, `budget`, `refused`), `duration_ms` (integer), `verdict` (string, one sentence), `workspace` (string, one line, for example `"2 files changed; nothing else touched"`), `changed` (list of paths), `checkpoint` (string or null), `verification` (object, below), `provenance` (object, below) |
+| `turn.finished` | `outcome` (`done`, `failed`, `interrupted`, `budget`, `refused`), `duration_ms` (integer), `verdict` (string, one sentence), `workspace` (string, one line, for example `"2 files changed; nothing else touched"`), `changed` (list of paths), `diffstat` (object: per changed path `{added, removed}`, `{new: lines}`, `{deleted: true}` or `{binary: true}`, against HEAD), `undo` (string or null: the folder holding the previous versions of the files this turn replaced), `checkpoint` (string or null), `verification` (object, below), `provenance` (object, below) |
 
 `verification`:
 
@@ -141,6 +141,7 @@ next turn (`turn.started` with `queued: true`).
 |---|---|---|
 | `status` | `verified`, `stale`, `no-tests`, `not-run` | `verified`: tests ran after the last change and passed. `stale`: they passed before a later change. `no-tests`: the project has none RACT can find. `not-run`: tests exist and did not run. |
 | `runs` | list of `{command, exit_code, duration_ms}` | Each test or check command the harness ran in this turn, in order. |
+| `claims` | list of strings | Claims in the turn's answer text that a verifier run would have to back (`tests pass`, `verified`, `tested`) and that nothing in the turn checked. Instructions and conditions ("check that the tests pass") are not claims. |
 
 `provenance`:
 
@@ -213,7 +214,7 @@ the denial is recorded in the result (`denials`).
 
 | Kind | `data` fields |
 |---|---|
-| `cost.updated` | After each model request, from the egress ledger, totals for the turn so far: `tokens_in` (integer, or null when no request in the turn reported token counts), `tokens_out` (integer or null), `by_purpose` (tokens per purpose, for example `{"plan": 900, "step 1": 1036}`), `total_usd` (number or null when unknown), `context_used` (integer or null), `context_limit` (integer or null) |
+| `cost.updated` | After each model request, from the egress ledger, totals for the turn so far: `tokens_in` (integer, or null when no request in the turn reported token counts), `tokens_out` (integer or null), `by_purpose` (tokens per purpose, for example `{"plan": 900, "step 1": 1036}`), `requests` (integer, model requests so far in the turn), `total_usd` (number or null when unknown), `context_used` (integer or null), `context_limit` (integer or null) |
 
 ### Errors and notices
 
