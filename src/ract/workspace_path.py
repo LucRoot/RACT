@@ -22,8 +22,16 @@ the resolved location:
 - the deepest existing ancestor is resolved with ``realpath`` (which follows
   symlinks and Windows junctions) and must stay inside the resolved root;
 - for writes: no existing component inside the root may be a symlink or a
-  junction, and nothing may be written under ``.git`` or ``.ract`` (a write
-  to ``.git/hooks`` or ``.ract/hooks`` becomes code execution later).
+  junction, nothing may be written under ``.git`` or ``.ract`` (a write to
+  ``.git/hooks`` or ``.ract/hooks`` becomes code execution later), and no
+  secret-shaped file is written (the model is never shown one, so it has no
+  valid replacement for it);
+- for ``send`` (the file's content goes into a model request): nothing under
+  ``.git`` or ``.ract`` and no secret-shaped name (``.env``, ``*.key`` ...).
+  ``.ract/operator.key`` and a ``.git/config`` remote URL with a token were
+  reaching the provider in the step prompt before the write was refused
+  (AUD-003). ``is_never_sent`` is the same rule for callers that already
+  hold a path relative to the root.
 
 Callers get a ``Rooted[Path]``; a refusal carries a hint that says what to
 change. ``require_workspace_path`` raises ``WorkspacePathRefused`` instead,
@@ -32,6 +40,7 @@ for call sites that already report errors through exceptions.
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import re
 import sys
@@ -41,11 +50,30 @@ from typing import Literal
 
 from ract.rooted import Rooted
 
-Purpose = Literal["read", "write"]
+Purpose = Literal["read", "write", "send"]
 
 # Directories no RACT write may touch, at any depth (``sub/.git`` is a
 # submodule's git directory). Compared case-insensitively.
 PROTECTED_WRITE_DIRS = frozenset({".git", ".ract"})
+
+# File names that usually hold secrets: never sent to a model and left out
+# of step snapshots. Compared case-insensitively.
+SECRET_NAME_GLOBS = (".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_ed25519")
+
+
+def is_secret_shaped(path: str) -> bool:
+    """True when the last component of ``path`` matches ``SECRET_NAME_GLOBS``."""
+    name = re.split(r"[\\/]", path)[-1].casefold()
+    return any(fnmatch.fnmatchcase(name, pattern) for pattern in SECRET_NAME_GLOBS)
+
+
+def is_never_sent(relative_path: str) -> bool:
+    """True when a root-relative path is under ``.git``/``.ract`` or secret-shaped."""
+    parts = [p for p in re.split(r"[\\/]", relative_path) if p and p != "."]
+    if any(part.casefold() in PROTECTED_WRITE_DIRS for part in parts):
+        return True
+    return bool(parts) and is_secret_shaped(parts[-1])
+
 
 _WINDOWS_RESERVED = frozenset(
     {"con", "prn", "aux", "nul"}
@@ -242,6 +270,22 @@ def _location_checks(
                     f"writes under {part!r} are not allowed",
                     f"RACT never writes into {part}/. Choose a path outside it.",
                 )
+        if is_secret_shaped(rel_parts[-1]):
+            # The model is never shown these files, so it cannot have a
+            # valid replacement for one; the step snapshot leaves them out
+            # for the same reason.
+            return _refuse(
+                "secret_shaped",
+                f"{rel_parts[-1]!r} usually holds secrets and RACT does not write it",
+                "Edit credential files yourself. Name a different file.",
+            )
+    if purpose == "send" and is_never_sent("/".join(rel_parts)):
+        return _refuse(
+            "never_sent",
+            f"{'/'.join(rel_parts)!r} is RACT or git state, or usually holds "
+            "secrets, and is never sent to a model",
+            "Name a project source file. Keep credentials out of model requests.",
+        )
     # Walk existing components: none may lead outside the root, and for
     # writes none may be a symlink or junction.
     current = root_real

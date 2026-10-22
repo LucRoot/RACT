@@ -53,6 +53,7 @@ from ract.planner import Planner
 from ract.providers.router import ProviderRouter
 from ract.rooted import Rooted
 from ract.token_budget import TokenBudget
+from ract.workspace_path import is_never_sent
 
 
 # Files that are eligible for automatic context curation. Binary or noisy
@@ -217,6 +218,10 @@ def _curate_context(
         except (OSError, UnicodeDecodeError):
             continue
         rel = file_path.relative_to(project_dir).as_posix()
+        # Same rule as every path that sends file content to a model: nothing
+        # from .git/ or .ract/ in any letter case, no secret-shaped file.
+        if is_never_sent(rel):
+            continue
         # Skip the harness's own prompt files; they are handled by Manager.
         if rel.startswith(prompts_prefix) or rel.startswith("prompts/"):
             continue

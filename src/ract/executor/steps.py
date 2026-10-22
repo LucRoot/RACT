@@ -823,19 +823,23 @@ class Executor:
         will invent a replacement and overwrite real work. Context curation
         may skip the file (budget, ranking), so the target is always supplied
         here. When curation already included it, only the instruction is added.
-        The path must resolve inside the project directory.
+        The path goes through the workspace resolver with ``purpose="send"``,
+        so nothing under ``.git/`` or ``.ract/`` and no secret-shaped file is
+        read into the prompt (AUD-003). A refused path gives an empty block;
+        the write check then refuses the step with its own reason.
         """
         if not expected_artifact or self.project_dir is None:
             return "", False
+        resolved = resolve_workspace_path(
+            self.project_dir, expected_artifact, purpose="send"
+        )
+        target = resolved.value
+        if target is None or not target.is_file():
+            return "", False
         try:
-            root = Path(self.project_dir).resolve()
-            target = (root / expected_artifact).resolve()
-            target.relative_to(root)
-        except (OSError, ValueError):
+            rel = target.relative_to(Path(self.project_dir).resolve()).as_posix()
+        except ValueError:
             return "", False
-        if not target.is_file():
-            return "", False
-        rel = target.relative_to(root).as_posix()
         if f"--- {rel} ---" in (context or ""):
             return "", True
         try:

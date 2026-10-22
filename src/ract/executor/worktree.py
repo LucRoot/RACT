@@ -25,6 +25,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterable
 
+from ract.workspace_path import is_secret_shaped
+
 if TYPE_CHECKING:
     from ract.antilazy.pre_commit import (
         TestIntegrityGateOutcome,
@@ -511,16 +513,6 @@ _SNAPSHOT_EXCLUDES = (
 
 SNAPSHOT_MAX_FILE_BYTES = 2 * 1024 * 1024
 SNAPSHOT_TIMEOUT_SECONDS = 120.0
-
-_SECRET_GLOBS = (".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_ed25519")
-
-
-def is_secret_shaped(path: str) -> bool:
-    """True for paths the snapshot leaves out because they usually hold secrets."""
-    import fnmatch
-
-    name = path.replace("\\", "/").rsplit("/", 1)[-1]
-    return any(fnmatch.fnmatchcase(name, pattern) for pattern in _SECRET_GLOBS)
 
 
 @dataclass(frozen=True)
