@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import shlex
 import sys
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -84,6 +85,10 @@ class ReplState:
 Dispatch = Callable[[list[str]], int]
 
 
+# How long Ctrl-C waits for the turn's worker before the prompt returns.
+_INTERRUPT_GRACE_SECONDS = 0.3
+
+
 class ReplSession:
     """Read-eval-print loop over the RACT command dispatcher."""
 
@@ -97,6 +102,11 @@ class ReplSession:
         verbs: tuple[str, ...] | None = None,
         history_path: Path | None = None,
     ) -> None:
+        # LR:: With the real dispatcher (no test double), intents run as
+        # event-driven turns (ract.session_turn): streamed, with a heartbeat,
+        # interruptible with Ctrl-C. An injected dispatcher keeps the older
+        # path so argv-level tests stay meaningful.
+        self._event_mode = dispatch is None
         if dispatch is None or verbs is None:
             from ract import cli
 
@@ -128,6 +138,9 @@ class ReplSession:
             "report": self._cmd_report,
             "clear": self._cmd_clear,
         }
+        self._events: Any = None
+        self._renderer: Any = None
+        self._worker_done: threading.Event | None = None
 
     # ------------------------------------------------------------------ loop
 
@@ -139,21 +152,39 @@ class ReplSession:
         """Run until the operator exits. Returns a process exit code."""
         self._setup_readline()
         self._banner()
+        if self._event_mode:
+            self._start_events()
+        started = time.monotonic()
+        reason = "error"
         try:
             while True:
                 try:
                     line = self._read_line(self.prompt())
                 except EOFError:
                     self._console.print("")
+                    reason = "eof"
                     break
                 except KeyboardInterrupt:
                     # Ctrl-C at the prompt abandons the line, like a shell.
                     self._console.print("")
                     continue
                 if not self.handle(line):
+                    reason = "exit"
                     break
         finally:
             self._save_history()
+            if self._events is not None:
+                # The last event of every session (docs/EVENTS_SESSION.md).
+                self._events.emit(
+                    "session.ended",
+                    {
+                        "reason": reason,
+                        "turns": self.state.turns,
+                        "duration_ms": int((time.monotonic() - started) * 1000),
+                    },
+                )
+            if self._renderer is not None:
+                self._renderer.close()
         return 0
 
     def handle(self, line: str) -> bool:
@@ -394,10 +425,169 @@ class ReplSession:
         sessions = self.state.config.parent / ".ract" / "sessions"
         return (sessions / f"{self.state.session_id}.json").is_file()
 
+    # ----------------------------------------------------------- event turns
+
+    def _start_events(self) -> None:
+        from ract.session_events import EventStream
+        from ract.session_render import PlainRenderer
+
+        def write(text: str) -> None:
+            sys.stdout.write(text)
+            sys.stdout.flush()
+
+        self._events = EventStream(session=self.state.session_id)
+        self._renderer = PlainRenderer(write)
+        self._events.subscribe(self._renderer)
+        self._events.emit("session.started", self._session_facts())
+
+    def _session_facts(self) -> dict[str, Any]:
+        from ract.executor.worktree import current_branch
+
+        model, provider = "?", "?"
+        try:
+            import yaml
+
+            config = yaml.safe_load(self.state.config.read_text(encoding="utf-8")) or {}
+            providers = config.get("providers") or {}
+            provider = str(config.get("manager_provider") or next(iter(providers), "?"))
+            model = str((providers.get(provider) or {}).get("model", "?"))
+        except Exception:  # noqa: BLE001 -- the banner already reports config problems
+            pass
+        return {
+            "workspace": self.state.config.resolve().parent.name,
+            "model": model,
+            "provider": provider,
+            "branch": current_branch(self.state.config.resolve().parent),
+            "mode": "plan" if self.state.dry_run else "default",
+            "tier3": "off",
+            "context_limit": None,
+            # Not probed at session start yet (the first turn finds out);
+            # the schema allows null and "unknown" for exactly this.
+            "provider_reachable": None,
+            "tool_calling": "unknown",
+            "extensions": {"loaded": [], "skipped": []},
+        }
+
+    def _event_turn(self, intent: str, *, dry: bool) -> int:
+        from ract.session_turn import TurnRequest, run_turn
+
+        s = self.state
+        if self._worker_done is not None and not self._worker_done.is_set():
+            self._events.emit(
+                "notice",
+                {
+                    "level": "info",
+                    "text": "waiting for the interrupted turn's model call to end; "
+                    "it will not write anything",
+                },
+            )
+            self._worker_done.wait()
+        request = TurnRequest(
+            config=s.config,
+            intent=intent,
+            session_id=None if dry else s.session_id,
+            resume=(not dry) and (s.session_started or self._session_saved()),
+            dry_run=dry,
+            mode=s.mode,
+            auto=s.auto,
+        )
+        turn_no = s.turns + 1
+        cancel = threading.Event()
+        # LR:: Completion is signalled with an Event the worker sets, not by
+        # Thread.join or is_alive: a KeyboardInterrupt that lands inside
+        # Thread.join can leave the thread object reporting not-alive while
+        # it still runs (CPython bug), which made the session claim an
+        # interrupted turn had finished.
+        done = threading.Event()
+        box: dict[str, int] = {}
+
+        def work() -> None:
+            try:
+                box["code"] = run_turn(
+                    self._events, request, turn=turn_no, cancel=cancel
+                )
+            finally:
+                done.set()
+
+        worker = threading.Thread(target=work, name="ract-turn", daemon=True)
+        self._worker_done = done
+        started = time.monotonic()
+        worker.start()
+        try:
+            # Ctrl-C is delivered between waits (a timed wait is not
+            # interruptible on Windows), so the interval bounds the time to
+            # the acknowledgement; the target is 200 ms (B-033 item 1).
+            while not done.wait(0.05):
+                pass
+        except KeyboardInterrupt:
+            return self._interrupt(done, cancel, turn_no, started)
+        return box.get("code", 1)
+
+    def _interrupt(
+        self,
+        done: threading.Event,
+        cancel: threading.Event,
+        turn_no: int,
+        started: float,
+    ) -> int:
+        """Ctrl-C during a turn: acknowledge now, stop writes, prompt within 2 s."""
+        received = time.monotonic()
+        cancel.set()
+        self._events.emit(
+            "turn.interrupting",
+            {
+                "elapsed_ms": int((time.monotonic() - received) * 1000),
+                # A model call in flight cannot be stopped from Python; it
+                # finishes in the background and writes nothing.
+                "cancellable": False,
+                "detail": "stopping; nothing more will be written",
+            },
+            turn=turn_no,
+        )
+        try:
+            # LR:: This used to wait 1.5 s of the 2 s budget for the worker.
+            # A worker blocked in a model call cannot finish in that time
+            # anyway (Python cannot cancel the HTTP read), so the wait only
+            # spent the budget; under CPU load the prompt came back after
+            # 2.5 s. A worker that is between steps notices the cancel at
+            # once, so a short grace covers it; otherwise the next turn waits
+            # for it, with a notice.
+            finished = done.wait(_INTERRUPT_GRACE_SECONDS)
+        except KeyboardInterrupt:
+            finished = done.is_set()
+        if finished:
+            verdict = "Stopped. Nothing more was written after the interrupt."
+        else:
+            verdict = (
+                "Stopped. The model call is still finishing in the background; "
+                "nothing it returns will be written."
+            )
+        self._events.emit(
+            "turn.finished",
+            {
+                "outcome": "interrupted",
+                "duration_ms": int((time.monotonic() - started) * 1000),
+                "verdict": verdict,
+                "workspace": "nothing was written after the interrupt",
+                "changed": None,
+                "checkpoint": None,
+                "verification": {"status": "not-run", "runs": []},
+                "provenance": {"signed": False, "unsigned_files": []},
+            },
+            turn=turn_no,
+        )
+        return 5
+
     def _run_intent(
         self, intent: str, *, dry_run: bool | None = None, loop: bool = False
     ) -> int:
         dry = self.state.dry_run if dry_run is None else dry_run
+        if self._event_mode and not loop and self._events is not None:
+            code = self._event_turn(intent, dry=dry)
+            self.state.turns += 1
+            if code == 0 and not dry:
+                self.state.session_started = True
+            return code
         argv = self.build_run_argv(intent, dry_run=dry_run, loop=loop)
         code = self._invoke(argv)
         self.state.turns += 1

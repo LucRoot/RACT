@@ -23,6 +23,7 @@ register_module_knot(__name__, _MODULE_KNOT)
 
 from ract.artifact_store import Artifact as StoreArtifact, ArtifactStore
 from ract.artifact_tracker import ArtifactTracker, TrackedArtifact
+from ract import turn_context
 from ract.diff_applier import DiffApplier
 from ract.workspace_path import (
     WorkspacePathRefused,
@@ -969,6 +970,74 @@ class Executor:
         stream: bool = False,
         stream_callback: Callable[[str], None] | None = None,
     ) -> Rooted[ExecutionReport]:
+        """Execute each step and collect Rooted results (see ``_execute_steps``).
+
+        LR:: Each step is reported to the session as ``step.started`` and
+        ``step.finished`` (docs/EVENTS_SESSION.md). A step can end at many
+        return points inside ``_execute_steps``; this wrapper closes a step
+        that started and did not finish, with the error as its hint, so the
+        renderer's step tracker never shows a step still running.
+        """
+        self._open_step: tuple[int, Step, float] | None = None
+        result = self._execute_steps(
+            intent,
+            plan,
+            context=context,
+            approval_callback=approval_callback,
+            stream=stream,
+            stream_callback=stream_callback,
+        )
+        if self._open_step is not None:
+            n, step, started = self._open_step
+            error = result.error or "the step did not finish"
+            turn_context.report(
+                "step.finished",
+                {
+                    "n": n,
+                    "outcome": "refused" if "refused" in error.lower() else "failed",
+                    "artifact": None,
+                    "confidence": None,
+                    "duration_ms": int((time.monotonic() - started) * 1000),
+                    "hint": result.hint if result.hint else error[:300],
+                },
+            )
+            self._open_step = None
+        return result
+
+    def _step_started(self, index: int, step: Step) -> None:
+        n = index + int(getattr(self, "step_number_offset", 0))
+        self._open_step = (n, step, time.monotonic())
+        turn_context.report(
+            "step.started",
+            {"n": n, "action": step.action, "target": step.expected_artifact or None},
+        )
+
+    def _step_done(self, confidence: float | None) -> None:
+        if self._open_step is None:
+            return
+        n, step, started = self._open_step
+        self._open_step = None
+        turn_context.report(
+            "step.finished",
+            {
+                "n": n,
+                "outcome": "done",
+                "artifact": step.expected_artifact or None,
+                "confidence": confidence,
+                "duration_ms": int((time.monotonic() - started) * 1000),
+                "hint": None,
+            },
+        )
+
+    def _execute_steps(
+        self,
+        intent: str,
+        plan: Plan,
+        context: str = "",
+        approval_callback: Callable[[Step], bool] | None = None,
+        stream: bool = False,
+        stream_callback: Callable[[str], None] | None = None,
+    ) -> Rooted[ExecutionReport]:
         """Execute each step and collect Rooted results.
 
         If *approval_callback* is provided, it is called before each step. A
@@ -987,6 +1056,16 @@ class Executor:
         refusals: list[Refusal] = []
         unsigned_artifacts: list[str] = []
         for index, step in enumerate(plan.steps, start=1):
+            self._step_started(index, step)
+            if turn_context.cancelled():
+                return Rooted(
+                    value=None,
+                    assumption=f"Step {index} runs in a turn that was not interrupted.",
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}"],
+                    error=f"Interrupted before step {index}; nothing more was written.",
+                    hint="interrupted",
+                )
             if approval_callback is not None and not approval_callback(step):
                 return Rooted(
                     value=None,
@@ -1373,6 +1452,18 @@ class Executor:
                             hint="novelty",
                         )
 
+            if turn_context.cancelled():
+                return Rooted(
+                    value=None,
+                    assumption=f"Step {index} runs in a turn that was not interrupted.",
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}"],
+                    error=(
+                        f"Interrupted during step {index}; its answer arrived "
+                        "after the interrupt and was not written."
+                    ),
+                    hint="interrupted",
+                )
             try:
                 if not self._write_artifact(step.expected_artifact, content):
                     unsigned_artifacts.append(step.expected_artifact)
@@ -1400,6 +1491,7 @@ class Executor:
                     step=step, raw_response=raw, content=content, metrics=metrics
                 )
             )
+            self._step_done(None)  # the executor has no per-step confidence yet
             assumptions.append(
                 f"Step {index} ({step.action}) produced artifact: {step.expected_artifact}"
             )

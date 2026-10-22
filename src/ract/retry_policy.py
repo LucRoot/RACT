@@ -71,12 +71,17 @@ class RetryPolicy:
         fn: Callable[[], T],
         is_retryable: Callable[[Exception], bool],
         sleep: Callable[[float], None] | None = None,
+        on_retry: Callable[[int, int, str, float], None] | None = None,
     ) -> tuple[T | None, Exception | None]:
         """Run *fn* until it succeeds, retries are exhausted, or failure is final.
 
         Returns a tuple of (value, error). Exactly one of the two is None on a
         clean success or final failure; both may be None only if *fn* returns
         None on a successful attempt.
+
+        ``on_retry(attempt, max_attempts, reason, wait_s)`` is called before
+        each wait, so a session can show the retry instead of going silent
+        (UX-04: three retries over 16 to 25 s with nothing on screen).
         """
         sleeper = sleep or time.sleep
         last_error: Exception | None = None
@@ -88,7 +93,11 @@ class RetryPolicy:
                 last_error = exc
                 if attempt >= self.config.max_retries or not is_retryable(exc):
                     break
-                sleeper(self.calculate_delay(attempt + 1))
+                delay = self.calculate_delay(attempt + 1)
+                if on_retry is not None:
+                    reason = " ".join(f"{type(exc).__name__}: {exc}".split())[:120]
+                    on_retry(attempt + 1, self.config.max_retries, reason, delay)
+                sleeper(delay)
 
         return None, last_error
 

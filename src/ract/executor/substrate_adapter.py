@@ -46,6 +46,7 @@ from ract.core.module_identity import _module_knot, register_module_knot
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
 
+from ract import turn_context
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.transaction import ResourceBudget, TransactionOutcome
 from ract.executor.loop import SubstrateLoop, SubstrateStepSpec
@@ -252,6 +253,9 @@ def run_via_substrate(
         captured: dict[str, Rooted[ExecutionReport]] = {}
 
         def step_runner(worktree, container_ref):  # noqa: ARG001
+            # Each executor call sees a one-step plan; the offset keeps the
+            # session's step numbers those of the whole plan.
+            harness.executor.step_number_offset = index
             with _rebind_project_dir(harness.executor, worktree.path):
                 per_step_rooted = harness.executor.execute(
                     intent,
@@ -316,6 +320,20 @@ def run_via_substrate(
                 ),
             )
 
+        if turn_context.cancelled():
+            # The step committed on its own branch while the turn was being
+            # interrupted. Do not touch the working tree.
+            return Rooted(
+                value=None,
+                assumption="The turn was not interrupted before its changes were applied.",
+                confidence=0.0,
+                provenance=["harness.substrate_adapter", f"step:{index + 1}"],
+                error=(
+                    f"Interrupted; step {index + 1}'s changes were not applied to "
+                    f"your files (they are on branch {record.branch})."
+                ),
+                hint="interrupted",
+            )
         outcome = apply_commit_to_working_tree(
             harness.project_dir,
             record.parent_snapshot_before,

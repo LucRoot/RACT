@@ -1072,4 +1072,46 @@ def prune_step_branches(repo: Path, older_than_days: float) -> list[str]:
     return deleted
 
 
+def current_branch(repo: Path) -> str | None:
+    """Name of the checked-out branch, or None (not a repo, detached HEAD)."""
+    result = _git_in(repo, "branch", "--show-current")
+    name = result.stdout.strip()
+    return name if result.returncode == 0 and name else None
+
+
+def working_tree_status(repo: Path) -> dict[str, str] | None:
+    """Map of path to a change signature for changed and untracked files.
+
+    The signature is the porcelain status plus the file's size and mtime.
+    LR:: Status letters alone are not enough: since each run starts from a
+    snapshot of the working tree (S-011b), a dirty tree is normal, and a
+    second edit to a file that is already modified keeps the same ` M`. With
+    size and mtime in the signature that edit shows as a change.
+
+    None when ``repo`` is not inside a git work tree. Used by the session to
+    say which files a turn changed (compare before and after).
+    """
+    inside = _git_in(repo, "rev-parse", "--is-inside-work-tree")
+    if inside.returncode != 0 or inside.stdout.strip() != "true":
+        return None
+    listing = _git_in(repo, "status", "--porcelain", "-z", "--untracked-files=all")
+    entries: dict[str, str] = {}
+    fields = listing.stdout.split("\0")
+    i = 0
+    while i < len(fields):
+        entry = fields[i]
+        i += 1
+        if len(entry) < 4:
+            continue
+        status, path = entry[:2], entry[3:]
+        if status[0] in {"R", "C"}:
+            i += 1  # the source path of a rename or copy follows
+        try:
+            st = (Path(repo) / path).stat()
+            entries[path] = f"{status}|{st.st_size}|{st.st_mtime_ns}"
+        except OSError:
+            entries[path] = f"{status}|missing"
+    return entries
+
+
 # RACT 0.4.0

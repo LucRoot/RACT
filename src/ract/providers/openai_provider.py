@@ -17,6 +17,7 @@ import httpx
 
 from ract.providers.base import ProviderAdapter
 from ract.providers.rate_limit import TokenBucket
+from ract import turn_context
 from ract.retry_policy import RetryConfig, RetryPolicy
 from ract.rooted import Rooted
 
@@ -234,6 +235,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
         data, last_error = self._retry_policy.execute(
             lambda: self._post_completion(payload),
             self._is_retryable,
+            on_retry=turn_context.on_retry,
         )
         latency_ms = int((time.perf_counter() - start) * 1000)
 

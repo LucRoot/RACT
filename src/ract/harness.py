@@ -54,6 +54,8 @@ from ract.providers.router import ProviderRouter
 from ract.rooted import Rooted
 from ract.token_budget import TokenBudget
 from ract.workspace_path import is_never_sent
+from ract import turn_context
+from ract.session_events import plan_event_data
 
 
 # Files that are eligible for automatic context curation. Binary or noisy
@@ -797,6 +799,7 @@ class Harness:
                 provenance=["harness.run", "plan_validator.validate"],
                 error=f"Plan validation failed: {validation.message}",
             )
+        turn_context.report("plan.proposed", plan_event_data(plan))
 
         dependency_graph = DependencyGraph()
         dependency_graph.add_plan(plan)
