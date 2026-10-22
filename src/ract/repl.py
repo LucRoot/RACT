@@ -30,6 +30,7 @@ from typing import Any
 from rich.markup import escape
 
 from ract.providers import reasoning
+from ract.session_events import safe_text
 
 # Verbs that accept ``--config`` and should follow the session's config path
 # when the operator did not pass one.
@@ -46,6 +47,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
         "Change a setting: dry-run, stream, auto, mode, iterations.",
     ),
     ("/settings", "Show the current settings."),
+    ("/model [name]", "Show the configured models. Switching is not available yet."),
     (
         "/session [new|<id>]",
         "Show, restart or switch the session that carries context between turns.",
@@ -168,6 +170,7 @@ class ReplSession:
             "session": self._cmd_session,
             "config": self._cmd_config,
             "providers": self._cmd_providers,
+            "model": self._cmd_model,
             "doctor": self._cmd_doctor,
             "report": self._cmd_report,
             "cost": self._cmd_cost,
@@ -400,6 +403,48 @@ class ReplSession:
         self._run_verb(
             "config", args or ["validate", "--config", str(self.state.config)]
         )
+        return True
+
+    def _cmd_model(self, args: list[str]) -> bool:
+        import shutil
+
+        import yaml
+
+        from ract import trust
+        from ract.config_check import resolve_manager_provider
+        from ract.model_view import model_blocks
+
+        try:
+            config = yaml.safe_load(self.state.config.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError) as exc:
+            self._console.error(f"could not read {self.state.config}: {exc}")
+            return True
+        providers = config.get("providers") if isinstance(config, dict) else None
+        if not isinstance(providers, dict) or not providers:
+            self._console.error(f"no providers in {self.state.config}.")
+            return True
+        if args:
+            if args[0] not in providers:
+                names = ", ".join(safe_text(str(n)) for n in providers)
+                self._console.error(
+                    f"no provider named '{escape(safe_text(args[0]))}'. valid names: {names}"
+                )
+                return True
+            self._console.error(
+                "switching the manager provider for this session is not available yet"
+            )
+            return True
+        manager, _ = resolve_manager_provider(config)
+        named = {
+            name
+            for name, slot in providers.items()
+            if isinstance(slot, dict)
+            and isinstance(slot.get("url") or slot.get("base_url"), str)
+            and trust.repository_named_host(slot.get("url") or slot.get("base_url"))
+        }
+        width = max(60, min(shutil.get_terminal_size((80, 24)).columns, 100))
+        for line in model_blocks(providers, manager or "", named, width):
+            self._console.print(escape(line))
         return True
 
     def _cmd_providers(self, args: list[str]) -> bool:
