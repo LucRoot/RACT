@@ -37,7 +37,19 @@ the numbering of the v0.6 brief.
 | `43f11ab` | `ract doctor` says what it checked and points at `--check-providers`. |
 | `dc1f32b`, `54d4050` | `scripts/ci_parity.py` mirrors the CI lint and type job, with a drift test. |
 | `124ce56` | Docs state that Windows has no line history or completion yet, and how Ctrl-C behaves during a turn. |
-| this commit | ADR additions: decisions list, unlock window, guided first grant, implementation slices, no-timer approvals, approval-fatigue metric, resume rule. Docs only. |
+| `bbd8ade` | ADR additions: decisions list, unlock window, guided first grant, implementation slices, no-timer approvals, approval-fatigue metric, resume rule. Docs only. |
+| `32c215d` | The in-place stopgap never overwrites working-tree content. |
+| `23ee8e8`, `31e8938`, `9f327cb` | Provenance reports unsigned files instead of implying signatures; docs and the site page say what is true today. |
+| `c704234` | `ract doctor` reports sandbox enforcement as it is in this build. |
+| `305d560` | Hook commands run with a scrubbed environment. |
+| `48e9f12` | Seven emitted trace event kinds registered, with a drift guard. |
+| `f0ba667` | The sandbox scrub summary stays off the terminal. |
+| `025feaf` | `.ract/` stays out of `git status`; `ract doctor` lists and prunes step branches. |
+| `db93fbf` | Session event schema version 1, for review. Docs only. |
+| `d4d97b2` | The terminal driver delivers Ctrl-C; the J6 baseline re-measured. |
+| `560d4c2`, `5f3ad15`, `b1e1780`, `1435919` | Each run starts from a snapshot of the working tree, so a dirty tree keeps isolation and later steps see earlier steps' files. The snapshot is bounded: 2 MiB per file, 2,000 untracked files, 20 s, with a notice naming what was left out. |
+| `59ea2aa`, `5f81a76`, `42d8e88` | Nothing under `.git/` or `.ract/`, no secret-shaped file and no `ract.yaml` reaches a model request (step target, context, retrieval, `ract fence`); skill names are one file name; `.env` template names allowed. |
+| this commit | Session event schema version 2: plan and step events, text channel, verification and provenance on each turn, retry, interrupt, queue, rewind and end events, streaming redaction, and the headless result `ract.result/1`. Docs only. |
 
 ## Next
 
@@ -48,7 +60,8 @@ the numbering of the v0.6 brief.
    applier and artifact writer); honest sandbox reporting in `ract doctor`,
    `THREAT_MODEL.md` and the README; scrubbed environment for hook commands;
    registering the trace event kinds that are emitted but missing.
-3. Session event stream and renderer v1 against the fake model server.
+3. Session event stream and plain renderer against the fake model server,
+   built to schema version 2 (`docs/EVENTS_SESSION.md`).
 4. First-run flow, UI toolkit ADR, input, commands, interrupts, modes and
    headless output, as far as they do not need the tool layer.
 
