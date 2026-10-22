@@ -67,6 +67,12 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "in the intent which change you want",
     ),
     (
+        # A repository-supplied command or model host in an untrusted run
+        # (S-025, S-030): the next action is a trust decision, not the intent.
+        re.compile(r"repository is not trusted", re.I),
+        "run `ract trust` here if you chose what ract.yaml names, or change ract.yaml",
+    ),
+    (
         re.compile(r"\brefused\b", re.I),
         "nothing was written for that step; change the intent as the error says",
     ),

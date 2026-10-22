@@ -43,6 +43,8 @@ class LocalHttpProvider(OpenAICompatibleProvider):
 
     def health_check(self) -> bool:
         """Return True if the local endpoint responds to /models without auth."""
+        if self._untrusted_host_refusal() is not None:
+            return False
         try:
             with egress_ledger.purpose("health"):
                 response = self.client.get(f"{self.url}/models")

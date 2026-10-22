@@ -3,7 +3,7 @@
 LR:: A repository can ship things RACT would run or contact for it: hook
 commands in `.ract/hooks/*.json`, MCP servers, an `internal` provider
 command, coverage and mutation gates (they run the project's tests or a
-script from it) and a web search endpoint in `ract.yaml`. `ract "intent"` in
+script from it), a web search endpoint and a model endpoint in `ract.yaml`. `ract "intent"` in
 a freshly cloned repository ran all of them with no question (S-025; found
 by the B-035 control test). Now they run only when the operator trusts that
 repository, or answers "run once" on a terminal.
@@ -62,6 +62,46 @@ def _command_text(command: Any) -> str:
     return str(command)
 
 
+def known_hosts() -> set[str]:
+    """Model hosts the operator chose, from outside every repository.
+
+    The provider presets, the operator's OPENAI_BASE_URL and the hosts in
+    RACT_KEY_HOSTS (``VAR=host[,VAR=host]``).
+    """
+    from ract.provider_presets import PRESETS
+    from ract.providers.openai_provider import _host
+
+    hosts: set[str] = set()
+    for preset in PRESETS.values():
+        for spec in (preset.get("providers") or {}).values():
+            if isinstance(spec, dict) and spec.get("url"):
+                hosts.add(_host(str(spec["url"])))
+    base = os.environ.get("OPENAI_BASE_URL")
+    if base:
+        hosts.add(_host(base))
+    for pair in os.environ.get("RACT_KEY_HOSTS", "").split(","):
+        host = pair.partition("=")[2].strip().lower()
+        if host:
+            hosts.add(host)
+    return hosts
+
+
+def repository_named_host(url: str) -> str | None:
+    """The host of a model ``url`` that only the repository chose, else None.
+
+    LR:: A cloned repository's ract.yaml could name any host as its model
+    provider, and RACT sent the user's request and the project context there
+    with no question (S-030). Loopback stays on this machine, and a known
+    host is one the operator chose; anything else needs trust.
+    """
+    from ract.providers.openai_provider import _host, _is_loopback
+
+    if _is_loopback(url):
+        return None
+    host = _host(url)
+    return None if host in known_hosts() else host
+
+
 def trust_items(root: Path | str) -> list[TrustItem]:
     """Everything in this repository that RACT would run or contact for it."""
     root = Path(root)
@@ -91,6 +131,18 @@ def trust_items(root: Path | str) -> list[TrustItem]:
                     "command",
                     f"provider {slot}",
                     _command_text(spec.get("command", "")),
+                )
+            )
+            continue
+        url = (
+            spec.get("url") or spec.get("base_url") if isinstance(spec, dict) else None
+        )
+        if isinstance(url, str) and repository_named_host(url):
+            items.append(
+                TrustItem(
+                    "network",
+                    f"provider {slot}",
+                    f"{url} (receives your requests and the project files sent with them)",
                 )
             )
     if (config.get("coverage_gate") or {}).get("enabled"):

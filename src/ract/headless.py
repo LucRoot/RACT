@@ -128,6 +128,8 @@ def _unsupported(args: argparse.Namespace) -> str | None:
 
 def repository_extensions(config: Path) -> list[dict[str, str]]:
     """Extensions the repository supplies, as session.started lists them."""
+    from ract.trust import repository_named_host
+
     found: list[dict[str, str]] = []
     hooks = config.parent / ".ract" / "hooks"
     if hooks.is_dir():
@@ -147,6 +149,12 @@ def repository_extensions(config: Path) -> list[dict[str, str]]:
     for slot, spec in sorted((data.get("providers") or {}).items()):
         if isinstance(spec, dict) and spec.get("adapter") == "internal":
             found.append({"kind": "command", "name": f"provider {slot}"})
+            continue
+        url = (
+            spec.get("url") or spec.get("base_url") if isinstance(spec, dict) else None
+        )
+        if isinstance(url, str) and repository_named_host(url):
+            found.append({"kind": "network", "name": f"provider {slot}"})
     for gate in ("coverage_gate", "mutation_gate"):
         if (data.get(gate) or {}).get("enabled"):
             found.append({"kind": "command", "name": gate})

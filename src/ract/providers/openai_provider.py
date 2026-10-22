@@ -221,8 +221,40 @@ class OpenAICompatibleProvider(ProviderAdapter):
     def output_cost_per_1k(self) -> float | None:
         return self._output_cost
 
+    def _untrusted_host_refusal(self) -> Rooted[dict[str, Any]] | None:
+        """The refusal for a repository-named host in an untrusted run (S-030).
+
+        LR:: The URL comes from the repository's ract.yaml. When the
+        repository is not trusted and the host is neither loopback nor one
+        the operator chose (``trust.repository_named_host``), nothing is
+        sent: not the request, not the project context, not a health probe.
+        """
+        if not turn_context.extensions_off():
+            return None
+        from ract.trust import repository_named_host
+
+        host = repository_named_host(self.url)
+        if host is None:
+            return None
+        return Rooted(
+            value=None,
+            assumption="The configured model host may receive this request.",
+            confidence=0.0,
+            provenance=[self.name],
+            error=(
+                f"refused: this repository's ract.yaml sends your requests to {host}, "
+                "and the repository is not trusted"
+            ),
+            hint=(
+                "run `ract trust` here if you chose that host, or set the provider "
+                "url to a host you chose"
+            ),
+        )
+
     def health_check(self) -> bool:
         """Return True if the OpenAI-compatible endpoint responds to /models."""
+        if self._untrusted_host_refusal() is not None:
+            return False
         try:
             with egress_ledger.purpose("health"):
                 response = self.client.get(
@@ -350,6 +382,9 @@ class OpenAICompatibleProvider(ProviderAdapter):
         max_tokens: int = 512,
         temperature: float = 0.3,
     ) -> Rooted[dict[str, Any]]:
+        refusal = self._untrusted_host_refusal()
+        if refusal is not None:
+            return refusal
         payload = self._build_payload(
             messages,
             model=model,
@@ -457,6 +492,10 @@ class OpenAICompatibleProvider(ProviderAdapter):
         Each yielded value is a single server-sent event chunk.  The caller is
         responsible for accumulating ``choices[0].delta.content`` values.
         """
+        refusal = self._untrusted_host_refusal()
+        if refusal is not None:
+            yield refusal
+            return
         payload = self._build_payload(
             messages,
             model=model,
