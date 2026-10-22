@@ -276,6 +276,73 @@ with a plain message; untrusted, it is not loaded and `ract trust --list`
 shows it; trusted and then changed by one byte, it is untrusted again; an
 edited built-in role fails the source digest test.
 
+### D12. Plan approval (B-064a; the code waits for decision O)
+
+The user sees the whole plan once and decides before any step runs. This
+section is designed to the recommendation for decision O; the end of the
+section says what changes under the other answers.
+
+**When it asks.** In `default` mode, when the plan has two or more steps
+and at least one of them changes a file. It never asks in `auto-accept`
+(changes apply without asking) or in `plan` (nothing runs), and never for
+a plan of answer steps only. A one-step plan keeps the per-step question.
+
+**The answers.** Typed at one prompt, shown under the same `[ ]` lines the
+plan checklist uses (B-053a, one renderer):
+
+- `approve`: run the plan as shown.
+- `skip <n>`: drop step n and every step that depends on it, and name them.
+  Step m depends on step n when m targets the file n targets, or m's action
+  names n's target path. A skipped step is reported as "skipped by you".
+- `edit <n>`: change step n's text or target once. The edited plan goes
+  through the plan validator, the workspace path rules and `answer_instead`,
+  and is shown again; nothing has run. No model is called for an edit.
+- `cancel`: nothing runs and no file changes; in a session the turn ends
+  with outcome `refused` and exit 0.
+
+Nothing the user types is run: an edited step is data for the validator,
+and every string shown passes `safe_text`.
+
+**After approval.** A step whose target is on the approved plan runs
+without asking again. A step that would write a file the approved plan did
+not list (a diff that touches another file, for example) still asks, so an
+approval covers exactly what the user saw.
+
+**Events** (added to `docs/EVENTS_SESSION.md` when the code lands, after
+the MANAGER reviews this list):
+
+| Kind | Fields |
+|---|---|
+| `plan.approval_requested` | `plan_hash` (string, sha256 of the canonical plan), `steps` (as in `plan.proposed`) |
+| `plan.approval_answered` | `plan_hash`, `answer` (`approve`, `skip`, `edit`, `cancel`), `kept` (list of step numbers), `skipped` (list of `{n, reason}`, where reason is `user` or `depends on step <k>`), `edited` (step number or null) |
+
+An `edit` emits `plan.approval_answered` with `answer` `edit`, then a new
+`plan.proposed` and a new `plan.approval_requested` with the new hash.
+Consumers that read only `plan.proposed` see nothing different.
+
+**Headless.** `ract -p` has no terminal, so it behaves as D-030 decided: in
+`default`, a plan with a file change is refused (exit 3, the hint names
+`--accept-edits`); with `--accept-edits` it runs without asking. No
+`--approve-plan` flag.
+
+**Resume.** A resumed session that already approved a plan with the same
+`plan_hash` does not ask again; a changed plan asks.
+
+**If decision O is answered differently.** If the OPERATOR keeps per-step
+questions only: `plan.approval_requested` is never emitted, and nothing
+else in this section changes. If he wants approval for every plan,
+including one step: the threshold drops from two steps to one and the
+per-step question for a one-step plan goes away. The event shape is the
+same under every answer.
+
+Tests: event order and fields; `skip` of a step another step depends on
+(the dependent is skipped and named); an edit that fails validation (the
+plan is shown again, nothing ran); `cancel` leaves the workspace byte for
+byte as it was; hostile step text (escape codes, a 10,000-character line)
+is clean on screen and in the events; headless `default` refuses with exit
+3; resume with the same plan hash does not ask twice; a step writing an
+unlisted file still asks; old consumers of `plan.proposed` are unaffected.
+
 ## Model integration
 
 - **Capability probe.** Chat, streaming, native tool calling (one request
@@ -344,6 +411,7 @@ calls that send diffs to a second provider, and anything at tier 2 or 3.
 | `read_slice` (D9) | B-010a (the read-only slice's tools) | after B-010a |
 | The loop-limit stop (D10) | the loop runner and the VERIFIER record | ungated design; code with the loop |
 | Repository roles (D11) | S-025 trust store; the role loader | rules accepted first; loader after |
+| Plan approval (D12) | decision O (the default); B-053a checklist renderer | design settled; code waits for O |
 | VERIFIER result type (D3, D4) | the existing coverage and mutation gates | ungated |
 | VERIFIER running tests, lint, type checks | ADR-0048 D5 `run_command` and tier 3 | gated |
 | EDITOR | ADR-0047 D1, D4 write tools (T1) and D6 review and apply | gated |
