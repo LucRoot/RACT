@@ -1626,6 +1626,7 @@ def _doctor_command(args: list[str]) -> int:
                         for result in results
                     ],
                     "providers": [probe.to_dict() for probe in doctor.probes],
+                    "advice": doctor.advice,
                 },
                 indent=2,
             )
@@ -1652,6 +1653,17 @@ def _doctor_command(args: list[str]) -> int:
     )
     for probe in doctor.probes:
         _print_provider_probe(probe)
+    if doctor.advice:
+        import shutil
+
+        from rich.markup import escape
+
+        from ract.doctor_advice import render
+
+        width = max(60, min(shutil.get_terminal_size((80, 24)).columns, 100))
+        console.print("Advice")
+        for row in render(doctor.advice, width):
+            console.print(escape(row))
     if not parsed.check_providers:
         console.print(
             "Providers were not contacted. To check that each one answers, run: "

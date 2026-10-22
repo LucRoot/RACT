@@ -61,13 +61,16 @@ class Finding:
     status: str
     detail: str = ""
     next_step: str = ""
+    # The number behind a known context window, else None.
+    number: int | None = None
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "label": self.label,
             "status": self.status,
             "detail": self.detail,
             "next_step": self.next_step,
+            "number": self.number,
         }
 
 
@@ -337,7 +340,10 @@ def _probe_context(adapter: Any, model: str, scrub: _Scrubber) -> Finding:
             value = entry.get(key)
             if isinstance(value, int) and not isinstance(value, bool) and value > 0:
                 return Finding(
-                    "context window", "known", f"{value} tokens, from the server"
+                    "context window",
+                    "known",
+                    f"{value} tokens, from the server",
+                    number=value,
                 )
     return Finding(
         "context window",

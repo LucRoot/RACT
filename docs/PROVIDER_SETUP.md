@@ -282,6 +282,21 @@ ignored. Only the OpenAI endpoint is mapped so far. That mapping is unverified
 against the repository documentation, so treat it as a best guess until it is
 checked against a real server.
 
+## Advice from `ract doctor`
+
+`ract doctor` ends with an Advice section when it finds a problem. Each line
+names the setting or the action to take. Plain `ract doctor` sends no request.
+Only `--check-providers` does, and the live advice needs it.
+
+- A model id with a size, such as `x-32b`, gets a memory estimate: about 0.6 GB
+  per billion parameters, plus 2 GB, for 4-bit weights. The line says these
+  are estimates. It uses the free memory this machine reports right now.
+- A `context_budget_tokens` above the server's context size is reported with
+  both numbers. Servers that do not report a size get no line.
+- A server that cannot call tools gets the text fallback sentence.
+- A `${VAR}` key is checked for presence only. The value is never shown.
+  The line names the variable and, when it is not paired, the host.
+
 ## Capability-based routing
 
 The router scores providers by how well they match a step's hint. A provider named or tagged for a hint is preferred. If no specific match exists, the first configured provider is used.

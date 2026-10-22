@@ -9,6 +9,7 @@ summary before they invoke the model.
 """
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,8 +18,11 @@ import yaml
 
 from ract.config_check import find_config_problems, resolve_manager_provider
 from ract.harness import _default_manager_prompt_path
+from ract.doctor_advice import KeyFacts, Memory, advise
 from ract.providers import reasoning
 from ract.providers.capability_probe import ProviderProbe, probe_configured
+from ract.providers.openai_provider import _host, key_hosts
+from ract.setup import host_probe
 from ract.providers.router import ProviderRouter
 
 
@@ -44,6 +48,8 @@ class RactDoctor:
         self.project_dir = self.config_path.parent
         # Filled by diagnose(check_providers=True): one probe per provider (B-056).
         self.probes: list[ProviderProbe] = []
+        # Advice lines from the last diagnose() (B-059).
+        self.advice: list[str] = []
 
     def diagnose(self, *, check_providers: bool = False) -> list[CheckResult]:
         """Return a list of diagnostic checks.
@@ -73,6 +79,7 @@ class RactDoctor:
             results.extend(self._check_provider_capabilities(self.probes))
         results.append(self._check_prompt_file(config))
         results.append(self._check_skills(config))
+        self.advice = advise(config, _memory(), self.probes, _key_facts(config))
         return results
 
     def _load_config(self, results: list[CheckResult]) -> dict[str, Any] | None:
@@ -376,3 +383,43 @@ def sandbox_status(system: str | None = None) -> SandboxStatus:
 
 
 # RACT 0.1.1 - Trust and tooling
+
+
+GB = 1024**3
+
+
+def _memory() -> Memory:
+    """Total and free memory from the host, in GB. No network."""
+    total, available = host_probe.memory()
+    return Memory(
+        total_gb=None if total is None else total / GB,
+        free_gb=None if available is None else available / GB,
+    )
+
+
+def _key_facts(config: dict[str, Any]) -> list[KeyFacts]:
+    """Presence and host pairing for each ``${VAR}`` key. Never the value."""
+
+    providers = config.get("providers")
+    facts: list[KeyFacts] = []
+    for name, settings in (providers or {}).items():
+        if not isinstance(settings, dict):
+            continue
+        match = re.fullmatch(
+            r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", str(settings.get("api_key", ""))
+        )
+        url = settings.get("url") or settings.get("base_url")
+        if not match or not isinstance(url, str):
+            continue
+        variable = match.group(1)
+        host = _host(url)
+        facts.append(
+            KeyFacts(
+                provider=name,
+                variable=variable,
+                is_set=bool(os.environ.get(variable)),
+                host=host,
+                paired=host in key_hosts(variable),
+            )
+        )
+    return facts
