@@ -211,6 +211,15 @@ def decide(root: Path | str, *, interactive: bool, ask: Any = input) -> bool:
 _DECIDED: dict[tuple[str, str], bool] = {}
 
 
+def allow_for_this_process(root: Path | str) -> None:
+    """Treat the repository's current items as allowed until this process ends.
+
+    For an operator's explicit command-line grant (`ract -p --trust-project`):
+    nothing is stored, and a later run asks or skips as usual.
+    """
+    _DECIDED[(repository_key(root), digest(root))] = True
+
+
 def _ask(
     items: list[TrustItem], *, interactive: bool, ask: Any, root: Path | str
 ) -> bool:

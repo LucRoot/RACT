@@ -192,7 +192,13 @@ ract -p "fix the failing test" --output-format stream-json   # every event, one 
 
 Exit codes: 0 done, 1 the task failed, 2 usage or configuration error, 3
 refused, 5 interrupted, 6 the provider was unavailable, 143 terminated. The
-JSON schema is in `docs/EVENTS_SESSION.md`. A GitHub Actions step:
+JSON schema is in `docs/EVENTS_SESSION.md`.
+
+A headless run does not run the repository's own commands (hooks, MCP
+servers, test gates) unless the repository is trusted: run `ract trust` as an
+earlier step, or pass `--trust-project` for one run. Nothing in the
+repository can grant this itself. `--bare` loads none of them even when
+trusted. A GitHub Actions step:
 
 ```yaml
 - name: Ask RACT to fix the failing test

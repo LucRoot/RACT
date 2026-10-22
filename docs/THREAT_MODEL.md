@@ -360,7 +360,9 @@ Read this before relying on any statement above.
   state directory, keyed by the repository root, and ends when any of those
   items changes). On a terminal RACT lists them with the exact command and
   asks once; without a terminal, and in `ract -p --bare`, it skips them and
-  says so. Still open: `--loop` runs the project's tests (pytest imports
+  says so. A CI job grants trust from its own command line: `ract trust` as
+  an earlier step, or `ract -p --trust-project` for one run; no setting in
+  the repository can. Still open: `--loop` runs the project's tests (pytest imports
   `conftest.py`) without asking.
 - Fixed in v0.6: a key from the operator's environment (`${VAR}` or the
   `OPENAI_API_KEY` fallback) was sent to whatever URL a `ract.yaml` named. It

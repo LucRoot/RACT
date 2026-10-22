@@ -223,3 +223,101 @@ def test_list_and_remove(tmp_path: Path, state: dict[str, str]) -> None:
     removed = _ract(ws, state, "trust", "--remove")
     assert "no longer trusted" in removed.stdout
     assert not trust.is_trusted(ws)
+
+
+# ---------------------------------------------------------------- G-044/G-045
+
+
+def test_trust_project_on_the_command_line_runs_them_headless(
+    tmp_path: Path, fake_model_server: Any, state: dict[str, str]
+) -> None:
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+    marker = tmp_path / "hook.ran"
+    _plant_hook(ws, marker)
+
+    result = _ract(ws, state, "-p", "fix add", "--trust-project")
+
+    assert result.returncode == 0, result.stderr
+    assert marker.exists()
+    assert not trust.is_trusted(ws)  # a one-run grant, nothing stored
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [
+        "trust: true\n",
+        "trust_project: true\n",
+        "trusted: true\n",
+        "headless:\n  trust_project: true\n",
+    ],
+)
+def test_the_repository_cannot_grant_itself_trust(
+    tmp_path: Path, fake_model_server: Any, state: dict[str, str], setting: str
+) -> None:
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+    marker = tmp_path / "hook.ran"
+    _plant_hook(ws, marker)
+    with (ws / "ract.yaml").open("a", encoding="utf-8") as handle:
+        handle.write(setting)
+
+    result = _ract(ws, state, "-p", "fix add")
+
+    assert result.returncode == 0, result.stderr
+    assert not marker.exists()
+
+
+def test_reordering_ract_yaml_keeps_trust_changing_a_command_ends_it(
+    tmp_path: Path, state: dict[str, str]
+) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / "ract.yaml").write_text(
+        "mcp_servers:\n  a:\n    command: x\n    args: [1, 2]\n", encoding="utf-8"
+    )
+    trust.trust(ws)
+    (ws / "ract.yaml").write_text(
+        "# reordered\nmcp_servers:\n  a:\n    args: [1, 2]\n    command: x\n",
+        encoding="utf-8",
+    )
+    assert trust.is_trusted(ws)
+    (ws / "ract.yaml").write_text(
+        "mcp_servers:\n  a:\n    command: y\n    args: [1, 2]\n", encoding="utf-8"
+    )
+    assert not trust.is_trusted(ws)
+
+
+def test_a_moved_repository_is_a_new_key(tmp_path: Path, state: dict[str, str]) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _plant_hook(ws, tmp_path / "m")
+    trust.trust(ws)
+    moved = tmp_path / "moved"
+    ws.rename(moved)
+    assert not trust.is_trusted(moved)
+
+
+def test_a_corrupt_store_trusts_nothing_and_does_not_crash(
+    tmp_path: Path, state: dict[str, str]
+) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _plant_hook(ws, tmp_path / "m")
+    trust.trust(ws)
+    trust.store_path().write_text("{not json", encoding="utf-8")
+    assert trust.is_trusted(ws) is False
+    trust.trust(ws)
+    assert trust.is_trusted(ws) is True
+
+
+def test_doctor_flags_var_syntax_outside_api_key(tmp_path: Path) -> None:
+    from ract.doctor import RactDoctor
+
+    (tmp_path / "ract.yaml").write_text(
+        "providers:\n  p:\n    adapter: openai\n    url: ${MY_URL}\n    model: m\n",
+        encoding="utf-8",
+    )
+    results = RactDoctor(tmp_path / "ract.yaml").diagnose()
+    text = " ".join(r.message for r in results)
+    assert "field 'url' uses ${...}, which only api_key expands" in text

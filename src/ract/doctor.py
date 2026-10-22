@@ -173,6 +173,14 @@ class RactDoctor:
                 continue
             if "adapter" not in settings:
                 issues.append(f"provider '{name}' missing adapter")
+            for field, value in settings.items():
+                # Only api_key expands ${VAR}; anywhere else the text would be
+                # sent as written (S-025, G-045).
+                if field != "api_key" and isinstance(value, str) and "${" in value:
+                    issues.append(
+                        f"provider '{name}' field '{field}' uses ${{...}}, which only "
+                        "api_key expands; write the value itself"
+                    )
             api_key = settings.get("api_key")
             if (
                 isinstance(api_key, str)

@@ -69,6 +69,12 @@ def _parser() -> argparse.ArgumentParser:
         "a headless run already loads none in this release",
     )
     parser.add_argument(
+        "--trust-project",
+        action="store_true",
+        help="run this repository's own commands (hooks, MCP servers, gates) "
+        "for this run, as if trusted; a setting in the repository cannot do this",
+    )
+    parser.add_argument(
         "--max-turns",
         type=int,
         default=1,
@@ -260,7 +266,7 @@ def _run(
     err: TextIO,
 ) -> int:
     from ract.session_turn import TurnRequest, run_turn
-    from ract.trust import is_trusted
+    from ract.trust import allow_for_this_process, is_trusted
     from ract.turn_context import CancelSignal, repository_extensions_off
 
     cancel = CancelSignal()
@@ -278,7 +284,10 @@ def _run(
     # A trusted repository's extensions run (`ract trust` was the operator's
     # decision); `--bare` loads none even then. An untrusted one: none, and
     # nobody is asked (S-025).
-    trusted = not args.bare and is_trusted(Path(args.config).resolve().parent)
+    root = Path(args.config).resolve().parent
+    trusted = not args.bare and (args.trust_project or is_trusted(root))
+    if trusted and args.trust_project:
+        allow_for_this_process(root)
 
     def work() -> None:
         try:
