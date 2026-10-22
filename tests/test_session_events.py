@@ -176,9 +176,11 @@ def test_heartbeat_ticks_from_a_timer() -> None:
     stream = _stream()
     beats: list = []
     stream.subscribe(lambda e: beats.append(e) if e.kind == "agent.heartbeat" else None)
+    # The production timer, smoke only: the exact tick counts are checked with an
+    # injected pace in test_heartbeat_counts_injected_ticks_not_wall_time (B-071).
     with Heartbeat(stream, turn=1, waiting_on="model", interval=0.05):
         time.sleep(0.3)
-    assert len(beats) >= 3
+    assert len(beats) >= 1
     assert all(b.data["waiting_on"] == "model" for b in beats)
     elapsed = [b.data["elapsed_ms"] for b in beats]
     assert elapsed == sorted(elapsed)
@@ -333,3 +335,81 @@ def test_crlf_artifact_text_renders_without_replacement_characters(size: int) ->
 
     shown = "".join(out).split("--- src/calc.py ---\n", 1)[1]
     assert shown == content.replace("\r\n", "\n")
+
+
+class _Ticks:
+    """A pace for Heartbeat: each call waits for the test to release one tick.
+
+    A released tick advances the fake clock by one interval, so the beat's
+    elapsed time is exact and no sleep is involved.
+    """
+
+    def __init__(self, now: list[float]) -> None:
+        self.now = now
+        self.release = threading.Semaphore(0)
+        self.calls = 0
+        self.stopped = False
+
+    def __call__(self, seconds: float) -> bool:
+        self.release.acquire()
+        self.calls += 1
+        if self.stopped:
+            return True
+        self.now[0] += seconds
+        return False
+
+
+def test_heartbeat_counts_injected_ticks_not_wall_time() -> None:
+    stream = _stream()
+    beats: list = []
+    beat_seen = threading.Semaphore(0)
+
+    def record(event: object) -> None:
+        if event.kind == "agent.heartbeat":
+            beats.append(event)
+            beat_seen.release()
+
+    stream.subscribe(record)
+    now = [time.monotonic()]
+    ticks = _Ticks(now)
+    with Heartbeat(
+        stream,
+        turn=1,
+        waiting_on="model",
+        interval=0.05,
+        clock=lambda: now[0],
+        pace=ticks,
+    ):
+        for expected in (1, 2, 3):
+            ticks.release.release()
+            assert beat_seen.acquire(timeout=5), f"no beat for tick {expected}"
+    ticks.stopped = True
+    ticks.release.release()
+    assert len(beats) == 3
+    assert [b.data["elapsed_ms"] for b in beats] == [50, 100, 150]
+    assert all(b.data["waiting_on"] == "model" for b in beats)
+
+
+def test_a_stalled_clock_gives_no_beats() -> None:
+    stream = _stream()
+    beats: list = []
+    stream.subscribe(lambda e: beats.append(e) if e.kind == "agent.heartbeat" else None)
+    now = [time.monotonic()]
+    calls: list[float] = []
+
+    def pace(seconds: float) -> bool:
+        # Three ticks pass and the clock never moves; the fourth ends the loop.
+        calls.append(seconds)
+        return len(calls) > 3
+
+    with Heartbeat(
+        stream,
+        turn=1,
+        waiting_on="model",
+        interval=0.05,
+        clock=lambda: now[0],
+        pace=pace,
+    ):
+        pass  # __exit__ waits for the loop to finish
+    assert len(calls) == 4
+    assert beats == []

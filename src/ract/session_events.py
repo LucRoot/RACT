@@ -367,8 +367,16 @@ class Heartbeat:
         interval: float = HEARTBEAT_SECONDS,
         cancel: threading.Event | None = None,
         connecting: Callable[[], str | None] | None = None,
+        clock: Callable[[], float] = time.monotonic,
+        pace: Callable[[float], bool] | None = None,
     ) -> None:
         self._stream = stream
+        # The time source and the wait between beats. Production uses the real clock
+        # and an Event wait; a test injects both so ticks are counted, not timed (B-071).
+        self._clock = clock
+        self._pace = (
+            pace if pace is not None else (lambda seconds: self._stop.wait(seconds))
+        )
         # The address being connected to, while a connect is in progress
         # (egress_ledger.watching_connections): "connecting to <address>"
         # says more than "waiting on model" while nothing answers (G-055).
@@ -385,7 +393,7 @@ class Heartbeat:
         self._started = 0.0
 
     def __enter__(self) -> Heartbeat:
-        self._started = time.monotonic()
+        self._started = self._clock()
         self._thread = threading.Thread(
             target=self._run, name="ract-heartbeat", daemon=True
         )
@@ -398,12 +406,12 @@ class Heartbeat:
             self._thread.join(timeout=self._interval + 1)
 
     def _run(self) -> None:
-        while not self._stop.wait(self._interval):
+        while not self._pace(self._interval):
             if self._cancel is not None and self._cancel.is_set():
                 return
-            if time.monotonic() - self._stream.last_activity < self._interval:
+            if self._clock() - self._stream.last_activity < self._interval:
                 continue  # something else spoke recently; no need for a sign of life
-            elapsed = int((time.monotonic() - self._started) * 1000)
+            elapsed = int((self._clock() - self._started) * 1000)
             address = self._connecting() if self._connecting is not None else None
             self._stream.emit(
                 "agent.heartbeat",
