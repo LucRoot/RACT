@@ -14,7 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   turn's file changes from its backup. Files the turn replaced are restored and files it created
   are removed; a file you changed after the turn is listed and left alone unless you pass
   `--force`. The undo keeps its own backup, so `/redo` reverses it once. Works outside a git
-  repository. Interim and file-level; checkpoints will replace it.
+  repository. The backups and their manifests live in the user state directory, so a cloned
+  repository cannot ship one, and every path in a manifest is checked to stay inside the
+  workspace, with `--force` too; a refused entry is listed. Interim and file-level;
+  checkpoints will replace it.
 - The end of each turn is the harness's account, one fact per line: the verdict; what changed
   with lines added and removed (`src/calc.py (+1 -1)`); where the previous versions are; whether
   RACT ran tests; what the plan assumed, with the planner's confidence; how many model requests,
@@ -98,8 +101,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   answer step: its reply is shown as the answer, a note says the file is not written. Before any
   other write to an existing file, a Python, JSON, YAML, TOML or INI file that parsed must still
   parse, and any other file over 50 lines is not cut to under a tenth of its size unless the step
-  says it deletes or truncates. A refused step writes nothing and the hint names `/ask`. Every file a turn replaces or deletes keeps its previous bytes under
-  `.ract/undo/<turn>/`, named in the turn summary; the newest 20 turns are kept. With a model
+  says it deletes or truncates. A refused step writes nothing and the hint names `/ask`. Every
+  file a turn replaces or deletes keeps its previous bytes in the user state directory, outside
+  the repository, and the turn summary says `/undo` restores them; the newest 20 turns are
+  kept. With a model
   that followed the v0.5.2 prompt, asking about a file could replace it with the answer.
 - A step refused by RACT itself was reported with the hint "start your model server"; the hint
   now matches only a refused connection.

@@ -136,7 +136,7 @@ def test_a_valid_rewrite_applies_and_keeps_the_previous_version(
 
     assert result.returncode == 0, result.stderr
     assert "return a + b" in (ws / "src" / "calc.py").read_text(encoding="utf-8")
-    saved = list((ws / ".ract" / "undo").glob("*/src/calc.py"))
+    saved = list(undo_backup.turns_dir(ws).glob("*/src/calc.py"))
     assert len(saved) == 1
     assert saved[0].read_bytes() == before  # restores byte for byte
     finished = [
@@ -144,7 +144,8 @@ def test_a_valid_rewrite_applies_and_keeps_the_previous_version(
         for line in result.stdout.splitlines()
         if '"turn.finished"' in line
     ][-1]
-    assert ".ract/undo/" in finished["data"]["workspace"]
+    assert "/undo restores them" in finished["data"]["workspace"]
+    assert not (ws / ".ract" / "undo").exists()  # S-028: never in the workspace
     assert _git(ws, "status", "--porcelain") == "M src/calc.py"
 
 
@@ -157,7 +158,9 @@ def test_ract_run_names_the_backup_folder(
     result = _ract(ws, "run", "--config", "ract.yaml", "--", "fix add")
 
     assert result.returncode == 0, result.stderr
-    assert "note: previous version of 1 file saved in .ract/undo/" in result.stdout
+    assert (
+        "note: previous version of 1 file saved; /undo restores them" in result.stdout
+    )
 
 
 # ------------------------------------------------------------- the gate rules
@@ -280,7 +283,7 @@ def test_backup_saves_once_per_turn_and_skips_new_and_internal_files(
     assert backup.saved == ["a.txt"]
     assert (backup.folder / "a.txt").read_bytes() == b"first\r\n"
     assert backup.describe().startswith(
-        "previous version of 1 file saved in .ract/undo/"
+        "previous version of 1 file saved; /undo restores them"
     )
 
 
@@ -293,7 +296,7 @@ def test_nothing_is_saved_outside_a_turn(tmp_path: Path) -> None:
 
 
 def test_old_turn_folders_are_pruned(tmp_path: Path) -> None:
-    undo = tmp_path / ".ract" / "undo"
+    undo = undo_backup.turns_dir(tmp_path)
     for i in range(undo_backup.KEEP_TURNS + 3):
         (undo / f"20261022T0000{i:02d}Z-aaaaaa").mkdir(parents=True)
 

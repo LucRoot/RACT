@@ -287,7 +287,9 @@ class PlainRenderer:
         else:
             self._line("  changed: nothing")
         if d.get("undo"):
-            self._line(f"  way back: /undo (previous versions in {d['undo']})")
+            # The folder is in the user state directory (S-028); the
+            # command is what the user needs, the path is in the event.
+            self._line("  way back: /undo")
         if d.get("checkpoint"):
             self._line(f"  checkpoint {d['checkpoint']}, /undo to revert")
         verification = d.get("verification") or {}

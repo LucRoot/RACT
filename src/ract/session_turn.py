@@ -320,7 +320,7 @@ def run_turn(
         else {}
     )
     undo_folder = (
-        f"{(undo_backup.UNDO_DIR / backup_box[0].turn_id).as_posix()}/"
+        f"{backup_box[0].folder.as_posix()}/"
         if backup_box and backup_box[0].changed
         else None
     )

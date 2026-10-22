@@ -124,10 +124,7 @@ def test_the_summary_is_assembled_from_events() -> None:
 
     assert "  Done: 1 step ran; no tests were run.\n" in text
     assert "  changed: src/calc.py (+1 -1); unstaged, review with git diff\n" in text
-    assert (
-        "  way back: /undo (previous versions in .ract/undo/20261022T000000Z-abc123/)\n"
-        in text
-    )
+    assert "  way back: /undo\n" in text
     assert "  verified: RACT ran no tests this turn\n" in text
     assert '  the reply says "tests pass"; nothing in this turn checked that\n' in text
     assert "  assumed: add() subtracts (planner confidence 0.85, not checked)\n" in text
@@ -231,7 +228,11 @@ def test_a_real_turn_reports_diffstat_and_an_unverified_claim(
     finished = [e["data"] for e in events if e["kind"] == "turn.finished"][-1]
     assert finished["diffstat"] == {"src/calc.py": {"added": 1, "removed": 1}}
     assert finished["verification"]["claims"] == ["tests pass"]
-    assert finished["undo"] and finished["undo"].startswith(".ract/undo/")
+    # S-028: the turn's backup is outside the workspace.
+    assert (
+        finished["undo"]
+        and ws.resolve() not in Path(finished["undo"]).resolve().parents
+    )
     assert '"tests pass"; nothing in this turn checked that' in result.stderr
 
 
