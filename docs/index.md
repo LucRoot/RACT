@@ -36,6 +36,7 @@ ract init --template python-package --provider local
 - [Skill authoring](SKILL_AUTHORING.md)
 - [Architecture](ARCHITECTURE.md)
 - [Threat model](THREAT_MODEL.md)
+- [What leaves the machine](EGRESS.md)
 - [Provenance](PROVENANCE.md)
 - [Events schema](EVENTS.md)
 - [Philosophy](PHILOSOPHY.md)

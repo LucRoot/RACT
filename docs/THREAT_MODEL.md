@@ -426,6 +426,15 @@ environment scrub and does not confine the filesystem or network; a grant
 must say `sandbox: best_effort` to run commands there. WSL2 and containers
 are the enforced paths on Windows. See ADR-0048 D7.
 
+### What leaves the machine
+
+Every request RACT sends to another host is recorded in the egress ledger
+(host, purpose, bytes and reported tokens; never content), and every
+request that carries content is scanned for secret-shaped values first.
+`/cost` and `ract doctor --egress` read the ledger. The full list of
+outbound sites, what each carries and the exempt sites is in
+[EGRESS.md](EGRESS.md).
+
 ## Reporting
 
 See [SECURITY.md](../SECURITY.md) for the vulnerability reporting

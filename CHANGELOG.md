@@ -10,6 +10,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Egress ledger. Every request RACT sends to another host (model providers, health checks, web
+  search, MCP servers over HTTP, GitHub releases, the skill marketplace) leaves one record in
+  `egress.jsonl` in the user state directory: purpose, host, status, time, bytes each way and
+  the tokens the provider reported. No path, query, header or body is kept. `/cost` in the
+  session and `ract doctor --egress` read it, and the `cost` field of `ract -p
+  --output-format json` is filled from it. Tokens are null when the provider reported none.
+  `docs/EGRESS.md` lists every outbound site.
 - Ask mode. `/ask <question>` in the session, `ract run --ask` and `ract -p --ask` answer a
   question in one step, with no plan and no file written. The prompt for `ract -p` may now also
   follow the flags.
@@ -42,6 +49,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- MCP tool calls (over HTTP and to stdio servers), GitHub release names and notes were sent
+  without the secret scan that provider requests get; they are scanned now. A text release asset
+  that holds a secret-shaped value is refused instead of uploaded.
 - A step's reply no longer replaces a file with something that is plainly not that file. Before
   any write to an existing file: a step whose action asks for information (read, show, explain,
   list, find, review, check, summarize, describe) is refused; a Python, JSON, YAML, TOML or INI
