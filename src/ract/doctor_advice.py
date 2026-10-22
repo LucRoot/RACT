@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ract.providers.capability_probe import ProviderProbe
+from ract.session_events import safe_text
 
 GB_PER_BILLION_PARAMETERS = 0.6
 OVERHEAD_GB = 2.0
@@ -152,7 +153,7 @@ def render(lines: list[str], width: int) -> list[str]:
     rows: list[str] = []
     for line in lines:
         rows += textwrap.wrap(
-            line,
+            safe_text(line),
             width=width,
             subsequent_indent="  ",
             break_long_words=True,

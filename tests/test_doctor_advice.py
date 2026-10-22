@@ -221,3 +221,13 @@ def test_plain_doctor_makes_no_request_and_shows_no_live_advice(
     doctor.diagnose()
     assert server.requests == []
     assert not any("tiny request" in line or "tools" in line for line in doctor.advice)
+
+
+def test_escape_codes_in_names_and_models_never_reach_the_rendered_lines() -> None:
+    esc = "\x1b[31m"
+    bel = "\x07"
+    config = {"providers": {"evil" + esc: {"model": "x-70b" + bel + "[bold]m[/bold]"}}}
+    lines = advise(config, Memory(total_gb=16.0, free_gb=4.0), [], [])
+    rendered = chr(10).join(render(lines, 60))
+    assert esc not in rendered and bel not in rendered
+    assert "[bold]" in rendered  # shown as text
