@@ -39,6 +39,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `.ract/` no longer shows as untracked in `git status`: a run adds it once to the clone-local
+  `.git/info/exclude` (your `.gitignore` is not touched). `ract doctor` lists RACT's
+  `rootact/step/*` branches with the oldest one's age, and `ract doctor --prune-step-branches
+  [DAYS]` deletes those older than DAYS (default 14). Nothing is pruned unless you ask.
 - Runs no longer print "sandbox_env: scrubbed N environment variable(s) ..." to the terminal.
   The summary is logged at INFO and still recorded in the `sandbox.env_scrubbed` event.
 - Seven event kinds that RACT emitted (`tool.invocation.pre`, `post`, `refused`;

@@ -255,6 +255,12 @@ def run_ract(
             error="--rollback requires --session.",
         )
 
+    # S-016: keep RACT's .ract/ state out of the operator's git status.
+    # Local exclude only; a no-op outside a git repository.
+    from ract.executor.worktree import ensure_ract_dir_excluded
+
+    ensure_ract_dir_excluded(config_path.parent)
+
     store = _session_store_for(config_path)
     rollback_engine = SessionRollback(config_path.parent)
 

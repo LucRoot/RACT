@@ -1352,7 +1352,28 @@ def _doctor_command(args: list[str]) -> int:
         action="store_true",
         help="Emit machine-readable JSON instead of a text table.",
     )
+    parser.add_argument(
+        "--prune-step-branches",
+        dest="prune_days",
+        type=float,
+        nargs="?",
+        const=14.0,
+        default=None,
+        metavar="DAYS",
+        help=(
+            "Delete RACT's rootact/step/* branches whose tip is older than DAYS "
+            "(default 14). Each one records what a step committed."
+        ),
+    )
     parsed = parser.parse_args(args)
+
+    from ract.executor.worktree import list_step_branches, prune_step_branches
+
+    project_root = Path(parsed.config).resolve().parent
+    pruned: list[str] = []
+    if parsed.prune_days is not None:
+        pruned = prune_step_branches(project_root, parsed.prune_days)
+    step_branches = list_step_branches(project_root)
 
     results = RactDoctor(parsed.config).diagnose(check_providers=parsed.check_providers)
     sandbox = sandbox_status()
@@ -1366,6 +1387,13 @@ def _doctor_command(args: list[str]) -> int:
                     "passed": passed,
                     "total": total,
                     "providers_contacted": bool(parsed.check_providers),
+                    "step_branches": {
+                        "count": len(step_branches),
+                        "oldest_days": round(step_branches[0].age_days, 1)
+                        if step_branches
+                        else None,
+                        "pruned": pruned,
+                    },
                     "sandbox": {
                         "platform": sandbox.platform,
                         "backend": sandbox.backend,
@@ -1433,6 +1461,15 @@ def _doctor_command(args: list[str]) -> int:
     )
     for prop, state in sandbox.properties.items():
         console.print(f"  {prop}: {state}")
+    if pruned:
+        console.print(f"Deleted {len(pruned)} step branch(es): {', '.join(pruned)}")
+    if step_branches:
+        console.print(
+            f"Step branches: {len(step_branches)} rootact/step/* branch(es), the "
+            f"oldest {step_branches[0].age_days:.0f} day(s) old. Each records what "
+            "a step committed. Delete old ones with: "
+            "ract doctor --prune-step-branches DAYS"
+        )
     return 0 if passed == total else 1
 
 

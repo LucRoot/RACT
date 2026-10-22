@@ -593,4 +593,92 @@ def apply_commit_to_working_tree(
     return WorkingTreeApply(tuple(applied), skipped, patch_path)
 
 
+# ---------------------------------------------------------------------------
+# Repository housekeeping (board S-016)
+# ---------------------------------------------------------------------------
+
+STEP_BRANCH_PREFIX = "rootact/step/"
+
+
+def ensure_ract_dir_excluded(repo: Path) -> bool:
+    """Add ``.ract/`` to the repository's local exclude file, once.
+
+    LR:: RACT keeps its state in ``.ract/``, which showed up as untracked in
+    every ``git status``. ``.git/info/exclude`` is local to this clone and is
+    never committed, so the operator's ``.gitignore`` is left alone. RACT
+    itself writes this one line; model tools may never write under ``.git``
+    (ADR-0047 D3). The path comes from ``git rev-parse --git-path`` so a
+    linked worktree, whose ``.git`` is a file, is handled.
+
+    Returns True when the line was added, False when it was already there or
+    ``repo`` is not a git repository.
+    """
+    found = _git_in(repo, "rev-parse", "--git-path", "info/exclude")
+    if found.returncode != 0 or not found.stdout.strip():
+        return False
+    exclude = Path(found.stdout.strip())
+    if not exclude.is_absolute():
+        exclude = Path(repo) / exclude
+    existing = exclude.read_text(encoding="utf-8") if exclude.is_file() else ""
+    if any(
+        line.strip() in {".ract/", ".ract", "/.ract/", "/.ract"}
+        for line in existing.splitlines()
+    ):
+        return False
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    prefix = "" if not existing or existing.endswith("\n") else "\n"
+    with exclude.open("a", encoding="utf-8") as handle:
+        handle.write(f"{prefix}# RACT state (local, added by ract)\n.ract/\n")
+    return True
+
+
+@dataclass(frozen=True)
+class StepBranch:
+    """A ``rootact/step/*`` branch and the age of its tip commit."""
+
+    name: str
+    age_days: float
+
+
+def list_step_branches(repo: Path, *, now: float | None = None) -> list[StepBranch]:
+    """Every ``rootact/step/*`` branch, oldest first."""
+    import time as _time
+
+    listing = _git_in(
+        repo,
+        "for-each-ref",
+        "--format=%(refname:short) %(committerdate:unix)",
+        f"refs/heads/{STEP_BRANCH_PREFIX}",
+    )
+    current = now if now is not None else _time.time()
+    branches: list[StepBranch] = []
+    for line in listing.stdout.splitlines():
+        name, _, stamp = line.rpartition(" ")
+        try:
+            age = max(0.0, (current - int(stamp)) / 86400.0)
+        except ValueError:
+            continue
+        branches.append(StepBranch(name, age))
+    return sorted(branches, key=lambda b: -b.age_days)
+
+
+def prune_step_branches(repo: Path, older_than_days: float) -> list[str]:
+    """Delete ``rootact/step/*`` branches whose tip is older than the limit.
+
+    Only RACT's own step branches, never the checked-out branch. Each step
+    branch is the record of what one step committed, so this runs only when
+    the operator asks (``ract doctor --prune-step-branches``).
+    """
+    checked_out = _git_in(repo, "branch", "--show-current").stdout.strip()
+    deleted: list[str] = []
+    for branch in list_step_branches(repo):
+        if branch.age_days < older_than_days or branch.name == checked_out:
+            continue
+        if not branch.name.startswith(STEP_BRANCH_PREFIX):
+            continue
+        if _git_in(repo, "branch", "-D", "--", branch.name).returncode == 0:
+            deleted.append(branch.name)
+    return deleted
+
+
 # RACT 0.4.0
