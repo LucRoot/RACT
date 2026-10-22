@@ -4177,6 +4177,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         print_discovery_help(CLI_VERBS)
         return 2
+    # B-035: `ract -p "prompt"` (or piped stdin) runs one turn headless.
+    from ract.headless import run_headless, wants_headless
+
+    if wants_headless(argv):
+        return run_headless(argv)
     if argv and argv[0] in {"--help", "-h"} and len(argv) == 1:
         from ract.cli_help import print_discovery_help
 

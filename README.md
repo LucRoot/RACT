@@ -172,6 +172,31 @@ ract run "add a test for the hello-world script" --config ract.yaml
 ract run "refactor the greeting module" --config ract.yaml --loop --max-iterations 5
 ```
 
+### Headless (scripts and CI)
+
+`ract -p "prompt"` runs one turn without a terminal. The prompt can also come
+on stdin; when both are given, stdin is added to the prompt as labeled context.
+stdout carries only the result and progress goes to stderr, so
+`ract -p "..." > out.txt` gives a clean file.
+
+```bash
+ract -p "fix the failing test"                        # the answer, or the verdict
+ract -p "fix the failing test" --output-format json   # one ract.result/1 object
+ract -p "summarize this log" < build.log              # stdin as the prompt's context
+ract -p "fix the failing test" --output-format stream-json   # every event, one per line
+```
+
+Exit codes: 0 done, 1 the task failed, 2 usage or configuration error, 3
+refused, 5 interrupted, 6 the provider was unavailable, 143 terminated. The
+JSON schema is in `docs/EVENTS_SESSION.md`. A GitHub Actions step:
+
+```yaml
+- name: Ask RACT to fix the failing test
+  run: |
+    ract -p "fix the failing test" --output-format json > ract-result.json
+    jq -e '.outcome == "done"' ract-result.json
+```
+
 ## CLI Verb Index
 
 Run `ract --help` to see every verb enumerated at the top level; `ract

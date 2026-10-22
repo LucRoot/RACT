@@ -88,6 +88,34 @@ _DEFAULT_HINT = "run `ract doctor --check-providers` to check the setup, then tr
 _NOT_VERIFIED: dict[str, Any] = {"status": "not-run", "runs": []}
 
 
+# Process exit codes for a failed turn (docs/EVENTS_SESSION.md, "Exit
+# codes"), checked in order: a connection refused is "provider unavailable",
+# not "refused by policy".
+_EXIT_CODES: tuple[tuple[re.Pattern[str], int], ...] = (
+    (
+        re.compile(
+            r"actively refused|unreachable|Request failed|ConnectError|timed out"
+            r"|HTTP 5\d\d|HTTP 429",
+            re.I,
+        ),
+        6,
+    ),
+    (re.compile(r"Configuration file not found|HTTP 401|HTTP 403|api key", re.I), 2),
+    (
+        re.compile(r"\brefused\b|not written: path refused|Preflight validation", re.I),
+        3,
+    ),
+)
+
+
+def exit_code_for(error: str) -> int:
+    """The exit code of a turn that failed with ``error`` (1 when unclassified)."""
+    for pattern, code in _EXIT_CODES:
+        if pattern.search(error):
+            return code
+    return 1
+
+
 def hint_for(error: str) -> str:
     for pattern, hint in _HINTS:
         if pattern.search(error):
@@ -178,7 +206,9 @@ def run_turn(
     cancel: threading.Event,
     queued: bool = False,
 ) -> int:
-    """Run one turn. Returns a process-style exit code (0 done, 1 failed, 5 interrupted)."""
+    """Run one turn. Returns a process exit code: 0 done, 5 interrupted, or the
+    code for the failure (``exit_code_for``: 1 failed, 2 configuration,
+    3 refused, 6 provider unavailable)."""
     from ract.ract_runner import run_ract  # noqa: PLC0415 -- heavy import, interactive path only
 
     reporter = _TurnReporter(stream, turn, cancel)
@@ -269,7 +299,7 @@ def run_turn(
             turn=turn,
         )
         finished("failed", "The turn failed.", [])
-        return 1
+        return exit_code_for(error_text)
 
     value = result.unwrap()
     unsigned: list[str] = []

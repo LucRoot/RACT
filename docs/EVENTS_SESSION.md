@@ -275,7 +275,7 @@ sequences, so `ract -p "..." > out.txt` gives a clean file.
 | `changed` | list of paths | Files changed across the run. |
 | `verification` | object | As in `turn.finished`, for the run as a whole. |
 | `provenance` | object | As in `turn.finished`, for every changed file. |
-| `cost` | object | `tokens_in`, `tokens_out`, `by_purpose`, `total_usd` (number or null). |
+| `cost` | object | `tokens_in`, `tokens_out` (integers, or null while token counts are not collected), `by_purpose`, `total_usd` (number or null). |
 | `denials` | list of `{rule, action, tier}` | Every action that would have asked for approval and was denied. |
 | `events_path` | string or null | Path of the full event stream, when it was written to a file. |
 | `structured_output` | any | Present only when `--json-schema` was given and the reply validates. An invalid reply leaves the field out and the exit code is 1. |

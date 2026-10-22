@@ -113,7 +113,7 @@ def test_provider_down_gives_a_hint_and_the_workspace_state(tmp_path: Path) -> N
 
     code = run_turn(stream, _request(ws), turn=1, cancel=threading.Event())
 
-    assert code == 1
+    assert code == 6  # provider unavailable (B-035 exit codes)
     error = next(e for e in events if e.kind == "error.surfaced").data
     assert "start your model server" in error["hint"]
     assert error["workspace"] == "no files were changed"
