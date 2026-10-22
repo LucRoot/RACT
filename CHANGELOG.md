@@ -39,6 +39,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Seven event kinds that RACT emitted (`tool.invocation.pre`, `post`, `refused`;
+  `compensator.installed`, `discarded`, `applied`, `refused`) were missing from the closed
+  `EventKind` vocabulary, so a live trace writer dropped them. They are registered
+  (`docs/EVENTS.md` schema_version 11), and a test now fails when source code emits an
+  unregistered kind.
 - Hook commands (`.ract/hooks/*.json`) no longer receive your API keys and tokens. They ran with
   a copy of the whole environment; they now get the sandbox default allowlist minus
   credential-shaped and library-injection names and RACT's own variables, plus the

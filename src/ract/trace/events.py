@@ -388,6 +388,22 @@ EventKind = Literal[
     # policy threshold. Producer:
     # :meth:`ract.memory.watcher.MemoryWatcher._emit_freshness_gap`.
     "memory.freshness_gap",
+    # v0.6 (board S-002): seven kinds that were emitted but missing from
+    # this Literal, so a live trace writer dropped them. Registered with
+    # their existing payloads; docs/EVENTS.md schema_version 11.
+    # ``tool.invocation.pre|post|refused`` -- the four-gate tool chokepoint.
+    # Producer: :meth:`ract.executor.tool_gate.ToolInvocationGate.invoke`.
+    "tool.invocation.pre",
+    "tool.invocation.post",
+    "tool.invocation.refused",
+    # ``compensator.installed|discarded|applied|refused`` -- commit
+    # compensators installed on a commit that moved HEAD and drained on a
+    # non-T1 exit. Producer:
+    # :class:`ract.executor.commit_compensator.CompensatorStack`.
+    "compensator.installed",
+    "compensator.discarded",
+    "compensator.applied",
+    "compensator.refused",
 ]
 
 

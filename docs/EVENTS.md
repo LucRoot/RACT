@@ -1,5 +1,5 @@
 ---
-schema_version: "10"
+schema_version: "11"
 ---
 
 # RACT event schema
@@ -496,18 +496,11 @@ Example payload:
 }
 ```
 
-> **Wiring gap (v0.5.1 module_03 scope).** The three
-> `tool.invocation.pre|post|refused` kinds below are emitted
-> directly by `src/ract/executor/tool_gate.py` as raw string
-> literals; they are documented here as part of the v0.5.1
-> vocabulary but are NOT YET in the closed `EventKind` Literal
-> at `src/ract/trace/events.py` (which today carries the older
-> `tool.called` / `tool.result` / `tool.refused` shape). The
-> wiring completion pipeline's module_03 (tool gate chokepoint
-> wiring) extends the Literal + wires every production tool
-> caller through `SubstrateLoop.invoke_tool`. Consumers can
-> treat the payload shapes below as stable; the type-enforcement
-> gate lands with module_03.
+> **Registered in schema_version 11 (v0.6, board S-002).** The three
+> `tool.invocation.pre|post|refused` kinds below were emitted by
+> `src/ract/executor/tool_gate.py` for several releases without being
+> in the closed `EventKind` Literal, so a live trace writer dropped
+> them. They are now registered with the payloads documented here.
 
 ### `tool.invocation.pre`
 
@@ -1031,6 +1024,42 @@ index's freshness is trailing the workspace clock beyond the
 policy threshold.
 
 Payload: `index`, `gap_ms`, `threshold_ms`.
+
+## v0.6 -- seven emitted kinds registered (schema_version 11)
+
+These kinds were emitted before this version but were missing from
+`EventKind`, so `Event.__post_init__` refused them and a live writer
+dropped them. Registering them changes no payload. A test
+(`tests/trace/test_every_emitted_kind_is_registered.py`) now fails when
+source code emits a kind literal that `EventKind` does not contain.
+
+- `tool.invocation.pre`, `tool.invocation.post`,
+  `tool.invocation.refused`: payloads above.
+
+### `compensator.installed`
+
+Emitted by `CompensatorStack.install` when a commit that moved HEAD gets
+a compensator. Fields: `branch` (string), `sha_before` (string),
+`sha_after` (string), `mode` (`"soft"` or `"hard"`), `pushed` (bool).
+
+### `compensator.discarded`
+
+Emitted by `CompensatorStack.discard` on a successful (T1) disposal.
+Fields: `reason` (string, default `"T1_SUCCESS"`), `count` (int).
+
+### `compensator.applied` and `compensator.refused`
+
+Emitted by `CompensatorStack.drain` for each compensator, LIFO, on a
+non-T1 exit: `applied` when the reset ran, `refused` otherwise. Fields:
+`branch`, `sha_before`, `sha_after`, `mode`, `status` (`"applied"`,
+`"soft_refused"`, `"refused_pushed"`, `"already_applied"` or
+`"failed"`), `drain_reason` (string).
+
+```json
+{"kind": "compensator.refused", "branch": "main", "sha_before": "4f0a...",
+ "sha_after": "9b1c...", "mode": "soft", "status": "refused_pushed",
+ "drain_reason": "T3_REGRESSION"}
+```
 
 <!-- schema_version: 10 — v0.5.2 CI-fix closure (added 10 kinds already emitted in src/) -->
 

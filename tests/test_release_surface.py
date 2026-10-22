@@ -1135,8 +1135,10 @@ def test_events_doc_schema_version_matches_event_kind_count() -> None:
     match = re.search(r'^schema_version:\s*"(\d+)"', text, flags=re.MULTILINE)
     assert match, "docs/EVENTS.md frontmatter missing schema_version"
     doc_version = match.group(1)
-    assert doc_version == "10", (
-        f"docs/EVENTS.md schema_version {doc_version!r} != expected '10'. "
+    # v0.6 S-002 registered seven more already-emitted kinds
+    # (tool.invocation.*, compensator.*): schema 11.
+    assert doc_version == "11", (
+        f"docs/EVENTS.md schema_version {doc_version!r} != expected '11'. "
         "v0.5.2 CI-fix closure added ten already-emitted kinds to "
         "``EventKind`` (see docstring above); bump the frontmatter + "
         "document the payloads per docs/EVENTS.md's own rule."
