@@ -260,6 +260,7 @@ module_10, Lens A M8 closure).
 - `ract auction` — List or resolve entries in the dead-code auction.
 - `ract fence` — List or resolve Chesterton's fence entries.
 - `ract trust` — Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.
+- `ract setup` — Check this machine, choose a local or cloud model, and write a working ract.yaml.
 - `ract skills` — List and inspect builtin and installed skills.
 - `ract marketplace` — (alias) Same as skills marketplace; browse skill packages.
 - `ract mcp` — Manage and invoke MCP tools registered with RACT.

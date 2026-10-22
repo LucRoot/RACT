@@ -216,7 +216,9 @@ def test_a_late_reply_from_an_interrupted_turn_leaves_no_trace(
     # (a) nothing from turn 1 after the interrupt, and no cost entries
     later = events[mark:]
     assert all(e.turn == 2 for e in later), [(e.kind, e.turn) for e in later]
-    assert not any(e.kind == "cost.updated" for e in events)
+    # Turn 2 reports its own cost (G-053); turn 1, interrupted, reports none.
+    assert not any(e.kind == "cost.updated" and e.turn == 1 for e in events)
+    assert any(e.kind == "cost.updated" and e.turn == 2 for e in events)
     # (b) turn 1 applied nothing and made no step branch
     assert (ws / "src" / "calc.py").read_text(encoding="utf-8") == calc_before
     assert "turn two" in (ws / "README.md").read_text(encoding="utf-8")
