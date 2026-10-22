@@ -1,13 +1,19 @@
-   0.216s out 
-   2.354s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
-   2.371s out ract> 
-   2.381s  in 'explain this project\r'
-   2.626s out explain this project\n
-   2.672s out  intent: explain this project\n
-   2.684s out  session: repl-20261021-153433\n
-   5.384s  in '\x03'
-  15.397s  in '/settings\r'
-  15.397s  in '/exit\r'
-  23.210s out ▸ assumptions:\n
-  23.226s out   • slow\n  • Step 1 (Explain the project) produced artifact: output.txt\n▸ results:\n───────────────────────── Step 1: Explain the project ──────────────────────────\n{"assumption": "slow", "confiden
-  23.470s out 
+   0.104s out 
+   2.059s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   2.070s out 
+   2.101s out ract> 
+   2.132s  in 'explain this project\r'
+   2.132s out explain this project\n
+   2.312s out  intent: explain this project\n
+   2.336s out 
+   2.352s out  session: repl-20261021-181923\n
+   5.149s  in '\x03'
+  10.972s out \n
+  10.983s out ⚠  interrupted. Nothing further was run for that line.\n
+  11.063s out ract> 
+  12.112s  in '/settings\r'
+  12.112s  in '/exit\r'
+  12.112s out /settings\n
+  12.143s out Settings\n┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓\n┃ setting                  ┃ value                ┃\n┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩\n│ config                   │ ra
+  12.167s out ract> /exit\n
+  12.319s out 

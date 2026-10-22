@@ -23,7 +23,7 @@ today's flow has no counterpart (no tools exist yet), the defect says so.
 | Id | Journey | Sev | What happens | Evidence | Card |
 |---|---|---|---|---|---|
 | UX-01 | J4 | S1 | A "fix the failing test" turn commits the step onto the user's current branch. HEAD moves to a `rootact step 1` commit that also contains `.ract/gravity_index.json`. The working file is left unfixed, and the index holds a staged change that reverts the commit. `git diff` shows nothing, so the user sees no change and has an extra commit. | `J4.txt` harness notes; reproduced separately with `git log --all` and `git status` | new (ADR-0047 D6 replaces this path) |
-| UX-02 | J6 | S1 | Ctrl-C during a turn does nothing visible. The turn runs to completion 17.8 s later, and only then does the prompt return. No "stopping" acknowledgement. | `J6.timeline.txt` (input `\x03` at about 5.7 s), `metrics.json` J6 | B-033 |
+| UX-02 | J6 | S1 | Ctrl-C during a turn takes effect only when the model call returns: the main thread is blocked in the HTTP read. With an 8 s model delay the prompt came back 5.9 s after Ctrl-C, with "interrupted. Nothing further was run for that line." Correction: the first capture reported 17.8 s and no acknowledgement; that was the walkthrough driver, which did not deliver Ctrl-C at all (fixed, see `tests/ux/terminal_driver.py`). J6 was re-measured with the fixed driver at `f0ba667`, same session code. | `J6.timeline.txt`, `metrics.json` J6 | B-033 |
 | UX-03 | J9 | S1 | After a failed turn, the next intent fails with "Session ... already exists. Use --resume to continue it or --force to overwrite." The session is stuck until the user runs `/session new`, which nothing suggests. | `J9.txt` | new (defect in `repl.py` session carry-over) |
 | UX-04 | J10, J1b | S1 | Provider down: 16 to 25 s of silence while three retries run, then a raw `[WinError 10061]` message. No hint, no named URL, no statement of workspace state. | `J10.txt`, `J1b.txt`, `metrics.json` | B-012 (`error.surfaced`), B-015 |
 | UX-05 | J1b | S1 | Following the printed first-run hint (`ract --init-provider local`) writes a config for a server that is not running. `ract doctor` then reports 7/7 checks passed. The first intent fails as in UX-04. | `J1b.txt` | B-015 |
@@ -53,7 +53,7 @@ today's flow has no counterpart (no tools exist yet), the defect says so.
 | H4 no undo, checkpoint, diff or rewind | Confirmed | `J7.txt`, `J4.txt` |
 | H5 bare `ract` without config | Confirmed without a terminal (usage error, exit 2). Partly retracted with a terminal: a session opens with a warning naming `--init-provider local`. No setup flow either way | `J1.txt` |
 | H6 "Configuration file not found" gives no next step | Confirmed for the one-shot command | `J1.txt` |
-| H7 Ctrl-C during a turn | Confirmed and worse than assumed: ignored until the turn ends | UX-02 |
+| H7 Ctrl-C during a turn | Confirmed: it takes effect only after the model call returns (5.9 s in J6) | UX-02 |
 | H8 discoverability | Confirmed: `/help` lists 15 rows; unknown commands say "Type /help" without suggesting the nearest one | `J1.txt`, `J7.txt` |
 | H9 reasoning output presentation | Partly retracted: truncation is explained with the cause and the setting to change, and hidden reasoning was neither shown nor sent back (J9 harness notes). Presentation is the problem (UX-17) | `J9.txt` |
 
@@ -68,8 +68,8 @@ today's flow has no counterpart (no tools exist yet), the defect says so.
 - **J4**: golden shows the test run, a diff, review, a re-run and an undo
   hint. Today: no test run, no diff, a commit the user did not ask for and a
   claim that does not match the disk.
-- **J6**: golden returns to the prompt within 2 s of Ctrl-C. Today: 17.8 s,
-  silently.
+- **J6**: golden returns to the prompt within 2 s of Ctrl-C. Today: 5.9 s,
+  after the model call returns.
 - **J10**: golden names the URL, gives a hint and states that no files
   changed. Today: 16 s of silence and a raw Windows error.
 

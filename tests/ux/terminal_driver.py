@@ -281,6 +281,7 @@ if sys.platform == "win32":
     _k32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
     _k32.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
     _k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    _k32.SetConsoleCtrlHandler.argtypes = [ctypes.c_void_p, wintypes.BOOL]
 
     def _check(ok: object, what: str) -> None:
         if not ok:
@@ -353,6 +354,11 @@ if sys.platform == "win32":
                 "".join(f"{k}={v}\0" for k, v in merged.items()) + "\0"
             )
             cmdline = ctypes.create_unicode_buffer(subprocess.list2cmdline(list(argv)))
+            # A process started in a new process group (background jobs, many
+            # CI runners) carries an "ignore Ctrl-C" flag that its children
+            # inherit, so the child never sees the Ctrl-C the pseudo console
+            # generates. Clear it on this process before spawning.
+            _k32.SetConsoleCtrlHandler(None, False)
             _check(
                 _k32.CreateProcessW(
                     None,

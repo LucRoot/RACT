@@ -32,3 +32,21 @@ def test_runs_a_program_in_a_real_terminal_and_records_timing() -> None:
 def test_strip_ansi_removes_csi_osc_and_normalizes_newlines() -> None:
     raw = "\x1b]0;title\x07\x1b[1;31mred\x1b[0m\r\nnext\rline"
     assert strip_ansi(raw) == "red\nnext\nline"
+
+
+def test_ctrl_c_reaches_the_child() -> None:
+    # The driver used to spawn children that ignored Ctrl-C (an inherited
+    # flag), which made an interrupt test pass or fail for the wrong reason.
+    program = (
+        "import time\n"
+        "print('ready', flush=True)\n"
+        "try:\n"
+        "    time.sleep(20)\n"
+        "except KeyboardInterrupt:\n"
+        "    print('caught ctrl-c', flush=True)\n"
+    )
+    session = spawn([sys.executable, "-c", program])
+    assert session.expect("ready", 15)
+    session.ctrl_c()
+    assert session.expect("caught ctrl-c", 5)
+    session.close(timeout=10)

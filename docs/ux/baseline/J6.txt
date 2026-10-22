@@ -1,29 +1,24 @@
 # J6: Interrupt during a slow turn
-# build: 85a56ca  terminal: 80x40 pseudo-terminal  run: 2026-10-21 15:34
+# build: f0ba667  terminal: 80x40 pseudo-terminal  run: 2026-10-21 18:19
 ## interactive session
  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
 ract> explain this project
  intent: explain this project
- session: repl-20261021-153433
-▸ assumptions:
-  • slow
-  • Step 1 (Explain the project) produced artifact: output.txt
-▸ results:
-───────────────────────── Step 1: Explain the project ──────────────────────────
-{"assumption": "slow", "confidence": 0.85, "steps": [{"action": "Explain the project", "provider_hint": "local", "expected_artifact": ""}]}
-▸ quality score: 0.425
+ session: repl-20261021-181923
+
+⚠  interrupted. Nothing further was run for that line.
 ract> /settings
 Settings
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ setting                  ┃ value                                    ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ config                   │ ract.yaml                                │
-│ dry-run                  │ off                                      │
-│ stream                   │ off                                      │
-│ auto (approve each step) │ off                                      │
-│ mode                     │ default                                  │
-│ iterations (for /loop)   │ 10                                       │
-│ session                  │ repl-20261021-153433 (resumes next turn) │
-│ turns this session       │ 1                                        │
-└──────────────────────────┴──────────────────────────────────────────┘
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ setting                  ┃ value                ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ config                   │ ract.yaml            │
+│ dry-run                  │ off                  │
+│ stream                   │ off                  │
+│ auto (approve each step) │ off                  │
+│ mode                     │ default              │
+│ iterations (for /loop)   │ 10                   │
+│ session                  │ repl-20261021-181923 │
+│ turns this session       │ 1                    │
+└──────────────────────────┴──────────────────────┘
 ract> /exit

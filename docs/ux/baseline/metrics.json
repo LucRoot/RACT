@@ -92,29 +92,31 @@
     ]
   },
   "J6": {
-    "startup_to_prompt_s": 2.381,
-    "ctrl_c_to_prompt_s": null,
+    "startup_to_prompt_s": 2.132,
+    "ctrl_c_to_prompt_s": 5.923,
     "inputs": [
       {
         "input": "explain this project",
-        "first_visible_output_s": 0.245,
-        "longest_silence_s": 0.245
+        "first_visible_output_s": 0.001,
+        "longest_silence_s": 0.18
       },
       {
         "input": "^C",
-        "first_visible_output_s": 17.826,
-        "longest_silence_s": 0.0
+        "first_visible_output_s": 5.834,
+        "longest_silence_s": 5.834
       },
       {
         "input": "/settings",
-        "first_visible_output_s": 7.813,
-        "longest_silence_s": 7.813
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.031
       }
     ],
     "exit_code": 0,
-    "model_requests": 2,
-    "wall_s": 24.97,
-    "notes": []
+    "model_requests": 1,
+    "wall_s": 14.26,
+    "notes": [
+      "re-measured at f0ba667 after the driver Ctrl-C fix; the first capture (85a56ca) never delivered Ctrl-C"
+    ]
   },
   "J7": {
     "startup_to_prompt_s": 2.995,

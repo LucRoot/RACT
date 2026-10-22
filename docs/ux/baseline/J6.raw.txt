@@ -1,27 +1,43 @@
 [?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+
 ]0;<repo>\.venv\Scripts\ract.exe[?25h[mract> explain this project
+
 [38;2;30;144;255m[1m intent: [38;2;0;206;209m[3mexplain this project
-[m[38;2;30;144;255m[1m session: [38;2;0;206;209m[3mrepl-20261021-153433
-[m[38;2;218;112;214m[1m▸ assumptions:
-[m  • slow
-  • Step 1 (Explain the project) produced artifact: output.txt[38;2;218;112;214m[1m
-▸ results:[38;2;212;175;55m[22m
-───────────────────────── [mStep 1: Explain the project [38;2;212;175;55m──────────────────────────[m
-{"assumption": "slow", "confidence": 0.85, "steps": [{"action": "Explain the project", "provider_hint": "local", "expected_artifact": ""}]}[38;2;218;112;214m[1m
-▸ quality score: 0.425[m
-ract> /settings[38;2;212;175;55m[1m
-Settings[m
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃[1m setting                  [22m┃[1m value                                    [22m┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ config                   │ ract.yaml                                │
-│ dry-run                  │ off                                      │
-│ stream                   │ off                                      │
-│ auto (approve each step) │ off                                      │
-│ mode                     │ default                                  │
-│ iterations (for /loop)   │ 10                                       │
-│ session                  │ repl-20261021-153433 (resumes next turn) │
-│ turns this session       │ 1                                        │
-└──────────────────────────┴──────────────────────────────────────────┘
+
+[m[38;2;30;144;255m[1m session: [38;2;0;206;209m[3mrepl-20261021-181923
+
+[m
+
+[38;2;255;191;0m[1m⚠[m [38;2;30;144;255m[1m interrupted. Nothing further was run for that line.
+
+[mract> /settings
+
+[38;2;212;175;55m[1mSettings[m
+
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+
+┃[1m setting                  [22m┃[1m value                [22m┃
+
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+
+│ config                   │ ract.yaml            │
+
+│ dry-run                  │ off                  │
+
+│ stream                   │ off                  │
+
+│ auto (approve each step) │ off                  │
+
+│ mode                     │ default              │
+
+│ iterations (for /loop)   │ 10                   │
+
+│ session                  │ repl-20261021-181923 │
+
+│ turns this session       │ 1                    │
+
+└──────────────────────────┴──────────────────────┘
+
 ract> /exit
+
 [?9001l[?1004l

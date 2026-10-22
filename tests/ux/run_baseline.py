@@ -434,6 +434,8 @@ def _redact(text: str, tmp: Path) -> str:
     for raw, label in (
         (str(tmp), "<tmp>"),
         (str(REPO), "<repo>"),
+        # The ract executable can live in another checkout's venv.
+        (str(RACT.parents[2]), "<repo>"),
         (home, "~"),
     ):
         for variant in {raw, raw.replace("\\", "/"), raw.replace("\\", "\\\\")}:
