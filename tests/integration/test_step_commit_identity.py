@@ -9,12 +9,36 @@ set, as on a fresh CI runner.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from tests.ux import run_baseline as rb
+
+
+@pytest.fixture(autouse=True)
+def _stop_gpg_daemons(tmp_path: Path) -> Any:
+    """Stop any gpg daemon a run started under the temporary home.
+
+    On the code before S-024 a step commit tried to sign, which started
+    keyboxd under the test's home; it outlived the test and held the temp
+    directory open (G-039). The current code starts none; this teardown keeps
+    a regression from leaking processes across gate runs.
+    """
+    yield
+    gpgconf = shutil.which("gpgconf")
+    gnupg = tmp_path / "home" / ".gnupg"
+    if gpgconf and gnupg.exists():
+        subprocess.run(
+            [gpgconf, "--homedir", str(gnupg), "--kill", "all"],
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
 
 
 def _git(ws: Path, *args: str, env: dict[str, str] | None = None) -> str:
@@ -95,6 +119,7 @@ def test_a_step_commits_on_a_machine_with_no_git_identity(
     result = _run(ws, _isolated_env(tmp_path, None))
 
     assert result.returncode == 0, result.stdout + result.stderr
+    assert not (tmp_path / "home" / ".gnupg").exists()  # nothing tried to sign
     assert "Author identity unknown" not in result.stdout + result.stderr
     assert "return a + b" in (ws / "src" / "calc.py").read_text(encoding="utf-8")
     assert _step_authors(ws) == ["ract <ract@localhost>|ract <ract@localhost>"] * 2
@@ -116,6 +141,7 @@ def test_the_machine_identity_never_reaches_a_step_commit(
     result = _run(ws, env)
 
     assert result.returncode == 0, result.stdout + result.stderr
+    assert not (tmp_path / "home" / ".gnupg").exists()  # nothing tried to sign
     authors = _step_authors(ws)
     assert authors == ["ract <ract@localhost>|ract <ract@localhost>"] * 2
     assert "Sentinel" not in "\n".join(authors)

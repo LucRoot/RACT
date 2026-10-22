@@ -51,6 +51,28 @@ RACT_GIT_EMAIL = "ract@localhost"
 _NO_SIGNING = ("-c", "commit.gpgsign=false")
 
 
+def _no_hooks() -> tuple[str, str]:
+    """``-c core.hooksPath=<empty directory>``: run none of the operator's hooks.
+
+    LR:: Step worktrees share the repository's hooks. The operator's
+    pre-commit hook ran on every RACT step commit (a failing hook failed
+    every step), and post-checkout ran on every `git worktree add` (G-038).
+    Step commits are RACT's transaction records; the operator's hooks belong
+    to the operator's own commit when the change reaches their branch. An
+    empty hooks directory disables every hook, post-commit and post-checkout
+    included, where `--no-verify` covers only pre-commit and commit-msg.
+    """
+    global _EMPTY_HOOKS_DIR
+    if _EMPTY_HOOKS_DIR is None or not Path(_EMPTY_HOOKS_DIR).is_dir():
+        import tempfile
+
+        _EMPTY_HOOKS_DIR = tempfile.mkdtemp(prefix="ract-no-hooks-")
+    return ("-c", f"core.hooksPath={_EMPTY_HOOKS_DIR}")
+
+
+_EMPTY_HOOKS_DIR: str | None = None
+
+
 def ract_commit_env(base: dict[str, str] | None = None) -> dict[str, str]:
     """``base`` (default: this process's environment) with RACT's identity."""
     env = dict(os.environ if base is None else base)
@@ -230,6 +252,7 @@ class WorktreeManager:
             "git",
             "-C",
             str(self.repo_root),
+            *_no_hooks(),
             "worktree",
             "add",
             str(target),
@@ -316,6 +339,7 @@ class WorktreeManager:
                 "-C",
                 str(wt.path),
                 *_NO_SIGNING,
+                *_no_hooks(),
                 # ``--allow-empty`` because a step whose only observable
                 # effect is that its post-conditions now hold (say, a config
                 # tweak we already committed elsewhere) should still record
@@ -324,6 +348,7 @@ class WorktreeManager:
                 # bytes.
                 "commit",
                 "--allow-empty",
+                "--no-verify",
                 "-m",
                 message,
             ],
