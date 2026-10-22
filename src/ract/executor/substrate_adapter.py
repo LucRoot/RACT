@@ -36,6 +36,8 @@ per-step branch discipline this shim depends on.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -48,6 +50,7 @@ register_module_knot(__name__, _MODULE_KNOT)
 
 from ract import turn_context
 from ract.core.loop import WorkspaceSnapshot
+from ract.core.predicate import PredicateResult
 from ract.core.transaction import ResourceBudget, TransactionOutcome
 from ract.executor.loop import SubstrateLoop, SubstrateStepSpec
 from ract.executor.steps import ExecutionReport, Executor
@@ -124,6 +127,28 @@ def _rebind_project_dir(executor: Executor, new_dir: Path) -> Iterator[None]:
         executor.project_dir = original_project_dir
         for helper, original in originals:
             helper.project_dir = original
+
+
+@dataclass(frozen=True)
+class _ExecutorSucceeded:
+    """Post-condition: the step's executor call returned a result.
+
+    Reads the ``executor_ok`` flag the step runner puts in the snapshot's
+    metadata. Has the two members ``SubstrateLoop._finalize`` uses.
+    """
+
+    required: bool = True
+
+    def evaluate(self, snapshot: WorkspaceSnapshot) -> PredicateResult:
+        if snapshot.metadata.get("executor_ok"):
+            return PredicateResult(ok=True, reason="the step's executor call succeeded")
+        error = str(snapshot.metadata.get("executor_error") or "")
+        return PredicateResult(
+            ok=False, reason=f"the step's executor call failed: {error[:200]}"
+        )
+
+
+_EXECUTOR_SUCCEEDED = _ExecutorSucceeded()
 
 
 def _single_step_plan(plan: Plan, step: Step) -> Plan:
@@ -251,13 +276,15 @@ def run_via_substrate(
                 hint="interrupted",
             )
         single_plan = _single_step_plan(plan, step)
-        # Per-step post-conditions are the responsibility of module_01's
-        # compiled AcceptanceSuite; the shim does not synthesize any
-        # here. Post-conditions default to () → SubstrateLoop._finalize
-        # commits unconditionally when the runner returns without
-        # raising.
+        # Acceptance post-conditions are the responsibility of module_01's
+        # compiled AcceptanceSuite; the shim adds only one: the executor
+        # call succeeded. Without it SubstrateLoop._finalize committed
+        # whenever the runner returned, so a failed or interrupted step
+        # left an empty "rootact step" commit on a branch that nothing
+        # cleaned up (G-033). A failed post-condition rolls the step back
+        # and deletes its branch.
         spec = SubstrateStepSpec(
-            predicates=(),
+            predicates=(_EXECUTOR_SUCCEEDED,),
             budget=ResourceBudget(
                 wall_seconds=int(
                     harness.config.get("substrate_loop_step_wall_seconds", 60)

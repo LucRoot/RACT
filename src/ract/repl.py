@@ -87,6 +87,8 @@ Dispatch = Callable[[list[str]], int]
 
 # How long Ctrl-C waits for the turn's worker before the prompt returns.
 _INTERRUPT_GRACE_SECONDS = 0.3
+# How long leaving the session waits for interrupted workers to clean up.
+_EXIT_CLEANUP_SECONDS = 15.0
 
 
 class ReplSession:
@@ -143,6 +145,8 @@ class ReplSession:
         self._worker_done: threading.Event | None = None
         # One per session, shared by every turn's worker (G-029).
         self._write_lock = threading.RLock()
+        # Done events of interrupted turns' workers, waited for at exit only.
+        self._interrupted: list[threading.Event] = []
 
     # ------------------------------------------------------------------ loop
 
@@ -175,16 +179,17 @@ class ReplSession:
                     break
         finally:
             self._save_history()
+            cleanup = self._finish_interrupted_workers()
             if self._events is not None:
                 # The last event of every session (docs/EVENTS_SESSION.md).
-                self._events.emit(
-                    "session.ended",
-                    {
-                        "reason": reason,
-                        "turns": self.state.turns,
-                        "duration_ms": int((time.monotonic() - started) * 1000),
-                    },
-                )
+                ended: dict[str, Any] = {
+                    "reason": reason,
+                    "turns": self.state.turns,
+                    "duration_ms": int((time.monotonic() - started) * 1000),
+                }
+                if cleanup is not None:
+                    ended["cleanup"] = cleanup
+                self._events.emit("session.ended", ended)
             if self._renderer is not None:
                 self._renderer.close()
         return 0
@@ -521,8 +526,40 @@ class ReplSession:
             while not done.wait(0.05):
                 pass
         except KeyboardInterrupt:
+            self._interrupted.append(done)
             return self._interrupt(done, cancel, turn_no, started)
         return box.get("code", 1)
+
+    def _finish_interrupted_workers(self) -> dict[str, Any] | None:
+        """Give interrupted turns' workers a bounded time to clean up.
+
+        LR:: After a mid-stream Ctrl-C the worker removes its step worktree
+        and branch, which takes a second or two. Quitting at once used to end
+        the process first and leave a worktree under .git/ract-worktrees and
+        a rootact/step/* branch behind (G-033). This is the one place the
+        session waits for a worker, and only for a bounded time. Returns the
+        ``cleanup`` fact for ``session.ended``, or None when nothing was
+        pending.
+        """
+        pending = [done for done in self._interrupted if not done.is_set()]
+        if not pending:
+            return None
+        if self._events is not None:
+            self._events.emit(
+                "notice",
+                {"level": "info", "text": "finishing cleanup of the interrupted turn"},
+            )
+        started = time.monotonic()
+        deadline = started + _EXIT_CLEANUP_SECONDS
+        try:
+            for done in pending:
+                done.wait(max(0.0, deadline - time.monotonic()))
+        except KeyboardInterrupt:
+            pass  # a further Ctrl-C at exit: stop waiting
+        return {
+            "waited_ms": int((time.monotonic() - started) * 1000),
+            "finished": all(done.is_set() for done in pending),
+        }
 
     def _interrupt(
         self,

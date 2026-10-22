@@ -303,3 +303,61 @@ def test_after_ctrl_c_the_next_request_starts_at_once(
     # git status for the changed-files cross-check), tracked separately.
     assert started < 3.0, f"the next turn's first request came {started:.2f} s later"
     assert "return a + b" in (ws / "src" / "calc.py").read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(
+    sys.platform != "win32" and not hasattr(os, "openpty"),
+    reason="needs a pseudo-terminal",
+)
+def test_quitting_right_after_a_mid_stream_interrupt_leaves_no_step_state(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    """G-033: the interrupted worker cleans up its step worktree after Ctrl-C;
+    quitting at once must not cut that short and leave a worktree or a
+    rootact/step/* branch behind."""
+    from tests.ux.terminal_driver import spawn
+
+    scenario = Scenario.from_dict(
+        {
+            "turns": [
+                {"reply": {"kind": "text", "content": _plan("src/calc.py")}},
+                {
+                    "reply": {
+                        "kind": "text",
+                        "content": FIXED * 20,
+                        "stall": {"after_chunk": 3, "seconds": 30},
+                    }
+                },
+            ]
+        }
+    )
+    server = fake_model_server(scenario)
+    ws = _repo(tmp_path, server.base_url)
+    ract = Path(sys.executable).with_name("ract.exe" if os.name == "nt" else "ract")
+    env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
+    session = spawn([str(ract)], cwd=str(ws), env=env, cols=100, rows=40)
+    try:
+        assert session.expect(r"ract> ", 30)
+        session.send_line("fix add")
+        assert session.expect(r"--- src/calc.py ---", 30)  # mid-stream
+        session.ctrl_c()
+        assert session.expect(r"ract> ", 5)
+        session.send_line("/exit")
+    finally:
+        session.close(timeout=20)
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", *args], cwd=ws, capture_output=True, text=True, check=True
+        ).stdout
+
+    worktrees = [
+        line
+        for line in git("worktree", "list", "--porcelain").splitlines()
+        if line.startswith("worktree ")
+    ]
+    assert len(worktrees) == 1, worktrees + [session.recording.plain[-800:]]
+    assert git("branch", "--list", "rootact/step/*").strip() == ""
+    assert (ws / "src" / "calc.py").read_text(encoding="utf-8") == rb.CALC_FILES[
+        "src/calc.py"
+    ]

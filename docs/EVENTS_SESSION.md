@@ -105,7 +105,7 @@ Every event is one JSON object:
 |---|---|
 | `session.started` | `workspace` (string, display name only), `model` (string), `provider` (string), `branch` (string or null), `mode` (`default`, `plan`, `auto-accept`, `unrestricted`), `tier3` (`off`, `ask`, `allowlist`, `unrestricted`, `suspended`), `context_limit` (integer or null), `provider_reachable` (boolean or null when not checked), `tool_calling` (`native`, `fallback`, `none`, `unknown`), `extensions` (object: `loaded`, a list of `{kind, name}`, and `skipped`, a list of `{kind, name, reason}`; `kind` is `hook`, `mcp`, `skill`, `policy` or `guidance`) |
 | `session.resumed` | the same fields as `session.started`, plus `resumed_from` (session id) and `turns` (integer, turns already in the session) |
-| `session.ended` | `reason` (`exit`, `eof`, `interrupted`, `terminated`, `error`), `turns` (integer), `duration_ms` (integer) |
+| `session.ended` | `reason` (`exit`, `eof`, `interrupted`, `terminated`, `error`), `turns` (integer), `duration_ms` (integer), `cleanup` (object, present only when an interrupted turn was still cleaning up at exit: `waited_ms` (integer), `finished` (boolean)) |
 | `session.rewound` | `to_turn` (integer), `scope` (`conversation`, `code`, `both`, `summary`), `restored` (integer), `skipped` (list of `{path, reason}`) |
 | `mode.changed` | `mode`, `tier3`, `by` (`operator`) |
 

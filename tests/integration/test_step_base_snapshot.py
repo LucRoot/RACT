@@ -558,3 +558,44 @@ def test_run_prints_the_left_out_notice(tmp_path: Path, fake_model_server: Any) 
     assert "5 files left out of this run's snapshot" in result.stdout
     assert "Add generated, vendored or large files to .gitignore." in result.stdout
     assert "return a + b" in (ws / "src" / "calc.py").read_text(encoding="utf-8")
+
+
+def test_a_failed_step_leaves_no_step_branch(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    """G-033: with no post-condition the loop committed every step whose
+    runner returned, so a failed step left an empty "rootact step" commit on
+    a rootact/step/* branch. The executor's success is now a post-condition;
+    a failed step rolls back and its branch is deleted."""
+    server = fake_model_server(
+        Scenario.from_dict(
+            {
+                "turns": [
+                    {
+                        "reply": {
+                            "kind": "text",
+                            "content": _plan(("Fix add", "src/calc.py")),
+                        }
+                    },
+                    {"reply": {"kind": "fault", "fault": "http_500"}, "repeat": True},
+                ]
+            }
+        )
+    )
+    ws = rb._workspace(tmp_path, "ws", git=True, files=rb.CALC_FILES)
+    rb._configure(ws, server.base_url, "fake-coder")
+    (ws / "ract.yaml").write_text(
+        (ws / "ract.yaml")
+        .read_text(encoding="utf-8")
+        .replace(
+            "    model: fake-coder\n", "    model: fake-coder\n    max_retries: 0\n"
+        ),
+        encoding="utf-8",
+    )
+    _commit_all(ws)
+
+    result = _ract(ws, "fix add")
+
+    assert result.returncode != 0
+    assert _step_branches(ws) == [], result.stdout + result.stderr
+    assert _git(ws, "worktree", "list", "--porcelain").count("worktree ") == 1
