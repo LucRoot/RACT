@@ -88,6 +88,22 @@ def find_config_problems(config: dict[str, Any]) -> list[str]:
     return problems
 
 
+# The manager a session chose with /model <name> (B-058b). In-process only: it is
+# never written to a file or passed to a child process. It holds only a name the
+# loaded configuration defines; resolve_manager_provider checks that again.
+_session_manager: str | None = None
+
+
+def set_session_manager(name: str | None) -> None:
+    """Choose the manager for this session, or None to use the file's."""
+    global _session_manager
+    _session_manager = name
+
+
+def session_manager() -> str | None:
+    return _session_manager
+
+
 def resolve_manager_provider(config: dict[str, Any]) -> tuple[str | None, str | None]:
     """Return ``(slot_name, error)`` for the provider that plans the work.
 
@@ -113,6 +129,8 @@ def resolve_manager_provider(config: dict[str, Any]) -> tuple[str | None, str | 
         return message
 
     name = config.get("manager_provider") if isinstance(config, dict) else None
+    if _session_manager is not None:
+        name = _session_manager
     if name:
         if name not in providers:
             return None, _with_hints(

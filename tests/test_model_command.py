@@ -94,14 +94,14 @@ def test_an_unknown_name_lists_the_valid_ones_and_changes_nothing(
 # ---------------------------------------------------------------- 4. no switch yet
 
 
-def test_naming_a_known_provider_does_not_switch_it_in_this_build(
+def test_naming_a_known_provider_switches_it_for_the_session_and_leaves_the_file(
     tmp_path: Path,
 ) -> None:
     config = _config(tmp_path / "ract.yaml")
     before = config.read_bytes()
     session, console = _session(config)
     session.handle("/model second")
-    assert "not available yet" in console.text
+    assert "manager provider is now 'second' for this session" in console.text
     assert config.read_bytes() == before
 
 

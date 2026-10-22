@@ -47,7 +47,10 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
         "Change a setting: dry-run, stream, auto, mode, iterations.",
     ),
     ("/settings", "Show the current settings."),
-    ("/model [name]", "Show the configured models. Switching is not available yet."),
+    (
+        "/model [name]",
+        "Show the configured models, or switch the manager for this session.",
+    ),
     (
         "/session [new|<id>]",
         "Show, restart or switch the session that carries context between turns.",
@@ -154,6 +157,9 @@ class ReplSession:
         reasoning.reset_session_effort(
             reasoning.configured_default(config or Path("ract.yaml"))
         )
+        from ract.config_check import set_session_manager  # noqa: PLC0415
+
+        set_session_manager(None)
         self._dispatch = dispatch
         self._read_line = read_line or input
         self._console = console
@@ -434,8 +440,29 @@ class ReplSession:
                     f"no provider named '{escape(safe_text(args[0]))}'. valid names: {names}"
                 )
                 return True
-            self._console.error(
-                "switching the manager provider for this session is not available yet"
+            from ract import config_check, trust  # noqa: PLC0415
+
+            slot = providers[args[0]]
+            url = (
+                slot.get("url") or slot.get("base_url")
+                if isinstance(slot, dict)
+                else None
+            )
+            name = escape(safe_text(args[0]))
+            if (
+                isinstance(url, str)
+                and url
+                and trust.repository_named_host(url) is not None
+            ):
+                self._console.error(
+                    f"provider '{name}' uses a host that this repository's ract.yaml named. "
+                    "Run `ract trust` to allow it, then switch again."
+                )
+                return True
+            config_check.set_session_manager(args[0])
+            self._console.success(
+                f"manager provider is now '{name}' for this session; "
+                f"{escape(safe_text(self.state.config.name))} is unchanged"
             )
             return True
         manager, _ = resolve_manager_provider(config)
@@ -719,7 +746,10 @@ class ReplSession:
 
             config = yaml.safe_load(self.state.config.read_text(encoding="utf-8")) or {}
             providers = config.get("providers") or {}
-            provider = str(config.get("manager_provider") or next(iter(providers), "?"))
+            from ract.config_check import resolve_manager_provider
+
+            resolved, _ = resolve_manager_provider(config)
+            provider = resolved or "?"
             model = str((providers.get(provider) or {}).get("model", "?"))
         except Exception:  # noqa: BLE001 -- the banner already reports config problems
             pass
