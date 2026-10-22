@@ -24,8 +24,8 @@ git tag, with the fake model server; nothing is installed.
   checks this; this upgrade test does not repeat it.
 - A commit made by v0.5.2 stays in your history. Its `.ract/gravity_index.json`
   is tracked, so `git status` shows it as deleted once RACT ignores it.
-- `.ract/` is still shown as untracked (`?? .ract/`). This is a known gap: see
-  the expected failure in the test.
+- A run on this branch does not show `.ract/` as untracked. The v0.5.2 run did, so
+  step 3 below is still the way to stop tracking an old commit's copy.
 
 ### Not yet checked
 

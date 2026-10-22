@@ -158,13 +158,18 @@ def test_a_corrupted_old_session_file_gives_a_plain_error(v052_workspace: Any) -
     assert "Traceback" not in proc.stdout + proc.stderr
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="FOUND (B-047): .ract/ is still shown as untracked after a v0.5.2 run; "
-    "the card wants it ignored. Needs a card and the BUILDER's decision.",
-)
-def test_ract_state_is_not_shown_as_untracked(v052_workspace: Any) -> None:
+def test_ract_state_is_not_shown_as_untracked_after_a_run_on_this_branch(
+    v052_workspace: Any,
+) -> None:
+    # The v0.5.2 run leaves .ract/ behind. This branch's own run (a dry-run plan
+    # against the same fake server) must not make it show as untracked: S-016
+    # excludes it on this branch. A strict xfail carried this FOUND until then.
     ws, _, _ = v052_workspace
+    proc = _run(_env(NEW_SRC), ws, "fix add", "--dry-run")
+    assert "Traceback" not in proc.stdout + proc.stderr
+    # The planning reply is scenario-dependent: the second request of this scenario
+    # is not a plan, so the run may exit 1. What matters here is that it ran on this
+    # branch and left no traceback, and that .ract/ is then ignored.
     status = subprocess.run(
         ["git", "status", "--short"], cwd=ws, capture_output=True, text=True
     ).stdout
