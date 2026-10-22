@@ -151,9 +151,12 @@ def test_every_docs_row_says_what_was_tested() -> None:
         assert cells[-1] in {
             "tested against the fake server",
             "run against a real server",
+            "configuration checked only",
         }, name
         if name in CLOUD:
-            assert cells[-1] == "tested against the fake server"
+            assert cells[-1] == "configuration checked only"
+        else:
+            assert cells[-1] != "configuration checked only"
 
 
 # ---------------------------------------------------------------- 6. the guard works

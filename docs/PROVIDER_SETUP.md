@@ -174,16 +174,15 @@ preset has been run against a real server yet.
 | `llamacpp` | `http://127.0.0.1:8080/v1` | none | start `llama-server` with a model; see the llama.cpp server documentation | tested against the fake server |
 | `lmstudio` | `http://127.0.0.1:1234/v1` | none | load a model in LM Studio and start its local server | tested against the fake server |
 | `vllm` | `http://127.0.0.1:8000/v1` | none | start the vLLM OpenAI-compatible server with a model | tested against the fake server |
-| `openai` | `https://api.openai.com/v1` | `${OPENAI_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
-| `anthropic` | `https://api.anthropic.com/v1` | `${ANTHROPIC_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
-| `zai` | `https://api.z.ai/v1` | `${ZAI_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
-| `moonshot` | `https://api.moonshot.cn/v1` | `${MOONSHOT_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
-| `openrouter` | `https://openrouter.ai/api/v1` | `${OPENROUTER_API_KEY}` | create a key with the provider and set the variable | tested against the fake server |
+| `openai` | `https://api.openai.com/v1` | `${OPENAI_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
+| `anthropic` | `https://api.anthropic.com/v1` | `${ANTHROPIC_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
+| `zai` | `https://api.z.ai/v1` | `${ZAI_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
+| `moonshot` | `https://api.moonshot.cn/v1` | `${MOONSHOT_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
+| `openrouter` | `https://openrouter.ai/api/v1` | `${OPENROUTER_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
 
 For the local presets, the test sends a chat request to the fake server through the
-provider class. For the cloud presets, the test checks the configuration and the
-key pairing only; no request is sent. Their "tested" entry means that check, and
-it is not a request test.
+provider class. For the cloud presets, the entry is "configuration checked only":
+the test checks the configuration and the key pairing, and no request is sent.
 
 The "How to start" column names the tool's own documentation. Those start
 commands are not checked in this repository, so treat them as unverified.
