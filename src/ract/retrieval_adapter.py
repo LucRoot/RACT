@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ract import egress_scan
 from ract.rooted import Rooted
 from ract.workspace_path import is_never_sent
 
@@ -321,6 +322,9 @@ class WebSearchAdapter(RetrievalAdapter):
                 error=f"httpx is required for web search: {exc}",
             )
 
+        # S-022: the query goes to an outside search service; redact first.
+        query, redacted = egress_scan.scan_text(query)
+        egress_scan.notify(redacted, "the web search endpoint")
         payload = self._request_payload(query)
         try:
             if self.method == "get":

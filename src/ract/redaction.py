@@ -26,34 +26,138 @@ HOLD_BACK_CHARS = 128
 _PEM_BEGIN = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")
 _PEM_END = re.compile(r"-----END [A-Z0-9 ]*PRIVATE KEY-----")
 
-_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
-    re.compile(p)
-    for p in (
-        r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----|[\s\S]*\Z)",
-        r"\bsk-[A-Za-z0-9_-]{16,}",
-        r"\bgh[pousr]_[A-Za-z0-9]{20,}",
-        r"\bgithub_pat_[A-Za-z0-9_]{20,}",
-        r"\bxox[abprs]-[A-Za-z0-9-]{10,}",
-        r"\bAKIA[0-9A-Z]{16}\b",
-        r"\bAIza[0-9A-Za-z_-]{35}",
-        r"\bhf_[A-Za-z0-9]{30,}",
-        r"\bnvapi-[A-Za-z0-9_-]{20,}",
-        r"(?i)\bbearer\s+[A-Za-z0-9._~+/-]{20,}=*",
-        # user:password in a URL; the scheme and host stay readable.
-        r"(?<=://)[^/\s:@]+:[^/\s@]+(?=@)",
-    )
+# A variable or field name that says it holds a credential: a separated
+# word (api_key, client-secret, DB_PASSWORD, auth.token) in any case, or a
+# camelCase one (apiKey, clientSecret). "author", "tokenizer" and "monkey"
+# are not names of this kind.
+_REFERENCE_SUFFIXES = (
+    "id", "ids", "name", "names", "file", "filename", "path", "env", "var",
+    "url", "type", "size", "len", "length", "count", "prefix", "suffix",
+    "header", "field", "label", "format", "kind", "dir", "hash",
+)  # fmt: skip
+_NOT_A_REFERENCE = "".join(
+    rf"(?<!(?i:[_.-]{suffix}))(?<!{suffix.capitalize()})"
+    for suffix in _REFERENCE_SUFFIXES
+)
+_SECRET_NAME = (
+    r"(?!(?i:public))"
+    r"(?:(?i:(?:[a-z0-9]+[_.-])*"
+    r"(?:api[_-]?key|key|token|secret|passw(?:or)?d|pwd|credentials?|auth)"
+    r"(?:[_.-][a-z0-9]+)*)"
+    r"|[a-z][a-zA-Z0-9]*(?:Key|Token|Secret|Password|Passwd|Credentials?|Auth)"
+    r"[A-Za-z0-9]*)" + _NOT_A_REFERENCE
+)
+_PASSWORD_NAME = (
+    r"(?:(?i:(?:[a-z0-9]+[_.-])*(?:passw(?:or)?d|passphrase|secret)"
+    r"(?:[_.-][a-z0-9]+)*)"
+    r"|[a-z][a-zA-Z0-9]*(?:Password|Passphrase|Secret)[A-Za-z0-9]*)" + _NOT_A_REFERENCE
+)
+# Values that are references or placeholders, never secrets.
+_NOT_A_VALUE = (
+    r"(?![$<]|os\.|getenv|process\.env|\[redacted\]"
+    r"|(?i:your[-_ ]|change[-_]?me|example|placeholder|x{4}|dummy))"
 )
 
+# (name, pattern). The name is what a notice reports; the value never is.
+# A pattern with a group named ``keep`` keeps that part (the variable name,
+# the opening quote, the URL parameter) and replaces the rest of the match.
+NAMED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (name, re.compile(p))
+    for name, p in (
+        (
+            "private key block",
+            r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----|[\s\S]*\Z)",
+        ),
+        ("OpenAI-style key", r"\bsk-[A-Za-z0-9_-]{16,}"),
+        ("Stripe-style key", r"\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{10,}"),
+        ("GitHub token", r"\bgh[pousr]_[A-Za-z0-9]{20,}"),
+        ("GitHub token", r"\bgithub_pat_[A-Za-z0-9_]{20,}"),
+        ("Slack token", r"\bxox[abprs]-[A-Za-z0-9-]{10,}"),
+        ("Twilio key", r"\bSK[0-9a-f]{32}\b"),
+        ("AWS access key id", r"\bAKIA[0-9A-Z]{16}\b"),
+        ("Google API key", r"\bAIza[0-9A-Za-z_-]{35}"),
+        ("Hugging Face token", r"\bhf_[A-Za-z0-9]{30,}"),
+        ("NVIDIA API key", r"\bnvapi-[A-Za-z0-9_-]{20,}"),
+        ("JWT", r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
+        ("bearer token", r"(?i)\bbearer\s+[A-Za-z0-9._~+/-]{20,}=*"),
+        (
+            "basic auth",
+            r"(?P<keep>(?i:authorization:[ \t]*basic[ \t]+))[A-Za-z0-9+/]{12,}={0,2}",
+        ),
+        (
+            "connection string key",
+            r"(?P<keep>\b(?:AccountKey|SharedAccessKey)=)[A-Za-z0-9+/]{20,}={0,2}",
+        ),
+        # user:password in a URL; the scheme and host stay readable.
+        ("URL credentials", r"(?<=://)[^/\s:@]+:[^/\s@]+(?=@)"),
+        (
+            "URL query secret",
+            r"(?P<keep>[?&](?i:api[_-]?key|access[_-]?token|token|key|secret"
+            r"|client[_-]?secret|password|passwd)=)[^&\s#\"'<>]{12,}",
+        ),
+        # NAME = "literal" in any language or config format, with any
+        # separator and spacing; the value must be a quoted literal, so
+        # `secret = load_secret(path)` is not matched.
+        (
+            "secret assignment",
+            rf"(?P<keep>(?<![\w.-])(?:export[ \t]+)?[\"']?{_SECRET_NAME}[\"']?"
+            rf"[ \t]*[:=][ \t]*[\"']){_NOT_A_VALUE}[^\s'\"]{{12,}}(?=[\"'])",
+        ),
+        # A passphrase has no digit (`password: correcthorsebatterystaple`),
+        # so names that mean a password or secret (not key or token, where
+        # `token: tokenizer` is common) also take one lowercase word of 12 or
+        # more letters, not CamelCase and not followed by a call or a comma.
+        (
+            "secret assignment",
+            rf"(?P<keep>(?<![\w.-])(?:export[ \t]+)?{_PASSWORD_NAME}(?:=|:[ \t]*))"
+            rf"{_NOT_A_VALUE}[A-Za-z][a-z]{{11,}}+(?![\w.(,)=\[])",
+        ),
+        # NAME=value and NAME: value unquoted (.env, shell, YAML, query-ish
+        # config). No space before the separator; the value contains a digit
+        # and is not an identifier being called or indexed, so
+        # `token=token_provider.get()` is not matched.
+        (
+            "secret assignment",
+            rf"(?P<keep>(?<![\w.-])(?:export[ \t]+)?{_SECRET_NAME}(?:=|:[ \t]*))"
+            rf"{_NOT_A_VALUE}(?=[^\s'\"]*\d)(?![A-Za-z_]\w*[.(\[])"
+            # Possessive: the whole value is taken, so the annotation check
+            # cannot be dodged by matching a shorter prefix.
+            r"[^\s'\"#,;&(){}\[\]]{12,}+(?![ \t]*[,)=])",
+        ),
+    )
+)
+_PATTERNS: tuple[re.Pattern[str], ...] = tuple(p for _, p in NAMED_PATTERNS)
+
+
+def _replace(match: re.Match[str]) -> str:
+    keep = match.groupdict().get("keep")
+    return (keep or "") + REPLACEMENT
+
+
 # A token after one of these is a credential even though whitespace
-# separates them, so the two are held together.
-_HOLD_WITH_NEXT = re.compile(r"(?i)(?:\bbearer|authorization:)\s*\Z")
+# separates them, so the two are held together: Bearer, Basic, the
+# Authorization header, and a credential name with its separator
+# (`api_key: value`, `PASSWORD = "value"`).
+_HOLD_WITH_NEXT = re.compile(
+    rf"(?:(?i:authorization:[ \t]*(?:basic|bearer)?|\bbearer|\bbasic)"
+    rf"|(?<![\w.-])[\"']?{_SECRET_NAME}[\"']?[ \t]*(?:[:=][ \t]*[\"']?)?)"
+    rf"[ \t]*\Z"
+)
 
 
 def redact(text: str) -> str:
     """Return ``text`` with every secret-shaped value replaced."""
-    for pattern in _PATTERNS:
-        text = pattern.sub(REPLACEMENT, text)
-    return text
+    return redact_report(text)[0]
+
+
+def redact_report(text: str) -> tuple[str, dict[str, int]]:
+    """Redact ``text`` and count the matches by pattern name."""
+    counts: dict[str, int] = {}
+    for name, pattern in NAMED_PATTERNS:
+        text, n = pattern.subn(_replace, text)
+        if n:
+            counts[name] = counts.get(name, 0) + n
+    return text, counts
 
 
 class StreamingRedactor:

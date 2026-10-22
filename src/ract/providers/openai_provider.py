@@ -17,7 +17,7 @@ import httpx
 
 from ract.providers.base import ProviderAdapter
 from ract.providers.rate_limit import TokenBucket
-from ract import turn_context
+from ract import egress_scan, turn_context
 from ract.retry_policy import RetryConfig, RetryPolicy
 from ract.rooted import Rooted
 
@@ -199,6 +199,10 @@ class OpenAICompatibleProvider(ProviderAdapter):
         cap = self._effective_max_tokens(max_tokens)
         if cap is not None:
             payload["max_tokens"] = cap
+        # S-022: the last check before anything leaves for the provider, over
+        # every string in the payload (tool-call arguments included).
+        payload, redacted = egress_scan.scan_payload(payload)
+        egress_scan.notify(redacted, f"provider {self.name!r}")
         return payload
 
     def _post_completion(self, payload: dict[str, Any]) -> dict[str, Any]:

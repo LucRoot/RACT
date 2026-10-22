@@ -23,7 +23,7 @@ register_module_knot(__name__, _MODULE_KNOT)
 
 from ract.artifact_store import Artifact as StoreArtifact, ArtifactStore
 from ract.artifact_tracker import ArtifactTracker, TrackedArtifact
-from ract import turn_context
+from ract import egress_scan, turn_context
 from ract.diff_applier import DiffApplier
 from ract.workspace_path import (
     WorkspacePathRefused,
@@ -858,6 +858,24 @@ class Executor:
             True,
         )
 
+    def _target_secrets(self, expected_artifact: str | None) -> dict[str, int]:
+        """Secret-shaped values in the step's existing target file, by pattern."""
+        if not expected_artifact or self.project_dir is None:
+            return {}
+        resolved = resolve_workspace_path(
+            self.project_dir, expected_artifact, purpose="send"
+        )
+        target = resolved.value
+        if target is None or not target.is_file():
+            return {}
+        try:
+            if target.stat().st_size > self._TARGET_FILE_MAX_BYTES:
+                return {}
+            text = target.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return {}
+        return egress_scan.target_holds_secret(text)
+
     def _execute_provider_step_with_fallback(
         self,
         step: Step,
@@ -890,6 +908,27 @@ class Executor:
                 if candidate not in candidates:
                     candidates.append(candidate)
 
+        secrets = self._target_secrets(step.expected_artifact)
+        if secrets:
+            # LR:: The outbound scan (S-022) would send this file with the
+            # values replaced by [redacted]; the model returns the file with
+            # the placeholder and the write would destroy the real values.
+            # Refuse before any request is made.
+            return Rooted(
+                value=None,
+                assumption=f"Step {index}'s target file holds no secret-shaped value.",
+                confidence=0.0,
+                provenance=[f"executor.step:{index}", "egress_scan"],
+                error=(
+                    f"Step {index} refused: {step.expected_artifact} holds "
+                    f"secret-shaped values ({egress_scan.describe(secrets)}). RACT "
+                    "will not send them to a model or rewrite the file around them."
+                ),
+                hint=(
+                    "move the values to environment variables or a file RACT never "
+                    "reads (.env), or edit this file yourself"
+                ),
+            )
         user_content = (
             f"Task: {step.action}\nExpected artifact: {step.expected_artifact}"
         )

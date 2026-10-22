@@ -1,6 +1,7 @@
 import subprocess
 from typing import Any
 
+from ract import egress_scan
 from ract.providers.base import ProviderAdapter
 from ract.rooted import Rooted
 
@@ -43,6 +44,9 @@ class InternalProvider(ProviderAdapter):
             if msg.get("role") == "user":
                 last_user = msg.get("content", "")
                 break
+        # S-022: the same last-line scan as every other provider request.
+        last_user, redacted = egress_scan.scan_text(last_user)
+        egress_scan.notify(redacted, "the internal provider command")
         try:
             proc = subprocess.run(
                 self.command,

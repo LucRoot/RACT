@@ -88,6 +88,11 @@ def recording_suspended() -> Iterator[None]:
         _written.reset(token)
 
 
+def has_reporter() -> bool:
+    """True when a session is listening for this context's events."""
+    return _reporter.get() is not None
+
+
 def cancelled() -> bool:
     """True when the current context's turn has been interrupted."""
     event = _cancel.get()
