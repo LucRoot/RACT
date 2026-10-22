@@ -73,6 +73,8 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     "whisper": "Add or list free-form legacy operator notes.",
     "auction": "List or resolve entries in the dead-code auction.",
     "fence": "List or resolve Chesterton's fence entries.",
+    "undo": "Reverse the last RACT turn: restore the files it replaced, remove the files it created.",
+    "redo": "Reverse the last undo.",
     "setup": "Check this machine, choose a local or cloud model, and write a working ract.yaml.",
     "trust": "Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.",
     # Skills / marketplace

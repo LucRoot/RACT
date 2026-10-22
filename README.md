@@ -164,16 +164,10 @@ In the directory you want to work in, run:
 ract setup
 ```
 
-Setup checks this machine, offers a model server that is already running
-(llama.cpp, Ollama, LM Studio or vLLM on their default ports), or asks
-whether to use a local model or a cloud provider. For a local model it
-suggests one that fits the memory you give it and prints how to start it;
-it never downloads anything. For a cloud provider it names the environment
-variable for the key and never asks for the key itself. It writes
-`ract.yaml`, checks it with one tiny request, and prints the next command.
-Running bare `ract` in a directory without `ract.yaml` offers the same
-setup. Without a terminal: `ract setup --answers FILE` (template:
-`ract setup --print-defaults`).
+Setup finds a model server already running, or suggests a local model that
+fits your machine (it never downloads) or a cloud provider (it never asks
+for the key). It writes `ract.yaml` and checks it with one request. Bare
+`ract` offers it too; see `docs/QUICKSTART.md`.
 
 In a repository you cloned, RACT first lists any commands the repository
 asks it to run (hooks, MCP servers, test gates) and runs them only if you
@@ -261,6 +255,8 @@ module_10, Lens A M8 closure).
 - `ract fence` — List or resolve Chesterton's fence entries.
 - `ract trust` — Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.
 - `ract setup` — Check this machine, choose a local or cloud model, and write a working ract.yaml.
+- `ract undo` — Reverse the last RACT turn: restore the files it replaced, remove the files it created.
+- `ract redo` — Reverse the last undo.
 - `ract skills` — List and inspect builtin and installed skills.
 - `ract marketplace` — (alias) Same as skills marketplace; browse skill packages.
 - `ract mcp` — Manage and invoke MCP tools registered with RACT.

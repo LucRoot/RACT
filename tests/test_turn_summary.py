@@ -125,7 +125,8 @@ def test_the_summary_is_assembled_from_events() -> None:
     assert "  Done: 1 step ran; no tests were run.\n" in text
     assert "  changed: src/calc.py (+1 -1); unstaged, review with git diff\n" in text
     assert (
-        "  way back: previous versions in .ract/undo/20261022T000000Z-abc123/\n" in text
+        "  way back: /undo (previous versions in .ract/undo/20261022T000000Z-abc123/)\n"
+        in text
     )
     assert "  verified: RACT ran no tests this turn\n" in text
     assert '  the reply says "tests pass"; nothing in this turn checked that\n' in text

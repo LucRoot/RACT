@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `/undo` and `/redo` in the session, `ract undo` and `ract redo` in the shell: reverse the last
+  turn's file changes from its backup. Files the turn replaced are restored and files it created
+  are removed; a file you changed after the turn is listed and left alone unless you pass
+  `--force`. The undo keeps its own backup, so `/redo` reverses it once. Works outside a git
+  repository. Interim and file-level; checkpoints will replace it.
 - The end of each turn is the harness's account, one fact per line: the verdict; what changed
   with lines added and removed (`src/calc.py (+1 -1)`); where the previous versions are; whether
   RACT ran tests; what the plan assumed, with the planner's confidence; how many model requests,
@@ -72,6 +77,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract report --last` (and `/report`) printed "Assumption: no plan" and "Confidence: 0.0" for a
+  turn whose plan had both: the session record dropped the plan of every run that executed. It
+  now keeps it, and a turn without a plan says "not recorded" instead of showing a default.
 - A model reply with CRLF line endings no longer shows a replacement character before every line
   break in the session. Carriage returns are dropped from displayed text; the file on disk is
   unchanged.

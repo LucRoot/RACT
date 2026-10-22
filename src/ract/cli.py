@@ -85,6 +85,8 @@ def toggle_mode(mode: str) -> str:
 CLI_VERBS: tuple[str, ...] = (
     "run",
     "setup",
+    "undo",
+    "redo",
     "trust",
     "skills",
     "mcp",
@@ -247,6 +249,33 @@ def _intent_as_json(parser: argparse.ArgumentParser, args: argparse.Namespace) -
             *flags,
         ]
     )
+
+
+def _undo_command(verb: str, args: list[str]) -> int:
+    """`ract undo|redo [--force] [--config PATH]` (B-049)."""
+    from ract import undo_backup
+
+    parser = argparse.ArgumentParser(
+        prog=f"ract {verb}",
+        description=(
+            "Reverse the last RACT turn's file changes."
+            if verb == "undo"
+            else "Reverse the last `ract undo`."
+        ),
+    )
+    parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="also overwrite files that changed after RACT wrote them",
+    )
+    parsed = parser.parse_args(args)
+    root = parsed.config.resolve().parent
+    action = undo_backup.undo if verb == "undo" else undo_backup.redo
+    result = action(root, force=parsed.force)
+    for line in result.lines(verb):
+        print(line)
+    return 1 if result.skipped else 0
 
 
 def _offer_setup(ask: Any = input) -> bool:
@@ -4374,6 +4403,8 @@ def main(argv: list[str] | None = None) -> int:
             "ract setup --answers FILE (template: ract setup --print-defaults)",
             file=sys.stderr,
         )
+    if argv and argv[0] in ("undo", "redo"):
+        return _undo_command(argv[0], argv[1:])
     if argv and argv[0] == "setup":
         from ract.setup import wizard
 

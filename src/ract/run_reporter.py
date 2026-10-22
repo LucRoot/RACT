@@ -91,7 +91,7 @@ class RunReporter:
         if session_id is not None:
             session_output = self.render_session(session_id)
             return (
-                "No loop report found. Showing the most recent session instead.\n\n"
+                "The last run was not a --loop run; this is its session record.\n\n"
                 + session_output
             )
         return "No loop report found. Run 'ract ... --loop' first."
@@ -152,13 +152,26 @@ class RunReporter:
         if report is None:
             return f"No session report found for '{session_id}'."
 
+        plan = report.get("plan") or {}
+        assumption = str(plan.get("assumption") or "")
+        # A default is never shown as data (UX-12): "no plan" and an empty
+        # assumption are what older and failed turns stored.
+        recorded = bool(assumption) and assumption != "no plan"
         lines: list[str] = [
             f"RACT Session Report: {session_id}",
             "========================",
             f"Intent: {report.get('intent', 'n/a')}",
-            f"Assumption: {report.get('plan', {}).get('assumption', 'n/a')}",
-            f"Confidence: {report.get('plan', {}).get('confidence', 'n/a')}",
         ]
+        if recorded:
+            lines.append(f"Assumption: {assumption}")
+            confidence = plan.get("confidence")
+            if isinstance(confidence, (int, float)):
+                lines.append(f"Planner confidence: {confidence:.2f}")
+            steps = plan.get("steps") or []
+            if steps:
+                lines.append(f"Plan steps: {len(steps)}")
+        else:
+            lines.append("Plan: not recorded for this turn")
         outcomes = report.get("outcomes", [])
         if outcomes:
             lines.append("")

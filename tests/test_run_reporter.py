@@ -152,7 +152,7 @@ def test_render_last_loop_falls_back_to_latest_session(tmp_path: Path):
     }
     (sessions_dir / "latest.json").write_text(json.dumps(report), encoding="utf-8")
     text = RunReporter(tmp_path).render_last_loop()
-    assert "No loop report found" in text
+    assert "was not a --loop run; this is its session record" in text
     assert "fallback session" in text
     assert "write src/bar.py" in text
 

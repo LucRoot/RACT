@@ -51,6 +51,11 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/config", "Validate the active config (same as ract config validate)."),
     ("/providers", "List configured providers and the manager provider."),
     ("/cost", "Requests, tokens and bytes sent off this machine in this session."),
+    (
+        "/undo [--force]",
+        "Reverse the last turn's file changes (skips files you edited since).",
+    ),
+    ("/redo [--force]", "Reverse the last /undo."),
     ("/doctor [--check-providers]", "Run setup diagnostics against the active config."),
     ("/report [--last]", "Show what the last run changed and why."),
     (
@@ -150,6 +155,8 @@ class ReplSession:
             "doctor": self._cmd_doctor,
             "report": self._cmd_report,
             "cost": self._cmd_cost,
+            "undo": self._cmd_undo,
+            "redo": self._cmd_redo,
             "clear": self._cmd_clear,
         }
         self._events: Any = None
@@ -293,6 +300,26 @@ class ReplSession:
 
     def _cmd_report(self, args: list[str]) -> bool:
         self._run_verb("report", args or ["--last"])
+        return True
+
+    def _cmd_undo(self, args: list[str]) -> bool:
+        from ract import undo_backup
+
+        result = undo_backup.undo(
+            self.state.config.resolve().parent, force="--force" in args
+        )
+        for line in result.lines("undo"):
+            self._console.print(line)
+        return True
+
+    def _cmd_redo(self, args: list[str]) -> bool:
+        from ract import undo_backup
+
+        result = undo_backup.redo(
+            self.state.config.resolve().parent, force="--force" in args
+        )
+        for line in result.lines("redo"):
+            self._console.print(line)
         return True
 
     def _cmd_cost(self, args: list[str]) -> bool:

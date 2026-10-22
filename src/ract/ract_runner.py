@@ -136,12 +136,18 @@ def _save_session(
         if isinstance(value, ExecutionReport):
             outcomes = [sr.outcome() for sr in value.step_results]
             artifacts = dict(value.artifacts)
+            # The plan that ran. It was dropped for executed runs, so the
+            # report showed "no plan, confidence 0.0" for a turn that had
+            # both (UX-12).
+            plan = value.plan
         elif isinstance(value, Plan):
             plan = value
 
     state = SessionState(
         intent=intent,
-        plan=plan or Plan(assumption="no plan", confidence=0.0, steps=[]),
+        # An empty assumption marks "no plan recorded" (a failed turn); the
+        # report says so instead of printing a default as data.
+        plan=plan or Plan(assumption="", confidence=0.0, steps=[]),
         artifacts=artifacts,
         outcomes=outcomes,
     )
