@@ -17,6 +17,7 @@ import yaml
 
 from ract.config_check import find_config_problems, resolve_manager_provider
 from ract.harness import _default_manager_prompt_path
+from ract.providers import reasoning
 from ract.providers.capability_probe import ProviderProbe, probe_configured
 from ract.providers.router import ProviderRouter
 
@@ -178,6 +179,11 @@ class RactDoctor:
                 continue
             if "adapter" not in settings:
                 issues.append(f"provider '{name}' missing adapter")
+            if "reasoning_effort" in settings:
+                try:
+                    reasoning.check_config(settings["reasoning_effort"])
+                except ValueError as exc:
+                    issues.append(f"provider '{name}': {exc}")
             for field, value in settings.items():
                 # Only api_key expands ${VAR}; anywhere else the text would be
                 # sent as written (S-025, G-045).

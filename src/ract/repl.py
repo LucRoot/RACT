@@ -147,7 +147,9 @@ class ReplSession:
         # executor's approval reads, so label and behavior cannot differ.
         if self._event_mode and sys.stdin.isatty():
             self.state.auto = True
-        reasoning.reset_session_effort()
+        reasoning.reset_session_effort(
+            reasoning.configured_default(config or Path("ract.yaml"))
+        )
         self._dispatch = dispatch
         self._read_line = read_line or input
         self._console = console

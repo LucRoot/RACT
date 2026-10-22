@@ -18,8 +18,11 @@ not mapped.
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
+
+import yaml
 
 EFFORT_LEVELS = ("off", "low", "medium", "high")
 FIELD = "reasoning_effort"
@@ -28,6 +31,47 @@ MAPPED_HOSTS = frozenset({"api.openai.com"})
 
 _session_effort = "off"
 _noted: set[str] = set()
+
+
+def normalise(value: object) -> str | None:
+    """The level a config value names, or None when it names none.
+
+    YAML reads a bare ``off`` as false, so false means off.
+    """
+    if value is False:
+        return "off"
+    if isinstance(value, str) and value.strip().lower() in EFFORT_LEVELS:
+        return value.strip().lower()
+    return None
+
+
+def check_config(value: object) -> str:
+    """The level for a ``reasoning_effort`` config value, or ValueError."""
+    level = normalise(value)
+    if level is None:
+        raise ValueError(f"reasoning_effort must be one of: {', '.join(EFFORT_LEVELS)}")
+    return level
+
+
+def configured_default(config_path: Path | str) -> str:
+    """The effort the config names for its providers, or off.
+
+    The manager provider is looked at first. A bad value counts as off here;
+    the provider and ``ract doctor`` refuse it with the valid list.
+    """
+    try:
+        data = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return "off"
+    if not isinstance(data, dict) or not isinstance(data.get("providers"), dict):
+        return "off"
+    providers = data["providers"]
+    names = [data.get("manager_provider")] + list(providers)
+    for name in names:
+        settings = providers.get(name) if isinstance(name, str) else None
+        if isinstance(settings, dict) and FIELD in settings:
+            return normalise(settings[FIELD]) or "off"
+    return "off"
 
 
 def session_effort() -> str:
@@ -40,16 +84,14 @@ def set_session_effort(value: str) -> None:
     global _session_effort
     cleaned = value.strip().lower()
     if cleaned not in EFFORT_LEVELS:
-        raise ValueError(
-            f"reasoning takes one of: {', '.join(EFFORT_LEVELS)}"
-        )
+        raise ValueError(f"reasoning takes one of: {', '.join(EFFORT_LEVELS)}")
     _session_effort = cleaned
 
 
-def reset_session_effort() -> None:
-    """Back to ``off``, and forget which providers were already noted."""
+def reset_session_effort(start: str = "off") -> None:
+    """Set the session value to *start*, and forget which providers were noted."""
     global _session_effort
-    _session_effort = "off"
+    _session_effort = start
     _noted.clear()
 
 

@@ -128,6 +128,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
     _uncapped_by_default = False
 
     def __init__(self, config: dict[str, Any]) -> None:
+        reasoning.check_config(config.get("reasoning_effort", "off"))
         self._max_tokens_configured = "max_tokens" in config
         self._max_tokens_override = _parse_max_tokens(config.get("max_tokens"))
         self.url = config.get(
