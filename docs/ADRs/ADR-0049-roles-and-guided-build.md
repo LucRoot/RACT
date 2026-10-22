@@ -41,7 +41,7 @@ done.
 | Role | Job | Maps onto | Model class | Tools (tier) | Ungated now |
 |---|---|---|---|---|---|
 | INTAKE | Restate the request and pick a playbook | memory `intake` (WorkOrder) | either; a deterministic fallback from `request_type` keywords | none | data and loader |
-| EXPLORER | Read, search, build the repo map, answer questions | memory `research` (ResearchBundle) plus the read-only tools | either | `read_file`, `list_dir`, `glob`, `grep`, `repo_map` (T0) | yes, after S-028 and the Linux symlink run |
+| EXPLORER | Read, search, answer questions | memory `research` (ResearchBundle) plus the read-only tools | either | `read_file`, `list_dir`, `glob`, `grep` (T0); `repo_map` is gated with B-010b until the OPERATOR names it | the four tools: yes, after S-028 and the Linux symlink run |
 | PLANNER | A Rooted plan: assumption, confidence and acceptance checks per step | Manager plan, extended with ChangePlan `verification_criteria` | strong preferred; weak with schema output | none | prompt and schema |
 | EDITOR | One change inside the policy | memory `edit` (CandidateDiff) through ADR-0047 write tools | either | `edit_file`, `write_file`, `apply_patch` (T1) | design only |
 | VERIFIER | Run tests, lint and type checks; report structured results | ALM gates G1 to G5, coverage and mutation gates | none: harness code, no model | `run_tests`, `lint`, `typecheck` (T3, ADR-0048) | result type, wired to coverage and mutation gates only |
@@ -100,6 +100,14 @@ repository like the undo store (S-028), never under the workspace's
 `.ract/`, so a repository cannot plant one. They are signed when the
 provenance wiring lands (S-015b); until then the summary says "unsigned".
 
+**An acceptance check is a proposal, not a command.** The PLANNER (a model)
+and a playbook propose the checks the VERIFIER runs. A proposed check is an
+argv list, never a shell string. The harness runs it only when it matches
+the operator's command policy (ADR-0048, gated); any other check is shown
+to the operator and not run. A check that comes from a repository playbook
+is a trust item (S-025), like a hook's command: it is listed by `ract trust`
+and is part of the trust digest.
+
 ### D4. Who decides done
 
 A step is done when a VerificationResult recorded after its last edit
@@ -108,6 +116,12 @@ termination T1). A role output that claims success without that record
 leaves the turn `unverified`, and the summary says so (B-038 already flags
 "tests pass" claims; a test plants a role output claiming success with no
 VerificationResult and checks the turn is marked unverified).
+
+An answer step (explain code, a question) changes nothing, so it has no
+VerificationResult. Its done-ness is "citations verified" (B-037): every
+`path:line` it cites exists and the quoted text is at that line. An answer
+with no citation, or with a citation that does not check out, leaves the
+turn `unverified` in the summary.
 
 ### D5. Weak-model guidance is mechanism
 
@@ -119,7 +133,10 @@ VerificationResult and checks the turn is marked unverified).
   the model as the error.
 - Bounded retry: at most two retries per role call, each with the parse,
   checklist or test error as context; then the role stops with a named
-  failure and a hint.
+  failure and a hint. That error text can contain repository text (a test's
+  output, a file's line), so it passes the outbound secret scan (S-022)
+  before it is sent and is labeled in the prompt as untrusted output, not
+  as an instruction.
 - The single-shot path stays for steps that only produce text (answers).
 
 ### D6. Strong-model path
@@ -137,6 +154,13 @@ Explain code needs only INTAKE and EXPLORER and ships first. A repository
 may add playbooks only when it is trusted (S-025); package playbooks cannot
 be overridden.
 
+A repository playbook is a workspace file, so its loader is written as
+hostile-input code: one fixed directory (`.ract/playbooks/`), each name
+checked with `undo_backup.require_name`, `yaml.safe_load` only, a size cap
+(64 KiB per file), schema validation before any field is used, and the
+bytes of every playbook file inside the trust digest, so a changed playbook
+ends trust like a changed hook.
+
 ### D8. Router: a model per role, explained
 
 `ract.yaml` gains an optional `roles:` map from role to provider name. The
@@ -147,22 +171,35 @@ switches one role for the session. When a role's `model_class` is `strong`
 and the assigned model probed weak (no native tools, small context), the
 session says so once and continues on the weak path.
 
+**Role routing is egress.** A `roles:` entry can send repository content to
+a different provider. Each role call is recorded in the egress ledger with
+purpose `role:<name>`. `/model` shows each role's host. A role assigned to a
+host that is neither loopback nor one the operator chose needs the same
+trust as a repository-named provider (S-030: a `network` trust item).
+`/model <role> <provider>` accepts only a provider that exists in the
+configuration.
+
 ## Model integration
 
 - **Capability probe.** Chat, streaming, native tool calling (one request
   with a trivial `echo` tool), reasoning content, and context size (from
-  `/models` metadata where the server reports it, otherwise unknown). Cached
-  per provider URL and model in the user state directory with a timestamp.
-  ADR-0047 D5 placed the cache in `.ract/capabilities.json`; that file is
-  repository-shippable, so this ADR moves it. `ract doctor
-  --check-providers` runs the probe and prints each capability with a plain
-  next step for each gap. The probe requests are recorded in the egress
-  ledger under purpose `probe`.
-- **`/model`** as in D8. **Reasoning effort**: a per-provider setting mapped
-  to that provider's parameter, off by default.
-- **Retry and rate limits**: per-provider backoff with jitter; a refused
-  local connection fails fast (B-043); a 429 waits with the plain message
-  "the provider is rate limiting; retrying in N s".
+  `/models` metadata where the server reports it, otherwise unknown).
+  `ract doctor --check-providers` runs the probe live and prints each
+  capability with a plain next step for each gap (B-056); it writes no
+  cache. The probe requests are recorded in the egress ledger under
+  purpose `probe`.
+- **Capability cache.** ADR-0047 D5 placed it in `.ract/capabilities.json`;
+  that file is repository-shippable, so this ADR moves it to the user state
+  directory. It stores facts only (booleans, a context size, a timestamp),
+  never a response body, keyed by provider URL and model. It is its own
+  small card after this ADR is settled.
+- **`/model`** as in D8. **Reasoning effort**: a session setting (B-057) and
+  a `reasoning_effort` key in `ract.yaml` (off, low, medium, high; B-057b),
+  mapped to a provider's parameter only where documented, off by default.
+- **Retry and rate limits**: backoff with jitter; `Retry-After` honored up
+  to 120 s; a refused local connection fails fast (B-043); a 429 waits with
+  the plain message "the provider is rate-limiting; trying again in N s
+  (attempt K of M)" (B-055).
 - **Local help**: `ract doctor` explains a model too large for the machine
   (the setup memory guidance), a context too small for the repo map (with
   the setting to raise), and a server without tool calls (with the
@@ -196,6 +233,10 @@ calls that send diffs to a second provider, and anything at tier 2 or 3.
 | Role data, loader, golden prompts (D2) | nothing gated | ungated |
 | INTAKE and PLANNER prompts and schemas | nothing gated (no tools) | ungated |
 | EXPLORER (D1) | ADR-0047 D1 to D4 for T0 tools only, the read-only slice | ratified 2026-10-22 with two conditions: S-028 committed, symlink refusals run on Linux (B-046) |
+| `repo_map` for EXPLORER | B-010b | gated until the OPERATOR names it |
+| Running a proposed acceptance check (D3) | ADR-0048 command policy | gated; until then a check is shown, not run |
+| Repository playbooks (D7) | S-025 trust and the hostile-input loader in D7 | ungated design; the loader is its own card |
+| `roles:` routing to a host the operator did not choose (D8) | S-030 network trust | ungated design; uses the existing trust items |
 | VERIFIER result type (D3, D4) | the existing coverage and mutation gates | ungated |
 | VERIFIER running tests, lint, type checks | ADR-0048 D5 `run_command` and tier 3 | gated |
 | EDITOR | ADR-0047 D1, D4 write tools (T1) and D6 review and apply | gated |
