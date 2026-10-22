@@ -1,0 +1,268 @@
+"""One record for every request RACT sends off the machine (B-044).
+
+LR:: INTENT invariant 9 says the operator can see everything that left the
+machine. Requests went out from eight places (providers, health checks,
+web search, MCP over HTTP, GitHub releases, the skill marketplace) and
+nothing kept a record. Every httpx client in RACT is now made here, with a
+transport that records each request when its response closes: purpose,
+kind, destination host, status, time, bytes each way and the tokens the
+provider reported. Never content: no path, query, header or body is kept.
+
+The ledger is JSON lines in the user state directory (``egress.jsonl``,
+rotated to ``egress.1.jsonl`` at 10 MB); ``RACT_EGRESS_LEDGER`` names
+another file. A ledger that cannot be written prints one note per process
+and never stops a request.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import httpx
+
+ROTATE_BYTES = 10 * 1024 * 1024
+# Response bodies up to this size are kept until close to read `usage`;
+# a longer stream keeps only its tail (where an SSE usage chunk arrives).
+_BODY_LIMIT = 2 * 1024 * 1024
+_TAIL = 16 * 1024
+
+_purpose: ContextVar[str] = ContextVar("ract_egress_purpose", default="")
+_lock = threading.Lock()
+_warned = False
+
+
+def ledger_path() -> Path:
+    override = os.environ.get("RACT_EGRESS_LEDGER")
+    if override:
+        return Path(override)
+    from ract.core.keys import _default_state_dir
+
+    return _default_state_dir() / "egress.jsonl"
+
+
+@contextmanager
+def purpose(name: str) -> Iterator[None]:
+    """Name what the requests inside this block are for ("plan", "step 2")."""
+    token = _purpose.set(name)
+    try:
+        yield
+    finally:
+        _purpose.reset(token)
+
+
+def _tokens(usage: Any) -> tuple[int | None, int | None]:
+    if not isinstance(usage, dict):
+        return None, None
+    tin = usage.get("prompt_tokens", usage.get("input_tokens"))
+    tout = usage.get("completion_tokens", usage.get("output_tokens"))
+    return (
+        tin if isinstance(tin, int) else None,
+        tout if isinstance(tout, int) else None,
+    )
+
+
+def _usage_from_body(content_type: str, body: bytes) -> Any:
+    try:
+        text = body.decode("utf-8", errors="replace")
+        if "json" in content_type:
+            data = json.loads(text)
+            return data.get("usage") if isinstance(data, dict) else None
+        if "event-stream" in content_type:
+            for line in reversed(text.splitlines()):
+                if line.startswith("data: ") and '"usage"' in line:
+                    data = json.loads(line[len("data: ") :])
+                    if isinstance(data, dict) and data.get("usage"):
+                        return data["usage"]
+    except ValueError:
+        return None
+    return None
+
+
+def write(record: dict[str, Any]) -> None:
+    """Append one record; a failure is reported once and never raised."""
+    global _warned
+    path = ledger_path()
+    line = json.dumps(record, ensure_ascii=False) + "\n"
+    try:
+        with _lock:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.is_file() and path.stat().st_size > ROTATE_BYTES:
+                os.replace(path, path.with_name(path.stem + ".1" + path.suffix))
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write(line)
+    except OSError as exc:
+        if not _warned:
+            _warned = True
+            print(
+                f"note: the egress ledger could not be written ({path}): {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+
+def read(path: Path | None = None) -> list[dict[str, Any]]:
+    """Every record, oldest first (the rotated file, then the current one)."""
+    path = path or ledger_path()
+    records: list[dict[str, Any]] = []
+    for part in (path.with_name(path.stem + ".1" + path.suffix), path):
+        try:
+            lines = part.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue  # no ledger yet, or the rotated file does not exist
+        for line in lines:
+            try:
+                records.append(json.loads(line))
+            except ValueError:
+                continue  # a torn last line from a killed process
+    return records
+
+
+class _CountingStream(httpx.SyncByteStream):
+    """Counts the response bytes and records the request when closed."""
+
+    def __init__(self, inner: httpx.SyncByteStream, finish: Any) -> None:
+        self._inner = inner
+        self._finish = finish
+        self._count = 0
+        self._body = bytearray()
+        self._done = False
+
+    def __iter__(self) -> Iterator[bytes]:
+        for chunk in self._inner:
+            self._count += len(chunk)
+            self._body += chunk
+            if len(self._body) > _BODY_LIMIT:
+                del self._body[:-_TAIL]
+            yield chunk
+
+    def close(self) -> None:
+        try:
+            self._inner.close()
+        finally:
+            if not self._done:
+                self._done = True
+                self._finish(self._count, bytes(self._body))
+
+
+class LedgerTransport(httpx.BaseTransport):
+    """An httpx transport that records each request in the egress ledger."""
+
+    def __init__(self, kind: str, inner: httpx.BaseTransport | None = None) -> None:
+        self.kind = kind
+        self._inner = inner or httpx.HTTPTransport()
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        started = time.monotonic()
+        try:
+            bytes_out: int | None = len(request.content)
+        except httpx.RequestNotRead:
+            bytes_out = None
+        base = {
+            "t": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "pid": os.getpid(),
+            "purpose": _purpose.get() or self.kind,
+            "kind": self.kind,
+            "host": request.url.host,
+            "bytes_out": bytes_out,
+        }
+        try:
+            response = self._inner.handle_request(request)
+        except Exception as exc:
+            write(
+                {
+                    **base,
+                    "status": type(exc).__name__,
+                    "ms": int((time.monotonic() - started) * 1000),
+                    "bytes_in": 0,
+                    "tokens_in": None,
+                    "tokens_out": None,
+                }
+            )
+            raise
+        content_type = response.headers.get("content-type", "")
+
+        def finish(count: int, body: bytes) -> None:
+            tokens_in, tokens_out = _tokens(_usage_from_body(content_type, body))
+            write(
+                {
+                    **base,
+                    "status": response.status_code,
+                    "ms": int((time.monotonic() - started) * 1000),
+                    "bytes_in": count,
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
+                }
+            )
+
+        assert isinstance(response.stream, httpx.SyncByteStream)
+        return httpx.Response(
+            status_code=response.status_code,
+            headers=response.headers,
+            stream=_CountingStream(response.stream, finish),
+            extensions=response.extensions,
+        )
+
+    def close(self) -> None:
+        self._inner.close()
+
+
+def client(kind: str, **kwargs: Any) -> httpx.Client:
+    """An httpx.Client whose every request is recorded in the ledger."""
+    inner = kwargs.pop("transport", None)
+    return httpx.Client(transport=LedgerTransport(kind, inner), **kwargs)
+
+
+def summary(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Totals for a set of records, overall and by host."""
+    by_host: dict[str, dict[str, Any]] = {}
+    total = {
+        "requests": 0,
+        "bytes_out": 0,
+        "bytes_in": 0,
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "unreported": 0,
+    }
+    for record in records:
+        host = by_host.setdefault(
+            str(record.get("host", "?")),
+            {
+                "requests": 0,
+                "bytes_out": 0,
+                "bytes_in": 0,
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "unreported": 0,
+            },
+        )
+        for bucket in (total, host):
+            bucket["requests"] += 1
+            bucket["bytes_out"] += int(record.get("bytes_out") or 0)
+            bucket["bytes_in"] += int(record.get("bytes_in") or 0)
+            if record.get("kind") == "model":
+                if record.get("tokens_in") is None and record.get("tokens_out") is None:
+                    bucket["unreported"] += 1
+                bucket["tokens_in"] += int(record.get("tokens_in") or 0)
+                bucket["tokens_out"] += int(record.get("tokens_out") or 0)
+    return {**total, "by_host": by_host}
+
+
+__all__ = [
+    "LedgerTransport",
+    "client",
+    "ledger_path",
+    "purpose",
+    "read",
+    "summary",
+    "write",
+]

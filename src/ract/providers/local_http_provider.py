@@ -10,6 +10,7 @@ api_key='no-key' so the harness can treat local servers as a distinct slot.
 
 from typing import Any
 
+from ract import egress_ledger
 from ract.providers.openai_provider import OpenAICompatibleProvider
 
 
@@ -43,7 +44,8 @@ class LocalHttpProvider(OpenAICompatibleProvider):
     def health_check(self) -> bool:
         """Return True if the local endpoint responds to /models without auth."""
         try:
-            response = self.client.get(f"{self.url}/models")
+            with egress_ledger.purpose("health"):
+                response = self.client.get(f"{self.url}/models")
             response.raise_for_status()
         except Exception:  # noqa: BLE001
             return False

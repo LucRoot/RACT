@@ -23,7 +23,7 @@ register_module_knot(__name__, _MODULE_KNOT)
 
 from ract.artifact_store import Artifact as StoreArtifact, ArtifactStore
 from ract.artifact_tracker import ArtifactTracker, TrackedArtifact
-from ract import egress_scan, turn_context, undo_backup, write_gate
+from ract import egress_ledger, egress_scan, turn_context, undo_backup, write_gate
 from ract.diff_applier import DiffApplier
 from ract.workspace_path import (
     WorkspacePathRefused,
@@ -1316,9 +1316,10 @@ class Executor:
                     }
                     content = json.dumps(result_value.content, indent=2)
             else:
-                step_result = self._execute_provider_step_with_fallback(
-                    step, context, index, stream, stream_callback
-                )
+                with egress_ledger.purpose(f"step {index + self.step_number_offset}"):
+                    step_result = self._execute_provider_step_with_fallback(
+                        step, context, index, stream, stream_callback
+                    )
                 if not step_result.is_ok():
                     return Rooted(
                         value=None,

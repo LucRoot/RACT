@@ -6,7 +6,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import httpx
+
+from ract import egress_ledger
 
 
 class GitHubReleaseError(Exception):
@@ -45,7 +46,9 @@ class GitHubReleaseClient:
 
     def list_releases(self) -> list[dict[str, Any]]:
         """Return the list of published releases for the repo."""
-        with httpx.Client(headers=self._headers(), timeout=30.0) as client:
+        with egress_ledger.client(
+            "github", headers=self._headers(), timeout=30.0
+        ) as client:
             response = client.get(self._repo_url("/releases"))
         if response.status_code != 200:
             raise GitHubReleaseError(
@@ -70,7 +73,9 @@ class GitHubReleaseClient:
             "draft": draft,
             "prerelease": prerelease,
         }
-        with httpx.Client(headers=self._headers(), timeout=30.0) as client:
+        with egress_ledger.client(
+            "github", headers=self._headers(), timeout=30.0
+        ) as client:
             response = client.post(self._repo_url("/releases"), json=payload)
         if response.status_code not in (201, 422):
             raise GitHubReleaseError(
@@ -101,7 +106,7 @@ class GitHubReleaseClient:
 
         headers = self._headers()
         headers["Content-Type"] = "application/octet-stream"
-        with httpx.Client(headers=headers, timeout=60.0) as client:
+        with egress_ledger.client("github", headers=headers, timeout=60.0) as client:
             response = client.post(upload_url, content=path.read_bytes())
         if response.status_code != 201:
             raise GitHubReleaseError(
@@ -111,7 +116,9 @@ class GitHubReleaseClient:
         return response.json()
 
     def _get_release(self, release_id: int) -> dict[str, Any]:
-        with httpx.Client(headers=self._headers(), timeout=30.0) as client:
+        with egress_ledger.client(
+            "github", headers=self._headers(), timeout=30.0
+        ) as client:
             response = client.get(self._repo_url(f"/releases/{release_id}"))
         if response.status_code != 200:
             raise GitHubReleaseError(

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ract import egress_ledger
 from ract.model_output import describe_output_problem, strip_reasoning
 from ract.providers.base import ProviderAdapter
 from ract.rooted import DEFAULT_CONFIDENCE_FLOOR, Rooted
@@ -153,9 +154,10 @@ class Manager:
             {"role": "user", "content": f"Intent: {intent}\nEmit the JSON plan now."},
         ]
         temperature = self.temperature_router.for_plan(intent)
-        response_rooted = self.provider.complete(
-            messages, max_tokens=1024, temperature=temperature
-        )
+        with egress_ledger.purpose("plan"):
+            response_rooted = self.provider.complete(
+                messages, max_tokens=1024, temperature=temperature
+            )
         if not response_rooted.is_ok():
             return Rooted(
                 value=None,

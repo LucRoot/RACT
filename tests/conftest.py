@@ -18,8 +18,22 @@ ambient. It resets the ContextVar and strips ``RACT_*`` keys from
 from __future__ import annotations
 
 import os
+import tempfile
 
 import pytest
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Give the whole run its own user state directory.
+
+    The state directory holds the repository trust store and the egress
+    ledger (B-044). A test run must neither read the operator's trust
+    decisions nor write its requests into the operator's ledger, and CLI
+    subprocesses inherit the environment, so it is set once for the run.
+    """
+    state = tempfile.mkdtemp(prefix="ract-test-state-")
+    os.environ["LOCALAPPDATA"] = state
+    os.environ["XDG_STATE_HOME"] = state
 
 
 @pytest.fixture(autouse=True)

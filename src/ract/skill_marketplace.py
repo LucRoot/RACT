@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import httpx
 
+from ract import egress_ledger
 from ract.skills_registry import SkillRegistry
 
 
@@ -42,7 +42,7 @@ class SkillMarketplace:
         """Return the text body at *url*, supporting both http and local paths."""
         parsed = urlparse(url)
         if parsed.scheme in {"http", "https"}:
-            with httpx.Client(timeout=30.0) as client:
+            with egress_ledger.client("marketplace", timeout=30.0) as client:
                 response = client.get(url)
                 response.raise_for_status()
                 return response.text

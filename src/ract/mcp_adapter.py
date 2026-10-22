@@ -17,6 +17,7 @@ from typing import Any
 
 import httpx
 
+from ract import egress_ledger
 from ract.rooted import Rooted
 
 
@@ -192,7 +193,7 @@ class SseMcpClient(McpAdapter):
     @property
     def client(self) -> httpx.Client:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.Client(timeout=self.timeout)
+            self._client = egress_ledger.client("mcp", timeout=self.timeout)
         return self._client
 
     def close(self) -> None:

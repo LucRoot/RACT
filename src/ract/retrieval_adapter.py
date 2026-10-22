@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ract import egress_scan
+from ract import egress_ledger, egress_scan
 from ract.rooted import Rooted
 from ract.workspace_path import is_never_sent
 
@@ -327,20 +327,15 @@ class WebSearchAdapter(RetrievalAdapter):
         egress_scan.notify(redacted, "the web search endpoint")
         payload = self._request_payload(query)
         try:
-            if self.method == "get":
-                response = httpx.get(
-                    self.endpoint,
-                    params=payload,
-                    headers=self.headers,
-                    timeout=self.timeout,
-                )
-            else:
-                response = httpx.post(
-                    self.endpoint,
-                    json=payload,
-                    headers=self.headers,
-                    timeout=self.timeout,
-                )
+            with egress_ledger.client("web_search", timeout=self.timeout) as client:
+                if self.method == "get":
+                    response = client.get(
+                        self.endpoint, params=payload, headers=self.headers
+                    )
+                else:
+                    response = client.post(
+                        self.endpoint, json=payload, headers=self.headers
+                    )
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPStatusError as exc:

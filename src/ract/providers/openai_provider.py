@@ -19,7 +19,7 @@ import httpx
 
 from ract.providers.base import ProviderAdapter
 from ract.providers.rate_limit import TokenBucket
-from ract import egress_scan, turn_context
+from ract import egress_ledger, egress_scan, turn_context
 from ract.retry_policy import RetryConfig, RetryPolicy
 from ract.rooted import Rooted
 
@@ -203,12 +203,13 @@ class OpenAICompatibleProvider(ProviderAdapter):
     def health_check(self) -> bool:
         """Return True if the OpenAI-compatible endpoint responds to /models."""
         try:
-            response = self.client.get(
-                f"{self.url}/models",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                },
-            )
+            with egress_ledger.purpose("health"):
+                response = self.client.get(
+                    f"{self.url}/models",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                    },
+                )
             response.raise_for_status()
         except Exception:  # noqa: BLE001
             return False
@@ -217,7 +218,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
     @property
     def client(self) -> httpx.Client:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.Client(timeout=self.timeout)
+            self._client = egress_ledger.client("model", timeout=self.timeout)
         return self._client
 
     def close(self) -> None:

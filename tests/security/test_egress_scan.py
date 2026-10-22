@@ -327,11 +327,11 @@ def test_the_web_search_query_is_scanned(monkeypatch: pytest.MonkeyPatch) -> Non
         def json(self) -> dict[str, Any]:
             return {"results": []}
 
-    def post(url: str, json: Any = None, **kwargs: Any) -> Response:
+    def post(self: Any, url: str, json: Any = None, **kwargs: Any) -> Response:
         sent["payload"] = json
         return Response()
 
-    monkeypatch.setattr(httpx, "post", post)
+    monkeypatch.setattr(httpx.Client, "post", post)
     adapter = WebSearchAdapter(api_key="k", endpoint="https://search.example.invalid")
     adapter.search("why does " + SHAPES["AWS access key id"] + " fail")
     assert SHAPES["AWS access key id"] not in json.dumps(sent["payload"])
