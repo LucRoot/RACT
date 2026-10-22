@@ -86,6 +86,19 @@ class ExecutionReport:
     unsigned_artifacts: list[str] = field(default_factory=list)
 
 
+def _advice(hint: str | None) -> str | None:
+    """A failed step's hint when it is advice in words, else None (B-062).
+
+    LR:: ``Rooted.hint`` holds a category word for many failures
+    ("empty_output", "approval", "mcp"). Sent as the step's hint it was
+    printed as ``hint: empty_output``, which reads as advice and says
+    nothing. The error text is not a hint either: the turn reports it, with
+    a hint chosen from it, right after the step line.
+    """
+    text = (hint or "").strip()
+    return text if " " in text else None
+
+
 class Executor:
     """Executes a plan step-by-step through selected providers."""
 
@@ -1074,7 +1087,7 @@ class Executor:
                     "artifact": None,
                     "confidence": None,
                     "duration_ms": int((time.monotonic() - started) * 1000),
-                    "hint": result.hint if result.hint else error[:300],
+                    "hint": _advice(result.hint),
                 },
             )
             self._open_step = None

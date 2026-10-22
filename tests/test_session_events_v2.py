@@ -301,7 +301,12 @@ def test_a_failing_step_is_closed_with_a_hint(
     finished = [e for e in events if e.kind == "step.finished"]
     assert len(started) == len(finished) == 1
     assert finished[0].data["outcome"] in {"failed", "refused"}
-    assert finished[0].data["hint"]
+    # B-062: the step's hint is advice in words or null, never a tag such as
+    # "security"; the turn's error.surfaced always carries the next step.
+    step_hint = finished[0].data["hint"]
+    assert step_hint is None or " " in step_hint.strip()
+    [surfaced] = [e for e in events if e.kind == "error.surfaced"]
+    assert surfaced.data["hint"]
 
 
 def test_second_edit_to_an_already_modified_file_is_a_change(tmp_path: Path) -> None:

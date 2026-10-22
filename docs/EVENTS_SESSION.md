@@ -160,7 +160,7 @@ the acknowledgement from it; the time until `turn.finished` with outcome
 |---|---|
 | `plan.proposed` | `assumption` (string), `confidence` (number from 0 to 1), `steps` (list of `{n, action, target}`; `target` is a path or null) |
 | `step.started` | `n` (integer), `action` (string), `target` (string or null) |
-| `step.finished` | `n`, `outcome` (`done`, `failed`, `skipped`, `refused`), `artifact` (path or null), `confidence` (number or null), `duration_ms` (integer), `hint` (string or null, set when `outcome` is not `done`) |
+| `step.finished` | `n`, `outcome` (`done`, `failed`, `skipped`, `refused`), `artifact` (path or null), `confidence` (number or null), `duration_ms` (integer), `hint` (string or null: the next step in words, when `outcome` is not `done` and the step knows one; the turn's `error.surfaced` always has one) |
 
 The plan's assumption and confidence come from the planner's Rooted plan
 and are shown with the step list. A step's `confidence` is the executor's
