@@ -347,7 +347,8 @@ Read this before relying on any statement above.
   authenticates nobody.
 - The operator key, the per-run sandbox keys and the ALM verifier keys live
   under `.ract/` inside the workspace.
-- `.ract/hooks/*.json` commands run with the full environment.
+- Fixed in v0.6: `.ract/hooks/*.json` commands ran with the full
+  environment; they now get the scrubbed default allowlist.
 - Fixed in v0.6: the diff applier and the artifact writer accepted `..`
   and, for the diff applier, absolute paths. Both now go through
   `ract.workspace_path.resolve_workspace_path` (ADR-0047 D2).

@@ -39,6 +39,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Hook commands (`.ract/hooks/*.json`) no longer receive your API keys and tokens. They ran with
+  a copy of the whole environment; they now get the sandbox default allowlist minus
+  credential-shaped and library-injection names and RACT's own variables, plus the
+  `RACT_<CONTEXT>` values. A repository's `.ract/sandbox_env.allowlist` does not widen it.
 - `ract doctor` reports sandboxing as it is in this build: per platform, whether a backend binary
   is on PATH, that no backend runs commands yet, and filesystem, network and process limits as
   not enforced (`--json` carries the same under `sandbox`). The Linux and macOS backends render

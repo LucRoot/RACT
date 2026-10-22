@@ -11,6 +11,29 @@ from typing import Dict, List
 from ract.manager import Plan, Step
 
 
+def _hook_environment(context: Dict[str, str]) -> Dict[str, str]:
+    """Environment for a hook command: allowlisted names plus RACT context.
+
+    LR:: Hooks ran with ``os.environ.copy()``, so a hook, which a cloned
+    repository can ship in ``.ract/hooks``, saw every API key and token in
+    the operator's environment (S-003). The environment now comes from the
+    sandbox default allowlist, minus credential-shaped and library-injection
+    names, minus RACT's own variables. The repository's
+    ``.ract/sandbox_env.allowlist`` is deliberately not read: a repository
+    must not be able to widen what its own hooks receive. Which hooks run at
+    all is decided in ADR-0048 D12.
+    """
+    from ract.security.sandbox_env import (  # noqa: PLC0415
+        build_sandbox_env,
+        strip_ract_internal_keys,
+    )
+
+    scrubbed = build_sandbox_env(process_env=dict(os.environ), allowlist_file=None)
+    env, _stripped = strip_ract_internal_keys(dict(scrubbed.env))
+    env.update({f"RACT_{k.upper()}": str(v) for k, v in context.items()})
+    return env
+
+
 @dataclass
 class HookManager:
     """
@@ -47,8 +70,7 @@ class HookManager:
     ) -> List[Dict[str, str | int]]:
         """Execute every hook for the given phase."""
         results: List[Dict[str, str | int]] = []
-        env = os.environ.copy()
-        env.update({f"RACT_{k.upper()}": str(v) for k, v in context.items()})
+        env = _hook_environment(context)
 
         for hook in self._load_hooks(phase):
             command = hook["command"]
