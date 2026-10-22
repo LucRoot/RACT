@@ -30,6 +30,12 @@ from ract.core.module_identity import _module_knot, register_module_knot
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
 
+from ract.git_head import read_head
+
+
+# Last commit subjects by (workspace, HEAD), for the process.
+_RECENT_COMMITS: dict[tuple[str, str], tuple[str, ...]] = {}
+
 
 @dataclass(frozen=True)
 class DialectBrief:
@@ -170,6 +176,18 @@ class WhispererContract:
         )
 
     def _recent_commits(self) -> tuple[str, ...]:
+        # Cached per HEAD for the process: an interactive session ran this
+        # git log on every turn (B-036).
+        head = read_head(self.workspace_root)
+        key = (str(self.workspace_root.resolve()), head) if head else None
+        if key is not None and key in _RECENT_COMMITS:
+            return _RECENT_COMMITS[key]
+        commits = self._recent_commits_from_git()
+        if key is not None:
+            _RECENT_COMMITS[key] = commits
+        return commits
+
+    def _recent_commits_from_git(self) -> tuple[str, ...]:
         try:
             proc = subprocess.run(
                 ["git", "log", "-n5", "--pretty=format:%s"],

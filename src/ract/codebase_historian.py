@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ract.git_head import read_head
 from ract.symbol_graph import SymbolGraph, SymbolNode
 
 
@@ -33,6 +34,38 @@ class HistoricalMatch:
     commit_message: str | None = None
     commit_date: str | None = None
     similarity: float = 0.0
+
+
+# git blame results for the process: (path, mtime_ns, size, HEAD) -> lines.
+_BLAME_CACHE: dict[tuple[str, int, int, str], dict[int, dict[str, Any]]] = {}
+_BLAME_CACHE_MAX = 4096
+
+
+def _parse_blame_block(lines: list[str]) -> dict[str, Any]:
+    """Commit metadata from one porcelain blame block."""
+    commit_hash = lines[0].split()[0]
+    message_lines: list[str] = []
+    author = ""
+    date = ""
+    in_summary = False
+    for line_text in lines:
+        if line_text.startswith("author "):
+            author = line_text[len("author ") :]
+        elif line_text.startswith("author-time "):
+            date = line_text[len("author-time ") :]
+        elif line_text.startswith("summary "):
+            message_lines.append(line_text[len("summary ") :])
+            in_summary = True
+        elif in_summary and line_text.startswith(" "):
+            message_lines.append(line_text[1:])
+        elif in_summary:
+            in_summary = False
+    return {
+        "commit_hash": commit_hash,
+        "author": author,
+        "date": date,
+        "message": " ".join(message_lines),
+    }
 
 
 class CodebaseHistorian:
@@ -56,19 +89,95 @@ class CodebaseHistorian:
         return self
 
     def _load_commit_context(self) -> None:
-        """Attach last-commit metadata to each symbol from git blame."""
+        """Attach last-commit metadata to each symbol from git blame.
+
+        LR:: This ran one ``git blame`` per symbol on every turn: four calls
+        and 0.34 s in a tiny repository, thousands in a real one (B-036).
+        Each file is now blamed once (``--line-porcelain`` gives every line's
+        commit), and the result is kept for the process, keyed by the file's
+        size and mtime and by HEAD, so an interactive session blames a file
+        again only after it or HEAD changes.
+        """
         if not self._has_git():
             return
-
+        head = self._head()
+        by_line: dict[Path, dict[int, dict[str, Any]]] = {}
         for symbol_id, node in self.symbol_graph.nodes.items():
             if node.line <= 0 or node.symbol_type == "module":
                 continue
             path = self.project_dir / _module_to_path(node.module)
-            if not path.is_file():
-                continue
-            context = self._blame_line(path, node.line)
+            if path not in by_line:
+                if not path.is_file():
+                    continue
+                by_line[path] = self._blame_file(path, head)
+            context = by_line[path].get(node.line)
             if context:
                 self.commit_context[symbol_id] = context
+
+    def _head(self) -> str:
+        cheap = read_head(self.project_dir)
+        if cheap is not None:
+            return cheap
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "-q", "--verify", "HEAD"],
+                cwd=self.project_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return ""
+        return result.stdout.strip()
+
+    def _blame_file(self, path: Path, head: str) -> dict[int, dict[str, Any]]:
+        """Commit metadata for every line of ``path``, by line number."""
+        try:
+            stat = path.stat()
+        except OSError:
+            return {}
+        key = (str(path.resolve()), stat.st_mtime_ns, stat.st_size, head)
+        cached = _BLAME_CACHE.get(key)
+        if cached is not None:
+            return cached
+        try:
+            result = subprocess.run(
+                [
+                    "git",
+                    "blame",
+                    "--line-porcelain",
+                    "--",
+                    str(path.relative_to(self.project_dir)),
+                ],
+                cwd=self.project_dir,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+                timeout=30,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return {}
+        if result.returncode != 0:
+            return {}
+        lines: dict[int, dict[str, Any]] = {}
+        block: list[str] = []
+        for row in result.stdout.splitlines():
+            if row.startswith("\t"):
+                # The line's content ends its block; the header's third
+                # field is the line number in the current file.
+                header = block[0].split() if block else []
+                if len(header) >= 3 and header[2].isdigit():
+                    lines[int(header[2])] = _parse_blame_block(block)
+                block = []
+            else:
+                block.append(row)
+        if len(_BLAME_CACHE) >= _BLAME_CACHE_MAX:
+            _BLAME_CACHE.clear()
+        _BLAME_CACHE[key] = lines
+        return lines
 
     def _has_git(self) -> bool:
         return (self.project_dir / ".git").is_dir()
@@ -99,31 +208,7 @@ class CodebaseHistorian:
         lines = result.stdout.splitlines()
         if not lines:
             return None
-
-        commit_hash = lines[0].split()[0]
-        message_lines: list[str] = []
-        author = ""
-        date = ""
-        in_summary = False
-        for line_text in lines:
-            if line_text.startswith("author "):
-                author = line_text[len("author ") :]
-            elif line_text.startswith("author-time "):
-                date = line_text[len("author-time ") :]
-            elif line_text.startswith("summary "):
-                message_lines.append(line_text[len("summary ") :])
-                in_summary = True
-            elif in_summary and line_text.startswith(" "):
-                message_lines.append(line_text[1:])
-            elif in_summary:
-                in_summary = False
-
-        return {
-            "commit_hash": commit_hash,
-            "author": author,
-            "date": date,
-            "message": " ".join(message_lines),
-        }
+        return _parse_blame_block(lines)
 
     def query(self, intent: str, k: int = 5) -> list[HistoricalMatch]:
         """Return the top-k existing symbols closest to *intent*.

@@ -297,11 +297,12 @@ def test_after_ctrl_c_the_next_request_starts_at_once(
     plain = session.recording.plain
     assert "waiting for the interrupted turn" not in plain
     # Before G-029 this waited for the old model call (20 s here, up to the
-    # 60 s read timeout in use). Measured now: 1.03 to 1.85 s from Enter to
-    # the next turn's first model request (10 runs, full suite running
-    # beside them); the rest is turn setup (git blame for the historian,
-    # git status for the changed-files cross-check), tracked separately.
-    assert started < 3.0, f"the next turn's first request came {started:.2f} s later"
+    # 60 s read timeout in use); after it, turn setup still took 1.03 to
+    # 1.85 s. With B-036 (blame per file cached per HEAD, HEAD read from
+    # .git, status beside planning, exclude check once): 0.084 to 0.519 s,
+    # under 0.2 s in 8 of 10 runs, full suite running beside them. The
+    # target is 0.5 s; the assertion keeps a margin so it does not flake.
+    assert started < 1.0, f"the next turn's first request came {started:.2f} s later"
     assert "return a + b" in (ws / "src" / "calc.py").read_text(encoding="utf-8")
 
 

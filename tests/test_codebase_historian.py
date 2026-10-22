@@ -161,19 +161,60 @@ def test_load_commit_context_attaches_blame(tmp_path, monkeypatch):
     historian = CodebaseHistorian(tmp_path)
 
     monkeypatch.setattr(historian, "_has_git", lambda: True)
+    monkeypatch.setattr(historian, "_head", lambda: "h")
     monkeypatch.setattr(
         historian,
-        "_blame_line",
-        lambda path, line: {
-            "commit_hash": "def456",
-            "author": "Dr. Root",
-            "date": "1719993600",
-            "message": "add helper",
+        "_blame_file",
+        lambda path, head: {
+            1: {
+                "commit_hash": "def456",
+                "author": "Dr. Root",
+                "date": "1719993600",
+                "message": "add helper",
+            }
         },
     )
 
     historian.build()
     assert historian.commit_context["mod.helper"]["commit_hash"] == "def456"
+
+
+def test_blame_runs_once_per_file_and_again_only_after_a_change(tmp_path, monkeypatch):
+    """B-036: one blame per file per process, refreshed when the file or HEAD
+    changes. It used to run one `git blame` per symbol on every turn."""
+    import subprocess
+
+    import ract.codebase_historian as ch
+
+    git = ["git", "-c", "user.name=d", "-c", "user.email=d@example.invalid"]
+    (tmp_path / "mod.py").write_text(
+        "def a(): pass\n\n\ndef b(): pass\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run([*git, "add", "-A"], cwd=tmp_path, check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "first"], cwd=tmp_path, check=True)
+    real_run = subprocess.run
+    blames: list[list[str]] = []
+
+    def counting_run(args, **kwargs):
+        if args[:2] == ["git", "blame"]:
+            blames.append(args)
+        return real_run(args, **kwargs)
+
+    monkeypatch.setattr(ch.subprocess, "run", counting_run)
+    ch._BLAME_CACHE.clear()
+
+    first = CodebaseHistorian(tmp_path).build()
+    assert len(blames) == 1  # one file, two symbols, one blame
+    assert first.commit_context["mod.a"]["message"] == "first"
+    assert first.commit_context["mod.b"]["message"] == "first"
+    CodebaseHistorian(tmp_path).build()
+    assert len(blames) == 1  # cached
+    (tmp_path / "mod.py").write_text(
+        "def a(): pass\n\n\ndef b(): return 2\n", encoding="utf-8"
+    )
+    CodebaseHistorian(tmp_path).build()
+    assert len(blames) == 2  # the file changed
 
 
 # RACT 0.1.1 - Trust and tooling

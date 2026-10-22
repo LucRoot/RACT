@@ -1013,8 +1013,12 @@ def ensure_ract_dir_excluded(repo: Path) -> bool:
     linked worktree, whose ``.git`` is a file, is handled.
 
     Returns True when the line was added, False when it was already there or
-    ``repo`` is not a git repository.
+    ``repo`` is not a git repository. Checked once per repository per process:
+    an interactive session runs it on its first turn only (B-036).
     """
+    key = str(Path(repo).resolve())
+    if key in _EXCLUDE_CHECKED:
+        return False
     found = _git_in(repo, "rev-parse", "--git-path", "info/exclude")
     if found.returncode != 0 or not found.stdout.strip():
         return False
@@ -1022,6 +1026,7 @@ def ensure_ract_dir_excluded(repo: Path) -> bool:
     if not exclude.is_absolute():
         exclude = Path(repo) / exclude
     existing = exclude.read_text(encoding="utf-8") if exclude.is_file() else ""
+    _EXCLUDE_CHECKED.add(key)
     if any(
         line.strip() in {".ract/", ".ract", "/.ract/", "/.ract"}
         for line in existing.splitlines()
@@ -1032,6 +1037,10 @@ def ensure_ract_dir_excluded(repo: Path) -> bool:
     with exclude.open("a", encoding="utf-8") as handle:
         handle.write(f"{prefix}# RACT state (local, added by ract)\n.ract/\n")
     return True
+
+
+# Repositories whose exclude file this process has already checked.
+_EXCLUDE_CHECKED: set[str] = set()
 
 
 @dataclass(frozen=True)

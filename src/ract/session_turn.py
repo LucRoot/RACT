@@ -187,7 +187,16 @@ def run_turn(
     started = time.monotonic()
     project = Path(request.config).resolve().parent
     stream.emit("turn.started", {"input": request.intent, "queued": queued}, turn=turn)
-    before = working_tree_status(project)
+    # The before/after comparison is only a cross-check (G-026), so the
+    # "before" status runs beside planning instead of in front of it: it
+    # cost about 0.18 s of every turn's time to first request (B-036).
+    before_box: dict[str, dict[str, str] | None] = {}
+    before_thread = threading.Thread(
+        target=lambda: before_box.update(state=working_tree_status(project)),
+        name="ract-status-before",
+        daemon=True,
+    )
+    before_thread.start()
 
     try:
         with Heartbeat(stream, turn=turn, waiting_on="model", cancel=cancel):
@@ -213,7 +222,8 @@ def run_turn(
 
     # What RACT wrote is the answer; the before/after comparison is only a
     # cross-check, reported when it disagrees (G-026).
-    observed = _changed(before, working_tree_status(project))
+    before_thread.join()
+    observed = _changed(before_box.get("state"), working_tree_status(project))
     changed: list[str] | None = sorted(written)
     if observed is None and not written:
         changed = None  # not a git repository and nothing written: unknown
