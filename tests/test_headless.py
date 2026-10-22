@@ -342,3 +342,74 @@ def test_accepted_flags(tmp_path: Path, fake_model_server: Any) -> None:
     result = _ract(ws, "-p", "fix add", "--fail-on-denial", "--max-turns", "1")
 
     assert result.returncode == 0, result.stderr
+
+
+# ---------------------------------------------------------------- S-025 stage 1
+
+
+def _append_config(ws: Path, text: str) -> None:
+    with (ws / "ract.yaml").open("a", encoding="utf-8") as handle:
+        handle.write(text)
+
+
+def _marker_command(marker: Path) -> str:
+    return json.dumps(
+        [sys.executable, "-c", f"open({str(marker)!r}, 'a').write('ran')"]
+    )
+
+
+def test_no_repository_command_or_endpoint_is_used_headless(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    """S-025: 08a8131 claimed a headless run starts no MCP server; it did,
+    because the registry was built (and every server started) before the
+    gate. Each repository-supplied command and endpoint is planted here."""
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+    mcp_marker = tmp_path / "mcp.ran"
+    conftest_marker = tmp_path / "conftest.ran"
+    mcp_cmd = json.loads(_marker_command(mcp_marker))
+    _append_config(
+        ws,
+        "mcp_servers:\n  evil:\n"
+        f"    command: {json.dumps(mcp_cmd[0])}\n"
+        f"    args: {json.dumps(mcp_cmd[1:])}\n"
+        "coverage_gate:\n  enabled: true\n"
+        "retrieval:\n  adapter: web\n"
+        f"  endpoint: {server.root_url}/search\n",
+    )
+    (ws / "conftest.py").write_text(
+        f"open({str(conftest_marker)!r}, 'a').write('ran')\n", encoding="utf-8"
+    )
+
+    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json")
+
+    assert result.returncode == 0, result.stderr
+    assert not mcp_marker.exists(), "an MCP server command ran"
+    assert not conftest_marker.exists(), "the coverage gate ran the project's tests"
+    assert not [r for r in server.requests if r.path.startswith("/search")]
+    skipped = json.loads(result.stdout.splitlines()[0])["data"]["extensions"]["skipped"]
+    assert {(e["kind"], e["name"]) for e in skipped} >= {
+        ("mcp", "evil"),
+        ("command", "coverage_gate"),
+        ("network", "web retrieval"),
+    }
+
+
+def test_the_internal_provider_command_is_refused_headless(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    marker = tmp_path / "internal.ran"
+    command = json.loads(_marker_command(marker))
+    (ws / "ract.yaml").write_text(
+        "project:\n  name: demo\n\nmanager_provider: local\n\nproviders:\n"
+        "  local:\n    adapter: internal\n"
+        f"    command: {json.dumps(command)}\n",
+        encoding="utf-8",
+    )
+
+    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+
+    assert result.returncode == 3, result.stdout + result.stderr
+    assert not marker.exists()
+    assert "internal provider runs a command" in result.stderr

@@ -1,7 +1,7 @@
 import subprocess
 from typing import Any
 
-from ract import egress_scan
+from ract import egress_scan, turn_context
 from ract.providers.base import ProviderAdapter
 from ract.rooted import Rooted
 
@@ -38,6 +38,20 @@ class InternalProvider(ProviderAdapter):
                 confidence=0.0,
                 provenance=["internal_provider"],
                 error="No command configured for internal provider.",
+            )
+        if turn_context.extensions_off():
+            # The command comes from the repository's ract.yaml; an untrusted
+            # (headless) run does not run it (S-025).
+            return Rooted(
+                value=None,
+                assumption="The internal provider's command may run here.",
+                confidence=0.0,
+                provenance=["internal_provider"],
+                error=(
+                    "refused: the internal provider runs a command from this "
+                    "repository's ract.yaml, and an untrusted run does not run it"
+                ),
+                hint="use an HTTP provider for headless runs, or run interactively",
             )
         last_user = ""
         for msg in reversed(messages):

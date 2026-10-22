@@ -129,6 +129,14 @@ def repository_extensions(config: Path) -> list[dict[str, str]]:
         found.append({"kind": "mcp", "name": str(name)})
     if data.get("skill"):
         found.append({"kind": "skill", "name": str(data["skill"])})
+    for slot, spec in sorted((data.get("providers") or {}).items()):
+        if isinstance(spec, dict) and spec.get("adapter") == "internal":
+            found.append({"kind": "command", "name": f"provider {slot}"})
+    for gate in ("coverage_gate", "mutation_gate"):
+        if (data.get(gate) or {}).get("enabled"):
+            found.append({"kind": "command", "name": gate})
+    if (data.get("retrieval") or {}).get("adapter") == "web":
+        found.append({"kind": "network", "name": "web retrieval"})
     return found
 
 

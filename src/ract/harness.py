@@ -288,8 +288,13 @@ class Harness:
         self.mcp_registry = mcp_registry or McpToolRegistry.from_config(
             {} if untrusted else config
         )
+        # Web retrieval sends the operator's intent to an endpoint the
+        # repository's ract.yaml names; an untrusted run does not (S-025).
+        retrieval_config = config
+        if untrusted and (config.get("retrieval") or {}).get("adapter") == "web":
+            retrieval_config = {k: v for k, v in config.items() if k != "retrieval"}
         self.retrieval_adapter = retrieval_adapter or _build_retrieval_adapter(
-            config, project_dir
+            retrieval_config, project_dir
         )
         self.diff_applier = DiffApplier(self.project_dir)
         self.duplication_guard = None
@@ -311,7 +316,11 @@ class Harness:
                 gravity_top_k=int(nb_cfg.get("gravity_top_k", 10)),
             )
         cg_cfg = config.get("coverage_gate", {})
-        self.coverage_gate_enabled = bool(cg_cfg.get("enabled", False))
+        # A repository can switch these gates on in its own ract.yaml, and
+        # they run its tests or a script from it; not in an untrusted run.
+        self.coverage_gate_enabled = (
+            bool(cg_cfg.get("enabled", False)) and not untrusted
+        )
         self.coverage_gate_hard_fail = bool(cg_cfg.get("hard_fail", False))
         self.coverage_gate_timeout = float(cg_cfg.get("timeout", 300.0))
         cg_min = cg_cfg.get("min_percent")
@@ -326,7 +335,9 @@ class Harness:
         badge_path = cg_cfg.get("badge_path")
         self.coverage_gate_badge_path = Path(badge_path) if badge_path else None
         mg_cfg = config.get("mutation_gate", {})
-        self.mutation_gate_enabled = bool(mg_cfg.get("enabled", False))
+        self.mutation_gate_enabled = (
+            bool(mg_cfg.get("enabled", False)) and not untrusted
+        )
         self.mutation_gate_hard_fail = bool(mg_cfg.get("hard_fail", False))
         self.mutation_gate_timeout = float(mg_cfg.get("timeout", 900.0))
         mg_min = mg_cfg.get("min_score")
@@ -611,7 +622,13 @@ class Harness:
         prompt_path = project_dir / config.get("prompts_dir", "prompts") / "manager.txt"
         if not prompt_path.is_file():
             prompt_path = _default_manager_prompt_path()
-        mcp_registry = McpToolRegistry.from_config(config)
+        # LR:: Building the registry starts every MCP server (list_all_tools
+        # runs each stdio command). This ran before the constructor's
+        # untrusted-run check, so a headless run started the repository's MCP
+        # servers after all (S-025; the check below was added for it).
+        mcp_registry = McpToolRegistry.from_config(
+            {} if turn_context.extensions_off() else config
+        )
         tools_desc = ""
         tools_rooted = mcp_registry.list_all_tools()
         if tools_rooted.is_ok() and tools_rooted.unwrap():
