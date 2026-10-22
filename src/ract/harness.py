@@ -721,8 +721,12 @@ class Harness:
         memory_arena: MemoryArena | None = None,
         stream: bool = False,
         stream_callback: Callable[[str], None] | None = None,
+        ask: bool = False,
     ) -> Rooted[ExecutionReport]:
         """Plan and execute the intent.
+
+        With *ask* the planner is skipped: the intent is one answer step,
+        which writes nothing (B-042, `/ask` and `ract -p --ask`).
 
         If *mode* is "documentation", the intent is rewritten to prioritize
         documentation updates. If *mode* is "git", successfully produced
@@ -801,7 +805,22 @@ class Harness:
             except Exception:  # noqa: BLE001 — never fail planning on Whisperer error
                 pass
 
-        plan_rooted = self.planner.plan(augmented_intent)
+        if ask:
+            plan_rooted: Rooted[Plan] = Rooted(
+                value=Plan(
+                    assumption="The user asked a question; the answer is shown "
+                    "and no file is written.",
+                    confidence=1.0,
+                    steps=[
+                        Step(action=intent, provider_hint="local", expected_artifact="")
+                    ],
+                ),
+                assumption="An asked question needs no plan.",
+                confidence=1.0,
+                provenance=["harness.run", "ask"],
+            )
+        else:
+            plan_rooted = self.planner.plan(augmented_intent)
         if not plan_rooted.is_ok():
             # LR:: The harness contract is Rooted[ExecutionReport]; planning
             # failures must be rewrapped so callers get a consistent type.
@@ -901,7 +920,12 @@ class Harness:
                 stream_callback=stream_callback,
             ).with_step("harness.run")
 
-        if self.coverage_gate_enabled and self.project_dir is not None:
+        # LR:: The coverage and mutation gates run the project's tests. A plan
+        # of answer steps changed nothing for them to measure (B-042).
+        plan_writes = any(
+            step.expected_artifact or step.tool_call is not None for step in plan.steps
+        )
+        if plan_writes and self.coverage_gate_enabled and self.project_dir is not None:
             cg_result = coverage_gate(
                 self.project_dir,
                 timeout=self.coverage_gate_timeout,
@@ -976,7 +1000,7 @@ class Harness:
                             provenance=report_rooted.provenance,
                         )
 
-        if self.mutation_gate_enabled and self.project_dir is not None:
+        if plan_writes and self.mutation_gate_enabled and self.project_dir is not None:
             report_rooted = self._run_mutation_gate(report_rooted)
             if not report_rooted.is_ok():
                 return report_rooted
@@ -991,12 +1015,7 @@ class Harness:
             if report_rooted.is_ok():
                 report = report_rooted.unwrap()
                 for step_result in report.step_results:
-                    memory_arena.record(
-                        "outcome",
-                        f"{step_result.step.action} -> "
-                        f"{step_result.step.expected_artifact}",
-                        importance=1,
-                    )
+                    memory_arena.record("outcome", step_result.outcome(), importance=1)
             else:
                 memory_arena.record(
                     "failure", f"error={report_rooted.error}", importance=3

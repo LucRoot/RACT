@@ -199,15 +199,10 @@ class Manager:
                     hint="mcp",
                 )
             action = str(item.get("action", ""))
-            expected_artifact = str(item.get("expected_artifact", ""))
-            # Guard against models that emit empty expected_artifact. A plan with
-            # no artifact cannot be validated or executed, so we derive a safe
-            # default from the action before the Planner sees it.
-            if not expected_artifact and not tool_call:
-                if "test" in action.lower():
-                    expected_artifact = "test_results.txt"
-                else:
-                    expected_artifact = "output.txt"
+            # LR:: An empty expected_artifact is an answer step (B-042): the
+            # reply is shown, nothing is written. It used to become output.txt
+            # or test_results.txt, so a question wrote a file into the repo.
+            expected_artifact = str(item.get("expected_artifact", "") or "").strip()
             steps.append(
                 Step(
                     action=action,

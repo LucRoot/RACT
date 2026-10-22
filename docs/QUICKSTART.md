@@ -66,6 +66,7 @@ ract> /exit
 |---------|--------------|
 | `<text>` or `/run <intent>` | Plan and execute the intent. |
 | `/plan <intent>` | Plan only. Nothing is written. |
+| `/ask <question>` | Answer a question. No plan, and nothing is written. |
 | `/loop <intent>` | Run the quality-anchored loop. |
 | `/set dry-run\|stream\|auto on\|off` | Change how turns run. `/set mode` and `/set iterations` also work. |
 | `/settings`, `/session [new\|id]` | Show settings, or restart or switch the session that carries context. |

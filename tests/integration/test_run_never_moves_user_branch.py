@@ -183,7 +183,10 @@ def test_untracked_output_txt_survives_a_real_run(
     _run(ws, "where is the config loader and who calls it?", "--yolo")
 
     assert (ws / "output.txt").read_text(encoding="utf-8") == notes
-    assert list((ws / ".ract" / "pending").glob("*.patch"))
+    # B-042: the question is answered; nothing is written, so nothing is
+    # left pending either.
+    assert not list((ws / ".ract" / "pending").glob("*.patch"))
+    assert _git(ws, "status", "--porcelain") == "?? output.txt"
 
 
 def _edit_a(w: Path) -> None:

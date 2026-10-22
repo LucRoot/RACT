@@ -199,6 +199,11 @@ def _merge_reports(
     )
 
 
+def _is_answer_step(step: Step) -> bool:
+    """An answer step (B-042) names no file and calls no tool: it writes nothing."""
+    return not step.expected_artifact and step.tool_call is None
+
+
 def run_via_substrate(
     harness: "Harness",
     intent: str,
@@ -230,6 +235,19 @@ def run_via_substrate(
     # shim keeps the failure mode local rather than trusting a stale
     # caller check.
     ensure_git_repo(harness.project_dir)
+    if all(_is_answer_step(step) for step in plan.steps):
+        # LR:: A plan of answer steps writes nothing, so it needs no snapshot,
+        # worktree, branch or commit (B-042). It reads the operator's files
+        # where they are.
+        harness.executor.step_number_offset = 0
+        return harness.executor.execute(
+            intent,
+            plan,
+            context=context,
+            approval_callback=approval_callback,
+            stream=stream,
+            stream_callback=stream_callback,
+        )
     # S-011b: the first step's base is a snapshot of the working tree as it
     # is, uncommitted changes included, so a dirty tree (RACT's own earlier
     # turns leave one) keeps isolation instead of forcing the in-place path.
@@ -276,6 +294,22 @@ def run_via_substrate(
                 hint="interrupted",
             )
         single_plan = _single_step_plan(plan, step)
+        if _is_answer_step(step):
+            # Runs in the operator's tree, after the earlier steps' changes
+            # were applied there, so the answer sees them (B-042).
+            harness.executor.step_number_offset = index
+            answered = harness.executor.execute(
+                intent,
+                single_plan,
+                context=context,
+                approval_callback=approval_callback,
+                stream=stream,
+                stream_callback=stream_callback,
+            )
+            if not answered.is_ok():
+                return answered
+            per_step_reports.append(answered.unwrap())
+            continue
         # Acceptance post-conditions are the responsibility of module_01's
         # compiled AcceptanceSuite; the shim adds only one: the executor
         # call succeeded. Without it SubstrateLoop._finalize committed

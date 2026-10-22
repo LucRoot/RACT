@@ -266,7 +266,7 @@ def test_plan_ignores_non_dict_tool_call():
     assert plan_rooted.unwrap().steps[0].tool_call is None
 
 
-def test_plan_fills_default_expected_artifact_for_test_action():
+def test_plan_keeps_an_empty_artifact_for_a_test_action():
     provider = MagicMock()
     provider.complete.return_value = Rooted(
         value={
@@ -287,10 +287,11 @@ def test_plan_fills_default_expected_artifact_for_test_action():
     manager = Manager(provider, "You are the manager.")
     plan_rooted = manager.plan("do something")
     assert plan_rooted.is_ok()
-    assert plan_rooted.unwrap().steps[0].expected_artifact == "test_results.txt"
+    # B-042: no file is invented; the step is an answer step.
+    assert plan_rooted.unwrap().steps[0].expected_artifact == ""
 
 
-def test_plan_fills_default_expected_artifact_for_non_test_action():
+def test_plan_keeps_an_empty_artifact_as_an_answer_step():
     provider = MagicMock()
     provider.complete.return_value = Rooted(
         value={
@@ -311,7 +312,7 @@ def test_plan_fills_default_expected_artifact_for_non_test_action():
     manager = Manager(provider, "You are the manager.")
     plan_rooted = manager.plan("do something")
     assert plan_rooted.is_ok()
-    assert plan_rooted.unwrap().steps[0].expected_artifact == "output.txt"
+    assert plan_rooted.unwrap().steps[0].expected_artifact == ""
 
 
 def test_plan_rejects_low_confidence():

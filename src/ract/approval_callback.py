@@ -19,7 +19,7 @@ def console_approval_callback(step: Step) -> bool:
     """
     prompt = (
         f"Approve step: [{step.provider_hint}] {step.action} "
-        f"-> {step.expected_artifact}? [y/N]: "
+        f"-> {step.expected_artifact or 'answer, no file written'}? [y/N]: "
     )
     try:
         response = input(prompt).strip().lower()

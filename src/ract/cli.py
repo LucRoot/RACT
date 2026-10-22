@@ -4416,6 +4416,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Plan only; do not execute the plan.",
     )
     parser.add_argument(
+        "--ask",
+        action="store_true",
+        help="Answer the intent as a question: no plan, and no file is written.",
+    )
+    parser.add_argument(
         "--mode",
         choices=["default", "documentation", "git"],
         default="default",
@@ -4701,6 +4706,8 @@ def main(argv: list[str] | None = None) -> int:
         console.direct(f"max iterations: {args.max_iterations}")
         if args.dry_run:
             parser.error("--loop and --dry-run are mutually exclusive")
+        if args.ask:
+            parser.error("--loop and --ask are mutually exclusive")
 
     if args.loop:
         from ract import trust as _trust
@@ -4756,6 +4763,7 @@ def main(argv: list[str] | None = None) -> int:
         stream_callback=_stream_callback if args.stream else None,
         allow_load_bearing_override=args.allow_load_bearing,
         allow_novelty_overrun=args.allow_novelty_overrun,
+        ask=args.ask,
     )
     if not result.is_ok():
         console.error(f"failed: {result.error}")
@@ -4769,7 +4777,7 @@ def main(argv: list[str] | None = None) -> int:
         for i, step in enumerate(value.steps, start=1):
             console.print(
                 f"  [bold]{i}.[/] [{step.provider_hint}] {step.action} "
-                f"-> {step.expected_artifact}"
+                f"-> {step.expected_artifact or 'answer, no file written'}"
             )
         score = QualityScorecard().compute_score(value)
         console.direct(f"quality score: {score}")

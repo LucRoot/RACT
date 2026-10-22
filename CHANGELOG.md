@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Ask mode. `/ask <question>` in the session, `ract run --ask` and `ract -p --ask` answer a
+  question in one step, with no plan and no file written. The prompt for `ract -p` may now also
+  follow the flags.
 - Interactive session. `ract` with no arguments on a terminal, or `ract repl [--config PATH]`,
   opens a prompt. Plain text runs as an intent. `/plan`, `/loop`, `/set`, `/settings`,
   `/session`, `/providers`, `/config`, `/doctor`, `/report` and every other verb work as slash
@@ -39,6 +42,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A question no longer writes a file. A plan step with no target file became `output.txt` (or
+  `test_results.txt` when the action mentioned tests), so asking RACT where something is wrote
+  the answer into the repository, and a step meant only to read a file overwrote it with its
+  reply. A step with no target file is now an answer step: its reply is the answer, nothing is
+  written, and it runs without a worktree or step branch. The manager prompt says a step names a
+  file only when it writes it. A turn of answer steps skips the coverage and mutation gates,
+  which run the project's tests. A project with its own `prompts/manager.txt` keeps using it;
+  remove that file to use the new bundled prompt.
 - Every run keeps worktree isolation, including the second run and multi-step plans. A run's
   first step now starts from a snapshot of your working tree (uncommitted and untracked files
   included; `.ract/`, secret-shaped files and files over 2 MiB left out and never changed by the

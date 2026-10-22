@@ -26,6 +26,7 @@ def enrich_harness_run(
     memory_arena: MemoryArena | None = None,
     stream: bool = False,
     stream_callback: Callable[[str], None] | None = None,
+    ask: bool = False,
 ) -> Rooted[ExecutionReport]:
     """
     Run the harness with the given intent and attach a diff summary.
@@ -35,7 +36,7 @@ def enrich_harness_run(
     On failure the original error is returned unchanged.
 
     *pre_execute_callback*, *approval_callback*, *memory_arena*, *stream*,
-    and *stream_callback* are forwarded to ``Harness.run``.
+    *stream_callback* and *ask* are forwarded to ``Harness.run``.
     """
     try:
         rooted_result = harness.run(
@@ -46,6 +47,7 @@ def enrich_harness_run(
             memory_arena=memory_arena,
             stream=stream,
             stream_callback=stream_callback,
+            ask=ask,
         )
     except Exception as exc:
         logger.exception("Harness execution failed: %s", exc)

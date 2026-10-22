@@ -37,6 +37,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("<text>", "Run the text as an intent (same as /run <text>)."),
     ("/run <intent>", "Plan and execute an intent."),
     ("/plan <intent>", "Plan only. Shows the plan, writes nothing."),
+    ("/ask <question>", "Answer a question. No plan, and no file is written."),
     ("/loop <intent>", "Run the quality-anchored loop until done or regressed."),
     (
         "/set <name> <value>",
@@ -130,6 +131,7 @@ class ReplSession:
             "quit": self._cmd_exit,
             "run": self._cmd_run,
             "plan": self._cmd_plan,
+            "ask": self._cmd_ask,
             "loop": self._cmd_loop,
             "set": self._cmd_set,
             "settings": self._cmd_settings,
@@ -257,6 +259,14 @@ class ReplSession:
             self._console.error("usage: /plan <intent>")
             return True
         self._run_intent(intent, dry_run=True)
+        return True
+
+    def _cmd_ask(self, args: list[str]) -> bool:
+        question = " ".join(args).strip()
+        if not question:
+            self._console.error("usage: /ask <question>")
+            return True
+        self._run_intent(question, ask=True)
         return True
 
     def _cmd_loop(self, args: list[str]) -> bool:
@@ -393,7 +403,12 @@ class ReplSession:
     # ------------------------------------------------------------- execution
 
     def build_run_argv(
-        self, intent: str, *, dry_run: bool | None = None, loop: bool = False
+        self,
+        intent: str,
+        *,
+        dry_run: bool | None = None,
+        loop: bool = False,
+        ask: bool = False,
     ) -> list[str]:
         """Turn an intent and the current settings into a dispatcher argv."""
         s = self.state
@@ -412,6 +427,8 @@ class ReplSession:
             argv += ["--loop", "--max-iterations", str(s.max_iterations)]
         elif dry:
             argv.append("--dry-run")
+        elif ask:
+            argv.append("--ask")
         # Carry context between turns. A dry run never saves a session, so it
         # neither starts nor resumes one.
         if not dry and not loop:
@@ -480,7 +497,7 @@ class ReplSession:
             "extensions": {"loaded": [], "skipped": []},
         }
 
-    def _event_turn(self, intent: str, *, dry: bool) -> int:
+    def _event_turn(self, intent: str, *, dry: bool, ask: bool = False) -> int:
         from ract.session_turn import TurnRequest, run_turn
 
         from ract.turn_context import CancelSignal
@@ -500,6 +517,7 @@ class ReplSession:
             dry_run=dry,
             mode=s.mode,
             auto=s.auto,
+            ask=ask and not dry,
             write_lock=self._write_lock,
         )
         turn_no = s.turns + 1
@@ -622,16 +640,22 @@ class ReplSession:
         return 5
 
     def _run_intent(
-        self, intent: str, *, dry_run: bool | None = None, loop: bool = False
+        self,
+        intent: str,
+        *,
+        dry_run: bool | None = None,
+        loop: bool = False,
+        ask: bool = False,
     ) -> int:
-        dry = self.state.dry_run if dry_run is None else dry_run
+        # An asked question has no plan to show, so dry-run does not apply.
+        dry = False if ask else (self.state.dry_run if dry_run is None else dry_run)
         if self._event_mode and not loop and self._events is not None:
-            code = self._event_turn(intent, dry=dry)
+            code = self._event_turn(intent, dry=dry, ask=ask)
             self.state.turns += 1
             if code == 0 and not dry:
                 self.state.session_started = True
             return code
-        argv = self.build_run_argv(intent, dry_run=dry_run, loop=loop)
+        argv = self.build_run_argv(intent, dry_run=dry, loop=loop, ask=ask)
         code = self._invoke(argv)
         self.state.turns += 1
         if code == 0 and not dry and not loop:

@@ -187,6 +187,7 @@ stdout carries only the result and progress goes to stderr, so
 ract -p "fix the failing test"                        # the answer, or the verdict
 ract -p "fix the failing test" --output-format json   # one ract.result/1 object
 ract -p "summarize this log" < build.log              # stdin as the prompt's context
+ract -p --ask "where is the config loaded?"           # answer only; no plan, no file written
 ract -p "fix the failing test" --output-format stream-json   # every event, one per line
 ```
 

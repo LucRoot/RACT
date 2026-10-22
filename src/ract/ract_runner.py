@@ -134,10 +134,7 @@ def _save_session(
     if result.is_ok() and result.value is not None:
         value = result.value
         if isinstance(value, ExecutionReport):
-            outcomes = [
-                f"{sr.step.action} -> {sr.step.expected_artifact}"
-                for sr in value.step_results
-            ]
+            outcomes = [sr.outcome() for sr in value.step_results]
             artifacts = dict(value.artifacts)
         elif isinstance(value, Plan):
             plan = value
@@ -191,6 +188,7 @@ def _run_ract(
     stream_callback: Callable[[str], None] | None = None,
     allow_load_bearing_override: bool = False,
     allow_novelty_overrun: bool = False,
+    ask: bool = False,
 ) -> Rooted[ExecutionReport | Plan]:
     """
     Run a complete RACT cycle for *intent* using the configuration at *config_path*.
@@ -446,6 +444,7 @@ def _run_ract(
                 memory_arena=memory_arena,
                 stream=stream,
                 stream_callback=stream_callback,
+                ask=ask,
             ),
         )
 

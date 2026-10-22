@@ -33,10 +33,7 @@ class PlanValidator:
         for step in plan.steps:
             if not step.action:
                 return ValidationResult(False, "Step action cannot be empty.")
-            if not step.expected_artifact:
-                return ValidationResult(
-                    False, "Step expected_artifact cannot be empty."
-                )
+            # An empty expected_artifact is an answer step (B-042).
         return ValidationResult(True, "Plan is valid.")
 
     @staticmethod

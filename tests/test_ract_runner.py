@@ -110,6 +110,7 @@ def test_run_ract_execution_success(tmp_path: Path) -> None:
         memory_arena=ANY,
         stream=ANY,
         stream_callback=ANY,
+        ask=False,
     )
 
 

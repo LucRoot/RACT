@@ -75,7 +75,8 @@ def test_validate_invalid_step_action():
     assert "step action cannot be empty" in result.message.lower()
 
 
-def test_validate_invalid_step_artifact():
+def test_validate_answer_step_without_artifact():
+    # B-042: an empty expected_artifact is an answer step; nothing is written.
     plan = Plan(
         assumption="Test",
         confidence=0.5,
@@ -84,8 +85,7 @@ def test_validate_invalid_step_artifact():
         ],
     )
     result = PlanValidator.validate(plan)
-    assert result.is_valid is False
-    assert "expected_artifact cannot be empty" in result.message.lower()
+    assert result.is_valid is True
 
 
 def test_validate_valid_step_multiple():

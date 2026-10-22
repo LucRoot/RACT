@@ -54,6 +54,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-p", "--print", dest="prompt", nargs="?", const="", metavar="PROMPT"
     )
+    # The prompt may also follow the flags (`ract -p --ask "why?"`), and
+    # unquoted words are joined (`ract -p fix the bug`).
+    parser.add_argument("rest", nargs="*", metavar="PROMPT", help=argparse.SUPPRESS)
     parser.add_argument(
         "--output-format",
         choices=("text", "json", "stream-json"),
@@ -67,6 +70,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="load no repository-supplied extension (hooks, MCP servers, skills); "
         "a headless run already loads none in this release",
+    )
+    parser.add_argument(
+        "--ask",
+        action="store_true",
+        help="answer the prompt as a question: no plan, and no file is written",
     )
     parser.add_argument(
         "--trust-project",
@@ -229,7 +237,8 @@ def run_headless(
     if problem:
         print(f"error: {problem}. hint: run without it", file=err)
         return 2
-    prompt = build_prompt(args.prompt, _read_stdin(stdin or sys.stdin))
+    words = " ".join(part for part in (args.prompt, *args.rest) if part)
+    prompt = build_prompt(words or None, _read_stdin(stdin or sys.stdin))
     if not prompt:
         print(
             'error: no prompt. hint: ract -p "what to do", or pipe it: '
@@ -278,6 +287,7 @@ def _run(
         intent=prompt,
         session_id=None,
         resume=False,
+        ask=args.ask,
         write_lock=threading.RLock(),
     )
 

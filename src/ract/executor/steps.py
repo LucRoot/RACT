@@ -58,6 +58,15 @@ class StepResult:
     content: str
     metrics: dict[str, Any] = field(default_factory=dict)
 
+    def outcome(self, limit: int = 400) -> str:
+        """One line for history: the file written, or the answer, bounded (B-042)."""
+        if self.step.expected_artifact:
+            return f"{self.step.action} -> {self.step.expected_artifact}"
+        answer = " ".join(self.content.split())
+        if len(answer) > limit:
+            answer = answer[:limit].rstrip() + " [...]"
+        return f"{self.step.action} -> answered: {answer}"
+
 
 @dataclass(frozen=True)
 class ExecutionReport:
@@ -79,6 +88,10 @@ class ExecutionReport:
 
 class Executor:
     """Executes a plan step-by-step through selected providers."""
+
+    # Added to the step numbers this executor reports, so a one-step plan run
+    # by the substrate adapter carries the whole plan's numbering.
+    step_number_offset: int = 0
 
     def __init__(
         self,
@@ -929,9 +942,18 @@ class Executor:
                     "reads (.env), or edit this file yourself"
                 ),
             )
-        user_content = (
-            f"Task: {step.action}\nExpected artifact: {step.expected_artifact}"
-        )
+        if step.expected_artifact:
+            user_content = (
+                f"Task: {step.action}\nExpected artifact: {step.expected_artifact}"
+            )
+        else:
+            # An answer step (B-042): the reply is shown to the user and
+            # nothing is written, so ask for prose and no file.
+            user_content = (
+                f"Task: {step.action}\nAnswer the user directly. Your reply is "
+                "shown as the answer; no file is written. Quote the code you "
+                "refer to by path and line where it helps."
+            )
         target_block, replaces_existing = self._target_file_block(
             step.expected_artifact, context
         )
@@ -1300,6 +1322,31 @@ class Executor:
                 raw, content, metrics = step_result.unwrap()
 
             content = strip_reasoning(content)
+            if not step.expected_artifact and step.tool_call is None:
+                # LR:: An answer step (B-042) writes nothing, so the gates that
+                # judge a file write (diff, guardrails, duplication, novelty,
+                # provenance) have nothing to judge.
+                if not content.strip():
+                    return Rooted(
+                        value=None,
+                        assumption=f"Step {index} returns an answer.",
+                        confidence=0.0,
+                        provenance=[f"executor.step:{index}"],
+                        error=f"Step {index} returned an empty answer. "
+                        + describe_output_problem(
+                            raw if isinstance(raw, dict) else None,
+                            wanted="answer",
+                        ),
+                        hint="empty_output",
+                    )
+                step_results.append(
+                    StepResult(
+                        step=step, raw_response=raw, content=content, metrics=metrics
+                    )
+                )
+                self._step_done(None)
+                assumptions.append(f"Step {index} ({step.action}) answered.")
+                continue
             content = self._normalize_model_output(content, step.expected_artifact)
 
             # An empty answer must never overwrite the target file. A reasoning

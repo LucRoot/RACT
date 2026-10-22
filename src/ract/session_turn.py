@@ -40,6 +40,9 @@ class TurnRequest:
     dry_run: bool = False
     mode: str = "default"
     auto: bool = False
+    # Skip the planner: the intent is one answer step that writes nothing
+    # (B-042, `/ask` and `ract -p --ask`).
+    ask: bool = False
     # The session's write lock, shared by every turn (turn_context.persisting).
     write_lock: Any = None
 
@@ -238,6 +241,7 @@ def run_turn(
                 session_id=request.session_id,
                 resume=request.resume,
                 auto=request.auto,
+                ask=request.ask,
                 stream=True,
                 stream_callback=reporter.delta,
             )
