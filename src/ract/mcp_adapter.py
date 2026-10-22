@@ -17,7 +17,7 @@ from typing import Any
 
 import httpx
 
-from ract import egress_ledger
+from ract import egress_ledger, egress_scan
 from ract.rooted import Rooted
 
 
@@ -40,6 +40,18 @@ class McpAdapter:
     def call_tool(self, name: str, arguments: dict[str, Any]) -> Rooted[McpToolResult]:
         """Call a named tool with the given arguments."""
         raise NotImplementedError
+
+    @staticmethod
+    def _scanned(params: dict[str, Any], destination: str) -> dict[str, Any]:
+        """Redact secret-shaped values from request params before they leave.
+
+        LR:: Tool arguments are written by the model and can hold file
+        contents; they went to the MCP server unscanned (B-044, the same
+        rule as S-022 for provider payloads).
+        """
+        cleaned, redacted = egress_scan.scan_payload(params)
+        egress_scan.notify(redacted, destination)
+        return dict(cleaned)
 
 
 class StdioMcpClient(McpAdapter):
@@ -71,7 +83,7 @@ class StdioMcpClient(McpAdapter):
             "method": method,
         }
         if params is not None:
-            payload["params"] = params
+            payload["params"] = self._scanned(params, f"MCP server {self.command!r}")
         try:
             proc = subprocess.run(
                 [self.command, *self.args],
@@ -209,7 +221,7 @@ class SseMcpClient(McpAdapter):
             "method": method,
         }
         if params is not None:
-            payload["params"] = params
+            payload["params"] = self._scanned(params, f"MCP server {self.url!r}")
         request_headers = {"Content-Type": "application/json", **self.headers}
         try:
             with self.client.stream(

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-from ract import egress_ledger
+from ract import egress_ledger, egress_scan
 
 
 class GitHubReleaseError(Exception):
@@ -66,6 +66,12 @@ class GitHubReleaseClient:
         prerelease: bool = False,
     ) -> dict[str, Any]:
         """Create a new release and return the release dict."""
+        # B-044: the notes go to a public page; redact before they leave.
+        name, redacted_name = egress_scan.scan_text(name)
+        body, redacted = egress_scan.scan_text(body)
+        for kind, n in redacted_name.items():
+            redacted[kind] = redacted.get(kind, 0) + n
+        egress_scan.notify(redacted, "GitHub (release notes)")
         payload = {
             "tag_name": tag,
             "name": name,
@@ -104,10 +110,22 @@ class GitHubReleaseClient:
         elif "?name=" not in upload_url:
             upload_url = f"{upload_url}?name={path.name}"
 
+        data = path.read_bytes()
+        try:
+            found = egress_scan.target_holds_secret(data.decode("utf-8"))
+        except UnicodeDecodeError:
+            found = {}  # a binary asset; listed as exempt in docs/EGRESS.md
+        if found:
+            # A file cannot be redacted and still be the file: refuse it.
+            raise GitHubReleaseError(
+                f"Asset {path.name} holds secret-shaped values "
+                f"({egress_scan.describe(found)}); it was not uploaded."
+            )
+
         headers = self._headers()
         headers["Content-Type"] = "application/octet-stream"
         with egress_ledger.client("github", headers=headers, timeout=60.0) as client:
-            response = client.post(upload_url, content=path.read_bytes())
+            response = client.post(upload_url, content=data)
         if response.status_code != 201:
             raise GitHubReleaseError(
                 f"Failed to upload asset: {response.status_code} {response.text}",
