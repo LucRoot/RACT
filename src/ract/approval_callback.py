@@ -44,6 +44,16 @@ def auto_approval_callback(step: Step) -> bool:
     return not any(word in action_lower for word in risky)
 
 
+def refuse_changes_callback(step: Step) -> bool:
+    """`default` mode with no terminal to ask: answers run, changes do not (B-034).
+
+    A headless run (`ract -p`) cannot ask before a change, so it refuses
+    every step that writes a file or calls a tool. `--accept-edits` is the
+    operator's way to let such a run change files.
+    """
+    return not step.expected_artifact and step.tool_call is None
+
+
 def yolo_approval_callback(_step: Step) -> bool:
     """Always approve. Used in yolo mode."""
     return True

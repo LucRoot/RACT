@@ -194,12 +194,17 @@ on stdin; when both are given, stdin is added to the prompt as labeled context.
 stdout carries only the result and progress goes to stderr, so
 `ract -p "..." > out.txt` gives a clean file.
 
+A headless run starts in `default` mode, like a session: it would ask
+before changing a file, and with no terminal to ask it refuses the change
+(exit 3). Pass `--accept-edits` when the run may change files. Answers
+need no flag.
+
 ```bash
-ract -p "fix the failing test"                        # the answer, or the verdict
-ract -p "fix the failing test" --output-format json   # one ract.result/1 object
+ract -p --accept-edits "fix the failing test"         # the verdict; files may change
+ract -p --accept-edits "fix the failing test" --output-format json   # one ract.result/1 object
 ract -p "summarize this log" < build.log              # stdin as the prompt's context
 ract -p --ask "where is the config loaded?"           # answer only; no plan, no file written
-ract -p "fix the failing test" --output-format stream-json   # every event, one per line
+ract -p --accept-edits "fix the failing test" --output-format stream-json   # every event
 ```
 
 Exit codes: 0 done, 1 the task failed, 2 usage or configuration error, 3
@@ -215,7 +220,7 @@ trusted. A GitHub Actions step:
 ```yaml
 - name: Ask RACT to fix the failing test
   run: |
-    ract -p "fix the failing test" --output-format json > ract-result.json
+    ract -p --accept-edits "fix the failing test" --output-format json > ract-result.json
     jq -e '.outcome == "done"' ract-result.json
 ```
 

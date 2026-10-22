@@ -15,6 +15,7 @@ from ract.manager import Plan, Step
 from ract.memory_arena import MemoryArena
 from ract.approval_callback import (
     console_approval_callback,
+    refuse_changes_callback,
     yolo_approval_callback,
 )
 from ract.preflight_validator import PreflightValidator
@@ -195,6 +196,7 @@ def _run_ract(
     project_doc: Path | str | None = None,
     yolo: bool = False,
     auto: bool = False,
+    refuse_changes: bool = False,
     reload: bool = False,
     stream: bool = False,
     stream_callback: Callable[[str], None] | None = None,
@@ -429,7 +431,10 @@ def _run_ract(
         return result
 
     approval_callback: Callable[[Step], bool] | None = None
-    if auto:
+    if refuse_changes:
+        # `default` mode with nobody to ask (B-034): answers only.
+        approval_callback = refuse_changes_callback
+    elif auto:
         approval_callback = console_approval_callback
     elif yolo:
         approval_callback = yolo_approval_callback

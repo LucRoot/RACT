@@ -78,6 +78,12 @@ def _parser() -> argparse.ArgumentParser:
         help="answer the prompt as a question: no plan, and no file is written",
     )
     parser.add_argument(
+        "--accept-edits",
+        action="store_true",
+        help="let this run change files; without it a step that changes a file "
+        "is refused (exit 3), since a headless run cannot ask first",
+    )
+    parser.add_argument(
         "--trust-project",
         action="store_true",
         help="run this repository's own commands (hooks, MCP servers, gates) "
@@ -303,6 +309,7 @@ def _run(
         resume=False,
         ask=args.ask,
         write_lock=threading.RLock(),
+        refuse_changes=not args.accept_edits,
     )
 
     # A trusted repository's extensions run (`ract trust` was the operator's
@@ -355,7 +362,7 @@ def _run(
             "model": model,
             "provider": provider,
             "branch": None,
-            "mode": "default",
+            "mode": "auto-accept" if args.accept_edits else "default",
             "tier3": "off",
             "context_limit": None,
             "provider_reachable": None,

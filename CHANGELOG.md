@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `default`. The mode is in the status line and comes from the same setting the approval
   uses. `unrestricted` is refused: it needs the tier-3 policy, which this release does not
   have.
+- `ract -p` starts in `default` mode too. With no terminal to ask, a step that would change a
+  file is refused (exit 3) and the hint names `--accept-edits`, the flag that lets the run
+  change files. Answers need no flag. Scripts that let `ract -p` edit files must add
+  `--accept-edits`.
 - `/undo` and `/redo` in the session, `ract undo` and `ract redo` in the shell: reverse the last
   turn's file changes from its backup. Files the turn replaced are restored and files it created
   are removed; a file you changed after the turn is listed and left alone unless you pass

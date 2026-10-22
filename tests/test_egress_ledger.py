@@ -175,7 +175,7 @@ def test_a_real_turn_records_the_plan_and_the_step(
     path = egress_ledger.ledger_path()  # the run's own state directory (conftest)
     before = len(egress_ledger.read(path))
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+    result = _ract(ws, "-p", "--accept-edits", "fix add", "--output-format", "json")
 
     assert result.returncode == 0, result.stderr
     new = egress_ledger.read(path)[before:]
@@ -233,7 +233,7 @@ def test_headless_json_cost_comes_from_the_ledger(
     server = fake_model_server(_plan_and_fix(usage=True))
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+    result = _ract(ws, "-p", "--accept-edits", "fix add", "--output-format", "json")
 
     assert result.returncode == 0, result.stderr
     cost = json.loads(result.stdout)["cost"]
@@ -249,7 +249,7 @@ def test_unreported_tokens_are_null_not_zero(
     server = fake_model_server(_plan_and_fix(usage=False))
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+    result = _ract(ws, "-p", "--accept-edits", "fix add", "--output-format", "json")
 
     cost = json.loads(result.stdout)["cost"]
     assert (cost["tokens_in"], cost["tokens_out"]) == (None, None)
@@ -346,7 +346,7 @@ def test_a_repository_config_cannot_redirect_the_ledger(
     (ws / "ract.yaml").write_text(yaml.safe_dump(config), encoding="utf-8")
     before = len(egress_ledger.read())
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+    result = _ract(ws, "-p", "--accept-edits", "fix add", "--output-format", "json")
 
     assert result.returncode == 0, result.stderr
     assert not planted.exists()
@@ -363,7 +363,9 @@ def test_cost_lists_model_requests_by_purpose(
     ws = _repo(tmp_path, server.base_url)
     before = len(egress_ledger.read())
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json")
+    result = _ract(
+        ws, "-p", "--accept-edits", "fix add", "--output-format", "stream-json"
+    )
 
     assert result.returncode == 0, result.stderr
     lines = egress_ledger.describe(egress_ledger.read()[before:])
@@ -387,7 +389,9 @@ def test_cost_updated_tokens_are_null_when_unreported(
     server = fake_model_server(_plan_and_fix(usage=False))
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json")
+    result = _ract(
+        ws, "-p", "--accept-edits", "fix add", "--output-format", "stream-json"
+    )
 
     events = [json.loads(line) for line in result.stdout.splitlines()]
     updates = [e["data"] for e in events if e["kind"] == "cost.updated"]

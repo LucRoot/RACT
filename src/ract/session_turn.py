@@ -46,6 +46,9 @@ class TurnRequest:
     ask: bool = False
     # The session's write lock, shared by every turn (turn_context.persisting).
     write_lock: Any = None
+    # `default` mode with no terminal to ask (`ract -p` without
+    # `--accept-edits`): a step that changes a file is refused (B-034).
+    refuse_changes: bool = False
 
 
 # (pattern on the error text, hint). First match wins. Every hint names the
@@ -66,6 +69,11 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"refused to replace", re.I),
         "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
         "in the intent which change you want",
+    ),
+    (
+        re.compile(r"has no terminal to ask", re.I),
+        "pass --accept-edits to let this run change files, or --ask for an answer "
+        "that writes nothing",
     ),
     (
         # A repository-supplied command or model host in an untrusted run
@@ -269,6 +277,7 @@ def run_turn(
                 session_id=request.session_id,
                 resume=request.resume,
                 auto=request.auto,
+                refuse_changes=request.refuse_changes,
                 ask=request.ask,
                 stream=True,
                 stream_callback=reporter.delta,
@@ -278,6 +287,11 @@ def run_turn(
         error_text = f"{type(exc).__name__}: {exc}"
     else:
         error_text = result.error if result is not None and not result.is_ok() else ""
+        if request.refuse_changes and error_text.startswith("Approval denied"):
+            error_text = (
+                "refused: `default` mode asks before changing a file, and this run "
+                f"has no terminal to ask ({error_text})"
+            )
     finally:
         reporter.close()
         turn_context.bind(None)

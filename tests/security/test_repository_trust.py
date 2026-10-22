@@ -192,7 +192,7 @@ def test_headless_honors_trust_but_bare_never_loads(
     _plant_hook(ws, marker)
     assert _ract(ws, state, "trust").returncode == 0
 
-    bare = _ract(ws, state, "-p", "fix add", "--bare")
+    bare = _ract(ws, state, "-p", "--accept-edits", "fix add", "--bare")
     assert bare.returncode == 0, bare.stderr
     assert not marker.exists()
     assert "(--bare)" in bare.stderr
@@ -207,7 +207,7 @@ def test_headless_honors_trust_but_bare_never_loads(
         .replace(server.base_url, server2.base_url),
         encoding="utf-8",
     )
-    trusted = _ract(ws, state, "-p", "fix add")
+    trusted = _ract(ws, state, "-p", "--accept-edits", "fix add")
     assert trusted.returncode == 0, trusted.stderr
     assert marker.exists()
 
@@ -236,7 +236,7 @@ def test_trust_project_on_the_command_line_runs_them_headless(
     marker = tmp_path / "hook.ran"
     _plant_hook(ws, marker)
 
-    result = _ract(ws, state, "-p", "fix add", "--trust-project")
+    result = _ract(ws, state, "-p", "--accept-edits", "fix add", "--trust-project")
 
     assert result.returncode == 0, result.stderr
     assert marker.exists()
@@ -262,7 +262,7 @@ def test_the_repository_cannot_grant_itself_trust(
     with (ws / "ract.yaml").open("a", encoding="utf-8") as handle:
         handle.write(setting)
 
-    result = _ract(ws, state, "-p", "fix add")
+    result = _ract(ws, state, "-p", "--accept-edits", "fix add")
 
     assert result.returncode == 0, result.stderr
     assert not marker.exists()

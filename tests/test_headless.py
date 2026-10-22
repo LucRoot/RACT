@@ -58,7 +58,7 @@ def test_json_result_on_stdout_progress_on_stderr(
     server = fake_model_server("baseline_j4_today")
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+    result = _ract(ws, "-p", "--accept-edits", "fix add", "--output-format", "json")
 
     assert result.returncode == 0, result.stderr
     lines = result.stdout.splitlines()
@@ -81,7 +81,9 @@ def test_stream_json_is_the_session_event_stream(
     server = fake_model_server("baseline_j4_today")
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json")
+    result = _ract(
+        ws, "-p", "--accept-edits", "fix add", "--output-format", "stream-json"
+    )
 
     assert result.returncode == 0, result.stderr
     events = [json.loads(line) for line in result.stdout.splitlines()]
@@ -101,7 +103,7 @@ def test_text_output_is_the_answer_or_the_verdict(
     server = fake_model_server("baseline_j4_today")
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "-p", "fix add")  # text is the default
+    result = _ract(ws, "-p", "--accept-edits", "fix add")  # text is the default
 
     assert result.returncode == 0, result.stderr
     assert result.stdout == "Done: 1 step ran; no tests were run.\n"
@@ -114,7 +116,13 @@ def test_stdin_is_the_prompt_or_labeled_context(
     ws = _repo(tmp_path, server.base_url)
 
     result = _ract(
-        ws, "-p", "fix add", "--output-format", "json", stdin="log line one\n"
+        ws,
+        "-p",
+        "--accept-edits",
+        "fix add",
+        "--output-format",
+        "json",
+        stdin="log line one\n",
     )
 
     assert result.returncode == 0, result.stderr
@@ -151,7 +159,7 @@ def test_exit_6_when_the_provider_is_unavailable(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+    result = _ract(ws, "-p", "--accept-edits", "fix add", "--output-format", "json")
 
     assert result.returncode == 6, result.stderr
     obj = json.loads(result.stdout)
@@ -166,7 +174,9 @@ def test_exit_3_when_a_step_is_refused(tmp_path: Path, fake_model_server: Any) -
         "API_TOKEN=" + "tok_9f8e7d6c5b4a3210\n", encoding="utf-8"
     )
 
-    result = _ract(ws, "-p", "tidy settings", "--output-format", "json")
+    result = _ract(
+        ws, "-p", "--accept-edits", "tidy settings", "--output-format", "json"
+    )
 
     assert result.returncode == 3, result.stderr
     assert json.loads(result.stdout)["exit_code"] == 3
@@ -176,7 +186,7 @@ def test_exit_1_when_the_task_fails(tmp_path: Path, fake_model_server: Any) -> N
     server = fake_model_server(_scenario("this is not a plan", "still not a plan"))
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+    result = _ract(ws, "-p", "--accept-edits", "fix add", "--output-format", "json")
 
     assert result.returncode == 1, result.stderr
     assert json.loads(result.stdout)["outcome"] == "failed"
@@ -231,7 +241,7 @@ def test_exit_5_on_sigint(
     _when_requested(server, _thread.interrupt_main)
 
     code = run_headless(
-        ["-p", "fix add", "--output-format", "json"],
+        ["-p", "--accept-edits", "fix add", "--output-format", "json"],
         stdin=io.StringIO(""),
         stdout=out,
         stderr=err,
@@ -252,7 +262,7 @@ def test_exit_143_on_sigterm(
     _when_requested(server, lambda: signal.raise_signal(signal.SIGTERM))
 
     code = run_headless(
-        ["-p", "fix add", "--output-format", "json"],
+        ["-p", "--accept-edits", "fix add", "--output-format", "json"],
         stdin=io.StringIO(""),
         stdout=out,
         stderr=err,
@@ -288,7 +298,9 @@ def test_a_repository_hook_does_not_run_headless(
     _plant_hook(ws, marker)
 
     flags = ["--bare"] if bare else []
-    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json", *flags)
+    result = _ract(
+        ws, "-p", "--accept-edits", "fix add", "--output-format", "stream-json", *flags
+    )
 
     assert result.returncode == 0, result.stderr
     assert not marker.exists()
@@ -359,7 +371,9 @@ def test_accepted_flags(tmp_path: Path, fake_model_server: Any) -> None:
     server = fake_model_server("baseline_j4_today")
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "-p", "fix add", "--fail-on-denial", "--max-turns", "1")
+    result = _ract(
+        ws, "-p", "--accept-edits", "fix add", "--fail-on-denial", "--max-turns", "1"
+    )
 
     assert result.returncode == 0, result.stderr
 
@@ -402,7 +416,9 @@ def test_no_repository_command_or_endpoint_is_used_headless(
         f"open({str(conftest_marker)!r}, 'a').write('ran')\n", encoding="utf-8"
     )
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json")
+    result = _ract(
+        ws, "-p", "--accept-edits", "fix add", "--output-format", "stream-json"
+    )
 
     assert result.returncode == 0, result.stderr
     assert not mcp_marker.exists(), "an MCP server command ran"
@@ -428,7 +444,7 @@ def test_the_internal_provider_command_is_refused_headless(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+    result = _ract(ws, "-p", "--accept-edits", "fix add", "--output-format", "json")
 
     assert result.returncode == 3, result.stdout + result.stderr
     assert not marker.exists()
@@ -458,7 +474,9 @@ def test_no_terminal_no_escape_sequences_no_prompts(tmp_path: Path) -> None:
     cases = [(missing, 2), (down, 6)]
     for ws, code in cases:
         for fmt in ("text", "json", "stream-json"):
-            result = _ract(ws, "-p", "fix add", "--output-format", fmt)
+            result = _ract(
+                ws, "-p", "--accept-edits", "fix add", "--output-format", fmt
+            )
             assert result.returncode == code, (ws, fmt, result.stderr)
             for stream in (result.stdout, result.stderr):
                 assert ANSI not in stream

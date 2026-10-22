@@ -237,7 +237,10 @@ def _intent_as_json(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         )
     from ract.headless import run_headless
 
-    flags = ["--ask"] if getattr(args, "ask", False) else []
+    # `ract run` applies changes without asking unless --auto is given, and
+    # its --json form keeps that (B-034: only `ract -p` itself starts in
+    # `default`).
+    flags = ["--ask"] if getattr(args, "ask", False) else ["--accept-edits"]
     return run_headless(
         [
             "-p",

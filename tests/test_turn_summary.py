@@ -221,7 +221,9 @@ def test_a_real_turn_reports_diffstat_and_an_unverified_claim(
     )
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json")
+    result = _ract(
+        ws, "-p", "--accept-edits", "fix add", "--output-format", "stream-json"
+    )
 
     assert result.returncode == 0, result.stderr
     events = [json.loads(line) for line in result.stdout.splitlines()]

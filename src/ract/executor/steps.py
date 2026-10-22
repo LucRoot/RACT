@@ -1161,7 +1161,14 @@ class Executor:
                     assumption=f"Step {index} is approved before execution.",
                     confidence=0.0,
                     provenance=[f"executor.step:{index}"],
-                    error=f"Approval denied for step {index}: {step.action}",
+                    error=(
+                        f"Approval denied for step {index}: {step.action}"
+                        + (
+                            f" -> {step.expected_artifact}"
+                            if step.expected_artifact
+                            else ""
+                        )
+                    ),
                     hint="approval",
                 )
 

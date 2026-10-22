@@ -113,7 +113,7 @@ def test_prose_for_a_python_file_is_refused_whatever_the_verb(
     ws = _repo(tmp_path, server.base_url)
     before = (ws / "src" / "calc.py").read_bytes()
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+    result = _ract(ws, "-p", "--accept-edits", "fix add", "--output-format", "json")
 
     assert result.returncode == 3, result.stderr  # refused
     assert (ws / "src" / "calc.py").read_bytes() == before
@@ -132,7 +132,9 @@ def test_a_valid_rewrite_applies_and_keeps_the_previous_version(
     ws = _repo(tmp_path, server.base_url)
     before = (ws / "src" / "calc.py").read_bytes()
 
-    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json")
+    result = _ract(
+        ws, "-p", "--accept-edits", "fix add", "--output-format", "stream-json"
+    )
 
     assert result.returncode == 0, result.stderr
     assert "return a + b" in (ws / "src" / "calc.py").read_text(encoding="utf-8")
