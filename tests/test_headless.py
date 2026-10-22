@@ -137,7 +137,7 @@ def test_exit_2_for_usage_and_configuration_errors(tmp_path: Path) -> None:
     assert bad_flag.returncode == 2
     no_config = _ract(ws, "-p", "x")
     assert no_config.returncode == 2
-    assert "ract --init-provider local" in no_config.stderr
+    assert "ract setup --answers FILE" in no_config.stderr
 
 
 def test_exit_6_when_the_provider_is_unavailable(tmp_path: Path) -> None:

@@ -158,6 +158,23 @@ See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
 
 ## Quickstart
 
+In the directory you want to work in, run:
+
+```bash
+ract setup
+```
+
+Setup checks this machine, offers a model server that is already running
+(llama.cpp, Ollama, LM Studio or vLLM on their default ports), or asks
+whether to use a local model or a cloud provider. For a local model it
+suggests one that fits the memory you give it and prints how to start it;
+it never downloads anything. For a cloud provider it names the environment
+variable for the key and never asks for the key itself. It writes
+`ract.yaml`, checks it with one tiny request, and prints the next command.
+Running bare `ract` in a directory without `ract.yaml` offers the same
+setup. Without a terminal: `ract setup --answers FILE` (template:
+`ract setup --print-defaults`).
+
 In a repository you cloned, RACT first lists any commands the repository
 asks it to run (hooks, MCP servers, test gates) and runs them only if you
 say so; `ract trust` records the decision until those files change.

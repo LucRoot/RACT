@@ -84,7 +84,7 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
     (
         re.compile(r"Configuration file not found", re.I),
-        "run `ract --init-provider local` here, then `ract doctor --check-providers`",
+        "run `ract setup` here to create one",
     ),
     (
         re.compile(r"Could not parse JSON plan|did not contain a usable", re.I),

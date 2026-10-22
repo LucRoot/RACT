@@ -27,6 +27,7 @@ from typing import Any
 
 import yaml
 
+from ract import egress_scan
 from ract.provider_presets import get_preset, list_presets
 from ract.setup import host_probe, local_probe, tiers
 
@@ -491,7 +492,16 @@ def main(argv: list[str]) -> int:
     answers = Answers()
     if args.answers is not None:
         try:
-            answers = Answers.from_yaml(args.answers.read_text(encoding="utf-8"))
+            text = args.answers.read_text(encoding="utf-8")
+            # Setup never takes a key (G-056): the file names variables only.
+            found = egress_scan.target_holds_secret(text)
+            if found:
+                raise SetupError(
+                    f"it holds a secret-shaped value ({egress_scan.describe(found)}). "
+                    "Setup never takes a key: put it in an environment variable and "
+                    "leave it out of the answers file"
+                )
+            answers = Answers.from_yaml(text)
         except (OSError, SetupError, yaml.YAMLError) as exc:
             print(f"error: could not use {args.answers}: {exc}", file=sys.stderr)
             return EXIT_USAGE

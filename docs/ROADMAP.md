@@ -212,7 +212,10 @@ concrete-defect fix commit (`249c0c7`) covers the CLI verb gap; the
 remaining items below are usability polish surfaced by the six-lens
 audit and Lens 3's cross-family first-user simulation.
 
-- **Unify first-run prerequisites across install paths.** Lens 3
+- **Unify first-run prerequisites across install paths.** Partly
+  addressed by `ract setup` (B-015), which checks Python, git, memory and
+  disk on the machine itself and says what is missing. The install
+  sections still name prerequisites separately. Lens 3
   reviewer noted that `pip install ract`, the source install, and the
   in-source editable path all name different prerequisites in
   different sections. Consolidate into a single "Before you install"
@@ -224,7 +227,9 @@ audit and Lens 3's cross-family first-user simulation.
   Add a fenced code block after the Quickstart's first `ract "…"`
   showing the expected tail of the run (report path, exit code,
   where `evals/runs/<run_id>/` lands).
-- **Post-first-run linear onboarding.** Lens 3 rated the jump from
+- **Post-first-run linear onboarding.** Partly addressed by `ract
+  setup` (B-015), which ends with one suggested next command. The
+  "What's next" ladder is still to write. Lens 3 rated the jump from
   first-run to sessions/project-docs/modes as "information overload."
   Add a "What's next" ladder that walks a new user through: (a) run
   once, (b) inspect the report, (c) resume via `--session`, (d)

@@ -82,9 +82,32 @@ running turn takes effect only when the turn ends. Line history and tab completi
 Linux and macOS, where Python has `readline`; on Windows the session has neither yet.
 Ctrl-D or `/exit` leaves. Scripts and CI keep using `ract run '<intent>'`.
 
+## Set up a project
+
+In the directory you want to work in:
+
+```bash
+ract setup
+```
+
+Setup checks the machine (memory, disk, git), looks for a model server
+already running on its default port, and otherwise asks local or cloud. It
+asks at most four questions in the common path, writes `ract.yaml` and
+`prompts/manager.txt`, runs one tiny request to prove the config works, and
+prints what to run next. It never downloads a model and never asks for an
+API key: the config refers to the key's environment variable. An existing
+`ract.yaml` is never overwritten; `ract setup --reconfigure` writes
+`ract.yaml.draft` and shows the difference.
+
+| Situation | Command |
+|---|---|
+| No terminal (CI, scripts) | `ract setup --answers answers.yaml` |
+| Answers template | `ract setup --print-defaults` |
+| Take every default | `ract setup --yolo` |
+
 ## Scaffold your first project
 
-The fastest way to start is with a built-in template:
+To start from a built-in template instead:
 
 ```bash
 ract init --template python-package --provider local

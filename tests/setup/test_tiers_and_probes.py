@@ -134,3 +134,35 @@ def test_a_closed_port_is_not_offered(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert local_probe.detect() == []
+
+
+def test_probes_send_no_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    # G-056: a probe must not be a way around S-025's key-to-host binding.
+    import httpx
+
+    from ract import egress_ledger
+
+    sentinel = "sk-test-" + "Z" * 40
+    monkeypatch.setenv("OPENAI_API_KEY", sentinel)
+    monkeypatch.setenv("RACT_BASE_URL", "http://10.9.9.9:7777/v1")
+    seen: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(dict(request.headers))
+        return httpx.Response(200, json={"data": [{"id": "m"}]})
+
+    real = egress_ledger.client
+
+    def client(kind: str, **kwargs: Any) -> httpx.Client:
+        assert kwargs.get("trust_env") is False
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real(kind, **kwargs)
+
+    monkeypatch.setattr(local_probe.egress_ledger, "client", client)
+
+    found = local_probe.detect()
+
+    assert len(found) == len(seen) == 5
+    for headers in seen:
+        assert "authorization" not in {k.lower() for k in headers}
+        assert sentinel not in " ".join(headers.values())

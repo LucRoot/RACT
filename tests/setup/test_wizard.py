@@ -277,3 +277,32 @@ def test_end_of_input_at_a_question_writes_nothing(tmp_path: Path) -> None:
     assert wizard.run(tmp_path, interactive=True, io=io) == 2
     assert not (tmp_path / "ract.yaml").exists()
     assert "ract setup --answers FILE" in "\n".join(said)
+
+
+def test_an_answers_file_with_a_key_is_refused(tmp_path: Path) -> None:
+    # G-056: setup never takes a key value, not even from a file.
+    answers = tmp_path / "answers.yaml"
+    answers.write_text(
+        "provider: cloud\ncloud:\n  preset: openai\n  api_key: sk-proj-"
+        + "A" * 48
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = _ract(tmp_path, "setup", "--answers", str(answers))
+
+    assert result.returncode == 2
+    assert "Setup never takes a key" in result.stderr
+    assert "sk-proj-" not in result.stdout + result.stderr
+    assert not (tmp_path / "ract.yaml").exists()
+
+
+def test_a_config_written_by_setup_raises_no_trust_question(tmp_path: Path) -> None:
+    # G-056: the config is the operator's own; nothing in it needs trust.
+    from ract import trust
+
+    _git_init(tmp_path)
+    io, _, _ = _io([], [SERVER])
+    assert wizard.run(tmp_path, interactive=False, io=io) == 0
+
+    assert trust.trust_items(tmp_path) == []

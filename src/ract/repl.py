@@ -327,7 +327,7 @@ class ReplSession:
         providers = config.get("providers") if isinstance(config, dict) else None
         if not isinstance(providers, dict) or not providers:
             self._console.error(
-                f"no providers in {self.state.config}. Run ract --init-provider local to scaffold one."
+                f"no providers in {self.state.config}. Leave and run ract setup to create a working one."
             )
             return True
         manager, error = resolve_manager_provider(config)
@@ -730,7 +730,7 @@ class ReplSession:
         if not self.state.config.is_file():
             self._console.warning(
                 f"{escape(str(self.state.config))} not found. "
-                "Run /config for details or leave and run ract --init-provider local."
+                "Leave and run ract setup to create one (it checks this machine and asks a few questions)."
             )
 
     # --------------------------------------------------------------- history

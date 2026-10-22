@@ -64,7 +64,11 @@ def _ask(label: str, url: str) -> Server | None:
     try:
         with (
             egress_ledger.purpose("setup"),
-            egress_ledger.client("setup", timeout=PROBE_TIMEOUT) as client,
+            # No credentials of any kind (G-056): no Authorization header,
+            # and trust_env=False so httpx adds nothing from .netrc.
+            egress_ledger.client(
+                "setup", timeout=PROBE_TIMEOUT, trust_env=False
+            ) as client,
         ):
             response = client.get(f"{url}/models")
         if response.status_code != 200:

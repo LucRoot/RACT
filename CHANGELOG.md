@@ -10,6 +10,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `ract setup`: first-run setup. It checks the machine, offers a model server already running on
+  a default port (llama.cpp, Ollama, LM Studio, vLLM) or one named in `RACT_BASE_URL`, and
+  otherwise asks local or cloud. For a local model it suggests one that fits the memory you give
+  it, from a dated table in `src/ract/setup/model_tiers.yaml`, and prints how to start it; it
+  never downloads. For a cloud provider it names the key's environment variable and checks only
+  that it is set. It writes `ract.yaml` atomically and never over an existing one
+  (`--reconfigure` writes a draft and shows the diff), runs one tiny request, offers `git init`,
+  and prints the next command. `--answers FILE`, `--print-defaults` and `--yolo` work without a
+  terminal. Bare `ract` in a directory without `ract.yaml` offers setup, and every "configuration
+  file not found" error points to it.
 - Egress ledger. Every request RACT sends to another host (model providers, health checks, web
   search, MCP servers over HTTP, GitHub releases, the skill marketplace) leaves one record in
   `egress.jsonl` in the user state directory: purpose, host, status, time, bytes each way and

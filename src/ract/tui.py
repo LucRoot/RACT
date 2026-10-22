@@ -142,7 +142,7 @@ class RactConsole:
             "and every generated change is validated by tests before it compounds.\n"
             "\n"
             "[italic]Quick commands:[/]\n"
-            "  [bold]ract --init-provider local[/]     · scaffold a project for a local model\n"
+            "  [bold]ract setup[/]                      · check this machine and write ract.yaml\n"
             "  [bold]ract run 'your intent' --loop[/]   · run a quality-anchored build loop\n"
             "  [bold]ract report --last[/]              · see what changed and why\n"
             "  [bold]ract whisper --intent '...'[/]     · get a codebase dialect brief\n"

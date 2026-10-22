@@ -254,7 +254,7 @@ def run_headless(
     if not Path(args.config).is_file():
         print(
             f"error: configuration file not found: {args.config}. hint: run "
-            "`ract --init-provider local` here, then `ract doctor --check-providers`",
+            "`ract setup --answers FILE` here (template: ract setup --print-defaults)",
             file=err,
         )
         return 2

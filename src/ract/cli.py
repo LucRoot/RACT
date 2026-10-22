@@ -202,6 +202,28 @@ def _trust_command(args: list[str]) -> int:
     return 0
 
 
+def _offer_setup(ask: Any = input) -> bool:
+    """Bare `ract` in a directory without ract.yaml: offer setup first (D-021).
+
+    Returns whether to open the session afterwards. A session cannot run
+    an intent without a config, so setup is offered with a one-key skip.
+    """
+    from ract.setup import wizard
+
+    print("No ract.yaml in this directory, so RACT does not know which model to use.")
+    try:
+        reply = str(ask("Set one up now? [Y/n] (n opens the session without one) "))
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+    if reply.strip().lower() in {"n", "no"}:
+        return True
+    code = wizard.run(Path.cwd(), interactive=True)
+    # Open the session after a finished setup, even one whose health check
+    # failed (the config is written; the session shows the same hint).
+    return code in {wizard.EXIT_OK, wizard.EXIT_PROVIDER}
+
+
 def _repl_command(args: list[str]) -> int:
     """Handle 'ract repl [--config <path>]': open the interactive session."""
     parser = argparse.ArgumentParser(
@@ -4296,7 +4318,15 @@ def main(argv: list[str] | None = None) -> int:
     elif not argv and sys.stdin.isatty() and sys.stdout.isatty():
         # Bare ``ract`` in a terminal opens the interactive session.
         # Scripts and CI (no TTY) keep the "intent is required" error.
+        if not Path("ract.yaml").exists() and not _offer_setup():
+            return 0
         return _repl_command([])
+    elif not argv and not Path("ract.yaml").exists():
+        print(
+            "[ract] no ract.yaml here. To create one without a terminal: "
+            "ract setup --answers FILE (template: ract setup --print-defaults)",
+            file=sys.stderr,
+        )
     if argv and argv[0] == "setup":
         from ract.setup import wizard
 
@@ -4818,6 +4848,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     if not result.is_ok():
         console.error(f"failed: {result.error}")
+        if "Configuration file not found" in (result.error or ""):
+            console.info("hint: run `ract setup` here to create one")
         return 1
 
     value = result.unwrap()
