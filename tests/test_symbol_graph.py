@@ -244,3 +244,22 @@ def test_ract_repo_has_cross_module_edges(tmp_path):
 
 
 # RACT 0.1.1 - Trust and tooling
+
+
+def test_from_package_import_submodule_links_to_the_submodule(tmp_path):
+    """``from pkg import mod`` imports a module; ``mod.f()`` references pkg.mod.f.
+
+    Before, the binding pointed at a name ``mod`` inside ``pkg/__init__.py``,
+    so every module imported this way looked unreferenced to the dead-code
+    auction (``ract.turn_context`` was reported dead).
+    """
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "mod.py").write_text("def report(): pass\n", encoding="utf-8")
+    (pkg / "user.py").write_text(
+        "from pkg import mod\ndef run():\n    mod.report()\n", encoding="utf-8"
+    )
+    graph = SymbolGraph(tmp_path).build()
+    report = next(k for k in graph.nodes if k.endswith("mod.report"))
+    assert any(src.endswith("user.run") for src in graph.nodes[report].incoming)

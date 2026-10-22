@@ -230,6 +230,19 @@ class SymbolGraph:
                     continue
                 for alias in node.names:
                     local_name = alias.asname or alias.name
+                    # ``from ract import turn_context`` imports the submodule,
+                    # not a name defined in ``ract/__init__.py``; bind it like
+                    # ``import ract.turn_context as turn_context`` so uses of
+                    # ``turn_context.report`` count as references to it.
+                    submodule = f"{from_module}.{alias.name}"
+                    if self._is_project_import(submodule):
+                        imports[local_name] = _ImportBinding(
+                            local_name=local_name,
+                            target_module=submodule,
+                            target_name=None,
+                            is_project=True,
+                        )
+                        continue
                     imports[local_name] = _ImportBinding(
                         local_name=local_name,
                         target_module=from_module,
