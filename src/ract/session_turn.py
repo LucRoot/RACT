@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ract import turn_context
+from ract import turn_context, undo_backup
 from ract.executor.worktree import working_tree_status
 from ract.session_events import EventStream, Heartbeat, TextWriter, plan_event_data
 
@@ -51,12 +51,24 @@ class TurnRequest:
 # next action or the exact command.
 _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
+        # Only a refused connection: a step refused by RACT itself ("refused
+        # to replace", a path refusal) is not a provider problem (S-026).
         re.compile(
-            r"refused|unreachable|Request failed|ConnectError|timed out|actively refused",
+            r"connection refused|actively refused|unreachable|Request failed"
+            r"|ConnectError|timed out",
             re.I,
         ),
         "start your model server, or fix the provider url in ract.yaml; "
         "`ract doctor --check-providers` checks it",
+    ),
+    (
+        re.compile(r"refused to replace", re.I),
+        "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
+        "in the intent which change you want",
+    ),
+    (
+        re.compile(r"\brefused\b", re.I),
+        "nothing was written for that step; change the intent as the error says",
     ),
     (
         re.compile(r"HTTP 401|HTTP 403|api key|unauthori", re.I),
@@ -231,8 +243,13 @@ def run_turn(
     )
     before_thread.start()
 
+    backup_box: list[undo_backup.TurnBackup] = []
     try:
-        with Heartbeat(stream, turn=turn, waiting_on="model", cancel=cancel):
+        with (
+            undo_backup.turn(project) as backup,
+            Heartbeat(stream, turn=turn, waiting_on="model", cancel=cancel),
+        ):
+            backup_box.append(backup)
             result: Any = run_ract(
                 request.config,
                 request.intent,
@@ -262,6 +279,9 @@ def run_turn(
     if observed is None and not written:
         changed = None  # not a git repository and nothing written: unknown
     duration = int((time.monotonic() - started) * 1000)
+    workspace = _workspace_line(changed)
+    if backup_box and backup_box[0].saved:
+        workspace += f"; {backup_box[0].describe()}"
     others = sorted(set(observed or []) - set(written))
     if others and not cancel.is_set():
         stream.emit(
@@ -286,7 +306,7 @@ def run_turn(
                 "outcome": outcome,
                 "duration_ms": duration,
                 "verdict": verdict,
-                "workspace": _workspace_line(changed),
+                "workspace": workspace,
                 "changed": changed,
                 "checkpoint": None,
                 "verification": dict(_NOT_VERIFIED),
@@ -299,7 +319,7 @@ def run_turn(
         stream.error(
             _first_sentences(error_text),
             hint=hint_for(error_text),
-            workspace=_workspace_line(changed),
+            workspace=workspace,
             turn=turn,
         )
         finished("failed", "The turn failed.", [])

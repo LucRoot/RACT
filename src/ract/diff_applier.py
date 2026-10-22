@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ract.workspace_path import resolve_workspace_path
+from ract import undo_backup
 
 
 @dataclass(frozen=True)
@@ -227,6 +228,7 @@ class DiffApplier:
 
         backup = self._backup_path(target)
         shutil.copy2(target, backup)
+        undo_backup.save_before_replace(self.project_dir, [target])
         # Write without newline translation so the detected convention survives.
         with open(target, "w", encoding="utf-8", newline="") as f:
             f.write(merged_text)

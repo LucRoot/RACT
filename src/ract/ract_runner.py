@@ -7,7 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
 
-from ract import trust, turn_context
+from ract import trust, turn_context, undo_backup
 from ract.executor import ExecutionReport
 from ract.harness import Harness
 from ract.harness_report_enricher import enrich_harness_run
@@ -161,13 +161,19 @@ def run_ract(
     else skips them with one line. A caller that already decided (headless
     runs, `--bare`) has turned them off and is not asked again.
     """
-    if turn_context.extensions_off():
-        return _run_ract(config_path, intent, **kwargs)
-    interactive = sys.stdin.isatty() and sys.stderr.isatty()
-    if trust.decide(Path(config_path).resolve().parent, interactive=interactive):
-        return _run_ract(config_path, intent, **kwargs)
-    with turn_context.repository_extensions_off():
-        return _run_ract(config_path, intent, **kwargs)
+    root = Path(config_path).resolve().parent
+    # Previous versions of the files this turn replaces (S-026). A session
+    # turn binds its own and reports it in the turn summary instead.
+    with undo_backup.turn(
+        root, announce=lambda line: print(f"note: {line}", flush=True)
+    ):
+        if turn_context.extensions_off():
+            return _run_ract(config_path, intent, **kwargs)
+        interactive = sys.stdin.isatty() and sys.stderr.isatty()
+        if trust.decide(root, interactive=interactive):
+            return _run_ract(config_path, intent, **kwargs)
+        with turn_context.repository_extensions_off():
+            return _run_ract(config_path, intent, **kwargs)
 
 
 def _run_ract(

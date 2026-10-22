@@ -23,7 +23,7 @@ register_module_knot(__name__, _MODULE_KNOT)
 
 from ract.artifact_store import Artifact as StoreArtifact, ArtifactStore
 from ract.artifact_tracker import ArtifactTracker, TrackedArtifact
-from ract import egress_scan, turn_context
+from ract import egress_scan, turn_context, undo_backup, write_gate
 from ract.diff_applier import DiffApplier
 from ract.workspace_path import (
     WorkspacePathRefused,
@@ -512,7 +512,9 @@ class Executor:
             return remainder
         return content
 
-    def _write_artifact(self, expected_artifact: str, content: str) -> bool:
+    def _write_artifact(
+        self, expected_artifact: str, content: str, action: str = ""
+    ) -> bool:
         """Persist generated content to the project's expected artifact path.
 
         LR:: Writing is gated by project_dir because the Executor is also used in
@@ -536,6 +538,13 @@ class Executor:
         )
         full_path.parent.mkdir(parents=True, exist_ok=True)
         cleaned = self._strip_markdown_fences(content)
+        if full_path.is_file():
+            # S-026: refuse a reply that is plainly not the file (raises
+            # ReplacementRefused), then keep the previous bytes for the turn.
+            write_gate.check_replacement(
+                expected_artifact, full_path.read_bytes(), cleaned, action
+            )
+            undo_backup.save_before_replace(self.project_dir, [full_path])
         full_path.write_text(cleaned, encoding="utf-8")
         turn_context.record_written(self.project_dir, [full_path])
         return self._record_provenance(full_path, cleaned)
@@ -1547,9 +1556,26 @@ class Executor:
             try:
                 with turn_context.persisting() as allowed:
                     if allowed and not self._write_artifact(
-                        step.expected_artifact, content
+                        step.expected_artifact, content, step.action
                     ):
                         unsigned_artifacts.append(step.expected_artifact)
+            except write_gate.ReplacementRefused as refused:
+                return Rooted(
+                    value=None,
+                    assumption=(
+                        f"Step {index}'s reply is a new version of {step.expected_artifact}."
+                    ),
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}", "write_gate"],
+                    error=(
+                        f"Step {index} refused to replace {refused.path}: "
+                        f"{refused.reason}. Nothing was written."
+                    ),
+                    hint=(
+                        "use /ask (or `ract -p --ask`) for an answer that writes no "
+                        "file, or name the change you want in the intent"
+                    ),
+                )
             except WorkspacePathRefused as refused:
                 return Rooted(
                     value=None,

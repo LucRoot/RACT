@@ -183,9 +183,9 @@ def test_substrate_adapter_runs_step_inside_worktree(tmp_path):
     captured_dirs: list[Path] = []
     original_write = harness.executor._write_artifact
 
-    def spy_write(expected_artifact: str, content: str) -> None:
+    def spy_write(expected_artifact: str, content: str, action: str = "") -> None:
         captured_dirs.append(Path(harness.executor.project_dir))
-        original_write(expected_artifact, content)
+        original_write(expected_artifact, content, action)
 
     harness.executor._write_artifact = spy_write  # type: ignore[assignment]
 
@@ -219,7 +219,7 @@ def test_substrate_adapter_project_dir_restored_after_closure(tmp_path):
     harness = _build_harness(tmp_path)
     original_project_dir = harness.executor.project_dir
 
-    def blow_up(expected_artifact: str, content: str) -> None:
+    def blow_up(expected_artifact: str, content: str, action: str = "") -> None:
         raise RuntimeError("boom inside closure")
 
     harness.executor._write_artifact = blow_up  # type: ignore[assignment]
@@ -272,7 +272,7 @@ def test_substrate_adapter_rebinds_every_captured_helper(tmp_path):
     seen_during_closure: dict[str, Path] = {}
     original_write = harness.executor._write_artifact
 
-    def spy_write(expected_artifact: str, content: str) -> None:
+    def spy_write(expected_artifact: str, content: str, action: str = "") -> None:
         seen_during_closure["executor"] = Path(harness.executor.project_dir)
         seen_during_closure["diff_applier"] = Path(
             harness.executor.diff_applier.project_dir
@@ -289,7 +289,7 @@ def test_substrate_adapter_rebinds_every_captured_helper(tmp_path):
         seen_during_closure["compression_novelty_detector"] = Path(
             harness.executor.compression_novelty_detector.project_dir
         )
-        original_write(expected_artifact, content)
+        original_write(expected_artifact, content, action)
 
     harness.executor._write_artifact = spy_write  # type: ignore[assignment]
 
