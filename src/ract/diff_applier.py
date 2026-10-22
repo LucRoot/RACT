@@ -103,9 +103,6 @@ class DiffApplier:
         current_file: Path | None = None
         current_refusal: str | None = None
         current_hunk: list[str] = []
-        # Lines the open hunk still expects, from its "@@ -a,b +c,d @@"
-        # header: (old side, new side). None when the header has no counts.
-        remaining: list[int] | None = None
 
         def flush_hunk() -> None:
             nonlocal current_hunk
@@ -123,24 +120,36 @@ class DiffApplier:
                     results.append(self._apply_hunk(current_file, current_hunk))
                 current_hunk = []
 
-        for raw_line in diff_text.splitlines():
-            # LR:: Inside a hunk whose header gave line counts, every line is
-            # hunk content until the counts are used up. A removed line whose
-            # text starts with "-- " (a SQL or Lua comment) reads as "--- ",
-            # and was taken for a file header: the hunk was cut short and
-            # the rest of it dropped (S-021).
-            if current_hunk and remaining is not None and max(remaining) > 0:
-                current_hunk.append(raw_line)
-                if raw_line.startswith("\\"):
-                    continue  # "\ No newline at end of file" counts for neither side
-                if raw_line.startswith("-"):
-                    remaining[0] -= 1
-                elif raw_line.startswith("+"):
-                    remaining[1] -= 1
-                else:  # context, including a bare empty line
-                    remaining[0] -= 1
-                    remaining[1] -= 1
-                continue
+        lines = diff_text.splitlines()
+
+        def opens_file(i: int) -> bool:
+            """A "--- " line at ``i`` is a file header: "+++ " then "@@" follow."""
+            return (
+                i + 1 < len(lines)
+                and lines[i + 1].startswith("+++ ")
+                and (i + 2 >= len(lines) or lines[i + 2].startswith("@@"))
+            )
+
+        after_old_header = False
+        for i, raw_line in enumerate(lines):
+            # LR:: Inside a hunk, a removed line whose text starts with "-- "
+            # (a SQL or Lua comment) reads as "--- ", and an added line
+            # starting with "++ " reads as "+++ ". Both were taken for file
+            # headers: the hunk was cut short and the rest of it dropped
+            # (S-021). Hunk line counts cannot settle it, because models
+            # often get them wrong (G-034). Inside a hunk, "--- " is a header
+            # only when "+++ " and "@@" follow it, and "+++ " only right
+            # after such a "--- ". Known limit: content lines that look
+            # exactly like that triple are read as a header.
+            in_hunk = bool(current_hunk)
+            if in_hunk and not after_old_header:
+                if raw_line.startswith("--- ") and not opens_file(i):
+                    current_hunk.append(raw_line)
+                    continue
+                if raw_line.startswith("+++ "):
+                    current_hunk.append(raw_line)
+                    continue
+            after_old_header = raw_line.startswith("--- ")
             if raw_line.startswith("--- ") or raw_line.startswith("+++ "):
                 flush_hunk()
                 # Git-style headers prefix the old path with "a/" and the new
@@ -163,15 +172,6 @@ class DiffApplier:
                 if current_hunk:
                     flush_hunk()
                 current_hunk.append(raw_line)
-                counts = re.match(r"@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@", raw_line)
-                remaining = (
-                    [
-                        int(counts.group(1) or 1),
-                        int(counts.group(2) or 1),
-                    ]
-                    if counts
-                    else None
-                )
             elif current_hunk:
                 current_hunk.append(raw_line)
         flush_hunk()
