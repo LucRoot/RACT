@@ -294,6 +294,12 @@ _BACKEND_EXECUTES: dict[str, bool] = {
     "none": False,
 }
 
+# Flip only in the commit that makes `ract run` give the substrate loop a
+# manifest and a sandbox backend. Until then step subprocesses, like the
+# test and lint commands of loop mode, inherit the operator's environment;
+# only hook commands are scrubbed (AUD-007).
+_RUN_PATH_SCRUBS_STEP_ENV = False
+
 
 def sandbox_status(system: str | None = None) -> SandboxStatus:
     """Return the sandbox facts for ``system`` (default: this machine).
@@ -316,7 +322,12 @@ def sandbox_status(system: str | None = None) -> SandboxStatus:
         "filesystem": state,
         "network": state,
         "process limits": state,
-        "environment": "scrubbed by allowlist on the substrate spawn path",
+        "environment": (
+            "scrubbed by allowlist for every command RACT starts"
+            if executes and _RUN_PATH_SCRUBS_STEP_ENV
+            else "scrubbed by allowlist for hook commands; inherited from your "
+            "shell for test, lint and step commands"
+        ),
     }
     return SandboxStatus(name, backend, binary, executes, properties)
 

@@ -336,8 +336,11 @@ Read this before relying on any statement above.
 
 - No sandbox backend executes anything. The Linux backend renders a
   bubblewrap command and the macOS backend renders a Seatbelt profile; neither
-  is run, and there is no Landlock or seccomp call. Only the scrubbed
-  environment is applied, and only on the substrate spawn path.
+  is run, and there is no Landlock or seccomp call. The scrubbed
+  environment reaches hook commands. Step subprocesses get it only when
+  the substrate loop has a manifest and a Linux or macOS backend, which the
+  `ract run` path never passes, so they inherit the full environment, as
+  do the test and lint commands of loop mode. `ract doctor` says so.
 - `resolve_backend` has no caller and `--allow-unenforced-sandbox` does not
   exist as a flag.
 - The production substrate loop runs without a manifest, a sandbox backend

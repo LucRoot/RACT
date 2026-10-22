@@ -90,3 +90,29 @@ def test_doctor_prints_and_emits_the_sandbox_facts(tmp_path: Path) -> None:
     data = json.loads(_doctor(ws, "--json").stdout)
     assert data["sandbox"]["executes_commands"] is False
     assert data["sandbox"]["properties"]["network"] == "not enforced in this build"
+
+
+@pytest.mark.parametrize("system", ["Linux", "Darwin", "Windows"])
+def test_environment_line_says_what_inherits(
+    monkeypatch: pytest.MonkeyPatch, system: str
+) -> None:
+    """AUD-007: only hook commands are scrubbed on the `ract run` path; the
+    report said every spawn on the substrate path was, on every platform."""
+    monkeypatch.setattr("shutil.which", lambda name: f"/usr/bin/{name}")
+    env = doctor.sandbox_status(system).properties["environment"]
+    assert env == (
+        "scrubbed by allowlist for hook commands; inherited from your shell "
+        "for test, lint and step commands"
+    )
+
+
+def test_environment_line_changes_only_with_both_facts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("shutil.which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setitem(doctor._BACKEND_EXECUTES, "linux-bwrap", True)
+    assert "inherited" in doctor.sandbox_status("Linux").properties["environment"]
+    monkeypatch.setattr(doctor, "_RUN_PATH_SCRUBS_STEP_ENV", True)
+    assert doctor.sandbox_status("Linux").properties["environment"] == (
+        "scrubbed by allowlist for every command RACT starts"
+    )
