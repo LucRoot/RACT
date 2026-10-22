@@ -52,6 +52,10 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/providers", "List configured providers and the manager provider."),
     ("/cost", "Requests, tokens and bytes sent off this machine in this session."),
     (
+        "/mode [plan|default|auto-accept]",
+        "plan: propose only; default: ask before each change; auto-accept: apply changes.",
+    ),
+    (
         "/undo [--force]",
         "Reverse the last turn's file changes (skips files you edited since).",
     ),
@@ -155,6 +159,7 @@ class ReplSession:
             "doctor": self._cmd_doctor,
             "report": self._cmd_report,
             "cost": self._cmd_cost,
+            "mode": self._cmd_mode,
             "undo": self._cmd_undo,
             "redo": self._cmd_redo,
             "clear": self._cmd_clear,
@@ -320,6 +325,50 @@ class ReplSession:
         )
         for line in result.lines("redo"):
             self._console.print(line)
+        return True
+
+    # B-034: the session's permission mode, made of the two switches it
+    # already had (dry-run, auto) and shown in the status line.
+    _MODE_TEXT = {
+        "plan": "plan: the planner proposes; nothing runs and nothing is written",
+        "default": "default: RACT asks before each step that changes a file",
+        "auto-accept": "auto-accept: changes are applied without asking (/undo reverses a turn)",
+    }
+    _MODE_ALIASES = {
+        "ask": "default",
+        "accept-edits": "auto-accept",
+        "edits": "auto-accept",
+    }
+
+    def permission_mode(self) -> str:
+        if self.state.dry_run:
+            return "plan"
+        return "default" if self.state.auto else "auto-accept"
+
+    def _cmd_mode(self, args: list[str]) -> bool:
+        if not args:
+            self._console.print(self._MODE_TEXT[self.permission_mode()])
+            return True
+        wanted = self._MODE_ALIASES.get(args[0].lower(), args[0].lower())
+        if wanted == "unrestricted":
+            self._console.error(
+                "unrestricted needs the tier-3 policy (B-020), which this release "
+                "does not have; the modes are plan, default and auto-accept"
+            )
+            return True
+        if wanted not in self._MODE_TEXT:
+            self._console.error("mode is plan, default or auto-accept")
+            return True
+        if wanted == "default" and not sys.stdin.isatty():
+            self._console.error("default mode asks before changes and needs a terminal")
+            return True
+        self.state.dry_run = wanted == "plan"
+        self.state.auto = wanted == "default"
+        if self._events is not None:
+            self._events.emit(
+                "mode.changed", {"mode": wanted, "tier3": "off", "by": "operator"}
+            )
+        self._console.print(self._MODE_TEXT[wanted])
         return True
 
     def _cmd_cost(self, args: list[str]) -> bool:
@@ -537,7 +586,7 @@ class ReplSession:
             "model": model,
             "provider": provider,
             "branch": current_branch(self.state.config.resolve().parent),
-            "mode": "plan" if self.state.dry_run else "default",
+            "mode": self.permission_mode(),
             "tier3": "off",
             "context_limit": None,
             # Not probed at session start yet (the first turn finds out);

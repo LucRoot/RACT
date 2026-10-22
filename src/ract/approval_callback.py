@@ -16,7 +16,12 @@ def console_approval_callback(step: Step) -> bool:
     accepts 'y' or 'yes' (case-insensitive). It is meant for interactive
     terminal use; non-interactive callers should pre-approve steps or use
     yolo mode.
+
+    A step that only answers (no file, no tool) writes nothing and is not
+    asked about (B-034 `default` mode asks before changes, not questions).
     """
+    if not step.expected_artifact and step.tool_call is None:
+        return True
     prompt = (
         f"Approve step: [{step.provider_hint}] {step.action} "
         f"-> {step.expected_artifact or 'answer, no file written'}? [y/N]: "
