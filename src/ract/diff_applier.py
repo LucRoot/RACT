@@ -103,6 +103,9 @@ class DiffApplier:
         current_file: Path | None = None
         current_refusal: str | None = None
         current_hunk: list[str] = []
+        # Lines the open hunk still expects, from its "@@ -a,b +c,d @@"
+        # header: (old side, new side). None when the header has no counts.
+        remaining: list[int] | None = None
 
         def flush_hunk() -> None:
             nonlocal current_hunk
@@ -121,6 +124,23 @@ class DiffApplier:
                 current_hunk = []
 
         for raw_line in diff_text.splitlines():
+            # LR:: Inside a hunk whose header gave line counts, every line is
+            # hunk content until the counts are used up. A removed line whose
+            # text starts with "-- " (a SQL or Lua comment) reads as "--- ",
+            # and was taken for a file header: the hunk was cut short and
+            # the rest of it dropped (S-021).
+            if current_hunk and remaining is not None and max(remaining) > 0:
+                current_hunk.append(raw_line)
+                if raw_line.startswith("\\"):
+                    continue  # "\ No newline at end of file" counts for neither side
+                if raw_line.startswith("-"):
+                    remaining[0] -= 1
+                elif raw_line.startswith("+"):
+                    remaining[1] -= 1
+                else:  # context, including a bare empty line
+                    remaining[0] -= 1
+                    remaining[1] -= 1
+                continue
             if raw_line.startswith("--- ") or raw_line.startswith("+++ "):
                 flush_hunk()
                 # Git-style headers prefix the old path with "a/" and the new
@@ -143,6 +163,15 @@ class DiffApplier:
                 if current_hunk:
                     flush_hunk()
                 current_hunk.append(raw_line)
+                counts = re.match(r"@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@", raw_line)
+                remaining = (
+                    [
+                        int(counts.group(1) or 1),
+                        int(counts.group(2) or 1),
+                    ]
+                    if counts
+                    else None
+                )
             elif current_hunk:
                 current_hunk.append(raw_line)
         flush_hunk()
