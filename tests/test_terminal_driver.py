@@ -37,10 +37,13 @@ def test_strip_ansi_removes_csi_osc_and_normalizes_newlines() -> None:
 def test_ctrl_c_reaches_the_child() -> None:
     # The driver used to spawn children that ignored Ctrl-C (an inherited
     # flag), which made an interrupt test pass or fail for the wrong reason.
+    # "ready" is printed inside the try block: printed before it, a Ctrl-C
+    # that arrives between the print and the sleep (likely under load) was
+    # raised outside the handler, and the test failed in the full suite.
     program = (
         "import time\n"
-        "print('ready', flush=True)\n"
         "try:\n"
+        "    print('ready', flush=True)\n"
         "    time.sleep(20)\n"
         "except KeyboardInterrupt:\n"
         "    print('caught ctrl-c', flush=True)\n"
