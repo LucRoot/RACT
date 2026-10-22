@@ -401,12 +401,26 @@ def test_failed_snapshot_leaves_no_temporary_index(tmp_path: Path) -> None:
 
     from ract.executor.worktree import WorktreeError, take_snapshot
 
+    import ract.executor.worktree as wt
+
     ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
+    (ws / "a.txt").write_text("changed\n", encoding="utf-8")
     temp = Path(tempfile.gettempdir())
     before = {p.name for p in temp.glob("ract-snapshot-*")}
+    real_run = subprocess.run
 
-    with pytest.raises(WorktreeError, match="took longer"):
-        take_snapshot(ws, timeout=0.000001)
+    def stalled_add(args: list[str], **kwargs: Any) -> Any:
+        if "add" in args and "-u" in args:
+            raise subprocess.TimeoutExpired(args, kwargs.get("timeout") or 0)
+        return real_run(args, **kwargs)
+
+    mp = pytest.MonkeyPatch()
+    mp.setattr(wt.subprocess, "run", stalled_add)
+    try:
+        with pytest.raises(WorktreeError, match="took longer"):
+            take_snapshot(ws)
+    finally:
+        mp.undo()
 
     assert {p.name for p in temp.glob("ract-snapshot-*")} == before
 
@@ -423,3 +437,124 @@ def test_normal_run_prints_no_in_place_note(
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "writes directly into your files" not in result.stdout
+
+
+# ---------------------------------------------------------------- S-011c limits
+
+
+def _many_untracked(ws: Path, count: int) -> None:
+    for i in range(count):
+        d = ws / "gen" / f"d{i // 100:03d}"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"f{i:05d}.txt").write_text(f"{i}\n", encoding="utf-8")
+
+
+def test_snapshot_of_a_repository_with_no_commits_and_no_tracked_files(
+    tmp_path: Path,
+) -> None:
+    from ract.executor.worktree import take_snapshot
+
+    ws = tmp_path / "fresh"
+    ws.mkdir()
+    _git(ws, "init", "-q")
+    (ws / "main.py").write_text("print(1)\n", encoding="utf-8")
+
+    snap = take_snapshot(ws)
+
+    assert _git(ws, "ls-tree", "-r", "--name-only", snap.sha) == "main.py"
+    assert snap.left_out == ()
+
+
+def test_untracked_count_cap_keeps_shallow_files_and_names_the_rest(
+    tmp_path: Path,
+) -> None:
+    from ract.executor.worktree import take_snapshot
+
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
+    (ws / "top.py").write_text("x = 1\n", encoding="utf-8")
+    _many_untracked(ws, 30)
+
+    snap = take_snapshot(ws, max_untracked=10)
+
+    in_snapshot = _git(ws, "ls-tree", "-r", "--name-only", snap.sha).splitlines()
+    assert "top.py" in in_snapshot  # shallowest first
+    assert len(snap.over_count) == 21
+    assert set(snap.over_count).isdisjoint(in_snapshot)
+    notice = snap.notice()
+    assert "21 files left out" in notice
+    assert "21 past the first 10 untracked files" in notice
+    assert ".gitignore" in notice
+    assert "and 11 more" in notice
+
+
+def test_time_budget_leaves_untracked_out_but_keeps_tracked_changes(
+    tmp_path: Path,
+) -> None:
+    from ract.executor.worktree import take_snapshot
+
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
+    (ws / "a.txt").write_text("edited\n", encoding="utf-8")
+    _many_untracked(ws, 5)
+
+    snap = take_snapshot(ws, budget=0.0)
+
+    assert len(snap.over_time) == 5
+    assert _git(ws, "show", f"{snap.sha}:a.txt") == "edited"
+    assert "5 not reached in 0 s" in snap.notice()
+
+
+def test_left_out_untracked_file_cannot_be_changed_by_a_step(tmp_path: Path) -> None:
+    from ract.executor.worktree import take_snapshot
+
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
+    _many_untracked(ws, 3)
+    snap = take_snapshot(ws, max_untracked=1)
+    victim = snap.over_count[0]
+    before, after = _step(
+        ws, lambda w: (w / victim).write_text("step wrote this\n", encoding="utf-8")
+    )
+
+    result = apply_commit_to_working_tree(
+        ws, before, after, left_out=frozenset(snap.left_out)
+    )
+
+    assert victim in result.skipped
+    assert (ws / victim).read_text(encoding="utf-8") != "step wrote this\n"
+
+
+def test_progress_lines_only_after_two_seconds(tmp_path: Path) -> None:
+    import ract.executor.worktree as wt
+
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
+    _many_untracked(ws, 6)
+    lines: list[str] = []
+    mp = __import__("pytest").MonkeyPatch()
+    mp.setattr(wt, "_UNTRACKED_BATCH", 2)
+    mp.setattr(wt, "_PROGRESS_AFTER_SECONDS", 0.0)
+    try:
+        wt.take_snapshot(ws, progress=lines.append)
+    finally:
+        mp.undo()
+    assert lines and lines[-1] == (
+        "snapshotting your working tree: 6 of 6 untracked files"
+    )
+    quiet: list[str] = []
+    wt.take_snapshot(ws, progress=quiet.append)
+    assert quiet == []  # a fast snapshot says nothing
+
+
+def test_run_prints_the_left_out_notice(tmp_path: Path, fake_model_server: Any) -> None:
+    from ract.executor.worktree import SNAPSHOT_MAX_UNTRACKED
+
+    server = fake_model_server("baseline_j4_today")
+    ws = rb._workspace(tmp_path, "ws", git=True, files=rb.CALC_FILES)
+    rb._configure(ws, server.base_url, "fake-coder")
+    _commit_all(ws)
+    _many_untracked(ws, SNAPSHOT_MAX_UNTRACKED + 5)
+
+    result = _ract(ws, "fix add")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "5 files left out of this run's snapshot" in result.stdout
+    assert "Add generated, vendored or large files to .gitignore." in result.stdout
+    assert "return a + b" in (ws / "src" / "calc.py").read_text(encoding="utf-8")

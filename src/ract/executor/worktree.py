@@ -23,7 +23,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Callable, Iterable
 
 from ract.workspace_path import is_secret_shaped
 
@@ -512,31 +512,94 @@ _SNAPSHOT_EXCLUDES = (
 
 
 SNAPSHOT_MAX_FILE_BYTES = 2 * 1024 * 1024
-SNAPSHOT_TIMEOUT_SECONDS = 120.0
+SNAPSHOT_MAX_UNTRACKED = 2_000
+SNAPSHOT_BUDGET_SECONDS = 20.0
+_UNTRACKED_BATCH = 200
+_PROGRESS_AFTER_SECONDS = 2.0
 
 
 @dataclass(frozen=True)
 class Snapshot:
-    """A base snapshot commit and the files it left out because of their size."""
+    """A base snapshot commit and the files it left out, with the reason for each."""
 
     sha: str
     left_out: tuple[str, ...] = ()
+    too_large: tuple[str, ...] = ()
+    over_count: tuple[str, ...] = ()
+    over_time: tuple[str, ...] = ()
+    max_file_bytes: int = SNAPSHOT_MAX_FILE_BYTES
+    max_untracked: int = SNAPSHOT_MAX_UNTRACKED
+    budget: float = SNAPSHOT_BUDGET_SECONDS
+
+    def notice(self, *, names: int = 10) -> str:
+        """One line for the operator, or "" when nothing was left out."""
+        if not self.left_out:
+            return ""
+        parts = []
+        if self.too_large:
+            parts.append(
+                f"{len(self.too_large):,} over {_size_label(self.max_file_bytes)}"
+            )
+        if self.over_count:
+            parts.append(
+                f"{len(self.over_count):,} past the first "
+                f"{self.max_untracked:,} untracked files"
+            )
+        if self.over_time:
+            parts.append(f"{len(self.over_time):,} not reached in {self.budget:g} s")
+        shown = ", ".join(self.left_out[:names])
+        more = len(self.left_out) - names
+        if more > 0:
+            shown += f" and {more:,} more"
+        return (
+            f"note: {len(self.left_out):,} "
+            f"{'file' if len(self.left_out) == 1 else 'files'} left out of this "
+            "run's snapshot "
+            f"({'; '.join(parts)}), so the run cannot see or change them: {shown}. "
+            "Add generated, vendored or large files to .gitignore."
+        )
 
 
-def _candidates_for_size_check(repo: Path) -> list[str]:
-    """Untracked (not ignored) and modified tracked files: the ones add will hash."""
-    untracked = _git_in(repo, "ls-files", "-z", "--others", "--exclude-standard")
-    modified = _git_in(repo, "diff", "--name-only", "-z")
-    names = [n for n in untracked.stdout.split("\0") if n]
-    names += [n for n in modified.stdout.split("\0") if n]
-    return sorted(set(names))
+def _size_label(size: int) -> str:
+    mib = size / (1024 * 1024)
+    return f"{mib:g} MiB" if mib >= 1 else f"{size:,} bytes"
+
+
+def _untracked_files(repo: Path) -> list[str]:
+    """Untracked, not ignored files, shallowest first."""
+    listing = _git_in(repo, "ls-files", "-z", "--others", "--exclude-standard")
+    names = [n for n in listing.stdout.split("\0") if n]
+    return sorted(names, key=lambda n: (n.count("/"), n))
+
+
+def _modified_tracked(repo: Path) -> list[str]:
+    listing = _git_in(repo, "diff", "--name-only", "-z")
+    return [n for n in listing.stdout.split("\0") if n]
+
+
+def _over_size(repo: Path, names: Iterable[str], max_file_bytes: int) -> list[str]:
+    large = []
+    for name in names:
+        try:
+            if (Path(repo) / name).stat().st_size > max_file_bytes:
+                large.append(name)
+        except OSError:
+            continue
+    return large
+
+
+def _is_snapshot_excluded(name: str) -> bool:
+    first = name.split("/", 1)[0]
+    return first == ".ract" or is_secret_shaped(name)
 
 
 def take_snapshot(
     repo: Path,
     *,
     max_file_bytes: int = SNAPSHOT_MAX_FILE_BYTES,
-    timeout: float = SNAPSHOT_TIMEOUT_SECONDS,
+    max_untracked: int = SNAPSHOT_MAX_UNTRACKED,
+    budget: float = SNAPSHOT_BUDGET_SECONDS,
+    progress: Callable[[str], None] | None = None,
 ) -> Snapshot:
     """Commit the working tree as it is now, without touching the operator's git state.
 
@@ -546,33 +609,52 @@ def take_snapshot(
     place without isolation (AUD-002), and a later step could not see files an
     earlier step had created (AUD-001). The base is now a commit of the
     working tree itself: tracked changes and untracked, not-ignored files,
-    minus ``.ract/``, secret-shaped files and files over ``max_file_bytes``
-    (a dataset or model that is not in .gitignore would otherwise stall the
-    run and fill the object store). It is built in a temporary index
+    minus ``.ract/`` and secret-shaped files. It is built in a temporary index
     (``GIT_INDEX_FILE``) that starts as a copy of the operator's index, so
     unchanged tracked files keep git's stat cache and are not re-hashed; the
     operator's index, branch, stash and files are unchanged. The temporary
     index is removed on every path. ADR-0047 D6.
 
-    Raises ``WorktreeError`` when git cannot build it in ``timeout`` seconds.
+    Limits (S-011c): hashing a file costs a few milliseconds, and the first
+    read of a freshly written file costs more, so a project that was never
+    committed, or one with build output missing from .gitignore, took over a
+    minute with no message (10,000 small untracked files: 65 s). Files over
+    ``max_file_bytes`` are left out; untracked files are added shallowest
+    first, at most ``max_untracked`` of them, in batches, and adding stops
+    when ``budget`` seconds have passed. Everything left out is listed on the
+    result with its reason (``Snapshot.notice``), and the apply refuses any
+    step change to it. ``progress`` gets a line every two seconds once the
+    snapshot has run for two seconds.
+
+    Raises ``WorktreeError`` when git fails, or when the tracked changes
+    alone cannot be added within ``budget``.
     """
     import os as _os
     import shutil as _shutil
     import tempfile as _tempfile
+    import time as _time
 
+    started = _time.monotonic()
     head = _git_in(repo, "rev-parse", "--verify", "-q", "HEAD")
     head_sha = head.stdout.strip() if head.returncode == 0 else ""
-    left_out: list[str] = []
-    for name in _candidates_for_size_check(repo):
-        try:
-            if (Path(repo) / name).stat().st_size > max_file_bytes:
-                left_out.append(name)
-        except OSError:
-            continue
+    untracked = [n for n in _untracked_files(repo) if not _is_snapshot_excluded(n)]
+    too_large = _over_size(repo, untracked, max_file_bytes)
+    modified_tracked = _modified_tracked(repo)
+    tracked_large = _over_size(repo, modified_tracked, max_file_bytes)
+    large_set = set(too_large)
+    untracked = [n for n in untracked if n not in large_set]
+    over_count = untracked[max_untracked:]
+    untracked = untracked[:max_untracked]
+    over_time: list[str] = []
     tmp_dir = _tempfile.mkdtemp(prefix="ract-snapshot-")
     index_path = _os.path.join(tmp_dir, "index")
     env = dict(_os.environ)
     env["GIT_INDEX_FILE"] = index_path
+    last_progress = started
+
+    def remaining() -> float:
+        return budget - (_time.monotonic() - started)
+
     try:
         operator_index = _git_in(
             repo, "rev-parse", "--git-path", "index"
@@ -584,25 +666,71 @@ def take_snapshot(
             _shutil.copyfile(operator_index_path, index_path)
         elif head_sha:
             _git_bytes(repo, "read-tree", head_sha, env=env)
-        excludes = [f":(exclude,literal){name}" for name in left_out]
-        try:
-            add = subprocess.run(
-                ["git", "-C", str(repo), "add", "-A", "--", ".", *excludes],
-                capture_output=True,
-                check=False,
-                env=env,
-                timeout=timeout,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise WorktreeError(
-                f"snapshotting the working tree took longer than {timeout:.0f} s; "
-                "add large generated or data directories to .gitignore"
-            ) from exc
-        if add.returncode != 0:
-            raise WorktreeError(
-                "could not snapshot the working tree: "
-                + add.stderr.decode("utf-8", "replace").strip()
-            )
+        if modified_tracked:
+            excludes = [f":(exclude,literal){name}" for name in tracked_large]
+            try:
+                add = subprocess.run(
+                    ["git", "-C", str(repo), "add", "-u", "--", ".", *excludes],
+                    capture_output=True,
+                    check=False,
+                    env=env,
+                    timeout=max(remaining(), 1.0),
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise WorktreeError(
+                    "snapshotting your uncommitted changes took longer than "
+                    f"{budget:.0f} s; add large generated or data directories "
+                    "to .gitignore"
+                ) from exc
+            if add.returncode != 0:
+                raise WorktreeError(
+                    "could not snapshot the working tree: "
+                    + add.stderr.decode("utf-8", "replace").strip()
+                )
+        done = 0
+        for i in range(0, len(untracked), _UNTRACKED_BATCH):
+            batch = untracked[i : i + _UNTRACKED_BATCH]
+            if remaining() <= 0:
+                over_time = untracked[i:]
+                break
+            try:
+                added = subprocess.run(
+                    [
+                        "git",
+                        "-C",
+                        str(repo),
+                        "--literal-pathspecs",
+                        "add",
+                        "--pathspec-from-file=-",
+                        "--pathspec-file-nul",
+                    ],
+                    input="\0".join(batch).encode("utf-8"),
+                    capture_output=True,
+                    check=False,
+                    env=env,
+                    timeout=max(remaining(), 1.0),
+                )
+            except subprocess.TimeoutExpired:
+                # git writes the index only at the end, so this batch is not in it.
+                over_time = untracked[i:]
+                break
+            if added.returncode != 0:
+                raise WorktreeError(
+                    "could not snapshot the working tree: "
+                    + added.stderr.decode("utf-8", "replace").strip()
+                )
+            done += len(batch)
+            now = _time.monotonic()
+            if (
+                progress is not None
+                and now - started >= _PROGRESS_AFTER_SECONDS
+                and now - last_progress >= _PROGRESS_AFTER_SECONDS
+            ):
+                progress(
+                    f"snapshotting your working tree: {done:,} of "
+                    f"{len(untracked):,} untracked files"
+                )
+                last_progress = now
         # Drop RACT state and secret-shaped files from the snapshot index
         # (only this temporary index; the operator's is untouched).
         _git_bytes(
@@ -639,7 +767,16 @@ def take_snapshot(
                 "could not commit the snapshot: "
                 + commit.stderr.decode("utf-8", "replace").strip()
             )
-        return Snapshot(commit.stdout.decode().strip(), tuple(left_out))
+        return Snapshot(
+            commit.stdout.decode().strip(),
+            left_out=tuple(too_large + tracked_large + over_count + over_time),
+            too_large=tuple(too_large + tracked_large),
+            over_count=tuple(over_count),
+            over_time=tuple(over_time),
+            max_file_bytes=max_file_bytes,
+            max_untracked=max_untracked,
+            budget=budget,
+        )
     finally:
         _shutil.rmtree(tmp_dir, ignore_errors=True)
 
