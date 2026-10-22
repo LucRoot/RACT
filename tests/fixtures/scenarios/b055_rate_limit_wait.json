@@ -1,0 +1,8 @@
+{
+  "name": "b055_rate_limit_wait",
+  "description": "B-055: rate-limited with Retry-After 6; the walkthrough stops the server during the wait.",
+  "model": "fake-coder",
+  "turns": [
+    {"reply": {"kind": "fault", "fault": "http_429", "retry_after": 6}, "repeat": true}
+  ]
+}

@@ -388,7 +388,7 @@ def test_plain_renderer_draws_plan_steps_retry_and_interrupt() -> None:
     assert (
         "[step 1] Fix add -> src/calc.py\n--- src/calc.py ---\ndef add(a, b):" in text
     )
-    assert "retrying (1 of 3) in 1.0 s: connection reset" in text
+    assert "  connection reset; trying again in 1 s (attempt 2 of 4)\n" in text
     assert "[step 1] done src/calc.py (0.9s)" in text
     assert (
         "stopping...\n  the model call is still finishing and will write nothing\n"

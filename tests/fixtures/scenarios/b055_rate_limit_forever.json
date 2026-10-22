@@ -1,0 +1,8 @@
+{
+  "name": "b055_rate_limit_forever",
+  "description": "B-055: every request is rate-limited with Retry-After 1; the bound ends the turn with a hint.",
+  "model": "fake-coder",
+  "turns": [
+    {"reply": {"kind": "fault", "fault": "http_429", "retry_after": 1}, "repeat": true}
+  ]
+}

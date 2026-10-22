@@ -197,6 +197,8 @@ def test_openai_provider_does_not_retry_4xx():
 
 
 class _FakeStream:
+    is_error = False
+
     def __init__(self, lines: list[str]) -> None:
         self._lines = lines
 
@@ -208,6 +210,9 @@ class _FakeStream:
 
     def iter_lines(self):
         return iter(self._lines)
+
+    def read(self) -> bytes:
+        return b""
 
     def raise_for_status(self) -> None:
         pass

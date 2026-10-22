@@ -175,9 +175,12 @@ class PlainRenderer:
         if d.get("max") == 1:
             self._line(f"  trying once more in {wait:.1f} s: {d.get('reason', '')}")
             return
+        # attempt counts retries; the user is told the attempt about to start.
+        attempt = int(d.get("attempt", 1)) + 1
+        total = int(d.get("max", 1)) + 1
         self._line(
-            f"  retrying ({d.get('attempt')} of {d.get('max')}) in {wait:.1f} s: "
-            f"{d.get('reason', '')}"
+            f"  {d.get('reason', '')}; trying again in {wait:g} s "
+            f"(attempt {attempt} of {total})"
         )
 
     def _on_agent_reasoning_delta(self, d: dict[str, Any]) -> None:

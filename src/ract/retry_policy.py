@@ -1,14 +1,68 @@
 from __future__ import annotations
 
 
+import datetime
+import math
+import random
 import time
 from dataclasses import dataclass
 from typing import Callable, TypeVar
 
 T = TypeVar("T")
 
+# The HTTP-date form of Retry-After (IMF-fixdate, RFC 9110). Other spellings
+# are not parsed and fall back to backoff.
+_HTTP_DATE_FORMAT = "%a, %d %b %Y %H:%M:%S GMT"
+
 # Wait before the one retry of a connection nothing answered (B-043).
 _QUICK_RETRY_DELAY = 0.25
+
+# The longest wait a server's Retry-After may ask for. Longer than this and
+# RACT stops the retries instead of sleeping for it (B-055).
+MAX_RETRY_AFTER_S = 120.0
+
+# A wait runs in slices this long, so a cancel is seen within a quarter second.
+_WAIT_SLICE_S = 0.25
+
+
+def parse_retry_after(value: object, now: float | None = None) -> float | None:
+    """Seconds that a ``Retry-After`` header asks us to wait, or None.
+
+    The header is a count of seconds or an HTTP date. Garbage, negative and
+    non-finite values give None, so the caller falls back to its backoff. A
+    date already past gives zero.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    try:
+        seconds = float(text)
+    except ValueError:
+        seconds = None
+    if seconds is not None:
+        if not math.isfinite(seconds) or seconds < 0:
+            return None
+        return seconds
+    try:
+        when = datetime.datetime.strptime(text, _HTTP_DATE_FORMAT)
+    except ValueError:
+        return None
+    current = time.time() if now is None else now
+    return max(0.0, when.replace(tzinfo=datetime.timezone.utc).timestamp() - current)
+
+
+def wait_interruptibly(
+    seconds: float,
+    cancelled: Callable[[], bool],
+    sleeper: Callable[[float], None] | None = None,
+) -> None:
+    """Sleep for *seconds*, but stop early once *cancelled* is true (B-055)."""
+    sleep = sleeper or time.sleep
+    remaining = seconds
+    while remaining > 0 and not cancelled():
+        step = min(_WAIT_SLICE_S, remaining)
+        sleep(step)
+        remaining -= step
 
 
 @dataclass
@@ -26,6 +80,9 @@ class RetryConfig:
     base_delay: float
     max_delay: float
     jitter: bool
+    backoff: float = 2.0
+    # Source of the jitter draw, a value in [0, 1). Tests inject a seeded one.
+    rand: Callable[[], float] | None = None
 
     def __post_init__(self) -> None:
         if self.max_retries < 0:
@@ -34,6 +91,8 @@ class RetryConfig:
             raise ValueError("base_delay must be non-negative")
         if self.max_delay < 0:
             raise ValueError("max_delay must be non-negative")
+        if self.backoff < 1.0:
+            raise ValueError("backoff must be at least 1")
 
 
 @dataclass
@@ -60,14 +119,33 @@ class RetryPolicy:
         return attempt < self.config.max_retries
 
     def calculate_delay(self, attempt: int) -> float:
+        """Backoff before retry *attempt* (1-based).
+
+        With jitter the delay is the exponential value times a factor in
+        [0.5, 1.0), so two waits in a row are never the same length.
+        """
         if attempt <= 0:
             return 0.0
         delay = min(
-            self.config.base_delay * (2 ** (attempt - 1)), self.config.max_delay
+            self.config.base_delay * self.config.backoff ** (attempt - 1),
+            self.config.max_delay,
         )
         if self.config.jitter:
-            delay *= 0.5 + time.time() % 1.0
+            draw = random.random if self.config.rand is None else self.config.rand
+            delay *= 0.5 + 0.5 * draw()
         return delay
+
+    def wait_before(self, attempt: int, retry_after: float | None) -> float | None:
+        """Seconds to wait before retry *attempt*, or None to stop instead.
+
+        A usable ``Retry-After`` replaces the backoff. One above
+        MAX_RETRY_AFTER_S stops the retries.
+        """
+        if retry_after is None:
+            return self.calculate_delay(attempt)
+        if retry_after > MAX_RETRY_AFTER_S:
+            return None
+        return retry_after
 
     def execute(
         self,
@@ -78,6 +156,8 @@ class RetryPolicy:
         *,
         quick: Callable[[Exception], bool] | None = None,
         describe: Callable[[Exception], str] | None = None,
+        retry_after: Callable[[Exception], float | None] | None = None,
+        cancelled: Callable[[], bool] | None = None,
     ) -> tuple[T | None, Exception | None]:
         """Run *fn* until it succeeds, retries are exhausted, or failure is final.
 
@@ -93,6 +173,10 @@ class RetryPolicy:
         retry after a short wait instead of the full backoff (B-043).
         ``describe`` turns an error into the plain reason shown on a retry
         line; without it the reason is the exception text.
+
+        ``retry_after(exc)`` gives the server's requested wait for an error,
+        or None. ``cancelled()`` is checked during every wait, so a cancel
+        ends the wait within a quarter second and no new attempt is made.
         """
         sleeper = sleep or time.sleep
         last_error: Exception | None = None
@@ -108,9 +192,14 @@ class RetryPolicy:
                 )
                 if attempt >= limit or not is_retryable(exc):
                     break
-                delay = self.calculate_delay(attempt + 1)
                 if fast:
-                    delay = min(delay, _QUICK_RETRY_DELAY)
+                    delay = min(self.calculate_delay(attempt + 1), _QUICK_RETRY_DELAY)
+                else:
+                    asked = retry_after(exc) if retry_after is not None else None
+                    planned = self.wait_before(attempt + 1, asked)
+                    if planned is None:
+                        break
+                    delay = planned
                 if on_retry is not None:
                     reason = (
                         describe(exc)
@@ -118,7 +207,12 @@ class RetryPolicy:
                         else " ".join(f"{type(exc).__name__}: {exc}".split())[:120]
                     )
                     on_retry(attempt + 1, limit, reason, delay)
-                sleeper(delay)
+                if cancelled is None:
+                    sleeper(delay)
+                else:
+                    wait_interruptibly(delay, cancelled, sleeper)
+                    if cancelled():
+                        break
 
         return None, last_error
 

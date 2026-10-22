@@ -1,0 +1,8 @@
+{
+  "name": "b055_rate_limit_long",
+  "description": "B-055: the server asks for a 600 s wait; RACT stops at once instead of sleeping.",
+  "model": "fake-coder",
+  "turns": [
+    {"reply": {"kind": "fault", "fault": "http_429", "retry_after": 600}, "repeat": true}
+  ]
+}

@@ -82,7 +82,8 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
     (
         re.compile(r"HTTP 429", re.I),
-        "the provider is rate limiting; wait and try again, or switch provider in ract.yaml",
+        "the provider is still rate limiting; wait a minute, lower the request rate "
+        "in the rate_limit block of ract.yaml, or switch provider",
     ),
     (
         re.compile(r"finish_reason=length|output limit", re.I),

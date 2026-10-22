@@ -20,7 +20,12 @@ import httpx
 from ract.providers.base import ProviderAdapter
 from ract.providers.rate_limit import TokenBucket
 from ract import egress_ledger, egress_scan, turn_context
-from ract.retry_policy import RetryConfig, RetryPolicy
+from ract.retry_policy import (
+    RetryConfig,
+    RetryPolicy,
+    parse_retry_after,
+    wait_interruptibly,
+)
 from ract.rooted import Rooted
 
 
@@ -184,7 +189,8 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 max_retries=self.max_retries,
                 base_delay=self.retry_delay,
                 max_delay=self.retry_max_delay,
-                jitter=False,
+                jitter=True,
+                backoff=self.retry_backoff,
             )
         )
         # Optional client-side rate limiter (module_05 finding 5). Omit
@@ -304,22 +310,36 @@ class OpenAICompatibleProvider(ProviderAdapter):
         if isinstance(exc, httpx.TimeoutException):
             return f"{self.url} did not answer within {self.timeout:g} s"
         if isinstance(exc, httpx.HTTPStatusError):
+            if exc.response.status_code == 429:
+                return "the provider is rate-limiting"
             return f"HTTP {exc.response.status_code} from {self.url}"
         if isinstance(exc, httpx.RequestError):
             return f"the request to {self.url} failed ({type(exc).__name__})"
         return type(exc).__name__
 
     def _is_retryable(self, exc: Exception) -> bool:
-        """Return True when the exception warrants a retry."""
+        """Return True when the exception warrants a retry.
+
+        Server errors, 408 and (when enabled) 429 retry. Other 4xx never do.
+        """
         if isinstance(exc, httpx.RequestError):
             return True
         if isinstance(exc, httpx.HTTPStatusError):
             code = exc.response.status_code
-            if code >= 500:
+            if code >= 500 or code == 408:
                 return True
             if code == 429 and self.retry_on_429:
                 return True
         return False
+
+    def _retry_after(self, exc: Exception) -> float | None:
+        """The server's requested wait for an HTTP error, or None (B-055)."""
+        if not isinstance(exc, httpx.HTTPStatusError):
+            return None
+        headers = getattr(exc.response, "headers", None)
+        if headers is None:
+            return None
+        return parse_retry_after(headers.get("Retry-After"))
 
     def _effective_max_tokens(self, requested: int) -> int | None:
         """Decide the output cap for one request.
@@ -400,17 +420,21 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 on_retry=turn_context.on_retry,
                 quick=self._nothing_listening,
                 describe=self.describe_error,
+                retry_after=self._retry_after,
+                cancelled=turn_context.cancelled,
             )
         latency_ms = int((time.perf_counter() - start) * 1000)
 
         if last_error is not None:
             if isinstance(last_error, httpx.HTTPStatusError):
+                status = last_error.response.status_code
+                where = f" from {self.url}" if status == 429 else ""
                 return Rooted(
                     value=None,
                     assumption="The OpenAI-compatible endpoint accepts the request and returns valid JSON.",
                     confidence=0.0,
                     provenance=["openai.complete"],
-                    error=f"HTTP {last_error.response.status_code}: {last_error.response.text[:200]}",
+                    error=f"HTTP {status}{where}: {last_error.response.text[:200]}",
                 )
             if isinstance(last_error, httpx.RequestError):
                 return Rooted(
@@ -503,62 +527,96 @@ class OpenAICompatibleProvider(ProviderAdapter):
             temperature=temperature,
             stream=True,
         )
-        try:
-            with (
-                turn_context.on_abort(self.client.close),
-                self.client.stream(
-                    "POST",
-                    f"{self.url}/chat/completions",
-                    headers=self._stream_headers(),
-                    json=payload,
-                ) as response,
-            ):
-                response.raise_for_status()
-                for line in response.iter_lines():
-                    line = line.strip()
-                    if not line or line.startswith(":"):
-                        continue
-                    if line == "data: [DONE]":
-                        break
-                    if line.startswith("data: "):
-                        data_str = line[len("data: ") :]
-                        try:
-                            chunk = json.loads(data_str)
-                        except json.JSONDecodeError:
+        attempt = 0
+        while True:
+            # A retry is only safe before the first chunk: after text has
+            # reached the user, a second attempt would repeat it (B-055).
+            streamed = False
+            try:
+                with (
+                    turn_context.on_abort(self.client.close),
+                    self.client.stream(
+                        "POST",
+                        f"{self.url}/chat/completions",
+                        headers=self._stream_headers(),
+                        json=payload,
+                    ) as response,
+                ):
+                    if response.is_error:
+                        # Read the error body while the stream is open, so the
+                        # failure can quote it (an unread body raises on .text).
+                        response.read()
+                    response.raise_for_status()
+                    for line in response.iter_lines():
+                        line = line.strip()
+                        if not line or line.startswith(":"):
                             continue
-                        yield Rooted(
-                            value=chunk,
-                            assumption="The provider returned a valid streaming chunk.",
-                            confidence=1.0,
-                            provenance=["openai.complete_stream"],
-                        )
-                    else:
-                        # Unknown line format; surface it once rather than crashing.
-                        yield Rooted(
-                            value=None,
-                            assumption="The provider returned a valid streaming chunk.",
-                            confidence=0.0,
-                            provenance=["openai.complete_stream"],
-                            error=f"Unexpected SSE line: {line[:200]}",
-                        )
-        except httpx.HTTPStatusError as exc:
-            yield Rooted(
+                        if line == "data: [DONE]":
+                            break
+                        if line.startswith("data: "):
+                            data_str = line[len("data: ") :]
+                            try:
+                                chunk = json.loads(data_str)
+                            except json.JSONDecodeError:
+                                continue
+                            streamed = True
+                            yield Rooted(
+                                value=chunk,
+                                assumption="The provider returned a valid streaming chunk.",
+                                confidence=1.0,
+                                provenance=["openai.complete_stream"],
+                            )
+                        else:
+                            # Unknown line format; surface it once rather than crashing.
+                            yield Rooted(
+                                value=None,
+                                assumption="The provider returned a valid streaming chunk.",
+                                confidence=0.0,
+                                provenance=["openai.complete_stream"],
+                                error=f"Unexpected SSE line: {line[:200]}",
+                            )
+                return
+            except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+                wait = None
+                if (
+                    not streamed
+                    and attempt < self.max_retries
+                    and not turn_context.cancelled()
+                    and not self._nothing_listening(exc)
+                    and self._is_retryable(exc)
+                ):
+                    attempt += 1
+                    wait = self._retry_policy.wait_before(
+                        attempt, self._retry_after(exc)
+                    )
+                if wait is None:
+                    yield self._stream_failure(exc)
+                    return
+                turn_context.on_retry(
+                    attempt, self.max_retries, self.describe_error(exc), wait
+                )
+                wait_interruptibly(wait, turn_context.cancelled)
+                if turn_context.cancelled():
+                    yield self._stream_failure(exc)
+                    return
+
+    def _stream_failure(self, exc: Exception) -> Rooted[dict[str, Any]]:
+        """The Rooted error that ends a failed stream."""
+        if isinstance(exc, httpx.HTTPStatusError):
+            return Rooted(
                 value=None,
                 assumption="The OpenAI-compatible endpoint accepts the streaming request.",
                 confidence=0.0,
                 provenance=["openai.complete_stream"],
                 error=f"HTTP {exc.response.status_code}: {exc.response.text[:200]}",
             )
-            return
-        except httpx.RequestError as exc:
-            yield Rooted(
-                value=None,
-                assumption="The OpenAI-compatible endpoint is reachable.",
-                confidence=0.0,
-                provenance=["openai.complete_stream"],
-                error=f"Request failed: {self.describe_error(exc)}.",
-            )
-            return
+        return Rooted(
+            value=None,
+            assumption="The OpenAI-compatible endpoint is reachable.",
+            confidence=0.0,
+            provenance=["openai.complete_stream"],
+            error=f"Request failed: {self.describe_error(exc)}.",
+        )
 
 
 # RACT 0.1.1 - Trust and tooling
