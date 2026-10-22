@@ -333,6 +333,9 @@ class Executor:
                 f"Diff targets non-existent file {expected_artifact}; writing diff as new file.",
             )
         results = self.diff_applier.apply_diff(content)
+        turn_context.record_written(
+            self.project_dir, [r.path for r in results if r.applied]
+        )
         failures = [r for r in results if not r.applied]
         if failures:
             return True, content, f"Diff apply failed: {failures[0].message}"
@@ -521,6 +524,7 @@ class Executor:
         full_path.parent.mkdir(parents=True, exist_ok=True)
         cleaned = self._strip_markdown_fences(content)
         full_path.write_text(cleaned, encoding="utf-8")
+        turn_context.record_written(self.project_dir, [full_path])
         return self._record_provenance(full_path, cleaned)
 
     def _record_provenance(self, full_path: Path, content: str) -> bool:

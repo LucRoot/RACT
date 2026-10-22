@@ -180,7 +180,8 @@ def run_turn(
     from ract.ract_runner import run_ract  # noqa: PLC0415 -- heavy import, interactive path only
 
     reporter = _TurnReporter(stream, turn, cancel)
-    turn_context.bind(cancel, reporter)
+    written: list[str] = []
+    turn_context.bind(cancel, reporter, written=written)
     started = time.monotonic()
     project = Path(request.config).resolve().parent
     stream.emit("turn.started", {"input": request.intent, "queued": queued}, turn=turn)
@@ -208,8 +209,25 @@ def run_turn(
         reporter.close()
         turn_context.bind(None)
 
-    changed = _changed(before, working_tree_status(project))
+    # What RACT wrote is the answer; the before/after comparison is only a
+    # cross-check, reported when it disagrees (G-026).
+    observed = _changed(before, working_tree_status(project))
+    changed: list[str] | None = sorted(written)
+    if observed is None and not written:
+        changed = None  # not a git repository and nothing written: unknown
     duration = int((time.monotonic() - started) * 1000)
+    others = sorted(set(observed or []) - set(written))
+    if others and not cancel.is_set():
+        stream.emit(
+            "notice",
+            {
+                "level": "warning",
+                "text": "files changed during the turn that RACT did not write: "
+                + ", ".join(others[:10])
+                + (f" and {len(others) - 10} more" if len(others) > 10 else ""),
+            },
+            turn=turn,
+        )
 
     if cancel.is_set():
         # The session has already reported the interrupt; say nothing more.

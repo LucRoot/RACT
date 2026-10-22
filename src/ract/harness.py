@@ -799,6 +799,17 @@ class Harness:
                 provenance=["harness.run", "plan_validator.validate"],
                 error=f"Plan validation failed: {validation.message}",
             )
+        if turn_context.cancelled():
+            # The plan arrived after Ctrl-C: run nothing, create no worktree
+            # or step branch (G-027).
+            return Rooted(
+                value=None,
+                assumption="The turn was not interrupted before execution began.",
+                confidence=0.0,
+                provenance=["harness.run"],
+                error="Interrupted before execution; nothing was run.",
+                hint="interrupted",
+            )
         turn_context.report("plan.proposed", plan_event_data(plan))
 
         dependency_graph = DependencyGraph()

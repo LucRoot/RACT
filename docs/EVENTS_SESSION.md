@@ -71,12 +71,19 @@ Every event is one JSON object:
   or the value of an environment variable. Every text field passes through
   the redactor before the event is created.
 - **Streaming redaction.** A secret can be split across two deltas, so the
-  redactor on a delta stream holds back the last 128 characters of each
-  chunk until the next chunk arrives or the message ends, and redacts the
-  joined text. The hold-back applies to `agent.text.delta`,
-  `agent.reasoning.delta`, operator input and every other streamed text.
-  A test splits a known key at every offset and checks that
-  no event contains any 8 or more consecutive characters of it.
+  redactor on a delta stream releases text up to the last whitespace and
+  holds only the trailing incomplete token, at most 128 characters of it,
+  until the next chunk arrives or the message ends. Key and token formats
+  contain no whitespace, so ordinary prose lags by about one word. Two
+  shapes span whitespace and get their own rule: `Bearer` and
+  `Authorization:` are held together with the token after them, and a
+  private-key block is replaced at its BEGIN line, with everything up to
+  its END line dropped. A release never falls inside a match. The rule
+  applies to `agent.text.delta`, `agent.reasoning.delta`, operator input
+  and every other streamed text. Tests split known keys at every offset
+  and check that no event contains any 8 or more consecutive characters of
+  them, and that prose fed in 4-character chunks never has more than 20
+  characters withheld.
 - **No tracebacks.** Errors carry a sentence, a hint and a log path. The
   traceback goes to the log file named in the event.
 - **Text is safe to print.** Text fields are valid UTF-8, split only at

@@ -228,9 +228,17 @@ def test_ctrl_c_returns_to_the_prompt_within_two_seconds(
         assert session.expect(r"waiting on model", 15)
         pressed = session.ctrl_c()
         assert session.expect(r"stopping", 5)
+        ack = session.now() - pressed
         assert session.expect(r"ract> ", 5)
         back = session.now() - pressed
+        # B-033 item 1. The 2 s prompt limit must hold under load: measured
+        # 0.52 to 1.67 s with every core busy. The 200 ms acknowledgement
+        # holds only without extra load (with every core saturated it was
+        # missed in 5 of 10 runs, the scheduler's doing), so it is asserted
+        # only in the dedicated no-load run: RACT_TIMING_STRICT=1.
         assert back < 2.0, f"prompt returned after {back:.2f} s"
+        if os.environ.get("RACT_TIMING_STRICT") == "1":
+            assert ack < 0.2, f"acknowledged after {ack:.3f} s"
         session.send_line("/exit")
     finally:
         session.close(timeout=10)

@@ -234,6 +234,22 @@ def run_via_substrate(
     per_step_reports: list[ExecutionReport] = []
 
     for index, step in enumerate(plan.steps):
+        if turn_context.cancelled():
+            # Checked before the step's worktree and branch exist, so an
+            # interrupted turn leaves no step branch behind (G-027).
+            return Rooted(
+                value=None,
+                assumption="The turn was not interrupted before this step began.",
+                confidence=0.0,
+                provenance=["harness.substrate_adapter", f"step:{index + 1}"],
+                error=(
+                    f"Interrupted before step {index + 1}. Already applied to your "
+                    "files in this run: "
+                    + (", ".join(applied_so_far) or "nothing")
+                    + "."
+                ),
+                hint="interrupted",
+            )
         single_plan = _single_step_plan(plan, step)
         # Per-step post-conditions are the responsibility of module_01's
         # compiled AcceptanceSuite; the shim does not synthesize any
@@ -256,7 +272,12 @@ def run_via_substrate(
             # Each executor call sees a one-step plan; the offset keeps the
             # session's step numbers those of the whole plan.
             harness.executor.step_number_offset = index
-            with _rebind_project_dir(harness.executor, worktree.path):
+            # Writes in the step's worktree are not changes to the operator's
+            # files; the apply below records what reaches them.
+            with (
+                turn_context.recording_suspended(),
+                _rebind_project_dir(harness.executor, worktree.path),
+            ):
                 per_step_rooted = harness.executor.execute(
                     intent,
                     single_plan,
@@ -350,6 +371,7 @@ def run_via_substrate(
             )
         )
         applied_so_far.extend(outcome.applied)
+        turn_context.record_written(harness.project_dir, outcome.applied)
         if outcome.skipped:
             left = "; ".join(f"{p} ({why})" for p, why in outcome.skipped.items())
             where = (

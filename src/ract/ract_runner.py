@@ -6,6 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import cast
 
+from ract import turn_context
 from ract.executor import ExecutionReport
 from ract.harness import Harness
 from ract.harness_report_enricher import enrich_harness_run
@@ -380,6 +381,8 @@ def run_ract(
             Rooted[ExecutionReport | Plan],
             harness.planner.plan(planning_intent).with_step("ract_runner.dry_run"),
         )
+        if turn_context.cancelled():
+            return result  # an interrupted turn leaves no history (see below)
         if result.is_ok() and project_doc_obj is not None:
             plan = result.unwrap()
             if isinstance(plan, Plan):
@@ -423,6 +426,13 @@ def run_ract(
         )
 
     result = _execute_once()
+    if turn_context.cancelled():
+        # LR:: An interrupted turn's worker can still be waiting on the model
+        # when the prompt is back; when the reply finally arrives, nothing
+        # from it may be kept. Without this the late worker saved the
+        # interrupted intent into the session history, the memory arena and
+        # the project document (G-027).
+        return result
     if result.is_ok() and project_doc_obj is not None:
         value = result.unwrap()
         if isinstance(value, ExecutionReport):

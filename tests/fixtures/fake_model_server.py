@@ -472,6 +472,15 @@ class _Handler(BaseHTTPRequestHandler):
             return
         reply = turn.reply
         owner._log_turn(ordinal, turn.index)
+        gate = reply.get("wait_for")
+        if gate:
+            # Held until the test calls ``release(gate)`` (or the server stops),
+            # so a test decides exactly when a slow reply arrives.
+            released = owner.gate(str(gate))
+            while not released.wait(0.05):
+                if owner._stopping.is_set():
+                    self._reset()
+                    return
         delay = float(reply.get("first_byte_delay", 0))
         if delay and owner._stopping.wait(delay):
             self._reset()
@@ -646,6 +655,7 @@ class FakeModelServer:
         self._turn_log: list[tuple[int, int]] = []
         self._chat_ordinal = 0
         self._stopping = threading.Event()
+        self._gates: dict[str, threading.Event] = {}
         self._httpd: _FakeHTTPServer | None = None
         self._thread: threading.Thread | None = None
 
@@ -674,6 +684,17 @@ class FakeModelServer:
 
     def __exit__(self, *exc: object) -> None:
         self.stop()
+
+    # -- gates
+
+    def gate(self, name: str) -> threading.Event:
+        """The event a reply with ``"wait_for": name`` waits on."""
+        with self._lock:
+            return self._gates.setdefault(name, threading.Event())
+
+    def release(self, name: str) -> None:
+        """Let every reply waiting on gate ``name`` go."""
+        self.gate(name).set()
 
     # -- addresses
 

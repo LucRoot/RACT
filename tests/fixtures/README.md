@@ -79,7 +79,8 @@ Reply kinds:
 | `fault` | `fault`, plus `retry_after`, `after_chunks`, `hold_seconds` | `http_429`, `http_500`, `http_503`, `reset_mid_stream` (TCP reset; how many lines arrive first is not deterministic), `truncated_close` (clean close after exactly `after_chunks` lines), `never_respond`, `non_json`, `missing_choices`, `empty_message` |
 
 Options on any reply: `chunk_size` (default 16 characters), `chunk_delay`
-(seconds between chunks), `first_byte_delay`, `stall`
+(seconds between chunks), `first_byte_delay`, `wait_for` (a gate name: the
+reply is held until the test calls `server.release(name)`), `stall`
 (`{"after_chunk": n, "seconds": s}`), `finish_reason`, and the real-server
 quirks `done: false` (no `[DONE]` line), `crlf: true` (CRLF line endings) and
 `close_after: true` (close-delimited body with `Connection: close`).

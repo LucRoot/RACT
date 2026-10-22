@@ -75,12 +75,61 @@ def test_a_key_fed_one_character_at_a_time_is_redacted() -> None:
     assert out == "x [redacted] y"
 
 
-def test_hold_back_releases_ordinary_text_after_128_characters() -> None:
+PROSE = (
+    "The configuration loader reads ract.yaml, merges the provider section "
+    "with the defaults and validates the result before the first turn runs.\n"
+) * 4
+
+
+def _feed_in_chunks(text: str, size: int) -> tuple[str, int]:
     redactor = StreamingRedactor()
-    assert redactor.feed("a" * 100) == ""
-    assert redactor.feed("b" * 100) == "a" * 72
-    assert redactor.close() == "a" * 28 + "b" * 100
-    assert HOLD_BACK_CHARS == 128
+    out, most_held = "", 0
+    for i in range(0, len(text), size):
+        out += redactor.feed(text[i : i + size])
+        most_held = max(most_held, redactor.held)
+    return out + redactor.close(), most_held
+
+
+def test_prose_lags_by_about_one_word() -> None:
+    """G-026: a slow model's text must stay visible as it arrives."""
+    out, most_held = _feed_in_chunks(PROSE, 4)
+    assert out == PROSE
+    assert most_held <= 20
+    redactor = StreamingRedactor()
+    redactor.feed(PROSE)
+    redactor.close()
+    assert redactor.held == 0  # a message ends with nothing withheld
+
+
+def test_a_token_longer_than_the_hold_back_releases_its_head() -> None:
+    redactor = StreamingRedactor()
+    assert redactor.feed("x" * 300) == "x" * (300 - HOLD_BACK_CHARS)
+    assert redactor.held == HOLD_BACK_CHARS
+
+
+@pytest.mark.parametrize("size", [1, 3, 7, 50, 4096])
+def test_a_private_key_block_never_appears_at_any_chunk_size(size: int) -> None:
+    body = "MIIEowIBAAKCAQEA1234567890abcdefghij\n" * 120  # longer than 4 KiB
+    text = (
+        "see:\n-----BEGIN RSA PRIVATE KEY-----\n"
+        + body
+        + "-----END RSA PRIVATE KEY-----\nafter\n"
+    )
+    out, _ = _feed_in_chunks(text, size)
+    assert out == "see:\n[redacted]\nafter\n"
+
+
+@pytest.mark.parametrize("size", [1, 2, 5, 9])
+def test_bearer_and_authorization_keep_the_token_with_the_keyword(size: int) -> None:
+    text = "curl -H 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz0123' url\n"
+    out, _ = _feed_in_chunks(text, size)
+    assert "abcdefghijklmnop" not in out
+    assert out.startswith("curl -H 'Authorization: ")
+
+
+def test_a_certificate_is_not_a_key_and_is_released() -> None:
+    text = "-----BEGIN CERTIFICATE-----\nMIIBabc\n-----END CERTIFICATE-----\n"
+    assert _feed_in_chunks(text, 3)[0] == text
 
 
 def test_redact_keeps_url_host_and_ordinary_code() -> None:
