@@ -14,20 +14,23 @@ Each request leaves one line in `egress.jsonl` in the user state directory:
 | Windows | `%LOCALAPPDATA%\ract\egress.jsonl` |
 | Linux, macOS | `$XDG_STATE_HOME/ract/egress.jsonl`, or `~/.local/state/ract/egress.jsonl` |
 
-`RACT_EGRESS_LEDGER` names another file. The file is rotated to
-`egress.1.jsonl` at 10 MB. Only the newest rotation is kept.
+`RACT_EGRESS_LEDGER` in the environment names another file. Nothing in a
+repository's `ract.yaml` can change where the ledger is written. It lives
+outside the workspace, so it is never read into a model's context as one of
+the project's files. The file is rotated to `egress.1.jsonl` at 10 MB; only
+the newest rotation is kept.
 
 A record holds the time, the process id, the purpose (`plan`, `step 2`,
 `health`, or the kind when nothing more specific applies), the kind
 (`model`, `mcp`, `web_search`, `github`, `marketplace`), the destination
-host, the HTTP status or the error class, the time taken, the bytes sent
-and received, and the input and output tokens when the provider reported
-them. It never holds content: no URL path or query, no header, no request
+host and port (never a user name or password from the URL), the HTTP status
+or the error class, the time taken, the bytes sent and received, and the
+input and output tokens when the provider reported them. It never holds content: no URL path or query, no header, no request
 or response body.
 
-Tokens are `null` when the provider did not report them. Streamed replies
-from most local servers carry no token counts, so a streamed turn is
-listed as "not reported" rather than estimated.
+Tokens are `null` when the provider did not report them. Some servers send
+no token counts for streamed replies; those requests are listed as "not
+reported", never estimated.
 
 Read it with:
 

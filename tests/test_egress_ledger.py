@@ -25,6 +25,7 @@ FIELDS = {
     "purpose",
     "kind",
     "host",
+    "port",
     "status",
     "ms",
     "bytes_out",
@@ -316,3 +317,37 @@ def test_doctor_egress_lists_history_and_exempt_sites(
     assert out["ledger"] == str(ledger)
     assert out["summary"]["by_host"]["mcp.example.invalid"]["requests"] == 1
     assert {e["site"] for e in out["exempt"]} >= {"GitHub release list"}
+
+
+def test_credentials_in_a_url_never_reach_the_ledger(ledger: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={})
+
+    with egress_ledger.client("mcp", transport=httpx.MockTransport(handler)) as client:
+        client.get("http://alice:hunter2pass@mcp.example.invalid:8123/rpc")
+
+    [record] = _records(ledger)
+    assert (record["host"], record["port"]) == ("mcp.example.invalid", 8123)
+    raw = ledger.read_text(encoding="utf-8")
+    assert "alice" not in raw and "hunter2pass" not in raw
+
+
+def test_a_repository_config_cannot_redirect_the_ledger(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    import yaml
+
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+    config = yaml.safe_load((ws / "ract.yaml").read_text(encoding="utf-8"))
+    planted = ws / "planted-ledger.jsonl"
+    config["egress_ledger"] = str(planted)
+    config["egress"] = {"ledger": str(planted), "path": str(planted)}
+    (ws / "ract.yaml").write_text(yaml.safe_dump(config), encoding="utf-8")
+    before = len(egress_ledger.read())
+
+    result = _ract(ws, "-p", "fix add", "--output-format", "json")
+
+    assert result.returncode == 0, result.stderr
+    assert not planted.exists()
+    assert len(egress_ledger.read()) > before

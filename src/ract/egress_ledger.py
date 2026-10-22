@@ -5,7 +5,7 @@ machine. Requests went out from eight places (providers, health checks,
 web search, MCP over HTTP, GitHub releases, the skill marketplace) and
 nothing kept a record. Every httpx client in RACT is now made here, with a
 transport that records each request when its response closes: purpose,
-kind, destination host, status, time, bytes each way and the tokens the
+kind, destination host and port, status, time, bytes each way and the tokens the
 provider reported. Never content: no path, query, header or body is kept.
 
 The ledger is JSON lines in the user state directory (``egress.jsonl``,
@@ -173,6 +173,8 @@ class LedgerTransport(httpx.BaseTransport):
             "purpose": _purpose.get() or self.kind,
             "kind": self.kind,
             "host": request.url.host,
+            # The port tells two local servers apart; it is not secret (G-052).
+            "port": request.url.port,
             "bytes_out": bytes_out,
         }
         try:
