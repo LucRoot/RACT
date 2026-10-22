@@ -60,6 +60,9 @@ ALLOWED_IMPORT_ROOTS = {
     "os",
     "datetime",
     "ast",
+    # stdlib parsers the write gate uses to check a replaced file (S-026)
+    "configparser",
+    "tomllib",
     "hashlib",
     "argparse",
     "time",
