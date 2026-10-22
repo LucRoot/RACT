@@ -27,6 +27,7 @@ from typing import Any
 from ract import egress_ledger, turn_context, turn_summary, undo_backup
 from ract.executor.worktree import working_tree_status
 from ract.session_events import EventStream, Heartbeat, TextWriter, plan_event_data
+from ract.verification import VerificationRecord
 
 
 @dataclass(frozen=True)
@@ -104,11 +105,6 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
 )
 _DEFAULT_HINT = "run `ract doctor --check-providers` to check the setup, then try again"
-
-# Until the session runs tests itself (verification.* is reserved), every
-# turn says honestly that none ran.
-_NOT_VERIFIED: dict[str, Any] = {"status": "not-run", "runs": []}
-
 
 # Process exit codes for a failed turn (docs/EVENTS_SESSION.md, "Exit
 # codes"), checked in order: a connection refused is "provider unavailable",
@@ -335,8 +331,10 @@ def run_turn(
     def finished(
         outcome: str, verdict: str, unsigned: list[str], claims: list[str] | None = None
     ) -> None:
-        verification = dict(_NOT_VERIFIED)
-        verification["claims"] = list(claims or [])
+        # The harness runs no checks in a turn yet (ADR-0049 D4: the
+        # VERIFIER is harness code), so the record holds no runs and every
+        # success claim in the answer stays reported, not believed.
+        verification = VerificationRecord().result(claims or []).to_event()
         stream.emit(
             "turn.finished",
             {

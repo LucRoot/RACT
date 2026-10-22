@@ -139,7 +139,7 @@ next turn (`turn.started` with `queued: true`).
 
 | Field | Type | Meaning |
 |---|---|---|
-| `status` | `verified`, `stale`, `no-tests`, `not-run` | `verified`: tests ran after the last change and passed. `stale`: they passed before a later change. `no-tests`: the project has none RACT can find. `not-run`: tests exist and did not run. |
+| `status` | `verified`, `failed`, `stale`, `no-tests`, `not-run` | `verified`: tests ran after the last change and passed. `failed`: a check ran after the last change and failed. `stale`: they passed before a later change. `no-tests`: the project has none RACT can find. `not-run`: tests exist and did not run. |
 | `runs` | list of `{command, exit_code, duration_ms}` | Each test or check command the harness ran in this turn, in order. |
 | `claims` | list of strings | Claims in the turn's answer text that a verifier run would have to back (`tests pass`, `verified`, `tested`) and that nothing in the turn checked. Instructions and conditions ("check that the tests pass") are not claims. |
 
