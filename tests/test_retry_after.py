@@ -131,7 +131,9 @@ def test_429_with_http_date_waits_about_the_right_time(
 ) -> None:
     rec = _Recorder(monkeypatch)
     when = email.utils.formatdate(time.time() + 10, usegmt=True)
-    result, calls = _complete(_provider(), [_resp(429, {"Retry-After": when}), _resp(200)])
+    result, calls = _complete(
+        _provider(), [_resp(429, {"Retry-After": when}), _resp(200)]
+    )
     assert result.is_ok() and calls == 2
     assert 8.0 <= rec.retries[0][3] <= 10.0
 
@@ -141,7 +143,9 @@ def test_unusable_retry_after_falls_back_to_backoff(
     value: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     rec = _Recorder(monkeypatch)
-    result, calls = _complete(_provider(), [_resp(429, {"Retry-After": value}), _resp(200)])
+    result, calls = _complete(
+        _provider(), [_resp(429, {"Retry-After": value}), _resp(200)]
+    )
     assert result.is_ok() and calls == 2
     # Backoff for the first retry is base 1.0 s with a jitter factor in [0.5, 1.0).
     assert 0.5 <= rec.retries[0][3] < 1.0
@@ -300,7 +304,9 @@ def test_stream_reset_after_text_reached_the_user_is_not_retried(
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(1)
-        chunk = _sse("partial").split(b"\n\n")[0] + b"\n\n"  # no [DONE]: the reset comes first
+        chunk = (
+            _sse("partial").split(b"\n\n")[0] + b"\n\n"
+        )  # no [DONE]: the reset comes first
         body = _Body([chunk], httpx.ReadError("connection reset", request=request))
         return httpx.Response(200, stream=body, request=request)
 
