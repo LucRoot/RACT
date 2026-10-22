@@ -1,5 +1,52 @@
 # Upgrading RACT
 
+## From 0.5.2
+
+Checked with a workspace that v0.5.2 made, opened by this branch. The test is
+`tests/integration/test_upgrade_from_v052.py`. It runs the v0.5.2 tree from its
+git tag, with the fake model server; nothing is installed.
+
+### What carries over
+
+- Config. A v0.5.2 `ract.yaml` loads, and `ract doctor` exits 0.
+- Sessions. A session file written by the v0.5.2 session store is read here
+  without error. (The store was written by the old code directly, because a
+  one-shot run does not save a session and no terminal was available.)
+- History. `ract report --last` prints a plain answer and no traceback. A
+  one-shot run leaves no loop report, so it says so.
+- Corrupted files. A session file that is not JSON gives no traceback.
+
+### What changes
+
+- A step no longer commits onto your branch. v0.5.2 committed each step
+  (`rootact step 1: ...`) onto the branch you had checked out. This branch
+  leaves the change unstaged. `tests/integration/test_run_never_moves_user_branch.py`
+  checks this; this upgrade test does not repeat it.
+- A commit made by v0.5.2 stays in your history. Its `.ract/gravity_index.json`
+  is tracked, so `git status` shows it as deleted once RACT ignores it.
+- `.ract/` is still shown as untracked (`?? .ract/`). This is a known gap: see
+  the expected failure in the test.
+
+### Not yet checked
+
+These are in the plan for this release. They are not verified by a test yet, so
+do not rely on them until they are:
+
+- A repository's own hooks, MCP servers and model endpoint need `ract trust`
+  before they run.
+- A new session starts in `default` mode.
+- `/undo` backups live in the user state directory.
+
+### What to run
+
+1. Check the workspace: `ract doctor`.
+2. If v0.5.2 committed a step onto your branch, check the log with
+   `git log --oneline -3`. Keep the commit or drop it, as you prefer. RACT does
+   not rewrite your history.
+3. Stop tracking the RACT state folder if an old commit added it:
+   `git rm --cached -r .ract` then commit. Add `.ract/` to `.gitignore` so it
+   stays out of `git status`.
+
 ## v0.5.1 → v0.5.2 (Deep-Audit Hardening)
 
 v0.5.2 is a hardening release. Fifteen deep-audit findings are
