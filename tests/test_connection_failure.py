@@ -72,7 +72,8 @@ def test_the_cli_names_the_url_and_gives_the_hint(tmp_path: Path) -> None:
     assert result.returncode == 6, result.stderr
     assert "nothing is answering at" in result.stderr and url in result.stderr
     assert "start your model server" in result.stderr
-    assert result.stderr.count("retrying") <= 1
+    assert result.stderr.count("trying once more in") == 1  # G-055 wording
+    assert "retrying (1 of 1)" not in result.stderr
     for raw in RAW_OS_TEXT:
         assert raw not in result.stderr
     assert elapsed < 30  # process start included; the request part is checked above

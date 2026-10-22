@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ract import turn_context, undo_backup
+from ract import egress_ledger, turn_context, undo_backup
 from ract.executor.worktree import working_tree_status
 from ract.session_events import EventStream, Heartbeat, TextWriter, plan_event_data
 
@@ -247,7 +247,15 @@ def run_turn(
     try:
         with (
             undo_backup.turn(project) as backup,
-            Heartbeat(stream, turn=turn, waiting_on="model", cancel=cancel),
+            egress_ledger.collecting(),
+            egress_ledger.watching_connections() as connections,
+            Heartbeat(
+                stream,
+                turn=turn,
+                waiting_on="model",
+                cancel=cancel,
+                connecting=lambda: connections["connecting"],
+            ),
         ):
             backup_box.append(backup)
             result: Any = run_ract(

@@ -351,3 +351,86 @@ def test_a_repository_config_cannot_redirect_the_ledger(
     assert result.returncode == 0, result.stderr
     assert not planted.exists()
     assert len(egress_ledger.read()) > before
+
+
+# ------------------------------------------------- G-053: purpose, cost.updated
+
+
+def test_cost_lists_model_requests_by_purpose(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    server = fake_model_server(_plan_and_fix(usage=True))
+    ws = _repo(tmp_path, server.base_url)
+    before = len(egress_ledger.read())
+
+    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json")
+
+    assert result.returncode == 0, result.stderr
+    lines = egress_ledger.describe(egress_ledger.read()[before:])
+    assert "model requests by purpose:" in lines
+    by_purpose = [
+        line.strip() for line in lines[lines.index("model requests by purpose:") + 1 :]
+    ]
+    assert [line.split(":")[0] for line in by_purpose] == ["plan", "step 1"]
+    assert all(" tokens in, " in line for line in by_purpose)
+
+    events = [json.loads(line) for line in result.stdout.splitlines()]
+    updates = [e["data"] for e in events if e["kind"] == "cost.updated"]
+    assert len(updates) == 2  # one after each model request
+    assert set(updates[-1]["by_purpose"]) == {"plan", "step 1"}
+    assert updates[-1]["tokens_in"] > updates[0]["tokens_in"] > 0
+
+
+def test_cost_updated_tokens_are_null_when_unreported(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    server = fake_model_server(_plan_and_fix(usage=False))
+    ws = _repo(tmp_path, server.base_url)
+
+    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json")
+
+    events = [json.loads(line) for line in result.stdout.splitlines()]
+    updates = [e["data"] for e in events if e["kind"] == "cost.updated"]
+    assert updates and all(
+        u["tokens_in"] is None and u["tokens_out"] is None for u in updates
+    )
+
+
+def test_the_heartbeat_names_the_address_while_connecting() -> None:
+    from ract.session_events import EventStream, Heartbeat
+    from ract.session_render import PlainRenderer
+
+    out: list[str] = []
+    stream = EventStream(session="s")
+    stream.subscribe(PlainRenderer(out.append))
+    with Heartbeat(
+        stream,
+        turn=1,
+        waiting_on="model",
+        interval=0.05,
+        connecting=lambda: "http://127.0.0.1:9",
+    ):
+        import time as _time
+
+        _time.sleep(0.2)
+
+    assert "connecting to http://127.0.0.1:9 (" in "".join(out)
+
+
+def test_the_transport_reports_the_connect_phase(fake_model_server: Any) -> None:
+    server = fake_model_server("baseline_j4_today")
+    seen: list[str | None] = []
+
+    class Recording(dict):  # type: ignore[type-arg]
+        def __setitem__(self, key: str, value: Any) -> None:
+            seen.append(value)
+            super().__setitem__(key, value)
+
+    token = egress_ledger._connections.set(Recording(connecting=None))
+    try:
+        with egress_ledger.client("model") as client:
+            client.get(f"{server.base_url}/models")
+    finally:
+        egress_ledger._connections.reset(token)
+
+    assert seen[0] == server.root_url and seen[-1] is None

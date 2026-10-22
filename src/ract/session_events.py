@@ -366,8 +366,13 @@ class Heartbeat:
         detail: str = "",
         interval: float = HEARTBEAT_SECONDS,
         cancel: threading.Event | None = None,
+        connecting: Callable[[], str | None] | None = None,
     ) -> None:
         self._stream = stream
+        # The address being connected to, while a connect is in progress
+        # (egress_ledger.watching_connections): "connecting to <address>"
+        # says more than "waiting on model" while nothing answers (G-055).
+        self._connecting = connecting
         # An interrupted turn's worker may wait on the model long after the
         # prompt is back; its heartbeat must not keep printing.
         self._cancel = cancel
@@ -399,12 +404,13 @@ class Heartbeat:
             if time.monotonic() - self._stream.last_activity < self._interval:
                 continue  # something else spoke recently; no need for a sign of life
             elapsed = int((time.monotonic() - self._started) * 1000)
+            address = self._connecting() if self._connecting is not None else None
             self._stream.emit(
                 "agent.heartbeat",
                 {
-                    "waiting_on": self._waiting_on,
+                    "waiting_on": "connection" if address else self._waiting_on,
                     "elapsed_ms": elapsed,
-                    "detail": self._detail,
+                    "detail": address or self._detail,
                 },
                 turn=self._turn,
             )

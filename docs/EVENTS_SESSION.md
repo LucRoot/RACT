@@ -171,7 +171,7 @@ for that step.
 |---|---|
 | `agent.text.delta` | `text` (string), `channel` (`answer` or `artifact`), `path` (string, present when `channel` is `artifact`) |
 | `agent.reasoning.delta` | `text` (string). Renderers show it dimmed and collapsed. It never becomes answer text. |
-| `agent.heartbeat` | `waiting_on` (`model`, `tool`, `approval`, `workspace`), `elapsed_ms` (integer), `detail` (string, short, for example `"first token not yet received"`) |
+| `agent.heartbeat` | `waiting_on` (`model`, `connection`, `tool`, `approval`, `workspace`), `elapsed_ms` (integer), `detail` (string, short, for example `"first token not yet received"`; for `connection`, the address being connected to) |
 | `agent.retry` | `attempt` (integer, starting at 1), `max` (integer), `reason` (string, one line, for example `"connection reset"`), `wait_ms` (integer, delay before the next attempt) |
 
 `channel` keeps a chat answer apart from the content of a file being
@@ -213,7 +213,7 @@ the denial is recorded in the result (`denials`).
 
 | Kind | `data` fields |
 |---|---|
-| `cost.updated` | `tokens_in` (integer), `tokens_out` (integer), `by_purpose` (object, for example `{"turn": 3400, "probe": 12}`), `total_usd` (number or null when unknown), `context_used` (integer or null), `context_limit` (integer or null) |
+| `cost.updated` | After each model request, from the egress ledger, totals for the turn so far: `tokens_in` (integer, or null when no request in the turn reported token counts), `tokens_out` (integer or null), `by_purpose` (tokens per purpose, for example `{"plan": 900, "step 1": 1036}`), `total_usd` (number or null when unknown), `context_used` (integer or null), `context_limit` (integer or null) |
 
 ### Errors and notices
 
@@ -277,6 +277,7 @@ sequences, so `ract -p "..." > out.txt` gives a clean file.
 | `provenance` | object | As in `turn.finished`, for every changed file. |
 | `cost` | object | From the egress ledger (docs/EGRESS.md) for this turn: `tokens_in`, `tokens_out` (integers, or null when the provider reported no token counts), `by_purpose` (tokens per purpose, for example `{"plan": 900, "step 1": 1036}`), `total_usd` (number or null; prices are not configured in this release), `requests`, `unreported` (model requests that reported no tokens), `bytes_out`, `bytes_in`. |
 | `denials` | list of `{rule, action, tier}` | Every action that would have asked for approval and was denied. |
+| `notices` | list of strings | The text of every `notice` event, so a log of stdout alone shows them (for example a question answered instead of written). |
 | `events_path` | string or null | Path of the full event stream, when it was written to a file. |
 | `structured_output` | any | Present only when `--json-schema` was given and the reply validates. An invalid reply leaves the field out and the exit code is 1. |
 

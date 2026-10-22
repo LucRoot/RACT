@@ -217,6 +217,9 @@ def result_object(
         "cost": cost
         or {"tokens_in": None, "tokens_out": None, "by_purpose": {}, "total_usd": None},
         "denials": [],
+        # Notices are progress on stderr; a CI log reading only stdout sees
+        # them here (for example a question answered instead of written).
+        "notices": [str(e.data.get("text", "")) for e in events if e.kind == "notice"],
         "events_path": None,
     }
 

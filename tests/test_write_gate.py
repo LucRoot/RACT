@@ -302,3 +302,22 @@ def test_old_turn_folders_are_pruned(tmp_path: Path) -> None:
     left = sorted(p.name for p in undo.iterdir())
     assert len(left) == undo_backup.KEEP_TURNS
     assert left[0] == "20261022T000003Z-aaaaaa"
+
+
+def test_the_answer_instead_notice_is_in_the_headless_result(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    # G-053: a CI log that reads only stdout still sees why nothing was written.
+    server = fake_model_server(_one_step("read src/calc.py", "src/calc.py", PROSE))
+    ws = _repo(tmp_path, server.base_url)
+
+    result = _ract(ws, "-p", "what does src/calc.py do?", "--output-format", "json")
+
+    assert result.returncode == 0, result.stderr
+    obj = json.loads(result.stdout)
+    assert any(
+        "its reply is shown as the answer" in n
+        and "src/calc.py, which is not written" in n
+        for n in obj["notices"]
+    )
+    assert PROSE in obj["final_text"]

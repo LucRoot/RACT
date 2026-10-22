@@ -153,8 +153,11 @@ class PlainRenderer:
 
     def _on_agent_retry(self, d: dict[str, Any]) -> None:
         wait = int(d.get("wait_ms", 0)) / 1000
+        if d.get("max") == 1:
+            self._line(f"  trying once more in {wait:.1f} s: {d.get('reason', '')}")
+            return
         self._line(
-            f"  retrying ({d.get('attempt')} of {d.get('max')}) in {wait:.1f}s: "
+            f"  retrying ({d.get('attempt')} of {d.get('max')}) in {wait:.1f} s: "
             f"{d.get('reason', '')}"
         )
 
@@ -173,6 +176,9 @@ class PlainRenderer:
         if not due:
             return
         self._last_heartbeat_ms = elapsed
+        if d.get("waiting_on") == "connection":
+            self._line(f"  ... connecting to {d.get('detail')} ({elapsed // 1000} s)")
+            return
         detail = f", {d['detail']}" if d.get("detail") else ""
         thinking = (
             f", {self._reasoning_chars} chars of reasoning so far"

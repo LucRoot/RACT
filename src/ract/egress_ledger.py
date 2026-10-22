@@ -37,6 +37,14 @@ _BODY_LIMIT = 2 * 1024 * 1024
 _TAIL = 16 * 1024
 
 _purpose: ContextVar[str] = ContextVar("ract_egress_purpose", default="")
+# The records of the current turn, when a session collects them (cost.updated).
+_turn: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "ract_egress_turn", default=None
+)
+# Shared with the session's heartbeat thread: the address being connected to.
+_connections: ContextVar[dict[str, str | None] | None] = ContextVar(
+    "ract_egress_connections", default=None
+)
 _lock = threading.Lock()
 _warned = False
 
@@ -110,6 +118,57 @@ def write(record: dict[str, Any]) -> None:
             )
 
 
+@contextmanager
+def collecting() -> Iterator[list[dict[str, Any]]]:
+    """Collect this turn's records; each model request then reports cost.updated."""
+    records: list[dict[str, Any]] = []
+    token = _turn.set(records)
+    try:
+        yield records
+    finally:
+        _turn.reset(token)
+
+
+@contextmanager
+def watching_connections() -> Iterator[dict[str, str | None]]:
+    """Track the address a request is connecting to, for the heartbeat.
+
+    LR:: Before the first byte the heartbeat said "waiting on model" while
+    the connection was still being refused (G-055). The returned mapping's
+    "connecting" key holds the address while a TCP connect is in progress
+    and None otherwise; the heartbeat thread reads it.
+    """
+    state: dict[str, str | None] = {"connecting": None}
+    token = _connections.set(state)
+    try:
+        yield state
+    finally:
+        _connections.reset(token)
+
+
+def _record(record: dict[str, Any]) -> None:
+    write(record)
+    records = _turn.get()
+    if records is None:
+        return
+    records.append(record)
+    if record.get("kind") == "model":
+        from ract import turn_context
+
+        totals = cost(records)
+        turn_context.report(
+            "cost.updated",
+            {
+                "tokens_in": totals["tokens_in"],
+                "tokens_out": totals["tokens_out"],
+                "by_purpose": totals["by_purpose"],
+                "total_usd": None,
+                "context_used": None,
+                "context_limit": None,
+            },
+        )
+
+
 def read(path: Path | None = None) -> list[dict[str, Any]]:
     """Every record, oldest first (the rotated file, then the current one)."""
     path = path or ledger_path()
@@ -177,10 +236,24 @@ class LedgerTransport(httpx.BaseTransport):
             "port": request.url.port,
             "bytes_out": bytes_out,
         }
+        state = _connections.get()
+        if state is not None:
+            port = f":{request.url.port}" if request.url.port else ""
+            address = f"{request.url.scheme}://{request.url.host}{port}"
+
+            def trace(name: str, info: dict[str, Any]) -> None:  # noqa: ARG001
+                if name == "connection.connect_tcp.started":
+                    state["connecting"] = address
+                elif name.startswith("connection.connect_tcp."):
+                    state["connecting"] = None
+
+            request.extensions["trace"] = trace
         try:
             response = self._inner.handle_request(request)
         except Exception as exc:
-            write(
+            if state is not None:
+                state["connecting"] = None
+            _record(
                 {
                     **base,
                     "status": type(exc).__name__,
@@ -195,7 +268,7 @@ class LedgerTransport(httpx.BaseTransport):
 
         def finish(count: int, body: bytes) -> None:
             tokens_in, tokens_out = _tokens(_usage_from_body(content_type, body))
-            write(
+            _record(
                 {
                     **base,
                     "status": response.status_code,
@@ -342,12 +415,22 @@ def describe(records: list[dict[str, Any]]) -> list[str]:
     lines = [line("total", totals)]
     for host, s in sorted(totals["by_host"].items()):
         lines.append("  " + line(host, s))
+    # INTENT invariant 9: every model call by purpose (G-053).
+    model = [r for r in records if r.get("kind") == "model"]
+    purposes = sorted({str(r.get("purpose")) for r in model})
+    if purposes:
+        lines.append("model requests by purpose:")
+        for name in purposes:
+            subset = [r for r in model if str(r.get("purpose")) == name]
+            lines.append("  " + line(name, summary(subset)))
     return lines
 
 
 __all__ = [
     "EXEMPT",
     "LedgerTransport",
+    "collecting",
+    "watching_connections",
     "cost",
     "describe",
     "now",
