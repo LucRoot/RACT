@@ -4085,7 +4085,12 @@ def _session_command(args: list[str]) -> int:
         if not session_id or state is None:
             print("[ract] invalid session export format", file=sys.stderr)
             return 1
-        store.save(session_id, state)
+        try:
+            store.save(session_id, state)
+        except ValueError as exc:
+            # S-028b: the id comes from the file; it names a file in the store.
+            print(f"[ract] {exc}", file=sys.stderr)
+            return 1
         print(f"[ract] imported session '{session_id}'")
         return 0
 

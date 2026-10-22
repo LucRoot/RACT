@@ -70,7 +70,9 @@ class SessionStore:
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def _path(self, session_id: str) -> Path:
-        return self.base_dir / f"{session_id}.json"
+        from ract.undo_backup import require_name
+
+        return self.base_dir / f"{require_name(session_id, 'session id')}.json"
 
     def exists(self, session_id: str) -> bool:
         """Return True if a persisted session exists and is readable."""

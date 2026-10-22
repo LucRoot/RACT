@@ -448,7 +448,15 @@ class ConsolidationApplier:
         self.backup_root = self.project_dir / ".ract" / "consolidate_backups"
 
     def _backup_dir(self, proposal_id: str) -> Path:
-        return self.backup_root / proposal_id
+        from ract.undo_backup import require_name
+
+        return self.backup_root / require_name(proposal_id, "proposal id")
+
+    def _outside(self, paths: list[str]) -> list[str]:
+        """The entries that would leave the workspace (S-028b)."""
+        from ract.undo_backup import check_entry
+
+        return [p for p in paths if check_entry(self.project_dir, self.project_dir, p)]
 
     def _backup_path(self, proposal_id: str, rel: str) -> Path:
         return self._backup_dir(proposal_id) / rel.replace("/", "__")
@@ -478,6 +486,18 @@ class ConsolidationApplier:
         backup_dir = self._backup_dir(proposal_id)
         files_to_backup = [proposal.target, *proposal.sources]
         backed_up: dict[str, Path] = {}
+        # A proposal read from .ract/handshakes.json may come from a cloned
+        # repository: refuse it whole if any path leaves the workspace.
+        refused = self._outside(files_to_backup)
+        if refused:
+            return ApplyResult(
+                proposal_id=proposal_id,
+                applied=False,
+                deleted=(),
+                shims=(),
+                backup_dir=None,
+                error="refused: paths outside the workspace: " + ", ".join(refused),
+            )
 
         try:
             if not dry_run:
@@ -583,8 +603,12 @@ class ConsolidationApplier:
             )
 
         restored: list[str] = []
+        refused: list[str] = []
         for backup_path in backup_dir.iterdir():
             rel = backup_path.name.replace("__", "/")
+            if self._outside([rel]):
+                refused.append(rel)
+                continue
             target = self.project_dir / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(backup_path.read_bytes())
@@ -595,6 +619,11 @@ class ConsolidationApplier:
             deleted=(),
             shims=(),
             backup_dir=str(backup_dir.relative_to(self.project_dir)).replace("\\", "/"),
+            error=(
+                "refused: paths outside the workspace: " + ", ".join(refused)
+                if refused
+                else None
+            ),
         )
 
 

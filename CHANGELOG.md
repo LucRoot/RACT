@@ -80,6 +80,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Files a cloned repository can ship no longer steer writes outside the workspace. Session
+  rollback snapshots (`.ract/snapshots/`), consolidation proposals in `.ract/handshakes.json`,
+  consolidation backups and imported session exports each turned a value from the file into a
+  path with no check, so `--rollback`, `ract consolidate apply` or `rollback`, and `ract session
+  import` could write next to the repository. Every such path must now stay inside the
+  workspace, and session and proposal ids are plain names. Present in v0.5.2.
 - `ract report --last` (and `/report`) printed "Assumption: no plan" and "Confidence: 0.0" for a
   turn whose plan had both: the session record dropped the plan of every run that executed. It
   now keeps it, and a turn without a plan says "not recorded" instead of showing a default.

@@ -59,6 +59,30 @@ def turns_dir(root: Path | str) -> Path:
     return _default_state_dir() / "undo" / digest
 
 
+_NAME_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+
+
+def require_name(value: object, what: str) -> str:
+    """*value* as a file-name-safe identifier, or ValueError (S-028b).
+
+    LR:: Session ids and proposal ids become file and folder names. Read
+    from a file a repository or a shared export can supply, "../x" escaped
+    the store. A name is letters, digits, '.', '_' and '-', and does not
+    start with '.'.
+    """
+    if (
+        not isinstance(value, str)
+        or not value
+        or value.startswith(".")
+        or not set(value) <= _NAME_CHARS
+    ):
+        raise ValueError(
+            f"{value!r} is not a valid {what}: use letters, digits, '.', '_' and '-', "
+            "not starting with '.'"
+        )
+    return value
+
+
 def check_entry(root: Path, base: Path, entry: object) -> str | None:
     """Why *entry* may not be used under *base* inside *root*; None when it may.
 
@@ -327,6 +351,7 @@ def redo(root: Path | str, *, force: bool = False) -> UndoResult:
 __all__ = [
     "KEEP_TURNS",
     "check_entry",
+    "require_name",
     "repository_key",
     "turns_dir",
     "TurnBackup",

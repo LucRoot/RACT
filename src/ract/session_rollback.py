@@ -38,7 +38,9 @@ class SessionRollback:
         self.snapshot_dir.mkdir(parents=True, exist_ok=True)
 
     def _snapshot_path(self, session_id: str) -> Path:
-        return self.snapshot_dir / f"{session_id}.json"
+        from ract.undo_backup import require_name
+
+        return self.snapshot_dir / f"{require_name(session_id, 'session id')}.json"
 
     def capture(self, session_id: str, file_paths: List[Path]) -> Snapshot:
         """Record the current contents of *file_paths* for later restoration."""
@@ -77,7 +79,14 @@ class SessionRollback:
         restored: List[str] = []
         missing: List[str] = []
 
+        from ract.undo_backup import check_entry
+
         for rel, content in files.items():
+            # S-028b: the snapshot is a file in the workspace a repository
+            # can ship; an entry that leaves the workspace is never written.
+            if check_entry(self.project_dir, self.project_dir, rel) is not None:
+                missing.append(rel)
+                continue
             target = self.project_dir / rel
             if target.is_file() or not target.exists():
                 target.parent.mkdir(parents=True, exist_ok=True)
