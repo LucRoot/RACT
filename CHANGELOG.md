@@ -49,6 +49,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A model reply with CRLF line endings no longer shows a replacement character before every line
+  break in the session. Carriage returns are dropped from displayed text; the file on disk is
+  unchanged.
 - A model server that is not running is reported in about 1.5 s instead of 15 to 25 s, as
   "nothing is answering at <url> (connection refused)" with the hint to start it. A connection
   nothing answered gets one quick retry; read timeouts keep the full backoff. Retry lines and

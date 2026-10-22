@@ -138,7 +138,13 @@ def _interactive(
     rec = session.close(timeout=10)
     per_input = []
     for label, t in sends:
-        next_send = next((t2 for _, t2 in sends if t2 > t), float("inf"))
+        # The next input of any kind, from the recording: the closing /exit
+        # is sent outside ``sends``, and taking the next send from that list
+        # counted the harness's wait before /exit as silence (G-19: J3 said
+        # 5 s for a 1 s turn).
+        next_send = next(
+            (e.t for e in rec.events if e.kind == "in" and e.t > t), float("inf")
+        )
         # Measure silence only while the program was still answering: up to
         # its last visible output before the next input, so the harness's own
         # wait after the answer does not count as a silent gap.

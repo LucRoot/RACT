@@ -88,8 +88,12 @@ class UnknownEventKind(ValueError):
 
 
 def safe_text(text: str) -> str:
-    """Return ``text`` with control characters replaced, safe to print."""
-    return _UNSAFE.sub("�", text)
+    """Return ``text`` with control characters replaced, safe to print.
+
+    A carriage return is dropped, not replaced: a model reply with CRLF line
+    endings showed a replacement character before every line break (B-045).
+    """
+    return _UNSAFE.sub("�", text.replace("\r", ""))
 
 
 def split_text(text: str, limit: int = MAX_DELTA_BYTES) -> list[str]:

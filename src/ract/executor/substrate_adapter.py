@@ -57,7 +57,6 @@ from ract.executor.steps import ExecutionReport, Executor
 from ract.executor.worktree import (
     apply_commit_to_working_tree,
     WorktreeManager,
-    changed_path_additions,
     take_snapshot,
     ensure_git_repo,
 )
@@ -425,14 +424,7 @@ def run_via_substrate(
                 ),
                 hint="interrupted",
             )
-        created_by_run.update(
-            changed_path_additions(
-                harness.project_dir,
-                record.parent_snapshot_before,
-                record.parent_snapshot_after,
-                outcome.applied,
-            )
-        )
+        created_by_run.update(outcome.added)
         applied_so_far.extend(outcome.applied)
         turn_context.record_written(harness.project_dir, outcome.applied)
         if outcome.skipped:

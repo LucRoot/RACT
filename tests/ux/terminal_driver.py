@@ -31,10 +31,39 @@ ANSI_RE = re.compile(
 )
 
 
-def strip_ansi(text: str) -> str:
-    """Remove escape sequences and normalize line endings."""
+# Cursor position (CUP): ESC [ row ; col H.
+_CUP_RE = re.compile(r"\x1b\[(\d*)(?:;\d*)?H")
+
+
+def _plain(text: str) -> str:
     text = ANSI_RE.sub("", text)
     return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def strip_ansi(text: str, rows: int = 30) -> str:
+    """Remove escape sequences and normalize line endings.
+
+    ConPTY sends blank lines as a cursor jump: "b\\n\\n\\ndef" arrives as
+    "b" ESC[13;1H "def". Removing the jump ran the lines together
+    ("return a + bdef sub", UX-11, which was this driver, not RACT). A jump
+    down the screen is turned into the line breaks it stands for. The
+    current row is counted from the line breaks seen, capped at the
+    terminal height (``rows``) because the screen scrolls at the bottom.
+    """
+    out: list[str] = []
+    row = 1
+    pos = 0
+    for m in _CUP_RE.finditer(text):
+        chunk = _plain(text[pos : m.start()])
+        out.append(chunk)
+        row = min(rows, row + chunk.count("\n"))
+        target = int(m.group(1) or 1)
+        if target > row:
+            out.append("\n" * (target - row))
+            row = target
+        pos = m.end()
+    out.append(_plain(text[pos:]))
+    return "".join(out)
 
 
 @dataclass
@@ -53,6 +82,8 @@ class Recording:
     argv: list[str]
     events: list[Event] = field(default_factory=list)
     exit_code: int | None = None
+    # Terminal height, for turning cursor jumps into line breaks.
+    rows: int = 30
 
     @property
     def raw(self) -> str:
@@ -60,7 +91,7 @@ class Recording:
 
     @property
     def plain(self) -> str:
-        return strip_ansi(self.raw)
+        return strip_ansi(self.raw, self.rows)
 
     def first_output_after(self, t: float) -> float | None:
         for e in self.events:
@@ -101,7 +132,7 @@ class _Session:
         cols: int,
         rows: int,
     ) -> None:
-        self.recording = Recording(list(argv))
+        self.recording = Recording(list(argv), rows=rows)
         self._t0 = time.perf_counter()
         self._lock = threading.Lock()
         self._buffer = ""

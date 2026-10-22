@@ -100,7 +100,9 @@ def test_data_must_be_json_values() -> None:
 
 
 def test_text_is_made_print_safe() -> None:
-    assert safe_text("ok\x1b[2J\rhidden\tand\nkept") == "ok�[2J�hidden\tand\nkept"
+    # A carriage return is dropped (B-045): it can no longer return the cursor
+    # to overwrite "ok", and CRLF text shows no replacement character.
+    assert safe_text("ok\x1b[2J\rhidden\tand\nkept") == "ok�[2Jhidden\tand\nkept"
     stream = _stream()
     seen: list = []
     stream.subscribe(seen.append)
@@ -309,3 +311,22 @@ def test_heartbeat_stops_when_the_turn_is_cancelled() -> None:
         time.sleep(0.3)
     assert count >= 1
     assert len(beats) <= count + 1
+
+
+@pytest.mark.parametrize("size", range(1, 41))
+def test_crlf_artifact_text_renders_without_replacement_characters(size: int) -> None:
+    # B-045: a reply with CRLF line endings showed U+FFFD before every break.
+    from ract.session_events import EventStream
+    from ract.session_render import PlainRenderer
+
+    content = "def add(a, b):\r\n    return a + b\r\n\r\n\r\ndef sub(a, b):\r\n    return a - b\r\n"
+    out: list[str] = []
+    stream = EventStream(session="s")
+    stream.subscribe(PlainRenderer(out.append))
+    writer = stream.writer(turn=1, channel="artifact", path="src/calc.py")
+    for i in range(0, len(content), size):
+        writer.feed(content[i : i + size])
+    writer.close()
+
+    shown = "".join(out).split("--- src/calc.py ---\n", 1)[1]
+    assert shown == content.replace("\r\n", "\n")

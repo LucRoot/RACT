@@ -852,31 +852,15 @@ class WorkingTreeApply:
 
     ``skipped`` maps each path left alone to the reason, in plain words.
     ``patch_path`` is the saved patch for the skipped paths, relative to the
-    repository, or "" when nothing was skipped.
+    repository, or "" when nothing was skipped. ``added`` holds the applied
+    paths the step created (status A), read from the same listing; a second
+    ``git diff`` for them cost a process start per step (B-045).
     """
 
     applied: tuple[str, ...]
     skipped: dict[str, str]
     patch_path: str
-
-
-def changed_path_additions(
-    repo: Path, before: str, after: str, applied: tuple[str, ...]
-) -> set[str]:
-    """Paths a step added (status A) that were applied to the working tree."""
-    listing = _git_in(
-        repo,
-        "diff",
-        "--name-status",
-        "--no-renames",
-        "--diff-filter=A",
-        "-z",
-        before,
-        after,
-    )
-    fields = [f for f in listing.stdout.split("\0") if f]
-    added = set(fields[1::2])
-    return {path for path in applied if path in added}
+    added: frozenset[str] = frozenset()
 
 
 def _blob_of_working_file(repo: Path, path: str) -> str | None:
@@ -1041,7 +1025,10 @@ def apply_commit_to_working_tree(
         )
         target.write_bytes(diff.stdout)
         patch_path = target.relative_to(repo).as_posix()
-    return WorkingTreeApply(tuple(applied), skipped, patch_path)
+    created = {path for status, path in changes if status.startswith("A")}
+    return WorkingTreeApply(
+        tuple(applied), skipped, patch_path, frozenset(created & set(applied))
+    )
 
 
 # ---------------------------------------------------------------------------

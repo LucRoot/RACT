@@ -33,7 +33,7 @@ today's flow has no counterpart (no tools exist yet), the defect says so.
 | UX-08 | J4 | not testable today (gated) | No diff, no test run, no undo hint. The run claims `produced artifact: src/calc.py` while the file on disk is unchanged. | `J4.txt` | B-011, B-013, B-014, B-023 |
 | UX-09 | J8 | S1 | No headless mode: `ract -p` is an argparse error (exit 2). Piped stdin is ignored (exit 2, "intent is required"). `--json` prints the human output, not JSON. | `J8.txt` | B-035 |
 | UX-10 | J3, J4, J10 | S2 | Silence while waiting: 5 s in J3, 16 s in J10, 25 s in J1b, with no heartbeat. The golden standard is a sign of life every 2 s. | `metrics.json` `longest_silence_s` | B-012 |
-| UX-11 | J4 | S2 | Step output loses line breaks between blocks: `return a + bdef sub(a, b):`. The run report runs lines together: `Confidence: 0.0Outcomes:`. | `J4.txt` | B-012 |
+| UX-11 | J4 | S2 | Step output loses line breaks between blocks: `return a + bdef sub(a, b):`. The run report runs lines together: `Confidence: 0.0Outcomes:`. Later found (B-045): both were the capture, not RACT. ConPTY sends blank lines as a cursor jump and the driver deleted the jump; the driver now turns it into the line breaks. | `J4.txt` | B-045 |
 | UX-12 | J4 | S2 | `/report --last` says "No loop report found", then "Assumption: no plan, Confidence: 0.0" for a run that had a plan with confidence 0.85. | `J4.txt` | B-038 |
 | UX-13 | J2 | S2 | The prompt is a bare `ract> `. No model, branch, mode, context or tier is shown anywhere. `/settings` shows session settings but not the model. | `J2.txt` | B-012 (status line) |
 | UX-14 | J7 | S2 | `/resume` and `/sessions` are unknown commands. There is no way to list or pick earlier sessions from the session. | `J7.txt` | B-032 |

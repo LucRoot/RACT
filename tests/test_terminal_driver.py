@@ -53,3 +53,18 @@ def test_ctrl_c_reaches_the_child() -> None:
     session.ctrl_c()
     assert session.expect("caught ctrl-c", 5)
     session.close(timeout=10)
+
+
+def test_a_cursor_jump_down_is_the_blank_lines_it_replaces() -> None:
+    # UX-11: ConPTY sent "b\n\n\ndef" as "b" + ESC[13;1H + "def"; the line
+    # count before the jump is 10, so the jump is three line breaks.
+    lines = "".join(f"line {n}\r\n" for n in range(1, 10))
+    raw = lines + "    return a + b\x1b[13;1Hdef sub(a, b):"
+    assert strip_ansi(raw).endswith("    return a + b\n\n\ndef sub(a, b):")
+
+
+def test_a_jump_up_or_to_the_same_row_adds_nothing() -> None:
+    assert strip_ansi("one\r\ntwo\x1b[1;1Hthree") == "one\ntwothree"
+    # At the bottom of a scrolled screen the row stays at the height.
+    scrolled = "".join(f"l{n}\r\n" for n in range(40)) + "x\x1b[30;1Hy"
+    assert strip_ansi(scrolled).endswith("l39\nxy")
