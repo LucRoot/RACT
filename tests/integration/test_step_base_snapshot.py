@@ -405,8 +405,12 @@ def test_failed_snapshot_leaves_no_temporary_index(tmp_path: Path) -> None:
 
     ws = rb._workspace(tmp_path, "ws", git=True, files={"a.txt": "one\n"})
     (ws / "a.txt").write_text("changed\n", encoding="utf-8")
-    temp = Path(tempfile.gettempdir())
-    before = {p.name for p in temp.glob("ract-snapshot-*")}
+    # A temporary directory of this test's own: the system one is shared
+    # with any other test run on the machine, whose live snapshots made
+    # this fail under a concurrent run (full gate on the S-026 follow-up).
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    before: set[str] = set()
     real_run = subprocess.run
 
     def stalled_add(args: list[str], **kwargs: Any) -> Any:
@@ -416,6 +420,7 @@ def test_failed_snapshot_leaves_no_temporary_index(tmp_path: Path) -> None:
 
     mp = pytest.MonkeyPatch()
     mp.setattr(wt.subprocess, "run", stalled_add)
+    mp.setattr(tempfile, "tempdir", str(temp))
     try:
         with pytest.raises(WorktreeError, match="took longer"):
             take_snapshot(ws)
