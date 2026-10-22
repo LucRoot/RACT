@@ -275,12 +275,19 @@ class Harness:
         self.legacy_whisperer = legacy_whisperer
         self.planner = Planner(self.manager)
         hooks_dir = project_dir / ".ract" / "hooks"
-        self.hook_manager = HookManager(hooks_dir)
+        # Repository-supplied hooks, MCP servers and the configured skill are
+        # not loaded in an untrusted (headless) run (turn_context).
+        untrusted = turn_context.extensions_off()
+        self.hook_manager: HookManager | None = (
+            None if untrusted else HookManager(hooks_dir)
+        )
         self.skills_registry = SkillRegistry(project_dir / ".ract")
         self.git_mode = GitMode()
         if config.get("git_mode"):
             self.git_mode.enable()
-        self.mcp_registry = mcp_registry or McpToolRegistry.from_config(config)
+        self.mcp_registry = mcp_registry or McpToolRegistry.from_config(
+            {} if untrusted else config
+        )
         self.retrieval_adapter = retrieval_adapter or _build_retrieval_adapter(
             config, project_dir
         )
@@ -744,7 +751,7 @@ class Harness:
         if whisper_block:
             intent_parts.append(f"Legacy Whisperer brief (cite it):\n{whisper_block}")
 
-        skill_name = self.config.get("skill")
+        skill_name = None if turn_context.extensions_off() else self.config.get("skill")
         if skill_name:
             try:
                 skill_prompt = self.skills_registry.invoke(

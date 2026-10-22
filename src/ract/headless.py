@@ -62,7 +62,74 @@ def _parser() -> argparse.ArgumentParser:
         "stream-json: every session event as a JSON line",
     )
     parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
+    parser.add_argument(
+        "--bare",
+        action="store_true",
+        help="load no repository-supplied extension (hooks, MCP servers, skills); "
+        "a headless run already loads none in this release",
+    )
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=1,
+        help="turns allowed; a headless run is one turn in this release",
+    )
+    parser.add_argument(
+        "--fail-on-denial",
+        action="store_true",
+        help="exit 3 at the first denied action (nothing asks for approval yet)",
+    )
+    parser.add_argument("--allowed-tools", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--json-schema", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--max-budget-usd", default=None, help=argparse.SUPPRESS)
     return parser
+
+
+def _unsupported(args: argparse.Namespace) -> str | None:
+    """A usage error for a flag this release cannot honor, or None.
+
+    A flag that is accepted and silently ignored would make a CI job believe
+    a limit or a check is in place. These say so and exit 2 instead.
+    """
+    if args.max_turns < 1:
+        return "--max-turns must be 1 or more"
+    if args.allowed_tools is not None:
+        return (
+            "--allowed-tools: RACT has no tools in this release (the tool layer "
+            "waits for ADR-0047), so no tool name can be allowed"
+        )
+    if args.json_schema is not None:
+        return (
+            "--json-schema: structured output is not supported in this release "
+            "(a run that writes files has no answer text to validate)"
+        )
+    if args.max_budget_usd is not None:
+        return (
+            "--max-budget-usd: cost is not measured in this release, so a "
+            "budget cannot be enforced"
+        )
+    return None
+
+
+def repository_extensions(config: Path) -> list[dict[str, str]]:
+    """Extensions the repository supplies, as session.started lists them."""
+    found: list[dict[str, str]] = []
+    hooks = config.parent / ".ract" / "hooks"
+    if hooks.is_dir():
+        for path in sorted(hooks.glob("*.json")):
+            found.append({"kind": "hook", "name": path.stem})
+    try:
+        import yaml
+
+        data = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
+    except Exception as exc:  # noqa: BLE001 -- the run reports config problems itself
+        print(f"[headless] could not read {config}: {exc}", file=sys.stderr)
+        return found
+    for name in sorted((data.get("mcp_servers") or {}).keys()):
+        found.append({"kind": "mcp", "name": str(name)})
+    if data.get("skill"):
+        found.append({"kind": "skill", "name": str(data["skill"])})
+    return found
 
 
 class _StderrRenderer(PlainRenderer):
@@ -144,6 +211,10 @@ def run_headless(
         args = _parser().parse_args(argv)
     except SystemExit as exc:  # argparse already printed the usage error
         return int(exc.code or 0) if exc.code not in (None, 0) else 0
+    problem = _unsupported(args)
+    if problem:
+        print(f"error: {problem}. hint: run without it", file=err)
+        return 2
     prompt = build_prompt(args.prompt, _read_stdin(stdin or sys.stdin))
     if not prompt:
         print(
@@ -181,7 +252,7 @@ def _run(
     err: TextIO,
 ) -> int:
     from ract.session_turn import TurnRequest, run_turn
-    from ract.turn_context import CancelSignal
+    from ract.turn_context import CancelSignal, repository_extensions_off
 
     cancel = CancelSignal()
     terminated = threading.Event()
@@ -199,7 +270,7 @@ def _run(
         try:
             # The run prints notes to stdout from deep inside; stdout belongs
             # to the result here.
-            with contextlib.redirect_stdout(err):
+            with contextlib.redirect_stdout(err), repository_extensions_off():
                 box["code"] = run_turn(stream, request, turn=1, cancel=cancel)
         finally:
             done.set()
@@ -211,6 +282,16 @@ def _run(
     previous = _install_terminate_handlers(on_terminate)
     started = time.monotonic()
     provider, model = _provider_and_model(Path(args.config))
+    skipped = [
+        {**ext, "reason": "untrusted project (headless run)"}
+        for ext in repository_extensions(Path(args.config))
+    ]
+    if skipped:
+        names = ", ".join(f"{e['kind']} {e['name']}" for e in skipped)
+        print(
+            f"note: not loaded in a headless run (the project is not trusted): {names}",
+            file=err,
+        )
     stream.emit(
         "session.started",
         {
@@ -223,7 +304,7 @@ def _run(
             "context_limit": None,
             "provider_reachable": None,
             "tool_calling": "unknown",
-            "extensions": {"loaded": [], "skipped": []},
+            "extensions": {"loaded": [], "skipped": skipped},
         },
     )
     worker = threading.Thread(target=work, name="ract-headless-turn", daemon=True)

@@ -40,6 +40,9 @@ _report_error: ContextVar[str | None] = ContextVar(
     "ract_turn_report_error", default=None
 )
 _written: ContextVar[list[str] | None] = ContextVar("ract_turn_written", default=None)
+_extensions_off: ContextVar[bool] = ContextVar(
+    "ract_repository_extensions_off", default=False
+)
 _write_lock: ContextVar[Any] = ContextVar("ract_turn_write_lock", default=None)
 
 
@@ -101,6 +104,27 @@ def bind(
     _reporter.set(reporter)
     _written.set(written)
     _write_lock.set(write_lock)
+
+
+@contextmanager
+def repository_extensions_off() -> Iterator[None]:
+    """Load no repository-supplied extension in this block.
+
+    LR:: A cloned repository can ship hooks (`.ract/hooks/*.json`), MCP
+    servers and a skill in its `ract.yaml`. A headless run shows no trust
+    prompt, and RACT has no trust store yet, so a headless run loads none of
+    them (B-035, R-136); the harness reads this switch when it is built.
+    """
+    token = _extensions_off.set(True)
+    try:
+        yield
+    finally:
+        _extensions_off.reset(token)
+
+
+def extensions_off() -> bool:
+    """True when repository-supplied extensions must not be loaded."""
+    return _extensions_off.get()
 
 
 @contextmanager

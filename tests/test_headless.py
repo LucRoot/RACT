@@ -261,3 +261,84 @@ def test_exit_143_on_sigterm(
     assert code == 143
     assert json.loads(out.getvalue())["exit_code"] == 143
     assert "return a - b" in (ws / "src" / "calc.py").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- trust and flags
+
+
+def _plant_hook(ws: Path, marker: Path) -> None:
+    hooks = ws / ".ract" / "hooks"
+    hooks.mkdir(parents=True, exist_ok=True)
+    command = [sys.executable, "-c", f"open({str(marker)!r}, 'a').write('ran')"]
+    (hooks / "pre_audit.json").write_text(
+        json.dumps({"phase": "pre", "name": "audit", "command": command}),
+        encoding="utf-8",
+    )
+
+
+@pytest.mark.parametrize("bare", [False, True])
+def test_a_repository_hook_does_not_run_headless(
+    tmp_path: Path, fake_model_server: Any, bare: bool
+) -> None:
+    """B-035 acceptance D: a cloned repository that ships a hook runs it
+    neither under `ract -p` nor `ract -p --bare` (no trust store exists)."""
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+    marker = tmp_path / "hook.ran"
+    _plant_hook(ws, marker)
+
+    flags = ["--bare"] if bare else []
+    result = _ract(ws, "-p", "fix add", "--output-format", "stream-json", *flags)
+
+    assert result.returncode == 0, result.stderr
+    assert not marker.exists()
+    started = json.loads(result.stdout.splitlines()[0])
+    assert started["data"]["extensions"]["skipped"] == [
+        {
+            "kind": "hook",
+            "name": "pre_audit",
+            "reason": "untrusted project (headless run)",
+        }
+    ]
+    assert "not loaded in a headless run" in result.stderr
+
+
+def test_the_same_hook_runs_on_the_interactive_run_path(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    """Control for the test above: the planted hook is a working hook."""
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+    marker = tmp_path / "hook.ran"
+    _plant_hook(ws, marker)
+
+    result = _ract(ws, "--config", "ract.yaml", "fix add")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert marker.exists()
+
+
+@pytest.mark.parametrize(
+    "flags, reason",
+    [
+        (["--allowed-tools", "read_file"], "no tools in this release"),
+        (["--json-schema", "s.json"], "structured output is not supported"),
+        (["--max-budget-usd", "1"], "cost is not measured"),
+        (["--max-turns", "0"], "--max-turns must be 1 or more"),
+    ],
+)
+def test_flags_this_release_cannot_honor_exit_2(
+    tmp_path: Path, flags: list[str], reason: str
+) -> None:
+    result = _ract(tmp_path, "-p", "x", *flags)
+    assert result.returncode == 2
+    assert reason in result.stderr and result.stdout == ""
+
+
+def test_accepted_flags(tmp_path: Path, fake_model_server: Any) -> None:
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+
+    result = _ract(ws, "-p", "fix add", "--fail-on-denial", "--max-turns", "1")
+
+    assert result.returncode == 0, result.stderr
