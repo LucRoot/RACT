@@ -61,11 +61,24 @@ PROTECTED_WRITE_DIRS = frozenset({".git", ".ract"})
 # of step snapshots. Compared case-insensitively.
 SECRET_NAME_GLOBS = (".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_ed25519")
 
+# Committed placeholder files, allowed by exact name (D-014). Blocking them
+# stops a normal task (update the example file); a real key pasted into one
+# is the request-body scanner's job (S-022).
+ENV_TEMPLATE_NAMES = frozenset(
+    {".env.example", ".env.sample", ".env.template", ".env.dist"}
+)
+
 
 def is_secret_shaped(path: str) -> bool:
-    """True when the last component of ``path`` matches ``SECRET_NAME_GLOBS``."""
-    name = re.split(r"[\\/]", path)[-1].casefold()
-    return any(fnmatch.fnmatchcase(name, pattern) for pattern in SECRET_NAME_GLOBS)
+    """True when the last component of ``path`` matches ``SECRET_NAME_GLOBS``.
+
+    ``ENV_TEMPLATE_NAMES`` are exempt, by exact (case-sensitive) name.
+    """
+    name = re.split(r"[\\/]", path)[-1]
+    if name in ENV_TEMPLATE_NAMES:
+        return False
+    folded = name.casefold()
+    return any(fnmatch.fnmatchcase(folded, pattern) for pattern in SECRET_NAME_GLOBS)
 
 
 # RACT's own config can hold literal api_key values.

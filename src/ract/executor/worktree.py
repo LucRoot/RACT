@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterable
 
-from ract.workspace_path import is_secret_shaped
+from ract.workspace_path import ENV_TEMPLATE_NAMES, is_secret_shaped
 
 if TYPE_CHECKING:
     from ract.antilazy.pre_commit import (
@@ -502,12 +502,14 @@ def _literal(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 # that is not ignored would otherwise be copied into the worktree).
 _SNAPSHOT_EXCLUDES = (
     ".ract",
-    ":(glob)**/.env",
-    ":(glob)**/.env.*",
-    ":(glob)**/*.pem",
-    ":(glob)**/*.key",
-    ":(glob)**/id_rsa",
-    ":(glob)**/id_ed25519",
+    ":(glob,icase)**/.env",
+    ":(glob,icase)**/.env.*",
+    ":(glob,icase)**/*.pem",
+    ":(glob,icase)**/*.key",
+    ":(glob,icase)**/id_rsa",
+    ":(glob,icase)**/id_ed25519",
+    # D-014: committed placeholders stay in the snapshot (exact name).
+    *(f":(exclude,glob)**/{name}" for name in sorted(ENV_TEMPLATE_NAMES)),
 )
 
 
