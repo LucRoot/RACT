@@ -38,6 +38,29 @@ if TYPE_CHECKING:
     from ract.security.manifest import TestIntegrityConfig
 
 
+# The identity on every commit RACT makes (step commits and base snapshots).
+# LR:: A plain `git commit` took user.name and user.email from the machine,
+# so a personal or employer identity landed in objects on rootact/step/*
+# branches the operator may push, and on a machine with no identity (a
+# fresh CI runner) the step failed with "Author identity unknown" (S-024).
+# The environment variables win over any git config and over values the
+# operator's environment already sets; commit signing is off so a signing
+# setup cannot prompt or hang a step.
+RACT_GIT_NAME = "ract"
+RACT_GIT_EMAIL = "ract@localhost"
+_NO_SIGNING = ("-c", "commit.gpgsign=false")
+
+
+def ract_commit_env(base: dict[str, str] | None = None) -> dict[str, str]:
+    """``base`` (default: this process's environment) with RACT's identity."""
+    env = dict(os.environ if base is None else base)
+    env["GIT_AUTHOR_NAME"] = RACT_GIT_NAME
+    env["GIT_AUTHOR_EMAIL"] = RACT_GIT_EMAIL
+    env["GIT_COMMITTER_NAME"] = RACT_GIT_NAME
+    env["GIT_COMMITTER_EMAIL"] = RACT_GIT_EMAIL
+    return env
+
+
 class WorktreeError(RuntimeError):
     """Raised when a git-worktree operation fails or violates invariants."""
 
@@ -292,6 +315,7 @@ class WorktreeManager:
                 "git",
                 "-C",
                 str(wt.path),
+                *_NO_SIGNING,
                 # ``--allow-empty`` because a step whose only observable
                 # effect is that its post-conditions now hold (say, a config
                 # tweak we already committed elsewhere) should still record
@@ -306,6 +330,7 @@ class WorktreeManager:
             capture_output=True,
             text=True,
             check=False,
+            env=ract_commit_env(),
         )
         if commit.returncode != 0:
             raise WorktreeError(
@@ -768,13 +793,9 @@ def take_snapshot(
         ]
         if head_sha:
             commit_args[2:2] = ["-p", head_sha]
-        identity = dict(env)
-        identity.setdefault("GIT_AUTHOR_NAME", "ract")
-        identity.setdefault("GIT_AUTHOR_EMAIL", "ract@localhost")
-        identity.setdefault("GIT_COMMITTER_NAME", "ract")
-        identity.setdefault("GIT_COMMITTER_EMAIL", "ract@localhost")
+        identity = ract_commit_env(env)
         identity.pop("GIT_INDEX_FILE", None)
-        commit = _git_bytes(repo, *commit_args, env=identity)
+        commit = _git_bytes(repo, *_NO_SIGNING, *commit_args, env=identity)
         if commit.returncode != 0:
             raise WorktreeError(
                 "could not commit the snapshot: "
