@@ -39,7 +39,7 @@ def test_secret_token_absent_from_sandbox_env(caplog: pytest.LogCaptureFixture) 
         "MY_ENTERPRISE_TOKEN": "abcdef123",
         "GITHUB_TOKEN": "ghp_notreal",
     }
-    with caplog.at_level(logging.WARNING, logger="ract.security.sandbox_env"):
+    with caplog.at_level(logging.INFO, logger="ract.security.sandbox_env"):
         result = build_sandbox_env(process_env=seeded)
     assert "SECRET_TOKEN" not in result.env, (
         "SECRET_TOKEN slipped past the allowlist -- D1 data-exfil defect"
@@ -49,7 +49,7 @@ def test_secret_token_absent_from_sandbox_env(caplog: pytest.LogCaptureFixture) 
     # Standard vars survive.
     assert result.env.get("PATH") == "/usr/bin"
     assert result.env.get("HOME") == "/home/lucas"
-    # WARN fired with count-only (never the value).
+    # The summary is logged at INFO with count-only (never the value).
     warn_text = " ".join(rec.message for rec in caplog.records)
     assert "scrubbed" in warn_text
     assert "SECRET_TOKEN" not in warn_text  # NAME is not logged

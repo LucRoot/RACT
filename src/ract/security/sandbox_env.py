@@ -1309,7 +1309,11 @@ def build_sandbox_env(
             scrubbed_count += 1
 
     if scrubbed_count > 0:
-        _LOG.warning(
+        # LR:: INFO, not WARNING. Scrubbing is the normal case on every
+        # spawn; at WARNING Python's last-resort handler printed this line on
+        # every run's terminal (UX baseline UX-21). The count still reaches
+        # any configured log and the ``sandbox.env_scrubbed`` event.
+        _LOG.info(
             "sandbox_env: scrubbed %d environment variable(s) from the "
             "sandbox env (count-only; values never logged). Allowlist "
             "sources: manifest.env.passthrough=%d, file=%d, default=%d.",

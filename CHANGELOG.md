@@ -39,6 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Runs no longer print "sandbox_env: scrubbed N environment variable(s) ..." to the terminal.
+  The summary is logged at INFO and still recorded in the `sandbox.env_scrubbed` event.
 - Seven event kinds that RACT emitted (`tool.invocation.pre`, `post`, `refused`;
   `compensator.installed`, `discarded`, `applied`, `refused`) were missing from the closed
   `EventKind` vocabulary, so a live trace writer dropped them. They are registered
