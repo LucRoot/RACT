@@ -21,14 +21,15 @@ from ract import egress_ledger
 
 # (label, base URL) for the defaults of common local servers.
 DEFAULT_SERVERS: tuple[tuple[str, str], ...] = (
-    ("llama.cpp server", "http://127.0.0.1:8080/v1"),
-    ("Ollama", "http://127.0.0.1:11434/v1"),
-    ("LM Studio", "http://127.0.0.1:1234/v1"),
-    ("vLLM", "http://127.0.0.1:8000/v1"),
+    ("the llama.cpp server's default address", "http://127.0.0.1:8080/v1"),
+    ("Ollama's default address", "http://127.0.0.1:11434/v1"),
+    ("LM Studio's default address", "http://127.0.0.1:1234/v1"),
+    ("vLLM's default address", "http://127.0.0.1:8000/v1"),
 )
 # Environment variables that may name a server address.
 ADDRESS_VARIABLES = ("RACT_BASE_URL", "OPENAI_BASE_URL")
 PROBE_TIMEOUT = 1.5
+CONNECT_TIMEOUT = 0.5
 
 
 @dataclass(frozen=True)
@@ -44,12 +45,12 @@ def candidates(extra: tuple[str, ...] = ()) -> list[tuple[str, str]]:
     ``extra`` holds addresses the user gave setup itself (an answers file).
     """
     found: list[tuple[str, str]] = [
-        ("from your answers", url.strip().rstrip("/")) for url in extra if url
+        ("the address in your answers", url.strip().rstrip("/")) for url in extra if url
     ]
     for name in ADDRESS_VARIABLES:
         value = os.environ.get(name, "").strip().rstrip("/")
         if value:
-            found.append((f"from {name}", value))
+            found.append((f"the address in {name}", value))
     found.extend(DEFAULT_SERVERS)
     seen: set[str] = set()
     unique = []
@@ -67,7 +68,11 @@ def _ask(label: str, url: str) -> Server | None:
             # No credentials of any kind (G-056): no Authorization header,
             # and trust_env=False so httpx adds nothing from .netrc.
             egress_ledger.client(
-                "setup", timeout=PROBE_TIMEOUT, trust_env=False
+                "setup",
+                # Every address is on this machine or named by the user; a
+                # refused loopback connect takes 2 s on Windows (B-043).
+                timeout=httpx.Timeout(PROBE_TIMEOUT, connect=CONNECT_TIMEOUT),
+                trust_env=False,
             ) as client,
         ):
             response = client.get(f"{url}/models")

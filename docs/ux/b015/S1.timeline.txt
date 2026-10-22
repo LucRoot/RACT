@@ -1,0 +1,36 @@
+   0.135s out 
+   1.966s out No ract.yaml in this directory, so RACT does not know which model to use.\n
+   2.001s out Set one up now? [Y/n] (n opens the session without one) 
+   2.021s  in '\r'
+   2.022s out \n
+   2.055s out Machine:\n
+   2.309s out   Python 3.11.15 on Windows AMD64\n
+   2.347s out   git 2.53.0\n  memory: 63.5 GB total, 9.8 GB available\n  CPU cores: 12\n  free disk here: 51.8 GB\n  GPU: none detected\n
+   2.385s out   network: not tested; setup contacts only the default model-server addresses on this machine and the provider you choose\nLooking for a model server on this machine (default ports only):\n
+   3.133s out   http://127.0.0.1:52148/v1 answers (the address in RACT_BASE_URL); models: fake-coder\n
+   3.170s out Use the server at http://127.0.0.1:52148/v1? [Y/n] 
+   3.205s  in '\r'
+   3.206s out \n
+   3.218s out Wrote ract.yaml and prompts/manager.txt.\nChecking http://127.0.0.1:52148/v1 with one tiny request:\n
+   3.330s out   ok: the model answered in 0.1 s\n
+   3.546s out This directory is not a git repository. RACT records each step on its own branch, so it works best in one. Command: git init\n
+   3.563s out Run git init here now? [y/N] 
+   3.582s  in 'y\r'
+   3.582s out y\n
+   3.827s out   ran: git init\n
+   3.859s out Opening the session. Type a request, or /help for commands.\n
+   4.006s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   4.029s out 
+   4.179s out RACT session fake-coder via local | master | default | T3 off\n
+   4.222s out ract> 
+   4.278s  in 'what does this folder contain?\r'
+   4.279s out what does this folder contain?\n
+   5.268s out Plan: 1 step, confidence 0.90\n
+   5.282s out   assumes: the folder is empty apart from RACT's own files\n  1. Explain what this folder contains\n
+   5.720s out [step 1] Explain what this folder contains\n
+   5.748s out The folder holds ract.yaml and prompts/, nothing else yet.\n[step 1] done (0.0s)\n
+   6.014s out   Done: 1 step ran; no tests were run. | no files were changed | 1.7s\n
+   6.029s out ract> 
+   7.060s  in '/exit\r'
+   7.061s out /exit\n
+   7.328s out 

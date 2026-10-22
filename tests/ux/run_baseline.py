@@ -111,8 +111,10 @@ def _interactive(
     steps: list[tuple[str, Any]],
     *,
     startup_pattern: str = r"(ract|plan)> ",
+    extra_env: dict[str, str] | None = None,
 ) -> Recording:
-    session = spawn([str(RACT)], cwd=str(ws), env=_env(), cols=80, rows=40)
+    env = {**_env(), **(extra_env or {})}
+    session = spawn([str(RACT)], cwd=str(ws), env=env, cols=80, rows=40)
     sends: list[tuple[str, float]] = []
     seen = session.expect(startup_pattern, 30)
     journey.metrics["startup_to_prompt_s"] = round(session.now(), 3) if seen else None
@@ -374,6 +376,170 @@ def j10(tmp: Path, j: Journey) -> Recording:
     return _interactive(j, ws, [("line", "summarize the README"), ("quiet", 8.0)])
 
 
+# ------------------------------------------------- first-run setup (B-015)
+
+_SETUP_OFFER = r"Set one up now\?"
+
+
+def _setup_scenario() -> Any:
+    from tests.fixtures.fake_model_server import Scenario
+
+    plan = json.dumps(
+        {
+            "assumption": "the folder is empty apart from RACT's own files",
+            "confidence": 0.9,
+            "steps": [
+                {
+                    "action": "Explain what this folder contains",
+                    "provider_hint": "local",
+                    "expected_artifact": "",
+                }
+            ],
+        }
+    )
+    return Scenario.from_dict(
+        {
+            "model": "fake-coder",
+            "turns": [
+                {"reply": {"kind": "text", "content": "ready"}},
+                {"reply": {"kind": "text", "content": plan}},
+                {
+                    "reply": {
+                        "kind": "text",
+                        "content": "The folder holds ract.yaml and prompts/, nothing else yet.",
+                    },
+                    "repeat": True,
+                },
+            ],
+        }
+    )
+
+
+def s1(tmp: Path, j: Journey) -> Recording:
+    """Empty directory, a server found through RACT_BASE_URL, then a question."""
+    with FakeModelServer(_setup_scenario()) as server:
+        ws = _workspace(tmp, "s1", git=False)
+        rec = _interactive(
+            j,
+            ws,
+            [
+                ("line", ""),  # set one up now? yes
+                ("expect", r"Use the server at"),
+                ("line", ""),  # use it? yes
+                ("expect", r"Run git init here now"),
+                ("line", "y"),
+                ("expect", r"ract> "),
+                ("line", "what does this folder contain?"),
+                ("expect", r"Done: "),
+                ("quiet", 1.0),
+            ],
+            startup_pattern=_SETUP_OFFER,
+            extra_env={"RACT_BASE_URL": server.base_url},
+        )
+        j.note(f"ract.yaml written: {(ws / 'ract.yaml').is_file()}")
+        j.note(f"git repository: {(ws / '.git').is_dir()}")
+        return rec
+
+
+def s2(tmp: Path, j: Journey) -> Recording:
+    """No server anywhere: local guidance, then write the config and skip."""
+    ws = _workspace(tmp, "s2", git=True)
+    rec = _interactive(
+        j,
+        ws,
+        [
+            ("line", ""),
+            ("expect", r"local model or a cloud provider"),
+            ("line", "l"),
+            ("expect", r"How many GB"),
+            ("line", ""),
+            ("expect", r"type skip"),
+            ("line", "skip"),
+            ("expect", r"(ract> |Opening the session)"),
+            ("quiet", 2.0),
+        ],
+        startup_pattern=_SETUP_OFFER,
+        extra_env={"RACT_BASE_URL": "http://127.0.0.1:9/v1"},
+    )
+    j.note(f"ract.yaml written: {(ws / 'ract.yaml').is_file()}")
+    return rec
+
+
+def s3(tmp: Path, j: Journey) -> Recording:
+    """A server that answers /models but lists no model."""
+    import http.server
+    import threading
+
+    class NoModels(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            body = b'{"object": "list", "data": []}'
+            self.send_response(
+                200 if self.path.rstrip("/").endswith("/models") else 404
+            )
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self) -> None:  # noqa: N802
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *args: Any) -> None:
+            return
+
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), NoModels)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        ws = _workspace(tmp, "s3", git=True)
+        return _interactive(
+            j,
+            ws,
+            [
+                ("line", ""),
+                ("expect", r"lists no model yet"),
+                ("expect", r"local model or a cloud provider"),
+                ("line", "l"),
+                ("expect", r"How many GB"),
+                ("line", ""),
+                ("expect", r"type skip"),
+                ("line", "skip"),
+                ("expect", r"(ract> |Opening the session)"),
+                ("quiet", 2.0),
+            ],
+            startup_pattern=_SETUP_OFFER,
+            extra_env={"RACT_BASE_URL": f"http://127.0.0.1:{httpd.server_port}/v1"},
+        )
+    finally:
+        httpd.shutdown()
+
+
+def s4(tmp: Path, j: Journey) -> Recording:
+    """Ctrl-C at the first setup question leaves no file."""
+    with FakeModelServer(_setup_scenario()) as server:
+        ws = _workspace(tmp, "s4", git=True)
+        rec = _interactive(
+            j,
+            ws,
+            [
+                ("line", ""),
+                ("expect", r"Use the server at"),
+                # A person reads the question first. A Ctrl-C within a few
+                # milliseconds of the prompt, before input() starts reading,
+                # is held by Windows until Enter (CPython; logged L-084).
+                ("sleep", 0.3),
+                ("ctrl_c", None),
+                ("quiet", 2.0),
+            ],
+            startup_pattern=_SETUP_OFFER,
+            extra_env={"RACT_BASE_URL": server.base_url},
+        )
+        left = sorted(p.name for p in ws.iterdir() if p.name != ".git")
+        j.note(f"files left after Ctrl-C: {left or 'none'}")
+        return rec
+
+
 JOURNEYS: dict[str, tuple[str, Callable[[Path, Journey], Recording | None]]] = {
     "J1": ("First run in an empty directory, no config", j1),
     "J1b": ("First run following the printed hint", j1b),
@@ -385,6 +551,10 @@ JOURNEYS: dict[str, tuple[str, Callable[[Path, Journey], Recording | None]]] = {
     "J8": ("Headless use", j8),
     "J9": ("Weak or reasoning model", j9),
     "J10": ("Provider is down", j10),
+    "S1": ("Setup: empty directory, server found, first question", s1),
+    "S2": ("Setup: no server found, local guidance, skip", s2),
+    "S3": ("Setup: server found that lists no model", s3),
+    "S4": ("Setup: Ctrl-C at a question", s4),
 }
 
 

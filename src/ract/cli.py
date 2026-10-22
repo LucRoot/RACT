@@ -218,7 +218,7 @@ def _offer_setup(ask: Any = input) -> bool:
         return False
     if reply.strip().lower() in {"n", "no"}:
         return True
-    code = wizard.run(Path.cwd(), interactive=True)
+    code = wizard.run(Path.cwd(), interactive=True, opens_session=True)
     # Open the session after a finished setup, even one whose health check
     # failed (the config is written; the session shows the same hint).
     return code in {wizard.EXIT_OK, wizard.EXIT_PROVIDER}

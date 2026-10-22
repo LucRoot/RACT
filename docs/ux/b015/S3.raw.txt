@@ -1,0 +1,31 @@
+[?9001h[?1004h[?25l[2J[m[HNo ract.yaml in this directory, so RACT does not know which model to use.
+]0;<repo>\.venv\Scripts\ract.exe[?25hSet one up now? [Y/n] (n opens the session without one) 
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 9.8 GB available
+  CPU cores: 12
+  free disk here: 51.8 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  http://127.0.0.1:64184/v1 answers (the address in RACT_BASE_URL) but lists no model yet; load one in it, then run setup again
+No server chosen. Use a local model or a cloud provider? [L/c] l
+How many GB of memory should the model use? [5.9] 
+Suggested model: Qwen2.5-Coder 3B Instruct (about 2 GB): it needs about 3.5 GB of the 5.9 GB you dedicate.
+  a usable floor for small edits
+Start it with one of these (setup does not download anything):
+  Ollama:     ollama pull qwen2.5-coder:3b   (then Ollama serves it on port 11434)
+  llama.cpp:  llama-server -hf Qwen/Qwen2.5-Coder-3B-Instruct-GGUF:Q4_K_M --port 8080
+  LM Studio:  search for Qwen2.5-Coder 3B Instruct in the app, load it, start the server
+Guidance reviewed 2026-10-22; sizes are approximate.
+Start the server, then press Enter to look again, or type skip to write a config for Ollama's default address now: skip
+Wrote ract.yaml and prompts/manager.txt.
+Checking http://127.0.0.1:11434/v1 with one tiny request:
+  failed: Request failed: nothing is answering at http://127.0.0.1:11434/v1 (connection refused).
+  hint: start your model server, or fix the provider url in ract.yaml; `ract doctor --check-providers` checks it
+Opening the session. Type a request, or /help for commands.
+[38;2;30;144;255m[1m RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+[mRACT session qwen2.5-coder:3b via local | master | default | T3 off
+ract> /exit
+[?9001l[?1004l

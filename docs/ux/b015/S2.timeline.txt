@@ -1,0 +1,28 @@
+   0.119s out 
+   1.896s out No ract.yaml in this directory, so RACT does not know which model to use.\n
+   1.914s out Set one up now? [Y/n] (n opens the session without one) 
+   1.935s  in '\r'
+   1.935s out \n
+   1.945s out Machine:\n
+   2.196s out   Python 3.11.15 on Windows AMD64\n
+   2.210s out   git 2.53.0\n  memory: 63.5 GB total, 9.8 GB available\n  CPU cores: 12\n  free disk here: 51.8 GB\n  GPU: none detected\n  network: not tested; setup contacts only the default model-server addresses
+   2.948s out   nothing answered\n
+   2.973s out No server chosen. Use a local model or a cloud provider? [L/c] 
+   2.991s  in 'l\r'
+   2.991s out l\n
+   3.004s out How many GB of memory should the model use? [5.9] 
+   3.012s  in '\r'
+   3.020s out \nSuggested model: Qwen2.5-Coder 3B Instruct (about 2 GB): it needs about 3.5 GB of the 5.9 GB you dedicate.\n  a usable floor for small edits\nStart it with one of these (setup does not download anyt
+   3.032s  in 'skip\r'
+   3.036s out skip\n
+   3.052s out Wrote ract.yaml and prompts/manager.txt.\nChecking http://127.0.0.1:11434/v1 with one tiny request:\n
+   4.353s out   failed: Request failed: nothing is answering at http://127.0.0.1:11434/v1 (connection refused).\n
+   4.373s out   hint: start your model server, or fix the provider url in ract.yaml; `ract doctor --check-providers` checks it\n
+   4.434s out Opening the session. Type a request, or /help for commands.\n
+   4.469s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   4.483s out 
+   4.598s out RACT session qwen2.5-coder:3b via local | master | default | T3 off\n
+   4.623s out ract> 
+   6.669s  in '/exit\r'
+   6.669s out /exit\n
+   7.049s out 

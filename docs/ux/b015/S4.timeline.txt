@@ -1,0 +1,14 @@
+   0.126s out 
+   2.424s out No ract.yaml in this directory, so RACT does not know which model to use.\n
+   2.447s out Set one up now? [Y/n] (n opens the session without one) 
+   2.464s  in '\r'
+   2.464s out \n
+   2.478s out Machine:\n
+   2.738s out   Python 3.11.15 on Windows AMD64\n
+   2.775s out   git 2.53.0\n  memory: 63.5 GB total, 9.7 GB available\n  CPU cores: 12\n  free disk here: 51.8 GB\n  GPU: none detected\n  network: not tested; setup contacts only the default model-server addresses
+   3.530s out   http://127.0.0.1:64603/v1 answers (the address in RACT_BASE_URL); models: fake-coder\n
+   3.568s out Use the server at http://127.0.0.1:64603/v1? [Y/n] 
+   3.876s  in '\x03'
+   3.877s out \nsetup stopped; nothing was written.
+   3.893s out \n
+  13.888s out 

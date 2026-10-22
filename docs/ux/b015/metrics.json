@@ -1,0 +1,127 @@
+{
+  "S1": {
+    "startup_to_prompt_s": 2.021,
+    "inputs": [
+      {
+        "input": "",
+        "first_visible_output_s": 0.034,
+        "longest_silence_s": 0.748
+      },
+      {
+        "input": "",
+        "first_visible_output_s": 0.013,
+        "longest_silence_s": 0.216
+      },
+      {
+        "input": "y",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.245
+      },
+      {
+        "input": "what does this folder contain?",
+        "first_visible_output_s": 0.001,
+        "longest_silence_s": 0.989
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 7.79,
+    "notes": [
+      "expect 'Use the server at': seen",
+      "expect 'Run git init here now': seen",
+      "expect 'ract> ': seen",
+      "expect 'Done: ': seen",
+      "ract.yaml written: True",
+      "git repository: True"
+    ]
+  },
+  "S2": {
+    "startup_to_prompt_s": 1.935,
+    "inputs": [
+      {
+        "input": "",
+        "first_visible_output_s": 0.01,
+        "longest_silence_s": 0.737
+      },
+      {
+        "input": "l",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.013
+      },
+      {
+        "input": "",
+        "first_visible_output_s": 0.008,
+        "longest_silence_s": 0.008
+      },
+      {
+        "input": "skip",
+        "first_visible_output_s": 0.004,
+        "longest_silence_s": 1.302
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 9.08,
+    "notes": [
+      "expect 'local model or a cloud provider': seen",
+      "expect 'How many GB': seen",
+      "expect 'type skip': seen",
+      "expect '(ract> |Opening the session)': seen",
+      "ract.yaml written: True"
+    ]
+  },
+  "S3": {
+    "startup_to_prompt_s": 2.548,
+    "inputs": [
+      {
+        "input": "",
+        "first_visible_output_s": 0.014,
+        "longest_silence_s": 0.754
+      },
+      {
+        "input": "l",
+        "first_visible_output_s": 0.003,
+        "longest_silence_s": 0.032
+      },
+      {
+        "input": "",
+        "first_visible_output_s": 0.023,
+        "longest_silence_s": 0.023
+      },
+      {
+        "input": "skip",
+        "first_visible_output_s": 0.002,
+        "longest_silence_s": 1.307
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 9.95,
+    "notes": [
+      "expect 'lists no model yet': seen",
+      "expect 'local model or a cloud provider': seen",
+      "expect 'How many GB': seen",
+      "expect 'type skip': seen",
+      "expect '(ract> |Opening the session)': seen"
+    ]
+  },
+  "S4": {
+    "startup_to_prompt_s": 2.464,
+    "ctrl_c_to_prompt_s": null,
+    "inputs": [
+      {
+        "input": "",
+        "first_visible_output_s": 0.014,
+        "longest_silence_s": 0.755
+      },
+      {
+        "input": "^C",
+        "first_visible_output_s": 0.001,
+        "longest_silence_s": 0.001
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 15.5,
+    "notes": [
+      "expect 'Use the server at': seen",
+      "files left after Ctrl-C: none"
+    ]
+  }
+}

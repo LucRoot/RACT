@@ -1,0 +1,38 @@
+   0.066s out 
+   2.375s out No ract.yaml in this directory, so RACT does not know which model to use.\n
+   2.511s out Set one up now? [Y/n] (n opens the session without one) 
+   2.548s  in '\r'
+   2.549s out \n
+   2.562s out Machine:\n
+   3.034s out   Python 3.11.15 on Windows AMD64\n
+   3.050s out   git 2.53.0\n
+   3.066s out   memory: 63.5 GB total, 9.8 GB available\n
+   3.083s out   CPU cores: 12\n
+   3.097s out   free disk here: 51.8 GB\n
+   3.137s out   GPU: none detected\n
+   3.178s out   network: not tested; setup contacts only the default model-server addresses on this machine and the provider you choose\n
+   3.206s out Looking for a model server on this machine (default ports only):\n
+   3.960s out   http://127.0.0.1:64184/v1 answers (the address in RACT_BASE_URL) but lists no model yet; load one in it, then run setup again\n
+   3.970s out No server chosen. Use a local model or a cloud provider? [L/c] 
+   3.983s  in 'l\r'
+   3.986s out l\n
+   4.017s out How many GB of memory should the model use? [5.9] 
+   4.025s  in '\r'
+   4.048s out \nSuggested model: Qwen2.5-Coder 3B Instruct (about 2 GB): it needs about 3.5 GB of the 5.9 GB you dedicate.\n
+   4.064s out   a usable floor for small edits\nStart it with one of these (setup does not download anything):\n
+   4.079s out   Ollama:     ollama pull qwen2.5-coder:3b   (then Ollama serves it on port 11434)\n  llama.cpp:  llama-server -hf Qwen/Qwen2.5-Coder-3B-Instruct-GGUF:Q4_K_M --port 8080\n  LM Studio:  search for Qwen
+   4.095s out Start the server, then press Enter to look again, or type skip to write a config for Ollama's default address now: 
+   4.109s  in 'skip\r'
+   4.110s out skip\n
+   4.126s out Wrote ract.yaml and prompts/manager.txt.\n
+   4.141s out Checking http://127.0.0.1:11434/v1 with one tiny request:\n
+   5.449s out   failed: Request failed: nothing is answering at http://127.0.0.1:11434/v1 (connection refused).\n
+   5.472s out   hint: start your model server, or fix the provider url in ract.yaml; `ract doctor --check-providers` checks it\n
+   5.556s out Opening the session. Type a request, or /help for commands.\n
+   5.611s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   5.625s out 
+   5.732s out RACT session qwen2.5-coder:3b via local | master | default | T3 off\n
+   5.848s out ract> 
+   7.858s  in '/exit\r'
+   7.858s out /exit\n
+   7.984s out 

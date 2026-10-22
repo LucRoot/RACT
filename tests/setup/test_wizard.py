@@ -306,3 +306,34 @@ def test_a_config_written_by_setup_raises_no_trust_question(tmp_path: Path) -> N
     assert wizard.run(tmp_path, interactive=False, io=io) == 0
 
     assert trust.trust_items(tmp_path) == []
+
+
+def test_a_server_with_no_model_is_not_offered(tmp_path: Path) -> None:
+    # S3 walkthrough: the placeholder model failed every request.
+    _git_init(tmp_path)
+    empty = Server("Ollama's default address", "http://127.0.0.1:11434/v1", ())
+    io, said, asked = _io(["c", "1"], [empty])
+
+    assert wizard.run(tmp_path, interactive=True, io=io) == 0
+
+    text = "\n".join(said)
+    assert "lists no model yet; load one in it" in text
+    assert not any("Use the server" in a for a in asked)
+
+
+def test_nothing_answering_is_said(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    io, said, _ = _io([], [])
+
+    wizard.run(tmp_path, interactive=False, io=io)
+
+    assert "  nothing answered" in said
+
+
+def test_setup_from_bare_ract_says_the_session_opens(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+    io, said, _ = _io([""], [SERVER])
+
+    wizard.run(tmp_path, interactive=True, io=io, opens_session=True)
+
+    assert said[-1].startswith("Opening the session")

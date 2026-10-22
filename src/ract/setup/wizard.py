@@ -263,9 +263,21 @@ def _yes(reply: str, default: bool) -> bool:
 def _choose_server(
     io: Io, servers: list[local_probe.Server], answers: Answers, interactive: bool
 ) -> local_probe.Server | None:
+    if not servers:
+        io.say("  nothing answered")
+        return None
     for server in servers:
-        models = ", ".join(server.models[:5]) or "no models listed"
-        io.say(f"  found {server.label} at {server.url} ({models})")
+        if server.models:
+            io.say(
+                f"  {server.url} answers ({server.label}); models: {', '.join(server.models[:5])}"
+            )
+        else:
+            io.say(
+                f"  {server.url} answers ({server.label}) but lists no model yet; "
+                "load one in it, then run setup again"
+            )
+    # A server with no model cannot answer a request (S3 walkthrough).
+    servers = [s for s in servers if s.models]
     if not servers:
         return None
     if answers.local_url:
@@ -345,12 +357,13 @@ def run(
     answers: Answers | None = None,
     interactive: bool,
     io: Io | None = None,
+    opens_session: bool = False,
 ) -> int:
     """Run setup in ``directory``. Returns the process exit code."""
     io = io or Io()
     answers = answers or Answers()
     try:
-        return _run(directory, answers, interactive, io)
+        return _run(directory, answers, interactive, io, opens_session)
     except KeyboardInterrupt:
         io.say("\nsetup stopped; nothing was written.")
         return EXIT_INTERRUPTED
@@ -365,7 +378,13 @@ def run(
         return exc.code
 
 
-def _run(directory: Path, answers: Answers, interactive: bool, io: Io) -> int:
+def _run(
+    directory: Path,
+    answers: Answers,
+    interactive: bool,
+    io: Io,
+    opens_session: bool = False,
+) -> int:
     if (directory / CONFIG_NAME).exists() and not answers.reconfigure:
         raise SetupError(
             f"{CONFIG_NAME} already exists here; nothing was changed. To draft a new one "
@@ -457,9 +476,12 @@ def _run(directory: Path, answers: Answers, interactive: bool, io: Io) -> int:
             subprocess.run(["git", "init", "-q"], cwd=directory, check=False)
             io.say("  ran: git init")
 
-    io.say(
-        'Next: run `ract` to open a session here, or try: ract -p --ask "what does this project do?"'
-    )
+    if opens_session:
+        io.say("Opening the session. Type a request, or /help for commands.")
+    else:
+        io.say(
+            'Next: run `ract` to open a session here, or try: ract -p --ask "what does this project do?"'
+        )
     return code
 
 

@@ -1,0 +1,21 @@
+# S4: Setup: Ctrl-C at a question
+# build: "feat(setup): bare `ract` offers setup; every missing-config error points to it (B-015)" +src-changes  terminal: 80x40 pseudo-terminal  run: 2026-10-22 06:47
+## interactive session
+No ract.yaml in this directory, so RACT does not know which model to use.
+Set one up now? [Y/n] (n opens the session without one) 
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 9.7 GB available
+  CPU cores: 12
+  free disk here: 51.8 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  http://127.0.0.1:64603/v1 answers (the address in RACT_BASE_URL); models: fake-coder
+Use the server at http://127.0.0.1:64603/v1? [Y/n] 
+setup stopped; nothing was written.
+
+## harness notes
+- expect 'Use the server at': seen
+- files left after Ctrl-C: none

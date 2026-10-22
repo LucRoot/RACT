@@ -120,7 +120,7 @@ def test_a_custom_address_from_the_environment_is_found(
 
     [found] = local_probe.detect()
 
-    assert found.label == "from RACT_BASE_URL"
+    assert found.label == "the address in RACT_BASE_URL"
 
 
 def test_a_closed_port_is_not_offered(monkeypatch: pytest.MonkeyPatch) -> None:
