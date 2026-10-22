@@ -7,6 +7,9 @@ from typing import Callable, TypeVar
 
 T = TypeVar("T")
 
+# Wait before the one retry of a connection nothing answered (B-043).
+_QUICK_RETRY_DELAY = 0.25
+
 
 @dataclass
 class RetryConfig:
@@ -72,6 +75,9 @@ class RetryPolicy:
         is_retryable: Callable[[Exception], bool],
         sleep: Callable[[float], None] | None = None,
         on_retry: Callable[[int, int, str, float], None] | None = None,
+        *,
+        quick: Callable[[Exception], bool] | None = None,
+        describe: Callable[[Exception], str] | None = None,
     ) -> tuple[T | None, Exception | None]:
         """Run *fn* until it succeeds, retries are exhausted, or failure is final.
 
@@ -82,6 +88,11 @@ class RetryPolicy:
         ``on_retry(attempt, max_attempts, reason, wait_s)`` is called before
         each wait, so a session can show the retry instead of going silent
         (UX-04: three retries over 16 to 25 s with nothing on screen).
+
+        An error for which ``quick`` is true (nothing is listening) gets one
+        retry after a short wait instead of the full backoff (B-043).
+        ``describe`` turns an error into the plain reason shown on a retry
+        line; without it the reason is the exception text.
         """
         sleeper = sleep or time.sleep
         last_error: Exception | None = None
@@ -91,12 +102,22 @@ class RetryPolicy:
                 return fn(), None
             except Exception as exc:  # noqa: BLE001
                 last_error = exc
-                if attempt >= self.config.max_retries or not is_retryable(exc):
+                fast = quick is not None and quick(exc)
+                limit = (
+                    min(1, self.config.max_retries) if fast else self.config.max_retries
+                )
+                if attempt >= limit or not is_retryable(exc):
                     break
                 delay = self.calculate_delay(attempt + 1)
+                if fast:
+                    delay = min(delay, _QUICK_RETRY_DELAY)
                 if on_retry is not None:
-                    reason = " ".join(f"{type(exc).__name__}: {exc}".split())[:120]
-                    on_retry(attempt + 1, self.config.max_retries, reason, delay)
+                    reason = (
+                        describe(exc)
+                        if describe is not None
+                        else " ".join(f"{type(exc).__name__}: {exc}".split())[:120]
+                    )
+                    on_retry(attempt + 1, limit, reason, delay)
                 sleeper(delay)
 
         return None, last_error

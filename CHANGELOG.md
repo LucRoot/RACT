@@ -49,6 +49,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A model server that is not running is reported in about 1.5 s instead of 15 to 25 s, as
+  "nothing is answering at <url> (connection refused)" with the hint to start it. A connection
+  nothing answered gets one quick retry; read timeouts keep the full backoff. Retry lines and
+  errors no longer print raw operating-system error text such as `[WinError 10061]`. On Windows a
+  refused local connection takes about 2 s to report (4 s for `localhost`), so the connect
+  timeout for a server on this machine is 0.5 s.
 - MCP tool calls (over HTTP and to stdio servers), GitHub release names and notes were sent
   without the secret scan that provider requests get; they are scanned now. A text release asset
   that holds a secret-shaped value is refused instead of uploaded.

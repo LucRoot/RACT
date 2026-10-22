@@ -63,6 +63,8 @@ ALLOWED_IMPORT_ROOTS = {
     # stdlib parsers the write gate uses to check a replaced file (S-026)
     "configparser",
     "tomllib",
+    # stdlib: is a provider URL on this machine (B-043)
+    "ipaddress",
     "hashlib",
     "argparse",
     "time",

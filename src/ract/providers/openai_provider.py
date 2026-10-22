@@ -84,6 +84,27 @@ def key_hosts(env_var: str) -> set[str]:
     return hosts
 
 
+# Connect timeout for a server on this machine. A listening socket on
+# loopback is accepted by the kernel in well under a millisecond; nothing
+# listening on Windows is reported only after about 2 s (4 s for
+# "localhost", which tries ::1 first). B-043 wants a refused local
+# connection to fail in under 3 s with one retry.
+_LOOPBACK_CONNECT_TIMEOUT = 0.5
+
+
+def _is_loopback(url: str) -> bool:
+    import ipaddress
+    from urllib.parse import urlsplit
+
+    host = (urlsplit(url).hostname or "").lower()
+    if host == "localhost" or host.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def _host(url: str) -> str:
     """Lowercased host and port of ``url`` (the part a key is paired with)."""
     from urllib.parse import urlsplit
@@ -218,12 +239,43 @@ class OpenAICompatibleProvider(ProviderAdapter):
     @property
     def client(self) -> httpx.Client:
         if self._client is None or self._client.is_closed:
-            self._client = egress_ledger.client("model", timeout=self.timeout)
+            connect = (
+                min(self.timeout, _LOOPBACK_CONNECT_TIMEOUT)
+                if _is_loopback(self.url)
+                else self.timeout
+            )
+            self._client = egress_ledger.client(
+                "model", timeout=httpx.Timeout(self.timeout, connect=connect)
+            )
         return self._client
 
     def close(self) -> None:
         if self._client is not None and not self._client.is_closed:
             self._client.close()
+
+    def _nothing_listening(self, exc: Exception) -> bool:
+        """A connection that failed outright: refused, no route, unknown host.
+
+        On loopback a connect timeout means the same (see
+        _LOOPBACK_CONNECT_TIMEOUT). Read and write timeouts are not this.
+        """
+        if isinstance(exc, httpx.ConnectError):
+            return True
+        return isinstance(exc, httpx.ConnectTimeout) and _is_loopback(self.url)
+
+    def describe_error(self, exc: Exception) -> str:
+        """The plain reason for a failed request, with no OS error text (B-043)."""
+        if self._nothing_listening(exc):
+            if _is_loopback(self.url):
+                return f"nothing is answering at {self.url} (connection refused)"
+            return f"could not connect to {self.url}"
+        if isinstance(exc, httpx.TimeoutException):
+            return f"{self.url} did not answer within {self.timeout:g} s"
+        if isinstance(exc, httpx.HTTPStatusError):
+            return f"HTTP {exc.response.status_code} from {self.url}"
+        if isinstance(exc, httpx.RequestError):
+            return f"the request to {self.url} failed ({type(exc).__name__})"
+        return type(exc).__name__
 
     def _is_retryable(self, exc: Exception) -> bool:
         """Return True when the exception warrants a retry."""
@@ -311,6 +363,8 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 lambda: self._post_completion(payload),
                 lambda exc: not turn_context.cancelled() and self._is_retryable(exc),
                 on_retry=turn_context.on_retry,
+                quick=self._nothing_listening,
+                describe=self.describe_error,
             )
         latency_ms = int((time.perf_counter() - start) * 1000)
 
@@ -329,7 +383,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
                     assumption="The OpenAI-compatible endpoint is reachable.",
                     confidence=0.0,
                     provenance=["openai.complete"],
-                    error=f"Request failed after {self.max_retries} attempts: {last_error}",
+                    error=f"Request failed: {self.describe_error(last_error)}.",
                 )
             return Rooted(
                 value=None,
@@ -463,7 +517,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 assumption="The OpenAI-compatible endpoint is reachable.",
                 confidence=0.0,
                 provenance=["openai.complete_stream"],
-                error=f"Request failed: {exc}",
+                error=f"Request failed: {self.describe_error(exc)}.",
             )
             return
 

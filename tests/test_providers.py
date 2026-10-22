@@ -500,7 +500,10 @@ def test_openai_provider_stream_request_error():
         chunks = list(provider.complete_stream([{"role": "user", "content": "hi"}]))
     assert len(chunks) == 1
     assert not chunks[0].is_ok()
-    assert "down" in (chunks[0].error or "")
+    # B-043: the URL and a plain reason, not the raw exception text.
+    assert (
+        chunks[0].error == "Request failed: could not connect to http://example.com/v1."
+    )
 
 
 def test_openai_provider_stream_unknown_sse_line():
