@@ -201,3 +201,46 @@ def test_resume_with_no_run_to_continue_says_so_and_asks_the_model_nothing(
     assert "traceback" not in output
     assert "not found" in output
     assert server.chat_requests == []
+
+
+def test_resume_leaves_no_step_branch_or_worktree_behind(
+    tmp_path: Path, state_home: Path, fake_model_server: Any
+) -> None:
+    ws, run_id = _kill_in_step_two(tmp_path, state_home, fake_model_server)
+    before = _git_lines(ws, "branch", "--list")
+    worktrees_before = _git_lines(ws, "worktree", "list")
+
+    resume = fake_model_server(
+        Scenario.from_dict({"turns": [_text(NOTES), _text(TESTS)]})
+    )
+    rb._configure(ws, resume.base_url, "fake-coder")
+    done = subprocess.run(
+        _cmd("--session", run_id, "--resume"),
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=300,
+        env=_env(state_home),
+        stdin=subprocess.DEVNULL,
+    )
+
+    assert done.returncode == 0, done.stderr[-400:]
+    assert "already exists" not in (done.stdout + done.stderr)
+    assert len(worktrees_before) >= 1
+    assert len(_git_lines(ws, "worktree", "list")) == 1, "a worktree was left behind"
+    after = _git_lines(ws, "branch", "--list")
+    # A clean run keeps one step branch per step (three here). The killed
+    # step's branch is reset or reused, so the count stays at three.
+    steps = [b for b in after if b.startswith("rootact/step/")]
+    assert len(steps) == 3, (
+        f"expected one branch per step, found {steps} (before: {before})"
+    )
+
+
+def _git_lines(ws: Path, *args: str) -> list[str]:
+    out = subprocess.run(
+        ["git", *args], cwd=ws, capture_output=True, text=True, check=True
+    ).stdout
+    return [line.strip(" *+") for line in out.splitlines() if line.strip()]
