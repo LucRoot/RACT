@@ -56,6 +56,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
         "Show, restart or switch the session that carries context between turns.",
     ),
     ("/sessions", "List recent sessions: id, time, turns, cost and last request."),
+    ("/context", "What the last request sent, and the room the model has."),
     ("/resume <id|latest>", "Switch to a saved session and show its last request."),
     ("/config", "Validate the active config (same as ract config validate)."),
     ("/providers", "List configured providers and the manager provider."),
@@ -176,6 +177,7 @@ class ReplSession:
             "set": self._cmd_set,
             "settings": self._cmd_settings,
             "session": self._cmd_session,
+            "context": self._cmd_context,
             "sessions": self._cmd_sessions,
             "resume": self._cmd_resume,
             "config": self._cmd_config,
@@ -601,6 +603,28 @@ class ReplSession:
         s.session_started = target != "new"
         self._console.success(f"session = {s.session_id}")
         return True
+
+    def _cmd_context(self, args: list[str]) -> bool:
+        """What the last request sent and the room left, from records already on disk.
+
+        Reads the egress ledger only: no request, no event (B-032b).
+        """
+        from ract import egress_ledger
+        from ract.context_view import context_lines
+
+        try:
+            records = egress_ledger.read()
+        except OSError:
+            records = []
+        # No probe result is stored, so the window is unknown here.
+        for line in context_lines(records, None, width=self._context_width()):
+            self._console.print(line)
+        return True
+
+    def _context_width(self) -> int:
+        import shutil
+
+        return max(40, min(80, shutil.get_terminal_size((80, 24)).columns))
 
     def _cmd_sessions(self, args: list[str]) -> bool:
         from ract.session_listing import LIST_LIMIT, list_rows, sessions_dir
