@@ -128,44 +128,48 @@ def test_allowlisted_commands_run_in_a_scratch_project_and_exit_zero(tmp_path):
         assert result.status == "ran", result
 
 
-def test_the_table_is_generated_from_the_scan_with_run_rows_executed(tmp_path):
-    from tests.docs.doc_commands import Block, render_table, run_allowed
-
-    messages = scan([ROOT / name for name in DOC_FILES])
-    rows = []
-    for file, line, command, status, reason in messages.rows:
-        if status == "run":
-            result = run_allowed(Block(file, line, command), tmp_path)
-            status, reason = result.status, result.reason
-        rows.append((file, line, command, status, reason))
-    out = ROOT / "docs" / "DOC_COMMANDS.md"
-    out.write_text(render_table(rows), encoding="utf-8")
-    text = out.read_text(encoding="utf-8")
-    assert "| Status |" in text
-    assert len(rows) == len(messages.rows)
-
-
-def test_the_table_runs_doctor_against_a_config_that_points_at_the_fake_server(
-    tmp_path,
-):
-    from tests.docs.doc_commands import Block, render_table, run_allowed
+def test_the_committed_table_matches_a_fresh_run(tmp_path):
+    # B-080: the test never writes the table. A stale table fails with the command that fixes it.
+    from tests.docs.doc_commands import generate_table
     from tests.fixtures.fake_model_server import FakeModelServer
     from tests.ux.run_baseline import _configure
 
-    messages = scan([ROOT / name for name in DOC_FILES])
     with FakeModelServer("j1_first_run") as server:
         workdir = tmp_path / "project"
         workdir.mkdir()
-        _configure(workdir, server.base_url, "fake-coder")
-        rows = []
-        for file, line, command, status, reason in messages.rows:
-            if status == "run":
-                result = run_allowed(Block(file, line, command), workdir)
-                status, reason = result.status, result.reason
-            rows.append((file, line, command, status, reason))
-    out = ROOT / "docs" / "DOC_COMMANDS.md"
-    out.write_text(render_table(rows), encoding="utf-8")
-    statuses = {row[3] for row in rows}
-    assert "fail" not in statuses or all(
-        "doctor" not in row[2] for row in rows if row[3] == "fail"
-    ), [row for row in rows if row[3] == "fail"]
+        fresh = generate_table(
+            ROOT,
+            workdir,
+            prepare=lambda folder: _configure(folder, server.base_url, "fake-coder"),
+        )
+    committed = (ROOT / "docs" / "DOC_COMMANDS.md").read_text(encoding="utf-8")
+    assert fresh == committed.replace(chr(13) + chr(10), chr(10)), (
+        "docs/DOC_COMMANDS.md is stale: run python tests/docs/doc_commands.py --write"
+    )
+
+
+def test_a_planted_ract_variable_and_a_key_do_not_reach_the_child(
+    tmp_path, monkeypatch
+):
+    from tests.docs import doc_commands
+    from tests.docs.doc_commands import Block, run_allowed
+
+    seen: dict = {}
+
+    class _Done:
+        returncode = 0
+
+    def fake_run(argv, **kwargs):
+        seen["env"] = kwargs["env"]
+        return _Done()
+
+    monkeypatch.setenv("RACT_DEMO_BASE_URL", "http://127.0.0.1:9/planted")
+    monkeypatch.setenv("PLANTED_API_KEY", "not-a-real-key")
+    monkeypatch.setenv("PLANTED_TOKEN", "not-a-real-token")
+    monkeypatch.setattr(doc_commands.subprocess, "run", fake_run)
+    result = run_allowed(Block("doc.md", 1, "ract --version"), tmp_path)
+    assert result.status == "ran"
+    env = seen["env"]
+    assert "RACT_DEMO_BASE_URL" not in env
+    assert "PLANTED_API_KEY" not in env
+    assert "PLANTED_TOKEN" not in env

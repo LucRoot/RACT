@@ -194,11 +194,27 @@ def check_block(block: Block) -> Result:
     return _check_flags(argv[1:], help_text, f"ract {argv[0]}", where)
 
 
+def _child_env() -> dict[str, str]:
+    """The parent's environment, minus colour switches, RACT_* and any key or token.
+
+    A doc command must not see the operator's keys, and must not pick up a
+    RACT_* setting from the shell that runs the tests (G-133).
+    """
+    env: dict[str, str] = {}
+    for key, value in os.environ.items():
+        if key in {"NO_COLOR", "FORCE_COLOR"}:
+            continue
+        if key.startswith("RACT_") or key.endswith(("_KEY", "_TOKEN")):
+            continue
+        env[key] = value
+    return env
+
+
 def run_allowed(block: Block, workdir: Path, timeout: float = 120.0) -> Result:
     """Run one allowlisted command in ``workdir`` with no shell. Exit 0 is ``ran``."""
     where = f"{block.file}:{block.line}: {block.command}"
     argv = _argv(block.command)
-    env = {k: v for k, v in os.environ.items() if k not in {"NO_COLOR", "FORCE_COLOR"}}
+    env = _child_env()
     proc = subprocess.run(
         [sys.executable, "-c", MAIN, *argv[1:]],
         cwd=workdir,
@@ -247,3 +263,53 @@ def render_table(rows: list[tuple[str, int, str, str, str]]) -> str:
         cell = command.replace("|", "\\|")
         lines.append(f"| {file} | {line} | `{cell}` | {status} | {reason} |")
     return "\n".join(lines) + "\n"
+
+
+def generate_table(root: Path, workdir: Path, prepare=None) -> str:
+    """The whole table: scan the docs, run the run-class rows in ``workdir``, render.
+
+    ``prepare(workdir)`` sets up the project (a config that points at the fake
+    server) before the run-class commands run. Writes nothing.
+    """
+    messages = scan([root / name for name in DOC_FILES])
+    if prepare is not None:
+        prepare(workdir)
+    rows = []
+    for file, line, command, status, reason in messages.rows:
+        if status == "run":
+            result = run_allowed(Block(file, line, command), workdir)
+            status, reason = result.status, result.reason
+        rows.append((file, line, command, status, reason))
+    return render_table(rows)
+
+
+def main(argv: list[str]) -> int:
+    """``python tests/docs/doc_commands.py --write`` regenerates docs/DOC_COMMANDS.md."""
+    if argv != ["--write"]:
+        print("usage: python tests/docs/doc_commands.py --write")
+        return 2
+    import tempfile
+
+    root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(root))
+    from tests.fixtures.fake_model_server import FakeModelServer
+    from tests.ux.run_baseline import _configure
+
+    with (
+        tempfile.TemporaryDirectory() as tmp,
+        FakeModelServer("j1_first_run") as server,
+    ):
+        workdir = Path(tmp) / "project"
+        workdir.mkdir()
+        text = generate_table(
+            root,
+            workdir,
+            prepare=lambda folder: _configure(folder, server.base_url, "fake-coder"),
+        )
+    (root / "docs" / "DOC_COMMANDS.md").write_text(text, encoding="utf-8", newline="\n")
+    print("wrote docs/DOC_COMMANDS.md")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
