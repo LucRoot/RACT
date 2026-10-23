@@ -353,6 +353,60 @@ is clean on screen and in the events; headless `default` refuses with exit
 3; resume with the same plan hash does not ask twice; a step writing an
 unlisted file still asks; old consumers of `plan.proposed` are unaffected.
 
+### D13. A checkpoint after every step, so a killed run resumes (B-070)
+
+A run saved its session record once, after the last step. A run killed
+during step 2 of 3 left files on disk and no record of which steps had
+finished, so nothing could be resumed (found in B-066).
+
+**Where.** One file per run in the user state directory, beside the undo
+store and keyed by the repository the same way:
+`<state>/runs/<repository key>/<run id>.json`. It is never written under the
+workspace, so a cloned repository cannot ship one. It is still read as
+untrusted data: the run id passes `require_name`; a symbolic link is
+refused; at most 256 KiB; a closed schema (an unknown key, a missing key or
+a wrong type refuses the file); the `root` field must equal this
+repository's key.
+
+**What it holds,** rewritten after every step: `schema` (`ract.checkpoint/1`),
+`root`, `run`, `intent`, `plan` (the steps as in `plan.proposed`),
+`plan_hash` (D12), `finished` (step numbers whose `step.finished` outcome was
+`done`), `in_progress` (the step number that started and did not finish, or
+null) with the turn backup's `backup_id` and the files that step had saved
+or created so far.
+
+**Finished** means the harness recorded `done` for the step: never the
+model's word, never a claim in a reply (D10).
+
+**Resume.** `ract run --session <run id> --resume` (the flag that already
+exists). A one-shot run without `--session` gets a generated run id and,
+when it stops early, prints the command that resumes it. On resume:
+1. The checkpoint is read with the rules above. A plan whose recomputed
+   `plan_hash` differs from the stored one is not trusted: the run says so
+   and does nothing.
+2. The stored plan goes through the plan validator, the workspace path
+   rules and `answer_instead` again, as a new plan would.
+3. The step in progress is reset. The substrate path removes its worktree
+   and step branch with the existing cleanup. The direct path restores what
+   that step saved and removes what it created, through the undo helpers;
+   a file the user changed since is left as it is and named, as `/undo`
+   does.
+4. Finished steps are not rerun; the rest run in order.
+5. A plan already approved under D12 with the same `plan_hash` is not asked
+   about again.
+
+**What the user sees,** one line per step before anything runs:
+"step 1 done earlier, not run again", "step 2 was interrupted; its partial
+change was undone; running it again", "step 3 next". These are `notice`
+events, so no new event kind is needed, and no config key.
+
+Tests (named now): `test_a_checkpoint_exists_after_step_1`;
+`test_a_corrupted_oversized_linked_or_foreign_checkpoint_is_refused_and_never_run`;
+`test_a_plan_hash_mismatch_is_not_trusted`;
+`test_resume_never_reruns_a_finished_step` (requests counted at the fake
+server); `test_no_half_written_file_remains_after_resume`; WRIGHT's B-066
+journey test runs on the one-shot path once this lands.
+
 ## Model integration
 
 - **Capability probe.** Chat, streaming, native tool calling (one request
@@ -422,6 +476,7 @@ calls that send diffs to a second provider, and anything at tier 2 or 3.
 | The loop-limit stop (D10) | the loop runner and the VERIFIER record | ungated design; code with the loop |
 | Repository roles (D11) | S-025 trust store; the role loader | rules accepted first; loader after |
 | Plan approval (D12) | decision O (the default); B-053a checklist renderer | design settled; code waits for O |
+| Step checkpoints and resume (D13) | nothing gated; undo helpers (S-028) and the D12 plan hash | ungated; BUILDER code next |
 | VERIFIER result type (D3, D4) | the existing coverage and mutation gates | ungated |
 | VERIFIER running tests, lint, type checks | ADR-0048 D5 `run_command` and tier 3 | gated |
 | EDITOR | ADR-0047 D1, D4 write tools (T1) and D6 review and apply | gated |
