@@ -191,6 +191,10 @@ def test_ract_auction_reports_zero_dead_modules():
     # auction — allowlist the basename to cover the new module. (The
     # v0.3 dead_code_auction.py already lives in the DEFAULT_ALLOWLIST.)
     allowlist.add("auction.py")
+    # S-035: ``untrusted_file.py`` lands on its own (G-163) and its first
+    # caller, ``refactor_ledger``, comes in the next commit. Remove this
+    # line in that commit.
+    allowlist.add("untrusted_file.py")
     # ``security/keys.py`` — SandboxKey generator; consumed by
     # module_06 tests and by the RK-3 verify path. No shipped-CLI call
     # site until module_08 (see module_06 Flagged gaps).
