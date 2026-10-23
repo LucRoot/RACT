@@ -351,6 +351,9 @@ def run_turn(
         if backup_box and backup_box[0].changed
         else None
     )
+    # The backup's name, for undo_backup.previous_version: a renderer never
+    # has to take a path apart from an event (L-141 decision 3).
+    backup_id = backup_box[0].turn_id if backup_box and backup_box[0].changed else None
 
     def finished(
         outcome: str, verdict: str, unsigned: list[str], claims: list[str] | None = None
@@ -369,6 +372,7 @@ def run_turn(
                 "changed": changed,
                 "diffstat": stats,
                 "undo": undo_folder,
+                "backup_id": backup_id,
                 "checkpoint": None,
                 "verification": verification,
                 "provenance": _provenance(unsigned),

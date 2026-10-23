@@ -11,6 +11,7 @@ import pytest
 from ract.session_events import EventStream
 from ract.session_render import PlainRenderer
 from ract.turn_summary import describe_change, diffstat, unverified_claims
+from ract.undo_backup import previous_version
 from tests.fixtures.fake_model_server import Scenario
 from tests.test_headless import _ract
 from tests.test_session_turn import FIXED, _repo
@@ -235,6 +236,11 @@ def test_a_real_turn_reports_diffstat_and_an_unverified_claim(
         finished["undo"]
         and ws.resolve() not in Path(finished["undo"]).resolve().parents
     )
+    # L-141 decision 3: the backup is named in its own field, a name and
+    # never a path, and previous_version gives the file's bytes from it.
+    assert finished["backup_id"] == Path(finished["undo"]).name
+    before = previous_version(ws, finished["backup_id"], "src/calc.py")
+    assert before is not None and b"return a - b" in before
     assert '"tests pass"; nothing in this turn checked that' in result.stderr
 
 
