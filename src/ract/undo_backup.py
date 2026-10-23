@@ -155,6 +155,11 @@ class TurnBackup:
             key = rel.as_posix()
             if key.split("/", 1)[0] in {".git", ".ract"}:
                 continue
+            # Once per step for the run's checkpoint (D13), before the
+            # once-per-turn check: a later step needs its own copy.
+            from ract import run_checkpoint
+
+            run_checkpoint.note_saving(self, key, full)
             if key in self.saved or key in self.created:
                 continue
             if not full.is_file():
@@ -186,6 +191,12 @@ class TurnBackup:
 
 
 _current: ContextVar[TurnBackup | None] = ContextVar("ract_undo_backup", default=None)
+
+
+def current_backup_id() -> str | None:
+    """The id of the turn backup bound now, or None outside a turn."""
+    backup = _current.get()
+    return backup.turn_id if backup is not None else None
 
 
 def save_before_replace(root: Path | str, paths: Iterable[Path | str]) -> None:
@@ -389,6 +400,7 @@ def redo(root: Path | str, *, force: bool = False) -> UndoResult:
 __all__ = [
     "KEEP_TURNS",
     "check_entry",
+    "current_backup_id",
     "require_name",
     "repository_key",
     "turns_dir",
