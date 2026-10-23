@@ -195,3 +195,22 @@ def test_an_unknown_name_with_escape_codes_is_listed_without_them(
     session.handle("/model bad\x1b[31mname")
     assert "\x1b" not in console.text
     assert "valid names:" in console.text
+
+
+def test_userinfo_in_a_url_is_never_shown(tmp_path: Path) -> None:
+    config = tmp_path / "ract.yaml"
+    config.write_text(
+        "project:\n  name: demo\n"
+        "manager_provider: local\n"
+        "providers:\n"
+        "  local:\n"
+        "    adapter: local_http\n"
+        "    url: http://user:secret@host.example.invalid:1234/v1\n"
+        "    model: local-7b\n",
+        encoding="utf-8",
+    )
+    session, console = _session(config)
+    session.handle("/model")
+    assert "host.example.invalid:1234" in console.text
+    assert "user" not in console.text
+    assert "secret" not in console.text

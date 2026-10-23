@@ -36,7 +36,16 @@ def host_text(slot: dict[str, Any]) -> str:
     url = slot.get("url") or slot.get("base_url")
     if not isinstance(url, str) or not url:
         return "(no url)"
-    return safe_text(urlsplit(url).netloc or "(no url)")
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    # Only the host and the port: user:password in a URL is never shown (BUILDER, G-113).
+    try:
+        port = parts.port
+    except ValueError:
+        port = None
+    if not host:
+        return "(no url)"
+    return safe_text(f"{host}:{port}" if port else host)
 
 
 def model_blocks(
