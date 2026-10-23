@@ -114,15 +114,58 @@ Sessions
 ✓  resumed repl-20261023-090000, last request: rename the greeting helper and up
 ```
 
+## Mode, cost and undo
+
+`/mode` shows how RACT applies changes. `/cost` shows the requests this session
+sent off the machine. `/undo` reverses the last turn's file changes, and says so
+when there is none.
+
+```text
+ract> /mode
+default: RACT asks before each step that changes a file
+ract> /cost
+no requests left this machine
+ledger: C:\Users\rootl\AppData\Local\ract\egress.jsonl (ract doctor --egress for history)
+ract> /undo
+nothing to undo: no turn RACT can reverse is recorded here
+```
+
+## Ask a question
+
+`/ask` answers a question about the code, with no plan and no file written. The
+capture below is a failed run: the fake server returned an empty reply.
+
+```text
+ract> /ask what does add() do in src/calc.py?
+Plan: 1 step, confidence 1.00
+  assumes: The user asked a question; the answer is shown and no file is written.
+  1. what does add() do in src/calc.py?
+[step 1] what does add() do in src/calc.py?
+[step 1] failed (0.1s)
+error: Step 1 returned an empty answer. The model returned an empty response instead of a answer.
+hint: the model sent an empty reply for that step; run it again, or set a stronger model for this provider in ract.yaml
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 1.0 s, 167 tokens in / 10 out
+```
+
 ## Known issues
 
 - At 60 columns, some lines are wider than the terminal. The checklist and the
   approval prompts are not yet folded to the width. Tracked as B-041c.
+- `/ask` prints a plan and runs a step. `/help` says `/ask` makes no plan, so
+  one of the two is wrong. Reported as a FOUND for the BUILDER.
+- The `/ask` error says "returned an empty answer instead of a answer". The
+  article is wrong. Reported as a FOUND.
+- Whether the empty reply is a scenario mismatch or a defect is not checked.
+  The capture does not show it.
 - At 80 columns, the `/resume` summary line can wrap in the middle of a word
   (the capture above shows `up` and `pdate` on two lines). Reported as a
   FOUND for the BUILDER; the guide does not hide it.
 
 ## Not covered yet
 
-This guide will grow to cover `/cost`, `/undo`, `/help` and the mode line. None
-of these has a capture yet, so none is described here.
+This guide will grow to cover the full `/help` table and a successful question.
+Neither has a capture yet, so neither is described here.
