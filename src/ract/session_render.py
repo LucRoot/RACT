@@ -11,10 +11,18 @@ implements the same ``Renderer`` protocol, so the choice is a swap.
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Protocol
 
+from ract.diff_render import draw_turn_diff
 from ract.session_events import SessionEvent, safe_text
 from ract.turn_summary import describe_change
+from ract.undo_backup import previous_version, turns_dir
+
+# The turn summary draws at most this many files' diffs (B-014b).
+_DIFF_FILES = 20
+# A file over this many bytes is named, not read (G-146).
+_MAX_DIFF_BYTES = 8 * 1024 * 1024
 
 # B-053a: a plan of this many steps or more prints the checklist block.
 CHECKLIST_MIN_STEPS = 2
@@ -58,10 +66,14 @@ class PlainRenderer:
         show_reasoning: bool = False,
         width: int = 80,
         labels: bool = False,
+        project: Path | None = None,
     ) -> None:
         self._write = write
         self._show_reasoning = show_reasoning
         self._width = width
+        # The project folder the turn changed: the diff block reads its files
+        # from here, and only from here (B-014b). None draws no diff block.
+        self._project = project
         # Plain mode (B-041b): the answer block starts with "ract: " and its
         # continuation lines are indented by two spaces.
         self._labels = labels
@@ -408,6 +420,8 @@ class PlainRenderer:
             )
         else:
             self._line("  changed: nothing")
+        for line in self._turn_diff(d):
+            self._line("  " + line)
         if d.get("undo"):
             # The folder is in the user state directory (S-028); the
             # command is what the user needs, the path is in the event.
@@ -436,6 +450,51 @@ class PlainRenderer:
             )
         self._line("  " + self._cost_line(seconds))
 
+    def _turn_diff(self, d: dict[str, Any]) -> list[str]:
+        """The turn's diff lines, drawn from its backup and the project (B-014b).
+
+        The before text is read with ``previous_version`` from the backup
+        folder named in ``undo``. The after text is read only for a path that
+        resolves inside the project. A path or id that is refused says so.
+        """
+        changed = d.get("changed")
+        backup_id = d.get("backup_id")
+        if self._project is None or not changed or not backup_id:
+            return []
+        paths = [str(path) for path in changed]
+        folder = turns_dir(self._project) / backup_id
+        if not folder.is_dir():
+            # A folder that is not there cannot say what the files were before.
+            return [
+                f"diff not available for {safe_text(path)}"
+                for path in paths[:_DIFF_FILES]
+            ]
+        changes: list[tuple[str, str | None, str | None]] = []
+        lines: list[str] = []
+        for path in paths[:_DIFF_FILES]:
+            name = safe_text(path)
+            if (self._project / path).is_symlink():
+                lines.append(f"diff not available for {name}")
+                continue
+            try:
+                saved = previous_version(self._project, backup_id, path)
+            except ValueError:
+                lines.append(f"diff not available for {name}")
+                continue
+            current = _project_text(self._project, path)
+            too_big = (saved is not None and len(saved) > _MAX_DIFF_BYTES) or (
+                _too_large(self._project, path)
+            )
+            if too_big:
+                lines.append(f"{name}: too large to draw a diff")
+                continue
+            before = None if saved is None else saved.decode("utf-8", "replace")
+            changes.append((path, before, current))
+        lines += draw_turn_diff(changes, width=self._width)
+        if len(paths) > _DIFF_FILES:
+            lines.append(f"... and {len(paths) - _DIFF_FILES} more files")
+        return lines
+
     def _cost_line(self, seconds: float) -> str:
         requests = self._cost.get("requests")
         parts = []
@@ -450,3 +509,20 @@ class PlainRenderer:
                 else f"{tin or 0} tokens in / {tout or 0} out"
             )
         return ", ".join(parts)
+
+
+def _too_large(project: Path, path: str) -> bool:
+    """True when the project file is over the cap; its size is read from disk, not loaded."""
+    full = project.resolve() / path
+    return full.is_file() and full.stat().st_size > _MAX_DIFF_BYTES
+
+
+def _project_text(project: Path, path: str) -> str | None:
+    """The file's text now, or None when it is gone or outside the project (B-014b)."""
+    root = project.resolve()
+    full = (root / path).resolve()
+    if not full.is_relative_to(root) or not full.is_file():
+        return None
+    if full.stat().st_size > _MAX_DIFF_BYTES:
+        return None
+    return full.read_bytes().decode("utf-8", "replace")

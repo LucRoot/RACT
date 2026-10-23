@@ -346,10 +346,6 @@ def test_ract_auction_reports_zero_dead_modules():
     # that loop is ratified and built. Until then only tests call it.
     # Remove this line in the commit that wires the agent loop.
     allowlist.add("tool_calls.py")
-    # B-014a: ``diff_render.py`` is the pure hunk renderer; B-014b wires it
-    # into the turn summary (with ``undo_backup.previous_version``, B-078).
-    # Until then only tests call it. Remove this line in that commit.
-    allowlist.add("diff_render.py")
     # v0.6 (B-037a): ``citations.py`` checks the file and line citations in an
     # answer. It is a pure module; the turn summary that calls it is B-037b.
     # Remove this line in the commit that wires B-037b.

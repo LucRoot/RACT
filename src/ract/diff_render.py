@@ -1,8 +1,8 @@
 """Draw a change as hunks (B-014a): a pure function of two texts.
 
 No I/O, no Rich, no color. The inputs are file contents, so they are hostile:
-every output line goes through ``safe_text``, and bidi controls, which
-``safe_text`` does not cover, are replaced first. Output is deterministic.
+every output line goes through ``safe_text``, which also shows direction
+marks as escapes. Output is deterministic.
 """
 
 from __future__ import annotations
@@ -15,14 +15,10 @@ _NUL_WINDOW = 8192
 _NEW_FILE_PREVIEW = 20
 _EXACT_DIFF_LINES = 1_000
 _MAX_DIFF_LINES = 5_000
-_BIDI_CONTROLS = dict.fromkeys(
-    map(ord, "؜‎‏‪‫‬‭‮⁦⁧⁨⁩"),
-    "?",
-)
 
 
 def _clean(text: str) -> str:
-    return safe_text(text.translate(_BIDI_CONTROLS))
+    return safe_text(text)
 
 
 def _lines(text: str) -> list[str]:
@@ -55,7 +51,7 @@ def _finish(lines: list[str], width: int, max_lines: int) -> list[str]:
     fitted = [_fit(line, width) for line in lines]
     if len(fitted) > max_lines:
         rest = len(fitted) - max_lines
-        return fitted[:max_lines] + [f"... {rest} more lines"]
+        return fitted[:max_lines] + [f"... {_noun(rest, 'more line')}"]
     return fitted
 
 
@@ -76,13 +72,13 @@ def _file_level(path: str, old: str | None, new: str | None) -> list[str]:
     kind = "new file" if old is None else "deleted file"
     lines = _lines(text)
     gutter = len(str(max(len(lines), 1)))
-    out = [f"{path}: {kind}, {len(lines)} lines"]
+    out = [f"{path}: {kind}, {_noun(len(lines), 'line')}"]
     out += [
         _row(gutter, number, marker, line)
         for number, line in enumerate(lines[:_NEW_FILE_PREVIEW], start=1)
     ]
     if len(lines) > _NEW_FILE_PREVIEW:
-        out.append(f"... {len(lines) - _NEW_FILE_PREVIEW} more lines")
+        out.append(f"... {_noun(len(lines) - _NEW_FILE_PREVIEW, 'more line')}")
     return out
 
 
@@ -140,32 +136,33 @@ class _Plan:
         return difflib.SequenceMatcher.get_grouped_opcodes(self, context)
 
 
-def render_hunks(
+def _diff(
     path: str,
     old: str | None,
     new: str | None,
     width: int = 80,
     context: int = 3,
     max_lines: int = 200,
-) -> list[str]:
-    """Draw the change from ``old`` to ``new`` as hunks, one header per hunk.
+) -> tuple[list[str], int, int]:
+    """Lines for one file's change, and the lines added and removed.
 
-    ``None`` means the file does not exist on that side. Each hunk header reads
-    ``path: lines a-b -> c-d, +x -y``; body lines carry a line-number gutter and
-    a ``' '``, ``-`` or ``+`` marker. Output is cut to ``width`` columns and to
-    ``max_lines`` lines, and the cut says how many lines it left out.
+    The counts come from the hunks themselves, never from matching the rendered
+    text, so text inside a file cannot change them (G-152).
     """
     path = _clean(path)
     if any(t is not None and _is_binary(t) for t in (old, new)):
         size = len((new if new is not None else old or "").encode("utf-8", "replace"))
-        return [f"{path}: binary file, {size} bytes"]
+        return [f"{path}: binary file, {size} bytes"], 0, 0
     if old is None or new is None:
-        return _finish(_file_level(path, old, new), width, max_lines)
+        lines = _finish(_file_level(path, old, new), width, max_lines)
+        if old is None:
+            return lines, len(_lines(new or "")), 0
+        return lines, 0, len(_lines(old))
     if old == new:
-        return []
+        return [], 0, 0
     ending = _line_ending_change(old, new)
     if ending is not None:
-        return [f"{path}: line endings changed ({ending})"]
+        return [f"{path}: line endings changed ({ending})"], 0, 0
 
     # Compare line by line with CRLF read as LF, so a real edit in a file whose
     # endings also differ shows only the edit.
@@ -176,7 +173,7 @@ def render_hunks(
         # what the line counts show, and do not run the matcher at all.
         grew = len(new_lines) - len(old_lines)
         counts = f"+{max(grew, 0)} -{max(-grew, 0)} by line count"
-        return _finish(
+        lines = _finish(
             [
                 f"{path}: file too large to draw a diff: "
                 f"{len(old_lines)} -> {len(new_lines)} lines; {counts}"
@@ -184,11 +181,13 @@ def render_hunks(
             width,
             max_lines,
         )
+        return lines, max(grew, 0), max(-grew, 0)
     # Exact matching for short files. Past _EXACT_DIFF_LINES, difflib's junk
     # heuristic keeps repetitive lines from making the match quadratic (G-117).
     longest = max(len(old_lines), len(new_lines))
     plan = _Plan(_opcodes(old_lines, new_lines, longest > _EXACT_DIFF_LINES))
     out: list[str] = []
+    total_added = total_removed = 0
     for group in plan.get_grouped_opcodes(context):
         first, last = group[0], group[-1]
         added = sum(
@@ -197,6 +196,8 @@ def render_hunks(
         removed = sum(
             i2 - i1 for tag, i1, i2, _, _ in group if tag in {"delete", "replace"}
         )
+        total_added += added
+        total_removed += removed
         out.append(
             f"{path}: lines {_span(first[1], last[2])} -> "
             f"{_span(first[3], last[4])}, +{added} -{removed}"
@@ -213,4 +214,68 @@ def render_hunks(
         out.append(f"{path}: old text has no newline at end of file")
     if new and not new.endswith("\n"):
         out.append(f"{path}: new text has no newline at end of file")
-    return _finish(out, width, max_lines)
+    return _finish(out, width, max_lines), total_added, total_removed
+
+
+def render_hunks(
+    path: str,
+    old: str | None,
+    new: str | None,
+    width: int = 80,
+    context: int = 3,
+    max_lines: int = 200,
+) -> list[str]:
+    """Draw the change from ``old`` to ``new`` as hunks, one header per hunk.
+
+    ``None`` means the file does not exist on that side. Each hunk header reads
+    ``path: lines a-b -> c-d, +x -y``; body lines carry a line-number gutter and
+    a ``' '``, ``-`` or ``+`` marker. Output is cut to ``width`` columns and to
+    ``max_lines`` lines, and the cut says how many lines it left out.
+    """
+    return _diff(path, old, new, width, context, max_lines)[0]
+
+
+def _noun(count: int, word: str) -> str:
+    """``1 line``, ``2 lines``; ``word`` is the singular form."""
+    return f"{count} {word}" if count == 1 else f"{count} {word}s"
+
+
+def draw_turn_diff(
+    changes: list[tuple[str, str | None, str | None]],
+    *,
+    width: int = 80,
+    max_lines: int = 60,
+) -> list[str]:
+    """The diff block of a turn summary: one hunk list per changed file.
+
+    ``changes`` are ``(path, before, after)`` in the order the turn changed them;
+    ``None`` on a side means the file did not exist there. The block holds at
+    most ``max_lines`` lines of hunks. When it cuts, it says how many lines and
+    files it left out. The last line is the total, summed from each file's hunks.
+    """
+    rendered: list[tuple[list[str], int, int]] = []
+    for path, before, after in changes:
+        lines, added, removed = _diff(path, before, after, width=width, max_lines=10**9)
+        if lines:
+            rendered.append((lines, added, removed))
+    if not rendered:
+        return []
+    total_added = sum(added for _, added, _ in rendered)
+    total_removed = sum(removed for _, _, removed in rendered)
+    body: list[str] = []
+    for index, (lines, _, _) in enumerate(rendered):
+        if len(body) + len(lines) <= max_lines:
+            body += lines
+            continue
+        left_after = len(rendered) - index - 1
+        room = max_lines - len(body) - 1 - (1 if left_after else 0)
+        if room > 0:
+            body += lines[:room]
+            body.append(f"... {_noun(len(lines) - room, 'more line')}")
+        if left_after:
+            left = len(rendered) - index - (1 if room > 0 else 0)
+            body.append(f"... and {_noun(left, 'more file')}")
+        break
+    files = len(rendered)
+    noun = "file" if files == 1 else "files"
+    return [*body, f"{files} {noun}, +{total_added} -{total_removed}"]

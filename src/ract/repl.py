@@ -761,7 +761,11 @@ class ReplSession:
             sys.stdout.flush()
 
         self._events = EventStream(session=self.state.session_id)
-        self._renderer = PlainRenderer(write, labels=plain_mode())
+        self._renderer = PlainRenderer(
+            write,
+            labels=plain_mode(),
+            project=self.state.config.resolve().parent,
+        )
         self._events.subscribe(self._renderer)
         self._events.emit("session.started", self._session_facts())
         # Ask about the repository's own commands now, on the main thread,
