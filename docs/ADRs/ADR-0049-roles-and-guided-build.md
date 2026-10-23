@@ -406,7 +406,12 @@ when it stops early, prints the command that resumes it. On resume:
    `plan_hash` differs from the stored one is not trusted: the run says so
    and does nothing.
 2. The stored plan goes through the plan validator, the workspace path
-   rules and `answer_instead` again, as a new plan would.
+   rules and `answer_instead` again, as a new plan would. `plan_hash`
+   covers each step's `n`, `action` and `target` only, so a stored
+   `provider_hint` and `tool_call` are trusted no further than a new
+   plan's: once a tool call can run (B-010a), a resumed step's `tool_call`
+   passes the plan validator and the tier gates again before it runs, with
+   a test that a changed stored `tool_call` is refused (G-150).
 3. The step in progress is reset. The substrate path removes its worktree
    and step branch with the existing cleanup. The direct path restores what
    that step saved and removes what it created, through the undo helpers;
