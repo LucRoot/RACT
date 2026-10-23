@@ -87,13 +87,49 @@ class UnknownEventKind(ValueError):
     """Raised when a producer emits a kind that is not in ``KINDS``."""
 
 
+# Unicode direction marks and overrides (U+061C, U+200E, U+200F, U+202A to
+# U+202E, U+2066 to U+2069): they reorder how a line is displayed, so text
+# after one can read differently from what it is.
+_DIRECTION_MARKS = frozenset(
+    chr(code)
+    for code in (0x061C, 0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x2066, 0x206A))
+)
+_REPLACE_DIRECTION = {ord(ch): "\ufffd" for ch in _DIRECTION_MARKS}
+
+
 def safe_text(text: str) -> str:
     """Return ``text`` with control characters replaced, safe to print.
 
     A carriage return is dropped, not replaced: a model reply with CRLF line
     endings showed a replacement character before every line break (B-045).
+    Direction marks are replaced like control characters, for every screen
+    and for streamed replies (L-141).
     """
-    return _UNSAFE.sub("�", text.replace("\r", ""))
+    return _UNSAFE.sub("\ufffd", text.replace("\r", "")).translate(_REPLACE_DIRECTION)
+
+
+def visible_text(text: str) -> str:
+    """``text`` with control characters and direction marks shown as escapes.
+
+    LR:: For repository and server text the operator reads to decide or to
+    diagnose (the trust prompt, doctor, the probe, ``/model``): it must show
+    that such characters were there, not hide them (S-034). Newlines and tabs
+    are escaped too, so one item stays one line. Nothing is removed or cut.
+    Backslashes stay as they are, so Windows paths read normally. Streamed
+    model replies use ``safe_text``.
+    """
+    out: list[str] = []
+    for ch in str(text):
+        code = ord(ch)
+        if ch in "\r\n\t":
+            out.append({"\r": "\\r", "\n": "\\n", "\t": "\\t"}[ch])
+        elif code < 0x20 or 0x7F <= code <= 0x9F:
+            out.append(f"\\x{code:02x}")
+        elif ch in _DIRECTION_MARKS:
+            out.append(f"\\u{code:04x}")
+        else:
+            out.append(ch)
+    return "".join(out)
 
 
 def split_text(text: str, limit: int = MAX_DELTA_BYTES) -> list[str]:

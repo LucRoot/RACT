@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from ract.canonical import dumps_jcs
+from ract.session_events import visible_text
 
 STORE_NAME = "trusted_repositories.json"
 
@@ -51,34 +52,9 @@ class TrustItem:
         return f"{self.kind} {visible(self.name)}: {visible(self.detail)}"
 
 
-def visible(text: str) -> str:
-    """``text`` with control and direction-override characters escaped.
-
-    Newlines and tabs are escaped too: a newline in a command would print as
-    a second, made-up item line. Nothing is removed or shortened. Backslashes
-    stay as they are, so Windows paths read normally; a typed ``\\r`` and an
-    escaped carriage return then look alike, and neither hides any text.
-    """
-    out: list[str] = []
-    for ch in str(text):
-        code = ord(ch)
-        if ch in "\r\n\t":
-            out.append({"\r": "\\r", "\n": "\\n", "\t": "\\t"}[ch])
-        elif code < 0x20 or 0x7F <= code <= 0x9F:
-            out.append(f"\\x{code:02x}")
-        elif ch in _DIRECTION_MARKS:
-            out.append(f"\\u{code:04x}")
-        else:
-            out.append(ch)
-    return "".join(out)
-
-
-# Unicode direction marks and overrides (U+200E, U+200F, U+202A to U+202E,
-# U+2066 to U+2069): they reorder how a line is displayed.
-_DIRECTION_MARKS = frozenset(
-    chr(code)
-    for code in (0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x2066, 0x206A))
-)
+# The escaped, visible form for the trust prompt now lives in session_events,
+# shared with the other screens that show repository and server text (L-141).
+visible = visible_text
 
 
 def _load_config(root: Path) -> dict[str, Any]:
