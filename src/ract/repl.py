@@ -617,11 +617,12 @@ class ReplSession:
         except OSError:
             records = []
         # No probe result is stored, so the window is unknown here.
-        for line in context_lines(records, None, width=self._context_width()):
+        for line in context_lines(records, None, width=self._render_width()):
             self._console.print(line)
         return True
 
-    def _context_width(self) -> int:
+    def _render_width(self) -> int:
+        """The width the renderer fits its lines to: the terminal, between 40 and 80 (B-041c)."""
         import shutil
 
         return max(40, min(80, shutil.get_terminal_size((80, 24)).columns))
@@ -765,6 +766,7 @@ class ReplSession:
             write,
             labels=plain_mode(),
             project=self.state.config.resolve().parent,
+            width=self._render_width(),
         )
         self._events.subscribe(self._renderer)
         self._events.emit("session.started", self._session_facts())
