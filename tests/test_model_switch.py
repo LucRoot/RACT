@@ -9,6 +9,8 @@ READY entry.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +45,15 @@ def _config(path: Path, *, second_url: str = "http://127.0.0.1:8011/v1") -> Path
         encoding="utf-8",
     )
     return path
+
+
+@pytest.fixture(autouse=True)
+def _no_session_manager_after_the_test() -> Iterator[None]:
+    """The /model choice is process state; never let it reach the next test."""
+    from ract.config_check import set_session_manager
+
+    yield
+    set_session_manager(None)
 
 
 def _session(config: Path) -> tuple[ReplSession, _Console]:
@@ -206,10 +217,6 @@ def test_an_untrusted_repository_refuses_the_named_host(
     assert "ract trust" in console.text
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="ESCALATE (B-058b): the manager switch is read by resolve_manager_provider, but a step picks its provider by hint in ProviderRouter.select_for_hint (executor/steps.py), which does not read it. The second server gets nothing. Strict xfail until the BUILDER decides.",
-)
 def test_the_next_turn_reaches_the_second_server_and_not_the_first(
     tmp_path: Path, fake_model_server: Any
 ) -> None:
@@ -232,7 +239,14 @@ def test_the_next_turn_reaches_the_second_server_and_not_the_first(
         "    max_retries: 0\n",
         encoding="utf-8",
     )
-    session, _ = _session(config)
+    # The real dispatcher (event mode): the turn runs in this process, as in a
+    # live session. The test helper's no-op dispatcher would run nothing.
+    session = ReplSession(
+        config,
+        read_line=lambda prompt: "",
+        console=_Console(),
+        verbs=cli.CLI_VERBS,
+    )
     session.handle("/model second")
     session.handle("/ask say hello")
     assert len(second.chat_requests) >= 1

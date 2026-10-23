@@ -115,12 +115,30 @@ class ProviderRouter:
             provider=name,
         )
 
+    def _session_slot(self) -> str | None:
+        """The provider the operator chose with ``/model`` for this session.
+
+        LR:: ``/model <name>`` switched only the planning provider; each step
+        still chose its provider by hint, so a user who switched saw the old
+        provider answer while the session said it had switched (B-058b). The
+        session's choice now comes first for every step. Only a slot that
+        exists in this configuration counts; outside a session nothing is set.
+        """
+        from ract.config_check import session_manager  # noqa: PLC0415
+
+        name = session_manager()
+        return name if name is not None and name in self.providers else None
+
     def select_for_hint(self, hint: str) -> Rooted[ProviderAdapter]:
         """Select the highest-scoring provider that matches the capability hint.
 
         LR:: Hints are advisory. If no provider advertises the hint, fall back to
-        the first configured slot so the work is not blocked.
+        the first configured slot so the work is not blocked. A provider chosen
+        for the session with ``/model`` comes before the hint (B-058b).
         """
+        chosen = self._session_slot()
+        if chosen is not None:
+            return self.get_adapter(chosen).with_step(f"session_manager:{chosen}")
         if not self._registry._providers:
             # No providers could be registered; fall back to first configured.
             if self.providers:
@@ -150,7 +168,15 @@ class ProviderRouter:
     def fallback_chain(
         self, hint: str, max_attempts: int = 3
     ) -> list[Rooted[ProviderAdapter]]:
-        """Return an ordered list of fallback candidates for a capability hint."""
+        """Return an ordered list of fallback candidates for a capability hint.
+
+        The session's ``/model`` choice, when set, is the only candidate: a
+        failure there is reported, never answered by another provider the
+        user switched away from (B-058b).
+        """
+        chosen = self._session_slot()
+        if chosen is not None:
+            return [self.get_adapter(chosen)]
         if not self._registry._providers:
             if self.providers:
                 first = next(iter(self.providers))
