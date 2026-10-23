@@ -368,7 +368,14 @@ refused; at most 256 KiB; a closed schema (an unknown key, a missing key or
 a wrong type refuses the file); the `root` field must equal this
 repository's key.
 
-**What it holds,** rewritten after every step: `schema` (`ract.checkpoint/1`),
+**When it is written.** When a step starts, before it touches any file
+(`in_progress` set), and again when it finishes (`finished` updated,
+`in_progress` cleared). A kill at any point leaves a record of what to reset.
+Every write is atomic: a temporary file in the same folder, flushed, then
+replaced over the old one, so a kill during the write leaves the previous
+checkpoint whole. A truncated or unreadable file is refused, never trusted.
+
+**What it holds:** `schema` (`ract.checkpoint/1`),
 `root`, `run`, `intent`, `plan` (the steps as in `plan.proposed`),
 `plan_hash` (D12), `finished` (step numbers whose `step.finished` outcome was
 `done`), `in_progress` (the step number that started and did not finish, or
@@ -401,6 +408,10 @@ change was undone; running it again", "step 3 next". These are `notice`
 events, so no new event kind is needed, and no config key.
 
 Tests (named now): `test_a_checkpoint_exists_after_step_1`;
+`test_in_progress_is_recorded_before_the_step_touches_a_file`;
+`test_a_truncated_checkpoint_is_refused`;
+`test_the_users_edit_to_a_file_the_interrupted_step_touched_survives`
+(byte for byte);
 `test_a_corrupted_oversized_linked_or_foreign_checkpoint_is_refused_and_never_run`;
 `test_a_plan_hash_mismatch_is_not_trusted`;
 `test_resume_never_reruns_a_finished_step` (requests counted at the fake
