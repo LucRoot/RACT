@@ -292,10 +292,6 @@ def test_allowlist_wrong_content_is_refused(tmp_path: Path, body: bytes) -> None
         load_allowlist_file(path)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: load_allowlist_file lets IsADirectoryError escape instead of the documented refusal",
-)
 def test_allowlist_directory_where_file_is_expected(tmp_path: Path) -> None:
     path = _plant_dir(tmp_path, ALLOWLIST_FILE)
     try:

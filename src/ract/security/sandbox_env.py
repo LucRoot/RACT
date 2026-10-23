@@ -1124,6 +1124,9 @@ def load_allowlist_file(path: Path) -> tuple[str, ...]:
     """
     if not path.exists():
         return ()
+    if not path.is_file():
+        # A directory (or anything else) where the file belongs (B-075, S-035).
+        raise AllowlistFileMalformed(f"{path} is not a file")
     entries: list[str] = []
     # SP Q3(d) amendment: use utf-8-sig so UTF-8 BOM at file start is
     # silently stripped (Windows editors love to insert one). Trailing-
