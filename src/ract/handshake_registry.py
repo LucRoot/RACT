@@ -91,6 +91,13 @@ class HandshakeRegistry:
     widens a manifest only when this machine recorded it: ``update_status``
     writes a mark in the user state directory holding the approved item's
     digest, and ``widen_manifest_for`` checks the mark against the item.
+
+    A shipped item can also carry an id RACT uses later (B-082). ``add``
+    writes a request mark the same way, and every decision about an id
+    (``update_status``, ``blocks_commit``, ``is_approved``) reads the item
+    with this machine's request mark, or the last item with that id when
+    none has one. A shipped copy ahead of it can neither take the approval
+    nor keep the step blocked.
     """
 
     def __init__(self, project_dir: Path | str) -> None:
@@ -105,12 +112,16 @@ class HandshakeRegistry:
         digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
         return _default_state_dir() / "handshakes" / digest
 
-    def _approval_mark(self, milestone_id: str) -> Path:
+    def _mark(self, milestone_id: str, kind: str) -> Path:
+        """This machine's ``approved`` or ``requested`` mark for an id."""
         name = hashlib.sha256(milestone_id.encode("utf-8")).hexdigest()[:32]
-        return self._approvals_dir() / f"{name}.approved"
+        return self._approvals_dir() / f"{name}.{kind}"
 
-    def _approved_here(self, item: HandshakeItem) -> bool:
-        mark = self._approval_mark(item.id)
+    def _approval_mark(self, milestone_id: str) -> Path:
+        return self._mark(milestone_id, "approved")
+
+    def _marked(self, item: HandshakeItem, kind: str) -> bool:
+        mark = self._mark(item.id, kind)
         if mark.is_symlink() or not mark.is_file():
             return False
         try:
@@ -118,6 +129,35 @@ class HandshakeRegistry:
         except (OSError, UnicodeDecodeError):
             return False
         return recorded == _approval_digest(item)
+
+    def _approved_here(self, item: HandshakeItem) -> bool:
+        return self._marked(item, "approved")
+
+    def _current_index(
+        self, items: list[HandshakeItem], milestone_id: str
+    ) -> int | None:
+        """The item that stands for *milestone_id* (B-082), or None.
+
+        The one this machine requested, else the last one with the id.
+        """
+        found = [i for i, item in enumerate(items) if item.id == milestone_id]
+        for i in found:
+            if self._marked(items[i], "requested"):
+                return i
+        return found[-1] if found else None
+
+    def current(self, milestone_id: str) -> HandshakeItem | None:
+        """The handshake item that stands for *milestone_id*, or None."""
+        items = self.entries()
+        index = self._current_index(items, milestone_id)
+        return items[index] if index is not None else None
+
+    def is_approved(self, milestone_id: str) -> bool:
+        """True when the id's item is approved and this machine recorded it."""
+        item = self.current(milestone_id)
+        return (
+            item is not None and item.status == "approved" and self._approved_here(item)
+        )
 
     def _load(self) -> list[dict[str, Any]]:
         from ract.untrusted_file import UntrustedFileRefused, read_untrusted
@@ -192,6 +232,9 @@ class HandshakeRegistry:
         )
         items.append(item)
         self._save(items)
+        request = self._mark(item.id, "requested")
+        request.parent.mkdir(parents=True, exist_ok=True)
+        request.write_text(_approval_digest(item), encoding="ascii")
         # module_05: emit at the request site so the log is complete
         # regardless of who called ``add`` (compiler group requests,
         # handshake CLI, MilestoneOracle escalations).
@@ -213,8 +256,13 @@ class HandshakeRegistry:
         return ``BLOCKED_ON_HANDSHAKE`` rather than commit — SUBSTRATE §3.5.
         Empty result means the step is free to commit its worktree.
         """
-        pending_ids = {item.id for item in self.pending()}
-        return [hid for hid in handshake_ids if hid in pending_ids]
+        items = self.entries()
+        blocked = []
+        for hid in handshake_ids:
+            index = self._current_index(items, hid)
+            if index is not None and items[index].status == "pending":
+                blocked.append(hid)
+        return blocked
 
     def widen_manifest_for(self, manifest_widen: object, milestone_id: str) -> object:
         """Apply an approved handshake's widen to the run's capability manifest.
@@ -241,12 +289,7 @@ class HandshakeRegistry:
             )
         # Verify the handshake is approved, and approved on this machine
         # (a mark in the user state directory), before applying any widen.
-        approved = {
-            item.id
-            for item in self.entries()
-            if item.status == "approved" and self._approved_here(item)
-        }
-        if milestone_id not in approved:
+        if not self.is_approved(milestone_id):
             return manifest_widen
         # Apply the widen: union filesystem read + write, union network hosts.
         widened = manifest_widen.model_copy(
@@ -274,24 +317,25 @@ class HandshakeRegistry:
         if status not in {"approved", "rejected", "deferred"}:
             raise ValueError(f"Invalid status transition: {status}")
         items = self.entries()
-        for i, item in enumerate(items):
-            if item.id == milestone_id:
-                items[i] = HandshakeItem(
-                    id=item.id,
-                    description=item.description,
-                    acceptance=item.acceptance,
-                    timestamp=item.timestamp,
-                    status=status,
-                    metadata=item.metadata,
-                    depends_on=item.depends_on,
-                )
-                self._save(items)
-                _record_approval_mark(self, items[i])
-                # module_05: emit at the resolve site so the log carries
-                # every terminal transition.
-                _emit_handshake_event("handshake.resolved", items[i], reason="")
-                return items[i]
-        raise KeyError(f"Handshake not found: {milestone_id}")
+        i = self._current_index(items, milestone_id)
+        if i is None:
+            raise KeyError(f"Handshake not found: {milestone_id}")
+        item = items[i]
+        items[i] = HandshakeItem(
+            id=item.id,
+            description=item.description,
+            acceptance=item.acceptance,
+            timestamp=item.timestamp,
+            status=status,
+            metadata=item.metadata,
+            depends_on=item.depends_on,
+        )
+        self._save(items)
+        _record_approval_mark(self, items[i])
+        # module_05: emit at the resolve site so the log carries
+        # every terminal transition.
+        _emit_handshake_event("handshake.resolved", items[i], reason="")
+        return items[i]
 
 
 def _record_approval_mark(registry: HandshakeRegistry, item: HandshakeItem) -> None:

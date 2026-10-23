@@ -183,11 +183,8 @@ class IntentCompiler:
     def _group_is_approved(approvals: "HandshakeRegistry | None", kind: str) -> bool:
         if approvals is None:
             return False
-        group_id = IntentCompiler._group_id(kind)
-        for item in approvals.entries():
-            if item.id == group_id and item.status == "approved":
-                return True
-        return False
+        # Approved on this machine, not only in the workspace file (B-082).
+        return approvals.is_approved(IntentCompiler._group_id(kind))
 
     @staticmethod
     def _request_group_handshake(
