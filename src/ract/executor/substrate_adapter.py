@@ -48,7 +48,7 @@ from ract.core.module_identity import _module_knot, register_module_knot
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
 
-from ract import turn_context
+from ract import run_checkpoint, turn_context
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.predicate import PredicateResult
 from ract.core.transaction import ResourceBudget, TransactionOutcome
@@ -276,6 +276,8 @@ def run_via_substrate(
     per_step_reports: list[ExecutionReport] = []
 
     for index, step in enumerate(plan.steps):
+        if run_checkpoint.already_finished(index + 1):
+            continue  # done before the run was interrupted (D13)
         if turn_context.cancelled():
             # Checked before the step's worktree and branch exist, so an
             # interrupted turn leaves no step branch behind (G-027).
@@ -334,8 +336,11 @@ def run_via_substrate(
             harness.executor.step_number_offset = index
             # Writes in the step's worktree are not changes to the operator's
             # files; the apply below records what reaches them.
+            # The executor finishing in the worktree is not the step
+            # finishing for the run's checkpoint: that waits for the apply.
             with (
                 turn_context.recording_suspended(),
+                run_checkpoint.finish_deferred(),
                 _rebind_project_dir(harness.executor, worktree.path),
             ):
                 per_step_rooted = harness.executor.execute(
@@ -360,6 +365,10 @@ def run_via_substrate(
                 },
             )
 
+        # D13: the step and its worktree are recorded before either exists,
+        # so a resumed run can remove them.
+        run_checkpoint.step_started(index + 1)
+        run_checkpoint.note_worktree(spec.step_id.hex())
         record = loop.run_step(spec, step_runner)
 
         result = captured.get("result")
@@ -458,6 +467,7 @@ def run_via_substrate(
                 ),
             )
 
+        run_checkpoint.step_finished(index + 1)
         per_step_reports.append(result.unwrap())
 
     merged = _merge_reports(per_step_reports, intent, plan)

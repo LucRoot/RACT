@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ract.workspace_path import resolve_workspace_path
-from ract import undo_backup
+from ract import run_checkpoint, undo_backup
 
 
 @dataclass(frozen=True)
@@ -232,6 +232,7 @@ class DiffApplier:
         # Write without newline translation so the detected convention survives.
         with open(target, "w", encoding="utf-8", newline="") as f:
             f.write(merged_text)
+        run_checkpoint.note_written(self.project_dir, [target])
 
         return DiffApplyResult(
             path=target,

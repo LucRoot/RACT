@@ -23,7 +23,14 @@ register_module_knot(__name__, _MODULE_KNOT)
 
 from ract.artifact_store import Artifact as StoreArtifact, ArtifactStore
 from ract.artifact_tracker import ArtifactTracker, TrackedArtifact
-from ract import egress_ledger, egress_scan, turn_context, undo_backup, write_gate
+from ract import (
+    egress_ledger,
+    egress_scan,
+    run_checkpoint,
+    turn_context,
+    undo_backup,
+    write_gate,
+)
 from ract.diff_applier import DiffApplier
 from ract.workspace_path import (
     WorkspacePathRefused,
@@ -553,12 +560,15 @@ class Executor:
         cleaned = self._strip_markdown_fences(content)
         if full_path.is_file():
             # S-026: refuse a reply that is plainly not the file (raises
-            # ReplacementRefused), then keep the previous bytes for the turn.
+            # ReplacementRefused).
             write_gate.check_replacement(
                 expected_artifact, full_path.read_bytes(), cleaned, action
             )
-            undo_backup.save_before_replace(self.project_dir, [full_path])
+        # Keep the previous bytes for the turn, or record that the turn
+        # creates the file: /undo removes it and a resumed run (D13) resets it.
+        undo_backup.save_before_replace(self.project_dir, [full_path])
         full_path.write_text(cleaned, encoding="utf-8")
+        run_checkpoint.note_written(self.project_dir, [full_path])
         turn_context.record_written(self.project_dir, [full_path])
         return self._record_provenance(full_path, cleaned)
 
@@ -1105,6 +1115,8 @@ class Executor:
 
     def _step_started(self, index: int, step: Step) -> None:
         n = self._shown(index)
+        # D13: the run's checkpoint names the step before it touches a file.
+        run_checkpoint.step_started(n)
         self._open_step = (n, step, time.monotonic())
         turn_context.report(
             "step.started",
@@ -1116,6 +1128,7 @@ class Executor:
             return
         n, step, started = self._open_step
         self._open_step = None
+        run_checkpoint.step_finished(n)
         turn_context.report(
             "step.finished",
             {
@@ -1155,6 +1168,8 @@ class Executor:
         refusals: list[Refusal] = []
         unsigned_artifacts: list[str] = []
         for index, step in enumerate(plan.steps, start=1):
+            if run_checkpoint.already_finished(self._shown(index)):
+                continue  # done before the run was interrupted (D13)
             self._step_started(index, step)
             if turn_context.cancelled():
                 return Rooted(

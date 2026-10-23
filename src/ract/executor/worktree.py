@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterable
 
 from ract.workspace_path import ENV_TEMPLATE_NAMES, is_secret_shaped
-from ract import undo_backup
+from ract import run_checkpoint, undo_backup
 
 if TYPE_CHECKING:
     from ract.antilazy.pre_commit import (
@@ -992,6 +992,7 @@ def apply_commit_to_working_tree(
             elif verdict == "delete":
                 undo_backup.save_before_replace(repo, [path])
                 (repo / path).unlink()
+                run_checkpoint.note_written(repo, [path])
                 applied.append(path)
             elif verdict == "write":
                 content = _git_bytes(repo, "cat-file", "--filters", f"{after}:{path}")
@@ -1002,6 +1003,7 @@ def apply_commit_to_working_tree(
                 target.parent.mkdir(parents=True, exist_ok=True)
                 undo_backup.save_before_replace(repo, [path])
                 target.write_bytes(content.stdout)
+                run_checkpoint.note_written(repo, [path])
                 applied.append(path)
             else:
                 skipped[path] = verdict
