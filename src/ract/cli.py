@@ -179,7 +179,8 @@ def _trust_command(args: list[str]) -> int:
     root = parsed.config.resolve().parent
     if parsed.list:
         for key in trust.trusted_repositories():
-            print(key)
+            # A folder name can carry the same characters as a hook (S-034).
+            print(trust.visible(key))
         return 0
     if parsed.remove:
         if trust.untrust(root):

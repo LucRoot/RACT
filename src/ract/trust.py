@@ -39,7 +39,46 @@ class TrustItem:
     detail: str  # the exact command or endpoint, shown to the operator
 
     def line(self) -> str:
-        return f"{self.kind} {self.name}: {self.detail}"
+        """The item as the operator reads it: every character visible.
+
+        LR:: ``name`` and ``detail`` come from the repository's own files. A
+        carriage return, an escape sequence or a direction override in them
+        changed what the trust prompt showed (S-034): text after a ``\\r``
+        covered the real command. They are shown escaped, so the operator
+        sees that they were there, and the text is never cut. The digest is
+        taken over the raw fields, not this line.
+        """
+        return f"{self.kind} {visible(self.name)}: {visible(self.detail)}"
+
+
+def visible(text: str) -> str:
+    """``text`` with control and direction-override characters escaped.
+
+    Newlines and tabs are escaped too: a newline in a command would print as
+    a second, made-up item line. Nothing is removed or shortened. Backslashes
+    stay as they are, so Windows paths read normally; a typed ``\\r`` and an
+    escaped carriage return then look alike, and neither hides any text.
+    """
+    out: list[str] = []
+    for ch in str(text):
+        code = ord(ch)
+        if ch in "\r\n\t":
+            out.append({"\r": "\\r", "\n": "\\n", "\t": "\\t"}[ch])
+        elif code < 0x20 or 0x7F <= code <= 0x9F:
+            out.append(f"\\x{code:02x}")
+        elif ch in _DIRECTION_MARKS:
+            out.append(f"\\u{code:04x}")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+# Unicode direction marks and overrides (U+200E, U+200F, U+202A to U+202E,
+# U+2066 to U+2069): they reorder how a line is displayed.
+_DIRECTION_MARKS = frozenset(
+    chr(code)
+    for code in (0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x2066, 0x206A))
+)
 
 
 def _load_config(root: Path) -> dict[str, Any]:
