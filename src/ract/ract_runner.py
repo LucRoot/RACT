@@ -168,7 +168,7 @@ def _configured_budget(config_path: Path) -> int | None:
         return None
     if not isinstance(data, dict):
         return None
-    return token_budget.parse(data.get(token_budget.KEY))
+    return token_budget.parse(data.get(token_budget.FIELD))
 
 
 def run_ract(

@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
-KEY = "token_budget"
+FIELD = "token_budget"
 STOP_PREFIX = "stopped: this run used"
 
 
@@ -32,7 +32,7 @@ def parse(value: object) -> int | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise BudgetConfigError(
-            f"{KEY} must be a positive whole number, or left out to turn it off; "
+            f"{FIELD} must be a positive whole number, or left out to turn it off; "
             f"got {value!r}"
         )
     return value
@@ -49,8 +49,8 @@ class Budget:
 
     def stop_message(self) -> str:
         return (
-            f"{STOP_PREFIX} {self.used} tokens; {KEY} is {self.limit}. "
-            f"Raise {KEY} in ract.yaml, or split the task."
+            f"{STOP_PREFIX} {self.used} tokens; {FIELD} is {self.limit}. "
+            f"Raise {FIELD} in ract.yaml, or split the task."
         )
 
     def add_usage(self, usage: Any, provider: str) -> None:
@@ -60,7 +60,7 @@ class Budget:
             if provider not in self.unreported:
                 self.unreported.add(provider)
                 print(
-                    f"[ract] {KEY} is set, but {provider} reports no token counts, "
+                    f"[ract] {FIELD} is set, but {provider} reports no token counts, "
                     "so it is not enforced",
                     flush=True,
                 )
