@@ -1,0 +1,13 @@
+# Captured: /context in a session with no saved turns; fake server, no model call; 80 columns.
+# Driver: tests/ux/terminal_driver.py (ConPTY). Escape sequences removed by the driver.
+# Stripped: trailing spaces only. The last-request line is the most recent ledger record on this machine.
+# Capture label: b032b_context; date 2026-10-23.
+
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> /context
+last request used 167 tokens in, 55 out (reported by 127.0.0.1)
+window: unknown (run ract doctor --check-providers to measure it)
+turns: not stored in the session file
+the next request is built per step; its size is not known until it is sent
+ract> /exit

@@ -114,6 +114,19 @@ Sessions
 ✓  resumed repl-20261023-090000, last request: rename the greeting helper and up
 ```
 
+## Check what the model has been sent
+
+`/context` says what the last model request used, as the server reported it, and
+what RACT does not know. It sends no request. The window is shown as unknown
+unless a server reported one, and the turn count is not stored yet.
+
+```text
+ract> /context
+last request used 167 tokens in, 55 out (reported by 127.0.0.1)
+window: unknown (run ract doctor --check-providers to measure it)
+turns: not stored in the session file
+```
+
 ## Mode, cost and undo
 
 `/mode` shows how RACT applies changes. `/cost` shows the requests this session
