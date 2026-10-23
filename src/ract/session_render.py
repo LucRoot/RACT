@@ -17,7 +17,7 @@ from typing import Any, Protocol
 from ract.diff_render import draw_turn_diff
 from ract.session_events import SessionEvent, safe_text
 from ract.turn_summary import describe_change
-from ract.undo_backup import previous_version, turns_dir
+from ract.undo_backup import previous_version, require_name, turns_dir
 
 # The turn summary draws at most this many files' diffs (B-014b).
 _DIFF_FILES = 20
@@ -454,7 +454,7 @@ class PlainRenderer:
         """The turn's diff lines, drawn from its backup and the project (B-014b).
 
         The before text is read with ``previous_version`` from the backup
-        folder named in ``undo``. The after text is read only for a path that
+        named by ``backup_id``. The after text is read only for a path that
         resolves inside the project. A path or id that is refused says so.
         """
         changed = d.get("changed")
@@ -462,6 +462,14 @@ class PlainRenderer:
         if self._project is None or not changed or not backup_id:
             return []
         paths = [str(path) for path in changed]
+        try:
+            # The id is checked as a name before it is joined to any folder (G-159).
+            require_name(backup_id, "backup id")
+        except ValueError:
+            return [
+                f"diff not available for {safe_text(path)}"
+                for path in paths[:_DIFF_FILES]
+            ]
         folder = turns_dir(self._project) / backup_id
         if not folder.is_dir():
             # A folder that is not there cannot say what the files were before.

@@ -140,3 +140,14 @@ def test_no_backup_id_means_no_diff_block(tmp_path, state):
     _turn(ws)
     text = _render(ws, ["src/a.py"], None)
     assert ": lines " not in text
+
+
+def test_an_absolute_path_as_the_backup_id_is_refused_before_any_folder_is_read(
+    tmp_path, state
+):
+    # G-159: the id is checked as a name first; an absolute path never reaches a folder check.
+    ws = tmp_path / "ws"
+    _turn(ws)
+    absolute = str(tmp_path.anchor) if tmp_path.anchor else "/"
+    text = _render(ws, ["src/a.py"], absolute)
+    assert "diff not available for src/a.py" in text
