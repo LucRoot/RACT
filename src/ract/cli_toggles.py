@@ -13,7 +13,7 @@ import argparse
 from pathlib import Path
 from typing import List, Optional
 
-from ract.session_config import SessionConfig
+from ract.session_config import SessionConfig, SessionConfigUnreadable
 
 
 def parse_cli_args(
@@ -51,6 +51,8 @@ def main(argv: Optional[List[str]] | _SentinelType = _SENTINEL_DEFAULT) -> int:
             config = SessionConfig.from_file(config_path)
         except FileNotFoundError:
             raise SystemExit("No existing session to resume.")
+        except SessionConfigUnreadable as exc:
+            raise SystemExit(f"The saved session cannot be resumed: {exc}") from None
     else:
         config = SessionConfig()
     if args.yolo:

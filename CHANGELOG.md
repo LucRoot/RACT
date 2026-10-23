@@ -95,6 +95,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   machine recorded it (`ract handshakes approve` writes a mark in the user state directory
   holding the approved item's digest). Approvals made before this change must be given
   again (docs/UPGRADING.md) (S-035).
+- Other files a repository can ship (`.ract/refactor_ledger.json`, the memory arena,
+  `.ract/error_memory.jsonl`, the env allowlist, the assumptions log) and `session.json`
+  are read with a size cap and without following a link, and a wrong shape is refused or
+  ignored instead of raising an error the reader did not document. The refactor ledger no
+  longer reads `allow_debt_override` or a looser threshold from the file (S-035).
 - Files a cloned repository can ship no longer steer writes outside the workspace. Session
   rollback snapshots (`.ract/snapshots/`), consolidation proposals in `.ract/handshakes.json`,
   consolidation backups and imported session exports each turned a value from the file into a

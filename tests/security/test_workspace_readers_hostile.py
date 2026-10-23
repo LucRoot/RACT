@@ -6,9 +6,8 @@ except the reader's own documented refusal, nothing outside the project is
 read, no text printed back carries a raw control or bidi character, and a
 file cannot widen a policy.
 
-A case that fails today is ``xfail(strict=True)`` with the finding in the
-reason. The fixes are the BUILDER's; nothing under ``src/`` is changed here.
-READERS.md lists the readers this file covers.
+Each finding was a strict expected failure here until S-035 fixed it; the
+cases are now normal tests. READERS.md lists the readers this file covers.
 """
 
 from __future__ import annotations
@@ -419,10 +418,6 @@ def test_shipped_approved_handshake_does_not_widen(tmp_path: Path) -> None:
 SESSION_JSON = ("session.json",)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: SessionConfig.from_file lets JSONDecodeError and TypeError escape on a wrong shape",
-)
 @pytest.mark.parametrize("body", [b"not json", b"[1, 2]", b"42"])
 def test_session_config_wrong_shape_is_refused(tmp_path: Path, body: bytes) -> None:
     path = _plant(tmp_path, SESSION_JSON, body)

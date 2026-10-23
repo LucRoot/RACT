@@ -1,8 +1,6 @@
 # Workspace readers under hostile files (B-075)
 
-Each row is a reader that loads a file a cloned repository can ship. The tests are in `test_workspace_readers_hostile.py`. Status is what the run shows; `expected failure` names the finding in the test's reason. The BUILDER owns the fixes.
-
-Status below is from reading the code. The first run of `test_workspace_readers_hostile.py` decides it; until that run, every status here is a prediction.
+Each row is a reader that loads a file a cloned repository can ship. The tests are in `test_workspace_readers_hostile.py`. Status is what the run shows. Every finding below was a strict expected failure until S-035 fixed it; those cases are normal tests now.
 
 | Reader | File | What the test shows | Status |
 |---|---|---|---|
@@ -15,7 +13,7 @@ Status below is from reading the code. The first run of `test_workspace_readers_
 | `ract_runner._configured_budget` | `ract.yaml` (token_budget) | Oversize, wrong shapes, a directory in place of the file | holds (predicted) |
 | `assumptions_wal` | `.ract/wal/assumptions.wal` | A garbage line and an oversize file (refused or skipped); a directory in place of the file | holds since S-035 (was B-075 FOUND: a directory let PermissionError escape); a non-object line and non-UTF-8 bytes are `WalCorruptError` too |
 | `handshake_registry` | `.ract/handshakes.json` | Non-list roots, an oversize file, a directory in place of the file; a non-object item and an unknown key; a shipped `approved` item must not widen the manifest | holds since S-035 (was B-075 FOUND: wrong items raised TypeError; a shipped approval widened the manifest). An approval widens only when this machine recorded it, in the user state directory |
-| `session_config` | `session.json` | Not JSON, a list, a number | expected failure, B-075 FOUND (JSONDecodeError and TypeError escape) |
+| `session_config` | `session.json` | Not JSON, a list, a number | holds since S-035 (was B-075 FOUND: JSONDecodeError and TypeError escaped); the refusal is `SessionConfigUnreadable` |
 | `trust_items` | `.ract/hooks/*.json` | Bad hook files listed as unreadable; a directory in place of a hook file; a command with ESC and bidi override (checked on `TrustItem.line()`, the printed form) | holds. The raw `detail` keeps the ESC and bidi on purpose (S-034: the digest uses the raw fields); the printed line is escaped |
 
 ## Not yet covered
@@ -38,4 +36,4 @@ The `assumptions_wal` garbage case now uses two bad lines, so the first is a mid
 
 ## Prediction status
 
-The strict expected failures were predicted from reading the code and are confirmed by the run; none XPASSed. The two symlink cases (`refactor_ledger`, `memory_arena`) are skipped on this account and remain predictions until the Linux run (B-046) or an elevated Windows run.
+The strict expected failures were predicted from reading the code and confirmed by the run; none XPASSed before S-035, and each XPASSed after its fix, before its markers were removed. The two symlink cases (`refactor_ledger`, `memory_arena`) are skipped on this account; they are normal tests now and run on Linux (B-046) or an elevated Windows run.
