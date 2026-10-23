@@ -4381,6 +4381,13 @@ def main(argv: list[str] | None = None) -> int:
     """RACT CLI entry point."""
     if argv is None:
         argv = sys.argv[1:]
+    if "--no-color" in argv:
+        # Global flag, valid before or after the subcommand (B-041a). Stripped
+        # here so no verb's parser has to know it.
+        argv = [arg for arg in argv if arg != "--no-color"]
+        from ract.tui import console as branded_console
+
+        branded_console.disable_color()
 
     # v0.5.1 wiring module_10 (Lens A C2): unify workspace state on
     # ``.ract/``. If the workspace has a pre-module_10 ``.rack/`` and

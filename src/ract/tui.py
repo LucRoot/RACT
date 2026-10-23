@@ -12,6 +12,7 @@ import os
 import sys
 from typing import Any
 
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.rule import Rule
@@ -46,16 +47,29 @@ class RactConsole:
 
     def __init__(self) -> None:
         _reconfigure_utf8()
-        # Respect NO_COLOR; otherwise let Rich detect terminal capabilities.
-        no_color = os.environ.get("NO_COLOR", "").strip()
+        # Respect NO_COLOR (an empty value counts as unset); otherwise let Rich
+        # detect terminal capabilities.
+        self._color = not os.environ.get("NO_COLOR", "").strip()
+        self._build()
+
+    def _build(self) -> None:
         kwargs: dict[str, Any] = {
-            "color_system": None if no_color else "auto",
+            "color_system": "auto" if self._color else None,
             "soft_wrap": True,
             "highlight": False,
             "legacy_windows": False,
         }
         self._console = Console(**kwargs)
         self._stderr_console = Console(stderr=True, **kwargs)
+
+    @property
+    def color_enabled(self) -> bool:
+        return self._color
+
+    def disable_color(self) -> None:
+        """Turn color off for the rest of the process (``--no-color``, B-041a)."""
+        self._color = False
+        self._build()
 
     @property
     def console(self) -> Console:
@@ -101,14 +115,35 @@ class RactConsole:
                 title=f"[bold]{title}[/]",
                 border_style=style,
                 title_align="left",
+                box=self._box() or box.ROUNDED,
             )
         )
 
     def rule(self, title: str = "") -> None:
-        self._console.print(Rule(title=title, style=self.BRAND_GOLD))
+        self._console.print(
+            Rule(title=title, style=self.BRAND_GOLD, characters=self._rule_chars())
+        )
+
+    def clear_screen(self) -> None:
+        """Clear the terminal. With color off, a blank line instead (B-041a)."""
+        if self._color:
+            self._console.print("\033[2J\033[H", end="")
+        else:
+            self._console.print()
+
+    def _box(self) -> box.Box | None:
+        """Plain ``+ - |`` borders when color is off, Rich's default otherwise."""
+        return None if self._color else box.ASCII
+
+    def _rule_chars(self) -> str:
+        return "─" if self._color else "-"
 
     def table(self, title: str, columns: list[str], rows: list[list[Any]]) -> None:
-        table = Table(title=title, title_style=f"bold {self.BRAND_GOLD}")
+        table = Table(
+            title=title,
+            title_style=f"bold {self.BRAND_GOLD}",
+            box=self._box() or box.HEAVY_HEAD,
+        )
         for col in columns:
             table.add_column(col, overflow="fold")
         for row in rows:

@@ -289,7 +289,7 @@ class ReplSession:
         return False
 
     def _cmd_clear(self, args: list[str]) -> bool:
-        self._console.print("\033[2J\033[H", end="")
+        self._console.clear_screen()
         return True
 
     def _cmd_run(self, args: list[str]) -> bool:
