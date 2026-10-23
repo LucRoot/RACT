@@ -1,0 +1,43 @@
+{
+  "name": "plan_three_steps",
+  "description": "B-072: a three-step plan that succeeds. Step 1 fixes src/calc.py, step 2 adds src/notes.py, step 3 adds a test for it. Each step's reply is the whole file.",
+  "model": "fake-coder",
+  "turns": [
+    {
+      "reply": {
+        "kind": "text",
+        "content": "{\"assumption\": \"The failing test needs add() fixed, a notes module, and a test for it.\", \"confidence\": 0.85, \"steps\": [{\"action\": \"Fix add() in src/calc.py so it adds\", \"provider_hint\": \"local\", \"expected_artifact\": \"src/calc.py\"}, {\"action\": \"Add src/notes.py with the NOTE constant\", \"provider_hint\": \"local\", \"expected_artifact\": \"src/notes.py\"}, {\"action\": \"Add tests/test_notes.py that checks NOTE\", \"provider_hint\": \"local\", \"expected_artifact\": \"tests/test_notes.py\"}]}",
+        "chunk_size": 24
+      }
+    },
+    {
+      "reply": {
+        "kind": "text",
+        "content": "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n",
+        "chunk_size": 12
+      }
+    },
+    {
+      "reply": {
+        "kind": "text",
+        "content": "NOTE = \"two\"\n",
+        "chunk_size": 12
+      }
+    },
+    {
+      "reply": {
+        "kind": "text",
+        "content": "from src.notes import NOTE\n\n\ndef test_note():\n    assert NOTE == \"two\"\n",
+        "chunk_size": 12
+      }
+    },
+    {
+      "reply": {
+        "kind": "text",
+        "content": "All three steps are done.",
+        "chunk_size": 12
+      },
+      "repeat": true
+    }
+  ]
+}
