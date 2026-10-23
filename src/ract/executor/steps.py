@@ -951,11 +951,11 @@ class Executor:
             # Refuse before any request is made.
             return Rooted(
                 value=None,
-                assumption=f"Step {index}'s target file holds no secret-shaped value.",
+                assumption=f"Step {self._shown(index)}'s target file holds no secret-shaped value.",
                 confidence=0.0,
                 provenance=[f"executor.step:{index}", "egress_scan"],
                 error=(
-                    f"Step {index} refused: {step.expected_artifact} holds "
+                    f"Step {self._shown(index)} refused: {step.expected_artifact} holds "
                     f"secret-shaped values ({egress_scan.describe(secrets)}). RACT "
                     "will not send them to a model or rewrite the file around them."
                 ),
@@ -1093,8 +1093,18 @@ class Executor:
             self._open_step = None
         return result
 
+    def _shown(self, index: int) -> int:
+        """The step's number in the whole plan, for messages (B-073).
+
+        LR:: The substrate runs each step as a one-step plan, so ``index`` is
+        1 for every step there; a failing step 2 was reported as "Step 1".
+        ``step_number_offset`` (B-042) carries the position in the plan.
+        Provenance keeps ``index``.
+        """
+        return index + int(getattr(self, "step_number_offset", 0))
+
     def _step_started(self, index: int, step: Step) -> None:
-        n = index + int(getattr(self, "step_number_offset", 0))
+        n = self._shown(index)
         self._open_step = (n, step, time.monotonic())
         turn_context.report(
             "step.started",
@@ -1149,7 +1159,7 @@ class Executor:
             if turn_context.cancelled():
                 return Rooted(
                     value=None,
-                    assumption=f"Step {index} runs in a turn that was not interrupted.",
+                    assumption=f"Step {self._shown(index)} runs in a turn that was not interrupted.",
                     confidence=0.0,
                     provenance=[f"executor.step:{index}"],
                     error=f"Interrupted before step {index}; nothing more was written.",
@@ -1158,7 +1168,7 @@ class Executor:
             if approval_callback is not None and not approval_callback(step):
                 return Rooted(
                     value=None,
-                    assumption=f"Step {index} is approved before execution.",
+                    assumption=f"Step {self._shown(index)} is approved before execution.",
                     confidence=0.0,
                     provenance=[f"executor.step:{index}"],
                     error=(
@@ -1187,10 +1197,10 @@ class Executor:
                     details = "; ".join(r.reason for r in auth.refusals)
                     return Rooted(
                         value=None,
-                        assumption=f"Step {index} passes the threat-model authorization check.",
+                        assumption=f"Step {self._shown(index)} passes the threat-model authorization check.",
                         confidence=0.0,
                         provenance=[f"executor.step:{index}"],
-                        error=f"Step {index} refused by threat model: {details}",
+                        error=f"Step {self._shown(index)} refused by threat model: {details}",
                         hint="security",
                     )
 
@@ -1359,10 +1369,10 @@ class Executor:
                 if not content.strip():
                     return Rooted(
                         value=None,
-                        assumption=f"Step {index} returns an answer.",
+                        assumption=f"Step {self._shown(index)} returns an answer.",
                         confidence=0.0,
                         provenance=[f"executor.step:{index}"],
-                        error=f"Step {index} returned an empty answer. "
+                        error=f"Step {self._shown(index)} returned an empty answer. "
                         + describe_output_problem(
                             raw if isinstance(raw, dict) else None,
                             wanted="answer",
@@ -1375,7 +1385,9 @@ class Executor:
                     )
                 )
                 self._step_done(None)
-                assumptions.append(f"Step {index} ({step.action}) answered.")
+                assumptions.append(
+                    f"Step {self._shown(index)} ({step.action}) answered."
+                )
                 continue
             content = self._normalize_model_output(content, step.expected_artifact)
 
@@ -1386,12 +1398,12 @@ class Executor:
                 return Rooted(
                     value=None,
                     assumption=(
-                        f"Step {index} produces content for {step.expected_artifact}."
+                        f"Step {self._shown(index)} produces content for {step.expected_artifact}."
                     ),
                     confidence=0.0,
                     provenance=[f"executor.step:{index}"],
                     error=(
-                        f"Step {index} produced no content for "
+                        f"Step {self._shown(index)} produced no content for "
                         f"{step.expected_artifact}; nothing was written. "
                         + describe_output_problem(
                             raw if isinstance(raw, dict) else None,
@@ -1409,7 +1421,7 @@ class Executor:
                 # loop does not silently write a malformed patch to disk.
                 return Rooted(
                     value=None,
-                    assumption=f"Step {index} diff applies cleanly to {step.expected_artifact}.",
+                    assumption=f"Step {self._shown(index)} diff applies cleanly to {step.expected_artifact}.",
                     confidence=0.0,
                     provenance=[f"executor.step:{index}"],
                     error=diff_message,
@@ -1426,7 +1438,7 @@ class Executor:
                 )
                 return Rooted(
                     value=None,
-                    assumption=f"Step {index} output passes safety guardrails.",
+                    assumption=f"Step {self._shown(index)} output passes safety guardrails.",
                     confidence=0.0,
                     provenance=[f"executor.step:{index}"],
                     error=f"Safety guardrail violation(s): {summary}",
@@ -1446,7 +1458,7 @@ class Executor:
                     return Rooted(
                         value=None,
                         assumption=(
-                            f"Step {index} artifact does not duplicate "
+                            f"Step {self._shown(index)} artifact does not duplicate "
                             "existing symbols."
                         ),
                         confidence=0.0,
@@ -1470,7 +1482,7 @@ class Executor:
                     return Rooted(
                         value=None,
                         assumption=(
-                            f"Step {index} does not modify load-bearing code in "
+                            f"Step {self._shown(index)} does not modify load-bearing code in "
                             f"{step.expected_artifact}."
                         ),
                         confidence=0.0,
@@ -1494,7 +1506,7 @@ class Executor:
                     return Rooted(
                         value=None,
                         assumption=(
-                            f"Step {index} stays within the novelty budget "
+                            f"Step {self._shown(index)} stays within the novelty budget "
                             f"({self.novelty_budget.remaining} remaining)."
                         ),
                         confidence=0.0,
@@ -1535,7 +1547,7 @@ class Executor:
                             else " Edit the most similar existing module instead."
                         )
                         description = (
-                            f"Step {index} proposed {step.expected_artifact} with "
+                            f"Step {self._shown(index)} proposed {step.expected_artifact} with "
                             f"compression ratio {score.ratio}: {score.detail}."
                             f"{nearest_hint}"
                         )
@@ -1551,7 +1563,7 @@ class Executor:
                                 acceptance,
                             )
                             assumptions.append(
-                                f"Step {index} ({step.action}) queued a novelty "
+                                f"Step {self._shown(index)} ({step.action}) queued a novelty "
                                 f"handshake for {step.expected_artifact} "
                                 f"(ratio {score.ratio})"
                             )
@@ -1559,7 +1571,7 @@ class Executor:
                         return Rooted(
                             value=None,
                             assumption=(
-                                f"Step {index} artifact is not structurally novel "
+                                f"Step {self._shown(index)} artifact is not structurally novel "
                                 f"relative to the existing codebase; it is a near-"
                                 f"duplicate of existing code."
                             ),
@@ -1584,12 +1596,12 @@ class Executor:
                 return Rooted(
                     value=None,
                     assumption=(
-                        f"Step {index}'s reply is a new version of {step.expected_artifact}."
+                        f"Step {self._shown(index)}'s reply is a new version of {step.expected_artifact}."
                     ),
                     confidence=0.0,
                     provenance=[f"executor.step:{index}", "write_gate"],
                     error=(
-                        f"Step {index} refused to replace {refused.path}: "
+                        f"Step {self._shown(index)} refused to replace {refused.path}: "
                         f"{refused.reason}. Nothing was written."
                     ),
                     hint=(
@@ -1601,18 +1613,18 @@ class Executor:
                 return Rooted(
                     value=None,
                     assumption=(
-                        f"Step {index} writes {step.expected_artifact} inside the project."
+                        f"Step {self._shown(index)} writes {step.expected_artifact} inside the project."
                     ),
                     confidence=0.0,
                     provenance=[f"executor.step:{index}"],
-                    error=f"Step {index} not written: {refused}",
+                    error=f"Step {self._shown(index)} not written: {refused}",
                     hint=refused.refusal.hint,
                 )
 
             if not allowed:
                 return Rooted(
                     value=None,
-                    assumption=f"Step {index} runs in a turn that was not interrupted.",
+                    assumption=f"Step {self._shown(index)} runs in a turn that was not interrupted.",
                     confidence=0.0,
                     provenance=[f"executor.step:{index}"],
                     error=(
@@ -1636,7 +1648,7 @@ class Executor:
             )
             self._step_done(None)  # the executor has no per-step confidence yet
             assumptions.append(
-                f"Step {index} ({step.action}) produced artifact: {step.expected_artifact}"
+                f"Step {self._shown(index)} ({step.action}) produced artifact: {step.expected_artifact}"
             )
 
             # Record the artifact in provenance so callers can audit what was

@@ -68,7 +68,12 @@ def test_an_empty_step_fails_and_the_next_step_is_never_asked(tmp_path: Path) ->
     proc, server, ws = _run("plan_three_steps_fail_2", tmp_path)
     assert proc.returncode == 1
     assert "Traceback" not in proc.stdout + proc.stderr
-    assert "Step 1 produced no content for src/notes.py" in proc.stderr
+    # B-073: the substrate runs each step as a one-step plan; the message
+    # names the step's number in the whole plan, and a hint line follows.
+    assert "Step 2 produced no content for src/notes.py" in proc.stderr
+    assert "Step 1 produced" not in proc.stderr
+    hints = [line for line in proc.stderr.splitlines() if "hint:" in line]
+    assert hints and "empty reply" in hints[0], proc.stderr
     assert (
         len(server.chat_requests) == 3
     )  # plan, step 1, step 2; step 3 never requested

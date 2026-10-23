@@ -68,6 +68,11 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "`ract doctor --check-providers` checks it",
     ),
     (
+        re.compile(r"produced no content|returned an empty answer", re.I),
+        "the model sent an empty reply for that step; run it again, or set a "
+        "stronger model for this provider in ract.yaml",
+    ),
+    (
         re.compile(r"refused to replace", re.I),
         "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
         "in the intent which change you want",

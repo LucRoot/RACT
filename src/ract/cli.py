@@ -4997,8 +4997,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     if not result.is_ok():
         console.error(f"failed: {result.error}")
-        if "Configuration file not found" in (result.error or ""):
-            console.info("hint: run `ract setup` here to create one")
+        # One hint table for the session, headless and one-shot runs (B-073).
+        from ract.session_turn import hint_for
+
+        print(f"hint: {hint_for(result.error or '')}", file=sys.stderr, flush=True)
         return 1
 
     value = result.unwrap()
