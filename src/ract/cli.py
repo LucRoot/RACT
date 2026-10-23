@@ -2762,6 +2762,10 @@ def _consolidate_command(args: list[str]) -> int:
     rollback_parser.add_argument("--id", required=True, help="Proposal id to rollback")
 
     parsed = parser.parse_args(args)
+    # S-016 for a command that writes .ract/ outside run_ract (B-069).
+    from ract.executor.worktree import ensure_ract_dir_excluded
+
+    ensure_ract_dir_excluded(Path(parsed.project_dir).resolve())
 
     if parsed.action in {None, "scan"}:
         return _consolidate_scan(parsed)
@@ -4965,6 +4969,10 @@ def main(argv: list[str] | None = None) -> int:
                 "here to allow it, or run without --loop"
             )
             return 3
+        # S-016 for a path that does not go through run_ract (B-069).
+        from ract.executor import worktree as _worktree
+
+        _worktree.ensure_ract_dir_excluded(args.config.resolve().parent)
         controller = LoopController(
             args.config,
             max_iterations=args.max_iterations,

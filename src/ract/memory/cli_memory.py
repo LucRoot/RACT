@@ -264,6 +264,10 @@ def _memory_init(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     repo_path: Path = parsed.repo_path.resolve()
+    # S-016 for a command that writes .ract/ outside run_ract (B-069).
+    from ract.executor.worktree import ensure_ract_dir_excluded
+
+    ensure_ract_dir_excluded(repo_path)
     if not repo_path.is_dir():
         print(f"[ract] memory init: repo path not found: {repo_path}", file=sys.stderr)
         return 1
@@ -375,6 +379,10 @@ def _memory_apply_narrowings(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     repo_path: Path = parsed.repo_path.resolve()
+    # S-016 for a command that writes .ract/ outside run_ract (B-069).
+    from ract.executor.worktree import ensure_ract_dir_excluded
+
+    ensure_ract_dir_excluded(repo_path)
     try:
         from ract.memory.failure_records import aggregate
     except ImportError as exc:
