@@ -37,6 +37,9 @@ def test_with_no_request_yet_it_says_so_and_the_window_is_unknown():
     lines = context_lines([], None)
     assert any("no model request" in line for line in lines)
     assert any(line.startswith("window: unknown") for line in lines)
+    assert any(
+        "does not keep what the provider probe measured" in line for line in lines
+    )
     assert any("not stored" in line for line in lines)
 
 

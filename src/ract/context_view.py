@@ -30,17 +30,17 @@ def context_lines(
         host = _host(last)
         tokens_in, tokens_out = last.get("tokens_in"), last.get("tokens_out")
         if tokens_in is None and tokens_out is None:
-            lines.append(f"last request: sizes not reported by {host}")
+            lines.append(f"last request on this machine: sizes not reported by {host}")
         else:
             lines.append(
-                f"last request used {tokens_in or 0} tokens in, "
+                f"last request on this machine used {tokens_in or 0} tokens in, "
                 f"{tokens_out or 0} out (reported by {host})"
             )
     if window:
         lines.append(f"window is {window} tokens (from the server)")
     else:
         lines.append(
-            "window: unknown (run ract doctor --check-providers to measure it)"
+            "window: unknown (RACT does not keep what the provider probe measured yet)"
         )
     lines.append("turns: not stored in the session file")
     lines.append(
