@@ -148,24 +148,8 @@ ARENA_CASES: dict[str, bytes] = {
     ),
 }
 
-ARENA_XFAIL = {
-    "wrong_type_list_of_numbers": "B-075 FOUND: MemoryArena.load calls dict() on an int item (TypeError escapes)",
-    "wrong_type_number": "B-075 FOUND: MemoryArena.load iterates an int (TypeError escapes)",
-    "wrong_type_object": "B-075 FOUND: MemoryArena.load iterates the keys of an object (ValueError escapes)",
-}
 
-
-def _arena_params() -> list[Any]:
-    params: list[Any] = []
-    for name in ARENA_CASES:
-        marks = []
-        if name in ARENA_XFAIL:
-            marks.append(pytest.mark.xfail(strict=True, reason=ARENA_XFAIL[name]))
-        params.append(pytest.param(name, marks=marks, id=name))
-    return params
-
-
-@pytest.mark.parametrize("case", _arena_params())
+@pytest.mark.parametrize("case", list(ARENA_CASES))
 def test_memory_arena_hostile_file(tmp_path: Path, case: str) -> None:
     _plant(tmp_path, ARENA_FILE, ARENA_CASES[case])
     try:
@@ -183,10 +167,6 @@ def test_memory_arena_directory_where_file_is_expected(tmp_path: Path) -> None:
     assert isinstance(arena.replay(), str)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: MemoryArena.load follows a symlink out of the project",
-)
 def test_memory_arena_symlink_out_of_project(tmp_path: Path) -> None:
     outside = tmp_path / "outside.json"
     outside.write_bytes(_json([{"category": "note", "content": OUTSIDE_SECRET}]))

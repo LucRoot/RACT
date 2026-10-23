@@ -172,26 +172,46 @@ class MemoryArena:
             ) from exc
 
     @classmethod
-    def load(cls, path: Path | str) -> "MemoryArena":
-        """Load a persisted arena from *path*."""
+    def load(cls, path: Path | str, *, root: Path | str | None = None) -> "MemoryArena":
+        """Load a persisted arena from *path*.
+
+        LR:: The file is under the workspace's ``.ract/``, so a cloned
+        repository can ship one (B-075, S-035). A link, a path leaving
+        *root*, a non-file, a file over 1 MiB, text that is not a JSON list
+        of objects, or a field of the wrong type raises MemoryArenaError,
+        the documented refusal; a directory where the file belongs is
+        treated as no arena, as before.
+        """
+        from ract.untrusted_file import UntrustedFileRefused, read_untrusted
+
         path = Path(path)
         arena = cls()
-        if not path.is_file():
+        if path.is_dir() and not path.is_symlink():
             return arena
         try:
-            text = path.read_text(encoding="utf-8")
-        except OSError as exc:
+            raw = read_untrusted(path, root=root)
+        except UntrustedFileRefused as exc:
             raise MemoryArenaError(
-                f"Failed to load memory arena from {path}: {exc}"
-            ) from exc
+                f"Memory arena file is not read: {exc.reason}: {path}"
+            ) from None
+        if raw is None:
+            return arena
         try:
-            data = json.loads(text)
-        except json.JSONDecodeError as exc:
+            data = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError) as exc:
             raise MemoryArenaError(
                 f"Memory arena file is not valid JSON: {path}"
             ) from exc
+        if not isinstance(data, list) or not all(isinstance(i, dict) for i in data):
+            raise MemoryArenaError(
+                f"Memory arena file is not a list of records: {path}"
+            )
         for item in data:
             item = dict(item)
+            if not _record_shape_ok(item):
+                raise MemoryArenaError(
+                    f"Memory arena file holds a record of the wrong shape: {path}"
+                )
             key = item.pop("key", None)
             if "category" in item and "content" in item:
                 arena.record(
@@ -208,7 +228,7 @@ class MemoryArena:
     def for_session(cls, project_dir: Path | str, session_id: str) -> "MemoryArena":
         """Load or create the arena for *session_id* inside *project_dir*."""
         path = Path(project_dir) / ".ract" / "memory" / f"{session_id}.json"
-        return cls.load(path)
+        return cls.load(path, root=project_dir)
 
     def clear(self) -> None:
         """Reset the arena to its initial empty state."""
@@ -220,6 +240,24 @@ class MemoryArena:
 
     def __bool__(self) -> bool:
         return bool(self._records)
+
+
+def _record_shape_ok(item: dict[str, Any]) -> bool:
+    """True for a record ``save`` writes: text values, an integer importance.
+
+    The ``key`` may be absent or null; every other value is text, except a
+    memory record's ``importance``, which is an integer.
+    """
+    for name, value in item.items():
+        if name == "key":
+            if value is not None and not isinstance(value, str):
+                return False
+        elif name == "importance":
+            if isinstance(value, bool) or not isinstance(value, int):
+                return False
+        elif not isinstance(value, str):
+            return False
+    return True
 
 
 # RACT 0.1.1 - Trust and tooling
