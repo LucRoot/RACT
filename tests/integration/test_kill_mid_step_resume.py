@@ -349,3 +349,74 @@ def test_kill_during_a_file_write_leaves_no_truncated_file(
     assert truncated == [], f"a truncated notes.py remains: {truncated}"
     assert (ws / "docs" / "draft.md").read_bytes() == DRAFT
     assert _count(resume, STEP2) == 1, "the interrupted step should be asked once"
+
+
+def test_two_kills_in_a_row_then_a_clean_resume_finishes(
+    tmp_path: Path, state_home: Path, fake_model_server: Any
+) -> None:
+    # Each process started through the wrapper dies on its first write of
+    # notes.py. The first run dies in step 2, the first resume dies in step 2
+    # again, and the second resume (no wrapper) finishes the run.
+    server = fake_model_server(
+        Scenario.from_dict(
+            {
+                "turns": [
+                    _text(_plan()),
+                    _text(CALC.replace("a - b", "a + b", 1)),
+                    _text(NOTES),
+                    _text(NOTES),
+                    _text(NOTES),
+                    _text(TESTS),
+                ]
+            }
+        )
+    )
+    ws = rb._workspace(tmp_path, "ws", git=True, files=rb.CALC_FILES)
+    rb._configure(ws, server.base_url, "fake-coder")
+    subprocess.run(["git", *GIT, "add", "-A"], cwd=ws, check=True)
+    subprocess.run(["git", *GIT, "commit", "-q", "-m", "c"], cwd=ws, check=True)
+    wrapper = tmp_path / "killing_wrapper.py"
+    wrapper.write_text(WRAPPER.format(target="notes.py"), encoding="utf-8")
+
+    (ws / "docs").mkdir(exist_ok=True)
+    (ws / "docs" / "draft.md").write_bytes(DRAFT)
+
+    def through_wrapper(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(wrapper), "--config", "ract.yaml", *args],
+            cwd=ws,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=300,
+            env=_env(state_home),
+            stdin=subprocess.DEVNULL,
+        )
+
+    first = through_wrapper("fix add")
+    assert first.returncode == 9, first.stderr[-400:]
+    [checkpoint] = _checkpoints(ws)
+    second = through_wrapper("--session", checkpoint.stem, "--resume")
+    assert second.returncode == 9, second.stderr[-400:]
+
+    done = subprocess.run(
+        _cmd("--session", checkpoint.stem, "--resume"),
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=300,
+        env=_env(state_home),
+        stdin=subprocess.DEVNULL,
+    )
+
+    assert done.returncode == 0, done.stderr[-400:]
+    assert "Traceback" not in done.stdout + done.stderr
+    assert (ws / "src" / "notes.py").read_text(encoding="utf-8") == NOTES
+    assert (ws / "tests" / "test_notes.py").read_text(encoding="utf-8") == TESTS
+    assert (ws / "docs" / "draft.md").read_bytes() == DRAFT
+    assert _count(server, STEP1) == 1, "step 1 was asked more than once"
+    assert _count(server, STEP2) == 3, "step 2 should be asked once per attempt"
+    assert _count(server, STEP3) == 1
