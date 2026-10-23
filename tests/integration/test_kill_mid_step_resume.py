@@ -244,3 +244,108 @@ def _git_lines(ws: Path, *args: str) -> list[str]:
         ["git", *args], cwd=ws, capture_output=True, text=True, check=True
     ).stdout
     return [line.strip(" *+") for line in out.splitlines() if line.strip()]
+
+
+WRAPPER = """\
+import os
+import pathlib
+import sys
+
+from ract import cli
+
+TARGET = {target!r}
+original = pathlib.Path.write_text
+seen = {{"n": 0}}
+
+
+def half_write(self, data, encoding=None, errors=None, newline=None):
+    # Kill the run in the middle of writing the target: half the bytes are on
+    # disk, flushed, and then the process exits without any cleanup.
+    if self.name == TARGET:
+        seen["n"] += 1
+        if seen["n"] == 1:
+            with open(self, "w", encoding="utf-8") as f:
+                f.write(data[: len(data) // 2])
+                f.flush()
+                os.fsync(f.fileno())
+            os._exit(9)
+    return original(self, data, encoding=encoding, errors=errors, newline=newline)
+
+
+pathlib.Path.write_text = half_write
+sys.exit(cli.main(sys.argv[1:]))
+"""
+
+
+def test_kill_during_a_file_write_leaves_no_truncated_file(
+    tmp_path: Path, state_home: Path, fake_model_server: Any
+) -> None:
+    # The wrapper stops the run while src/notes.py is half written, the way a
+    # power cut would. No sleep: the write itself is the kill point.
+    server = fake_model_server(
+        Scenario.from_dict(
+            {
+                "turns": [
+                    _text(_plan()),
+                    _text(CALC.replace("a - b", "a + b", 1)),
+                    _text(NOTES),
+                ]
+            }
+        )
+    )
+    ws = rb._workspace(tmp_path, "ws", git=True, files=rb.CALC_FILES)
+    rb._configure(ws, server.base_url, "fake-coder")
+    subprocess.run(["git", *GIT, "add", "-A"], cwd=ws, check=True)
+    subprocess.run(["git", *GIT, "commit", "-q", "-m", "c"], cwd=ws, check=True)
+    (ws / "docs").mkdir(exist_ok=True)
+    (ws / "docs" / "draft.md").write_bytes(DRAFT)
+    wrapper = tmp_path / "killing_wrapper.py"
+    wrapper.write_text(WRAPPER.format(target="notes.py"), encoding="utf-8")
+
+    killed = subprocess.run(
+        [sys.executable, str(wrapper), "--config", "ract.yaml", "fix add"],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=300,
+        env=_env(state_home),
+        stdin=subprocess.DEVNULL,
+    )
+
+    assert killed.returncode == 9, killed.stderr[-400:]
+    found = [p for p in list(ws.rglob("notes.py")) + list(state_home.rglob("notes.py"))]
+    Path(
+        "C:/Users/rootl/AppData/Local/Temp/claude/C--RootClaw/4c0c3abd-c6e9-467b-a8eb-a9df19316368/scratchpad/b066/found.txt"
+    ).write_text(repr([str(p) for p in found]), encoding="utf-8")
+    assert found, "no notes.py was written before the kill"
+    assert all(p.read_text(encoding="utf-8") != NOTES for p in found[:1]), (
+        "the kill should leave a half-written file"
+    )
+    [checkpoint] = _checkpoints(ws)
+
+    resume = fake_model_server(
+        Scenario.from_dict({"turns": [_text(NOTES), _text(TESTS)]})
+    )
+    rb._configure(ws, resume.base_url, "fake-coder")
+    done = subprocess.run(
+        _cmd("--session", checkpoint.stem, "--resume"),
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=300,
+        env=_env(state_home),
+        stdin=subprocess.DEVNULL,
+    )
+
+    assert done.returncode == 0, done.stderr[-400:]
+    assert (ws / "src" / "notes.py").read_text(encoding="utf-8") == NOTES
+    truncated = [
+        p for p in ws.rglob("notes.py") if p.read_text(encoding="utf-8") != NOTES
+    ]
+    assert truncated == [], f"a truncated notes.py remains: {truncated}"
+    assert (ws / "docs" / "draft.md").read_bytes() == DRAFT
+    assert _count(resume, STEP2) == 1, "the interrupted step should be asked once"
