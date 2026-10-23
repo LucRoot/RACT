@@ -6,7 +6,7 @@ Status below is from reading the code. The first run of `test_workspace_readers_
 
 | Reader | File | What the test shows | Status |
 |---|---|---|---|
-| `refactor_ledger` | `.ract/refactor_ledger.json` | Seven hostile cases (oversize, not JSON, wrong type, huge number, control text, widening key) and a directory in place of the file; a symlink out of the project | expected failure: B-075 FOUND (json errors and wrong types escape; a shipped `allow_debt_override` is read; control text kept; symlink followed) |
+| `refactor_ledger` | `.ract/refactor_ledger.json` | Seven hostile cases (oversize, not JSON, wrong type, huge number, control text, widening key) and a directory in place of the file; a symlink out of the project | holds since S-035 (was B-075 FOUND: json errors and wrong types escaped; a shipped `allow_debt_override` was read; control text kept; symlink followed). A stored threshold is read only when it is stricter than the default |
 | `memory_arena` | `.ract/memory/<session>.json` | Oversize, not JSON, wrong types, a hostile key; a directory in place of the file; a symlink out of the project | expected failure: B-075 FOUND (wrong-type items escape as TypeError or ValueError; symlink followed) |
 | `reasoning.configured_default` | `ract.yaml` | Oversize, not YAML, wrong types, a control character in the effort value; a directory in place of the file | holds (predicted) |
 | `error_memory` | `.ract/error_memory.jsonl` | A non-JSON line, an oversize line, a directory in place of the file; a number line, an object without `pattern`, a control character and bidi override in `pattern` | three hold; three expected failures: B-075 FOUND (number line and object-without-pattern escape from summarize; raw ESC and bidi kept) |

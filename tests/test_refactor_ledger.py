@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 
 from ract.refactor_ledger import RefactorLedger
 
@@ -111,3 +113,14 @@ def test_dict_snapshot():
 
 
 # RACT 0.1.1 - Trust and tooling
+
+
+def test_a_threshold_from_the_file_can_only_tighten(tmp_path):
+    """S-035: the ledger file is in the workspace. A stored threshold above
+    the default would lift the refactor tax, so it is not read."""
+    (tmp_path / ".ract").mkdir()
+    for stored, expected in ((2.0, 2.0), (1e9, 3.0), (float("inf"), 3.0), (-1, 3.0)):
+        (tmp_path / ".ract" / "refactor_ledger.json").write_text(
+            json.dumps({"threshold": stored, "lines_added": 1}), encoding="utf-8"
+        )
+        assert RefactorLedger.load(tmp_path).threshold == expected

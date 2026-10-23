@@ -108,28 +108,8 @@ LEDGER_CASES: dict[str, bytes] = {
     "widening_key": _json({"allow_debt_override": True, "override_reason": "shipped"}),
 }
 
-LEDGER_XFAIL = {
-    "oversize": "B-075 FOUND: refactor_ledger.load json.loads escapes on a 10 MiB non-JSON file (no size bound, no refusal)",
-    "not_json": "B-075 FOUND: refactor_ledger.load json.loads raises JSONDecodeError out of the reader",
-    "wrong_type_list": "B-075 FOUND: refactor_ledger.load calls data.get on a list (AttributeError escapes)",
-    "wrong_type_number": "B-075 FOUND: refactor_ledger.load calls data.get on an int (AttributeError escapes)",
-    "huge_number": "B-075 FOUND: refactor_ledger.load int() on 5000 digits raises ValueError (int digit limit)",
-    "control_in_reason": "B-075 FOUND: refactor_ledger.load keeps the raw ESC in override_reason",
-    "widening_key": "B-075 FOUND: refactor_ledger.load reads allow_debt_override from the repository file",
-}
 
-
-def _ledger_params() -> list[Any]:
-    params: list[Any] = []
-    for name in LEDGER_CASES:
-        marks = []
-        if name in LEDGER_XFAIL:
-            marks.append(pytest.mark.xfail(strict=True, reason=LEDGER_XFAIL[name]))
-        params.append(pytest.param(name, marks=marks, id=name))
-    return params
-
-
-@pytest.mark.parametrize("case", _ledger_params())
+@pytest.mark.parametrize("case", list(LEDGER_CASES))
 def test_refactor_ledger_hostile_file(tmp_path: Path, case: str) -> None:
     _plant(tmp_path, LEDGER_FILE, LEDGER_CASES[case])
     try:
@@ -146,10 +126,6 @@ def test_refactor_ledger_directory_where_file_is_expected(tmp_path: Path) -> Non
     assert ledger.allow_debt_override is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: refactor_ledger.load follows a symlink out of the project",
-)
 def test_refactor_ledger_symlink_out_of_project(tmp_path: Path) -> None:
     outside = tmp_path / "outside.json"
     outside.write_bytes(_json({"override_reason": OUTSIDE_SECRET}))

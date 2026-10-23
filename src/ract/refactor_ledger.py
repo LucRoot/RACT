@@ -119,20 +119,66 @@ class RefactorLedger:
 
     @classmethod
     def load(cls, project_dir: Path) -> "RefactorLedger":
-        """Load the most recent ledger for the project, or return a fresh one."""
+        """Load the most recent ledger for the project, or return a fresh one.
+
+        LR:: The file is in the workspace, so a cloned repository can ship
+        one (B-075, S-035). It is read as untrusted data: a link, a file that
+        is not one, a file over 1 MiB, text that is not a JSON object, or a
+        count that is not a plain non-negative integer gives a fresh ledger
+        or a zero. The override reason is kept printable. The override is
+        never read from the file, and a threshold is read only when it is
+        stricter than the default: lifting the tax is the operator's flag
+        for this run (``--allow-debt``), and a file cannot do it for them.
+        """
+        from ract.session_events import safe_text
+        from ract.untrusted_file import UntrustedFileRefused, read_untrusted
+
+        fresh = cls(project_dir=project_dir)
         path = project_dir / ".ract" / "refactor_ledger.json"
-        if not path.is_file():
-            return cls(project_dir=project_dir)
-        data = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            raw = read_untrusted(path, root=project_dir)
+        except UntrustedFileRefused as exc:
+            print(f"note: the refactor ledger is not read: {exc.reason}", flush=True)
+            return fresh
+        if raw is None:
+            return fresh
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError):
+            print(
+                "note: the refactor ledger is not JSON; starting a fresh one",
+                flush=True,
+            )
+            return fresh
+        if not isinstance(data, dict):
+            return fresh
+        reason = data.get("override_reason")
         return cls(
             project_dir=project_dir,
-            threshold=float(data.get("threshold", 3.0)),
-            lines_added=int(data.get("lines_added", 0)),
-            lines_removed=int(data.get("lines_removed", 0)),
-            lines_refactored=int(data.get("lines_refactored", 0)),
-            allow_debt_override=bool(data.get("allow_debt_override", False)),
-            override_reason=data.get("override_reason"),
+            threshold=_threshold(data.get("threshold"), fresh.threshold),
+            lines_added=_count(data.get("lines_added")),
+            lines_removed=_count(data.get("lines_removed")),
+            lines_refactored=_count(data.get("lines_refactored")),
+            override_reason=safe_text(reason) if isinstance(reason, str) else None,
         )
+
+
+# A ledger RACT wrote never holds a count this large.
+_MAX_COUNT = 10**12
+
+
+def _threshold(value: object, default: float) -> float:
+    """A stored threshold when it only tightens the tax, else *default*."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    return float(value) if 0 < value <= default else default
+
+
+def _count(value: object) -> int:
+    """A line count from the ledger file, or 0 when it is not a plain one."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value if 0 <= value <= _MAX_COUNT else 0
 
 
 def _count_lines(content: str) -> int:
