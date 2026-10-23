@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ract.session_events import safe_text
+from ract.workspace_state import LEGACY_STATE_DIR_NAME, WORKSPACE_STATE_DIR_NAME
 from ract.workspace_path import resolve_workspace_path
 
 MAX_CHECKED = 50
@@ -29,7 +30,7 @@ MAX_CHECKED = 50
 TOO_LARGE_LINE = 10**10
 MAX_FILE_BYTES = 2 * 1024 * 1024
 # Top-level names that are never opened, whatever the resolver says.
-_NEVER_OPENED_TOP = frozenset({".git", ".ract", ".rack"})
+_NEVER_OPENED_TOP = frozenset({".git", WORKSPACE_STATE_DIR_NAME, LEGACY_STATE_DIR_NAME})
 
 # A path is one of: a dotted file name (x.py, README.md), a dotfile (.env), or a
 # name with at least one separator (src/app/x, ../etc/passwd, C:\Windows\x).
