@@ -228,12 +228,16 @@ class UnenforcedSandbox:
         # stub; the wiring pipeline lifted it to a dedicated kind
         # once the Linux + macOS backends also carried it.
         try:
-            from ract.security.sandbox_env import build_sandbox_env
+            from ract.security.sandbox_env import (
+                build_sandbox_env,
+                repository_allowlist_file,
+            )
 
-            allowlist_file = worktree / ".ract" / "sandbox_env.allowlist"
+            # S-032: honored only in a trusted repository, at its trusted bytes.
+            allowlist_file = repository_allowlist_file(worktree)
             result = build_sandbox_env(
                 manifest_passthrough=tuple(manifest.env.passthrough),
-                allowlist_file=allowlist_file if allowlist_file.exists() else None,
+                allowlist_file=allowlist_file,
             )
             emit(
                 SandboxEvent(

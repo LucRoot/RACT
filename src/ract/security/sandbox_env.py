@@ -38,6 +38,9 @@ import json
 import logging
 import os
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -1351,6 +1354,68 @@ def default_allowlist_path(project_dir: Path) -> Path:
     return Path(project_dir) / ".ract" / ALLOWLIST_FILE_NAME
 
 
+# LR:: The allowlist file ships with the repository, so a cloned repository
+# could list host variables (HF_TOKEN, GITLAB_TOKEN) and its own code, run in
+# the sandbox, received them (S-032; backlog m02-M3). The file is now a trust
+# item (ract.trust). The run binds the bytes that were trusted; a backend
+# honors the worktree's file only while its bytes are exactly those, so an
+# untrusted file, or one a step edited, widens nothing. ADR-0048 D3's signed
+# grant replaces this when tier 3 lands.
+_TRUSTED_ALLOWLIST: ContextVar[bytes | None] = ContextVar(
+    "ract_trusted_allowlist", default=None
+)
+# Files already reported as not honored, so the note appears once.
+_NOT_HONORED_NOTED: set[str] = set()
+
+
+@contextmanager
+def trusted_repository_allowlist(root: Path) -> Iterator[None]:
+    """Honor ``root``'s allowlist for this run, at its current bytes, if allowed.
+
+    Allowed means the repository is trusted, or the operator answered "run
+    once" for its current items in this process (``trust.allowed_now``).
+    """
+    from ract import trust  # noqa: PLC0415 -- keeps this module low-dependency
+
+    path = default_allowlist_path(Path(root))
+    data: bytes | None = None
+    if path.is_file() and trust.allowed_now(root):
+        try:
+            data = path.read_bytes()
+        except OSError as exc:
+            print(f"[sandbox_env] could not read {path}: {exc}", file=sys.stderr)
+    token = _TRUSTED_ALLOWLIST.set(data)
+    try:
+        yield
+    finally:
+        _TRUSTED_ALLOWLIST.reset(token)
+
+
+def repository_allowlist_file(worktree: Path) -> Path | None:
+    """The worktree's allowlist file when it may widen the env, else None."""
+    path = default_allowlist_path(Path(worktree))
+    if not path.is_file():
+        return None
+    trusted = _TRUSTED_ALLOWLIST.get()
+    try:
+        current = path.read_bytes()
+    except OSError as exc:
+        print(f"[sandbox_env] could not read {path}: {exc}", file=sys.stderr)
+        return None
+    if trusted is not None and current == trusted:
+        return path
+    if "noted" not in _NOT_HONORED_NOTED:
+        _NOT_HONORED_NOTED.add("noted")
+        print(
+            f"note: {path.as_posix()} is not used: a repository's "
+            "sandbox_env.allowlist widens the sandbox only in a trusted "
+            "repository and only as it was when trusted. To allow it: ract trust",
+            file=sys.stderr,
+            flush=True,
+        )
+    return None
+
+
 # ---------------------------------------------------------------------------
 # v0.5.2 module_04 -- RACT-internal env key strip-and-reinject
 # ---------------------------------------------------------------------------
@@ -1455,6 +1520,8 @@ __all__ = [
     "SandboxEnvResult",
     "build_sandbox_env",
     "default_allowlist_path",
+    "repository_allowlist_file",
+    "trusted_repository_allowlist",
     "load_allowlist_file",
     "strip_ract_internal_keys",
     # v0.5.2 module_02:

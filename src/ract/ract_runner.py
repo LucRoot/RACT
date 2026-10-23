@@ -178,7 +178,10 @@ def run_ract(
             return _run_ract(config_path, intent, **kwargs)
         interactive = sys.stdin.isatty() and sys.stderr.isatty()
         if trust.decide(root, interactive=interactive):
-            return _run_ract(config_path, intent, **kwargs)
+            from ract.security.sandbox_env import trusted_repository_allowlist
+
+            with trusted_repository_allowlist(root):
+                return _run_ract(config_path, intent, **kwargs)
         with turn_context.repository_extensions_off():
             return _run_ract(config_path, intent, **kwargs)
 

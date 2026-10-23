@@ -61,6 +61,7 @@ from ract.security.sandbox import (
 from ract.security.sandbox_env import (
     SandboxEnvResult,
     build_sandbox_env,
+    repository_allowlist_file,
 )
 
 
@@ -243,11 +244,12 @@ class LinuxSandbox:
         #    survived the filter. A name refused by
         #    ``NEVER_PASSTHROUGH`` never lands in the sandbox even
         #    if the operator declared it in ``manifest.env.passthrough``.
-        allowlist_file = worktree / ".ract" / "sandbox_env.allowlist"
+        # S-032: honored only in a trusted repository, at its trusted bytes.
+        allowlist_file = repository_allowlist_file(worktree)
         env_result = build_sandbox_env(
             process_env=dict(os.environ),
             manifest_passthrough=tuple(manifest.env.passthrough),
-            allowlist_file=(allowlist_file if allowlist_file.exists() else None),
+            allowlist_file=allowlist_file,
         )
         # ``--setenv-if-set`` reads bwrap's OWN environment for the
         # value; that environment is env_result.env by the time bwrap

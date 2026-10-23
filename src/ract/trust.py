@@ -155,6 +155,21 @@ def trust_items(root: Path | str) -> list[TrustItem]:
     if mutation.get("enabled"):
         script = mutation.get("script_path") or "scripts/run_mutation_tests_wsl.sh"
         items.append(TrustItem("command", "mutation_gate", f"bash {script}"))
+    allowlist = root / ".ract" / "sandbox_env.allowlist"
+    if allowlist.is_file():
+        try:
+            from ract.security.sandbox_env import load_allowlist_file
+
+            names = ", ".join(load_allowlist_file(allowlist)) or "(no names)"
+        except Exception as exc:  # noqa: BLE001 -- shown to the operator as the detail
+            names = f"(unreadable allowlist: {exc})"
+        items.append(
+            TrustItem(
+                "env",
+                "sandbox allowlist",
+                f"passes these host variables into sandboxed steps: {names}",
+            )
+        )
     retrieval = config.get("retrieval") or {}
     if retrieval.get("adapter") == "web":
         items.append(
@@ -177,6 +192,13 @@ def digest(root: Path | str, items: list[TrustItem] | None = None) -> str:
                 h.update(path.read_bytes())
             except OSError as exc:
                 h.update(f"unreadable:{exc}".encode())
+    allowlist = root / ".ract" / "sandbox_env.allowlist"
+    if allowlist.is_file():
+        h.update(b"sandbox_env.allowlist")
+        try:
+            h.update(allowlist.read_bytes())
+        except OSError as exc:
+            h.update(f"unreadable:{exc}".encode())
     return h.hexdigest()
 
 
@@ -217,6 +239,17 @@ def is_trusted(root: Path | str) -> bool:
     if not items:
         return True
     return _read_store().get(repository_key(root)) == digest(root, items)
+
+
+def allowed_now(root: Path | str) -> bool:
+    """True when this process may use the repository's current items.
+
+    Trusted, nothing to trust, or the operator answered "run once" for
+    exactly these items in this process.
+    """
+    if is_trusted(root):
+        return True
+    return _DECIDED.get((repository_key(root), digest(root))) is True
 
 
 def has_trust_record(root: Path | str) -> bool:

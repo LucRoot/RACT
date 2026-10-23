@@ -149,6 +149,14 @@ including ``AWS_*``, ``GITHUB_TOKEN``, ``OPENAI_API_KEY``,
 credential-shaped prefixes). Names not on the union are dropped;
 only the COUNT lands in the ``sandbox.granted`` WARN payload
 (never the value or the name of the scrubbed var).
+The repository's ``.ract/sandbox_env.allowlist`` joins the union only in a
+trusted repository and only while its bytes are the ones that were trusted
+(S-032): it is a trust item listed by ``ract trust``, its bytes are in the
+trust digest, and a backend compares the worktree's file with those bytes at
+every spawn, so a file a step edits widens nothing. Before, any cloned
+repository could list host variables (``HF_TOKEN``, ``GITLAB_TOKEN``) and,
+on macOS, its sandboxed steps received them. A signed grant (ADR-0048 D3)
+replaces this when tier 3 lands.
 ``UnenforcedSandbox.enter`` calls the loader so even the Windows
 stub emits the env audit -- a data-exfil path via inherited
 ``os.environ`` is closed on every backend.
