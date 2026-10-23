@@ -195,7 +195,15 @@ def trust_items(root: Path | str) -> list[TrustItem]:
         script = mutation.get("script_path") or "scripts/run_mutation_tests_wsl.sh"
         items.append(TrustItem("command", "mutation_gate", f"bash {script}"))
     allowlist = root / ".ract" / "sandbox_env.allowlist"
-    if allowlist.is_file():
+    if allowlist.is_symlink():
+        items.append(
+            TrustItem(
+                "env",
+                "sandbox allowlist",
+                "a symbolic link; it is never used, trusted or not",
+            )
+        )
+    elif allowlist.is_file():
         try:
             from ract.security.sandbox_env import load_allowlist_file
 

@@ -37,6 +37,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -1367,6 +1368,25 @@ _TRUSTED_ALLOWLIST: ContextVar[bytes | None] = ContextVar(
 # Files already reported as not honored, so the note appears once.
 _NOT_HONORED_NOTED: set[str] = set()
 
+# A name that could never be an environment variable: empty, or holding
+# whitespace, "=", or a control character. Windows names such as
+# "ProgramFiles(x86)" stay valid.
+_NOT_A_NAME = re.compile(r"(^$)|[\s=\x00-\x1f\x7f-\x9f]")
+
+
+def _usable_allowlist(path: Path) -> str | None:
+    """Why the repository's allowlist cannot be used, or None when it can."""
+    if path.is_symlink():
+        return "it is a symbolic link"
+    try:
+        names = load_allowlist_file(path)
+    except Exception as exc:  # noqa: BLE001 -- reported as the reason, file not used
+        return f"it cannot be read ({exc})"
+    for name in names:
+        if _NOT_A_NAME.search(name):
+            return f"it lists {name!r}, which cannot be an environment variable"
+    return None
+
 
 @contextmanager
 def trusted_repository_allowlist(root: Path) -> Iterator[None]:
@@ -1379,7 +1399,7 @@ def trusted_repository_allowlist(root: Path) -> Iterator[None]:
 
     path = default_allowlist_path(Path(root))
     data: bytes | None = None
-    if path.is_file() and trust.allowed_now(root):
+    if path.is_file() and _usable_allowlist(path) is None and trust.allowed_now(root):
         try:
             data = path.read_bytes()
         except OSError as exc:
@@ -1394,7 +1414,17 @@ def trusted_repository_allowlist(root: Path) -> Iterator[None]:
 def repository_allowlist_file(worktree: Path) -> Path | None:
     """The worktree's allowlist file when it may widen the env, else None."""
     path = default_allowlist_path(Path(worktree))
-    if not path.is_file():
+    if not path.is_file() and not path.is_symlink():
+        return None
+    problem = _usable_allowlist(path)
+    if problem is not None:
+        if "unusable" not in _NOT_HONORED_NOTED:
+            _NOT_HONORED_NOTED.add("unusable")
+            print(
+                f"note: {path.as_posix()} is not used: {problem}",
+                file=sys.stderr,
+                flush=True,
+            )
         return None
     trusted = _TRUSTED_ALLOWLIST.get()
     try:
