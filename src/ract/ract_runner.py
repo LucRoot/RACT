@@ -7,7 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
 
-from ract import trust, turn_context, undo_backup
+from ract import run_checkpoint, trust, turn_context, undo_backup
 from ract.executor import ExecutionReport
 from ract.harness import Harness
 from ract.harness_report_enricher import enrich_harness_run
@@ -18,6 +18,7 @@ from ract.approval_callback import (
     refuse_changes_callback,
     yolo_approval_callback,
 )
+from ract.plan_validator import PlanValidator
 from ract.preflight_validator import PreflightValidator
 from ract.project_document import ProjectDocument
 from ract.rooted import Rooted
@@ -116,6 +117,58 @@ def _resume_intent(
     augmented = "\n".join(summary_parts)
     augmented += f"\n\nContinue with original intent: {prior_intent}"
     return augmented, prior_plan
+
+
+def _note(line: str) -> None:
+    if turn_context.has_reporter():
+        turn_context.report("notice", {"level": "info", "text": line})
+    else:
+        print(f"note: {line}", flush=True)
+
+
+def _resume_checkpoint(
+    config_path: Path, run_id: str
+) -> tuple[dict[str, Any], Plan] | Rooted[ExecutionReport | Plan] | None:
+    """Read run *run_id*'s checkpoint and reset its interrupted step (D13).
+
+    Returns the checkpoint (with nothing in progress) and its plan, None
+    when the run has no checkpoint, or a Rooted error when the checkpoint
+    or its plan is not trusted; then nothing was run or changed.
+    """
+    from ract.session_events import visible_text
+
+    root = config_path.parent
+    try:
+        state = run_checkpoint.load(root, run_id)
+    except run_checkpoint.CheckpointRefused as exc:
+        return Rooted(
+            value=None,
+            assumption=f"Run '{run_id}' has a checkpoint this repository's run wrote.",
+            confidence=0.0,
+            provenance=["ract_runner.run_ract", "run_checkpoint.load"],
+            error=f"The checkpoint of run '{run_id}' is not trusted: {exc}. Nothing was run.",
+        )
+    if state is None:
+        return None
+    plan = run_checkpoint.stored_plan(state)
+    validation = PlanValidator.validate(plan)
+    if not validation.is_valid:
+        return Rooted(
+            value=None,
+            assumption="The stored plan passes pre-flight validation.",
+            confidence=0.0,
+            provenance=["ract_runner.run_ract", "plan_validator.validate"],
+            error=(
+                f"The stored plan of run '{run_id}' fails validation: "
+                f"{validation.message}. Nothing was run."
+            ),
+        )
+    reset = run_checkpoint.reset_in_progress(root, state)
+    for line in run_checkpoint.resume_notices(state, reset):
+        _note(visible_text(line))
+    for path, why in reset.left:
+        _note(f"{visible_text(path)}: {why}")
+    return {**state, "in_progress": None}, plan
 
 
 def _save_session(
@@ -251,6 +304,7 @@ def _run_ract(
     allow_load_bearing_override: bool = False,
     allow_novelty_overrun: bool = False,
     ask: bool = False,
+    run_id: str | None = None,
 ) -> Rooted[ExecutionReport | Plan]:
     """
     Run a complete RACT cycle for *intent* using the configuration at *config_path*.
@@ -287,6 +341,12 @@ def _run_ract(
     - *stream*: request a streaming completion from the provider.  The
       *stream_callback* receives each content delta; the aggregated content is
       still returned in the ExecutionReport.
+
+    With *run_id* the run keeps a checkpoint (ADR-0049 D13): which steps
+    finished and which step is in progress. With *resume* and a checkpoint
+    for that id, the step in progress is reset, finished steps are not run
+    again and the stored plan runs without planning. Without a checkpoint,
+    *resume* continues the session as before.
 
     Every failure path returns a ``Rooted`` error with a clear assumption rather
     than raising.
@@ -413,7 +473,31 @@ def _run_ract(
     harness: Harness = harness_rooted.unwrap()
     stored_plan: Plan | None = None
 
-    if resume:
+    checkpoint: run_checkpoint.RunCheckpoint | None = None
+    resumed_plan: Plan | None = None
+    if run_id is not None and not dry_run and not ask:
+        try:
+            undo_backup.require_name(run_id, "run id")
+        except ValueError as exc:
+            return Rooted(
+                value=None,
+                assumption="The run id is a name.",
+                confidence=0.0,
+                provenance=["ract_runner.run_ract"],
+                error=str(exc),
+            )
+        resumed = _resume_checkpoint(config_path, run_id) if resume else None
+        if isinstance(resumed, Rooted):
+            return resumed
+        state = None
+        if resumed is not None:
+            state, resumed_plan = resumed
+            intent = state["intent"]
+        checkpoint = run_checkpoint.RunCheckpoint(
+            config_path.parent, run_id, intent, state=state
+        )
+
+    if resume and resumed_plan is None:
         assert session_id is not None  # guarded by the resume check above
         try:
             intent, stored_plan = _resume_intent(session_id, store, intent)
@@ -497,7 +581,7 @@ def _run_ract(
         ]
         rollback_engine.capture(session_id, artifact_paths)
 
-    def _execute_once() -> Rooted[ExecutionReport | Plan]:
+    def _execute_once(plan: Plan | None = None) -> Rooted[ExecutionReport | Plan]:
         return cast(
             Rooted[ExecutionReport | Plan],
             enrich_harness_run(
@@ -510,10 +594,17 @@ def _run_ract(
                 stream=stream,
                 stream_callback=stream_callback,
                 ask=ask,
+                plan_override=plan,
             ),
         )
 
-    result = _execute_once()
+    if checkpoint is None:
+        result = _execute_once()
+    else:
+        with run_checkpoint.recording(checkpoint):
+            result = _execute_once(resumed_plan)
+        if result.is_ok():
+            checkpoint.complete()
     # LR:: An interrupted turn's worker can still be waiting on the model
     # when the prompt is back; when the reply finally arrives, nothing from
     # it may be kept. Without this the late worker saved the interrupted

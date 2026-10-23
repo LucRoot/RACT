@@ -4664,7 +4664,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--resume",
         action="store_true",
-        help="Resume a previously saved session (requires --session).",
+        help=(
+            "Resume a previously saved session or an interrupted run (requires "
+            "--session); finished steps are not run again."
+        ),
     )
     parser.add_argument(
         "--force",
@@ -4895,7 +4898,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"    suggestion: {comment['suggestion']}")
         return 0
 
-    if not args.intent:
+    # A resumed run takes its intent from its checkpoint or session (D13).
+    resuming = bool(args.resume and args.session_id)
+    if not args.intent and not resuming:
         # G-060: a pipe or script without an intent gets the next step.
         print(
             'hint: use ract -p "your request" for a one-off run, or pipe text '
@@ -4907,7 +4912,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.json_output:
         return _intent_as_json(parser, args)
 
-    console.user_input("intent", args.intent)
+    args.intent = args.intent or ""
+    if args.intent:
+        console.user_input("intent", args.intent)
     if args.mode != "default":
         console.direct(f"mode: {args.mode}")
     if args.session_id:
@@ -4998,6 +5005,10 @@ def main(argv: list[str] | None = None) -> int:
     def _stream_callback(delta: str) -> None:
         print(delta, end="", flush=True)
 
+    from ract import run_checkpoint
+
+    # Every run keeps a checkpoint so a killed run can resume (D13).
+    run_id = args.session_id or run_checkpoint.new_run_id()
     result = run_ract(
         args.config,
         args.intent,
@@ -5017,6 +5028,7 @@ def main(argv: list[str] | None = None) -> int:
         allow_load_bearing_override=args.allow_load_bearing,
         allow_novelty_overrun=args.allow_novelty_overrun,
         ask=args.ask,
+        run_id=run_id,
     )
     if not result.is_ok():
         console.error(f"failed: {result.error}")
@@ -5024,6 +5036,19 @@ def main(argv: list[str] | None = None) -> int:
         from ract.session_turn import hint_for
 
         print(f"hint: {hint_for(result.error or '')}", file=sys.stderr, flush=True)
+        try:
+            stopped_early = run_checkpoint.checkpoint_path(
+                args.config.resolve().parent, run_id
+            ).is_file()
+        except ValueError:
+            stopped_early = False  # a --session id that is not a name
+        if stopped_early:
+            print(
+                f"hint: ract run --session {run_id} --resume continues this run; "
+                "finished steps are not run again",
+                file=sys.stderr,
+                flush=True,
+            )
         return 1
 
     value = result.unwrap()

@@ -111,6 +111,8 @@ def test_run_ract_execution_success(tmp_path: Path) -> None:
         stream=ANY,
         stream_callback=ANY,
         ask=False,
+        # No run id, so no checkpoint and no stored plan (D13).
+        plan_override=None,
     )
 
 

@@ -54,7 +54,7 @@ from ract.providers.router import ProviderRouter
 from ract.rooted import Rooted
 from ract.token_budget import TokenBudget
 from ract.workspace_path import is_never_sent
-from ract import turn_context, write_gate
+from ract import run_checkpoint, turn_context, write_gate
 from ract.session_events import plan_event_data
 
 
@@ -722,11 +722,16 @@ class Harness:
         stream: bool = False,
         stream_callback: Callable[[str], None] | None = None,
         ask: bool = False,
+        plan_override: Plan | None = None,
     ) -> Rooted[ExecutionReport]:
         """Plan and execute the intent.
 
         With *ask* the planner is skipped: the intent is one answer step,
         which writes nothing (B-042, `/ask` and `ract -p --ask`).
+
+        With *plan_override* the planner is skipped and that plan runs: a
+        resumed run's stored plan (ADR-0049 D13). It passes the plan
+        validator and ``answer_instead`` again, as a new plan would.
 
         If *mode* is "documentation", the intent is rewritten to prioritize
         documentation updates. If *mode* is "git", successfully produced
@@ -805,8 +810,15 @@ class Harness:
             except Exception:  # noqa: BLE001 — never fail planning on Whisperer error
                 pass
 
-        if ask:
+        if plan_override is not None:
             plan_rooted: Rooted[Plan] = Rooted(
+                value=plan_override,
+                assumption="A resumed run runs the plan it recorded.",
+                confidence=1.0,
+                provenance=["harness.run", "run_checkpoint"],
+            )
+        elif ask:
+            plan_rooted = Rooted(
                 value=Plan(
                     assumption="The user asked a question; the answer is shown "
                     "and no file is written.",
@@ -874,6 +886,7 @@ class Harness:
                 error="Plan contains a dependency cycle; cannot execute.",
             )
 
+        run_checkpoint.plan_ready(plan)
         if pre_execute_callback is not None:
             pre_execute_callback(plan)
 

@@ -369,18 +369,32 @@ a wrong type refuses the file); the `root` field must equal this
 repository's key.
 
 **When it is written.** When a step starts, before it touches any file
-(`in_progress` set), and again when it finishes (`finished` updated,
-`in_progress` cleared). A kill at any point leaves a record of what to reset.
+(`in_progress` set); when the step saves a file it is about to replace or
+create, before the write; when it has written that file; and when it
+finishes (`finished` updated, `in_progress` cleared). A kill at any point
+leaves a record of what to reset. On the worktree path the step is
+recorded, with its step id, before its worktree exists, and it finishes
+only when its changes have reached the user's files, not when the executor
+finishes inside the worktree.
 Every write is atomic: a temporary file in the same folder, flushed, then
 replaced over the old one, so a kill during the write leaves the previous
 checkpoint whole. A truncated or unreadable file is refused, never trusted.
 
 **What it holds:** `schema` (`ract.checkpoint/1`),
-`root`, `run`, `intent`, `plan` (the steps as in `plan.proposed`),
-`plan_hash` (D12), `finished` (step numbers whose `step.finished` outcome was
-`done`), `in_progress` (the step number that started and did not finish, or
-null) with the turn backup's `backup_id` and the files that step had saved
-or created so far.
+`root`, `run`, `intent`, `plan` (assumption, confidence and the steps as in
+`plan.proposed`, each with its `provider_hint` and `tool_call` so it can run
+again), `plan_hash` (D12), `finished` (step numbers whose `step.finished`
+outcome was `done`), `in_progress` (null, or the step number that started
+and did not finish, with the turn backup's `backup_id`, the step's
+`worktree` id on the worktree path, and the files that step had saved or
+created so far, each with its sha256 `before` the step, its sha256 `after`
+the step wrote it, and whether it was `written`).
+
+When the step saves a file, a copy of the file as it was at that step's
+start is kept in the turn's backup folder (under `.ract/steps/<n>/`, a name
+no workspace path can take). The turn backup keeps a file's bytes once per
+turn, from before the first step that touched it, so restoring from it
+would also undo an earlier finished step's change to the same file.
 
 **Finished** means the harness recorded `done` for the step: never the
 model's word, never a claim in a reply (D10).
@@ -397,7 +411,8 @@ when it stops early, prints the command that resumes it. On resume:
    and step branch with the existing cleanup. The direct path restores what
    that step saved and removes what it created, through the undo helpers;
    a file the user changed since is left as it is and named, as `/undo`
-   does.
+   does. A file the step saved but may not have written (no `after`) and
+   that differs from `before` is treated the same way: left and named.
 4. Finished steps are not rerun; the rest run in order.
 5. A plan already approved under D12 with the same `plan_hash` is not asked
    about again.
