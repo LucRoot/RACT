@@ -222,28 +222,16 @@ def test_error_memory_directory_where_file_is_expected(tmp_path: Path) -> None:
     assert ErrorMemory(tmp_path).summarize() == ""
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: ErrorMemory.summarize indexes a non-object line (TypeError escapes)",
-)
 def test_error_memory_number_line(tmp_path: Path) -> None:
     _plant(tmp_path, ERROR_MEMORY_FILE, b"42\n")
     ErrorMemory(tmp_path).summarize()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: ErrorMemory.summarize reads e['pattern'] without a check (KeyError escapes)",
-)
 def test_error_memory_object_without_pattern(tmp_path: Path) -> None:
     _plant(tmp_path, ERROR_MEMORY_FILE, b'{"x": 1}\n')
     ErrorMemory(tmp_path).summarize()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: ErrorMemory.summarize returns a pattern with the raw ESC and bidi override",
-)
 def test_error_memory_control_in_pattern(tmp_path: Path) -> None:
     line = json.dumps({"pattern": CONTROL + BIDI}).encode("utf-8") + b"\n"
     _plant(tmp_path, ERROR_MEMORY_FILE, line)

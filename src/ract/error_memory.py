@@ -43,13 +43,35 @@ class ErrorMemory:
         self.memory_path.parent.mkdir(parents=True, exist_ok=True)
 
     def _load(self) -> list[dict[str, Any]]:
-        if not self.memory_path.is_file():
-            return []
+        """The recorded entries, one JSON object per line.
+
+        LR:: The file is under the workspace's ``.ract/``, so a cloned
+        repository can ship one (B-075, S-035). Each line is read on its
+        own: a line that is not a JSON object with a text ``pattern`` is
+        dropped, and the others are kept (one bad line used to lose them
+        all). A link, a non-file or a file over 4 MiB is not read.
+        """
+        from ract.untrusted_file import UntrustedFileRefused, read_untrusted
+
         try:
-            with self.memory_path.open(encoding="utf-8") as fh:
-                return [json.loads(line) for line in fh if line.strip()]
-        except (OSError, json.JSONDecodeError):
+            raw = read_untrusted(
+                self.memory_path, root=self.project_dir, max_bytes=4 * 1024 * 1024
+            )
+        except UntrustedFileRefused:
             return []
+        if raw is None:
+            return []
+        entries: list[dict[str, Any]] = []
+        for line in raw.decode("utf-8", errors="replace").splitlines():
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(entry, dict) and isinstance(entry.get("pattern"), str):
+                entries.append(entry)
+        return entries
 
     def _save(self, entries: list[dict[str, Any]]) -> None:
         self._ensure_dir()
@@ -176,9 +198,12 @@ class ErrorMemory:
         entries = self._load()
         if not entries:
             return ""
+        from ract.session_events import safe_text
+
         counts = Counter(e["pattern"] for e in entries)
         top = counts.most_common(limit)
-        lines = [f"- {pattern} (x{count})" for pattern, count in top]
+        # A pattern can come from the file, so it is made printable.
+        lines = [f"- {safe_text(pattern)} (x{count})" for pattern, count in top]
         return "\n".join(lines)
 
     def clear(self) -> None:
