@@ -62,3 +62,32 @@ def test_widen_does_not_touch_tiers(tmp_path: Path):
 
 
 # RACT 0.4.0
+
+
+def test_an_approval_covers_only_the_item_approved(tmp_path: Path):
+    """S-035: the mark holds the approved item's digest, so an item whose
+    text changed in the file after approval does not widen."""
+    registry = HandshakeRegistry(tmp_path)
+    registry.add("m1", "risky write", "operator approves")
+    registry.update_status("m1", "approved")
+    path = tmp_path / ".ract" / "handshakes.json"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("risky write", "anything at all"),
+        encoding="utf-8",
+    )
+    base = _make_manifest()
+    assert registry.widen_manifest_for(base, "m1") == base
+
+
+def test_a_later_rejection_clears_the_approval(tmp_path: Path):
+    registry = HandshakeRegistry(tmp_path)
+    registry.add("m1", "risky write", "operator approves")
+    registry.update_status("m1", "approved")
+    registry.update_status("m1", "rejected")
+    path = tmp_path / ".ract" / "handshakes.json"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace('"rejected"', '"approved"'),
+        encoding="utf-8",
+    )
+    base = _make_manifest()
+    assert registry.widen_manifest_for(base, "m1") == base

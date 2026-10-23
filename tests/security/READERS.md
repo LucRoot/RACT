@@ -14,15 +14,14 @@ Status below is from reading the code. The first run of `test_workspace_readers_
 | `sandbox_env.allowlist` | `.ract/sandbox_env.allowlist` | Oversize line, not JSON, a number, a JSON list; a directory in place of the file | holds since S-035 (was B-075 FOUND: a directory raised IsADirectoryError, not the documented refusal) |
 | `ract_runner._configured_budget` | `ract.yaml` (token_budget) | Oversize, wrong shapes, a directory in place of the file | holds (predicted) |
 | `assumptions_wal` | `.ract/wal/assumptions.wal` | A garbage line and an oversize file (refused or skipped); a directory in place of the file | holds since S-035 (was B-075 FOUND: a directory let PermissionError escape); a non-object line and non-UTF-8 bytes are `WalCorruptError` too |
-| `handshake_registry` | `.ract/handshakes.json` | Non-list roots, an oversize file, a directory in place of the file; a non-object item and an unknown key; a shipped `approved` item must not widen the manifest | roots, oversize and directory hold; item cases: expected failure, B-075 FOUND (TypeError escapes); widening: expected failure, B-075 FOUND (the shipped approval widens the manifest) |
+| `handshake_registry` | `.ract/handshakes.json` | Non-list roots, an oversize file, a directory in place of the file; a non-object item and an unknown key; a shipped `approved` item must not widen the manifest | holds since S-035 (was B-075 FOUND: wrong items raised TypeError; a shipped approval widened the manifest). An approval widens only when this machine recorded it, in the user state directory |
 | `session_config` | `session.json` | Not JSON, a list, a number | expected failure, B-075 FOUND (JSONDecodeError and TypeError escape) |
 | `trust_items` | `.ract/hooks/*.json` | Bad hook files listed as unreadable; a directory in place of a hook file; a command with ESC and bidi override (checked on `TrustItem.line()`, the printed form) | holds. The raw `detail` keeps the ESC and bidi on purpose (S-034: the digest uses the raw fields); the printed line is escaped |
 
 ## Not yet covered
 
-These readers are on the B-075 list and have no test yet.
+These readers are on the B-075 list and have no test.
 
-- `handshake_registry`: the widening case (a shipped `"status": "approved"` item widens the manifest) needs a manifest fixture; not written yet.
 - `cli_toggles`, `workspace_state`: no workspace file is read at the entry point. `cli_toggles` reads `~/.ract/session.json` in the user's home; `workspace_state` only renames `.rack` to `.ract`, and its symlink case needs a privilege. Listed here so the omission is visible.
 
 ## Broken-copy checks (one per reader that passes)

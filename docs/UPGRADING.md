@@ -18,6 +18,11 @@ git tag, with the fake model server; nothing is installed.
 
 ### What changes
 
+- A handshake you approved before this change no longer widens a run's
+  capability manifest. Approve it again with `ract handshakes approve
+  <milestone-id>`. An approval now counts only when this machine recorded it,
+  in the user state directory, so a `.ract/handshakes.json` that a repository
+  ships cannot approve anything (S-035).
 - A step no longer commits onto your branch. v0.5.2 committed each step
   (`rootact step 1: ...`) onto the branch you had checked out. This branch
   leaves the change unstaged. `tests/integration/test_run_never_moves_user_branch.py`

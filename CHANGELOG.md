@@ -90,6 +90,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A `.ract/handshakes.json` shipped in a repository could mark a handshake as approved,
+  and that widened the run's capability manifest. An approval now widens only when this
+  machine recorded it (`ract handshakes approve` writes a mark in the user state directory
+  holding the approved item's digest). Approvals made before this change must be given
+  again (docs/UPGRADING.md) (S-035).
 - Files a cloned repository can ship no longer steer writes outside the workspace. Session
   rollback snapshots (`.ract/snapshots/`), consolidation proposals in `.ract/handshakes.json`,
   consolidation backups and imported session exports each turned a value from the file into a

@@ -18,6 +18,7 @@ inspection; the parent snapshot does not advance and no dependent step
 can commit past it. The blast radius is bounded by git.
 """
 
+import hashlib
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -48,23 +49,92 @@ class HandshakeItem:
             raise ValueError(f"Invalid handshake status: {self.status}")
 
 
+_FIELDS = {
+    "id",
+    "description",
+    "acceptance",
+    "timestamp",
+    "status",
+    "metadata",
+    "depends_on",
+}
+_TEXT_FIELDS = ("id", "description", "acceptance", "timestamp", "status")
+_STATUSES = {"pending", "approved", "rejected", "deferred"}
+
+
+def _item_ok(raw: object) -> bool:
+    """True for an item of the shape ``_save`` writes; others are ignored."""
+    if not isinstance(raw, dict) or not set(raw) <= _FIELDS:
+        return False
+    if any(not isinstance(raw.get(name), str) for name in _TEXT_FIELDS):
+        return False
+    if raw["status"] not in _STATUSES:
+        return False
+    if raw.get("metadata") is not None and not isinstance(raw["metadata"], dict):
+        return False
+    deps = raw.get("depends_on", [])
+    return isinstance(deps, list) and all(isinstance(d, str) for d in deps)
+
+
+def _approval_digest(item: HandshakeItem) -> str:
+    """What the operator approved: the item's id, text and time."""
+    fields = [item.id, item.description, item.acceptance, item.timestamp]
+    return hashlib.sha256(json.dumps(fields).encode("utf-8")).hexdigest()
+
+
 class HandshakeRegistry:
-    """Persist and manage operator handshakes for a project."""
+    """Persist and manage operator handshakes for a project.
+
+    LR:: ``.ract/handshakes.json`` is in the workspace, so a cloned
+    repository can ship one, with items already marked ``approved``
+    (B-075, S-035). The file still records the handshakes, but an approval
+    widens a manifest only when this machine recorded it: ``update_status``
+    writes a mark in the user state directory holding the approved item's
+    digest, and ``widen_manifest_for`` checks the mark against the item.
+    """
 
     def __init__(self, project_dir: Path | str) -> None:
         self.project_dir = Path(project_dir)
         self.registry_path = self.project_dir / ".ract" / "handshakes.json"
 
+    def _approvals_dir(self) -> Path:
+        from ract.core.keys import _default_state_dir
+        from ract.undo_backup import repository_key
+
+        key = repository_key(self.project_dir)
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+        return _default_state_dir() / "handshakes" / digest
+
+    def _approval_mark(self, milestone_id: str) -> Path:
+        name = hashlib.sha256(milestone_id.encode("utf-8")).hexdigest()[:32]
+        return self._approvals_dir() / f"{name}.approved"
+
+    def _approved_here(self, item: HandshakeItem) -> bool:
+        mark = self._approval_mark(item.id)
+        if mark.is_symlink() or not mark.is_file():
+            return False
+        try:
+            recorded = mark.read_bytes()[:128].decode("ascii").strip()
+        except (OSError, UnicodeDecodeError):
+            return False
+        return recorded == _approval_digest(item)
+
     def _load(self) -> list[dict[str, Any]]:
-        if not self.registry_path.is_file():
+        from ract.untrusted_file import UntrustedFileRefused, read_untrusted
+
+        try:
+            raw = read_untrusted(self.registry_path, root=self.project_dir)
+        except UntrustedFileRefused:
+            return []
+        if raw is None:
             return []
         try:
-            data = json.loads(self.registry_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+            data = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError):
             return []
         if not isinstance(data, list):
             return []
-        return data
+        return [item for item in data if _item_ok(item)]
 
     def _save(self, items: list[HandshakeItem]) -> None:
         self.registry_path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,8 +239,13 @@ class HandshakeRegistry:
                 "widen_manifest_for expected a CapabilityManifest; got "
                 f"{type(manifest_widen).__name__}"
             )
-        # Verify the handshake is approved before applying any widen.
-        approved = {item.id for item in self.entries() if item.status == "approved"}
+        # Verify the handshake is approved, and approved on this machine
+        # (a mark in the user state directory), before applying any widen.
+        approved = {
+            item.id
+            for item in self.entries()
+            if item.status == "approved" and self._approved_here(item)
+        }
         if milestone_id not in approved:
             return manifest_widen
         # Apply the widen: union filesystem read + write, union network hosts.
@@ -211,11 +286,22 @@ class HandshakeRegistry:
                     depends_on=item.depends_on,
                 )
                 self._save(items)
+                _record_approval_mark(self, items[i])
                 # module_05: emit at the resolve site so the log carries
                 # every terminal transition.
                 _emit_handshake_event("handshake.resolved", items[i], reason="")
                 return items[i]
         raise KeyError(f"Handshake not found: {milestone_id}")
+
+
+def _record_approval_mark(registry: HandshakeRegistry, item: HandshakeItem) -> None:
+    """Record on this machine that the operator approved *item*, or clear it."""
+    mark = registry._approval_mark(item.id)
+    if item.status != "approved":
+        mark.unlink(missing_ok=True)
+        return
+    mark.parent.mkdir(parents=True, exist_ok=True)
+    mark.write_text(_approval_digest(item), encoding="ascii")
 
 
 def _emit_handshake_event(kind: str, item: HandshakeItem, *, reason: str) -> None:

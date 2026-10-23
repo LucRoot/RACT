@@ -378,10 +378,6 @@ def test_handshake_directory_where_file_is_expected(tmp_path: Path) -> None:
     assert HandshakeRegistry(tmp_path).entries() == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: HandshakeRegistry.entries raises TypeError on a non-object item or an unknown key",
-)
 @pytest.mark.parametrize("body", [b"[1, 2]", b'[{"id": "h1", "zzz": 1}]'])
 def test_handshake_wrong_item_is_refused_or_ignored(
     tmp_path: Path, body: bytes
@@ -404,10 +400,6 @@ def _widen_base() -> CapabilityManifest:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: a shipped handshakes.json with status approved widens the manifest (widen_manifest_for reads entries())",
-)
 def test_shipped_approved_handshake_does_not_widen(tmp_path: Path) -> None:
     source = tmp_path / "source"
     registry = HandshakeRegistry(source)
