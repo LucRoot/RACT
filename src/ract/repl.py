@@ -200,8 +200,14 @@ class ReplSession:
     # ------------------------------------------------------------------ loop
 
     def prompt(self) -> str:
-        marker = "plan" if self.state.dry_run else "ract"
-        return f"{marker}> "
+        from ract.tui import plain_mode
+
+        if self.state.dry_run:
+            return "plan: " if plain_mode() else "plan> "
+        if plain_mode():
+            # Plain mode labels the operator's lines (B-041b).
+            return "you: "
+        return "ract> "
 
     def run(self) -> int:
         """Run until the operator exits. Returns a process exit code."""
@@ -724,13 +730,14 @@ class ReplSession:
     def _start_events(self) -> None:
         from ract.session_events import EventStream
         from ract.session_render import PlainRenderer
+        from ract.tui import plain_mode
 
         def write(text: str) -> None:
             sys.stdout.write(text)
             sys.stdout.flush()
 
         self._events = EventStream(session=self.state.session_id)
-        self._renderer = PlainRenderer(write)
+        self._renderer = PlainRenderer(write, labels=plain_mode())
         self._events.subscribe(self._renderer)
         self._events.emit("session.started", self._session_facts())
         # Ask about the repository's own commands now, on the main thread,

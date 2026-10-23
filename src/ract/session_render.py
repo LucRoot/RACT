@@ -57,10 +57,16 @@ class PlainRenderer:
         *,
         show_reasoning: bool = False,
         width: int = 80,
+        labels: bool = False,
     ) -> None:
         self._write = write
         self._show_reasoning = show_reasoning
         self._width = width
+        # Plain mode (B-041b): the answer block starts with "ract: " and its
+        # continuation lines are indented by two spaces.
+        self._labels = labels
+        self._label_due = False
+        self._indent_due = False
         # Step records for the checklist, keyed by step number; None for a
         # one-step plan, which keeps the short lines.
         self._checklist: dict[Any, dict[str, Any]] | None = None
@@ -248,14 +254,32 @@ class PlainRenderer:
             self._line("model summary:")
             self._labelled_summary = True
             self._text_target = target
+            self._label_due = self._labels
         if target != self._text_target:
             if target[0] == "artifact":
                 self._line(f"--- {target[1]} ---")
             elif self._text_target is not None:
                 self._line("")
             self._text_target = target
+            if self._labels and target[0] == "answer":
+                self._label_due = True
+                self._indent_due = False
+        if self._labels and target[0] == "answer":
+            text = self._label_answer(text)
         self._write(text)
         self._mid_line = not text.endswith("\n")
+
+    def _label_answer(self, text: str) -> str:
+        out: list[str] = []
+        for char in text:
+            if self._label_due:
+                out.append("ract: ")
+                self._label_due = False
+            elif self._indent_due and char != "\n":
+                out.append("  ")
+            self._indent_due = char == "\n"
+            out.append(char)
+        return "".join(out)
 
     def _on_agent_retry(self, d: dict[str, Any]) -> None:
         wait = int(d.get("wait_ms", 0)) / 1000

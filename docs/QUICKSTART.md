@@ -51,7 +51,9 @@ The CLI will greet you with a short tagline. If you are on macOS, enjoy the same
 ## Work inside a session
 
 Run `ract` with no arguments in a terminal to open an interactive session. Type an
-intent and press Enter. Lines that start with `/` are commands.
+intent and press Enter. Lines that start with `/` are commands. For a screen reader
+or a log file, add `--plain` (or set `TERM=dumb`): no color, no boxes, and each
+line labeled `you:` or `ract:`.
 
 ```text
 $ ract

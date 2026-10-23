@@ -19,6 +19,20 @@ from rich.rule import Rule
 from rich.table import Table
 
 
+_PLAIN = False
+
+
+def set_plain(on: bool = True) -> None:
+    """Turn plain mode on for this process (``--plain``, B-041b)."""
+    global _PLAIN
+    _PLAIN = on
+
+
+def plain_mode() -> bool:
+    """True for ``--plain`` or ``TERM=dumb``: labels, no color, no boxes."""
+    return _PLAIN or os.environ.get("TERM", "") == "dumb"
+
+
 def _reconfigure_utf8() -> None:
     """Force stdout/stderr to UTF-8 so branded Unicode renders everywhere.
 
@@ -49,7 +63,7 @@ class RactConsole:
         _reconfigure_utf8()
         # Respect NO_COLOR (an empty value counts as unset); otherwise let Rich
         # detect terminal capabilities.
-        self._color = not os.environ.get("NO_COLOR", "").strip()
+        self._color = not os.environ.get("NO_COLOR", "").strip() and not plain_mode()
         self._build()
 
     def _build(self) -> None:
@@ -167,6 +181,12 @@ class RactConsole:
 
     def welcome(self, version: str) -> None:
         """Print the RACT welcome letter."""
+        if plain_mode():
+            # No logo and no panel: plain lines a screen reader reads in order.
+            self._console.print(f"RACT {version}, by Dr. Lucas Root, Ph.D.")
+            self._console.print("License: PolyForm Noncommercial License 1.0.0")
+            self._console.print("Type an intent, or /help for commands.")
+            return
         body = (
             f"[bold {self.BRAND_BLUE}]Version:[/] {version}\n"
             f"[bold {self.BRAND_BLUE}]Author:[/] Dr. Lucas Root, Ph.D.\n"
