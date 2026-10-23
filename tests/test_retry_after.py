@@ -162,6 +162,25 @@ def test_retry_after_over_the_bound_stops_without_sleeping(
     assert "HTTP 429" in (result.error or "")
 
 
+def test_over_the_bound_the_stop_message_names_the_requested_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rec = _Recorder(monkeypatch)
+    result, calls = _complete(_provider(), [_resp(429, {"Retry-After": "600"})])
+    assert not result.is_ok() and calls == 1
+    assert rec.sleeps == []
+    assert "the provider asked to wait 600 s; stopping" in (result.error or "")
+
+
+def test_within_the_bound_the_stop_message_does_not_name_a_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _Recorder(monkeypatch)
+    result, _ = _complete(_provider(max_retries=0), [_resp(429, {"Retry-After": "5"})])
+    assert not result.is_ok()
+    assert "asked to wait" not in (result.error or "")
+
+
 def test_503_three_times_then_success_has_jittered_growing_waits(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

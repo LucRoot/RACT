@@ -23,6 +23,7 @@ from ract.providers.rate_limit import TokenBucket
 from ract import egress_ledger, egress_scan, turn_context
 from ract import run_token_budget as token_budget
 from ract.retry_policy import (
+    MAX_RETRY_AFTER_S,
     RetryConfig,
     RetryPolicy,
     parse_retry_after,
@@ -445,12 +446,16 @@ class OpenAICompatibleProvider(ProviderAdapter):
             if isinstance(last_error, httpx.HTTPStatusError):
                 status = last_error.response.status_code
                 where = f" from {self.url}" if status == 429 else ""
+                asked = self._retry_after(last_error)
+                too_long = ""
+                if asked is not None and asked > MAX_RETRY_AFTER_S:
+                    too_long = f"; the provider asked to wait {asked:g} s; stopping"
                 return Rooted(
                     value=None,
                     assumption="The OpenAI-compatible endpoint accepts the request and returns valid JSON.",
                     confidence=0.0,
                     provenance=["openai.complete"],
-                    error=f"HTTP {status}{where}: {last_error.response.text[:200]}",
+                    error=f"HTTP {status}{where}: {last_error.response.text[:200]}{too_long}",
                 )
             if isinstance(last_error, httpx.RequestError):
                 return Rooted(
