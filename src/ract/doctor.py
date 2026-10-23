@@ -16,6 +16,8 @@ from typing import Any
 
 import yaml
 
+from ract.session_events import safe_text
+
 from ract.config_check import find_config_problems, resolve_manager_provider
 from ract.harness import _default_manager_prompt_path
 from ract.doctor_advice import KeyFacts, Memory, advise
@@ -264,10 +266,10 @@ class RactDoctor:
                 if gaps:
                     message += f"; not supported: {', '.join(gaps)}"
             else:
-                message = failed[0].detail if failed else "chat did not work"
+                message = safe_text(failed[0].detail) if failed else "chat did not work"
             results.append(
                 CheckResult(
-                    name=f"provider_capabilities:{probe.name}",
+                    name=f"provider_capabilities:{safe_text(probe.name)}",
                     passed=probe.chat_works or not probe.probed,
                     message=message,
                 )

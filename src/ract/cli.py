@@ -27,6 +27,7 @@ from ract.github_release import GitHubReleaseClient, GitHubReleaseError
 from ract.handshake_registry import HandshakeRegistry
 from ract.harness import _build_retrieval_adapter
 from ract.legacy_whisperer import LegacyWhisperer
+from ract.session_events import safe_text
 from ract.tui import console
 from ract.load_bearing_guard import LoadBearingGuard
 from ract.loop_controller import LoopController
@@ -1525,18 +1526,24 @@ def _print_provider_probe(probe: Any) -> None:
     """One provider block of ``ract doctor --check-providers`` (B-056)."""
     from rich.markup import escape
 
+    from ract.session_events import safe_text
+
     named = "  (named by this repository's ract.yaml)" if probe.repo_named else ""
     console.print(
-        escape(f"provider {probe.name} ({probe.url})  model: {probe.model}{named}")
+        escape(
+            safe_text(
+                f"provider {probe.name} ({probe.url})  model: {probe.model}{named}"
+            )
+        )
     )
     for finding in probe.findings:
         label = f"  {finding.label}:"
         status = finding.status
         if finding.detail:
             status += f" ({finding.detail})"
-        console.print(escape(f"{label:<20}{status}"))
+        console.print(escape(safe_text(f"{label:<20}{status}")))
         if finding.next_step:
-            console.print(escape(f"{'':<20}{finding.next_step}"))
+            console.print(escape(safe_text(f"{'':<20}{finding.next_step}")))
 
 
 def _doctor_command(args: list[str]) -> int:
@@ -1646,8 +1653,8 @@ def _doctor_command(args: list[str]) -> int:
         rows=[
             [
                 "PASS" if result.passed else "FAIL",
-                result.name,
-                result.message,
+                safe_text(result.name),
+                safe_text(result.message),
             ]
             for result in results
         ],

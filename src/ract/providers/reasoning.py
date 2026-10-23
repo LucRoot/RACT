@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from ract.session_events import safe_text
+
 import yaml
 
 EFFORT_LEVELS = ("off", "low", "medium", "high")
@@ -111,7 +113,7 @@ def apply(payload: dict[str, Any], *, url: str, provider: str) -> dict[str, Any]
     if provider not in _noted:
         _noted.add(provider)
         print(
-            f"reasoning_effort is ignored by {provider}: it has no setting for it",
+            f"reasoning_effort is ignored by {safe_text(provider)}: it has no setting for it",
             file=sys.stderr,
             flush=True,
         )

@@ -18,6 +18,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Iterator
 
+from ract.session_events import safe_text
+
 FIELD = "token_budget"
 STOP_PREFIX = "stopped: this run used"
 
@@ -60,7 +62,7 @@ class Budget:
             if provider not in self.unreported:
                 self.unreported.add(provider)
                 print(
-                    f"[ract] {FIELD} is set, but {provider} reports no token counts, "
+                    f"[ract] {FIELD} is set, but {safe_text(provider)} reports no token counts, "
                     "so it is not enforced",
                     flush=True,
                 )
