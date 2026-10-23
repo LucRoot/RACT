@@ -172,3 +172,32 @@ def test_kill_in_step_two_then_resume_finishes_without_rerunning_step_one(
     assert (ws / "docs" / "draft.md").read_bytes() == DRAFT
     assert _count(resume, STEP1) == 0, "step 1 was rerun"
     assert len(resume.chat_requests) == 2, "only step 2 and step 3 should be asked"
+
+
+def test_resume_with_no_run_to_continue_says_so_and_asks_the_model_nothing(
+    tmp_path: Path, state_home: Path, fake_model_server: Any
+) -> None:
+    # A run that never checkpointed (killed before step 1) or that finished
+    # (its checkpoint is removed) leaves nothing to resume: the resume must
+    # say so in plain words and send no request.
+    server = fake_model_server(Scenario.from_dict({"turns": [_text(NOTES)]}))
+    ws = rb._workspace(tmp_path, "ws", git=True, files=rb.CALC_FILES)
+    rb._configure(ws, server.base_url, "fake-coder")
+
+    done = subprocess.run(
+        _cmd("--session", "never-checkpointed", "--resume"),
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=_env(state_home),
+        stdin=subprocess.DEVNULL,
+    )
+
+    output = (done.stdout + done.stderr).lower()
+    assert done.returncode != 0
+    assert "traceback" not in output
+    assert "not found" in output
+    assert server.chat_requests == []
