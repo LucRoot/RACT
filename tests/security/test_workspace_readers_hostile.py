@@ -346,10 +346,6 @@ def test_assumptions_wal_garbage_is_refused_or_skipped(
         pytest.fail(f"assumptions_wal escaped {type(exc).__name__}: {exc}")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075 FOUND: AssumptionWal.load_all lets PermissionError escape on a directory named assumptions.wal",
-)
 def test_assumptions_wal_directory_where_file_is_expected(tmp_path: Path) -> None:
     _plant_dir(tmp_path, WAL_DIR + ("assumptions.wal",))
     wal = AssumptionWal(tmp_path.joinpath(*WAL_DIR))

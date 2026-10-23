@@ -293,14 +293,23 @@ class AssumptionWal:
     def _read_lines(path: Path, *, tolerate_tail: bool) -> list[WalEntry]:
         if not path.exists():
             return []
-        raw = path.read_bytes()
+        if not path.is_file():
+            # A directory where the log belongs (B-075, S-035).
+            raise WalCorruptError(f"{path} is not a file")
+        try:
+            raw = path.read_bytes()
+        except OSError as exc:
+            raise WalCorruptError(f"cannot read {path}: {exc}") from exc
         if not raw:
             return []
         # Splitlines with keepends=False is safe here because canonical
         # lines are ASCII-JSON terminated by ``\n``; ``splitlines`` does
         # NOT split on CR-only inside a UTF-8 JSON body (there are no
         # bare CRs there).
-        text = raw.decode("utf-8", errors="strict")
+        try:
+            text = raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise WalCorruptError(f"{path} is not UTF-8: {exc}") from exc
         lines = text.split("\n")
         # A well-formed file ends in a trailing ``\n``, giving an empty
         # last element from split; strip it.
@@ -329,6 +338,8 @@ class AssumptionWal:
                 raise WalCorruptError(
                     f"malformed WAL line {i} in {path}: {exc}"
                 ) from exc
+            if not isinstance(obj, dict):
+                raise WalCorruptError(f"WAL line {i} in {path} is not an object")
             kind = obj.get("kind")
             if kind not in TRANSITIONS:
                 raise WalCorruptError(
