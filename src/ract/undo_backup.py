@@ -261,6 +261,40 @@ class UndoResult:
         return out
 
 
+def previous_version(
+    root: Path | str, backup_id: object, relative_path: object
+) -> bytes | None:
+    """The bytes a turn saved for *relative_path* before replacing it, or None.
+
+    LR:: The turn summary draws a diff from these bytes (B-014b). The id and
+    the path arrive in an event, so neither is trusted: the id must be a name
+    (``require_name``), the folder's manifest must belong to this repository,
+    the path must pass ``check_entry`` and be one the turn saved, and a saved
+    file that is a link is not read. A bad id or path raises ValueError;
+    a turn or file that is not there gives None. No path travels in an event.
+    """
+    name = require_name(backup_id, "backup id")
+    base = Path(os.path.realpath(root))
+    folder = turns_dir(base) / name
+    problem = check_entry(base, folder, relative_path)
+    if problem is not None:
+        raise ValueError(f"{relative_path!r} is not a saved file: {problem}")
+    assert isinstance(relative_path, str)
+    try:
+        manifest = json.loads((folder / MANIFEST).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None  # no turn of that id, or an unreadable manifest
+    if not isinstance(manifest, dict) or manifest.get("root") != repository_key(base):
+        return None
+    key = relative_path.replace("\\", "/")
+    if key not in (manifest.get("saved") or []):
+        return None
+    saved = folder / key
+    if saved.is_symlink() or not saved.is_file():
+        return None
+    return saved.read_bytes()
+
+
 def _manifests(root: Path) -> list[tuple[Path, dict[str, Any]]]:
     undo = turns_dir(root)
     if not undo.is_dir():
