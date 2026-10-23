@@ -85,12 +85,44 @@ def sub(a, b):
 [x] 1. Fix add() in src/calc.py so it adds -> src/calc.py (0.1s) passed
 ```
 
+## See your earlier sessions
+
+`/sessions` lists the saved sessions, newest first, with the id, the time, and
+the last request. The turn and cost columns show `-`: the session file does not
+store them yet.
+
+```text
+ract> /sessions
+Sessions
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ Id                   ┃ Updated          ┃ Turns ┃ Cost ┃ Last request        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ repl-20261023-090000 │ 1970-01-12 05:48 │ -     │ -    │ rename the greeting │
+│                      │                  │       │      │ helper and update   │
+│                      │                  │       │      │ its tests           │
+│ repl-20261022-110000 │ 1970-01-12 05:47 │ -     │ -    │ fix the parser so   │
+│                      │                  │       │      │ it stops on empty   │
+│                      │                  │       │      │ input               │
+│ repl-20261022-100000 │ 1970-01-12 05:46 │ -     │ -    │ add a docstring to  │
+│                      │                  │       │      │ hello.py            │
+└──────────────────────┴──────────────────┴───────┴──────┴─────────────────────┘
+```
+
+`/resume` switches to one of them, by id, or to the newest with `latest`:
+
+```text
+✓  resumed repl-20261023-090000, last request: rename the greeting helper and up
+```
+
 ## Known issues
 
 - At 60 columns, some lines are wider than the terminal. The checklist and the
   approval prompts are not yet folded to the width. Tracked as B-041c.
+- At 80 columns, the `/resume` summary line can wrap in the middle of a word
+  (the capture above shows `up` and `pdate` on two lines). Reported as a
+  FOUND for the BUILDER; the guide does not hide it.
 
 ## Not covered yet
 
-This guide will grow to cover `/sessions`, `/resume`, `/cost`, `/undo`, `/help`
-and the mode line. None of these has a capture yet, so none is described here.
+This guide will grow to cover `/cost`, `/undo`, `/help` and the mode line. None
+of these has a capture yet, so none is described here.
