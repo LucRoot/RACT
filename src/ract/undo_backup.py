@@ -42,6 +42,8 @@ from typing import Any
 
 KEEP_TURNS = 20
 MANIFEST = "manifest.json"
+# previous_version never loads a saved file larger than this (G-141).
+MAX_PREVIOUS_VERSION_BYTES = 8 * 1024 * 1024
 # Top-level names a manifest entry may never touch.
 _PROTECTED = {".git", ".ract"}
 
@@ -292,6 +294,8 @@ def previous_version(
     saved = folder / key
     if saved.is_symlink() or not saved.is_file():
         return None
+    if saved.stat().st_size > MAX_PREVIOUS_VERSION_BYTES:
+        return None  # too large to draw; the summary shows counts only
     return saved.read_bytes()
 
 

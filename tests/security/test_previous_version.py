@@ -102,3 +102,16 @@ def test_a_saved_file_replaced_by_a_link_is_not_read(
         pytest.skip("this account cannot create symbolic links (shown on Linux, B-046)")
 
     assert undo_backup.previous_version(ws, backup_id, "src/a.py") is None
+
+
+def test_a_saved_file_over_the_cap_is_not_read(tmp_path: Path, state: None) -> None:
+    # G-141: the summary must not load a huge saved file into memory.
+    ws = tmp_path / "ws"
+    (ws / "data").mkdir(parents=True)
+    big = ws / "data" / "big.bin"
+    big.write_bytes(b"x" * (undo_backup.MAX_PREVIOUS_VERSION_BYTES + 1))
+    with undo_backup.turn(ws) as backup:
+        undo_backup.save_before_replace(ws, ["data/big.bin"])
+        big.write_bytes(b"small now")
+
+    assert undo_backup.previous_version(ws, backup.turn_id, "data/big.bin") is None
