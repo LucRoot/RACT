@@ -40,3 +40,67 @@ def test_the_render_width_follows_the_terminal(
 ):
     monkeypatch.setenv("COLUMNS", columns)
     assert _session(tmp_path)._render_width() == expected
+
+
+def test_a_long_renderer_line_is_wrapped_to_the_width_with_a_hanging_indent():
+    # B-041c: the plan's assumption and the turn summary's long lines fit the width.
+    import io
+
+    from ract.session_render import PlainRenderer
+
+    out = io.StringIO()
+    renderer = PlainRenderer(out.write, width=60)
+    renderer._line(
+        "  assumes: " + "the planner assumed a long thing about the module " * 3
+    )
+    lines = out.getvalue().splitlines()
+    assert len(lines) > 1
+    assert all(len(line) <= 60 for line in lines), lines
+    assert lines[1].startswith("  ")
+
+
+def test_the_approval_prompt_wraps_to_the_terminal_width(monkeypatch, capsys):
+    # B-041c: the approval question fits the terminal; its answer stays on the last line.
+    from ract import approval_callback
+
+    class _Step:
+        provider_hint = "local"
+        action = (
+            "Add tests/test_notes.py that checks NOTE across two modules and the parser"
+        )
+        expected_artifact = "tests/test_notes.py"
+        tool_call = None
+
+    monkeypatch.setenv("COLUMNS", "60")
+    monkeypatch.setattr("builtins.input", lambda prompt: "y")
+    assert approval_callback.console_approval_callback(_Step()) is True
+    out = capsys.readouterr().out
+    assert out and all(len(line) <= 60 for line in out.splitlines()), out
+
+
+def test_the_renderer_and_the_approval_prompt_hold_to_forty_columns(
+    monkeypatch, capsys
+):
+    import io
+
+    from ract import approval_callback
+    from ract.session_render import PlainRenderer
+
+    out = io.StringIO()
+    renderer = PlainRenderer(out.write, width=40)
+    renderer._line(
+        "  assumes: " + "the planner assumed a long thing about the module " * 3
+    )
+    assert all(len(line) <= 40 for line in out.getvalue().splitlines())
+
+    class _Step:
+        provider_hint = "local"
+        action = "Add tests/test_notes.py that checks NOTE across two modules"
+        expected_artifact = "tests/test_notes.py"
+        tool_call = None
+
+    monkeypatch.setenv("COLUMNS", "40")
+    monkeypatch.setattr("builtins.input", lambda prompt: "y")
+    approval_callback.console_approval_callback(_Step())
+    shown = capsys.readouterr().out
+    assert shown and all(len(line) <= 40 for line in shown.splitlines()), shown

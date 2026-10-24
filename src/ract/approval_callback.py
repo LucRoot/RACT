@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 
+import shutil
+import textwrap
 from collections.abc import Callable
 
 from ract.manager import Step
 
 
 ConsoleApprovalCallback = Callable[[Step], bool]
+
+
+def _terminal_width() -> int:
+    """The terminal's columns, between 40 and 80 (the same rule as the REPL)."""
+    return max(40, min(80, shutil.get_terminal_size((80, 24)).columns))
 
 
 def console_approval_callback(step: Step) -> bool:
@@ -22,12 +29,16 @@ def console_approval_callback(step: Step) -> bool:
     """
     if not step.expected_artifact and step.tool_call is None:
         return True
-    prompt = (
+    question = (
         f"Approve step: [{step.provider_hint}] {step.action} "
-        f"-> {step.expected_artifact or 'answer, no file written'}? [y/N]: "
+        f"-> {step.expected_artifact or 'answer, no file written'}? [y/N]:"
     )
+    # The question wraps to the terminal width; the answer goes on the last line (B-041c).
+    lines = textwrap.wrap(question, width=_terminal_width(), break_on_hyphens=False)
+    for line in lines[:-1]:
+        print(line)
     try:
-        response = input(prompt).strip().lower()
+        response = input(f"{lines[-1]} ").strip().lower()
     except EOFError:
         return False
     return response in {"y", "yes"}
