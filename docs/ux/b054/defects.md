@@ -41,10 +41,27 @@ From `timings.txt`, time to first feedback: J1 7.11 s (includes the default-port
 J2 2.86 s, J4 2.12 s, J6 2.13 s, J9 1.53 s, J10 2.31 s. The longest silent stretch is in J4:
 the approval wait prints `... waiting on model` every 10 s, so nothing goes quiet longer than 10 s.
 
-## Walkthrough problems in the runner (not product defects)
+## J1 re-run (answered `n` at the setup prompt)
 
-- **J1 is incomplete.** The runner typed `/exit` at the setup question
-  (`Set one up now? [Y/n]`), so the setup choice was never answered. The line
-  `ract.yaml written by the first run: no` is a result of that, not a finding. J1 needs a
-  re-run that answers `n` and then `/exit`.
-- The J1 capture echoes `/exit` into the setup prompt. That comes from the runner, not RACT.
+The first J1 run typed `/exit` at the setup question, which is a runner error; that capture
+is superseded. The re-run answered `n` and is in `J1.txt`. It shows:
+
+- `Set one up now? [Y/n] (n opens the session without one) n`, then the session opens.
+- `⚠  ract.yaml not found. Leave and run ract setup to create one (it checks this machine and asks a few questions).`
+  The word "Leave" is unclear: the session does not exit. S3.
+- `RACT session ? via ? | default | T3 off`. The model shows as `?` with no config. Correct
+  but unexplained. S3, owner unassigned.
+- No `ract.yaml` was written (`ract.yaml written: False`), which matches answering `n`.
+
+Added to the findings table (see D10 and D11 below).
+
+| ID | Journey | Sev | Finding (captured text) | Owner |
+|---|---|---|---|---|
+| D10 | J1 | S3 | `Leave and run ract setup to create one`: the session does not leave, so "Leave" misleads. | unassigned |
+| D11 | J1 | S3 | Status line `RACT session ? via ? | default` with no config. The `?` values are not explained. | unassigned |
+
+## Walkthrough notes
+
+- The J1 setup question was answered `n` in the re-run. Before the re-run, the setup question
+  had been answered with the runner's `/exit`, which is why the first capture showed
+  `ract.yaml written: no` for the wrong reason.
