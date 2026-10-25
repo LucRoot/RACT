@@ -768,6 +768,7 @@ class ReplSession:
             labels=plain_mode(),
             project=self.state.config.resolve().parent,
             width=self._render_width(),
+            wrap=True,
         )
         self._events.subscribe(self._renderer)
         self._events.emit("session.started", self._session_facts())

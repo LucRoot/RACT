@@ -49,7 +49,7 @@ def test_a_long_renderer_line_is_wrapped_to_the_width_with_a_hanging_indent():
     from ract.session_render import PlainRenderer
 
     out = io.StringIO()
-    renderer = PlainRenderer(out.write, width=60)
+    renderer = PlainRenderer(out.write, width=60, wrap=True)
     renderer._line(
         "  assumes: " + "the planner assumed a long thing about the module " * 3
     )
@@ -87,7 +87,7 @@ def test_the_renderer_and_the_approval_prompt_hold_to_forty_columns(
     from ract.session_render import PlainRenderer
 
     out = io.StringIO()
-    renderer = PlainRenderer(out.write, width=40)
+    renderer = PlainRenderer(out.write, width=40, wrap=True)
     renderer._line(
         "  assumes: " + "the planner assumed a long thing about the module " * 3
     )
