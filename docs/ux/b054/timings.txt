@@ -1,0 +1,7 @@
+J1: first feedback 7.11 s; ract.yaml written by the first run: no
+J2: first feedback 2.86 s; shows model, branch, mode in the status line; no resume offer at start
+J4: first feedback 2.12 s; verified line: ran no tests
+J6: first feedback 2.13 s; Ctrl-C during a turn (queue indicator not built, B-033 waits)
+J8: exit 0; schema ract.result/1; stdin piping not run
+J9: first feedback 1.53 s; weak model scenario
+J10: first feedback 2.31 s; scripted faults
