@@ -21,6 +21,7 @@ from __future__ import annotations
 import shlex
 import sys
 import threading
+import textwrap
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -1010,15 +1011,25 @@ class ReplSession:
             version = ract.__version__
         except Exception:  # noqa: BLE001
             version = "?"
-        self._console.info(
-            f"RACT {version}  config: {escape(str(self.state.config))}  "
+        # Wrap the raw text, then escape each line: an escape split across two
+        # lines would print wrong. The [ract] prefix takes seven columns (B-041c).
+        raw = (
+            f"RACT {version}  config: {self.state.config}  "
             "type an intent, or /help for commands"
         )
+        pieces = textwrap.wrap(raw, width=self._render_width() - 7)
+        self._console.info(escape(pieces[0]))
+        for piece in pieces[1:]:
+            self._console.print("       " + escape(piece))
         if not self.state.config.is_file():
-            self._console.warning(
-                f"{escape(str(self.state.config))} not found. "
+            raw_warning = (
+                f"{self.state.config} not found. "
                 "Leave and run ract setup to create one (it checks this machine and asks a few questions)."
             )
+            warning_pieces = textwrap.wrap(raw_warning, width=self._render_width() - 2)
+            self._console.warning(escape(warning_pieces[0]))
+            for piece in warning_pieces[1:]:
+                self._console.print("  " + escape(piece))
 
     # --------------------------------------------------------------- history
 

@@ -104,3 +104,26 @@ def test_the_renderer_and_the_approval_prompt_hold_to_forty_columns(
     approval_callback.console_approval_callback(_Step())
     shown = capsys.readouterr().out
     assert shown and all(len(line) <= 40 for line in shown.splitlines()), shown
+
+
+def test_the_banner_holds_to_the_terminal_width(tmp_path, monkeypatch):
+    # B-041c: the banner is the first line a user sees; it must fit a 60-column terminal.
+    monkeypatch.setenv("COLUMNS", "60")
+    lines: list[str] = []
+
+    class _Capture:
+        def print(self, *args, **kwargs):
+            lines.append(" ".join(str(a) for a in args))
+
+        info = warning = success = error = print
+
+    session = ReplSession(
+        tmp_path / "ract.yaml",
+        dispatch=lambda argv: 0,
+        read_line=lambda prompt: "",
+        console=_Capture(),
+        verbs=cli.CLI_VERBS,
+    )
+    session._banner()
+    assert lines
+    assert all(len(line) <= 60 for line in lines), lines
