@@ -127,6 +127,28 @@ window: unknown (run ract doctor --check-providers to measure it)
 turns: not stored in the session file
 ```
 
+## A question that completes
+
+This capture uses the fake server's `j1_no_tools` scenario. Its reply is the same
+JSON envelope for every message, so the answer below is not an answer to the
+question. The run completes, and it shows two things a user would notice:
+`/ask` prints a plan first, and it prints the reply as raw JSON.
+
+```text
+ract> /ask what does add() do in src/calc.py?
+Plan: 1 step, confidence 1.00
+  assumes: The user asked a question; the answer is shown and no file is
+    written.
+  1. what does add() do in src/calc.py?
+[step 1] what does add() do in src/calc.py?
+{"final":"Hello. I answer in the JSON format you asked for."}
+[step 1] done (0.3s)
+  Done: 1 step ran; no tests were run.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 2.1 s, 167 tokens in / 15 out
+```
+
 ## Mode, cost and undo
 
 `/mode` shows how RACT applies changes. `/cost` shows the requests this session

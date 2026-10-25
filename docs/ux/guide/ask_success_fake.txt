@@ -1,0 +1,20 @@
+# Captured: /ask in a session; fake server, scenario j1_no_tools (its reply is a fixed JSON envelope for any message), 80 columns.
+# Driver: tests/ux/terminal_driver.py (ConPTY). Escape sequences removed by the driver.
+# Stripped: trailing spaces only. The answer shown is the scenario reply, not an answer to the question.
+# Capture label: b048_ask_j1; date 2026-10-25.
+
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> /ask what does add() do in src/calc.py?
+Plan: 1 step, confidence 1.00
+  assumes: The user asked a question; the answer is shown and no file is
+    written.
+  1. what does add() do in src/calc.py?
+[step 1] what does add() do in src/calc.py?
+{"final":"Hello. I answer in the JSON format you asked for."}
+[step 1] done (0.3s)
+  Done: 1 step ran; no tests were run.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 2.1 s, 167 tokens in / 15 out
+ract> /exit
