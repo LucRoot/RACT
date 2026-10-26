@@ -18,7 +18,7 @@ stopped at an earlier error; the reason is named), **not run** (cannot be reprod
 | 5 | missing key variable | `ract run ... --dry-run` with `api_key_env` unset | `note: this repository is not trusted ...` / `To allow them: ract trust` | pass for the trust gate; the key message is **not reached** (the trust gate stops first). After `ract trust` the fake server ignores keys, so the key message is **not reproduced** | none in lane. The key path needs a provider that checks keys |
 | 6 | refused connection | `ract run ... --dry-run` with `url: http://127.0.0.1:9/v1` | `✗  failed: Provider call failed: Request failed: nothing is answering at http://127.0.0.1:9/v1 (connection refused).` / `hint: start your model server, or fix the provider url in ract.yaml` | pass | none |
 | 7 | no git repository | `ract run ...` in a plain folder | `note: this directory is not a git repository; RACT writes directly into your files for this run` (seen in the cold reader, `docs/ux/cold_reader.md`) | pass (the note is seen when the run gets past planning; this run stopped earlier, so the capture is from the cold reader) | none |
-| 8 | dirty working tree | `ract run ... --auto` in a git repository with an uncommitted change | the run went on to approval: `auto mode: approval required per step` | **not found**: RACT does not warn about uncommitted changes. This is a decision, not a fix. **ESCALATE** with default: no warning in this release; the run prints the existing git note only | ESCALATE logged |
+| 8 | dirty working tree | `ract run ... --auto` in a git repository with an uncommitted change | no warning is needed: the step's tree is a snapshot of the working tree, so the uncommitted edits are in it (test `tests/test_uncommitted_edits_in_step_tree.py`, ADR-0047 D6). Files left out (too large, past the count, over the time budget) already print a notice at run start (`src/ract/executor/substrate_adapter.py:258`). Adjudicated 2026-10-26, row 2 | pass (closed by evidence) | none |
 | 9 | binary file, doctor | `ract doctor` in a folder with a binary file and no config | `FAIL config_exists: Configuration file not found: ract.yaml` with no next action; then `Provenance: ... not signed with a Rootknot` | partial: no hint; the provenance line uses the project's term | handoff: `src/ract/cli.py` doctor (BUILDER). Proposed: `run ract setup here to create one`; the provenance sentence as in the session notice |
 | 10 | large file, fence | `ract fence inspect --file logo.bin` (and a 9 MB file) | `[ract] config not found: ract.yaml` with no next action | partial | handoff: `src/ract/cli.py` fence verb (BUILDER): name the next action, as in row 1 |
 | 10b | large file in a turn's diff | a 9 MB file changed by a step | **not reached**: the run needs the changed file in the plan; not run in this sweep | not run | `src/ract/session_render.py` already caps the diff at 8 MiB (`_MAX_DIFF_BYTES`); the notice text was not checked |
@@ -41,7 +41,7 @@ stopped at an earlier error; the reason is named), **not run** (cannot be reprod
 - Partial: rows 2, 4, 9, 10, 14, 21.
 - Fail: rows 15, 22.
 - Not reached or not run: rows 5 (key path), 10b, 11.
-- Not found: row 8 (dirty tree), ESCALATE.
+- Row 8 (dirty tree): closed by evidence in adjudication row 2 (no warning needed).
 
 ## Handoffs (owner and change)
 
