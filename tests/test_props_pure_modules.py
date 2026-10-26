@@ -317,3 +317,15 @@ def test_the_context_view_folds_a_wide_host_name_by_columns():
         [{"host": host, "tokens_in": 1, "tokens_out": 2}], None, width=40
     )
     assert all(cell_len(line) <= 40 for line in lines), lines
+
+
+def test_a_five_thousand_line_diff_is_summarized_within_a_time_bound():
+    # Package Q: the exact matcher grew quadratically between 1000 and 5000 lines (about
+    # 2.5 s at 5000). Past the exact range the diff is a count, which must be quick.
+    import time
+
+    old = "".join(f"line {i} of the file\n" for i in range(5000))
+    new = "".join(f"line {i} of the file, changed\n" if i % 2 else f"line {i} of the file\n" for i in range(5000))
+    start = time.perf_counter()
+    diff_render._diff("big.py", old, new, width=80)
+    assert time.perf_counter() - start < 1.0

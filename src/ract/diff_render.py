@@ -16,7 +16,9 @@ from ract.session_events import safe_text
 _NUL_WINDOW = 8192
 _NEW_FILE_PREVIEW = 20
 _EXACT_DIFF_LINES = 1_000
-_MAX_DIFF_LINES = 5_000
+# Package Q: the matcher is quadratic in this range (2.5 s at 5000 lines, 0.09 s at 1000),
+# so past 2000 lines the diff is a count of lines, not hunks.
+_MAX_DIFF_LINES = 2_000
 
 
 def _clean(text: str) -> str:
