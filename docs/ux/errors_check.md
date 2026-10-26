@@ -52,6 +52,14 @@ stopped at an earlier error; the reason is named), **not run** (cannot be reprod
 - `src/ract/executor/steps.py`, step exception path: row 14 (a Ctrl-C at approval ends a step as stopped).
 - `src/ract/headless.py`: row 21 (JSON errors as the result object).
 
+- `src/ract/headless.py`, `run_headless`, the `_read_stdin(stdin or sys.stdin)` call (line near 271), B-035
+  (adjudication row 16). With an intent on the command line and stdin inherited from a parent that
+  never closes it, `ract -p "<intent>"` hung for 90 s in two trials (scratchpad probe, 2026-10-26); the
+  read happens before the intent is checked. Proposed change: read stdin only when the intent is empty, or
+  only when stdin is a pipe that has data, and keep the "both" case labelled as context. Pinned as an
+  expected failure in `tests/test_headless_stdin_with_intent.py`. The no-intent case returns
+  `error: no prompt` at once, so it is not a hang.
+
 ## Decision for the operator (ESCALATE)
 
 - Row 8: should RACT warn when a run starts in a git repository with uncommitted changes?
