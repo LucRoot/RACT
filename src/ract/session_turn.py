@@ -131,6 +131,13 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "run the intent again when you are ready",
     ),
     (
+        # The duplication guard refused a write that repeats existing code (package R). The
+        # hint says what the user can ask for; the message and the guard are the harness's.
+        re.compile(r"Duplication guard blocked write", re.I),
+        "the change repeats code that already exists in the project; ask for something "
+        "new, or name the existing code you want reused",
+    ),
+    (
         # The model answered with no steps (D3). The provider is reachable, so the
         # provider check does not apply; the next action is a rephrase or a model.
         re.compile(r"Plan contains no steps", re.I),
