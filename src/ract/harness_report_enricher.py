@@ -53,7 +53,9 @@ def enrich_harness_run(
             plan_override=plan_override,
         )
     except Exception as exc:
-        logger.exception("Harness execution failed: %s", exc)
+        # Package 5 (handoff 7): one line on stderr; the traceback goes to debug level.
+        logger.error("Harness execution failed: %s", exc)
+        logger.debug("harness traceback", exc_info=True)
         return Rooted(error=str(exc))
 
     if not rooted_result.is_ok():
