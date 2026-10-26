@@ -53,7 +53,8 @@ def test_no_text_is_lost_or_reordered(text, width):
 @given(TEXT, WIDTHS)
 def test_continuation_lines_keep_a_hanging_indent(text, width):
     lines = _fit(text, width)
-    indent = len(text) - len(text.lstrip(" "))
+    # cell_wrap drops an indent wider than half the width to half the width.
+    indent = min(len(text) - len(text.lstrip(" ")), width // 2)
     for line in lines[1:]:
         if line.strip():
             assert line.startswith(" " * indent), (indent, line)
