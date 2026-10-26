@@ -8,7 +8,7 @@ shown as "unknown". No character-based estimate is shown.
 
 from __future__ import annotations
 
-import textwrap
+from ract.cell_wrap import wrap_cells
 from typing import Any
 
 from ract.session_events import safe_text
@@ -48,5 +48,6 @@ def context_lines(
     )
     out: list[str] = []
     for line in lines:
-        out.extend(textwrap.wrap(line, width=width, subsequent_indent="  ") or [""])
+        # By terminal columns (package O): a wide host name is two columns a character.
+        out.extend(wrap_cells(line, width, subsequent_indent="  ") or [""])
     return out
