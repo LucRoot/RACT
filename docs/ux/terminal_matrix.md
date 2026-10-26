@@ -52,10 +52,14 @@ duplication guard because the fixture wrote a copy of `calc.py`, a fixture artif
    The matrix shows `[!] 1. ... failed` before `stopping...`. The renderer shows a stop that
    comes first as skipped; the executor's exception path is the place to fix it
    (`docs/ux/errors_check.md` row 14; `src/ract/executor/steps.py`).
-4. **Handoff (cli and session hints): the duplication guard's message is jargon with a wrong hint.**
-   The legacy transcript shows `Duplication guard blocked write: sub (src.calc) similarity=0.974;
-   sub (src.calc) similarity=1.000` and then `hint: run ract doctor --check-providers`, which does
-   not match the cause (`docs/ux/terminal_matrix/legacy_cmd_cp437.txt`). Owner: BUILDER.
+4. **Partly fixed: the duplication guard's hint.** The legacy transcript showed
+   `hint: run ract doctor --check-providers`, which did not match the cause
+   (`docs/ux/terminal_matrix/legacy_cmd_cp437.txt`). Package R (ced3553) fixed the hint: it now
+   reads "the change repeats code that already exists in the project; ask for something new, or
+   name the existing code you want reused" (`src/ract/session_turn.py`, tests in
+   `tests/test_duplication_hint.py`). The message's jargon (`sub (src.calc) similarity=0.974`) is
+   still a handoff: `src/ract/duplication_guard.py` line 28 and `src/ract/executor/steps.py`
+   lines 1481 and 1484 (BUILDER). The transcript above predates the hint fix.
 5. **Not a defect: the fixture.** The legacy scenario's first step wrote a copy of `calc.py` under
    a new name, which the duplication guard refuses. The file-write check is therefore not
    evidence here; the readability check is.
