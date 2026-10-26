@@ -1,0 +1,9 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+you: /cost
+no requests left this machine
+ledger: C:\Users\rootl\AppData\Local\ract\egress.jsonl (ract doctor --egress for
+history)
+you: /exit

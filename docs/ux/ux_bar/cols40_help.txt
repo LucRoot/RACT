@@ -1,0 +1,99 @@
+ RACT 0.5.2  config: ract.yaml
+       type an intent, or /help for
+       commands
+RACT session fake-coder via local |
+  master | default | T3 off
+you: /help
+                                  RACT session
++------------------------------------------------------------------------------+
+| Command                          | What it does                              |
+|----------------------------------+-------------------------------------------|
+| <text>                           | Run the text as an intent (same as /run   |
+|                                  | <text>).                                  |
+| /run <intent>                    | Plan and execute an intent.               |
+| /plan <intent>                   | Plan only. Shows the plan, writes         |
+|                                  | nothing.                                  |
+| /ask <question>                  | Answer a question. No plan, and no file   |
+|                                  | is written.                               |
+| /loop <intent>                   | Run the quality-anchored loop until done  |
+|                                  | or regressed.                             |
+| /set <name> <value>              | Change a setting: dry-run, stream, auto,  |
+|                                  | mode, iterations.                         |
+| /settings                        | Show the current settings.                |
+| /model [name]                    | Show the configured models, or switch the |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+|                                  | man
+nager for this session.                 |
+| /session [new|<id>]              | Sho
+ow, restart or switch the session that  |
+|                                  | car
+rries context between turns.            |
+| /sessions                        | Lis
+st recent sessions: id, time, turns,    |
+|                                  | cos
+st and last request.                    |
+| /context                         | Wha
+at the last request sent, and the room  |
+|                                  | the
+e model has.                            |
+| /resume <id|latest>              | Swi
+itch to a saved session and show its    |
+|                                  | las
+st request.                             |
+| /config                          | Val
+lidate the active config (same as ract  |
+|                                  | con
+nfig validate).                         |
+| /providers                       | Lis
+st configured providers and the manager |
+|                                  | pro
+ovider.                                 |
+| /cost                            | Req
+quests, tokens and bytes sent off this  |
+|                                  | mac
+chine in this session.                  |
+| /mode [plan|default|auto-accept] | pla
+an: propose only; default: ask before   |
+|                                  | eac
+ch change; auto-accept: apply changes.  |
+| /undo [--force]                  | Rev
+verse the last turn's file changes      |
+|                                  | (sk
+kips files you edited since).           |
+| /redo [--force]                  | Rev
+verse the last /undo.                   |
+| /doctor [--check-providers]      | Run
+n setup diagnostics against the active  |
+|                                  | con
+nfig.                                   |
+| /report [--last]                 | Sho
+ow what the last run changed and why.   |
+| /<verb> ...                      | Any
+y other RACT verb, for example          |
+|                                  | /wh
+hisper, /fence, /auction, /status.      |
+| /clear                           | Cle
+ear the screen.                         |
+| /help                            | Sho
+ow this list.                           |
+| /exit                            | Lea
+ave the session (Ctrl-D also works).    |
++---------------------------------------
+----------------------------------------+
+you: /exit
