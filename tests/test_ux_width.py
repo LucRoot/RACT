@@ -28,6 +28,7 @@ MULTI_LINE = [
     "mode",
     "model",
     "providers",
+    "permissions",
 ]
 
 
