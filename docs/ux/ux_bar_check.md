@@ -35,7 +35,8 @@ walked in this batch, with the reason.
    capture of this batch. Not checked: unhandled exceptions outside the hinted paths.
 8. **No dead ends (nearest command, setup flow, refusal explains how to permit): partly met.**
    `/resume` suggests the closest session id (`src/ract/session_listing.py:98`, `closest_id`).
-   An unknown command says only `Type /help for the list.` (`src/ract/repl.py:292`). The setup
+   An unknown command now suggests the nearest one: `unknown command /hlep. Did you mean /help?`
+   (`src/ract/repl.py`, `_handle_command`; tests in `tests/test_ux_gap_b.py`). The setup
    flow asks a question (`docs/ux/b054r/J1.txt` line 2) but was not run past the `n` answer.
 9. **Permissions are understandable (exact change, reason, four choices): not met.** The
    approval prompt offers `[y/N]` only (`src/ract/approval_callback.py:34`). No allow-once,
@@ -49,10 +50,12 @@ walked in this batch, with the reason.
 11. **Weak models still work: not met.** The weak-model journey ends with
     `error: Planning failed: Plan contains no steps.` and no file changed
     (`docs/ux/b054r/J9.txt`). The JSON fallback did not complete a task.
-12. **No internal chatter: partly met.** The provenance warning
-    (`docs/ux/b054r/J4.txt` line 27) names the signing status, which is internal detail, and it
-    prints once per session (D7, `src/ract/session_render.py`, `_on_notice`). Other diagnostics
-    are not shown in these captures.
+12. **No internal chatter: partly met.** The provenance warning now reads in plain words:
+    `provenance: N file(s) have no signature yet (files). See docs/PROVENANCE.md.`
+    (`src/ract/session_turn.py`, `provenance_notice`; test in `tests/test_ux_gap_b.py`). It prints
+    once per session (`src/ract/session_render.py`, `_on_notice`). The help text in
+    `src/ract/cli.py:1681` still uses the project term (handoff below). Other diagnostics are not
+    shown in these captures.
 13. **Trust over a day (`/diff`, `/cost`, `/context`, `/permissions`): partly met.** `/cost` and
     `/context` exist (`src/ract/repl.py:415` and `:615`). `/diff` and `/permissions` do not exist
     as commands; `/help` does not list them.
@@ -106,3 +109,38 @@ Journeys: 1 met (J8, success path), 3 partly met (J2, J6, J10), 5 not met (J1, J
 1 not run (J3). Column checks: `/sessions` and `/context` fit at 40 and 60; `/help` and `/cost`
 do not fit at either width; `/mode` does not fit at 40. Open S1 defect: D2 (queue and Ctrl-C
 indicator, B-033), which waits for the BUILDER. The phase does not close.
+
+## Package B (ux-gap): changes and handoffs
+
+Changed in this package (lane: terminal output, renderer, REPL text, docs):
+- Standard 8: a near-miss command gets `Did you mean /help?` (`src/ract/repl.py`).
+- Standard 12: the provenance notice uses plain words and names the files (`src/ract/session_turn.py`).
+- Package A, standard 10: `/help`, `/cost`, `/mode`, `/settings` and `/model` fit the width at 40 and 60
+  (captures in `docs/ux/width_a/`; tests in `tests/test_ux_width.py`).
+
+Handoffs (not changed here; the owner and the change are named):
+- **Standard 1, heartbeat interval.** `src/ract/session_render.py:52`, `_PLAIN_HEARTBEAT_EVERY_MS = 10_000`,
+  with the reason in the comment at lines 48 to 50. The bar asks for a sign of life every 2 s. The
+  change is a decision on screen-reader noise: ESCALATE to the operator, default kept at 10 s in
+  plain mode. The interactive status row (2 s) is not visible in the rich-mode captures
+  (`docs/ux/b054r/J4.txt` shows 10 s ticks). Owner: BUILDER, the rich renderer.
+- **Standard 1, heartbeat on the approval question.** B-033s. Condition: a tick fires while the
+  `[y/N]` question is open. `docs/ux/b054r/J4.txt` line 8.
+- **Standard 2, streaming and tool cards.** `src/ract/repl.py:96`, `stream: bool = False`. No collapsible
+  reasoning, no one-line tool cards. Owner: BUILDER.
+- **Standard 3, per-hunk accept and reject.** B-014c.
+- **Standard 4, checkpoints listed.** `/undo` works (`src/ract/repl.py`, `_cmd_undo`); the list of checkpoints
+  and what changed in each is not built. Owner: BUILDER (undo_backup).
+- **Standard 5, queue ahead.** B-033.
+- **Standard 6, context use, tokens, cost and session id on the status line.** The status line is
+  `src/ract/session_render.py` `_on_session_started`. Context needs the provider probe (`context_limit` is
+  null); session id is not in the event. Changing the event field is an ESCALATE. Owner: BUILDER.
+- **Standard 9, approval choices.** `src/ract/approval_callback.py:34` offers `[y/N]` only. Owner: B-033s
+  and the executor (approval policy).
+- **Standard 11, weak models.** `src/ract/planner.py:34` returns `Plan contains no steps.` for a reply with no
+  steps; the JSON fallback is a planner change. Senior-only (planner). ESCALATE.
+- **Standard 13, `/diff` and `/permissions`.** Neither command exists. Owner: BUILDER (new commands).
+- **Wording, `src/ract/cli.py:1681`.** `Provenance: files written by ract runs are not signed with a Rootknot`
+  is help text in the project's own term. The integration test pins the run-output text at `cli.py:5085`
+  (`tests/integration/test_unsigned_artifacts_are_reported.py:69`), so only the help text is in the handoff.
+  Owner: BUILDER (cli).

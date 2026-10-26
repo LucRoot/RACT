@@ -94,7 +94,7 @@ def test_successful_turn_streams_and_reports_what_changed(
     assert finished["outcome"] == "done"
     assert finished["changed"] == ["src/calc.py"]
     assert any(
-        e.kind == "notice" and "without a Rootknot" in e.data["text"] for e in events
+        e.kind == "notice" and "have no signature yet" in e.data["text"] for e in events
     )
     assert [e.seq for e in events] == sorted(e.seq for e in events)
 

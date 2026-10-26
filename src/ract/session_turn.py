@@ -53,6 +53,18 @@ class TurnRequest:
     token_budget: int | None = None
 
 
+def provenance_notice(unsigned: list[str]) -> str:
+    """The unsigned-files notice in the words an operator reads (standard 12).
+
+    The project term and the release status are left to docs/PROVENANCE.md; the
+    terminal names the files and the place that explains them.
+    """
+    return (
+        f"provenance: {len(unsigned)} file(s) have no signature yet "
+        f"({', '.join(unsigned)}). See docs/PROVENANCE.md."
+    )
+
+
 # (pattern on the error text, hint). First match wins. Every hint names the
 # next action or the exact command.
 _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -424,12 +436,7 @@ def run_turn(
     if unsigned:
         stream.emit(
             "notice",
-            {
-                "level": "warning",
-                "text": f"provenance: {len(unsigned)} file(s) written without a Rootknot "
-                f"({', '.join(unsigned)}). Signing is not wired into this release; "
-                "see docs/PROVENANCE.md.",
-            },
+            {"level": "warning", "text": provenance_notice(unsigned)},
             turn=turn,
         )
     # A reply that says tests pass, in a turn where RACT ran none (R-113).

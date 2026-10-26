@@ -21,6 +21,7 @@ from __future__ import annotations
 import shlex
 import sys
 import threading
+import difflib
 import textwrap
 import time
 from collections.abc import Callable
@@ -289,9 +290,17 @@ class ReplSession:
         if name in self._verbs:
             self._run_verb(name, args)
             return True
-        self._console.error(
-            f"unknown command /{escape(name)}. Type /help for the list."
-        )
+        # Standard 8: a near miss gets the nearest command, not only a pointer to /help.
+        known = sorted({*self._builtins, *self._verbs})
+        near = difflib.get_close_matches(name, known, n=1, cutoff=0.6)
+        if near:
+            self._console.error(
+                f"unknown command /{escape(name)}. Did you mean /{escape(near[0])}?"
+            )
+        else:
+            self._console.error(
+                f"unknown command /{escape(name)}. Type /help for the list."
+            )
         return True
 
     def _cmd_help(self, args: list[str]) -> bool:
