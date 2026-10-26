@@ -11,12 +11,14 @@ implements the same ``Renderer`` protocol, so the choice is a swap.
 from __future__ import annotations
 
 import json
-import textwrap
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
+from rich.cells import cell_len
+
 from ract import question_gate
+from ract.cell_wrap import wrap_cells
 from ract.diff_render import draw_turn_diff
 from ract.session_events import SessionEvent, safe_text
 from ract.turn_summary import describe_change
@@ -120,17 +122,16 @@ class PlainRenderer:
         A longer line wraps at a word boundary. Continuation lines keep the
         line's own indent and add two spaces, so the wrapped text reads as one item.
         """
-        if len(text) <= self._width:
+        if cell_len(text) <= self._width:
             return [text]
         indent = len(text) - len(text.lstrip(" "))
         pad = " " * indent
-        pieces = textwrap.wrap(
+        # Columns, not characters: a wide character is two columns (package I).
+        pieces = wrap_cells(
             text.strip(" "),
-            width=self._width,
+            self._width,
             initial_indent=pad,
             subsequent_indent=pad + "  ",
-            break_long_words=True,
-            break_on_hyphens=False,
         )
         return pieces or [text]
 
