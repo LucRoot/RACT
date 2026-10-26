@@ -1,0 +1,42 @@
+# Captured: ract with TERM=dumb (plain mode); fake server, scenario plan_three_steps; 80 columns.
+# Driver: tests/ux/terminal_driver.py (ConPTY). Escape sequences removed by the driver.
+# Stripped: trailing spaces only. Approvals were given at the prompts (y).
+# Capture label: b041b_term_dumb; date 2026-10-23.
+
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+you: add a greeting in src/calc.py and two tests
+Plan (3 steps):
+  assumes: The failing test needs add() fixed, a notes module, and a test for it.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[ ] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+  ... waiting on model (4 s)
+[>] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py? [y/N]: y
+--- src/calc.py ---
+def add(a, b):
+    return a + b
+
+
+
+
+def sub(a, b):
+    return a - b
+[x] 1. Fix add() in src/calc.py so it adds -> src/calc.py (0.1s) passed
+[>] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+Approve step: [local] Add src/notes.py with the NOTE constant -> src/notes.py? [y/N]: y
+--- src/notes.py ---
+NOTE = "two"
+[x] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.2s) passed
+[>] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+Approve step: [local] Add tests/test_notes.py that checks NOTE -> tests/test_notes.py? [y/N]: y
+--- tests/test_notes.py ---
+from src.notes import NOTE
+
+
+
+
+def test_note():
+    assert NOTE == "two"
+[x] 3. Add tests/test_notes.py that chec... -> tests/test_notes.py (0.3s) passed
