@@ -11,6 +11,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from ract.ui.queue_view import QueueError, QueueModel
+
 
 @dataclass(frozen=True)
 class Route:
@@ -21,21 +23,24 @@ class Route:
 
 @dataclass
 class QueuedInput:
-    _items: list[str] = field(default_factory=list)
+    """The queued lines, held as the prepared ``QueueModel`` (package J) so the view reads them."""
+
     _emit: Callable[[str, dict], None] = lambda kind, data: None
+    model: QueueModel = field(default_factory=QueueModel)
 
     def items(self) -> list[str]:
-        return list(self._items)
+        return [line.text for line in self.model.items]
 
     def add(self, text: str) -> int:
-        self._items.append(text)
-        return len(self._items)
+        self.model = self.model.append(text)
+        return len(self.model.items)
 
     def cancel(self, position: int) -> bool:
         """Withdraw the item at ``position`` (1 is the next to be sent). False when none is there."""
-        if not 1 <= position <= len(self._items):
+        try:
+            self.model, _ = self.model.drop(position)
+        except QueueError:
             return False
-        self._items.pop(position - 1)
         self._emit("input.withdrawn", {"position": position})
         return True
 

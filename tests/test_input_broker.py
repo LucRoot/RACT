@@ -63,3 +63,24 @@ def test_cancel_with_a_bad_position_is_refused():
     broker.start_turn()
     assert broker.queue.cancel(3) is False
     assert broker.queue.cancel(0) is False
+
+
+def test_the_queue_is_the_prepared_queue_model_so_the_view_reads_it():
+    from ract.ui import queue_view as qv
+
+    broker, _ = _broker()
+    broker.start_turn()
+    broker.feed("first")
+    broker.feed("second")
+    assert [line.text for line in broker.queue.model.items] == ["first", "second"]
+    lines = qv.list_lines(broker.queue.model, 80)
+    assert any("second" in line for line in lines)
+
+
+def test_cancel_uses_the_model_drop_and_keeps_ids_stable():
+    broker, _ = _broker()
+    broker.start_turn()
+    broker.feed("first")
+    broker.feed("second")
+    broker.queue.cancel(1)
+    assert [line.id for line in broker.queue.model.items] == [2]
