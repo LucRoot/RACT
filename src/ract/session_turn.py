@@ -131,6 +131,30 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "run the intent again when you are ready",
     ),
     (
+        # Windows file names (package T). Each hint names the file action the user can take.
+        re.compile(r"is a Windows device name", re.I),
+        "choose a different file name: CON, NUL, AUX, COM1 and LPT1 are reserved by Windows",
+    ),
+    (
+        re.compile(r"ends in a dot or space", re.I),
+        "remove the trailing dot or space from the file name, then run the intent again",
+    ),
+    (
+        re.compile(r"could not change it|left these paths as they are", re.I),
+        "the file is read-only or open in another program: make it writable "
+        "(attrib -R <file>) or close the program using it, then run the intent again",
+    ),
+    (
+        re.compile(r"untracked, so git has no copy", re.I),
+        "git does not track this file yet: commit it (git add, then git commit) and run "
+        "the intent again, or apply the saved patch yourself",
+    ),
+    (
+        re.compile(r"could not snapshot the working tree", re.I),
+        "a file in the project could not be read, perhaps because another program has it "
+        "open: close it and run the intent again",
+    ),
+    (
         # The duplication guard refused a write that repeats existing code (package R). The
         # hint says what the user can ask for; the message and the guard are the harness's.
         re.compile(r"Duplication guard blocked write", re.I),
