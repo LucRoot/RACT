@@ -116,3 +116,31 @@ def test_no_saved_session_means_no_offer(tmp_path):
     )
     session._resume_offer()
     assert console.text == ""
+
+
+def test_the_resume_offer_does_not_stack_dots_after_a_cut_request(tmp_path):
+    # Cold reader: a request cut to 50 characters ends in "..."; the offer printed "....".
+    from ract import cli
+    from ract.repl import ReplSession
+    from ract.session_listing import sessions_dir
+    from tests.test_repl import _Console
+
+    folder = sessions_dir(tmp_path / "ract.yaml")
+    folder.mkdir(parents=True)
+    long_intent = (
+        "add a greeting to src/calc.py and two tests for it, then update the docs"
+    )
+    (folder / "h-0123456789ab.json").write_text(
+        '{"intent": "%s"}' % long_intent, encoding="utf-8"
+    )
+    console = _Console()
+    session = ReplSession(
+        tmp_path / "ract.yaml",
+        dispatch=lambda argv: 0,
+        read_line=lambda prompt: "",
+        console=console,
+        verbs=cli.CLI_VERBS,
+    )
+    session._resume_offer()
+    assert "...." not in console.text
+    assert "/resume to continue it." in console.text

@@ -1074,8 +1074,10 @@ class ReplSession:
             return
         when = datetime.fromtimestamp(row.updated).strftime("%Y-%m-%d %H:%M")
         request = safe_text(row.request) or "no request saved"
+        # A request cut for the listing already ends in "...": no second full stop.
+        stop = "" if request.endswith("...") else "."
         self._print_wrapped(
-            f"last session {row.session_id} ({when}): {request}. /resume to continue it."
+            f"last session {row.session_id} ({when}): {request}{stop} /resume to continue it."
         )
 
     # --------------------------------------------------------------- history

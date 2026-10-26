@@ -188,17 +188,17 @@ no files were changed
 
 ## Known issues
 
-- At 60 columns, some lines are wider than the terminal. The checklist and the
-  approval prompts are not yet folded to the width. Tracked as B-041c.
+- The checklist, the approval prompts, `/help`, `/cost`, `/mode`, `/settings` and
+  `/model` fold to the terminal width, down to 40 columns. The 40 and 60 column
+  checks are in `docs/ux/ux_bar_check.md`.
 - `/ask` prints a plan and runs a step. `/help` says `/ask` makes no plan, so
   one of the two is wrong. Reported as a FOUND for the BUILDER.
 - The `/ask` error says "returned an empty answer instead of a answer". The
   article is wrong. Reported as a FOUND.
 - Whether the empty reply is a scenario mismatch or a defect is not checked.
   The capture does not show it.
-- At 80 columns, the `/resume` summary line can wrap in the middle of a word
-  (the capture above shows `up` and `pdate` on two lines). Reported as a
-  FOUND for the BUILDER; the guide does not hide it.
+- The `/resume` summary now wraps at word boundaries at 80 columns
+  (`docs/ux/c_journeys/resume_80.txt`).
 
 ## Not covered yet
 
