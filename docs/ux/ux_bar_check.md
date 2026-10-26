@@ -67,7 +67,7 @@ walked in this batch, with the reason.
     `provenance: N file(s) have no signature yet (files). See docs/PROVENANCE.md.`
     (`src/ract/session_turn.py`, `provenance_notice`; test in `tests/test_ux_gap_b.py`). It prints
     once per session (`src/ract/session_render.py`, `_on_notice`). The help text in
-    `src/ract/cli.py:1681` still uses the project term (handoff below). Other diagnostics are not
+    `src/ract/cli.py:1695` still uses the project term (handoff below). Other diagnostics are not
     shown in these captures.
 13. **Trust over a day (`/diff`, `/cost`, `/context`, `/permissions`): partly met.** `/cost`,
     `/context` and `/permissions` exist and fit at 40 and 60 columns (`src/ract/repl.py`, `_cmd_permissions`;
@@ -172,13 +172,13 @@ Handoffs (not changed here; the owner and the change are named):
 - **Standard 6, context use, tokens, cost and session id on the status line.** The status line is
   `src/ract/session_render.py` `_on_session_started`. Context needs the provider probe (`context_limit` is
   null); session id is not in the event. Changing the event field is an ESCALATE. Owner: BUILDER.
-- **Standard 9, approval choices.** `src/ract/approval_callback.py:34` offers `[y/N]` only. Owner: B-033s
+- **Standard 9, approval choices.** `src/ract/approval_callback.py:35` offers `[y/N]` only. Owner: B-033s
   and the executor (approval policy).
 - **Standard 11, weak models.** `src/ract/planner.py:34` returns `Plan contains no steps.` for a reply with no
   steps; the JSON fallback is a planner change. Senior-only (planner). ESCALATE.
 - **Standard 13, `/diff`.** Not built; see the final handoffs. `/permissions` was added in package G.
-- **Wording, `src/ract/cli.py:1681`.** `Provenance: files written by ract runs are not signed with a Rootknot`
-  is help text in the project's own term. The integration test pins the run-output text at `cli.py:5085`
+- **Wording, `src/ract/cli.py:1695`.** `Provenance: files written by ract runs are not signed with a Rootknot`
+  is help text in the project's own term. The integration test pins the run-output text at `cli.py:5147`
   (`tests/integration/test_unsigned_artifacts_are_reported.py:69`), so only the help text is in the handoff.
   Owner: BUILDER (cli).
 
@@ -221,9 +221,9 @@ Handoffs:
   shows the second intent typed during a turn with no `queued` line.
 - **Standard 6, context use, tokens, cost, session id on the status line.** BUILDER. Context needs the
   provider probe; the session id is not in `session.started`. Changing that event field is an ESCALATE.
-- **Standard 9, approval choices.** B-033s and the executor. `src/ract/approval_callback.py:34` offers `[y/N]` only.
+- **Standard 9, approval choices.** B-033s and the executor. `src/ract/approval_callback.py:35` offers `[y/N]` only.
 - **Standard 11, weak models.** Senior-only: `src/ract/planner.py:34` and the JSON fallback for a weak model.
-- **Standard 12, internal wording.** `src/ract/cli.py:1681` (provenance help text), the LSP and
+- **Standard 12, internal wording.** `src/ract/cli.py:1695` (provenance help text), the LSP and
   semantic-builder lines printed by `ract memory init` (`docs/ux/cold_reader.md` row 5).
 - **Standard 13, `/diff`.** BUILDER: a command that shows the last turn's diff from its backup (`undo_backup`).
 - **Journey J4, the named test is not run.** BUILDER (the verifier). The renderer change is ready once
