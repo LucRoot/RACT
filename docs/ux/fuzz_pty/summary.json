@@ -9,9 +9,9 @@
   {
     "case": "ctrl_c_twice_start_prompt",
     "prompt_seen": true,
-    "traceback": true,
-    "lines": 37,
-    "tail": "KeyboardInterrupt"
+    "traceback": false,
+    "lines": 3,
+    "tail": "ract> ract> /exit"
   },
   {
     "case": "eof_approval_question",

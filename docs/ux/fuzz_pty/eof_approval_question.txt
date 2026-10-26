@@ -22,5 +22,5 @@ Plan (3 steps), final:
   The turn failed.
   changed: nothing
   verified: RACT ran no tests this turn
-  1 model request, 1.7 s, 940 tokens in / 119 out
+  1 model request, 1.5 s, 940 tokens in / 119 out
 ract> 

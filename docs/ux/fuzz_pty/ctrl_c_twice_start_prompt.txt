@@ -1,37 +1,3 @@
  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
 RACT session fake-coder via local | master | default | T3 off
-ract> Traceback (most recent call last):
-  File "C:\RootClaw\RACT_wt\mason\src\ract\repl.py", line 234, in run
-    line = self._read_line(self.prompt())
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-KeyboardInterrupt
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "C:\RootClaw\RACT_wt\mason\.venv\Scripts\ract.exe\__main__.py", line 7, in <module>
-  File "C:\RootClaw\RACT_wt\mason\src\ract\cli.py", line 4482, in main
-    return _repl_command([])
-           ^^^^^^^^^^^^^^^^^
-  File "C:\RootClaw\RACT_wt\mason\src\ract\cli.py", line 338, in _repl_command
-    return run_repl(parsed.config)
-           ^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\RootClaw\RACT_wt\mason\src\ract\repl.py", line 1152, in run_repl
-    return ReplSession(config, history_path=history).run()
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\RootClaw\RACT_wt\mason\src\ract\repl.py", line 241, in run
-    self._console.print("")
-  File "C:\RootClaw\RACT_wt\mason\src\ract\tui.py", line 102, in print
-    self._console.print(*args, **kwargs)
-  File "C:\RootClaw\RACT_wt\mason\.venv\Lib\site-packages\rich\console.py", line 1705, in print
-    renderables = self._collect_renderables(
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\RootClaw\RACT_wt\mason\.venv\Lib\site-packages\rich\console.py", line 1557, in _collect_renderables
-    renderable = rich_cast(renderable)
-                 ^^^^^^^^^^^^^^^^^^^^^
-  File "C:\RootClaw\RACT_wt\mason\.venv\Lib\site-packages\rich\protocol.py", line 18, in rich_cast
-    def rich_cast(renderable: object) -> "RenderableType":
-    
-KeyboardInterrupt
+ract> ract> /exit
