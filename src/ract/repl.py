@@ -237,8 +237,12 @@ class ReplSession:
                     reason = "eof"
                     break
                 except KeyboardInterrupt:
-                    # Ctrl-C at the prompt abandons the line, like a shell.
-                    self._console.print("")
+                    # Ctrl-C at the prompt abandons the line, like a shell. A second Ctrl-C
+                    # while the line is cleared is still a stop, not a traceback (package P).
+                    try:
+                        self._console.print("")
+                    except KeyboardInterrupt:
+                        pass
                     continue
                 if not self.handle(line):
                     reason = "exit"
