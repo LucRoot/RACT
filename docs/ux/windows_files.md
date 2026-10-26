@@ -40,7 +40,7 @@ provider errors only; a file problem never gets it.
 
 ## Traceback on a locked file (partly fixed)
 
-The locked-file error raised `WorktreeError` (`src/ract/executor/worktree.py:734`, inside
+The locked-file error raised `WorktreeError` (`src/ract/executor/worktree.py:740`, inside
 `take_snapshot`, called from `src/ract/executor/substrate_adapter.py:253`).
 
 - **REPL path (fixed):** `src/ract/repl.py` `_event_turn` now catches it in `work()`, prints
@@ -48,7 +48,7 @@ The locked-file error raised `WorktreeError` (`src/ract/executor/worktree.py:734
   `test_a_turn_that_raises_prints_one_sentence_not_a_traceback` fails without the guard
   (the thread hook receives the RuntimeError) and passes with it.
 - **Headless `ract -p` path (not fixed; H7):** the rerun of this case still prints a
-  traceback on stderr. `src/ract/harness_report_enricher.py:47` catches the exception
+  traceback on stderr. `src/ract/harness_report_enricher.py:56` catches the exception
   correctly and returns the error, but calls `logger.exception(...)`, which writes the
   full traceback. An earlier version of this page and the commit message said the
   traceback was gone; that was wrong for this path.
@@ -76,13 +76,13 @@ The locked-file error raised `WorktreeError` (`src/ract/executor/worktree.py:734
   the plan's name, not the path on disk. The source of the name is in `steps.py` near
   line 1136 (`expected_artifact`). Fix: report the name the file system returns
   (`os.scandir` or `Path.resolve` case on Windows) when it differs.
-- **H6. Snapshot failure is raised from `take_snapshot`.** `src/ract/executor/worktree.py:734`
+- **H6. Snapshot failure is raised from `take_snapshot`.** `src/ract/executor/worktree.py:740`
   raises `WorktreeError` for an unreadable file, and `substrate_adapter.py:253` calls it
   without a guard. The lane now handles the message, but the step should fail as `failed`
   with a clean error from the substrate rather than relying on the turn guard.
 
 - **H7. Headless path logs a full traceback for a locked file.**
-  `src/ract/harness_report_enricher.py:47` uses `logger.exception("Harness execution
+  `src/ract/harness_report_enricher.py:56` uses `logger.exception("Harness execution
   failed: %s", exc)`. Fix: `logger.error(...)` without exc_info, or log the traceback
   only at debug level. The function already returns `Rooted(error=str(exc))`, so the
   user-facing message is unchanged. Harness area, senior.
