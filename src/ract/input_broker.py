@@ -11,6 +11,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from ract.ui.queue_view import QueueError, QueueModel
 
@@ -133,3 +134,28 @@ class ConsoleLineSource:
                 continue
             self._chars.append(key)
         return None
+
+
+class TypeAhead(threading.Thread):
+    """Polls a ConsoleLineSource during a turn and feeds each line to the broker (package 6).
+
+    ``stop()`` ends the loop; the thread is a daemon, and the loop checks the stop flag between polls,
+    so it never blocks on the console.
+    """
+
+    def __init__(self, broker: InputBroker, source: Any, interval: float = 0.05) -> None:
+        super().__init__(name="ract-type-ahead", daemon=True)
+        self._broker = broker
+        self._source = source
+        self._interval = interval
+        self._halt = threading.Event()
+
+    def run(self) -> None:
+        while not self._halt.is_set():
+            line = self._source.poll()
+            if line is not None:
+                self._broker.feed(line)
+            self._halt.wait(self._interval)
+
+    def stop(self) -> None:
+        self._halt.set()

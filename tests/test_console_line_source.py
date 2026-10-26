@@ -48,3 +48,28 @@ def test_ctrl_c_is_a_stop_and_no_line_is_returned():
     results = [source.poll() for _ in range(4)]
     assert "x" not in results
     assert source.stopped is True
+
+
+def test_type_ahead_feeds_polled_lines_into_the_broker_until_stopped():
+    import time
+
+    from ract.input_broker import InputBroker, TypeAhead
+
+    events: list[tuple[str, dict]] = []
+    broker = InputBroker(emit=lambda kind, data: events.append((kind, data)))
+    broker.start_turn()
+    lines = iter(["add a test", None, None, "also docs"])
+
+    class _Source:
+        def poll(self):
+            return next(lines, None)
+
+    ahead = TypeAhead(broker, _Source(), interval=0.001)
+    ahead.start()
+    deadline = time.monotonic() + 5
+    while len(broker.queue.items()) < 2 and time.monotonic() < deadline:
+        time.sleep(0.01)
+    ahead.stop()
+    ahead.join(timeout=5)
+    assert not ahead.is_alive()
+    assert broker.queue.items() == ["add a test", "also docs"]

@@ -18,6 +18,7 @@ session has no history or completion. Nothing here adds a dependency.
 
 from __future__ import annotations
 
+import os
 import shlex
 import sys
 import threading
@@ -129,6 +130,9 @@ _EXIT_CLEANUP_SECONDS = 15.0
 
 class ReplSession:
     """Read-eval-print loop over the RACT command dispatcher."""
+
+    # The input broker of the running turn, when type-ahead is on (package 6).
+    _broker: Any = None
 
     def __init__(
         self,
@@ -914,6 +918,7 @@ class ReplSession:
         worker = threading.Thread(target=work, name="ract-turn", daemon=True)
         self._worker_done = done
         started = time.monotonic()
+        ahead = self._start_type_ahead(turn_no)
         worker.start()
         try:
             # Ctrl-C is delivered between waits (a timed wait is not
@@ -924,7 +929,34 @@ class ReplSession:
         except KeyboardInterrupt:
             self._interrupted.append(done)
             return self._interrupt(done, cancel, turn_no, started)
+        finally:
+            if ahead is not None:
+                ahead.stop()
         return box.get("code", 1)
+
+    def _start_type_ahead(self, turn_no: int) -> Any:
+        """Package 6 (B-033s): read typed lines during a turn into the input broker.
+
+        Off unless RACT_TYPE_AHEAD=1, on Windows, with a console on stdin. The lines are
+        queued and shown (input.queued); a queued line is not yet sent to the model (see
+        docs/review/B-033s.md).
+        """
+        if os.environ.get("RACT_TYPE_AHEAD") != "1" or os.name != "nt" or not sys.stdin.isatty():
+            return None
+        import msvcrt
+
+        from ract.input_broker import ConsoleLineSource, InputBroker, TypeAhead
+
+        def emit(kind: str, data: dict[str, Any]) -> None:
+            if self._events is not None:
+                self._events.emit(kind, data, turn=turn_no)
+
+        broker = InputBroker(emit=emit)
+        broker.start_turn()
+        self._broker = broker
+        ahead = TypeAhead(broker, ConsoleLineSource(msvcrt.kbhit, msvcrt.getwch))
+        ahead.start()
+        return ahead
 
     def _finish_interrupted_workers(self) -> dict[str, Any] | None:
         """Give interrupted turns' workers a bounded time to clean up.
