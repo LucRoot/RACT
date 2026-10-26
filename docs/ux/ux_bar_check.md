@@ -144,3 +144,25 @@ Handoffs (not changed here; the owner and the change are named):
   is help text in the project's own term. The integration test pins the run-output text at `cli.py:5085`
   (`tests/integration/test_unsigned_artifacts_are_reported.py:69`), so only the help text is in the handoff.
   Owner: BUILDER (cli).
+
+## Package C (ux-gap): the journeys a user stops on
+
+| Journey | First stop (captured) | Fixed in this package | Re-run (time to first feedback) | Status |
+|---|---|---|---|---|
+| J1 first run | `Set one up now? [Y/n]`, then four questions (memory, local or cloud, wait for server, git init). The health check says `nothing is answering at http://127.0.0.1:11434/v1 (connection refused)` with a hint (`docs/ux/c_journeys/J1.txt`). | none needed; the path works | 12.7 s, with no server on this machine | partly met: a working prompt needs a model server that this machine does not have |
+| J2 daily start | `last session h-7f3a9c21d0e4 (...): fix the failing test ... /resume to continue it.` (`docs/ux/c_journeys/J2.txt`, line 2) | the resume offer (`src/ract/repl.py`, `_resume_offer`; tests in `tests/test_ux_gap_c.py`) | 4.08 s | partly met: no context use on the status line (handoff) |
+| J4 fix the failing test | `verified: RACT ran no tests this turn`; nothing offers to run the named test (`docs/ux/b054r/J4.txt`, line 40) | none in lane | not re-run (model time of 88 s) | not met: handoff below |
+| J5 multi-file review | no per-hunk accept or reject | none in lane | not run | not met: handoff below (B-014c) |
+| J6 interrupt | `[!] 1. Fix add() ... failed` after Ctrl-C (before this package) | a step that fails after a stop was requested is shown as skipped (`src/ract/session_render.py`, `_stop_requested`; tests in `tests/test_ux_gap_c.py`) | 3.27 s | partly met: no queue indicator (B-033) |
+| J9 weak model | `Planning failed: Plan contains no steps.` then `no question is waiting` on `y` (`docs/ux/c_journeys/J9.txt`) | the hint and the stray-answer line were fixed in package B's predecessors (B-054f) | 2.81 s | not met: the JSON fallback is a planner change (handoff below) |
+| J10 failure paths | retries, `HTTP 503` with its message, `tokens not reported by the provider` (`docs/ux/c_journeys/J10.txt`) | none needed | 2.51 s | partly met: missing key, read-only disk and budget not run |
+
+J3, J5 and J7 are not run. What each needs, and from which card:
+- **J3 (ask about the code, read-only).** The model must read and search files itself. No read tool is wired into the `/ask` path. Owner: BUILDER (agent tool loop); no card number yet.
+- **J5 (per-hunk accept or reject).** Owner: B-014c.
+- **J7 (Esc Esc rewind).** Not built; `/resume` exists. Owner: BUILDER (rewind over `undo_backup`).
+
+Handoffs added by package C:
+- **J4, the named test is not run.** `src/ract/session_render.py` prints `verified: RACT ran no tests this turn` from the turn event. The verifier must run the test the intent names. Owner: BUILDER (verifier). The renderer change is ready once the event carries a verdict for that run.
+- **J9, planner with no steps.** `src/ract/planner.py:34`. A JSON fallback for a weak model is a planner change. Senior-only. ESCALATE.
+- **J2 and standard 6, context use on the status line.** Needs the provider probe; see the Package B handoff for standard 6.

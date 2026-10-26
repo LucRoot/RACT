@@ -87,6 +87,7 @@ class PlainRenderer:
         # Step records for the checklist, keyed by step number; None for a
         # one-step plan, which keeps the short lines.
         self._checklist: dict[Any, dict[str, Any]] | None = None
+        self._stop_requested = False
         # The provenance warning is printed once per session (D7); the turn summary still counts.
         self._provenance_shown = False
         self._mid_line = False
@@ -191,12 +192,14 @@ class PlainRenderer:
         self._plan = {}
         self._cost = {}
         self._checklist = None
+        self._stop_requested = False
         self._wrote_file = False
         self._labelled_summary = False
         if d.get("queued"):
             self._line(f"running queued: {d.get('input', '')}")
 
     def _on_turn_interrupting(self, d: dict[str, Any]) -> None:
+        self._stop_requested = True
         self._line("stopping...")
         if not d.get("cancellable", True):
             self._line("  the model call is still finishing and will write nothing")
@@ -273,6 +276,9 @@ class PlainRenderer:
         self._text_target = None
         seconds = int(d.get("duration_ms", 0)) / 1000
         outcome = d.get("outcome", "?")
+        if self._stop_requested and outcome == "failed":
+            # J6: the step ended after the operator stopped the turn; it was stopped, not failed.
+            outcome = "skipped"
         if d.get("artifact") and outcome == "done":
             self._wrote_file = True
         if self._checklist is not None and d.get("n") in self._checklist:

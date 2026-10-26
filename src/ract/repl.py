@@ -22,6 +22,7 @@ import shlex
 import sys
 import threading
 import difflib
+from datetime import datetime
 import textwrap
 import time
 from collections.abc import Callable
@@ -219,6 +220,7 @@ class ReplSession:
         """Run until the operator exits. Returns a process exit code."""
         self._setup_readline()
         self._banner()
+        self._resume_offer()
         if self._event_mode:
             self._start_events()
         started = time.monotonic()
@@ -1059,6 +1061,22 @@ class ReplSession:
             self._console.warning(escape(warning_pieces[0]))
             for piece in warning_pieces[1:]:
                 self._console.print("  " + escape(piece))
+
+    def _resume_offer(self) -> None:
+        """Name the newest saved session and the command that resumes it (J2)."""
+        from ract.session_listing import latest_row, sessions_dir
+
+        try:
+            row = latest_row(sessions_dir(self.state.config))
+        except OSError:
+            return
+        if row is None:
+            return
+        when = datetime.fromtimestamp(row.updated).strftime("%Y-%m-%d %H:%M")
+        request = safe_text(row.request) or "no request saved"
+        self._print_wrapped(
+            f"last session {row.session_id} ({when}): {request}. /resume to continue it."
+        )
 
     # --------------------------------------------------------------- history
 
