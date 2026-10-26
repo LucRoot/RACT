@@ -35,8 +35,9 @@ def console_approval_callback(step: Step) -> bool:
         f"-> {step.expected_artifact or 'answer, no file written'}? [y/N]:"
     )
     # The question wraps to the terminal width; the answer goes on the last line (B-041c).
+    # Three columns stay free there, so the prompt and a one-character answer fit (package H).
     # By terminal columns (package I): a wide character is two columns.
-    lines = wrap_cells(question, _terminal_width())
+    lines = wrap_cells(question, max(_terminal_width() - 3, 20))
     for line in lines[:-1]:
         print(line)
     question_gate.open_question()
@@ -44,6 +45,10 @@ def console_approval_callback(step: Step) -> bool:
         response = input(f"{lines[-1]} ").strip().lower()
     except EOFError:
         return False
+    except KeyboardInterrupt:
+        # Ctrl-C at the prompt: end the line first, so the next output does not print onto it.
+        print()
+        raise
     finally:
         question_gate.close_question()
     return response in {"y", "yes"}
