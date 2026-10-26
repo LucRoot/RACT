@@ -1,0 +1,8 @@
+J1: first feedback 1.58 s; ract.yaml written: no (setup answered n)
+J2: first feedback 1.77 s
+J4: first feedback 1.87 s
+J6: first feedback 3.71 s; Ctrl-C during a turn
+J8: exit 0; schema ract.result/1
+J8-stdin: exit 0; schema ract.result/1; intent on stdin
+J9: first feedback 2.25 s; weak model scenario
+J10: first feedback 2.68 s; scripted faults
