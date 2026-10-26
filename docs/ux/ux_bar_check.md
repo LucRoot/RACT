@@ -9,10 +9,13 @@ walked in this batch, with the reason.
 
 ## Standards
 
-1. **Feedback within 300 ms, sign of life every 2 s: not met.** The plain renderer prints the
-   heartbeat every 10 s (`src/ract/session_render.py:52`, `_PLAIN_HEARTBEAT_EVERY_MS = 10_000`).
-   Captures show `... waiting on model (4 s)` then steps of 10 s
-   (`docs/ux/b054r/J4.txt`). No feedback is measured at submit; the 300 ms figure is not checked.
+1. **Feedback within 300 ms, sign of life at most every 10 s in plain mode: not met as written.**
+   Adjudicated 2026-10-26 (`BOARD\ADJUDICATION_2026-10-26.md`, row 1): the plain-mode check line is
+   "heartbeat at most every 10 s". The plain renderer prints the heartbeat every 10 s
+   (`src/ract/session_render.py:52`, `_PLAIN_HEARTBEAT_EVERY_MS = 10_000`). The rich renderer's
+   status row is the 2 s sign of life (not visible in the rich-mode captures; see the handoffs).
+   Captures show `... waiting on model (4 s)` then steps of 10 s (`docs/ux/b054r/J4.txt`).
+   No feedback is measured at submit; the 300 ms figure is not checked.
 2. **See what the tool is doing (streaming, reasoning, tool cards): partly met.** Intents run as
    event-driven turns with a heartbeat (`src/ract/repl.py:139`). The `stream` setting defaults
    to off (`src/ract/repl.py:96`). No collapsible reasoning and no one-line tool cards exist.
