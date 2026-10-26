@@ -34,6 +34,7 @@ from rich.markup import escape
 
 from ract.providers import reasoning
 from ract.session_events import safe_text
+from ract.cell_wrap import wrap_cells
 from ract.tui import terminal_width
 
 # Verbs that accept ``--config`` and should follow the session's config path
@@ -663,14 +664,9 @@ class ReplSession:
 
     def _print_wrapped(self, text: str) -> None:
         """Print a line folded to the terminal width, continuation lines indented (package A)."""
-        for line in textwrap.wrap(
-            text,
-            width=terminal_width(),
-            subsequent_indent="  ",
-            # A path has no spaces to break at; it folds rather than overflow.
-            break_long_words=True,
-            break_on_hyphens=False,
-        ) or [""]:
+        # By terminal columns (package I): a wide character is two columns. A path has no
+        # spaces to break at, so it folds rather than overflows.
+        for line in wrap_cells(text, terminal_width(), subsequent_indent="  ") or [""]:
             self._console.print(escape(line))
 
     def _render_width(self) -> int:

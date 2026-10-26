@@ -97,3 +97,37 @@ def test_an_escape_byte_never_reaches_the_output(text, width):
     renderer = PlainRenderer(out.write, width=width)
     renderer._line(text + "\x1b[31mred\x1b[0m")
     assert "\x1b" not in out.getvalue()
+
+
+def test_the_repl_folds_wide_text_by_columns(tmp_path, monkeypatch, capsys):
+    # The REPL's own wrapped print (used by /mode, /cost, /permissions) counted characters too.
+    from ract import cli
+    from ract.repl import ReplSession
+    from tests.test_repl import _Console
+
+    monkeypatch.setenv("COLUMNS", "40")
+    console = _Console()
+    session = ReplSession(
+        tmp_path / "ract.yaml",
+        dispatch=lambda argv: 0,
+        read_line=lambda prompt: "",
+        console=console,
+        verbs=cli.CLI_VERBS,
+    )
+    session._print_wrapped("日本語のテキスト" * 6)
+    for line in console.lines:
+        assert cell_len(line) <= 40, (cell_len(line), line)
+    assert "".join(console.lines).replace("  ", "") == "日本語のテキスト" * 6
+
+
+def test_the_approval_question_folds_wide_text_by_columns(monkeypatch, capsys):
+    from ract.approval_callback import console_approval_callback
+    from ract.manager import Step
+
+    monkeypatch.setenv("COLUMNS", "40")
+    monkeypatch.setattr("builtins.input", lambda prompt="": "n")
+    console_approval_callback(
+        Step(action="日本語の変更を追加する", provider_hint="local", expected_artifact="src/日本語のファイル.py")
+    )
+    for line in capsys.readouterr().out.splitlines():
+        assert cell_len(line) <= 40, (cell_len(line), line)

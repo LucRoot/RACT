@@ -2,10 +2,10 @@ from __future__ import annotations
 
 
 import shutil
-import textwrap
 from collections.abc import Callable
 
 from ract import question_gate
+from ract.cell_wrap import wrap_cells
 from ract.manager import Step
 
 
@@ -35,7 +35,8 @@ def console_approval_callback(step: Step) -> bool:
         f"-> {step.expected_artifact or 'answer, no file written'}? [y/N]:"
     )
     # The question wraps to the terminal width; the answer goes on the last line (B-041c).
-    lines = textwrap.wrap(question, width=_terminal_width(), break_on_hyphens=False)
+    # By terminal columns (package I): a wide character is two columns.
+    lines = wrap_cells(question, _terminal_width())
     for line in lines[:-1]:
         print(line)
     question_gate.open_question()
