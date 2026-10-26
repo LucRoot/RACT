@@ -37,6 +37,36 @@ from __future__ import annotations
 import argparse
 from typing import Iterable
 
+from ract.cell_wrap import wrap_cells
+from ract.tui import terminal_width
+
+_EPILOG = (
+    "Examples:\n"
+    '  ract "add a test for utils.py" --config ract.yaml\n'
+    '  ract run "refactor the parser" --loop --max-iterations 5\n'
+    "  ract memory init\n"
+    '  ract retrieval query "parser"\n'
+    "  ract manifest ledger verify\n"
+    "  ract help <verb>   # per-verb help\n"
+    "\n"
+    "See docs/QUICKSTART.md and docs/USE_CASES.jsonl for full details.\n"
+)
+
+
+def _fold(text: str, width: int) -> str:
+    """One paragraph folded to ``width`` terminal columns (package S)."""
+    return "\n".join(wrap_cells(text, width) or [""])
+
+
+def _fold_epilog(text: str, width: int) -> str:
+    """The epilog line by line: a line folds, and an indented line keeps its indent."""
+    out: list[str] = []
+    for line in text.split("\n"):
+        indent = line[: len(line) - len(line.lstrip(" "))]
+        out.extend(wrap_cells(line, width, subsequent_indent=indent + "  ") or [""])
+    return "\n".join(out)
+
+
 # One-line description per verb. Grouped by category for the README
 # generator. Order within each group is the display order (matches
 # CLI_VERBS ordering where possible).
@@ -127,30 +157,24 @@ def build_discovery_parser(cli_verbs: Iterable[str]) -> argparse.ArgumentParser:
     :data:`VERB_DESCRIPTIONS`) fall back to a placeholder description
     so ``--help`` never omits a verb the dispatcher can route to.
     """
+    width = terminal_width()
     parser = argparse.ArgumentParser(
         prog="ract",
-        description=(
+        description=_fold(
             "RACT - an Agentic Coding Tool by Dr. Lucas Root, Ph.D. "
-            "Forged on Windows, loved everywhere."
+            "Forged on Windows, loved everywhere.",
+            width,
         ),
-        epilog=(
-            "Examples:\n"
-            '  ract "add a test for utils.py" --config ract.yaml\n'
-            '  ract run "refactor the parser" --loop --max-iterations 5\n'
-            "  ract memory init\n"
-            '  ract retrieval query "parser"\n'
-            "  ract manifest ledger verify\n"
-            "  ract help <verb>   # per-verb help\n"
-            "\n"
-            "See docs/QUICKSTART.md and docs/USE_CASES.jsonl for full details.\n"
-        ),
+        epilog=_fold_epilog(_EPILOG, width),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(
         dest="verb",
         metavar="VERB",
         title="verbs",
-        description="RACT subcommands. Run 'ract help <verb>' for verb-level help.",
+        description=_fold(
+            "RACT subcommands. Run 'ract help <verb>' for verb-level help.", width - 2
+        ),
     )
     for verb in cli_verbs:
         desc = VERB_DESCRIPTIONS.get(verb, f"({verb} verb -- see 'ract help {verb}')")
