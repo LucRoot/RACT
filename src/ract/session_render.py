@@ -106,6 +106,8 @@ class PlainRenderer:
     # -- helpers
 
     def _line(self, text: str) -> None:
+        # Package I: an escape byte in any line is replaced here too, not only at the event sources.
+        text = safe_text(text)
         if self._mid_line:
             self._write("\n")
             self._mid_line = False
