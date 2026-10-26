@@ -135,7 +135,8 @@ def describe_change(path: str, stat: dict[str, Any] | None) -> str:
     if stat.get("deleted"):
         return f"{path} (deleted)"
     if "new" in stat:
-        return f"{path} (new, {stat['new']} lines)"
+        unit = "line" if stat["new"] == 1 else "lines"
+        return f"{path} (new, {stat['new']} {unit})"
     return f"{path} (+{stat.get('added', 0)} -{stat.get('removed', 0)})"
 
 

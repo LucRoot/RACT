@@ -121,7 +121,8 @@ def test_answer_step_has_no_path_and_shows_answer():
     assert "[x] 1. explain the module -> answer (1.2s) passed" in text.splitlines()
 
 
-def test_interrupted_turn_leaves_unfinished_steps_unchecked_in_the_final_block():
+def test_interrupted_turn_marks_steps_that_never_ran_as_skipped():
+    # D1: a step that was running or never started when the turn stopped is skipped.
     text = _render(
         _plan("edit a", "edit b", "edit c"),
         _started(1, "edit a", "a.py"),
@@ -132,8 +133,8 @@ def test_interrupted_turn_leaves_unfinished_steps_unchecked_in_the_final_block()
     final = _checklist(text)[-3:]
     assert final == [
         "[x] 1. edit a -> a.py (1.2s) passed",
-        "[ ] 2. edit b -> b.py",
-        "[ ] 3. edit c -> c.py",
+        "[-] 2. edit b -> b.py (0.0s) skipped",
+        "[-] 3. edit c -> c.py (0.0s) skipped",
     ]
 
 
