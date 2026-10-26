@@ -7,7 +7,7 @@ review item 2) and from `BOARD/cards/B-064b.md`.
 
 ## Assumed event data (D12)
 
-- `plan.approval_requested {plan_hash, steps}`: `plan_hash` is `plan_hash(steps)`; `steps`
+- `plan.approval_requested {plan_hash, steps}`: `plan_hash` is `plan_hash(steps)`, sha256 of the RFC 8785 canonical encoding (`ract.canonical.dumps_jcs`, which the architecture test requires on canonical paths; D12 wrote 'canonical JSON, sorted keys'); `steps`
   is the checklist data (`n`, `action`, `target`).
 - `plan.approval_answered {plan_hash, answer, kept, skipped: [{n, reason}], edited}`:
   `answer_record(...)` builds this dictionary. Nothing is emitted here.

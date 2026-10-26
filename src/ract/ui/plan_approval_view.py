@@ -14,9 +14,9 @@ Shape assumed beside this module (see the note in docs/ux/plan_approval_shape.md
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, replace
 
+from ract.canonical import dumps_jcs
 from ract.cell_wrap import wrap_cells
 
 QUESTION = "Run it? [a]pprove  [s]kip <n>  [e]dit <n>  [c]ancel"
@@ -108,12 +108,11 @@ def plan_hash(steps: list[Step]) -> str:
     Confidence and the assumption are not in the hash, so a re-planned identical plan
     does not ask twice.
     """
-    canonical = json.dumps(
-        [{"action": s.action, "n": s.n, "target": s.target} for s in steps],
-        sort_keys=True,
-        separators=(",", ":"),
+    # The project's canonical encoding (RFC 8785, ract.canonical.dumps_jcs) sorts keys too.
+    canonical = dumps_jcs(
+        [{"action": s.action, "n": s.n, "target": s.target} for s in steps]
     )
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def answer_record(steps: list[Step], answer: str, edited: bool) -> dict:
