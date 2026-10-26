@@ -57,7 +57,9 @@ def test_a_snapshot_that_cannot_read_a_file_gets_a_close_the_program_hint():
     assert "another program" in hint or "close" in hint
 
 
-def test_a_turn_that_raises_prints_one_sentence_not_a_traceback(tmp_path, monkeypatch, capsys):
+def test_a_turn_that_raises_prints_one_sentence_not_a_traceback(
+    tmp_path, monkeypatch, capsys
+):
     # Package T: a worktree error (a locked file) escaped the turn's worker thread, and the
     # interpreter printed the traceback. The worker reports one sentence instead, so no
     # exception reaches the thread's hook.
@@ -69,10 +71,14 @@ def test_a_turn_that_raises_prints_one_sentence_not_a_traceback(tmp_path, monkey
     from tests.test_repl import _Console
 
     def boom(*args, **kwargs):
-        raise RuntimeError("could not snapshot the working tree: open src/calc.py: Permission denied")
+        raise RuntimeError(
+            "could not snapshot the working tree: open src/calc.py: Permission denied"
+        )
 
     reported: list[object] = []
-    monkeypatch.setattr(threading, "excepthook", lambda args: reported.append(args.exc_value))
+    monkeypatch.setattr(
+        threading, "excepthook", lambda args: reported.append(args.exc_value)
+    )
     monkeypatch.setattr("ract.session_turn.run_turn", boom)
     session = ReplSession(
         Path(tmp_path) / "ract.yaml",
@@ -91,7 +97,7 @@ def test_a_turn_that_raises_prints_one_sentence_not_a_traceback(tmp_path, monkey
 @pytest.mark.parametrize(
     "error",
     [
-        "could not snapshot the working tree: error: open(\"src/calc.py\"): Permission denied",
+        'could not snapshot the working tree: error: open("src/calc.py"): Permission denied',
         "Step 1 left these paths as they are: src/calc.py (could not change it: Permission denied).",
     ],
 )

@@ -35,7 +35,10 @@ def _scenario(target: str) -> Scenario:
         "model": "fake-coder",
         "tools_supported": False,
         "turns": [
-            {"match": {"last_message": "(?i)probe"}, "reply": {"kind": "text", "content": "ok"}},
+            {
+                "match": {"last_message": "(?i)probe"},
+                "reply": {"kind": "text", "content": "ok"},
+            },
             {"reply": {"kind": "text", "content": json.dumps(plan)}},
             {"reply": {"kind": "text", "content": NEW}, "repeat": True},
         ],
@@ -43,7 +46,9 @@ def _scenario(target: str) -> Scenario:
     return Scenario.from_dict(data, name="h4_read_only")
 
 
-@pytest.mark.skipif(os.name != "nt", reason="the read-only attribute is the Windows refusal")
+@pytest.mark.skipif(
+    os.name != "nt", reason="the read-only attribute is the Windows refusal"
+)
 def test_a_read_only_file_step_is_not_reported_done(tmp_path):
     with FakeModelServer(_scenario("src/calc.py")) as server:
         ws = tmp_path / "proj"
@@ -54,15 +59,39 @@ def test_a_read_only_file_step_is_not_reported_done(tmp_path):
         _configure(ws, server.base_url, "fake-coder")
         subprocess.run(["git", "add", "-A"], cwd=ws, check=True, capture_output=True)
         subprocess.run(
-            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base"],
-            cwd=ws, check=True, capture_output=True,
+            [
+                "git",
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "commit",
+                "-q",
+                "-m",
+                "base",
+            ],
+            cwd=ws,
+            check=True,
+            capture_output=True,
         )
         os.chmod(target, stat.S_IREAD)
         try:
             proc = subprocess.run(
-                [str(RACT), "-p", "write the file", "--accept-edits", "--config", "ract.yaml"],
-                cwd=ws, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                timeout=120, stdin=subprocess.DEVNULL,
+                [
+                    str(RACT),
+                    "-p",
+                    "write the file",
+                    "--accept-edits",
+                    "--config",
+                    "ract.yaml",
+                ],
+                cwd=ws,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                stdin=subprocess.DEVNULL,
             )
         finally:
             os.chmod(target, stat.S_IREAD | stat.S_IWRITE)

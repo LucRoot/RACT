@@ -19,5 +19,7 @@ def test_a_path_over_260_characters_is_refused_on_windows_rules(tmp_path):
 
 
 def test_a_path_under_260_characters_is_not_refused_for_length(tmp_path):
-    result = resolve_workspace_path(tmp_path, "src/" + "f" * 40 + ".py", purpose="write", windows=True)
+    result = resolve_workspace_path(
+        tmp_path, "src/" + "f" * 40 + ".py", purpose="write", windows=True
+    )
     assert result.is_ok(), result.error
