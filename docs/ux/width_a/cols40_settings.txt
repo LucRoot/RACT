@@ -1,0 +1,25 @@
+ RACT 0.5.2  config: ract.yaml
+       type an intent, or /help for
+       commands
+RACT session fake-coder via local |
+  master | default | T3 off
+you: /settings
+                Settings
++--------------------------------------+
+| setting          | value             |
+|------------------+-------------------|
+| config           | ract.yaml         |
+| dry-run          | off               |
+| stream           | off               |
+| auto (approve    | on                |
+| each step)       |                   |
+| mode             | default           |
+| iterations (for  | 10                |
+| /loop)           |                   |
+| session          | repl-20261025-191 |
+|                  | 346               |
+| turns this       | 0                 |
+| session          |                   |
+| reasoning effort | off               |
++--------------------------------------+
+you: /exit
