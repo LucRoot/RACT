@@ -59,6 +59,7 @@ from ract.executor.worktree import (
     WorktreeManager,
     take_snapshot,
     ensure_git_repo,
+    WorktreeError,
 )
 from ract.manager import Plan, Step
 from ract.rooted import Rooted
@@ -203,6 +204,21 @@ def _is_answer_step(step: Step) -> bool:
     return not step.expected_artifact and step.tool_call is None
 
 
+def _snapshot_failure(exc: WorktreeError) -> Rooted[ExecutionReport]:
+    """A repository check or snapshot that failed, as a failed result (package 5, H6)."""
+    return Rooted(
+        value=None,
+        assumption="The working tree can be snapshotted before the steps run.",
+        confidence=0.0,
+        provenance=["harness.substrate_adapter", "snapshot"],
+        error=str(exc),
+        hint=(
+            "close the program that has the file open, or make the file writable, "
+            "then run the intent again"
+        ),
+    )
+
+
 def run_via_substrate(
     harness: "Harness",
     intent: str,
@@ -233,7 +249,10 @@ def run_via_substrate(
     # These are cheap and the caller re-checks them; asserting inside the
     # shim keeps the failure mode local rather than trusting a stale
     # caller check.
-    ensure_git_repo(harness.project_dir)
+    try:
+        ensure_git_repo(harness.project_dir)
+    except WorktreeError as exc:
+        return _snapshot_failure(exc)
     if all(_is_answer_step(step) for step in plan.steps):
         # LR:: A plan of answer steps writes nothing, so it needs no snapshot,
         # worktree, branch or commit (B-042). It reads the operator's files
@@ -250,9 +269,14 @@ def run_via_substrate(
     # S-011b: the first step's base is a snapshot of the working tree as it
     # is, uncommitted changes included, so a dirty tree (RACT's own earlier
     # turns leave one) keeps isolation instead of forcing the in-place path.
-    snapshot = take_snapshot(
-        harness.project_dir, progress=lambda line: print(line, flush=True)
-    )
+    # H6 (package 5): a repository check or snapshot that fails (a locked file, for one) is a
+    # failed result with its sentence, not an exception that escapes the substrate.
+    try:
+        snapshot = take_snapshot(
+            harness.project_dir, progress=lambda line: print(line, flush=True)
+        )
+    except WorktreeError as exc:
+        return _snapshot_failure(exc)
     parent_snapshot = snapshot.sha
     if snapshot.left_out:
         print(snapshot.notice(), flush=True)
