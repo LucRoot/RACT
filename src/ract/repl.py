@@ -235,7 +235,9 @@ class ReplSession:
         try:
             while True:
                 try:
-                    line = self._read_line(self.prompt())
+                    # A line queued during the last turn runs next (package 6), before any typed line.
+                    queued = self._take_queued()
+                    line = queued if queued is not None else self._read_line(self.prompt())
                 except EOFError:
                     self._console.print("")
                     reason = "eof"
@@ -932,7 +934,14 @@ class ReplSession:
         finally:
             if ahead is not None:
                 ahead.stop()
+                self._broker.end_turn()
         return box.get("code", 1)
+
+    def _take_queued(self) -> str | None:
+        """The next line queued during a turn, or None (package 6, B-033s)."""
+        if self._broker is None:
+            return None
+        return self._broker.queue.take_first()
 
     def _start_type_ahead(self, turn_no: int) -> Any:
         """Package 6 (B-033s): read typed lines during a turn into the input broker.

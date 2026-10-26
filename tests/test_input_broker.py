@@ -106,3 +106,29 @@ def test_a_turn_reader_feeds_typed_lines_into_the_broker_until_eof():
     assert not reader.is_alive()
     assert broker.queue.items() == ["first", "second"]
     assert [kind for kind, _ in events] == ["input.queued", "input.queued"]
+
+
+def test_take_first_removes_the_next_queued_line_for_the_next_turn_without_withdrawing_it():
+    broker, events = _broker()
+    broker.start_turn()
+    broker.feed("a")
+    broker.feed("b")
+    assert broker.queue.take_first() == "a"
+    assert broker.queue.items() == ["b"]
+    assert not any(kind == "input.withdrawn" for kind, _ in events)
+    assert broker.queue.take_first() == "b"
+    assert broker.queue.take_first() is None
+
+
+def test_the_repl_takes_a_queued_line_before_it_reads_the_console():
+    from ract.repl import ReplSession
+
+    broker, _ = _broker()
+    broker.start_turn()
+    broker.feed("queued during the turn")
+    session = ReplSession.__new__(ReplSession)
+    session._broker = broker
+    assert session._take_queued() == "queued during the turn"
+    assert session._take_queued() is None
+    session._broker = None
+    assert session._take_queued() is None

@@ -37,6 +37,14 @@ class QueuedInput:
         self.model = self.model.append(text)
         return len(self.model.items)
 
+    def take_first(self) -> str | None:
+        """Remove and return the next queued line for the next turn (no event: it is sent, not withdrawn)."""
+        if not self.model.items:
+            return None
+        text = self.model.items[0].text
+        self.model, _ = self.model.drop(1)
+        return text
+
     def cancel(self, position: int) -> bool:
         """Withdraw the item at ``position`` (1 is the next to be sent). False when none is there."""
         try:
