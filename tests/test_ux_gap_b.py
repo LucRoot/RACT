@@ -46,3 +46,17 @@ def test_the_provenance_notice_says_what_it_is_in_plain_words():
         "See docs/PROVENANCE.md."
     )
     assert "Rootknot" not in text and "not wired" not in text
+
+
+def test_permissions_answers_what_may_change_or_be_sent(tmp_path):
+    # Standard 13: /permissions answers "what is it allowed to do" in one screen.
+    console = _Console()
+    session = _session(tmp_path, console)
+    session.state.auto = True  # a terminal session starts in default mode (repl.py)
+    session._handle_command("/permissions")
+    text = console.text
+    assert "Mode: default:" in text
+    assert "Network:" in text and "ract.yaml" in text
+    assert "Tier 3" in text and "off" in text
+    assert "Sandbox:" in text and "not enforced" in text
+    assert "ract trust" in text

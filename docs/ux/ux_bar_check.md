@@ -61,9 +61,10 @@ walked in this batch, with the reason.
     once per session (`src/ract/session_render.py`, `_on_notice`). The help text in
     `src/ract/cli.py:1681` still uses the project term (handoff below). Other diagnostics are not
     shown in these captures.
-13. **Trust over a day (`/diff`, `/cost`, `/context`, `/permissions`): partly met.** `/cost` and
-    `/context` exist (`src/ract/repl.py:415` and `:615`). `/diff` and `/permissions` do not exist
-    as commands; `/help` does not list them.
+13. **Trust over a day (`/diff`, `/cost`, `/context`, `/permissions`): partly met.** `/cost`,
+    `/context` and `/permissions` exist and fit at 40 and 60 columns (`src/ract/repl.py`, `_cmd_permissions`;
+    `docs/ux/permissions/`; tests in `tests/test_ux_gap_b.py` and `tests/test_ux_width.py`). `/diff` does not
+    exist as a command (handoff below).
 
 ## Journeys
 
@@ -167,7 +168,7 @@ Handoffs (not changed here; the owner and the change are named):
   and the executor (approval policy).
 - **Standard 11, weak models.** `src/ract/planner.py:34` returns `Plan contains no steps.` for a reply with no
   steps; the JSON fallback is a planner change. Senior-only (planner). ESCALATE.
-- **Standard 13, `/diff` and `/permissions`.** Neither command exists. Owner: BUILDER (new commands).
+- **Standard 13, `/diff`.** Not built; see the final handoffs. `/permissions` was added in package G.
 - **Wording, `src/ract/cli.py:1681`.** `Provenance: files written by ract runs are not signed with a Rootknot`
   is help text in the project's own term. The integration test pins the run-output text at `cli.py:5085`
   (`tests/integration/test_unsigned_artifacts_are_reported.py:69`), so only the help text is in the handoff.
@@ -216,7 +217,7 @@ Handoffs:
 - **Standard 11, weak models.** Senior-only: `src/ract/planner.py:34` and the JSON fallback for a weak model.
 - **Standard 12, internal wording.** `src/ract/cli.py:1681` (provenance help text), the LSP and
   semantic-builder lines printed by `ract memory init` (`docs/ux/cold_reader.md` row 5).
-- **Standard 13, `/diff` and `/permissions`.** BUILDER: new commands.
+- **Standard 13, `/diff`.** BUILDER: a command that shows the last turn's diff from its backup (`undo_backup`).
 - **Journey J4, the named test is not run.** BUILDER (the verifier). The renderer change is ready once
   the turn event carries a verdict for the test run.
 - **Journey J5, per-hunk accept or reject.** B-014c. **Journey J3, read-only ask.** BUILDER: the

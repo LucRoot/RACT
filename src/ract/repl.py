@@ -65,6 +65,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/resume <id|latest>", "Switch to a saved session and show its last request."),
     ("/config", "Validate the active config (same as ract config validate)."),
     ("/providers", "List configured providers and the manager provider."),
+    ("/permissions", "What RACT may change or send, in one screen."),
     ("/cost", "Requests, tokens and bytes sent off this machine in this session."),
     (
         "/mode [plan|default|auto-accept]",
@@ -192,6 +193,7 @@ class ReplSession:
             "report": self._cmd_report,
             "cost": self._cmd_cost,
             "mode": self._cmd_mode,
+            "permissions": self._cmd_permissions,
             "undo": self._cmd_undo,
             "redo": self._cmd_redo,
             "clear": self._cmd_clear,
@@ -397,6 +399,25 @@ class ReplSession:
         if self.state.dry_run:
             return "plan"
         return "default" if self.state.auto else "auto-accept"
+
+    def _cmd_permissions(self, args: list[str]) -> bool:
+        """What RACT may change or send, in one screen (standard 13)."""
+        self._print_wrapped(f"Mode: {self._MODE_TEXT[self.permission_mode()]}")
+        self._print_wrapped(
+            "Network: requests go only to the providers named in ract.yaml; "
+            "/cost lists what was sent."
+        )
+        self._print_wrapped(
+            "Tier 3 (unrestricted): off. This release has no tier-3 policy."
+        )
+        self._print_wrapped(
+            "Sandbox: not enforced in this build; ract doctor shows what is checked."
+        )
+        self._print_wrapped(
+            "Repository commands (hooks, test gates) run only after you trust this "
+            "repository: ract trust."
+        )
+        return True
 
     def _cmd_mode(self, args: list[str]) -> bool:
         if not args:
