@@ -37,7 +37,7 @@ walked in this batch, with the reason.
    and session id are not on it. `/cost` and `/context` carry those in separate screens.
 7. **Errors say what to do (hint line, no traceback): partly met.** The error sweep ran 22 cases
    (`docs/ux/errors_check.md`, raw captures in `docs/ux/errors/`). 11 pass, 6 are partial, 2 fail,
-   and the rest were not reached or cannot be reproduced here. No traceback appears in any capture.
+   and the rest were not reached or cannot be reproduced here. No traceback appears in the error sweep's captures (`docs/ux/errors/`). Package T adds one: the Windows file capture for a locked file on the headless `ract -p` path still prints a traceback (`docs/ux/windows_files/results.json`; handoff H7 in `docs/ux/windows_files.md`).
    The partial and failing rows are named handoffs (`docs/ux/errors_check.md`, Handoffs section).
 8. **No dead ends (nearest command, setup flow, refusal explains how to permit): partly met.**
    Setup flow walked to the end on the `Y` path: four questions, `ract.yaml` written, health check
