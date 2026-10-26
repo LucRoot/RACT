@@ -20,6 +20,17 @@ from ract.rooted import DEFAULT_CONFIDENCE_FLOOR, Rooted
 from ract.temperature_router import TemperatureRouter
 
 
+def _artifact_name(raw: object) -> str:
+    """The planned file name, without line endings (package 5, H2).
+
+    Spaces are kept on purpose: a trailing space is a name Windows drops, and the path check
+    refuses it with a sentence rather than writing a different file.
+    """
+    if raw is None:
+        return ""
+    return str(raw).strip(chr(13) + chr(10))
+
+
 @dataclass(frozen=True)
 class Step:
     """One step in a RACT plan.
@@ -204,7 +215,7 @@ class Manager:
             # LR:: An empty expected_artifact is an answer step (B-042): the
             # reply is shown, nothing is written. It used to become output.txt
             # or test_results.txt, so a question wrote a file into the repo.
-            expected_artifact = str(item.get("expected_artifact", "") or "").strip()
+            expected_artifact = _artifact_name(item.get("expected_artifact"))
             steps.append(
                 Step(
                     action=action,
