@@ -26,7 +26,7 @@ from ract.providers.openai_provider import OpenAICompatibleProvider, key_hosts
 REPO = Path(__file__).resolve().parent.parent
 DOC = REPO / "docs" / "PROVIDER_SETUP.md"
 LOCAL = {"local", "ollama", "llamacpp", "lmstudio", "vllm"}
-CLOUD = {"openai", "anthropic", "zai", "moonshot", "openrouter"}
+CLOUD = {"openai", "anthropic", "zai", "glm", "openrouter"}
 
 
 @pytest.fixture(autouse=True)

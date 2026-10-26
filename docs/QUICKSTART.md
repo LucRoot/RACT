@@ -120,7 +120,7 @@ ract init --template python-package --provider local
 
 This creates `ract.yaml`, `prompts/manager.txt`, starter source under `src/`,
 tests, a `README.md`, and a built-in skill. You can also use `--provider openai`,
-`--provider moonshot`, or any other preset.
+`--provider glm`, or any other preset.
 
 ## Create your first project manually
 

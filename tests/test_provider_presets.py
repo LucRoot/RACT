@@ -13,7 +13,7 @@ def test_list_presets_includes_local():
 
 
 def test_list_presets_includes_cheap_frontier():
-    for name in ("zai", "moonshot", "openrouter"):
+    for name in ("zai", "glm", "openrouter"):
         assert name in list_presets()
 
 

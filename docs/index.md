@@ -21,7 +21,7 @@ ract init --template python-package --provider local
 
 ## What makes RACT different
 
-- **Model-agnostic** — use local models, OpenAI, Anthropic, Z.ai, Moonshot, OpenRouter, or any OpenAI-compatible endpoint.
+- **Model-agnostic** — use local models, OpenAI, Anthropic, Z.ai, GLM-5.3 (NVIDIA NIM), OpenRouter, or any OpenAI-compatible endpoint.
 - **Provenance-anchored artifacts** — every generated file is meant to carry a signed rootknot that binds it to the plan step, assumption, and generator that produced it. The signing library exists; normal runs do not sign yet (see the provenance statement).
 - **Assumption-driven programming** — every plan step declares the assumptions that justify it; violated assumptions propagate and trigger targeted re-planning.
 - **Milestone-halting recursion** — the loop continues only while measurable progress is being made; it stops on completion, regression, budget exhaustion, or provenance violation.

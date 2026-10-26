@@ -125,7 +125,7 @@ This keeps the loop moving while keeping you in control of dangerous actions.
 - Read `ARCHITECTURE.md` to understand how the harness, planner, executor, and
   loop controller work together.
 - Read `PROVIDER_SETUP.md` to connect RACT to OpenAI, Anthropic, Z.ai,
-  Moonshot, OpenRouter, or another local server.
+  GLM-5.3 (NVIDIA NIM), OpenRouter, or another local server.
 - Read `SKILL_AUTHORING.md` to build reusable prompt templates for your own
   workflows.
 

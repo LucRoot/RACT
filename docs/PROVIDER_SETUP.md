@@ -136,15 +136,19 @@ providers:
     model: your-zai-model
 ```
 
-### Moonshot AI
+### GLM-5.3 on NVIDIA NIM
+
+GLM-5.3 is served through NVIDIA's OpenAI-compatible endpoint, the same one the
+Endpoints dispatcher uses for its `code` function. Set `NVIDIA_API_KEY` to your NVIDIA
+key (the Endpoints `.env` holds it). The model id is `z-ai/glm-5.3`.
 
 ```yaml
 providers:
-  moonshot:
+  glm:
     adapter: openai
-    url: https://api.moonshot.cn/v1
-    api_key: ${MOONSHOT_API_KEY}
-    model: moonshot-v1-8k
+    url: https://integrate.api.nvidia.com/v1
+    api_key: ${NVIDIA_API_KEY}
+    model: z-ai/glm-5.3
 ```
 
 ### OpenRouter
@@ -179,7 +183,7 @@ preset has been run against a real server yet.
 | `openai` | `https://api.openai.com/v1` | `${OPENAI_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
 | `anthropic` | `https://api.anthropic.com/v1` | `${ANTHROPIC_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
 | `zai` | `https://api.z.ai/v1` | `${ZAI_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
-| `moonshot` | `https://api.moonshot.cn/v1` | `${MOONSHOT_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
+| `glm` | `https://integrate.api.nvidia.com/v1` | `${NVIDIA_API_KEY}` | create a NVIDIA NIM key and set the variable | configuration checked only |
 | `openrouter` | `https://openrouter.ai/api/v1` | `${OPENROUTER_API_KEY}` | create a key with the provider and set the variable | configuration checked only |
 
 For the local presets, the test sends a chat request to the fake server through the
