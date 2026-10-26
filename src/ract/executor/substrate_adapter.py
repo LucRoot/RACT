@@ -213,6 +213,48 @@ def run_via_substrate(
     stream: bool = False,
     stream_callback: Callable[[str], None] | None = None,
 ) -> Rooted[ExecutionReport]:
+    """Run ``plan`` through the substrate and report each step's real outcome.
+
+    H4 (package 4): a step's ``done`` is held until its files are applied. The
+    loop releases it after a successful apply; any other exit releases the held
+    step with the outcome its result implies (refused for a refused path, failed
+    otherwise), so the step never reads done when the disk did not change.
+    """
+    executor = harness.executor
+    executor.hold_step_report = True
+    result: Rooted[ExecutionReport] | None = None
+    try:
+        result = _run_via_substrate_steps(
+            harness,
+            intent,
+            plan,
+            context=context,
+            approval_callback=approval_callback,
+            stream=stream,
+            stream_callback=stream_callback,
+        )
+        return result
+    finally:
+        executor.hold_step_report = False
+        if result is not None and result.is_ok():
+            executor.release_held_step("done")
+        else:
+            error = (result.error if result is not None else None) or "the turn stopped"
+            hint = result.hint if result is not None else None
+            refused = "refused" in error or "left these paths" in error
+            executor.release_held_step("refused" if refused else "failed", hint or error)
+
+
+def _run_via_substrate_steps(
+    harness: "Harness",
+    intent: str,
+    plan: Plan,
+    *,
+    context: str = "",
+    approval_callback: Callable[[Step], bool] | None = None,
+    stream: bool = False,
+    stream_callback: Callable[[str], None] | None = None,
+) -> Rooted[ExecutionReport]:
     """Drive ``plan.steps`` through the ``SubstrateLoop``.
 
     Preconditions (checked by the caller before this function runs; see
@@ -310,6 +352,7 @@ def run_via_substrate(
             if not answered.is_ok():
                 return answered
             per_step_reports.append(answered.unwrap())
+            harness.executor.release_held_step("done")
             continue
         # Acceptance post-conditions are the responsibility of module_01's
         # compiled AcceptanceSuite; the shim adds only one: the executor
@@ -469,6 +512,7 @@ def run_via_substrate(
 
         run_checkpoint.step_finished(index + 1)
         per_step_reports.append(result.unwrap())
+        harness.executor.release_held_step("done")
 
     merged = _merge_reports(per_step_reports, intent, plan)
     return Rooted(
