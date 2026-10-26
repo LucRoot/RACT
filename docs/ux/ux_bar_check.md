@@ -156,7 +156,7 @@ Handoffs (not changed here; the owner and the change are named):
   change is a decision on screen-reader noise: ESCALATE to the operator, default kept at 10 s in
   plain mode. The interactive status row (2 s) is not visible in the rich-mode captures
   (`docs/ux/b054r/J4.txt` shows 10 s ticks). Owner: BUILDER, the rich renderer.
-- **Standard 1, heartbeat on the approval question.** B-033s. Condition: a tick fires while the
+- **Standard 1, heartbeat on the approval question.** Interim hold in place (adjudication row 5, `src/ract/question_gate.py`; captures `docs/ux/heartbeat_hold/`; tests `tests/test_heartbeat_hold.py` at 80, 60 and 40 columns). The permanent fix stays with B-033s. Condition: a tick fires while the
   `[y/N]` question is open. `docs/ux/b054r/J4.txt` line 8.
 - **Standard 2, streaming and tool cards.** `src/ract/repl.py:96`, `stream: bool = False`. No collapsible
   reasoning, no one-line tool cards. Owner: BUILDER.
@@ -205,7 +205,7 @@ Every partly met or not met line above has a named reason here or in the section
 file are given; the change is the one someone else would make.
 
 Handoffs:
-- **Standard 1, heartbeat on the approval question.** B-033s. `src/ract/session_render.py` and the
+- **Standard 1, heartbeat on the approval question.** Interim hold in place (adjudication row 5, `src/ract/question_gate.py`; captures `docs/ux/heartbeat_hold/`; tests `tests/test_heartbeat_hold.py` at 80, 60 and 40 columns). The permanent fix stays with B-033s. `src/ract/session_render.py` and the
   approval prompt in `src/ract/approval_callback.py`. The tick is appended to the open `[y/N]`
   question (`docs/ux/soak_g/J4_cols80.txt`, `docs/ux/b054r/J4.txt` line 8).
 - **Standard 2, streaming and tool cards.** BUILDER. `src/ract/repl.py`, the `stream` default (line
