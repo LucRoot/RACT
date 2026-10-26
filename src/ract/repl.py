@@ -32,6 +32,7 @@ from rich.markup import escape
 
 from ract.providers import reasoning
 from ract.session_events import safe_text
+from ract.tui import terminal_width
 
 # Verbs that accept ``--config`` and should follow the session's config path
 # when the operator did not pass one.
@@ -388,7 +389,7 @@ class ReplSession:
 
     def _cmd_mode(self, args: list[str]) -> bool:
         if not args:
-            self._console.print(self._MODE_TEXT[self.permission_mode()])
+            self._print_wrapped(self._MODE_TEXT[self.permission_mode()])
             return True
         wanted = self._MODE_ALIASES.get(args[0].lower(), args[0].lower())
         if wanted == "unrestricted":
@@ -409,7 +410,7 @@ class ReplSession:
             self._events.emit(
                 "mode.changed", {"mode": wanted, "tier3": "off", "by": "operator"}
             )
-        self._console.print(self._MODE_TEXT[wanted])
+        self._print_wrapped(self._MODE_TEXT[wanted])
         return True
 
     def _cmd_cost(self, args: list[str]) -> bool:
@@ -419,8 +420,8 @@ class ReplSession:
             egress_ledger.read(), self.state.started_at, this_process=True
         )
         for line in egress_ledger.describe(records):
-            self._console.print(line)
-        self._console.print(
+            self._print_wrapped(line)
+        self._print_wrapped(
             f"ledger: {egress_ledger.ledger_path()} (ract doctor --egress for history)"
         )
         return True
@@ -432,7 +433,6 @@ class ReplSession:
         return True
 
     def _cmd_model(self, args: list[str]) -> bool:
-        import shutil
 
         import yaml
 
@@ -491,7 +491,7 @@ class ReplSession:
             and isinstance(slot.get("url") or slot.get("base_url"), str)
             and trust.repository_named_host(slot.get("url") or slot.get("base_url"))
         }
-        width = max(60, min(shutil.get_terminal_size((80, 24)).columns, 100))
+        width = terminal_width()
         for line in model_blocks(providers, manager or "", named, width):
             self._console.print(escape(line))
         return True
@@ -628,6 +628,18 @@ class ReplSession:
         for line in context_lines(records, None, width=self._render_width()):
             self._console.print(line)
         return True
+
+    def _print_wrapped(self, text: str) -> None:
+        """Print a line folded to the terminal width, continuation lines indented (package A)."""
+        for line in textwrap.wrap(
+            text,
+            width=terminal_width(),
+            subsequent_indent="  ",
+            # A path has no spaces to break at; it folds rather than overflow.
+            break_long_words=True,
+            break_on_hyphens=False,
+        ) or [""]:
+            self._console.print(escape(line))
 
     def _render_width(self) -> int:
         """The width the renderer fits its lines to: the terminal, between 40 and 80 (B-041c)."""

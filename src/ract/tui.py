@@ -48,6 +48,13 @@ def _reconfigure_utf8() -> None:
                 pass
 
 
+def terminal_width() -> int:
+    """The columns a line should fit: the terminal, between 40 and 80 (B-041c)."""
+    import shutil
+
+    return max(40, min(80, shutil.get_terminal_size((80, 24)).columns))
+
+
 class RactConsole:
     """Branded console for RACT CLI output."""
 
@@ -164,7 +171,8 @@ class RactConsole:
             table.add_column(col, overflow="fold")
         for row in rows:
             table.add_row(*[str(cell) for cell in row])
-        self._console.print(table)
+        # Rich falls back to 80 columns on a dumb terminal; the table fits the real width (package A).
+        self._console.print(table, width=terminal_width())
 
     def _logo(self, version: str) -> str:
         """Return the colorized ASCII Root-Knot logo."""
