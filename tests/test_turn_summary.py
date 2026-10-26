@@ -157,7 +157,7 @@ def test_a_turn_that_changed_nothing_has_a_short_summary() -> None:
 
     assert "  changed: nothing\n" in text
     assert "way back" not in text and "assumed:" not in text and "unsigned" not in text
-    assert "  1 model request, 3.2 s, tokens not reported\n" in text
+    assert "  1 model request, 3.2 s, tokens not reported by the provider\n" in text
 
 
 def test_prose_after_a_file_change_is_labelled_model_summary() -> None:
@@ -247,3 +247,16 @@ def test_a_real_turn_reports_diffstat_and_an_unverified_claim(
 def test_the_old_one_line_summary_is_gone() -> None:
     text = _render([("turn.finished", FINISHED)])
     assert " | " not in text
+
+
+@pytest.mark.parametrize(
+    "lines, text",
+    [
+        (0, "new.md (new, 0 lines)"),
+        (1, "new.md (new, 1 line)"),
+        (2, "new.md (new, 2 lines)"),
+    ],
+)
+def test_a_new_file_says_line_in_the_singular_for_one(lines: int, text: str) -> None:
+    # D5: "1 lines" was printed for a one-line new file.
+    assert describe_change("new.md", {"new": lines}) == text

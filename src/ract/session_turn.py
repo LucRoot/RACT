@@ -118,6 +118,13 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"Interrupted", re.I),
         "run the intent again when you are ready",
     ),
+    (
+        # The model answered with no steps (D3). The provider is reachable, so the
+        # provider check does not apply; the next action is a rephrase or a model.
+        re.compile(r"Plan contains no steps", re.I),
+        "the model returned no steps for this intent; rephrase it with the file and "
+        "the change you want, or pick another model with /model",
+    ),
 )
 _DEFAULT_HINT = "run `ract doctor --check-providers` to check the setup, then try again"
 

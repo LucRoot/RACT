@@ -10,6 +10,7 @@ implements the same ``Renderer`` protocol, so the choice is a swap.
 
 from __future__ import annotations
 
+import json
 import textwrap
 from collections.abc import Callable
 from pathlib import Path
@@ -86,6 +87,8 @@ class PlainRenderer:
         # Step records for the checklist, keyed by step number; None for a
         # one-step plan, which keeps the short lines.
         self._checklist: dict[Any, dict[str, Any]] | None = None
+        # The provenance warning is printed once per session (D7); the turn summary still counts.
+        self._provenance_shown = False
         self._mid_line = False
         self._last_heartbeat_ms = -1
         self._reasoning_chars = 0
@@ -145,7 +148,7 @@ class PlainRenderer:
     def _on_session_started(self, d: dict[str, Any]) -> None:
         branch = f" | {d['branch']}" if d.get("branch") else ""
         self._line(
-            f"RACT session {d.get('model', '?')} via {d.get('provider', '?')}{branch} | {d.get('mode', 'default')} | T3 {d.get('tier3', 'off')}"
+            f"RACT session {d.get('model') or 'no model'} via {d.get('provider') or 'no provider'}{branch} | {d.get('mode', 'default')} | T3 {d.get('tier3', 'off')}"
         )
 
     def _on_session_resumed(self, d: dict[str, Any]) -> None:
@@ -404,7 +407,7 @@ class PlainRenderer:
         self._cost = dict(d)
 
     def _on_error_surfaced(self, d: dict[str, Any]) -> None:
-        self._line(f"error: {d.get('message', '')}")
+        self._line(f"error: {_readable_error(str(d.get('message', '')))}")
         self._line(f"hint: {d.get('hint', '')}")
         if d.get("workspace"):
             self._line(str(d["workspace"]))
@@ -412,6 +415,11 @@ class PlainRenderer:
             self._line(f"details: {d['log']}")
 
     def _on_notice(self, d: dict[str, Any]) -> None:
+        text = str(d.get("text", ""))
+        if text.startswith("provenance: "):
+            if self._provenance_shown:
+                return
+            self._provenance_shown = True
         prefix = "note" if d.get("level") == "info" else "warning"
         self._line(f"{prefix}: {d.get('text', '')}")
 
@@ -425,10 +433,11 @@ class PlainRenderer:
         self._text_target = None
         seconds = int(d.get("duration_ms", 0)) / 1000
         if self._checklist is not None:
-            # A step that never ended (an interrupted turn) stays unchecked.
+            # A step that did not end (the turn stopped first) was not run to its
+            # end, so it is skipped, not left looking like it is still to come (D1).
             for step in self._checklist.values():
-                if step["state"] == "running":
-                    step["state"] = "pending"
+                if step["state"] in ("pending", "running"):
+                    step["state"] = "skipped"
             self._line(f"Plan ({len(self._checklist)} steps), final:")
             for n in self._checklist:
                 self._line(self._checklist_line(n))
@@ -537,11 +546,31 @@ class PlainRenderer:
         if self._cost:
             tin, tout = self._cost.get("tokens_in"), self._cost.get("tokens_out")
             parts.append(
-                "tokens not reported"
+                "tokens not reported by the provider"
                 if tin is None and tout is None
                 else f"{tin or 0} tokens in / {tout or 0} out"
             )
         return ", ".join(parts)
+
+
+def _readable_error(message: str) -> str:
+    """The provider's own message in place of its raw JSON body (D8).
+
+    ``HTTP 503: {"error": {"message": "busy"}}`` reads as ``HTTP 503: busy``.
+    Text with no JSON body, or a body without an error message, is returned as is.
+    """
+    start = message.find("{")
+    if start < 0:
+        return message
+    try:
+        body = json.loads(message[start:])
+    except ValueError:
+        return message
+    error = body.get("error") if isinstance(body, dict) else None
+    text = error.get("message") if isinstance(error, dict) else None
+    if not isinstance(text, str) or not text:
+        return message
+    return f"{message[:start]}{text}"
 
 
 def _too_large(project: Path, path: str) -> bool:

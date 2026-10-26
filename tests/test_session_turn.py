@@ -194,6 +194,14 @@ def test_every_error_gets_a_hint(error: str, expected: str) -> None:
     assert expected in hint_for(error)
 
 
+def test_an_empty_plan_is_not_blamed_on_the_provider() -> None:
+    # D3: the model answered, with no steps. The provider check does not apply.
+    hint = hint_for("Plan contains no steps.")
+    assert "check-providers" not in hint
+    assert "no steps" in hint
+    assert "/model" in hint
+
+
 @pytest.mark.skipif(
     sys.platform != "win32" and not hasattr(os, "openpty"),
     reason="needs a pseudo-terminal",

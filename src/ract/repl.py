@@ -36,6 +36,7 @@ from ract.session_events import safe_text
 # Verbs that accept ``--config`` and should follow the session's config path
 # when the operator did not pass one.
 _CONFIG_AWARE_VERBS = frozenset({"doctor", "report"})
+_STRAY_ANSWERS = frozenset({"y", "n", "yes", "no"})
 
 HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("<text>", "Run the text as an intent (same as /run <text>)."),
@@ -261,6 +262,12 @@ class ReplSession:
             return self._handle_command(text)
         if text in {"exit", "quit"}:
             return False
+        if text.lower() in _STRAY_ANSWERS:
+            # D4: an approval answer reaches this line only when no question is open.
+            self._console.print(
+                "no question is waiting; to send that text as a request, add a word to it"
+            )
+            return True
         self._run_intent(text)
         return True
 
@@ -502,7 +509,7 @@ class ReplSession:
         providers = config.get("providers") if isinstance(config, dict) else None
         if not isinstance(providers, dict) or not providers:
             self._console.error(
-                f"no providers in {self.state.config}. Leave and run ract setup to create a working one."
+                f"no providers in {self.state.config}. Run ract setup in another terminal to fix that."
             )
             return True
         manager, error = resolve_manager_provider(config)
@@ -1025,7 +1032,7 @@ class ReplSession:
         if not self.state.config.is_file():
             raw_warning = (
                 f"{self.state.config} not found. "
-                "Leave and run ract setup to create one (it checks this machine and asks a few questions)."
+                "Run ract setup in another terminal to create one (it checks this machine and asks a few questions)."
             )
             warning_pieces = textwrap.wrap(raw_warning, width=self._render_width() - 2)
             self._console.warning(escape(warning_pieces[0]))
