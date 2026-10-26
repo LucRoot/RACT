@@ -8,18 +8,16 @@ Plan (3 steps):
 [ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
 [ ] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
 [>] 1. Fix add() in src/calc.py so it adds -> src/calc.py
-Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py? [y/N]:   ... waiting on model (6 s)
-[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (9.8s) failed
+Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py? [y/N]:   ... waiting on model (4 s)
+[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (9.1s) failed
 stopping...
   the model call is still finishing and will write nothing
 Plan (3 steps), final:
-[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (9.8s) failed
+[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (9.1s) failed
 [-] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.0s) skipped
 [-] 3. Add tests/test_notes.py that che... -> tests/test_notes.py (0.0s) skipped
-  Stopped. The model call is still finishing in the background; nothing it
-    returns will be written.
+  Stopped. Nothing more was written after the interrupt.
   changed: not tracked here (not a git repository)
   verified: RACT ran no tests this turn
-  1 model request, 12.4 s, 940 tokens in / 119 out
+  1 model request, 10.2 s, 940 tokens in / 119 out
 ract> /exit
-note: finishing cleanup of the interrupted turn

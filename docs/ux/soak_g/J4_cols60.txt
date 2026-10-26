@@ -25,7 +25,7 @@ def add(a, b):
 
 def sub(a, b):
     return a - b
-[step 1] done src/calc.py (83.8s)
+[step 1] done src/calc.py (84.1s)
 warning: provenance: 1 file(s) have no signature yet
   (src/calc.py). See docs/PROVENANCE.md.
   Done: 1 step ran; no tests were run.
@@ -44,5 +44,5 @@ warning: provenance: 1 file(s) have no signature yet
   assumed: The failing test is caused by add() subtracting. 
     (planner confidence 0.85, not checked)
   unsigned: 1 file
-  2 model requests, 86.4 s, 1107 tokens in / 68 out
+  2 model requests, 85.7 s, 1107 tokens in / 68 out
 ract>/exit

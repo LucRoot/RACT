@@ -115,20 +115,20 @@ Soak at 80 and 60 columns (`docs/ux/soak_g/`): every transcript fits its width, 
 question at 80 columns, which carries the heartbeat tick on the same line (the known B-033s
 condition, handoff below).
 
-## Soak (package G, final tip d6f70ee)
+## Soak (package G, final tip 16f812e; code as ac755f5, the last change is a test)
 
 Time to first feedback in seconds, against the first run in `docs/ux/b054/timings.txt`. The first
 number for J1 includes the setup probe in the first run and is not comparable.
 
 | Journey | First run | Soak, 80 columns | Soak, 60 columns |
 |---|---|---|---|
-| J1 setup (`n` answer) | 7.11 (probe included) | 1.71 | 1.27 |
-| J2 daily start | 2.86 | 1.41 | 1.12 |
-| J4 fix a test | 2.12 | 1.19 | 1.14 |
-| J6 interrupt | 2.13 | 2.30 | 1.91 |
+| J1 setup (`n` answer) | 7.11 (probe included) | 0.94 | 0.82 |
+| J2 daily start | 2.86 | 1.13 | 1.05 |
+| J4 fix a test | 2.12 | 1.01 | 0.90 |
+| J6 interrupt | 2.13 | 1.00 | 0.97 |
 | J8 headless, argv and stdin | exit 0, `ract.result/1` | exit 0 both | exit 0 both |
-| J9 weak model | 1.53 | 1.29 | 1.82 |
-| J10 failure paths | 2.31 | 1.17 | 1.91 |
+| J9 weak model | 1.53 | 0.91 | 1.15 |
+| J10 failure paths | 2.31 | 0.90 | 1.02 |
 
 J3, J5 and J7 are not runnable and are not in the soak.
 
