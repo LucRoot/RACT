@@ -114,7 +114,7 @@ The default manifest instantiation refuses:
    ``~/.ssh/**``, ``~/.aws/**``, ``~/.config/gcloud/**``.
 7. Overwriting a file whose current Rootknot was signed by a different
    session key, unless the operator explicitly passes
-   ``--force-overwrite <path>``.
+   ``--force-overwrite <path>`` (designed; not built in this release).
 
 ## Named-incident regressions
 

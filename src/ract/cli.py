@@ -4403,10 +4403,58 @@ def _intent_command(args: list[str]) -> int:
     return 0
 
 
+_EXAMPLE_HELP_ACTIVE = False
+
+
+def _example_verbs() -> frozenset[str]:
+    """The verbs that have an example under their --help (package S)."""
+    from ract.cli_examples import VERB_EXAMPLES
+
+    return frozenset(VERB_EXAMPLES)
+
+
+def _verb_help_with_example(verb: str) -> int:
+    """``ract <verb> --help``: the verb's own help, then its one example (package S)."""
+    import contextlib
+    import io
+
+    from ract.cli_examples import VERB_EXAMPLES
+
+    global _EXAMPLE_HELP_ACTIVE
+    buf = io.StringIO()
+    code: int | None = 0
+    _EXAMPLE_HELP_ACTIVE = True
+    try:
+        with contextlib.redirect_stdout(buf):
+            try:
+                code = main([verb, "--help"])
+            except SystemExit as exc:
+                code = exc.code if isinstance(exc.code, int) else 0
+    finally:
+        _EXAMPLE_HELP_ACTIVE = False
+    from ract.cell_wrap import wrap_cells
+    from ract.tui import terminal_width
+
+    folded = wrap_cells(
+        VERB_EXAMPLES[verb], terminal_width() - 2, subsequent_indent="    "
+    )
+    sys.stdout.write(
+        buf.getvalue().rstrip("\n") + "\n\nexample:\n  " + "\n".join(folded) + "\n"
+    )
+    return int(code or 0)
+
+
 def main(argv: list[str] | None = None) -> int:
     """RACT CLI entry point."""
     if argv is None:
         argv = sys.argv[1:]
+    if (
+        not _EXAMPLE_HELP_ACTIVE
+        and len(argv) == 2
+        and argv[1] in ("--help", "-h")
+        and argv[0] in _example_verbs()
+    ):
+        return _verb_help_with_example(argv[0])
     if "--no-color" in argv:
         # Global flag, valid before or after the subcommand (B-041a). Stripped
         # here so no verb's parser has to know it.
