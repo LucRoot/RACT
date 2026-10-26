@@ -291,11 +291,21 @@ def _offer_setup(ask: Any = input) -> bool:
     """
     from ract.setup import wizard
 
-    print("No ract.yaml in this directory, so RACT does not know which model to use.")
+    import textwrap
+
+    from ract.tui import terminal_width
+
+    # Wrapped to the terminal, so the question fits 60 columns too (package F).
+    for line in textwrap.wrap(
+        "No ract.yaml in this directory, so RACT does not know which model to use.",
+        width=terminal_width(),
+    ):
+        print(line)
     try:
         reply = str(ask("Set one up now? [Y/n] (n opens the session without one) "))
     except (EOFError, KeyboardInterrupt):
-        print()
+        # Ctrl-C at the question says what was not done (error sweep, row 15).
+        print("\nSetup stopped; no ract.yaml was written.")
         return False
     if reply.strip().lower() in {"n", "no"}:
         return True

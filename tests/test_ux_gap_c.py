@@ -215,3 +215,39 @@ def test_no_sessions_says_how_one_starts(tmp_path):
     )
     session._handle_command("/sessions")
     assert "no sessions yet: a request you type starts one" in console.text
+
+
+def test_the_missing_config_warning_fits_sixty_columns(tmp_path, monkeypatch):
+    # Soak, 60 columns: the warning's "⚠  " prefix made its first line 61 columns.
+    from ract import cli
+    from ract.repl import ReplSession
+
+    monkeypatch.setenv("COLUMNS", "60")
+    shown: list[str] = []
+
+    class _Console:
+        def info(self, message):
+            shown.append(message)
+
+        def print(self, *args, **kwargs):
+            shown.append(" ".join(str(a) for a in args))
+
+        def warning(self, message):
+            shown.append("⚠  " + message)
+
+        def error(self, message):
+            shown.append(message)
+
+    session = ReplSession(
+        tmp_path / "ract.yaml",
+        dispatch=lambda argv: 0,
+        read_line=lambda prompt: "",
+        console=_Console(),
+        verbs=cli.CLI_VERBS,
+    )
+    session._banner()
+    warning_lines = [
+        line for line in shown if "ract.yaml not found" in line or line.startswith("  ")
+    ]
+    assert warning_lines, shown
+    assert all(len(line) <= 60 for line in shown if "[ract]" not in line), shown
