@@ -8,6 +8,7 @@ terminal; the caller passes each line in, which keeps the routing testable witho
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -74,3 +75,25 @@ class InputBroker:
             self._emit("input.queued", {"text": text, "position": position})
             return Route("queued", text, position)
         return Route("prompt", text)
+
+
+class TurnReader(threading.Thread):
+    """Reads typed lines during a turn and feeds each one to the broker.
+
+    ``read_line`` blocks until a line arrives and raises ``EOFError`` at the end of input; the
+    thread then ends. The reader is a daemon: a read that is still blocked when the turn ends
+    does not hold the process open (the console read cannot be interrupted from here).
+    """
+
+    def __init__(self, broker: InputBroker, read_line: Callable[[], str]) -> None:
+        super().__init__(name="ract-input-reader", daemon=True)
+        self._broker = broker
+        self._read_line = read_line
+
+    def run(self) -> None:
+        while True:
+            try:
+                line = self._read_line()
+            except EOFError:
+                return
+            self._broker.feed(line)

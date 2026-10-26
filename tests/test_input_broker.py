@@ -84,3 +84,25 @@ def test_cancel_uses_the_model_drop_and_keeps_ids_stable():
     broker.feed("second")
     broker.queue.cancel(1)
     assert [line.id for line in broker.queue.model.items] == [2]
+
+
+def test_a_turn_reader_feeds_typed_lines_into_the_broker_until_eof():
+
+    from ract.input_broker import TurnReader
+
+    broker, events = _broker()
+    broker.start_turn()
+    lines = iter(["first", "second"])
+
+    def read_line() -> str:
+        try:
+            return next(lines)
+        except StopIteration:
+            raise EOFError
+
+    reader = TurnReader(broker, read_line)
+    reader.start()
+    reader.join(timeout=5)
+    assert not reader.is_alive()
+    assert broker.queue.items() == ["first", "second"]
+    assert [kind for kind, _ in events] == ["input.queued", "input.queued"]
