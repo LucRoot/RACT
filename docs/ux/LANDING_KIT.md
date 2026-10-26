@@ -2,16 +2,20 @@
 
 Read this first. The BUILDER lands one branch in one pass: `work/mason/landing`.
 
-## The branch to land
+## The branch to land (status: NOT rebuilt)
 
-- **Branch:** `work/mason/landing`. **Tip:** `01b3cf0`.
+- **Landing branch:** `work/mason/landing`, still at **`01b3cf0`** (49 commits on base `35af968`). It was restored to that tip after a stopped rebuild (see "Rebuild stopped" below). It is the old landing branch, not the current work.
+- **Current work tip:** `work/mason/ux-more` at **`56fa5d0`** (80 commits on base `35af968`).
 - **Base:** the feature tip `35af968` (`feat/interactive-session-and-setup-fixes`). Not checked out in the main checkout; read with `git rev-parse`.
-- **Shape:** 49 commits, linear, in dependency order. Built by cherry-picking each non-merge commit of `work/mason/ux-more` (topological order) onto the base.
-- **Tree:** identical to `work/mason/ux-more` (`git diff --name-only work/mason/ux-more work/mason/landing` is empty). The commit hashes differ from the originals; the content does not.
-- **Gate on the tip `01b3cf0`:** `tests/architecture`, the release-surface set, and the sprint 5 test files: **543 passed, 1 skipped, 1 xfailed, exit 0** (run 2026-10-26 08:35 PT). `ruff check src tests`: clean.
+- **Gate on the ux-more tip `56fa5d0`** (run 2026-10-26, 11:20 PT, background run waited on in the turn): `tests/architecture`, `tests/docs`, `tests/test_windows_file_hints.py`, `tests/test_repl.py`, `tests/test_help_text.py`, `tests/test_props_pure_modules.py`, `tests/test_repl_fuzz.py`, `tests/test_provider_presets.py`, `tests/test_preset_roundtrip.py`: **219 passed, exit 0**. The older landing gate (543 passed, 1 skipped, 1 xfailed, on `01b3cf0`) was a wider set and is not comparable.
+- **Tree check against ux-more:** not run. The landing branch is not the current tree.
 - **Known noise, not content:** under `core.autocrlf=true` the `docs/ux/terminal_matrix/*.raw.txt` captures show as modified on checkout (CRLF in the working copy, LF in the commit). The text is identical. Do not commit those files from a checkout.
 
-## The commits, in landing order
+### Rebuild stopped (2026-10-26, 11:16 PT)
+
+The 27 ux-more commits with no patch-equivalent on the landing branch (`git cherry`) were cherry-picked in topological order onto `01b3cf0`. The first commit (`3a00f12`, `feat(headless): ract.result/1 carries the plan as an array of step states`) applied after resolving only `src/ract/source_digest.py`, which is generated. The next commit, `3ab850d` (`feat(tui): the session renderer fits the terminal width, 40 to 80 columns`), conflicted in `src/ract/repl.py` and `tests/test_render_width.py`. Per the rule (stop on any other conflict), the rebuild stopped there and the branch was reset to `01b3cf0`. The conflicting files are not the generated digest, so they need a decision on which side is right before the rebuild can continue.
+
+## The commits, in landing order (the 01b3cf0 landing branch, 49 commits)
 
 Each row is one commit on `work/mason/landing`. Source branch in brackets.
 
@@ -69,8 +73,8 @@ Each row is one commit on `work/mason/landing`. Source branch in brackets.
 
 ## Conflicts met while building the branch
 
-- Commits 1, 2 and 5 (3a00f12, 3ab850d, 16d8066, the digest-touching commits) conflicted only in `src/ract/source_digest.py`. Resolved by taking the commit's version (`git checkout --theirs`). The lock is generated, so the final lock must be re-run on the tip: `ract source-digest --lock`. The architecture test passed on the tip without a further lock commit.
-- No other conflicts. No senior-only file was touched by a conflict.
+- `src/ract/source_digest.py`: conflicted on each digest-touching commit. Generated file; resolved by taking the commit's version. The lock must be re-run on the final tip with `ract source-digest --lock`.
+- `src/ract/repl.py` and `tests/test_render_width.py` (commit `3ab850d`): real conflict. The rebuild stopped. Not resolved.
 
 ## Branches of mine that are not in the landing branch
 
@@ -79,9 +83,21 @@ Each row is one commit on `work/mason/landing`. Source branch in brackets.
 - **Throwaway:** `work/mason/integ-check` (31085cd). Not to land.
 - **Constituents of the landing branch, for reference:** `work/mason/B-053b` 3a00f12, `work/mason/B-041c` d7fa898, `work/mason/B-048` b606b47, `work/mason/B-054` 0e0d14b, `work/mason/B-054f` e2a0474, `work/mason/ux-gap` 492beef, `work/mason/ux-next` b0b3f1c, `work/mason/ux-more` b0b3f1c.
 
-## Handoffs that belong to the BUILDER (file and line)
+## Handoffs from package T (Windows file edge cases), by severity
 
-These are the defects found by MASON that the branch does not fix. Each names where the fix goes.
+Ordered so that the handoffs which print success that did not happen come first (H1 and H4). Full table and reasoning: `docs/ux/windows_files.md`.
+
+1. **H1. A path over 260 characters reports done and writes nothing.** `src/ract/executor/steps.py` line 1136 (`"outcome": "done"`). No path-length check in `src/ract/workspace_path.py` `_string_checks` (line 130 onward). Fix: refuse over-long paths there, so the outcome is `refused` and the exit code is 3.
+2. **H4. "done" is printed before a refusal to change a file.** `src/ract/executor/steps.py` line 1136 (the step is reported before the apply result) and `src/ract/executor/substrate_adapter.py` line 455 (`left these paths as they are`). Fix: report the step after the apply result is known; a skipped path prints as skipped.
+3. **H2. A trailing space is removed silently and the file is written under the name without it.** `src/ract/workspace_path.py` line 130 (`raw.strip()`) runs before the check at line 175 (`seg != seg.rstrip(" .")`), so the check never sees the space. Fix: check `raw` before stripping, and refuse.
+4. **H5. A case-variant name is reported as the planned case.** The changed-files line comes from the plan's name (`src/ract/executor/steps.py` near line 1136, `expected_artifact`), so `README.md` is reported as `Readme.md`. Fix: report the case the file system returns.
+5. **H7. The headless path prints a full traceback for a locked file.** `src/ract/harness_report_enricher.py` line 56 (`logger.exception("Harness execution failed: %s", exc)`). The error is returned correctly; the logger writes the traceback. Fix: `logger.error` without exc_info, or debug level only. The REPL path is already fixed in `src/ract/repl.py` (`work()`).
+6. **H6. The snapshot failure is raised as a generic error.** `src/ract/executor/worktree.py` line 740 (`could not snapshot the working tree`, from `git add`) is raised through `take_snapshot` and called unguarded from `src/ract/executor/substrate_adapter.py` line 253. Fix: fail the step as `failed` with a clean error from the substrate.
+7. **H3. A byte order mark is dropped on a full rewrite.** The step's content replaces the file; the reads in `src/ract/executor/steps.py` lines 377, 395, 898 and 919 are `utf-8`. Decision needed: keep the BOM, or document that a full rewrite sets the encoding.
+
+## Earlier BUILDER handoffs (sprints 4 and 5)
+
+These are the defects found by MASON that the branch does not fix. Each names where the fix goes. These line numbers are as recorded in sprints 4 and 5 and were not re-checked on `56fa5d0`; H1 to H7 above were.
 
 1. **Ctrl-C at the approval prompt is recorded as a failed step.** `src/ract/executor/steps.py` line 1091 (`error = result.error or "the step did not finish"`) and the step's exception path. The renderer already shows a stopped step as skipped when the stop comes first. Test to add: a Ctrl-C at an approval prompt resets the step to skipped.
 2. **Duplication guard: the message and the hint.** `src/ract/executor/steps.py` line 1481 (`error=f"Duplication guard blocked write: {summary}"`), `src/ract/duplication_guard.py` line 28 (the wording), and `hint="duplication"` at `steps.py` line 1484. The category word is dropped by `_advice` (B-062), so the user gets the provider-check hint. Proposed wording is in package R of sprint 5 (`docs/ux/errors_check.md`, row 23).
@@ -102,7 +118,7 @@ These are the defects found by MASON that the branch does not fix. Each names wh
 
 ## What the BUILDER does, in order
 
-1. `git fetch` is not needed; the branch is local. Check the feature tip: `git rev-parse feat/interactive-session-and-setup-fixes` must still be `35af968` (or rebase onto the new tip with `git cherry-pick`).
+1. Decide the conflict in `src/ract/repl.py` and `tests/test_render_width.py` (commit `3ab850d`), then rebuild the landing branch from `35af968` with the 27 missing commits. `git fetch` is not needed; the branch is local.
 2. Land `work/mason/landing` as one branch.
 3. Run `ract source-digest --lock` on the result and commit the lock if it changed.
 4. Read the handoffs above; the MANAGER turns them into cards.
