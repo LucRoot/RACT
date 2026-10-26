@@ -106,6 +106,17 @@ def _advice(hint: str | None) -> str | None:
     return text if " " in text else None
 
 
+def unfinished_step_outcome(error: str, *, cancelled: bool) -> str:
+    """The outcome of a step that did not finish (package 5, handoff 1).
+
+    An interrupted step is skipped, the same outcome the checklist gives a stopped
+    step; a refusal stays refused; anything else is failed.
+    """
+    if cancelled:
+        return "skipped"
+    return "refused" if "refused" in error.lower() else "failed"
+
+
 class Executor:
     """Executes a plan step-by-step through selected providers."""
 
@@ -1093,7 +1104,9 @@ class Executor:
                 "step.finished",
                 {
                     "n": n,
-                    "outcome": "refused" if "refused" in error.lower() else "failed",
+                    "outcome": unfinished_step_outcome(
+                        error, cancelled=turn_context.cancelled()
+                    ),
                     "artifact": None,
                     "confidence": None,
                     "duration_ms": int((time.monotonic() - started) * 1000),
