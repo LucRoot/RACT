@@ -2,18 +2,36 @@
 
 Read this first. The BUILDER lands one branch in one pass: `work/mason/landing`.
 
-## The branch to land (status: NOT rebuilt)
+## The branch to land
 
-- **Landing branch:** `work/mason/landing`, still at **`01b3cf0`** (49 commits on base `35af968`). It was restored to that tip after a stopped rebuild (see "Rebuild stopped" below). It is the old landing branch, not the current work.
-- **Current work tip:** `work/mason/ux-more` at **`56fa5d0`** (80 commits on base `35af968`).
-- **Base:** the feature tip `35af968` (`feat/interactive-session-and-setup-fixes`). Not checked out in the main checkout; read with `git rev-parse`.
-- **Gate on the ux-more tip `56fa5d0`** (run 2026-10-26, 11:20 PT, background run waited on in the turn): `tests/architecture`, `tests/docs`, `tests/test_windows_file_hints.py`, `tests/test_repl.py`, `tests/test_help_text.py`, `tests/test_props_pure_modules.py`, `tests/test_repl_fuzz.py`, `tests/test_provider_presets.py`, `tests/test_preset_roundtrip.py`: **219 passed, exit 0**. The older landing gate (543 passed, 1 skipped, 1 xfailed, on `01b3cf0`) was a wider set and is not comparable.
-- **Tree check against ux-more:** not run. The landing branch is not the current tree.
-- **Known noise, not content:** under `core.autocrlf=true` the `docs/ux/terminal_matrix/*.raw.txt` captures show as modified on checkout (CRLF in the working copy, LF in the commit). The text is identical. Do not commit those files from a checkout.
+- **Landing branch:** `work/mason/landing`, tip **`79cf45f`**: the 49 commits of the first landing tip (`01b3cf0`) plus the 25 commits of `7097054..work/mason/ux-more` (no merges), replayed in order. **74 commits** on base `35af968`.
+- **Current work tip:** `work/mason/ux-more` (this file's commit is the tip; it differs from the landing tip only in this file). **82 commits** on base `35af968`.
+- **Base:** the feature tip `35af968` (`feat/interactive-session-and-setup-fixes`). Not checked out in the main checkout.
+- **Tree check (`git diff --stat 79cf45f work/mason/ux-more`):** the replayed tree was identical to ux-more before this commit (empty diff, logged at 11:58 PT). This commit adds only `docs/ux/LANDING_KIT.md`.
+- **Known noise, not content:** under `core.autocrlf=true` the `docs/ux/terminal_matrix/*.raw.txt` captures show as modified on checkout (CRLF in the working copy, LF in the commit). Do not commit those files from a checkout.
 
-### Rebuild stopped (2026-10-26, 11:16 PT)
+### Gate on the landing tip `79cf45f` (run 2026-10-26, 11:58 to 12:35 PT)
 
-The 27 ux-more commits with no patch-equivalent on the landing branch (`git cherry`) were cherry-picked in topological order onto `01b3cf0`. The first commit (`3a00f12`, `feat(headless): ract.result/1 carries the plan as an array of step states`) applied after resolving only `src/ract/source_digest.py`, which is generated. The next commit, `3ab850d` (`feat(tui): the session renderer fits the terminal width, 40 to 80 columns`), conflicted in `src/ract/repl.py` and `tests/test_render_width.py`. Per the rule (stop on any other conflict), the rebuild stopped there and the branch was reset to `01b3cf0`. The conflicting files are not the generated digest, so they need a decision on which side is right before the rebuild can continue.
+- **Set:** the whole `tests/` tree (378 files). It is a superset of the set that produced 543 passed on the first landing tip, which is the architecture tests, the release-surface set and the sprint 5 test files. The exact command behind the 543 count is not recorded in the board; the whole-tree run is the safe superset.
+- **Result:** **5088 passed, 43 skipped, 1 xfailed, 8 failed**, exit 1 (2210 s).
+- **Architecture tests** (`tests/architecture`): no failures.
+- **`ruff check src tests`:** all checks passed.
+- **`ruff format --check src tests`:** 7 files would be reformatted (956 already formatted): `tests/test_width_properties.py`, `tests/test_windows_file_hints.py` and five others. This gate is not clean.
+- **The 8 failures** (all on the landing tree, which is the same content as ux-more):
+  1. `tests/test_compression_novelty_detector.py::test_executor_routes_low_novelty_to_handshake_queue`: `FakeHandshakeRegistry` has no `project_dir`. Not my lane.
+  2. `tests/test_dead_code_auction.py::test_ract_auction_reports_zero_dead_modules`: flags `cli_examples.py` (package S), and the prepared, unwired `ui/plan_approval_view.py` and `ui/queue_view.py` (packages J and K). My files; the prepared modules are unwired by design.
+  3. `tests/test_egress_ledger.py::test_cost_in_the_session_shows_only_this_session`: depends on the temp path. Not my lane.
+  4. `tests/test_modes.py::test_default_mode_asks_before_the_change_in_a_real_session[y-True]` and `[n-False]`: both assert False. Not my lane.
+  5. `tests/test_release_surface.py::test_rebuild_signals_all_green[R10-...]`: README is over 500 words (excluding code blocks).
+  6. `tests/test_release_surface.py::test_no_closed_ip_terms_in_tracked_files`: the term `rootclaw` appears in four tracked files, all mine: `docs/ux/terminal_matrix/conpty_direct_ctrl_c.raw.txt`, `conpty_direct_journey.raw.txt`, `conpty_direct_paste.raw.txt` and `docs/ux/windows_files/results.json`. The hits are machine paths in captures (a rule breach: no machine paths in tracked files). Fix: scrub the paths in those captures.
+  7. `tests/unit/test_intent_recompile_cli.py::test_cli_intent_verb_exists`: did not raise `SystemExit`. Not my lane.
+
+## Operator-directed change: GLM-5.3 preset (supersedes D-036)
+
+- Commit `56fa5d0` on ux-more (landing tip includes it). The Moonshot preset is removed, because `api.moonshot.cn` is not funded. The `glm` preset uses `https://integrate.api.nvidia.com/v1`, `${NVIDIA_API_KEY}` and `z-ai/glm-5.3`, as the Endpoints Skill names it (the `code` function).
+- **Supersedes D-036** ("Moonshot preset: keep"), by operator direction on 2026-10-26.
+- **Tested column: configuration checked only.** No request has been sent to this endpoint from RACT.
+- K3 (Kimi) reached end of life on 2026-10-15 and is not served on NIM (ENDPOINTS_SKILL.md); no K3 reference remains in RACT.
 
 ## The commits, in landing order (the 01b3cf0 landing branch, 49 commits)
 
@@ -73,8 +91,8 @@ Each row is one commit on `work/mason/landing`. Source branch in brackets.
 
 ## Conflicts met while building the branch
 
-- `src/ract/source_digest.py`: conflicted on each digest-touching commit. Generated file; resolved by taking the commit's version. The lock must be re-run on the final tip with `ract source-digest --lock`.
-- `src/ract/repl.py` and `tests/test_render_width.py` (commit `3ab850d`): real conflict. The rebuild stopped. Not resolved.
+- **Rebuild of 2026-10-26 (25 commits, `7097054..ux-more`, no merges):** the digest did not conflict. One conflict, in `docs/ux/LANDING_KIT.md` (a kit update), resolved by taking the ux-more version. The earlier false conflict (`3ab850d` in `repl.py` and `tests/test_render_width.py`) came from replaying the wrong set (the `git cherry` list); with the `git rev-list` set it does not occur.
+- `src/ract/source_digest.py`: generated. The tree equals ux-more, so the lock on the landing tip is the lock on ux-more. The architecture tests pass on it.
 
 ## Branches of mine that are not in the landing branch
 
