@@ -898,10 +898,16 @@ class ReplSession:
         box: dict[str, int] = {}
 
         def work() -> None:
+            # Package T: an error the turn raises (a locked or unsnapshottable
+            # file, for one) is one sentence on the console, not a thread
+            # traceback that the interpreter prints after the prompt returns.
             try:
                 box["code"] = run_turn(
                     self._events, request, turn=turn_no, cancel=cancel
                 )
+            except Exception as exc:
+                self._console.error(f"the turn stopped: {exc}")
+                box["code"] = 1
             finally:
                 done.set()
 

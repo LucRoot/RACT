@@ -55,3 +55,34 @@ def test_a_snapshot_that_cannot_read_a_file_gets_a_close_the_program_hint():
     )
     assert "doctor" not in hint
     assert "another program" in hint or "close" in hint
+
+
+def test_a_turn_that_raises_prints_one_sentence_not_a_traceback(tmp_path, monkeypatch, capsys):
+    # Package T: a worktree error (a locked file) escaped the turn's worker thread, and the
+    # interpreter printed the traceback. The worker reports one sentence instead, so no
+    # exception reaches the thread's hook.
+    import threading
+    from pathlib import Path
+
+    from ract import cli
+    from ract.repl import ReplSession
+    from tests.test_repl import _Console
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("could not snapshot the working tree: open src/calc.py: Permission denied")
+
+    reported: list[object] = []
+    monkeypatch.setattr(threading, "excepthook", lambda args: reported.append(args.exc_value))
+    monkeypatch.setattr("ract.session_turn.run_turn", boom)
+    session = ReplSession(
+        Path(tmp_path) / "ract.yaml",
+        dispatch=None,
+        read_line=lambda prompt: "",
+        console=_Console(),
+        verbs=cli.CLI_VERBS,
+    )
+    session._events = None
+    code = session._event_turn("add a greeting", dry=True)
+    assert session._worker_done is None or session._worker_done.wait(5)
+    assert reported == [], reported
+    assert code != 0
