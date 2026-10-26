@@ -104,3 +104,16 @@ def test_the_provenance_warning_prints_once_per_session():
     }
     text = _render(("notice", notice), ("notice", notice))
     assert text.count("provenance: 1 file(s)") == 1
+
+
+def test_the_session_line_reads_a_question_mark_as_no_model_set():
+    # D11, re-run: the REPL reports "?" in the event when no config names a model.
+    line = next(
+        ln
+        for ln in _render(
+            ("session.started", {"model": "?", "provider": "?"})
+        ).splitlines()
+        if ln.startswith("RACT session")
+    )
+    assert "?" not in line
+    assert "no model" in line and "no provider" in line
