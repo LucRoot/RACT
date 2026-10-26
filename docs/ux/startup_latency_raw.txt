@@ -1,0 +1,11 @@
+ract --help: median 1.36 s, worst 1.47 s (n=10)
+ract --version: median 1.33 s, worst 1.58 s (n=10)
+REPL start to prompt: median 1.64 s, worst 2.27 s (n=10)
+REPL /help to prompt: median 60.01 s, worst 60.02 s (n=10)
+
+Top 5 by cumulative import time (us):
+  1201179 self    49306  ract.cli
+   289021 self     1270  ract
+   273329 self      913  ract.builtin_skill_library
+   272417 self      775  ract.skills_registry
+   271642 self     2030  ract.manager
