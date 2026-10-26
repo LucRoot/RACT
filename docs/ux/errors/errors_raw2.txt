@@ -1,0 +1,78 @@
+== F-REPL unknown slash command and no-session resume
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> /zzqxwv
+✗  unknown command /zzqxwv. Type /help for the list.
+ract> /resume
+✗  usage: /resume <id|latest>
+ract> /model nosuch
+✗  no provider named 'nosuch'. valid names: local
+ract> /exit
+
+== F-Ctrl-C at the REPL prompt
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> half a sentence
+stopping...
+  the model call is still finishing and will write nothing
+  Stopped. The model call is still finishing in the background; nothing it
+    returns will be written.
+  changed: not tracked here (not a git repository)
+  verified: RACT ran no tests this turn
+  1.4 s
+ract> /exit
+
+== F-Ctrl-C at the approval prompt
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> add a greeting in src/calc.py and two tests
+Plan (3 steps):
+  assumes: The failing test needs add() fixed, a notes module, and a test for
+    it.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[ ] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+[>] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py? [y/N]:   ... waiting on model (6 s)
+[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (9.5s) failed
+stopping...
+  the model call is still finishing and will write nothing
+Plan (3 steps), final:
+[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (9.5s) failed
+[-] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.0s) skipped
+[-] 3. Add tests/test_notes.py that che... -> tests/test_notes.py (0.0s) skipped
+  Stopped. The model call is still finishing in the background; nothing it
+    returns will be written.
+  changed: not tracked here (not a git repository)
+  verified: RACT ran no tests this turn
+  1 model request, 12.4 s, 940 tokens in / 119 out
+ract> /exit
+note: finishing cleanup of the interrupted turn
+
+== F-Ctrl-C at the setup prompt
+No ract.yaml in this directory, so RACT does not know which model to use.
+Set one up now? [Y/n] (n opens the session without one)
+
+== F-dirty working tree, run with --accept-edits
+exit 2
+usage: ract [-h] [--config CONFIG] [--dry-run] [--ask]
+            [--mode {default,documentation,git}] [--session SESSION_ID]
+            [--resume] [--force] [--rollback] [--project-doc PROJECT_DOC]
+            [--token-budget N] [--yolo | --auto] [--reload] [--loop]
+            [--max-iterations MAX_ITERATIONS] [--allow-debt]
+            [--allow-load-bearing] [--allow-novelty-overrun] [--version]
+            [--json] [--about] [--init-provider INIT_PROVIDER] [--self-test]
+            [--review-diff REVIEW_DIFF] [--stream] [--welcome]
+            [intent]
+ract: error: unrecognized arguments: --accept-edits
+
+== F-missing key variable, after ract trust
+exit 0
+ intent: add a greeting
+▸ assumption: The failing test needs add() fixed, a notes module, and a test for
+it.
+▸ confidence: 0.85
+  1.  Fix add() in src/calc.py so it adds -> src/calc.py
+  2.  Add src/notes.py with the NOTE constant -> src/notes.py
+  3.  Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+▸ quality score: 0.637

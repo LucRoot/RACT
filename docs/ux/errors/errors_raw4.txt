@@ -1,0 +1,10 @@
+== F-Ctrl-C at the REPL prompt, text typed and not sent
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> half a sentence
+ract> /exit
+
+== F-Ctrl-C at the setup prompt (repeat)
+No ract.yaml in this directory, so RACT does not know which model to use.
+Set one up now? [Y/n] (n opens the session without one)
+(process exit code is not captured by the driver)

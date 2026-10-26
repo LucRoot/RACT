@@ -6,6 +6,7 @@ Ctrl-C (J6): a step that fails after a stop was requested was stopped, not faile
 from __future__ import annotations
 
 import io
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any
 
@@ -144,3 +145,73 @@ def test_the_resume_offer_does_not_stack_dots_after_a_cut_request(tmp_path):
     session._resume_offer()
     assert "...." not in console.text
     assert "/resume to continue it." in console.text
+
+
+def test_the_stop_is_announced_before_the_cancel_takes_effect():
+    # Error sweep: at the approval prompt a step's "failed" arrived before "stopping...",
+    # because the cancel was set before the event was emitted. The announcement comes first.
+    import threading
+
+    from ract.repl import ReplSession
+    from ract import cli
+    from tests.test_repl import _Console
+
+    order: list[str] = []
+
+    class _Events:
+        def emit(self, kind, data, turn=None):
+            order.append(f"emit:{kind}")
+
+    class _Cancel(threading.Event):
+        def set(self):
+            order.append("cancel")
+            super().set()
+
+    done = threading.Event()
+    done.set()
+    session = ReplSession(
+        Path("ract.yaml"),
+        dispatch=lambda argv: 0,
+        read_line=lambda prompt: "",
+        console=_Console(),
+        verbs=cli.CLI_VERBS,
+    )
+    session._events = _Events()
+    session._interrupt(done, _Cancel(), 1, 0.0)
+    assert order.index("emit:turn.interrupting") < order.index("cancel")
+
+
+def test_resume_without_an_id_names_the_way_to_find_one(tmp_path):
+    # Error sweep: "usage: /resume <id|latest>" alone does not say where the ids are.
+    from ract import cli
+    from ract.repl import ReplSession
+    from tests.test_repl import _Console
+
+    console = _Console()
+    session = ReplSession(
+        tmp_path / "ract.yaml",
+        dispatch=lambda argv: 0,
+        read_line=lambda prompt: "",
+        console=console,
+        verbs=cli.CLI_VERBS,
+    )
+    session._handle_command("/resume")
+    assert "/sessions" in console.text
+
+
+def test_no_sessions_says_how_one_starts(tmp_path):
+    # Error sweep row 18: "no sessions yet" alone has no next action.
+    from ract import cli
+    from ract.repl import ReplSession
+    from tests.test_repl import _Console
+
+    console = _Console()
+    session = ReplSession(
+        tmp_path / "ract.yaml",
+        dispatch=lambda argv: 0,
+        read_line=lambda prompt: "",
+        console=console,
+        verbs=cli.CLI_VERBS,
+    )
+    session._handle_command("/sessions")
+    assert "no sessions yet: a request you type starts one" in console.text

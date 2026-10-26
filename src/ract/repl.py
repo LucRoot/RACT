@@ -663,7 +663,7 @@ class ReplSession:
 
         rows, total = list_rows(sessions_dir(self.state.config))
         if not rows:
-            self._console.info("no sessions yet")
+            self._console.info("no sessions yet: a request you type starts one")
             return True
         table = [
             [
@@ -693,7 +693,9 @@ class ReplSession:
         from ract.undo_backup import require_name
 
         if len(args) != 1:
-            self._console.error("usage: /resume <id|latest>")
+            self._console.error(
+                "usage: /resume <id|latest>. /sessions lists the saved ids."
+            )
             return True
         directory = sessions_dir(self.state.config)
         if args[0] == "latest":
@@ -701,7 +703,9 @@ class ReplSession:
             if row is None:
                 _, total = list_rows(directory, limit=0)
                 self._console.info(
-                    "no sessions yet" if total == 0 else "no readable session to resume"
+                    "no sessions yet: a request you type starts one"
+                    if total == 0
+                    else "no readable session to resume"
                 )
                 return True
         else:
@@ -935,7 +939,6 @@ class ReplSession:
     ) -> int:
         """Ctrl-C during a turn: acknowledge now, stop writes, prompt within 2 s."""
         received = time.monotonic()
-        cancel.set()
         self._events.emit(
             "turn.interrupting",
             {
@@ -947,6 +950,8 @@ class ReplSession:
             },
             turn=turn_no,
         )
+        # Announce first: a step that ends because of the cancel must follow "stopping...".
+        cancel.set()
         try:
             # LR:: This used to wait 1.5 s of the 2 s budget for the worker.
             # A worker blocked in a model call cannot finish in that time
