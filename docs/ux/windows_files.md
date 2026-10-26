@@ -23,7 +23,7 @@ would go are given.
 | Existing file with CRLF endings | 0 | `changed: src/crlf.py (+1 -2)` | CRLF kept | OK |
 | File with a byte order mark | 0 | `changed: src/bom.py (+1 -2)` | BOM dropped; the step's content replaced the file | HANDOFF: decide whether to keep it (see H3) |
 | Read-only file (`attrib +R`) | 1 | `[step 1] done src/calc.py`, then `left these paths as they are: src/calc.py (could not change it: Permission denied)`; `no files were changed` | Unchanged | HANDOFF: "done" printed before the error (see H4) |
-| File locked by another process | 1 | `could not snapshot the working tree ...`; hint `close it and run the intent again` | Unchanged | FIXED: the hint (1763abc) and the worker guard (`src/ract/repl.py`, `work()`), so no traceback |
+| File locked by another process | 1 | hint `close it and run the intent again`; **also a Python traceback on stderr** (headless `-p` path) | Unchanged | FIXED for the REPL and the hint; HANDOFF for the headless traceback (H7) |
 | Name differing only in case (`README.md`) | 0 | `changed: Readme.md (+1 -1)` | The file on disk stays `README.md`; the report names `Readme.md` | HANDOFF: the report names the planned case (see H5) |
 | Junction into another folder | 3 | `path refused: 'linkdir' is a symlink or junction`; hint names the step | Nothing written | OK |
 | Symlink file | 0 | `changed: linkfile.txt (new, 1 line)` | Written as a regular file next to the link target | OK (the file is new, not through the link) |
@@ -38,14 +38,20 @@ would go are given.
 The two tests are in `tests/test_windows_file_hints.py`. The provider check is kept for
 provider errors only; a file problem never gets it.
 
-## Traceback on a locked file (fixed)
+## Traceback on a locked file (partly fixed)
 
-The first run printed a Python traceback (`WorktreeError` raised in
-`src/ract/executor/worktree.py:734` inside `take_snapshot`) because the error escaped the
-turn's worker thread. `src/ract/repl.py` `_event_turn` now catches it in `work()`, prints
-`the turn stopped: <message>` once, and sets the exit code to 1. The test
-`test_a_turn_that_raises_prints_one_sentence_not_a_traceback` fails without the guard (the
-thread hook receives the RuntimeError) and passes with it.
+The locked-file error raised `WorktreeError` (`src/ract/executor/worktree.py:734`, inside
+`take_snapshot`, called from `src/ract/executor/substrate_adapter.py:253`).
+
+- **REPL path (fixed):** `src/ract/repl.py` `_event_turn` now catches it in `work()`, prints
+  `the turn stopped: <message>` once, and sets the exit code to 1. The test
+  `test_a_turn_that_raises_prints_one_sentence_not_a_traceback` fails without the guard
+  (the thread hook receives the RuntimeError) and passes with it.
+- **Headless `ract -p` path (not fixed; H7):** the rerun of this case still prints a
+  traceback on stderr. `src/ract/harness_report_enricher.py:47` catches the exception
+  correctly and returns the error, but calls `logger.exception(...)`, which writes the
+  full traceback. An earlier version of this page and the commit message said the
+  traceback was gone; that was wrong for this path.
 
 ## Handoffs (senior; not changed in this lane)
 
@@ -74,6 +80,12 @@ thread hook receives the RuntimeError) and passes with it.
   raises `WorktreeError` for an unreadable file, and `substrate_adapter.py:253` calls it
   without a guard. The lane now handles the message, but the step should fail as `failed`
   with a clean error from the substrate rather than relying on the turn guard.
+
+- **H7. Headless path logs a full traceback for a locked file.**
+  `src/ract/harness_report_enricher.py:47` uses `logger.exception("Harness execution
+  failed: %s", exc)`. Fix: `logger.error(...)` without exc_info, or log the traceback
+  only at debug level. The function already returns `Rooted(error=str(exc))`, so the
+  user-facing message is unchanged. Harness area, senior.
 
 ## Cases not run
 
