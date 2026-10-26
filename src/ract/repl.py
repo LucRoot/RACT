@@ -21,6 +21,7 @@ from __future__ import annotations
 import shlex
 import sys
 import threading
+import textwrap
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -617,11 +618,12 @@ class ReplSession:
         except OSError:
             records = []
         # No probe result is stored, so the window is unknown here.
-        for line in context_lines(records, None, width=self._context_width()):
+        for line in context_lines(records, None, width=self._render_width()):
             self._console.print(line)
         return True
 
-    def _context_width(self) -> int:
+    def _render_width(self) -> int:
+        """The width the renderer fits its lines to: the terminal, between 40 and 80 (B-041c)."""
         import shutil
 
         return max(40, min(80, shutil.get_terminal_size((80, 24)).columns))
@@ -765,6 +767,8 @@ class ReplSession:
             write,
             labels=plain_mode(),
             project=self.state.config.resolve().parent,
+            width=self._render_width(),
+            wrap=True,
         )
         self._events.subscribe(self._renderer)
         self._events.emit("session.started", self._session_facts())
@@ -1008,15 +1012,25 @@ class ReplSession:
             version = ract.__version__
         except Exception:  # noqa: BLE001
             version = "?"
-        self._console.info(
-            f"RACT {version}  config: {escape(str(self.state.config))}  "
+        # Wrap the raw text, then escape each line: an escape split across two
+        # lines would print wrong. The [ract] prefix takes seven columns (B-041c).
+        raw = (
+            f"RACT {version}  config: {self.state.config}  "
             "type an intent, or /help for commands"
         )
+        pieces = textwrap.wrap(raw, width=self._render_width() - 7)
+        self._console.info(escape(pieces[0]))
+        for piece in pieces[1:]:
+            self._console.print("       " + escape(piece))
         if not self.state.config.is_file():
-            self._console.warning(
-                f"{escape(str(self.state.config))} not found. "
+            raw_warning = (
+                f"{self.state.config} not found. "
                 "Leave and run ract setup to create one (it checks this machine and asks a few questions)."
             )
+            warning_pieces = textwrap.wrap(raw_warning, width=self._render_width() - 2)
+            self._console.warning(escape(warning_pieces[0]))
+            for piece in warning_pieces[1:]:
+                self._console.print("  " + escape(piece))
 
     # --------------------------------------------------------------- history
 

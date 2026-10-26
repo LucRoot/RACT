@@ -69,7 +69,9 @@ class RactConsole:
     def _build(self) -> None:
         kwargs: dict[str, Any] = {
             "color_system": "auto" if self._color else None,
-            "soft_wrap": True,
+            # Wrap at word boundaries to the terminal width. soft_wrap=True let
+            # long lines break in the middle of a word (B-041c).
+            "soft_wrap": False,
             "highlight": False,
             "legacy_windows": False,
         }

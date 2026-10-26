@@ -10,6 +10,7 @@ implements the same ``Renderer`` protocol, so the choice is a swap.
 
 from __future__ import annotations
 
+import textwrap
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
@@ -65,12 +66,15 @@ class PlainRenderer:
         *,
         show_reasoning: bool = False,
         width: int = 80,
+        wrap: bool = False,
         labels: bool = False,
         project: Path | None = None,
     ) -> None:
         self._write = write
         self._show_reasoning = show_reasoning
         self._width = width
+        # Opt-in: the REPL wraps to the terminal; headless output is unchanged (B-041c).
+        self._wrap = wrap
         # The project folder the turn changed: the diff block reads its files
         # from here, and only from here (B-014b). None draws no diff block.
         self._project = project
@@ -100,7 +104,28 @@ class PlainRenderer:
         if self._mid_line:
             self._write("\n")
             self._mid_line = False
-        self._write(text + "\n")
+        for piece in self._fit(text) if self._wrap else [text]:
+            self._write(piece + "\n")
+
+    def _fit(self, text: str) -> list[str]:
+        """The text as lines no wider than the renderer's width (B-041c).
+
+        A longer line wraps at a word boundary. Continuation lines keep the
+        line's own indent and add two spaces, so the wrapped text reads as one item.
+        """
+        if len(text) <= self._width:
+            return [text]
+        indent = len(text) - len(text.lstrip(" "))
+        pad = " " * indent
+        pieces = textwrap.wrap(
+            text.strip(" "),
+            width=self._width,
+            initial_indent=pad,
+            subsequent_indent=pad + "  ",
+            break_long_words=True,
+            break_on_hyphens=False,
+        )
+        return pieces or [text]
 
     def __call__(self, event: SessionEvent) -> None:
         self.on_event(event)
