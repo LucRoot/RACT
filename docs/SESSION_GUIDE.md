@@ -129,10 +129,13 @@ turns: not stored in the session file
 
 ## A question that completes
 
-This capture uses the fake server's `j1_no_tools` scenario. Its reply is the same
-JSON envelope for every message, so the answer below is not an answer to the
-question. The run completes, and it shows two things a user would notice:
-`/ask` prints a plan first, and it prints the reply as raw JSON.
+This capture uses the fake server's `ask_calc_answer` scenario (`docs/ux/guide/ask_calc_answer.txt`).
+The answer in the JSON envelope is the scenario's scripted text: the fake server wrote it, and no
+model answered the question.
+
+The run completes, and it shows what a user would notice: `/ask` still prints a plan first,
+and it prints the reply as raw JSON. That is a known defect for the read-only slice (B-010a and
+B-011a), not something this capture hides.
 
 ```text
 ract> /ask what does add() do in src/calc.py?
@@ -141,12 +144,13 @@ Plan: 1 step, confidence 1.00
     written.
   1. what does add() do in src/calc.py?
 [step 1] what does add() do in src/calc.py?
-{"final":"Hello. I answer in the JSON format you asked for."}
-[step 1] done (0.3s)
+{"final":"add(a, b) in src/calc.py returns a + b: the sum of its two arguments."}
+[step 1] done (0.1s)
   Done: 1 step ran; no tests were run.
   changed: nothing
   verified: RACT ran no tests this turn
-  1 model request, 2.1 s, 167 tokens in / 15 out
+  1 model request, 0.9 s, 167 tokens in / 20 out
+ract> /exit
 ```
 
 ## Mode, cost and undo

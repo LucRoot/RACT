@@ -1,0 +1,26 @@
+{
+  "name": "ask_calc_answer",
+  "description": "A question about add() in src/calc.py, answered in plain words. For the guide's question section. Model without native tools: the probe gets plain text, the answer comes in the JSON envelope's final field.",
+  "model": "fake-plain",
+  "tools_supported": false,
+  "turns": [
+    {
+      "match": {
+        "last_message": "(?i)probe"
+      },
+      "reply": {
+        "kind": "text",
+        "content": "Sure, here is the echo: ok"
+      }
+    },
+    {
+      "reply": {
+        "kind": "json_envelope",
+        "envelope": {
+          "final": "add(a, b) in src/calc.py returns a + b: the sum of its two arguments."
+        }
+      },
+      "repeat": true
+    }
+  ]
+}
