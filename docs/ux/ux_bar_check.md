@@ -29,11 +29,14 @@ walked in this batch, with the reason.
    partly met.** The status line shows model, provider, branch, mode and tier
    (`src/ract/session_render.py:158`; `docs/ux/b054r/J2.txt` line 2). Context use, tokens, cost
    and session id are not on it. `/cost` and `/context` carry those in separate screens.
-7. **Errors say what to do (hint line, no traceback): partly met.** Hints are tested for each
-   error class (`tests/test_session_turn.py:188`, `test_every_error_gets_a_hint`). Captures show
-   a `hint:` line (`docs/ux/b054r/J9.txt`, `docs/ux/b054r/J10.txt`). No traceback appears in any
-   capture of this batch. Not checked: unhandled exceptions outside the hinted paths.
+7. **Errors say what to do (hint line, no traceback): partly met.** The error sweep ran 22 cases
+   (`docs/ux/errors_check.md`, raw captures in `docs/ux/errors/`). 11 pass, 6 are partial, 2 fail,
+   and the rest were not reached or cannot be reproduced here. No traceback appears in any capture.
+   The partial and failing rows are named handoffs (`docs/ux/errors_check.md`, Handoffs section).
 8. **No dead ends (nearest command, setup flow, refusal explains how to permit): partly met.**
+   Setup flow walked to the end on the `Y` path: four questions, `ract.yaml` written, health check
+   with a hint (`docs/ux/c_journeys/J1.txt`). An approval denial still gets the provider-check hint
+   (error sweep row 22; handoff).
    `/resume` suggests the closest session id (`src/ract/session_listing.py:98`, `closest_id`).
    An unknown command now suggests the nearest one: `unknown command /hlep. Did you mean /help?`
    (`src/ract/repl.py`, `_handle_command`; tests in `tests/test_ux_gap_b.py`). The setup
@@ -42,8 +45,10 @@ walked in this batch, with the reason.
    approval prompt offers `[y/N]` only (`src/ract/approval_callback.py:34`). No allow-once,
    allow-for-session, allow-always or prefix choice exists.
 10. **Works where users work (80 columns, dumb terminal, piped stdin, NO_COLOR): partly met.**
-    Captures at 40 and 60 columns of five commands are in `docs/ux/ux_bar/` (see the table
-    below). Dumb terminal: `docs/ux/b054/` and `docs/ux/b054r/` are plain captures. Piped
+    Captures at 40 and 60 columns of the multi-line commands are in `docs/ux/width_a/` (see the table
+    below); the soak at 80 and 60 columns is in `docs/ux/soak_g/`. Named reason it stays partly met:
+    Windows Terminal, macOS Terminal and Linux terminals are not available on this machine, so
+    only ConPTY and the dumb terminal were run. Dumb terminal: `docs/ux/b054/` and `docs/ux/b054r/` are plain captures. Piped
     stdin: `docs/ux/b054r/J8-stdin.txt` (exit 0, `ract.result/1`). NO_COLOR: `tests/test_no_color.py`.
     Windows Terminal, macOS and Linux terminals were not run. `/help` overflows at 40 and 60
     columns (see the table).
@@ -62,11 +67,13 @@ walked in this batch, with the reason.
 
 ## Journeys
 
-- **J1 First run, empty directory: not met.** The `n` path ends with `ract.yaml not found`
-  and no config (`docs/ux/b054r/J1.txt`). The setup flow (`Y` path) was not walked, so the
-  under-3-minutes and working-config criteria are not checked.
-- **J2 Daily start: partly met.** Model, branch and mode show (`docs/ux/b054r/J2.txt`). Context
-  use and the resume offer do not appear (J2 starts with `no sessions yet`).
+- **J1 First run, empty directory: partly met.** The `Y` path asks four questions, writes the
+  config and runs the health check, which names the missing server with a hint
+  (`docs/ux/c_journeys/J1.txt`). A working prompt needs a model server, which this machine does not
+  have. Under three minutes was not timed with a person at the keyboard.
+- **J2 Daily start: partly met.** Model, branch and mode show, and the start screen names the last
+  session with `/resume` (`docs/ux/c_journeys/J2.txt`). Context use is not on the status line
+  (standard 6, handoff).
 - **J3 Ask about the code (read-only): not run.** Not runnable: no read-tool scenario in the
   fake server (carried from B-054).
 - **J4 Fix the failing test: not met.** The edit, diff and undo hint appear
@@ -83,32 +90,53 @@ walked in this batch, with the reason.
 - **J9 Weak local model: not met.** No file was written and no steps ran; the result is an
   unexplained empty plan with a hint (`docs/ux/b054r/J9.txt`), which fails the criterion.
 - **J10 Failure paths: partly met.** Provider 503 gives cause and hint, and the workspace line
-  says `no files were changed` (`docs/ux/b054r/J10.txt`). Provider key missing, read-only disk
-  and budget exhaustion were not run.
+  says `no files were changed` (`docs/ux/soak_g/J10_cols80.txt`). The error sweep covers the other
+  paths (`docs/ux/errors_check.md`): a missing key variable was not reproduced against the fake server,
+  which does not check keys; a read-only directory cannot be made on Windows without an ACL deny; a
+  budget stop was not run.
 
-## Column checks (real terminal, `docs/ux/ux_bar/`)
+## Column checks (real terminal, final tip d6f70ee)
 
-Widest line per capture, from `docs/ux/ux_bar/widths.txt`. A capture fits when its widest
-line is at or under the column count. The check is on the RACT output lines.
+Widest line per capture, in characters (`docs/ux/width_a/`, package A; `docs/ux/soak_g/` for the soak).
+A capture fits when its widest RACT output line is at or under the column count.
 
 | Command | 40 columns | 60 columns | Verdict |
 |---|---|---|---|
-| `/help` | 80 (table is fixed at 80) | 80 | **not met** at both widths |
-| `/sessions` | 35 | 57 | met at both widths |
-| `/context` | 40 | 59 | met at both widths |
-| `/cost` | 80 (the `ledger:` path line) | 80 | **not met** at both widths |
-| `/mode` | 55 (`default: RACT asks before each step that changes a file`) | 57 | **not met** at 40; met at 60 |
+| `/help` | 40 | 60 | met at both widths |
+| `/sessions` | 35 | 57 | met at both widths (captured before package A; unchanged) |
+| `/context` | 40 | 59 | met at both widths (captured before package A; unchanged) |
+| `/cost` | 40 | 60 | met at both widths |
+| `/mode` | 40 | 57 | met at both widths |
+| `/settings` | 40 | 57 | met at both widths |
+| `/model` | 37 | 57 | met at both widths |
 
-Evidence: `docs/ux/ux_bar/cols40_help.txt`, `cols60_help.txt`, `cols40_cost.txt`,
-`cols60_cost.txt`, `cols40_mode.txt`, `cols60_mode.txt`, and the sessions and context captures.
+Soak at 80 and 60 columns (`docs/ux/soak_g/`): every transcript fits its width, except the approval
+question at 80 columns, which carries the heartbeat tick on the same line (the known B-033s
+condition, handoff below).
+
+## Soak (package G, final tip d6f70ee)
+
+Time to first feedback in seconds, against the first run in `docs/ux/b054/timings.txt`. The first
+number for J1 includes the setup probe in the first run and is not comparable.
+
+| Journey | First run | Soak, 80 columns | Soak, 60 columns |
+|---|---|---|---|
+| J1 setup (`n` answer) | 7.11 (probe included) | 1.71 | 1.27 |
+| J2 daily start | 2.86 | 1.41 | 1.12 |
+| J4 fix a test | 2.12 | 1.19 | 1.14 |
+| J6 interrupt | 2.13 | 2.30 | 1.91 |
+| J8 headless, argv and stdin | exit 0, `ract.result/1` | exit 0 both | exit 0 both |
+| J9 weak model | 1.53 | 1.29 | 1.82 |
+| J10 failure paths | 2.31 | 1.17 | 1.91 |
+
+J3, J5 and J7 are not runnable and are not in the soak.
 
 ## Summary for the release gate (B-051)
 
-Standards: 0 met, 10 partly met (2, 3, 4, 5, 6, 7, 8, 10, 12, 13), 3 not met (1, 9, 11).
-Journeys: 1 met (J8, success path), 3 partly met (J2, J6, J10), 5 not met (J1, J4, J5, J7, J9),
-1 not run (J3). Column checks: `/sessions` and `/context` fit at 40 and 60; `/help` and `/cost`
-do not fit at either width; `/mode` does not fit at 40. Open S1 defect: D2 (queue and Ctrl-C
-indicator, B-033), which waits for the BUILDER. The phase does not close.
+Standards: 0 met; partly met 2, 3, 4, 5, 6, 7, 8, 10, 12, 13; not met 1 (escalated), 9, 11.
+Journeys: J8 met on the success path; J1, J2, J6, J10 partly met; J4, J5, J7, J9 not met; J3 not run.
+Column checks: `/help`, `/cost`, `/mode`, `/settings`, `/model` fit at 40 and 60 after package A.
+Open S1: D2 (queue indicator, B-033). Handoffs and ESCALATEs are listed below; the phase does not close.
 
 ## Package B (ux-gap): changes and handoffs
 
@@ -166,3 +194,56 @@ Handoffs added by package C:
 - **J4, the named test is not run.** `src/ract/session_render.py` prints `verified: RACT ran no tests this turn` from the turn event. The verifier must run the test the intent names. Owner: BUILDER (verifier). The renderer change is ready once the event carries a verdict for that run.
 - **J9, planner with no steps.** `src/ract/planner.py:34`. A JSON fallback for a weak model is a planner change. Senior-only. ESCALATE.
 - **J2 and standard 6, context use on the status line.** Needs the provider probe; see the Package B handoff for standard 6.
+
+## Final handoffs and ESCALATEs (package G)
+
+Every partly met or not met line above has a named reason here or in the sections before. Owner and
+file are given; the change is the one someone else would make.
+
+Handoffs:
+- **Standard 1, heartbeat on the approval question.** B-033s. `src/ract/session_render.py` and the
+  approval prompt in `src/ract/approval_callback.py`. The tick is appended to the open `[y/N]`
+  question (`docs/ux/soak_g/J4_cols80.txt`, `docs/ux/b054r/J4.txt` line 8).
+- **Standard 2, streaming and tool cards.** BUILDER. `src/ract/repl.py`, the `stream` default (line
+  near 96) and the reasoning display.
+- **Standard 3, per-hunk accept and reject.** B-014c.
+- **Standard 4, checkpoints listed.** BUILDER. `src/ract/undo_backup.py`: a list with what each holds.
+- **Standard 5, queue ahead.** B-033. A typed-ahead intent is not announced: `docs/ux/c_journeys/queue_typed_ahead.txt`
+  shows the second intent typed during a turn with no `queued` line.
+- **Standard 6, context use, tokens, cost, session id on the status line.** BUILDER. Context needs the
+  provider probe; the session id is not in `session.started`. Changing that event field is an ESCALATE.
+- **Standard 9, approval choices.** B-033s and the executor. `src/ract/approval_callback.py:34` offers `[y/N]` only.
+- **Standard 11, weak models.** Senior-only: `src/ract/planner.py:34` and the JSON fallback for a weak model.
+- **Standard 12, internal wording.** `src/ract/cli.py:1681` (provenance help text), the LSP and
+  semantic-builder lines printed by `ract memory init` (`docs/ux/cold_reader.md` row 5).
+- **Standard 13, `/diff` and `/permissions`.** BUILDER: new commands.
+- **Journey J4, the named test is not run.** BUILDER (the verifier). The renderer change is ready once
+  the turn event carries a verdict for the test run.
+- **Journey J5, per-hunk accept or reject.** B-014c. **Journey J3, read-only ask.** BUILDER: the
+  agent tool loop; no read tool is wired into `/ask`. **Journey J7, Esc Esc rewind.** BUILDER (over
+  `undo_backup`).
+- **Error sweep rows 2, 4, 9, 10, 15, 21, 22.** `src/ract/cli.py` (argparse block, doctor and fence
+  next actions, the approval-denied hint) and `src/ract/headless.py` (JSON errors). Owners: BUILDER.
+  Row 14 (Ctrl-C at approval counted as a failed step): `src/ract/executor/steps.py`, the step's
+  exception path (BUILDER).
+- **Cold reader rows 3, 5, 6 and 7.** `src/ract/cli.py` (fence on a missing file, memory-init noise,
+  the provenance sentence, the novelty budget hint). BUILDER.
+- **The session guide's generator** is outside the repository (`scratchpad/build_guide.py`). Move it
+  into the repository so the known-issues text is generated, not edited by hand (`docs/ux/cold_reader.md`).
+
+ESCALATEs (default in force, operator decision needed):
+- **Standard 1, heartbeat interval.** Plain mode prints a tick every 10 s by design
+  (`src/ract/session_render.py:52`, `_PLAIN_HEARTBEAT_EVERY_MS`), for screen-reader noise. The bar asks
+  2 s. Default: 10 s in plain mode; the 2 s status row belongs to the rich renderer, which the captures
+  do not show. Operator decision.
+- **Error sweep row 8, uncommitted changes.** Should RACT warn when a run starts in a git repository
+  with uncommitted changes? Default: no warning in this release.
+- **Session guide sample for two unsigned turns (D7).** A new scenario `plan_three_steps_twice.json`
+  is needed for a two-completed-turn capture. Default: add it and re-capture; the D7 test stays.
+- **Event placeholder `?` in `session.started`.** Changing the event field is an ESCALATE; the renderer
+  reads `?` as "no model".
+
+Look-again pass (operator direction of 19:15 PT): the standards still partly met were checked against
+the code and the captures. Nothing else could move inside the lane without a change to the event
+schema, the executor, the planner, the approval flow or the CLI verbs, so each one above names its owner
+instead.

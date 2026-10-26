@@ -1,0 +1,45 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> tests/test_calc.py::test_add fails, fix it
+Plan: 1 step, confidence 0.85
+  assumes: The failing test is caused by add() subtracting.
+  1. Fix add() in src/calc.py so it adds -> src/calc.py
+[step 1] Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py? [y/N]:   ... waiting on model (4 s)
+  ... waiting on model (14 s)
+  ... waiting on model (24 s)
+  ... waiting on model (34 s)
+  ... waiting on model (44 s)
+  ... waiting on model (54 s)
+  ... waiting on model (64 s)
+  ... waiting on model (74 s)
+  ... waiting on model (84 s)
+y
+--- src/calc.py ---
+def add(a, b):
+    return a + b
+
+
+
+def sub(a, b):
+    return a - b
+[step 1] done src/calc.py (84.0s)
+warning: provenance: 1 file(s) have no signature yet (src/calc.py). See
+  docs/PROVENANCE.md.
+  Done: 1 step ran; no tests were run.
+  changed: src/calc.py (+1 -1); unstaged, review with git diff
+  src/calc.py: lines 1-5 -> 1-5, +1 -1
+  1   def add(a, b):
+  2 -     return a - b
+  2 +     return a + b
+  3   
+  4   
+  5   def sub(a, b):
+  1 file, +1 -1
+  way back: /undo
+  verified: RACT ran no tests this turn
+  assumed: The failing test is caused by add() subtracting. (planner confidence 
+    0.85, not checked)
+  unsigned: 1 file
+  2 model requests, 88.1 s, 1107 tokens in / 68 out
+ract>/exit

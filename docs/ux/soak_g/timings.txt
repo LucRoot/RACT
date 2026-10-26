@@ -1,0 +1,16 @@
+J1 80 cols: time to first feedback 1.71 s (setup prompt; setup answered n)
+J2 80 cols: time to first feedback 1.41 s
+J4 80 cols: time to first feedback 1.19 s
+J6 80 cols: time to first feedback 2.3 s
+J8 80 cols: exit 0; schema ract.result/1; argv intent
+J8-stdin 80 cols: exit 0; schema ract.result/1; intent on stdin
+J9 80 cols: time to first feedback 1.29 s
+J10 80 cols: time to first feedback 1.17 s
+J1 60 cols: time to first feedback 1.27 s (setup prompt; setup answered n)
+J2 60 cols: time to first feedback 1.12 s
+J4 60 cols: time to first feedback 1.14 s
+J6 60 cols: time to first feedback 1.91 s
+J8 60 cols: exit 0; schema ract.result/1; argv intent
+J8-stdin 60 cols: exit 0; schema ract.result/1; intent on stdin
+J9 60 cols: time to first feedback 1.82 s
+J10 60 cols: time to first feedback 1.91 s
