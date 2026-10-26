@@ -86,3 +86,17 @@ def test_a_turn_that_raises_prints_one_sentence_not_a_traceback(tmp_path, monkey
     assert session._worker_done is None or session._worker_done.wait(5)
     assert reported == [], reported
     assert code != 0
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        "could not snapshot the working tree: error: open(\"src/calc.py\"): Permission denied",
+        "Step 1 left these paths as they are: src/calc.py (could not change it: Permission denied).",
+    ],
+)
+def test_a_file_held_by_another_program_gets_a_close_it_hint(error):
+    # Package T: a locked or read-only file got the provider check, which is not the cause.
+    hint = hint_for(error)
+    assert "doctor" not in hint and "provider" not in hint
+    assert "close" in hint or "permission" in hint.lower()
