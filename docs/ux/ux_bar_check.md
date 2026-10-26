@@ -28,6 +28,9 @@ walked in this batch, with the reason.
 5. **Always a way to stop (Ctrl-C, queue ahead): partly met.** Ctrl-C returns to the prompt
    within two seconds (`tests/test_session_turn.py:209`, `test_ctrl_c_returns_to_the_prompt_within_two_seconds`;
    `docs/ux/b054r/J6.txt`). The queue indicator and typed-ahead queueing are not built (B-033).
+   Prepared, unwired (package J, `src/ract/ui/queue_view.py`, `tests/test_queue_view.py`): the indicator
+   text, the `/queue` list and `/queue drop <n>` with their errors, at 80, 60 and 40 columns. The BUILDER
+   wires them when B-033s lands. The proposed `input.withdrawn` fields are an ESCALATE in the log.
 6. **Know where you are (model, provider, branch, context, tokens, cost, mode, tier, session id):
    partly met.** The status line shows model, provider, branch, mode and tier
    (`src/ract/session_render.py:158`; `docs/ux/b054r/J2.txt` line 2). Context use, tokens, cost
@@ -48,13 +51,15 @@ walked in this batch, with the reason.
    approval prompt offers `[y/N]` only (`src/ract/approval_callback.py:34`). No allow-once,
    allow-for-session, allow-always or prefix choice exists.
 10. **Works where users work (80 columns, dumb terminal, piped stdin, NO_COLOR): partly met.**
-    Captures at 40 and 60 columns of the multi-line commands are in `docs/ux/width_a/` (see the table
-    below); the soak at 80 and 60 columns is in `docs/ux/soak_g/`. Named reason it stays partly met:
-    Windows Terminal, macOS Terminal and Linux terminals are not available on this machine, so
-    only ConPTY and the dumb terminal were run. Dumb terminal: `docs/ux/b054/` and `docs/ux/b054r/` are plain captures. Piped
-    stdin: `docs/ux/b054r/J8-stdin.txt` (exit 0, `ract.result/1`). NO_COLOR: `tests/test_no_color.py`.
-    Windows Terminal, macOS and Linux terminals were not run. `/help` overflows at 40 and 60
-    columns (see the table).
+    Captures at 40 and 60 columns of the multi-line commands are in `docs/ux/width_a/`; the soak at 80
+    and 60 columns is in `docs/ux/soak_g/`. Package H (`docs/ux/terminal_matrix.md`, captures in
+    `docs/ux/terminal_matrix/`) ran the same journey in ConPTY direct, Windows PowerShell 5, PowerShell 7,
+    cmd and Git Bash: box drawing, colour codes, 80-column width, Ctrl-C, a paste approximation, and code
+    pages 437 and 1252 with non-ASCII text, with no traceback and no UnicodeEncodeError. Named reasons it
+    stays partly met: Windows Terminal is installed but is a host window the driver cannot capture; macOS
+    and Linux terminals are not on this machine; the legacy code-page checks were not run in PowerShell 7
+    or Git Bash. Dumb terminal: `docs/ux/b054/` and `docs/ux/b054r/` are plain captures. Piped stdin:
+    `docs/ux/b054r/J8-stdin.txt` (exit 0, `ract.result/1`). NO_COLOR: `tests/test_no_color.py`.
 11. **Weak models still work: not met.** The weak-model journey ends with
     `error: Planning failed: Plan contains no steps.` and no file changed
     (`docs/ux/b054r/J9.txt`). The JSON fallback did not complete a task.
