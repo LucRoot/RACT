@@ -304,8 +304,12 @@ def _offer_setup(ask: Any = input) -> bool:
     try:
         reply = str(ask("Set one up now? [Y/n] (n opens the session without one) "))
     except (EOFError, KeyboardInterrupt):
-        # Ctrl-C at the question says what was not done (error sweep, row 15).
-        print("\nSetup stopped; no ract.yaml was written.")
+        # Ctrl-C at the question says what was not done (error sweep, row 15). A second
+        # Ctrl-C while that line prints is still a stop, not a traceback (package P).
+        try:
+            print("\nSetup stopped; no ract.yaml was written.")
+        except KeyboardInterrupt:
+            pass
         return False
     if reply.strip().lower() in {"n", "no"}:
         return True

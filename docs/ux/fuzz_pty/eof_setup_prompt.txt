@@ -1,0 +1,4 @@
+No ract.yaml in this directory, so RACT does not know which model to use.
+Set one up now? [Y/n] (n opens the session without one) ^Z
+
+Setup stopped; no ract.yaml was written.
