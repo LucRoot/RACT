@@ -1,0 +1,15 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> add a greeting in src/calc.py
+  the provider is rate-limiting; trying again in 1 s (attempt 2 of 4)
+  the provider is rate-limiting; trying again in 1.54 s (attempt 3 of 4)
+  HTTP 500 from http://127.0.0.1:50336/v1; trying again in 2.893 s (attempt 4 of 4)
+  ... waiting on model (6 s)
+error: Planning failed: Provider call failed: HTTP 503: {"error":{"message":"fake server error 503","type":"server_error"}}
+hint: run `ract doctor --check-providers` to check the setup, then try again
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  4 model requests, 6.4 s, tokens not reported
+ract> /exit
