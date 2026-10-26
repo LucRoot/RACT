@@ -1,0 +1,65 @@
+"""Package 6 (B-033s): one owner of typed input, with three modes.
+
+prompt: a line is a new intent. approval: a line answers the open question (only then).
+turn: a line is queued and shown (input.queued); cancel withdraws it (input.withdrawn).
+A line queued during a turn never answers an approval, even when it reads "y".
+"""
+
+from __future__ import annotations
+
+from ract.input_broker import InputBroker
+
+
+def _broker():
+    events: list[tuple[str, dict]] = []
+    broker = InputBroker(emit=lambda kind, data: events.append((kind, data)))
+    return broker, events
+
+
+def test_prompt_mode_routes_a_line_as_an_intent():
+    broker, events = _broker()
+    route = broker.feed("add a greeting")
+    assert route.kind == "prompt" and route.text == "add a greeting"
+    assert events == []
+
+
+def test_approval_mode_routes_a_line_as_the_answer_and_closes_the_question():
+    broker, _ = _broker()
+    broker.open_question("approval", "Apply step 1 to src/calc.py? [y/N]")
+    route = broker.feed("y")
+    assert route.kind == "answer" and route.text == "y"
+    assert broker.mode == "prompt"
+
+
+def test_turn_mode_queues_a_line_and_emits_input_queued():
+    broker, events = _broker()
+    broker.start_turn()
+    route = broker.feed("also add a test")
+    assert route.kind == "queued" and route.position == 1
+    assert events == [("input.queued", {"text": "also add a test", "position": 1})]
+    assert broker.queue.items() == ["also add a test"]
+
+
+def test_a_queued_line_that_reads_y_does_not_answer_an_approval():
+    broker, _ = _broker()
+    broker.start_turn()
+    route = broker.feed("y")
+    assert route.kind == "queued"
+    assert broker.queue.items() == ["y"]
+
+
+def test_cancel_withdraws_a_queued_item_and_emits_input_withdrawn():
+    broker, events = _broker()
+    broker.start_turn()
+    broker.feed("first")
+    broker.feed("second")
+    assert broker.queue.cancel(1) is True
+    assert ("input.withdrawn", {"position": 1}) in events
+    assert broker.queue.items() == ["second"]
+
+
+def test_cancel_with_a_bad_position_is_refused():
+    broker, _ = _broker()
+    broker.start_turn()
+    assert broker.queue.cancel(3) is False
+    assert broker.queue.cancel(0) is False
