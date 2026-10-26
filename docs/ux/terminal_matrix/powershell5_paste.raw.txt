@@ -1,0 +1,75 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+]0;C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe[?25h[mRACT session fake-coder via local | master | default | T3 off
+ract> /help
+[38;2;212;175;55m[1m                                  RACT session                                  [m
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃[1m Command                          [22m┃[1m What it does                              [22m┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ <text>                           │ Run the text as an intent (same as /run   │
+│                                  │ <text>).                                  │
+│ /run <intent>                    │ Plan and execute an intent.               │
+│ /plan <intent>                   │ Plan only. Shows the plan, writes         │
+│                                  │ nothing.                                  │
+│ /ask <question>                  │ Answer a question. No plan, and no file   │
+│                                  │ is written.                               │
+│ /loop <intent>                   │ Run the quality-anchored loop until done  │
+│                                  │ or regressed.                             │
+│ /set <name> <value>              │ Change a setting: dry-run, stream, auto,  │
+│                                  │ mode, iterations.                         │
+│ /settings                        │ Show the current settings.                │
+│ /model [name]                    │ Show the configured models, or switch the │
+│                                  │ manager for this session.                 │
+│ /session [new|<id>]              │ Show, restart or switch the session that  │
+│                                  │ carries context between turns.            │
+│ /sessions                        │ List recent sessions: id, time, turns,    │
+│                                  │ cost and last request.                    │
+│ /context                         │ What the last request sent, and the room  │
+│                                  │ the model has.                            │
+│ /resume <id|latest>              │ Switch to a saved session and show its    │
+│                                  │ last request.                             │
+│ /config                          │ Validate the active config (same as ract  │
+│                                  │ config validate).                         │
+│ /providers                       │ List configured providers and the manager │
+│                                  │ provider.                                 │
+│ /permissions                     │ What RACT may change or send, in one      │
+│                                  │ screen.                                   │
+│ /cost                            │ Requests, tokens and bytes sent off this  │
+│                                  │ machine in this session.                  │
+│ /mode [plan|default|auto-accept] │ plan: propose only; default: ask before   │
+│                                  │ each change; auto-accept: apply changes.  │
+│ /undo [--force]                  │ Reverse the last turn's file changes      │[40;1H
+│                                  │ (skips files you edited since).           │[40;1H
+│ /redo [--force]                  │ Reverse the last /undo.                   │[40;1H
+│ /doctor [--check-providers]      │ Run setup diagnostics against the active  │[40;1H
+│                                  │ config.                                   │[40;1H
+│ /report [--last]                 │ Show what the last run changed and why.   │[40;1H
+│ /<verb> ...                      │ Any other RACT verb, for example          │[40;1H
+│                                  │ /whisper, /fence, /auction, /status.      │[40;1H
+│ /clear                           │ Clear the screen.                         │[40;1H
+│ /help                            │ Show this list.                           │[40;1H
+│ /exit                            │ Leave the session (Ctrl-D also works).    │[40;1H
+└──────────────────────────────────┴───────────────────────────────────────────┘[40;1H
+ract> something pasted
+Plan (3 steps):
+  assumes: The failing test needs add() fixed, a notes module, and a test for
+    it.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[ ] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+[>] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py?
+[y/N]: /exit
+[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (2.1s) failed
+error: Approval denied for step 1: Fix add() in src/calc.py so it adds ->
+  src/calc.py
+hint: run `ract doctor --check-providers` to check the setup, then try again    
+no files were changed
+Plan (3 steps), final:
+[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (2.1s) failed
+[-] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.0s) skipped   
+[-] 3. Add tests/test_notes.py that che... -> tests/test_notes.py (0.0s) skipped[40;1H
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 5.0 s, 933 tokens in / 119 out
+ract>[1C[?9001l[?1004l

@@ -1,0 +1,4 @@
+cmd: Active code page: 437 | done
+powershell5: IBM437 | done
+pwsh7: ibm437 | done
+git_bash: UTF-8 | done
