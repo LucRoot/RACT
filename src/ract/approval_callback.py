@@ -5,6 +5,7 @@ import shutil
 import textwrap
 from collections.abc import Callable
 
+from ract import question_gate
 from ract.manager import Step
 
 
@@ -37,10 +38,13 @@ def console_approval_callback(step: Step) -> bool:
     lines = textwrap.wrap(question, width=_terminal_width(), break_on_hyphens=False)
     for line in lines[:-1]:
         print(line)
+    question_gate.open_question()
     try:
         response = input(f"{lines[-1]} ").strip().lower()
     except EOFError:
         return False
+    finally:
+        question_gate.close_question()
     return response in {"y", "yes"}
 
 

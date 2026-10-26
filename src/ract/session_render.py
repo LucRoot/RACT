@@ -16,6 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
+from ract import question_gate
 from ract.diff_render import draw_turn_diff
 from ract.session_events import SessionEvent, safe_text
 from ract.turn_summary import describe_change
@@ -354,6 +355,9 @@ class PlainRenderer:
             self._line("  (thinking) " + text.replace("\n", "\n  (thinking) "))
 
     def _on_agent_heartbeat(self, d: dict[str, Any]) -> None:
+        # Adjudication row 5: no tick lands on an open approval question.
+        if question_gate.question_open():
+            return
         elapsed = int(d.get("elapsed_ms", 0))
         due = (
             self._last_heartbeat_ms < 0
