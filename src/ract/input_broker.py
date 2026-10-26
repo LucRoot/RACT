@@ -97,3 +97,39 @@ class TurnReader(threading.Thread):
             except EOFError:
                 return
             self._broker.feed(line)
+
+
+class ConsoleLineSource:
+    """Assembles typed lines from a polled console, without a blocking read (package 6).
+
+    ``kbhit`` says whether a key is waiting and ``getwch`` returns it (msvcrt on Windows, injected
+    in tests). ``poll()`` reads at most the waiting keys and returns a line when Enter arrives, or
+    None. Ctrl-C sets ``stopped`` and returns no line.
+    """
+
+    _ENTER = (chr(13), chr(10))
+    _BACKSPACE = (chr(8), chr(127))
+    _CTRL_C = chr(3)
+
+    def __init__(self, kbhit: Callable[[], bool], getwch: Callable[[], str]) -> None:
+        self._kbhit = kbhit
+        self._getwch = getwch
+        self._chars: list[str] = []
+        self.stopped = False
+
+    def poll(self) -> str | None:
+        while not self.stopped and self._kbhit():
+            key = self._getwch()
+            if key == self._CTRL_C:
+                self.stopped = True
+                return None
+            if key in self._ENTER:
+                line = "".join(self._chars)
+                self._chars.clear()
+                return line
+            if key in self._BACKSPACE:
+                if self._chars:
+                    self._chars.pop()
+                continue
+            self._chars.append(key)
+        return None
