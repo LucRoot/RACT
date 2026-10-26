@@ -162,8 +162,10 @@ RACT expands `${...}` placeholders from the environment at runtime. Keep secrets
 
 ## Provider presets
 
-`ract --init-provider <preset>` writes a starter `ract.yaml`. Cloud presets keep
-the key in an environment variable; the file holds only the `${NAME}` reference.
+`ract --init-provider <preset>` writes a starter `ract.yaml`. It also writes
+`prompts/manager.txt` (the default prompt) if the folder does not have one. Cloud
+presets keep the key in an environment variable; the file holds only the `${NAME}`
+reference.
 Every preset is tested against the fake model server in this repository. No
 preset has been run against a real server yet.
 
