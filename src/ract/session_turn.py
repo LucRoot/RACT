@@ -17,6 +17,7 @@ worker thread so Ctrl-C stays responsive (see ``ract.turn_context``).
 
 from __future__ import annotations
 
+import os
 import re
 import threading
 import time
@@ -51,6 +52,22 @@ class TurnRequest:
     refuse_changes: bool = False
     # A per-run token budget from --token-budget; None uses token_budget in ract.yaml (B-065).
     token_budget: int | None = None
+
+
+def _on_disk_name(root: Path, name: str) -> str:
+    """``name`` as the file system spells it (H5): the on-disk case when the file exists.
+
+    On Windows "Readme.md" and "README.md" are one file; the changed-files line must name the
+    file the disk holds. A name that does not exist is returned as given.
+    """
+    target = root / name
+    try:
+        for entry in os.scandir(target.parent):
+            if entry.name.casefold() == target.name.casefold():
+                return Path(name).with_name(entry.name).as_posix()
+    except OSError:
+        pass
+    return name
 
 
 def provenance_notice(unsigned: list[str]) -> str:
@@ -360,7 +377,7 @@ def run_turn(
     # cross-check, reported when it disagrees (G-026).
     before_thread.join()
     observed = _changed(before_box.get("state"), working_tree_status(project))
-    changed: list[str] | None = sorted(written)
+    changed: list[str] | None = sorted(_on_disk_name(project, name) for name in written)
     if observed is None and not written:
         changed = None  # not a git repository and nothing written: unknown
     duration = int((time.monotonic() - started) * 1000)
