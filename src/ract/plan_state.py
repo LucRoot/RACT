@@ -40,16 +40,19 @@ class PlanState:
                     "state": "pending",
                 }
         elif kind == "step.started" and data.get("n") in self._steps:
-            self._steps[data["n"]]["state"] = "running"
+            # A step that already ended is not started again: no step moves back (package O).
+            if self._steps[data["n"]]["state"] == "pending":
+                self._steps[data["n"]]["state"] = "running"
         elif kind == "step.finished" and data.get("n") in self._steps:
             step = self._steps[data["n"]]
             step["state"] = str(data.get("outcome", "?"))
             step["file"] = data.get("artifact") or step["target"]
         elif kind == "turn.finished":
-            # A step that never ended (an interrupted turn) stays pending.
+            # A step that did not end when the turn ended was not run to its end: skipped,
+            # the same rule the interactive checklist applies (B-054f, D1).
             for step in self._steps.values():
-                if step["state"] == "running":
-                    step["state"] = "pending"
+                if step["state"] in ("pending", "running"):
+                    step["state"] = "skipped"
 
     def items(self) -> list[dict[str, Any]]:
         """The ``plan`` array: step, title, state, file and verdict, nothing else."""

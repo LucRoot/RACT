@@ -73,15 +73,18 @@ def test_a_failure_in_step_two_and_a_skipped_step_three():
     assert [item["verdict"] for item in items] == ["passed", "failed", "skipped"]
 
 
-def test_an_interrupted_step_stays_pending_with_no_verdict():
+def test_an_interrupted_step_is_skipped_in_the_plan_array_like_the_checklist():
+    # Package O: the headless plan agrees with the interactive checklist (B-054f, D1):
+    # a step that did not end when the turn ended is skipped, not left pending.
     events = _events(
         _plan("edit a", "edit b"),
         ("step.started", {"n": 1, "action": "edit a", "target": "f1.py"}),
         ("turn.finished", {"outcome": "interrupted", "verdict": "", "changed": []}),
     )
     items = plan_items(events)
-    assert items[0]["state"] == "pending"
-    assert items[0]["verdict"] is None
+    assert items[0]["state"] == "skipped"
+    assert items[0]["verdict"] == "skipped"
+    assert items[1]["state"] == "skipped"
 
 
 def test_an_ask_mode_run_has_an_empty_plan_array_not_none():
