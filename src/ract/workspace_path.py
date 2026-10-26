@@ -122,6 +122,9 @@ class WorkspacePathRefused(ValueError):
         self.refusal = refusal
 
 
+_WINDOWS_MAX_PATH = 260
+
+
 def _refuse(code: str, message: str, hint: str) -> Refusal:
     return Refusal(code, message, hint)
 
@@ -134,6 +137,13 @@ def _string_checks(raw: str, *, windows: bool) -> Refusal | None:
             "control_character",
             "the path contains a NUL or control character",
             "Remove control characters from the path.",
+        )
+    if windows and len(raw) > _WINDOWS_MAX_PATH:
+        return _refuse(
+            "too_long",
+            f"the path is {len(raw)} characters; Windows refuses paths over "
+            f"{_WINDOWS_MAX_PATH} characters",
+            "Use a shorter folder or file name.",
         )
     segments = re.split(r"[\\/]", raw)
     if any(seg == ".." for seg in segments):

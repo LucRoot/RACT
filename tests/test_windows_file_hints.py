@@ -100,3 +100,12 @@ def test_a_file_held_by_another_program_gets_a_close_it_hint(error):
     hint = hint_for(error)
     assert "doctor" not in hint and "provider" not in hint
     assert "close" in hint or "permission" in hint.lower()
+
+
+def test_a_path_over_the_windows_limit_gets_a_shorter_name_hint():
+    # Package 4 (H1): the long-path refusal got the provider-check hint.
+    hint = hint_for(
+        "Step 1 not written: the path is 327 characters; Windows refuses paths over 260 characters"
+    )
+    assert "doctor" not in hint and "provider" not in hint
+    assert "shorter" in hint
