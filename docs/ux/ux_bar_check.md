@@ -48,7 +48,7 @@ walked in this batch, with the reason.
    (`src/ract/repl.py`, `_handle_command`; tests in `tests/test_ux_gap_b.py`). The setup
    flow asks a question (`docs/ux/b054r/J1.txt` line 2) but was not run past the `n` answer.
 9. **Permissions are understandable (exact change, reason, four choices): not met.** The
-   approval prompt offers `[y/N]` only (`src/ract/approval_callback.py:34`). No allow-once,
+   approval prompt offers `[y/N]` only (`src/ract/approval_callback.py:35`). No allow-once,
    allow-for-session, allow-always or prefix choice exists.
 10. **Works where users work (80 columns, dumb terminal, piped stdin, NO_COLOR): partly met.**
     Captures at 40 and 60 columns of the multi-line commands are in `docs/ux/width_a/`; the soak at 80
