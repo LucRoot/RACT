@@ -663,7 +663,7 @@ class ReplSession:
 
         rows, total = list_rows(sessions_dir(self.state.config))
         if not rows:
-            self._console.info("no sessions yet: a request you type starts one")
+            self._print_wrapped("no sessions yet: a request you type starts one")
             return True
         table = [
             [
