@@ -114,7 +114,9 @@ def _interactive(
     extra_env: dict[str, str] | None = None,
 ) -> Recording:
     env = {**_env(), **(extra_env or {})}
-    session = spawn([str(RACT)], cwd=str(ws), env=env, cols=80, rows=40)
+    # S6-8: RACT_UX_COLS sets the terminal width (80 by default; the sprint 6 journeys also run at 60).
+    cols = int(os.environ.get("RACT_UX_COLS", "80"))
+    session = spawn([str(RACT)], cwd=str(ws), env=env, cols=cols, rows=40)
     sends: list[tuple[str, float]] = []
     seen = session.expect(startup_pattern, 30)
     journey.metrics["startup_to_prompt_s"] = round(session.now(), 3) if seen else None
