@@ -140,3 +140,10 @@ These are the defects found by MASON that the branch does not fix. Each names wh
 2. Land `work/mason/landing` as one branch.
 3. Run `ract source-digest --lock` on the result and commit the lock if it changed.
 4. Read the handoffs above; the MANAGER turns them into cards.
+
+## Merged tip (sprint 6 close, 2026-10-27)
+
+- Landing tip: work/mason/integrated at 61640e1 (built from the feature tip 35af968; hygiene, B-033s, H1-H4, S6-5, B-064a merged).
+- Full tests tree on eef25c5: 5146 passed, 43 skipped, 1 xfailed, 2 failed (novelty baseline; dead-code auction for plan_gate.py,
+  fixed in 30698fb). Targeted re-runs on 61640e1: 124 passed, 1 skipped.
+- Details and the order: docs/review/INDEX.md.

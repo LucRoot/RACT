@@ -65,3 +65,21 @@ The novelty detector (test_executor_routes_low_novelty_to_handshake_queue) fails
 
 Landing order: hygiene, B-033s, H1-H4, S6-5, B-064a. Each branch is from 35af968 through ux-more; the series
 branches show the baseline list until hygiene lands.
+
+## Merged tip (work/mason/integrated, 2026-10-27 10:38 PT)
+
+Built from the feature tip 35af968 by merging, in order: hygiene (762c593 and the index commit a0156b7),
+B-033s (55b0d11), H1-H4 (6233683), S6-5 (82cfbd5), B-064a (939b9b5). Merge commits and fixes after them:
+digest relock (eef25c5), the dead-code allowlist for plan_gate.py (30698fb), and the README restore with the new
+docs page and the regenerated command table (61640e1).
+
+- Tip: work/mason/integrated at 61640e1 (README 2422 words, limit 2450).
+- Full tests tree, one run, on eef25c5 (the same content as the tip before the last two fixes): 5146 passed,
+  43 skipped, 1 xfailed, 2 failed. The two: the novelty detector (also fails on 35af968, not a series regression)
+  and the dead-code auction flagging plan_gate.py (added in 8186811, the package 2 decision module, unwired), fixed
+  by 30698fb.
+- After the run: tests/docs, tests/test_release_surface.py and tests/test_dead_code_auction.py on 61640e1: 124
+  passed, 1 skipped. The full tree was not run again after the two fixes.
+- Conflicts while merging: only src/ract/source_digest.py (resolved by taking the incoming side, then re-locked).
+- Landing order for the merged tip: land work/mason/integrated as one branch, or in the same order as the
+  branches it replaces (hygiene, B-033s, H1-H4, S6-5, B-064a), since the merged tip contains all five.
