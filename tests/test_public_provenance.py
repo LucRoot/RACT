@@ -40,6 +40,8 @@ ALLOWED_IMPORT_ROOTS = {
     # threading is stdlib; the writer uses a Lock for the
     # single-writer-per-run contract (see writer.py docstring).
     "threading",
+    # _thread: interrupt_main hands Ctrl-C to the main thread from the type-ahead reader (B-033s).
+    "_thread",
     # dev-only libs that some modules import for optional features
     "pytest",
     "pydantic",
