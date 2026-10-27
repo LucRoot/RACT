@@ -174,7 +174,7 @@ asks it to run (hooks, MCP servers, test gates) and runs them only if you
 say so; `ract trust` records the decision until those files change.
 
 Run `ract` with no arguments to work inside an interactive session (`/plan`, `/loop`,
-`/doctor`, `/set`, and every verb as a slash command). The commands below also work one at a
+`/doctor`, `/set`, and every verb as a slash command). The commands below work one at a
 time from the shell.
 
 ```bash
@@ -187,14 +187,7 @@ ract run "add a test for the hello-world script" --config ract.yaml
 ract run "refactor the greeting module" --config ract.yaml --loop --max-iterations 5
 ```
 
-If a run stops with `Novelty budget exhausted`, the run would add more new files or
-public names than the budget allows: raise the budget in `ract.yaml`, or pass
-`--allow-novelty-overrun` for that run.
-
-`ract memory init` builds three indexes. The semantic one needs the embedding
-model's files on this machine: set `RACT_EMBED_MODEL_ROOT` to the folder that
-holds them, or `RACT_EMBED_ONLINE=1` to let RACT download them. Without either,
-the other two indexes still build and the command still succeeds.
+Indexes need `RACT_EMBED_MODEL_ROOT` or `RACT_EMBED_ONLINE=1`.
 
 ### Headless (scripts and CI)
 
