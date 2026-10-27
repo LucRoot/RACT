@@ -292,7 +292,8 @@ def test_cost_in_the_session_shows_only_this_session(ledger: Path) -> None:
         in console.text
     )
     assert "old.example" not in console.text
-    assert str(ledger) in console.text
+    # UX package A: the console wraps long lines to the width, which can split the path; compare without spaces.
+    assert "".join(str(ledger).split()) in "".join(console.text.split())
 
 
 def test_doctor_egress_lists_history_and_exempt_sites(
