@@ -65,7 +65,11 @@ def resolve_answer(steps: list[Step], line: str) -> Resolution:
         dropped = {answer.n}
         target = next(step.target for step in steps if step.n == answer.n)
         for step in steps:
-            if step.n > answer.n and target and step.target == target:
+            if step.n <= answer.n:
+                continue
+            same_file = bool(target) and step.target == target
+            names_target = bool(target) and target in step.action
+            if same_file or names_target:
                 dropped.add(step.n)
         kept = [step for step in steps if step.n not in dropped]
         skipped = [step for step in steps if step.n in dropped]
@@ -94,3 +98,38 @@ class ApprovalMemory:
 
     def hashes(self) -> list[str]:
         return sorted(self._approved)
+
+
+def approval_requested_payload(steps: list[Step]) -> dict:
+    """The data of ``plan.approval_requested`` (ADR-0049 D12): the hash and the steps as in plan.proposed."""
+    return {
+        "plan_hash": plan_hash(steps),
+        "steps": [{"n": s.n, "action": s.action, "target": s.target} for s in steps],
+    }
+
+
+def answered_payload(steps: list[Step], answer: str, outcome: Resolution) -> dict:
+    """The data of ``plan.approval_answered`` (ADR-0049 D12). Reasons are ``user`` for the step the
+    operator skipped, and ``depends on step <k>`` for the steps that depend on it (k is that step).
+    """
+    kept = [s.n for s in outcome.kept]
+    skipped_numbers = [s.n for s in outcome.skipped]
+    typed = next((n for n in skipped_numbers if answer == "skip" and n == _skip_target(outcome, steps)), None)
+    skipped = []
+    for n in skipped_numbers:
+        if answer == "skip" and n == typed:
+            skipped.append({"n": n, "reason": "user"})
+        else:
+            skipped.append({"n": n, "reason": f"depends on step {typed}"})
+    return {
+        "plan_hash": plan_hash(steps),
+        "answer": answer,
+        "kept": kept,
+        "skipped": skipped,
+        "edited": False,
+    }
+
+
+def _skip_target(outcome: Resolution, steps: list[Step]) -> int | None:
+    """The step the operator typed in ``skip <n>``: the first skipped step (dependents follow it)."""
+    return outcome.skipped[0].n if outcome.skipped else None

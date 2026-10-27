@@ -204,6 +204,8 @@ local model has not produced a token yet.
 |---|---|
 | `approval.requested` | `id` (string), `tier` (`T2` or `T3`), `rule` (string, id of the policy rule that requires the approval), `action` (string, the exact command or change, control characters escaped), `reason` (string, labeled as the model's), `facts` (object: `cwd`, `network`, `sandbox_enforced`, `env_names`, `limits`), `choices` (list of `once`, `session`, `always`, `deny`) |
 | `approval.resolved` | `id`, `choice` (one of `choices`, or `denied` when nobody could answer), `by` (`operator-tty`, `signed-record`, `unattended`) |
+| `plan.approval_requested` | `plan_hash` (string, sha256 of the canonical JSON of each step's `n`, `action` and `target`), `steps` (as in `plan.proposed`) |
+| `plan.approval_answered` | `plan_hash`, `answer` (`approve`, `skip`, `edit` or `cancel`), `kept` (step numbers), `skipped` (list of `{n, reason}`; reason is `user` or `depends on step <k>`), `edited` (boolean) |
 
 No model output can produce `approval.resolved` (ADR-0048 Invariant A-1).
 No prompt resolves on a timer: an unanswered approval waits. In a headless

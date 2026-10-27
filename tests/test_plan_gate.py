@@ -103,3 +103,37 @@ def test_the_memory_restores_from_saved_hashes():
     first.record(_steps(3))
     restored = ApprovalMemory(saved=first.hashes())
     assert restored.needs_approval(_steps(3), mode="default") is False
+
+
+def test_the_two_plan_kinds_are_registered_in_the_session_stream():
+    from ract.session_events import KINDS
+
+    assert "plan.approval_requested" in KINDS
+    assert "plan.approval_answered" in KINDS
+
+
+def test_approval_requested_carries_the_hash_and_the_steps():
+    from ract.plan_gate import approval_requested_payload
+
+    payload = approval_requested_payload(_steps(2))
+    assert set(payload) == {"plan_hash", "steps"}
+    assert payload["steps"][0] == {"n": 1, "action": "step 1", "target": "src/a.py"}
+    assert len(payload["plan_hash"]) == 64
+
+
+def test_approved_payload_reasons_follow_d12_user_or_depends_on_step():
+    from ract.plan_gate import answered_payload, resolve_answer
+
+    steps = [
+        Step(n=1, action="a", target="src/a.py"),
+        Step(n=2, action="b", target="src/b.py"),
+        Step(n=3, action="writes src/b.py too", target="src/c.py"),
+    ]
+    outcome = resolve_answer(steps, "skip 2")
+    payload = answered_payload(steps, "skip", outcome)
+    assert payload["answer"] == "skip"
+    assert payload["kept"] == [1]
+    assert payload["skipped"] == [
+        {"n": 2, "reason": "user"},
+        {"n": 3, "reason": "depends on step 2"},
+    ]
