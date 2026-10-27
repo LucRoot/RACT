@@ -18,6 +18,7 @@ session has no history or completion. Nothing here adds a dependency.
 
 from __future__ import annotations
 
+import _thread
 import os
 import shlex
 import sys
@@ -133,6 +134,8 @@ class ReplSession:
 
     # The input broker of the running turn, when type-ahead is on (package 6).
     _broker: Any = None
+    # Set by an interrupted turn: its queued lines wait until the operator types (package 6).
+    _queue_held: bool = False
 
     def __init__(
         self,
@@ -239,6 +242,7 @@ class ReplSession:
                     # A line queued during the last turn runs next (package 6), before any typed line.
                     queued = self._take_queued()
                     line = queued if queued is not None else self._read_line(self.prompt())
+                    self._queue_held = False
                 except EOFError:
                     self._console.print("")
                     reason = "eof"
@@ -957,6 +961,7 @@ class ReplSession:
                 pass
         except KeyboardInterrupt:
             self._interrupted.append(done)
+            self._queue_held = True
             return self._interrupt(done, cancel, turn_no, started)
         finally:
             if ahead is not None:
@@ -966,7 +971,7 @@ class ReplSession:
 
     def _take_queued(self) -> str | None:
         """The next line queued during a turn, or None (package 6, B-033s)."""
-        if self._broker is None:
+        if self._broker is None or self._queue_held:
             return None
         return self._broker.queue.take_first()
 
@@ -990,7 +995,9 @@ class ReplSession:
         broker = InputBroker(emit=emit)
         broker.start_turn()
         self._broker = broker
-        ahead = TypeAhead(broker, ConsoleLineSource(msvcrt.kbhit, msvcrt.getwch))
+        # The reader reads every key, so Ctrl-C is handed to the main thread as an interrupt.
+        source = ConsoleLineSource(msvcrt.kbhit, msvcrt.getwch, on_ctrl_c=_thread.interrupt_main)
+        ahead = TypeAhead(broker, source)
         ahead.start()
         return ahead
 

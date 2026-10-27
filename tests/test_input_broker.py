@@ -161,3 +161,17 @@ def test_the_queue_command_lists_and_drops_the_queued_lines():
     assert broker.queue.items() == ["second line"]
     assert ("input.withdrawn", {"position": 1}) in events
     assert any("second line" in line or "dropped" in line.lower() for line in console.lines)
+
+
+def test_a_queued_line_is_held_after_an_interrupt_until_the_operator_types():
+    from ract.repl import ReplSession
+
+    broker, _ = _broker()
+    broker.start_turn()
+    broker.feed("queued before the stop")
+    session = ReplSession.__new__(ReplSession)
+    session._broker = broker
+    session._queue_held = True
+    assert session._take_queued() is None
+    session._queue_held = False
+    assert session._take_queued() == "queued before the stop"

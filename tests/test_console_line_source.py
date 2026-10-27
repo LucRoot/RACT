@@ -73,3 +73,18 @@ def test_type_ahead_feeds_polled_lines_into_the_broker_until_stopped():
     ahead.join(timeout=5)
     assert not ahead.is_alive()
     assert broker.queue.items() == ["add a test", "also docs"]
+
+
+def test_ctrl_c_is_passed_to_the_main_thread_as_an_interrupt():
+    # The polling reader reads every key, so it would take a Ctrl-C that the main thread needs.
+    # On Ctrl-C the source calls its interrupt hook (the main thread then raises KeyboardInterrupt).
+    calls: list[str] = []
+    pending = [chr(3)]
+    source = ConsoleLineSource(
+        kbhit=lambda: bool(pending),
+        getwch=lambda: pending.pop(0),
+        on_ctrl_c=lambda: calls.append("interrupt"),
+    )
+    assert source.poll() is None
+    assert calls == ["interrupt"]
+    assert source.stopped is True

@@ -120,9 +120,15 @@ class ConsoleLineSource:
     _BACKSPACE = (chr(8), chr(127))
     _CTRL_C = chr(3)
 
-    def __init__(self, kbhit: Callable[[], bool], getwch: Callable[[], str]) -> None:
+    def __init__(
+        self,
+        kbhit: Callable[[], bool],
+        getwch: Callable[[], str],
+        on_ctrl_c: Callable[[], None] | None = None,
+    ) -> None:
         self._kbhit = kbhit
         self._getwch = getwch
+        self._on_ctrl_c = on_ctrl_c
         self._chars: list[str] = []
         self.stopped = False
 
@@ -131,6 +137,8 @@ class ConsoleLineSource:
             key = self._getwch()
             if key == self._CTRL_C:
                 self.stopped = True
+                if self._on_ctrl_c is not None:
+                    self._on_ctrl_c()
                 return None
             if key in self._ENTER:
                 line = "".join(self._chars)
