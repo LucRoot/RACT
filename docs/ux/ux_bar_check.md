@@ -60,7 +60,13 @@ walked in this batch, with the reason.
     and Linux terminals are not on this machine; the legacy code-page checks were not run in PowerShell 7
     or Git Bash. Dumb terminal: `docs/ux/b054/` and `docs/ux/b054r/` are plain captures. Piped stdin:
     `docs/ux/b054r/J8-stdin.txt` (exit 0, `ract.result/1`). NO_COLOR: `tests/test_no_color.py`.
-11. **Weak models still work: not met.** The weak-model journey ends with
+11. **Weak models still work: not met.**
+    Sprint 6 evidence (`docs/ux/sprint6/80` and `docs/ux/sprint6/60`, the same ten journeys at both widths): the
+    weak-model journey (J9) now names the cause and the next action: `Could not parse JSON plan from model response.
+    The model hit its output limit (finish_reason=length)` and `hint: raise or remove max_tokens`. No file is changed.
+    The row stays not met: no plan completes. The b054r captures use other scenario inputs, so the comparison is not
+    like for like (see docs/ux/sprint6/README).
+ The weak-model journey ends with
     `error: Planning failed: Plan contains no steps.` and no file changed
     (`docs/ux/b054r/J9.txt`). The JSON fallback did not complete a task.
 12. **No internal chatter: partly met.** The provenance warning now reads in plain words:

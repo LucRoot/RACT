@@ -1,0 +1,22 @@
+# S4: Setup: Ctrl-C at a question
+# build: "[S6-8] run_baseline: RACT_UX_COLS sets the journey terminal width (80 by default)"  terminal: 80x40 pseudo-terminal  run: 2026-10-27 03:00
+## interactive session
+No ract.yaml in this directory, so RACT does not know which
+model to use.
+Set one up now? [Y/n] (n opens the session without one) 
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 17.2 GB available
+  CPU cores: 12
+  free disk here: 102.1 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  http://127.0.0.1:51184/v1 answers (the address in RACT_BASE_URL); models: fake-coder
+Use the server at http://127.0.0.1:51184/v1? [Y/n] 
+setup stopped; nothing was written.
+
+## harness notes
+- expect 'Use the server at': seen
+- files left after Ctrl-C: none

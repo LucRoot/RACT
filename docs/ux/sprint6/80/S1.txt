@@ -1,0 +1,45 @@
+# S1: Setup: empty directory, server found, first question
+# build: "[S6-8] run_baseline: RACT_UX_COLS sets the journey terminal width (80 by default)"  terminal: 80x40 pseudo-terminal  run: 2026-10-27 02:56
+## interactive session
+No ract.yaml in this directory, so RACT does not know which model to use.
+Set one up now? [Y/n] (n opens the session without one) 
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 15.9 GB available
+  CPU cores: 12
+  free disk here: 102.1 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  http://127.0.0.1:59039/v1 answers (the address in RACT_BASE_URL); models: fake-coder
+Use the server at http://127.0.0.1:59039/v1? [Y/n] 
+Wrote ract.yaml and prompts/manager.txt.
+Checking http://127.0.0.1:59039/v1 with one tiny request:
+  ok: the model answered in 0.0 s
+This directory is not a git repository. RACT records each step on its own branch, so it works best in one. Command: git init
+Run git init here now? [y/N] y
+  ran: git init
+Opening the session. Try: create hello.py that prints a greeting, with a test for it
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> what does this folder contain?
+Plan: 1 step, confidence 0.90
+  assumes: the folder is empty apart from RACT's own files
+  1. Explain what this folder contains
+[step 1] Explain what this folder contains
+The folder holds ract.yaml and prompts/, nothing else yet.
+[step 1] done (0.0s)
+  Done: 1 step ran; no tests were run.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  2 model requests, 0.9 s, 893 tokens in / 62 out
+ract> /exit
+
+## harness notes
+- expect 'Use the server at': seen
+- expect 'Run git init here now': seen
+- expect 'ract> ': seen
+- expect 'Done: ': seen
+- ract.yaml written: True
+- git repository: True

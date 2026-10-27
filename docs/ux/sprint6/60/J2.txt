@@ -1,0 +1,34 @@
+# J2: Daily start in a configured repo
+# build: "[S6-8] run_baseline: RACT_UX_COLS sets the journey terminal width (80 by default)"  terminal: 80x40 pseudo-terminal  run: 2026-10-27 02:58
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+ract> /settings
+                     Settings                      
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ setting                  ┃ value                ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ config                   │ ract.yaml            │
+│ dry-run                  │ off                  │
+│ stream                   │ off                  │
+│ auto (approve each step) │ on                   │
+│ mode                     │ default              │
+│ iterations (for /loop)   │ 10                   │
+│ session                  │ repl-20261027-025837 │
+│ turns this session       │ 0                    │
+│ reasoning effort         │ off                  │
+└──────────────────────────┴──────────────────────┘
+ract> /providers
+                         Providers                          
+┏━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ name  ┃ role    ┃ adapter    ┃ model      ┃ url          ┃
+┡━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ local │ manager │ local_http │ fake-coder │ http://127.0 │
+│       │         │            │            │ .0.1:54830/v │
+│       │         │            │            │ 1            │
+└───────┴─────────┴────────────┴────────────┴──────────────┘
+ract> /session
+ session repl-20261027-025837 (not started)
+ract> /exit

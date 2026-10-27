@@ -1,0 +1,19 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or
+]0;<repo>\.venv\Scripts\ract.exe[?25h[m       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+ract> where is the config loader and who calls it?
+Plan: 1 step, confidence 0.85
+  assumes: The config loader lives in src/app/config.py.
+  1. Explain where the config loader is defined and who
+    calls it
+[step 1] Explain where the config loader is defined and who
+  calls it
+The config loader is `load_config` in src/app/config.py. It reads app.yaml and is called from src/app/main.py at startup.
+[step 1] done (0.0s)
+  Done: 1 step ran; no tests were run.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  2 model requests, 1.0 s, 1068 tokens in / 85 out
+ract> /exit
+[?9001l[?1004l

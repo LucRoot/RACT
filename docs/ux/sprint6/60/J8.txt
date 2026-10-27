@@ -1,0 +1,43 @@
+# J8: Headless use
+# build: "[S6-8] run_baseline: RACT_UX_COLS sets the journey terminal width (80 by default)"  terminal: 80x40 pseudo-terminal  run: 2026-10-27 02:59
+$ ract -p where is the config loader?
+The config loader is `load_config` in src/app/config.py. It reads app.yaml and is called from src/app/main.py at startup.
+RACT session fake-coder via local | default | T3 off
+Plan: 1 step, confidence 0.85
+  assumes: The config loader lives in src/app/config.py.
+  1. Explain where the config loader is defined and who calls it
+[step 1] Explain where the config loader is defined and who calls it
+[step 1] done (0.0s)
+  Done: 1 step ran; no tests were run.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  2 model requests, 0.9 s, 1063 tokens in / 85 out
+[exit 0, 2.74s]
+
+$ ract where is the config loader? --json
+{"schema": "ract.result/1", "outcome": "failed", "exit_code": 1, "session": "h-9cb640eee629", "turns": 1, "verdict": "The turn failed.", "final_text": "", "changed": [], "verification": {"status": "not-run", "runs": [], "claims": []}, "provenance": {"signed": false, "unsigned_files": []}, "cost": {"tokens_in": 913, "tokens_out": 30, "by_purpose": {"plan": 943}, "total_usd": null, "requests": 1, "unreported": 0, "bytes_out": 3715, "bytes_in": 377}, "denials": [], "notices": [], "events_path": null, "plan": []}
+RACT session fake-coder via local | auto-accept | T3 off
+error: Planning failed: Could not parse JSON plan from model response. The response did not contain a usable JSON plan. It began: The config loader is `load_config` in src/app/config.py. It reads app.yaml and is called from src/app/main.py at startup.
+hint: the model's reply was not a plan; try again, or use a model that follows JSON instructions (set it in ract.yaml)
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 0.7 s, 913 tokens in / 30 out
+[exit 1, 2.46s]
+
+$ ract  < stdin
+hint: use ract -p "your request" for a one-off run, or pipe text into ract -p; ract setup creates a config.
+usage: ract [-h] [--config CONFIG] [--dry-run] [--ask]
+            [--mode {default,documentation,git}] [--session SESSION_ID]
+            [--resume] [--force] [--rollback] [--project-doc PROJECT_DOC]
+            [--token-budget N] [--yolo | --auto] [--reload] [--loop]
+            [--max-iterations MAX_ITERATIONS] [--allow-debt]
+            [--allow-load-bearing] [--allow-novelty-overrun] [--version]
+            [--json] [--about] [--init-provider INIT_PROVIDER] [--self-test]
+            [--review-diff REVIEW_DIFF] [--stream] [--welcome]
+            [intent]
+ract: error: intent is required unless --self-test or --review-diff is used
+[exit 2, 1.71s]
+
+

@@ -1,0 +1,50 @@
+# J1: First run in an empty directory, no config
+# build: "[S6-8] run_baseline: RACT_UX_COLS sets the journey terminal width (80 by default)"  terminal: 80x40 pseudo-terminal  run: 2026-10-27 02:54
+## bare `ract` without a terminal
+$ ract 
+[ract] no ract.yaml here. To create one without a terminal: ract setup --answers FILE (template: ract setup --print-defaults)
+hint: use ract -p "your request" for a one-off run, or pipe text into ract -p; ract setup creates a config.
+usage: ract [-h] [--config CONFIG] [--dry-run] [--ask]
+            [--mode {default,documentation,git}] [--session SESSION_ID]
+            [--resume] [--force] [--rollback] [--project-doc PROJECT_DOC]
+            [--token-budget N] [--yolo | --auto] [--reload] [--loop]
+            [--max-iterations MAX_ITERATIONS] [--allow-debt]
+            [--allow-load-bearing] [--allow-novelty-overrun] [--version]
+            [--json] [--about] [--init-provider INIT_PROVIDER] [--self-test]
+            [--review-diff REVIEW_DIFF] [--stream] [--welcome]
+            [intent]
+ract: error: intent is required unless --self-test or --review-diff is used
+[exit 2, 2.00s]
+
+## `ract "explain ..."` without a terminal and without config
+$ ract explain what this folder contains
+ intent: explain what this folder contains
+✗  failed: Configuration file not found: ract.yaml
+hint: run `ract setup` here to create one
+[exit 1, 2.03s]
+
+## interactive session
+No ract.yaml in this directory, so RACT does not know which model to use.
+Set one up now? [Y/n] (n opens the session without one) explain what this folder contains
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 17.2 GB available
+  CPU cores: 12
+  free disk here: 102.1 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  nothing answered
+No server chosen. Use a local model or a cloud provider? [L/c] /help
+  this machine has 63 GB, 17.2 GB free right now
+How many GB of memory should the model use? [38.1] /exit
+Suggested model: Qwen2.5-Coder 32B Instruct (about 19.9 GB): it needs about 23 GB of the 38.1 GB you dedicate.
+  strongest dense model here; slow without a GPU
+  only 17.2 GB is free right now; close other programs before loading it
+Start it with one of these (setup does not download anything):
+  Ollama:     ollama pull qwen2.5-coder:32b   (then Ollama serves it on port 11434)
+  llama.cpp:  llama-server -hf Qwen/Qwen2.5-Coder-32B-Instruct-GGUF:Q4_K_M --port 8080
+  LM Studio:  search for Qwen2.5-Coder 32B Instruct in the app, load it, start the server
+Guidance reviewed 2026-10-22; sizes are approximate.
+Start the server, then press Enter to look again, or type skip to write a config for Ollama's default address now: 

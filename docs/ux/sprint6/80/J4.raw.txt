@@ -1,0 +1,20 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+]0;<repo>\.venv\Scripts\ract.exe[?25h[mRACT session fake-coder via local | master | default | T3 off
+ract> tests/test_calc.py::test_add fails, fix it
+Plan: 1 step, confidence 0.85
+  assumes: The failing test is caused by add() subtracting.
+  1. Fix add() in src/calc.py so it adds -> src/calc.py
+[step 1] Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py?
+[y/N]: /report --last
+[step 1] failed (6.0s)
+error: Approval denied for step 1: Fix add() in src/calc.py so it adds ->
+  src/calc.py
+hint: run `ract doctor --check-providers` to check the setup, then try again
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 8.1 s, 939 tokens in / 52 out
+ract> /exit
+[?9001l[?1004l

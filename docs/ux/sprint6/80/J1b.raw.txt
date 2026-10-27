@@ -1,0 +1,16 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+]0;<repo>\.venv\Scripts\ract.exe[?25h[mRACT session local-model via local | default | T3 off
+ract> explain what this folder contains
+  trying once more in 0.2 s: nothing is answering at http://127.0.0.1:11434/v1
+    (connection refused)
+error: Planning failed: Provider call failed: Request failed: nothing is
+  answering at http://127.0.0.1:11434/v1 (connection refused).
+hint: start your model server, or fix the provider url in ract.yaml; `ract
+  doctor --check-providers` checks it
+file changes are not tracked here (not a git repository)
+  The turn failed.
+  changed: not tracked here (not a git repository)
+  verified: RACT ran no tests this turn
+  2 model requests, 1.8 s, tokens not reported by the provider
+ract> /exit
+[?9001l[?1004l

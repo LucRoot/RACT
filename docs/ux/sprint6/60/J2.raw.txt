@@ -1,0 +1,32 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or
+]0;<repo>\.venv\Scripts\ract.exe[?25h[m       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+ract> /settings
+[38;2;212;175;55m[1m                     Settings                      [m
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃[1m setting                  [22m┃[1m value                [22m┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ config                   │ ract.yaml            │
+│ dry-run                  │ off                  │
+│ stream                   │ off                  │
+│ auto (approve each step) │ on                   │
+│ mode                     │ default              │
+│ iterations (for /loop)   │ 10                   │
+│ session                  │ repl-20261027-025837 │
+│ turns this session       │ 0                    │
+│ reasoning effort         │ off                  │
+└──────────────────────────┴──────────────────────┘
+ract> /providers
+[38;2;212;175;55m[1m                         Providers                          [m
+┏━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃[1m name  [22m┃[1m role    [22m┃[1m adapter    [22m┃[1m model      [22m┃[1m url          [22m┃
+┡━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ local │ manager │ local_http │ fake-coder │ http://127.0 │
+│       │         │            │            │ .0.1:54830/v │
+│       │         │            │            │ 1            │
+└───────┴─────────┴────────────┴────────────┴──────────────┘
+ract> /session
+[38;2;30;144;255m[1m session repl-20261027-025837 (not started)[m
+ract> /exit
+[?9001l[?1004l
