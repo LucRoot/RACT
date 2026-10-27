@@ -175,3 +175,20 @@ def test_a_queued_line_is_held_after_an_interrupt_until_the_operator_types():
     assert session._take_queued() is None
     session._queue_held = False
     assert session._take_queued() == "queued before the stop"
+
+
+def test_red_team_a_turn_starting_while_an_approval_is_open_does_not_answer_it():
+    # A new turn while a question is open must not let the next typed line answer that question.
+    broker, _ = _broker()
+    broker.open_question("approval", "Apply step 1? [y/N]")
+    broker.start_turn()
+    route = broker.feed("y")
+    assert route.kind == "queued"
+
+
+def test_red_team_ending_a_turn_while_an_approval_is_open_does_not_answer_it():
+    broker, _ = _broker()
+    broker.open_question("approval", "Apply step 1? [y/N]")
+    broker.end_turn()
+    route = broker.feed("y")
+    assert route.kind == "prompt"
