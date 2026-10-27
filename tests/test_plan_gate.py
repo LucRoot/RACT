@@ -76,3 +76,30 @@ def test_an_answer_that_is_not_understood_asks_again():
     outcome = resolve_answer(_steps(3), "rm -rf /")
     assert outcome.kind == "ask_again"
     assert outcome.error
+
+
+def test_a_plan_approved_with_the_same_hash_is_not_asked_again_on_resume():
+    from ract.plan_gate import ApprovalMemory
+
+    memory = ApprovalMemory()
+    steps = _steps(3)
+    assert memory.needs_approval(steps, mode="default") is True
+    memory.record(steps)
+    assert memory.needs_approval(steps, mode="default") is False
+
+
+def test_a_changed_plan_asks_again():
+    from ract.plan_gate import ApprovalMemory
+
+    memory = ApprovalMemory()
+    memory.record(_steps(3))
+    assert memory.needs_approval(_steps(3, target="src/other.py"), mode="default") is True
+
+
+def test_the_memory_restores_from_saved_hashes():
+    from ract.plan_gate import ApprovalMemory
+
+    first = ApprovalMemory()
+    first.record(_steps(3))
+    restored = ApprovalMemory(saved=first.hashes())
+    assert restored.needs_approval(_steps(3), mode="default") is False

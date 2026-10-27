@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ract.ui.plan_approval_view import Step, parse_answer
+from ract.ui.plan_approval_view import Step, parse_answer, plan_hash
 
 ASK_MODES = frozenset({"default"})
 
@@ -72,3 +72,25 @@ def resolve_answer(steps: list[Step], line: str) -> Resolution:
         return Resolution("approved", kept=kept, skipped=skipped)
     # edit is a later step of the card; until it is built, an edit asks again
     return Resolution("ask_again", error="edit is not available yet; approve, skip <n> or cancel")
+
+
+class ApprovalMemory:
+    """The plans approved in this session, by plan hash, so a resumed session does not ask twice.
+
+    A changed plan has a new hash and asks again (ADR-0049 D12). ``hashes()`` is saved with the
+    session and passed back as ``saved`` on resume.
+    """
+
+    def __init__(self, saved: list[str] | None = None) -> None:
+        self._approved: set[str] = set(saved or [])
+
+    def needs_approval(self, steps: list[Step], *, mode: str) -> bool:
+        if not approval_needed(steps, mode=mode):
+            return False
+        return plan_hash(steps) not in self._approved
+
+    def record(self, steps: list[Step]) -> None:
+        self._approved.add(plan_hash(steps))
+
+    def hashes(self) -> list[str]:
+        return sorted(self._approved)
