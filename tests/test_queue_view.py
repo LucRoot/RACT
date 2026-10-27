@@ -28,7 +28,10 @@ def _model(*texts: str) -> qv.QueueModel:
 
 def test_lines_keep_their_order_and_ids_never_repeat():
     model = _model("add tests", "update README")
-    assert [(i.id, i.text) for i in model.items] == [(1, "add tests"), (2, "update README")]
+    assert [(i.id, i.text) for i in model.items] == [
+        (1, "add tests"),
+        (2, "update README"),
+    ]
     model, removed = model.drop(1)
     model = model.append("third")
     assert [i.id for i in model.items] == [2, 3]
@@ -52,7 +55,9 @@ def test_the_indicator_says_how_many_are_queued(count, text):
 @pytest.mark.parametrize("width", WIDTHS)
 @pytest.mark.parametrize("rich", [False, True])
 def test_the_list_fits_the_width_and_shows_every_line(width, rich):
-    model = _model("add a greeting to src/calc.py and two tests " * 2, "update README.md")
+    model = _model(
+        "add a greeting to src/calc.py and two tests " * 2, "update README.md"
+    )
     lines = qv.list_lines(model, width, rich=rich)
     plain = [line.replace("[dim]", "").replace("[/dim]", "") for line in lines]
     for line in plain:
@@ -94,8 +99,18 @@ def test_the_module_imports_nothing_from_input_handling_or_events():
         for node in ast.walk(ast.parse(source))
         if isinstance(node, ast.ImportFrom)
     } | {
-        alias.name for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Import) for alias in node.names
+        alias.name
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Import)
+        for alias in node.names
     }
-    for forbidden in ("repl", "session_events", "approval_callback", "input", "readline", "session_render"):
+    for forbidden in (
+        "repl",
+        "session_events",
+        "approval_callback",
+        "input",
+        "readline",
+        "session_render",
+    ):
         assert not any(name.endswith(forbidden) for name in names), names
     assert ".emit(" not in source

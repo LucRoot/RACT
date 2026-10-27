@@ -19,7 +19,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OPTION = re.compile(r"^\s{1,}(-[^\s].*?)\s{2,}(\S.*)$")
-STRIPPED = {"--plain": "plain output: labels, no colour, no boxes", "--no-color": "no colour"}
+STRIPPED = {
+    "--plain": "plain output: labels, no colour, no boxes",
+    "--no-color": "no colour",
+}
 
 
 def _help_text(argv: list[str]) -> str:
@@ -54,9 +57,15 @@ def _options(text: str) -> list[tuple[str, str]]:
             continue
         spec, _, rest = line.strip().partition("  ")
         help_text = rest.strip()
-        if not help_text and index + 1 < len(lines) and lines[index + 1].startswith("      "):
+        if (
+            not help_text
+            and index + 1 < len(lines)
+            and lines[index + 1].startswith("      ")
+        ):
             help_text = lines[index + 1].strip()
-        names = re.findall(r"(--[a-zA-Z][\w-]*)", spec) or re.findall(r"(-[a-zA-Z])", spec)
+        names = re.findall(r"(--[a-zA-Z][\w-]*)", spec) or re.findall(
+            r"(-[a-zA-Z])", spec
+        )
         for name in names:
             rows.append((name, help_text))
     return rows

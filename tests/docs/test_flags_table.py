@@ -64,7 +64,9 @@ def test_every_option_in_the_help_text_is_in_the_table():
         text = flags_table._help_text([verb])
         seen.update(re.findall(r"(--[a-zA-Z][\w-]*)", text))
         for sub in flags_table._subcommands(text):
-            seen.update(re.findall(r"(--[a-zA-Z][\w-]*)", flags_table._help_text([verb, sub])))
+            seen.update(
+                re.findall(r"(--[a-zA-Z][\w-]*)", flags_table._help_text([verb, sub]))
+            )
     missing = sorted(flag for flag in seen - PROSE_ONLY if f"`{flag}`" not in table)
     assert missing == [], missing
 
@@ -75,8 +77,15 @@ def test_a_user_doc_names_only_flags_the_parser_accepts(doc):
     path = ROOT / doc
     if not path.is_file():
         pytest.skip(f"{doc} is not in this tree")
-    named = set(re.findall(r"(?<![\w-])(--[a-z][a-z0-9-]+)", path.read_text(encoding="utf-8", errors="replace")))
-    unknown = sorted(flag for flag in named if flag not in known and flag not in ALLOWLIST)
+    named = set(
+        re.findall(
+            r"(?<![\w-])(--[a-z][a-z0-9-]+)",
+            path.read_text(encoding="utf-8", errors="replace"),
+        )
+    )
+    unknown = sorted(
+        flag for flag in named if flag not in known and flag not in ALLOWLIST
+    )
     assert unknown == [], f"{doc} names flags the parser lacks: {unknown}"
 
 
@@ -85,6 +94,11 @@ def test_the_allowlist_only_names_flags_the_docs_actually_mention():
     for doc in USER_DOCS:
         path = ROOT / doc
         if path.is_file():
-            mentioned.update(re.findall(r"(?<![\w-])(--[a-z][a-z0-9-]+)", path.read_text(encoding="utf-8", errors="replace")))
+            mentioned.update(
+                re.findall(
+                    r"(?<![\w-])(--[a-z][a-z0-9-]+)",
+                    path.read_text(encoding="utf-8", errors="replace"),
+                )
+            )
     stale = sorted(flag for flag in ALLOWLIST if flag not in mentioned)
     assert stale == [], f"allowlist entries no doc names any more: {stale}"

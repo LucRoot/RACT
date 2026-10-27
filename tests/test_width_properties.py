@@ -127,7 +127,11 @@ def test_the_approval_question_folds_wide_text_by_columns(monkeypatch, capsys):
     monkeypatch.setenv("COLUMNS", "40")
     monkeypatch.setattr("builtins.input", lambda prompt="": "n")
     console_approval_callback(
-        Step(action="日本語の変更を追加する", provider_hint="local", expected_artifact="src/日本語のファイル.py")
+        Step(
+            action="日本語の変更を追加する",
+            provider_hint="local",
+            expected_artifact="src/日本語のファイル.py",
+        )
     )
     for line in capsys.readouterr().out.splitlines():
         assert cell_len(line) <= 40, (cell_len(line), line)

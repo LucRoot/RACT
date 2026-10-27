@@ -1,5 +1,5 @@
 [?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
-]0;C:\Users\rootl\AppData\Local\Temp\claude\C--RootClaw\bcb4e856-03f0-4a1e-9a7f-ac2f8955c3ea\scratchpad\coldvenv\Scripts\ract.exe[?25h[mRACT session fake-coder via local | master | default | T3 off
+]0;C:\Users\rootl\AppData\Local\Temp\claude\C--repo-root\bcb4e856-03f0-4a1e-9a7f-ac2f8955c3ea\scratchpad\coldvenv\Scripts\ract.exe[?25h[mRACT session fake-coder via local | master | default | T3 off
 ract> /help
 [38;2;212;175;55m[1m                                  RACT session                                  [m
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓

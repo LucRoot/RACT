@@ -15,7 +15,9 @@ from ract.executor.worktree import take_snapshot
 
 
 def _git(repo: Path, *args: str) -> str:
-    return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True).stdout
+    return subprocess.run(
+        ["git", *args], cwd=repo, capture_output=True, text=True, check=True
+    ).stdout
 
 
 def test_uncommitted_tracked_and_untracked_edits_are_in_the_snapshot(tmp_path):
@@ -24,7 +26,9 @@ def test_uncommitted_tracked_and_untracked_edits_are_in_the_snapshot(tmp_path):
     _git(repo, "init", "-q")
     (repo / "a.txt").write_text("committed\n", encoding="utf-8")
     _git(repo, "add", "a.txt")
-    _git(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base")
+    _git(
+        repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "base"
+    )
     (repo / "a.txt").write_text("uncommitted edit\n", encoding="utf-8")
     (repo / "b.txt").write_text("new, never added\n", encoding="utf-8")
 

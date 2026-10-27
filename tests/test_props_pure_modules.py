@@ -325,7 +325,10 @@ def test_a_five_thousand_line_diff_is_summarized_within_a_time_bound():
     import time
 
     old = "".join(f"line {i} of the file\n" for i in range(5000))
-    new = "".join(f"line {i} of the file, changed\n" if i % 2 else f"line {i} of the file\n" for i in range(5000))
+    new = "".join(
+        f"line {i} of the file, changed\n" if i % 2 else f"line {i} of the file\n"
+        for i in range(5000)
+    )
     start = time.perf_counter()
     diff_render._diff("big.py", old, new, width=80)
     assert time.perf_counter() - start < 1.0

@@ -23,7 +23,7 @@ Read this first. The BUILDER lands one branch in one pass: `work/mason/landing`.
   3. `tests/test_egress_ledger.py::test_cost_in_the_session_shows_only_this_session`: depends on the temp path. Not my lane.
   4. `tests/test_modes.py::test_default_mode_asks_before_the_change_in_a_real_session[y-True]` and `[n-False]`: both assert False. Not my lane.
   5. `tests/test_release_surface.py::test_rebuild_signals_all_green[R10-...]`: README is over 500 words (excluding code blocks).
-  6. `tests/test_release_surface.py::test_no_closed_ip_terms_in_tracked_files`: the term `rootclaw` appears in four tracked files, all mine: `docs/ux/terminal_matrix/conpty_direct_ctrl_c.raw.txt`, `conpty_direct_journey.raw.txt`, `conpty_direct_paste.raw.txt` and `docs/ux/windows_files/results.json`. The hits are machine paths in captures (a rule breach: no machine paths in tracked files). Fix: scrub the paths in those captures.
+  6. `tests/test_release_surface.py::test_no_closed_ip_terms_in_tracked_files`: the machine-path term appeared in four tracked files, all mine (now replaced with a placeholder, package 0 hygiene): `docs/ux/terminal_matrix/conpty_direct_ctrl_c.raw.txt`, `conpty_direct_journey.raw.txt`, `conpty_direct_paste.raw.txt` and `docs/ux/windows_files/results.json`. The hits are machine paths in captures (a rule breach: no machine paths in tracked files). Fix: scrub the paths in those captures.
   7. `tests/unit/test_intent_recompile_cli.py::test_cli_intent_verb_exists`: did not raise `SystemExit`. Not my lane.
 
 ## Operator-directed change: GLM-5.3 preset (supersedes D-036)
@@ -31,7 +31,7 @@ Read this first. The BUILDER lands one branch in one pass: `work/mason/landing`.
 - Commit `56fa5d0` on ux-more (landing tip includes it). The Moonshot preset is removed, because `api.moonshot.cn` is not funded. The `glm` preset uses `https://integrate.api.nvidia.com/v1`, `${NVIDIA_API_KEY}` and `z-ai/glm-5.3`, as the Endpoints Skill names it (the `code` function).
 - **Supersedes D-036** ("Moonshot preset: keep"), by operator direction on 2026-10-26.
 - **Tested column: configuration checked only.** No request has been sent to this endpoint from RACT.
-- K3 (Kimi) reached end of life on 2026-10-15 and is not served on NIM (ENDPOINTS_SKILL.md); no K3 reference remains in RACT.
+- K3 (Kimi) reached end of life on 2026-10-15 and is not served on NIM (the Endpoints Skill); no K3 reference remains in RACT.
 
 ## The commits, in landing order (the 01b3cf0 landing branch, 49 commits)
 
