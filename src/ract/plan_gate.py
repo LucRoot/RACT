@@ -7,7 +7,9 @@ a step with no target is an answer step and writes nothing.
 
 from __future__ import annotations
 
-from ract.ui.plan_approval_view import Step
+from dataclasses import dataclass, field
+
+from ract.ui.plan_approval_view import Step, parse_answer
 
 ASK_MODES = frozenset({"default"})
 
@@ -33,3 +35,40 @@ def headless_refusal(steps: list[Step], *, mode: str) -> str | None:
         "the plan changes files and needs approval, and headless runs cannot ask; "
         "re-run with --accept-edits to run it without asking"
     )
+
+
+@dataclass(frozen=True)
+class Resolution:
+    """What an answer does to the plan: ``approved`` (run ``kept``), ``refused`` (cancel), or ``ask_again``."""
+
+    kind: str
+    kept: list[Step] = field(default_factory=list)
+    skipped: list[Step] = field(default_factory=list)
+    error: str | None = None
+
+
+def resolve_answer(steps: list[Step], line: str) -> Resolution:
+    """Apply one operator answer to the plan (ADR-0049 D12, card B-064a point 2).
+
+    ``approve`` keeps every step. ``skip <n>`` drops step ``n`` and every later step whose file
+    target is the same file (it depends on the skipped step's output). ``cancel`` keeps nothing.
+    An answer that is not understood asks again; nothing is ever run from the text itself.
+    """
+    answer = parse_answer(line, len(steps))
+    if answer.kind == "error":
+        return Resolution("ask_again", error=answer.error)
+    if answer.kind == "approve":
+        return Resolution("approved", kept=list(steps))
+    if answer.kind == "cancel":
+        return Resolution("refused")
+    if answer.kind == "skip":
+        dropped = {answer.n}
+        target = next(step.target for step in steps if step.n == answer.n)
+        for step in steps:
+            if step.n > answer.n and target and step.target == target:
+                dropped.add(step.n)
+        kept = [step for step in steps if step.n not in dropped]
+        skipped = [step for step in steps if step.n in dropped]
+        return Resolution("approved", kept=kept, skipped=skipped)
+    # edit is a later step of the card; until it is built, an edit asks again
+    return Resolution("ask_again", error="edit is not available yet; approve, skip <n> or cancel")

@@ -37,3 +37,42 @@ def test_headless_default_refuses_a_plan_with_file_changes_and_names_the_flag():
     assert sentence is not None and "--accept-edits" in sentence
     assert headless_refusal(_steps(2), mode="accept-edits") is None
     assert headless_refusal(_steps(3, target=""), mode="default") is None
+
+
+def test_an_approve_answer_keeps_every_step():
+    from ract.plan_gate import resolve_answer
+
+    outcome = resolve_answer(_steps(3), "approve")
+    assert outcome.kind == "approved"
+    assert [s.n for s in outcome.kept] == [1, 2, 3]
+    assert outcome.skipped == []
+
+
+def test_skip_drops_the_step_and_the_later_steps_that_depend_on_its_file():
+    from ract.plan_gate import resolve_answer
+
+    steps = [
+        Step(n=1, action="a", target="src/a.py"),
+        Step(n=2, action="b", target="src/b.py"),
+        Step(n=3, action="c", target="src/b.py"),
+    ]
+    outcome = resolve_answer(steps, "skip 2")
+    assert outcome.kind == "approved"
+    assert [s.n for s in outcome.kept] == [1]
+    assert [s.n for s in outcome.skipped] == [2, 3]
+
+
+def test_cancel_keeps_nothing_and_refuses_the_turn():
+    from ract.plan_gate import resolve_answer
+
+    outcome = resolve_answer(_steps(3), "cancel")
+    assert outcome.kind == "refused"
+    assert outcome.kept == []
+
+
+def test_an_answer_that_is_not_understood_asks_again():
+    from ract.plan_gate import resolve_answer
+
+    outcome = resolve_answer(_steps(3), "rm -rf /")
+    assert outcome.kind == "ask_again"
+    assert outcome.error
