@@ -107,19 +107,7 @@ memory-module surface check plus the closed-IP wordlist gate. See
 `CHANGELOG.md` `[0.5.0]` for the exhaustive change list and
 `docs/ROADMAP.md` for v0.6 hardening backlog (deferred polish).
 
-## What v0.4.1 changes
-
-v0.4.1 is the Intent-Fidelity patch release. No new features and no
-breaking changes. The pipeline
-(`_BUILD/ract_v0.4.1_intent_fidelity/`) walked seven prior eras (v0.1.x,
-v0.2.0, v0.3.0, v0.4.0 SUBSTRATE, v0.4.0 ALM, v0.4.0-rc1 audits,
-restoration clusters 1+2) and verified each era's stated intent still
-holds as actual tree behavior. Drift became fix commits with regression
-tests; unresolvable drift became a `docs/ROADMAP.md` entry.
-
-Verify: `pytest -q tests/test_release_surface.py` runs the 43-signal
-sweep (11 REBUILD + 16 SUBSTRATE + 16 ALM) plus per-module attestations
-plus the closed-IP wordlist gate. See `CHANGELOG.md` `[0.4.1]`.
+Earlier releases: see [CHANGELOG.md](CHANGELOG.md).
 
 ## What v0.4.0 landed
 
@@ -188,6 +176,8 @@ ract run "refactor the greeting module" --config ract.yaml --loop --max-iteratio
 ```
 
 Indexes need `RACT_EMBED_MODEL_ROOT` or `RACT_EMBED_ONLINE=1`.
+
+Novelty budget and memory index notes: [docs/NOVELTY_AND_MEMORY.md](docs/NOVELTY_AND_MEMORY.md).
 
 ### Headless (scripts and CI)
 
