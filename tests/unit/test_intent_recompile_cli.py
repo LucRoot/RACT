@@ -171,13 +171,13 @@ def test_cli_intent_verb_exists() -> None:
     """`ract intent -h` must exit cleanly (verb is wired)."""
     stderr = io.StringIO()
     stdout = io.StringIO()
-    with (
-        redirect_stdout(stdout),
-        redirect_stderr(stderr),
-        pytest.raises(SystemExit) as exc,
-    ):
-        cli_main(["intent", "-h"])
-    assert exc.value.code == 0
+    # UX package S: the verb help is printed and main() returns 0 (no SystemExit). Both are a clean exit.
+    with redirect_stdout(stdout), redirect_stderr(stderr):
+        try:
+            code = cli_main(["intent", "-h"])
+        except SystemExit as exc:
+            code = exc.code
+    assert code == 0
 
 
 def test_cli_intent_recompile_success(run_tree: dict[str, Path]) -> None:
