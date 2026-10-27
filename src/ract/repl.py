@@ -199,6 +199,7 @@ class ReplSession:
             "cost": self._cmd_cost,
             "mode": self._cmd_mode,
             "permissions": self._cmd_permissions,
+            "queue": self._cmd_queue,
             "undo": self._cmd_undo,
             "redo": self._cmd_redo,
             "clear": self._cmd_clear,
@@ -410,6 +411,32 @@ class ReplSession:
         if self.state.dry_run:
             return "plan"
         return "default" if self.state.auto else "auto-accept"
+
+    def _cmd_queue(self, args: list[str]) -> bool:
+        """``/queue`` lists the lines typed during a turn; ``/queue drop <n>`` withdraws one (package 6)."""
+        from ract.ui import queue_view as qv
+
+        width = terminal_width()
+        model = self._broker.queue.model if self._broker is not None else qv.QueueModel()
+        if not args:
+            for line in qv.list_lines(model, width):
+                self._console.print(escape(line))
+            return True
+        if args[0] != "drop":
+            self._print_wrapped("usage: /queue, or /queue drop <n>")
+            return True
+        argument = " ".join(args[1:])
+        text = argument.strip()
+        if self._broker is None or not text.isdigit() or not 1 <= int(text) <= len(model.items):
+            _, lines = qv.drop_message(model, argument, width)
+            for line in lines:
+                self._console.print(escape(line))
+            return True
+        position = int(text)
+        removed = model.items[position - 1]
+        self._broker.queue.cancel(position)
+        self._print_wrapped(f"dropped {removed.id}: {removed.text}")
+        return True
 
     def _cmd_permissions(self, args: list[str]) -> bool:
         """What RACT may change or send, in one screen (standard 13)."""

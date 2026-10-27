@@ -132,3 +132,32 @@ def test_the_repl_takes_a_queued_line_before_it_reads_the_console():
     assert session._take_queued() is None
     session._broker = None
     assert session._take_queued() is None
+
+
+class _Console:
+    def __init__(self) -> None:
+        self.lines: list[str] = []
+
+    def print(self, text="", **_):
+        self.lines.append(str(text))
+
+
+def test_the_queue_command_lists_and_drops_the_queued_lines():
+    from ract.repl import ReplSession
+
+    broker, events = _broker()
+    broker.start_turn()
+    broker.feed("first line")
+    broker.feed("second line")
+    console = _Console()
+    session = ReplSession.__new__(ReplSession)
+    session._broker = broker
+    session._console = console
+    session._cmd_queue([])
+    assert any("first line" in line for line in console.lines)
+    assert any("second line" in line for line in console.lines)
+    console.lines.clear()
+    session._cmd_queue(["drop", "1"])
+    assert broker.queue.items() == ["second line"]
+    assert ("input.withdrawn", {"position": 1}) in events
+    assert any("second line" in line or "dropped" in line.lower() for line in console.lines)
