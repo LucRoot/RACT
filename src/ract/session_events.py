@@ -56,6 +56,8 @@ KINDS: frozenset[str] = frozenset(
         "change.applied",
         "approval.requested",
         "approval.resolved",
+        "plan.approval_requested",
+        "plan.approval_answered",
         "cost.updated",
         "error.surfaced",
         "notice",
