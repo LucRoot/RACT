@@ -2,7 +2,7 @@
 
 J3 (ask about the code, read-only) and J4 (fix the failing test) wait for the
 read-only tool loop and the verifier (B-010a, gated). J5 needs the rewind (B-014c).
-J7 (resume) and J9 (weak model) are the second batch of B-074.
+J7 (resume) and J9 (weak model) run in tests/journeys/test_j7_resume.py and test_j9_weak_model.py.
 """
 
 from __future__ import annotations
