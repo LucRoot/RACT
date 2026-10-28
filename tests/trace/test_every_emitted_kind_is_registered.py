@@ -23,7 +23,14 @@ EMIT_NAMES = {"emit", "_emit", "emit_event", "_emit_event", "_emit_step_event"}
 # separate registry from the trace. Their kinds are checked against
 # ``ract.session_events.KINDS`` instead; the ``report`` calls of the turn
 # context feed the same stream.
-SESSION_MODULES = {"session_events.py", "session_turn.py", "repl.py", "headless.py", "input_broker.py"}
+SESSION_MODULES = {
+    "session_events.py",
+    "session_turn.py",
+    "repl.py",
+    "headless.py",
+    "input_broker.py",
+    "plan_gate.py",
+}
 
 
 def _call_name(node: ast.Call) -> str:
