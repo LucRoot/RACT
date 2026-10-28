@@ -160,7 +160,9 @@ def test_the_queue_command_lists_and_drops_the_queued_lines():
     session._cmd_queue(["drop", "1"])
     assert broker.queue.items() == ["second line"]
     assert ("input.withdrawn", {"position": 1}) in events
-    assert any("second line" in line or "dropped" in line.lower() for line in console.lines)
+    assert any(
+        "second line" in line or "dropped" in line.lower() for line in console.lines
+    )
 
 
 def test_a_queued_line_is_held_after_an_interrupt_until_the_operator_types():
@@ -192,3 +194,53 @@ def test_red_team_ending_a_turn_while_an_approval_is_open_does_not_answer_it():
     broker.end_turn()
     route = broker.feed("y")
     assert route.kind == "prompt"
+
+
+def test_the_console_reader_reads_no_key_while_an_approval_question_is_open():
+    # BUILDER review of B-033s: the approval prompt reads its answer with input().
+    # Type-ahead polls the same console; while the question is open it must not take
+    # the keys, or the answer "y" is queued as a new request and input() waits on.
+    from ract.input_broker import ConsoleLineSource
+
+    keys = list("y\r")
+    taken: list[str] = []
+
+    def getwch() -> str:
+        taken.append(keys.pop(0))
+        return taken[-1]
+
+    open_question = [True]
+    source = ConsoleLineSource(
+        lambda: bool(keys), getwch, paused=lambda: open_question[0]
+    )
+    assert source.poll() is None
+    assert taken == []
+    open_question[0] = False
+    assert source.poll() == "y"
+
+
+def test_type_ahead_in_the_repl_pauses_on_the_approval_question(monkeypatch):
+    import os
+    import sys
+
+    import pytest
+
+    if os.name != "nt":
+        pytest.skip("type-ahead reads the Windows console")
+    import msvcrt
+
+    from ract import question_gate
+    from ract.repl import ReplSession
+
+    monkeypatch.setenv("RACT_TYPE_AHEAD", "1")
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True, raising=False)
+    monkeypatch.setattr(msvcrt, "kbhit", lambda: False)
+    session = ReplSession.__new__(ReplSession)
+    session._events = None
+    ahead = session._start_type_ahead(1)
+    try:
+        assert ahead is not None
+        assert ahead._source._paused is question_gate.question_open
+    finally:
+        ahead.stop()
+        ahead.join(timeout=1)

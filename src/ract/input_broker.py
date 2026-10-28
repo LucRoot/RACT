@@ -114,6 +114,10 @@ class ConsoleLineSource:
     ``kbhit`` says whether a key is waiting and ``getwch`` returns it (msvcrt on Windows, injected
     in tests). ``poll()`` reads at most the waiting keys and returns a line when Enter arrives, or
     None. Ctrl-C sets ``stopped`` and returns no line.
+
+    While ``paused()`` is true it reads no key at all: an approval question reads its answer from
+    the same console with ``input()``, and a key taken here would be queued as a new request
+    instead of answering (BUILDER review of B-033s).
     """
 
     _ENTER = (chr(13), chr(10))
@@ -125,15 +129,17 @@ class ConsoleLineSource:
         kbhit: Callable[[], bool],
         getwch: Callable[[], str],
         on_ctrl_c: Callable[[], None] | None = None,
+        paused: Callable[[], bool] | None = None,
     ) -> None:
         self._kbhit = kbhit
         self._getwch = getwch
         self._on_ctrl_c = on_ctrl_c
+        self._paused = paused if paused is not None else (lambda: False)
         self._chars: list[str] = []
         self.stopped = False
 
     def poll(self) -> str | None:
-        while not self.stopped and self._kbhit():
+        while not self.stopped and not self._paused() and self._kbhit():
             key = self._getwch()
             if key == self._CTRL_C:
                 self.stopped = True
@@ -159,7 +165,9 @@ class TypeAhead(threading.Thread):
     so it never blocks on the console.
     """
 
-    def __init__(self, broker: InputBroker, source: Any, interval: float = 0.05) -> None:
+    def __init__(
+        self, broker: InputBroker, source: Any, interval: float = 0.05
+    ) -> None:
         super().__init__(name="ract-type-ahead", daemon=True)
         self._broker = broker
         self._source = source

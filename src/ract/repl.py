@@ -241,7 +241,9 @@ class ReplSession:
                 try:
                     # A line queued during the last turn runs next (package 6), before any typed line.
                     queued = self._take_queued()
-                    line = queued if queued is not None else self._read_line(self.prompt())
+                    line = (
+                        queued if queued is not None else self._read_line(self.prompt())
+                    )
                     self._queue_held = False
                 except EOFError:
                     self._console.print("")
@@ -421,7 +423,9 @@ class ReplSession:
         from ract.ui import queue_view as qv
 
         width = terminal_width()
-        model = self._broker.queue.model if self._broker is not None else qv.QueueModel()
+        model = (
+            self._broker.queue.model if self._broker is not None else qv.QueueModel()
+        )
         if not args:
             for line in qv.list_lines(model, width):
                 self._console.print(escape(line))
@@ -431,7 +435,11 @@ class ReplSession:
             return True
         argument = " ".join(args[1:])
         text = argument.strip()
-        if self._broker is None or not text.isdigit() or not 1 <= int(text) <= len(model.items):
+        if (
+            self._broker is None
+            or not text.isdigit()
+            or not 1 <= int(text) <= len(model.items)
+        ):
             _, lines = qv.drop_message(model, argument, width)
             for line in lines:
                 self._console.print(escape(line))
@@ -984,7 +992,11 @@ class ReplSession:
         queued and shown (input.queued); a queued line is not yet sent to the model (see
         docs/review/B-033s.md).
         """
-        if os.environ.get("RACT_TYPE_AHEAD") != "1" or os.name != "nt" or not sys.stdin.isatty():
+        if (
+            os.environ.get("RACT_TYPE_AHEAD") != "1"
+            or os.name != "nt"
+            or not sys.stdin.isatty()
+        ):
             return None
         import msvcrt
 
@@ -997,8 +1009,16 @@ class ReplSession:
         broker = InputBroker(emit=emit)
         broker.start_turn()
         self._broker = broker
+        from ract import question_gate
+
         # The reader reads every key, so Ctrl-C is handed to the main thread as an interrupt.
-        source = ConsoleLineSource(msvcrt.kbhit, msvcrt.getwch, on_ctrl_c=_thread.interrupt_main)
+        # While an approval question is open its input() owns the console: no key is read here.
+        source = ConsoleLineSource(
+            msvcrt.kbhit,
+            msvcrt.getwch,
+            on_ctrl_c=_thread.interrupt_main,
+            paused=question_gate.question_open,
+        )
         ahead = TypeAhead(broker, source)
         ahead.start()
         return ahead
