@@ -106,12 +106,12 @@ def test_the_provenance_warning_prints_once_per_session():
     assert text.count("provenance: 1 file(s)") == 1
 
 
-def test_the_session_line_reads_a_question_mark_as_no_model_set():
-    # D11, re-run: the REPL reports "?" in the event when no config names a model.
+def test_the_session_line_reads_a_null_model_as_no_model_set():
+    # D11, handoff 9 (package 5): the REPL sends null when no config names a model or provider.
     line = next(
         ln
         for ln in _render(
-            ("session.started", {"model": "?", "provider": "?"})
+            ("session.started", {"model": None, "provider": None})
         ).splitlines()
         if ln.startswith("RACT session")
     )

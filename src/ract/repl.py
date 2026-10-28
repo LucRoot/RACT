@@ -873,7 +873,8 @@ class ReplSession:
     def _session_facts(self) -> dict[str, Any]:
         from ract.executor.worktree import current_branch
 
-        model, provider = "?", "?"
+        # Package 5 (handoff 9): None, not "?", when no config names a value.
+        model, provider = None, None
         try:
             import yaml
 
@@ -882,8 +883,9 @@ class ReplSession:
             from ract.config_check import resolve_manager_provider
 
             resolved, _ = resolve_manager_provider(config)
-            provider = resolved or "?"
-            model = str((providers.get(provider) or {}).get("model", "?"))
+            provider = resolved or None
+            model = (providers.get(provider) or {}).get("model") if provider else None
+            model = None if model is None else str(model)
         except Exception:  # noqa: BLE001 -- the banner already reports config problems
             pass
         return {

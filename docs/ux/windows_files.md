@@ -24,7 +24,7 @@ would go are given.
 | File with a byte order mark | 0 | `changed: src/bom.py (+1 -2)` | BOM dropped; the step's content replaced the file | HANDOFF: decide whether to keep it (see H3) |
 | Read-only file (`attrib +R`) | 1 | `[step 1] done src/calc.py`, then `left these paths as they are: src/calc.py (could not change it: Permission denied)`; `no files were changed` | Unchanged | HANDOFF: "done" printed before the error (see H4) |
 | File locked by another process | 1 | hint `close it and run the intent again`; **also a Python traceback on stderr** (headless `-p` path) | Unchanged | FIXED for the REPL and the hint; HANDOFF for the headless traceback (H7) |
-| Name differing only in case (`README.md`) | 0 | `changed: Readme.md (+1 -1)` | The file on disk stays `README.md`; the report names `Readme.md` | HANDOFF: the report names the planned case (see H5) |
+| Name differing only in case (`README.md`) | 0 | `changed: Readme.md (+1 -1)` | The case harness creates `Readme.md` on disk first; the write goes to that file, and the report names the disk spelling (correct) | Verdict corrected in package 5: see H5 |
 | Junction into another folder | 3 | `path refused: 'linkdir' is a symlink or junction`; hint names the step | Nothing written | OK |
 | Symlink file | 0 | `changed: linkfile.txt (new, 1 line)` | Written as a regular file next to the link target | OK (the file is new, not through the link) |
 
@@ -72,10 +72,14 @@ The locked-file error raised `WorktreeError` (`src/ract/executor/worktree.py:740
   printed (`steps.py:1136`) before the substrate reports the skipped path
   (`src/ract/executor/substrate_adapter.py:455`). Fix: report the step after the apply
   result is known, so a skipped path prints as skipped.
-- **H5. Case-variant report names the planned case.** The changed-files line is built from
-  the plan's name, not the path on disk. The source of the name is in `steps.py` near
-  line 1136 (`expected_artifact`). Fix: report the name the file system returns
-  (`os.scandir` or `Path.resolve` case on Windows) when it differs.
+- **H5 (corrected in package 5). The changed-files line was right; the step lines use the planned spelling.**
+  The harness creates `Readme.md` before the plan writes `README.md`, so the disk holds `Readme.md` and
+  the report named it correctly. The wording that remains inconsistent: the step line says
+  `done README.md` and `unsigned_files` lists `README.md`, while `changed` lists `Readme.md`. The
+  source of the planned spelling is `src/ract/manager.py` (`_artifact_name`, the step's
+  `expected_artifact`), and `src/ract/executor/steps.py` (the `done` line). Package 5 makes `changed`
+  report the disk spelling (`src/ract/session_turn.py`, `_on_disk_name`). Handoff for the step and
+  provenance lines (senior).
 - **H6. Snapshot failure is raised from `take_snapshot`.** `src/ract/executor/worktree.py:740`
   raises `WorktreeError` for an unreadable file, and `substrate_adapter.py:253` calls it
   without a guard. The lane now handles the message, but the step should fail as `failed`

@@ -151,13 +151,9 @@ class PlainRenderer:
             handler(event.data)
 
     def _on_session_started(self, d: dict[str, Any]) -> None:
-        # "?" is the event's placeholder for a value no config named (D11).
-        model = d.get("model") if d.get("model") not in (None, "", "?") else "no model"
-        provider = (
-            d.get("provider")
-            if d.get("provider") not in (None, "", "?")
-            else "no provider"
-        )
+        # None is the event's value for a model or provider no config named (D11).
+        model = d.get("model") or "no model"
+        provider = d.get("provider") or "no provider"
         branch = f" | {d['branch']}" if d.get("branch") else ""
         self._line(
             f"RACT session {model} via {provider}{branch} | {d.get('mode', 'default')} | T3 {d.get('tier3', 'off')}"
