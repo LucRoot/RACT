@@ -128,6 +128,9 @@ class Executor:
     # ran in its worktree. While set, a finished step is held and reported by
     # release_held_step once the apply result is known.
     hold_step_report: bool = False
+    # B-011a: the budgets of the read-only tools loop for answer steps, set by
+    # the harness from ract.yaml (``agent``); None keeps the single completion.
+    read_tools: Any = None
 
     def __init__(
         self,
@@ -1025,6 +1028,15 @@ class Executor:
         temperature = self.temperature_router.for_action(step.action)
         errors: list[str] = []
         hints: list[str] = []
+        if (
+            self.read_tools is not None
+            and self.project_dir is not None
+            and not step.expected_artifact
+            and step.tool_call is None
+        ):
+            return self._answer_with_read_tools(
+                candidates, user_content, index, temperature, stream_callback
+            )
         for adapter in candidates:
             if turn_context.cancelled():
                 break  # an interrupted turn tries no further provider
@@ -1070,6 +1082,82 @@ class Executor:
         return Rooted(
             value=None,
             assumption=f"At least one provider executes step {index} successfully.",
+            confidence=0.0,
+            provenance=[f"executor.step:{index}"],
+            error="; ".join(errors) if errors else "All providers failed.",
+            hint=final_hint,
+        )
+
+    def _answer_with_read_tools(
+        self,
+        candidates: list[ProviderAdapter],
+        question: str,
+        index: int,
+        temperature: float,
+        stream_callback: Callable[[str], None] | None,
+    ) -> Rooted[tuple[dict[str, Any], str, dict[str, Any]]]:
+        """An answer step that may read the project with the tier-0 tools (B-011a).
+
+        LR:: Each provider is tried in turn, as for a single completion; a
+        provider failure moves to the next one. A refusal of the loop itself
+        (a budget, a plan instead of an answer) ends the step with its hint.
+        The answer reaches the session through ``stream_callback`` once.
+        """
+        from ract.tools.loop import answer_with_tools
+
+        errors: list[str] = []
+        hints: list[str] = []
+        for adapter in candidates:
+            if turn_context.cancelled():
+                break
+
+            def complete(messages, _adapter=adapter):
+                return _adapter.complete(
+                    messages, max_tokens=1024, temperature=temperature
+                )
+
+            try:
+                answered = answer_with_tools(
+                    complete,
+                    question,
+                    self.project_dir,
+                    budgets=self.read_tools,
+                    max_tokens=1024,
+                )
+            except Exception as exc:  # noqa: BLE001
+                info = classify_error(exc)
+                errors.append(f"{adapter.name}: {info.category} {info.message}")
+                hints.append(info.category)
+                continue
+            if answered.is_ok():
+                answer = answered.unwrap()
+                if stream_callback is not None:
+                    stream_callback(answer)
+                raw = {"choices": [{"message": {"content": answer}}]}
+                return Rooted(
+                    value=(raw, answer, {}),
+                    assumption=f"Provider '{adapter.name}' answered step {index}.",
+                    confidence=1.0,
+                    provenance=[f"executor.step:{index}", f"provider:{adapter.name}"],
+                )
+            if answered.hint in {"provider", "connection", "timeout", "rate_limit"}:
+                errors.append(f"{adapter.name}: {answered.error}")
+                hints.append(answered.hint)
+                continue
+            return Rooted(
+                value=None,
+                assumption=f"Step {self._shown(index)} is answered.",
+                confidence=0.0,
+                provenance=[f"executor.step:{index}", "tools.loop"],
+                error=answered.error,
+                hint=answered.hint,
+            )
+        final_hint = (
+            hints[0] if hints and all(h == hints[0] for h in hints) else "provider"
+        )
+        return Rooted(
+            value=None,
+            assumption=f"At least one provider answers step {index}.",
             confidence=0.0,
             provenance=[f"executor.step:{index}"],
             error="; ".join(errors) if errors else "All providers failed.",

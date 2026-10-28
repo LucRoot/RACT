@@ -375,6 +375,9 @@ class Harness:
             compression_novelty_detector=self.compression_novelty_detector,
             handshake_registry=self.handshake_registry,
         )
+        # B-011a (decision C, D-050): answer steps may read the project with
+        # the tier-0 tools, within the budgets in ract.yaml (``agent``).
+        self.executor.read_tools = _read_tools_budgets(self.config)
         # v0.5.1 wiring module_03 (Lens C C-01) production wire-in.
         # Construct a lightweight SubstrateLoop bound to the project
         # dir and install it on the Executor. This makes every MCP
@@ -1107,6 +1110,32 @@ def _approved_plan_callback(
         return base(step)
 
     return callback
+
+
+def _read_tools_budgets(config: dict[str, Any]) -> Any:
+    """The read-tools loop budgets from ``agent`` in ract.yaml, or None when off.
+
+    ``agent.read_tools: false`` keeps the single completion for answer steps.
+    A budget that is not a positive number keeps its default (ADR-0047 D5).
+    """
+    from ract.tools.loop import LoopBudgets
+
+    agent = config.get("agent") if isinstance(config.get("agent"), dict) else {}
+    if agent.get("read_tools") is False:
+        return None
+    defaults = LoopBudgets()
+
+    def number(key: str, default: float) -> float:
+        value = agent.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+            return default
+        return value
+
+    return LoopBudgets(
+        max_turns=int(number("max_turns", defaults.max_turns)),
+        max_tool_calls=int(number("max_tool_calls", defaults.max_tool_calls)),
+        max_wall_seconds=float(number("max_wall_seconds", defaults.max_wall_seconds)),
+    )
 
 
 # RACT 0.1.1 - Trust and tooling
