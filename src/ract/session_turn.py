@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ract import egress_ledger, turn_context, turn_summary, undo_backup
+from ract import egress_ledger, plan_gate, turn_context, turn_summary, undo_backup
 from ract.executor.worktree import working_tree_status
 from ract.session_events import EventStream, Heartbeat, TextWriter, plan_event_data
 from ract.verification import VerificationRecord
@@ -451,6 +451,13 @@ def run_turn(
             },
             turn=turn,
         )
+
+    if error_text.startswith(plan_gate.CANCELLED):
+        # The operator cancelled the plan (ADR-0049 D12): nothing ran, which
+        # is the outcome they chose, so the turn is refused with exit 0.
+        stream.emit("notice", {"level": "info", "text": error_text}, turn=turn)
+        finished("refused", "You cancelled the plan; nothing was run.", [])
+        return 0
 
     if error_text:
         stream.error(

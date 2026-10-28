@@ -162,9 +162,6 @@ def test_ract_auction_reports_zero_dead_modules():
     # which the auction does not follow. (queue_view.py and plan_approval_view.py had entries too; on the
     # merged tree the REPL and plan_gate import them, so the entries are gone, as ruling 19 says.)
     allowlist.add("cli_examples.py")
-    # S6-I (merged tip): plan_gate.py is the package 2 decision module (ADR-0049 D12). Its executor and REPL
-    # wiring is not built yet (docs/review/B-064a.md), so the auction sees no production reference.
-    allowlist.add("plan_gate.py")
     allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped

@@ -26,6 +26,7 @@ from ract.artifact_tracker import ArtifactTracker, TrackedArtifact
 from ract import (
     egress_ledger,
     egress_scan,
+    plan_gate,
     run_checkpoint,
     turn_context,
     undo_backup,
@@ -1130,6 +1131,24 @@ class Executor:
         """
         return index + int(getattr(self, "step_number_offset", 0))
 
+    def report_skipped(self, n: int, step: Step) -> None:
+        """Report step *n* as skipped by the operator at plan approval (D12).
+
+        The run checkpoint records it too, so a resumed run does not run it.
+        """
+        run_checkpoint.step_finished(n)
+        turn_context.report(
+            "step.finished",
+            {
+                "n": n,
+                "outcome": "skipped",
+                "artifact": None,
+                "confidence": None,
+                "duration_ms": 0,
+                "hint": plan_gate.SKIPPED_BY_YOU,
+            },
+        )
+
     def _step_started(self, index: int, step: Step) -> None:
         n = self._shown(index)
         # D13: the run's checkpoint names the step before it touches a file.
@@ -1216,6 +1235,9 @@ class Executor:
         for index, step in enumerate(plan.steps, start=1):
             if run_checkpoint.already_finished(self._shown(index)):
                 continue  # done before the run was interrupted (D13)
+            if plan_gate.is_skipped(self._shown(index)):
+                self.report_skipped(self._shown(index), step)
+                continue
             self._step_started(index, step)
             if turn_context.cancelled():
                 return Rooted(

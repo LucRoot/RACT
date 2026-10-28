@@ -15,7 +15,9 @@ from ract.manager import Plan, Step
 from ract.memory_arena import MemoryArena
 from ract.approval_callback import (
     console_approval_callback,
+    console_plan_approval,
     refuse_changes_callback,
+    refuse_plan_needing_approval,
     yolo_approval_callback,
 )
 from ract.plan_validator import PlanValidator
@@ -563,11 +565,16 @@ def _run_ract(
         return result
 
     approval_callback: Callable[[Step], bool] | None = None
+    # Plan approval (ADR-0049 D12): `default` mode asks once for a plan of two
+    # or more steps that changes a file; with nobody to ask, it is refused.
+    plan_approval: Callable[[Plan], Any] | None = None
     if refuse_changes:
         # `default` mode with nobody to ask (B-034): answers only.
         approval_callback = refuse_changes_callback
+        plan_approval = refuse_plan_needing_approval
     elif auto:
         approval_callback = console_approval_callback
+        plan_approval = console_plan_approval
     elif yolo:
         approval_callback = yolo_approval_callback
 
@@ -595,6 +602,7 @@ def _run_ract(
                 stream_callback=stream_callback,
                 ask=ask,
                 plan_override=plan,
+                plan_approval=plan_approval,
             ),
         )
 

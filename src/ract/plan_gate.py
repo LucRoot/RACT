@@ -7,11 +7,39 @@ a step with no target is an answer step and writes nothing.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 
 from ract.ui.plan_approval_view import Step, parse_answer, plan_hash
 
 ASK_MODES = frozenset({"default"})
+
+# The error of a run whose plan the operator cancelled. A session ends that turn
+# with the outcome ``refused`` and exit 0 (D12); nothing ran.
+CANCELLED = "Plan cancelled: nothing was run and no file changed."
+# How a step the operator skipped is reported in its ``step.finished`` (D12).
+SKIPPED_BY_YOU = "skipped by you"
+
+_skipped: ContextVar[frozenset[int]] = ContextVar(
+    "ract_plan_skipped", default=frozenset()
+)
+
+
+@contextmanager
+def skipping(numbers: frozenset[int]) -> Iterator[None]:
+    """The step numbers the operator skipped, for the steps of this run."""
+    token = _skipped.set(numbers)
+    try:
+        yield
+    finally:
+        _skipped.reset(token)
+
+
+def is_skipped(n: int) -> bool:
+    """True when the operator skipped step *n* of the plan that is running."""
+    return n in _skipped.get()
 
 
 def _changes_files(steps: list[Step]) -> bool:

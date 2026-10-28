@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 
 from collections.abc import Callable
+from typing import Any
 
 from ract.execution_report_diff_extension import DiffExtension
 from ract.executor import ExecutionReport
@@ -28,6 +29,7 @@ def enrich_harness_run(
     stream_callback: Callable[[str], None] | None = None,
     ask: bool = False,
     plan_override: Plan | None = None,
+    plan_approval: Callable[[Plan], Any] | None = None,
 ) -> Rooted[ExecutionReport]:
     """
     Run the harness with the given intent and attach a diff summary.
@@ -51,6 +53,7 @@ def enrich_harness_run(
             stream_callback=stream_callback,
             ask=ask,
             plan_override=plan_override,
+            plan_approval=plan_approval,
         )
     except Exception as exc:
         # Package 5 (handoff 7): one line on stderr; the traceback goes to debug level.

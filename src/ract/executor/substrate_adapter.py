@@ -48,7 +48,7 @@ from ract.core.module_identity import _module_knot, register_module_knot
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
 
-from ract import run_checkpoint, turn_context
+from ract import plan_gate, run_checkpoint, turn_context
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.predicate import PredicateResult
 from ract.core.transaction import ResourceBudget, TransactionOutcome
@@ -350,6 +350,9 @@ def _run_via_substrate_steps(
     for index, step in enumerate(plan.steps):
         if run_checkpoint.already_finished(index + 1):
             continue  # done before the run was interrupted (D13)
+        if plan_gate.is_skipped(index + 1):
+            harness.executor.report_skipped(index + 1, step)
+            continue
         if turn_context.cancelled():
             # Checked before the step's worktree and branch exist, so an
             # interrupted turn leaves no step branch behind (G-027).

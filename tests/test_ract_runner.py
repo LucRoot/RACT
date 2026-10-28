@@ -113,6 +113,8 @@ def test_run_ract_execution_success(tmp_path: Path) -> None:
         ask=False,
         # No run id, so no checkpoint and no stored plan (D13).
         plan_override=None,
+        # Neither auto nor refuse_changes: no plan approval (D12).
+        plan_approval=None,
     )
 
 

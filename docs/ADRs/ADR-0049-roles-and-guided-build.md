@@ -276,7 +276,7 @@ with a plain message; untrusted, it is not loaded and `ract trust --list`
 shows it; trusted and then changed by one byte, it is untrusted again; an
 edited built-in role fails the source digest test.
 
-### D12. Plan approval (B-064a; the code waits for decision O)
+### D12. Plan approval (B-064a; decision O is yes, D-051)
 
 The user sees the whole plan once and decides before any step runs. This
 section is designed to the recommendation for decision O; the end of the
@@ -506,8 +506,8 @@ calls that send diffs to a second provider, and anything at tier 2 or 3.
 | `read_slice` (D9) | B-010a (the read-only slice's tools) | after B-010a |
 | The loop-limit stop (D10) | the loop runner and the VERIFIER record | ungated design; code with the loop |
 | Repository roles (D11) | S-025 trust store; the role loader | rules accepted first; loader after |
-| Plan approval (D12) | decision O (the default); B-053a checklist renderer | design settled; code waits for O |
-| Step checkpoints and resume (D13) | nothing gated; undo helpers (S-028) and the D12 plan hash | ungated; BUILDER code next |
+| Plan approval (D12) | decision O: yes (D-051); B-053a checklist renderer | approve, skip, cancel, the two events and the headless refusal are wired; `edit` is not built yet (it asks again) |
+| Step checkpoints and resume (D13) | nothing gated; undo helpers (S-028) and the D12 plan hash | built (B-070) |
 | VERIFIER result type (D3, D4) | the existing coverage and mutation gates | ungated |
 | VERIFIER running tests, lint, type checks | ADR-0048 D5 `run_command` and tier 3 | gated |
 | EDITOR | ADR-0047 D1, D4 write tools (T1) and D6 review and apply | gated |

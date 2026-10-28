@@ -54,7 +54,7 @@ from ract.providers.router import ProviderRouter
 from ract.rooted import Rooted
 from ract.token_budget import TokenBudget
 from ract.workspace_path import is_never_sent
-from ract import run_checkpoint, turn_context, write_gate
+from ract import plan_gate, run_checkpoint, turn_context, write_gate
 from ract.session_events import plan_event_data
 
 
@@ -723,11 +723,19 @@ class Harness:
         stream_callback: Callable[[str], None] | None = None,
         ask: bool = False,
         plan_override: Plan | None = None,
+        plan_approval: Callable[["Plan"], Any] | None = None,
     ) -> Rooted[ExecutionReport]:
         """Plan and execute the intent.
 
         With *ask* the planner is skipped: the intent is one answer step,
         which writes nothing (B-042, `/ask` and `ract -p --ask`).
+
+        *plan_approval* is asked once, before the first step, with the plan
+        (ADR-0049 D12). It returns None when no question is needed, or a
+        ``plan_gate.Resolution``: refused ends the run before any step; approved
+        runs the kept steps, skips the others, and answers the per-step
+        question for a file the approved plan lists. A resumed run's stored
+        plan was approved when it first ran and is not asked again.
 
         With *plan_override* the planner is skipped and that plan runs: a
         resumed run's stored plan (ADR-0049 D13). It passes the plan
@@ -886,6 +894,34 @@ class Harness:
                 error="Plan contains a dependency cycle; cannot execute.",
             )
 
+        skipped: frozenset[int] = frozenset()
+        if plan_approval is not None and plan_override is None:
+            outcome = plan_approval(plan)
+            if outcome is not None and outcome.kind == "refused":
+                if outcome.error:  # nobody could be asked (headless)
+                    return Rooted(
+                        value=None,
+                        assumption="The plan is approved before its first step.",
+                        confidence=0.0,
+                        provenance=["harness.run", "plan_gate"],
+                        error=f"refused: {outcome.error}",
+                    )
+                return Rooted(
+                    value=None,
+                    assumption="The plan is approved before its first step.",
+                    confidence=0.0,
+                    provenance=["harness.run", "plan_gate"],
+                    error=plan_gate.CANCELLED,
+                    hint="plan_cancelled",
+                )
+            if outcome is not None:
+                skipped = frozenset(step.n for step in outcome.skipped)
+                if approval_callback is not None:
+                    approval_callback = _approved_plan_callback(
+                        approval_callback,
+                        {step.target for step in outcome.kept if step.target},
+                    )
+
         run_checkpoint.plan_ready(plan)
         if pre_execute_callback is not None:
             pre_execute_callback(plan)
@@ -922,24 +958,26 @@ class Harness:
                 run_via_substrate as _run_via_substrate,
             )
 
-            report_rooted = _run_via_substrate(
-                self,
-                intent,
-                plan,
-                context=context_block,
-                approval_callback=approval_callback,
-                stream=stream,
-                stream_callback=stream_callback,
-            ).with_step("harness.run")
+            with plan_gate.skipping(skipped):
+                report_rooted = _run_via_substrate(
+                    self,
+                    intent,
+                    plan,
+                    context=context_block,
+                    approval_callback=approval_callback,
+                    stream=stream,
+                    stream_callback=stream_callback,
+                ).with_step("harness.run")
         else:
-            report_rooted = self.executor.execute(
-                intent,
-                plan,
-                context=context_block,
-                approval_callback=approval_callback,
-                stream=stream,
-                stream_callback=stream_callback,
-            ).with_step("harness.run")
+            with plan_gate.skipping(skipped):
+                report_rooted = self.executor.execute(
+                    intent,
+                    plan,
+                    context=context_block,
+                    approval_callback=approval_callback,
+                    stream=stream,
+                    stream_callback=stream_callback,
+                ).with_step("harness.run")
 
         # LR:: The coverage and mutation gates run the project's tests. A plan
         # of answer steps changed nothing for them to measure (B-042).
@@ -1052,6 +1090,23 @@ class Harness:
             self.git_mode.commit_files(artifact_paths, message=f"RACT: {intent[:50]}")
 
         return report_rooted
+
+
+def _approved_plan_callback(
+    base: Callable[["Step"], bool], targets: set[str]
+) -> Callable[["Step"], bool]:
+    """The per-step question, answered yes for a file the approved plan lists (D12).
+
+    An approval covers exactly what the operator saw: a step writing a file
+    the plan did not list (or calling a tool) still asks.
+    """
+
+    def callback(step: "Step") -> bool:
+        if step.tool_call is None and step.expected_artifact in targets:
+            return True
+        return base(step)
+
+    return callback
 
 
 # RACT 0.1.1 - Trust and tooling
