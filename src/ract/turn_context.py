@@ -44,6 +44,8 @@ _extensions_off: ContextVar[bool] = ContextVar(
     "ract_repository_extensions_off", default=False
 )
 _write_lock: ContextVar[Any] = ContextVar("ract_turn_write_lock", default=None)
+# Package 3 (B-033s): the lines typed during the turn and not yet sent; drained at each model request.
+_queued: ContextVar[Callable[[], list[str]] | None] = ContextVar("ract_turn_queued", default=None)
 
 
 class CancelSignal(threading.Event):
@@ -91,6 +93,7 @@ def bind(
     *,
     written: list[str] | None = None,
     write_lock: Any = None,
+    queued: Callable[[], list[str]] | None = None,
 ) -> None:
     """Make the turn's cancel event, reporter, written list and write lock current.
 
@@ -104,9 +107,20 @@ def bind(
     _reporter.set(reporter)
     _written.set(written)
     _write_lock.set(write_lock)
+    _queued.set(queued)
 
 
 @contextmanager
+def queued_notes() -> list[str]:
+    """The operator lines queued during this turn that are not yet sent (package 3).
+
+    Each call takes them: a line goes to one model request only, and a line still
+    queued when the turn ends is sent by the next turn.
+    """
+    source = _queued.get()
+    return source() if source is not None else []
+
+
 def repository_extensions_off() -> Iterator[None]:
     """Load no repository-supplied extension in this block.
 

@@ -95,6 +95,21 @@ class ExecutionReport:
     unsigned_artifacts: list[str] = field(default_factory=list)
 
 
+def with_operator_notes(user_content: str, notes: list[str]) -> str:
+    """Package 3 (B-033s): the lines the operator typed during the turn, ahead of the task.
+
+    They are notes for this request: the task and the plan do not change. A line that reads
+    like an approval answer or an edit is still only a note here; the plan gate never sees it.
+    """
+    if not notes:
+        return user_content
+    listed = "\n".join(f"- {note}" for note in notes)
+    return (
+        "Operator notes sent during this turn (they do not change the task):\n"
+        f"{listed}\n\n{user_content}"
+    )
+
+
 def _advice(hint: str | None) -> str | None:
     """A failed step's hint when it is advice in words, else None (B-062).
 
@@ -1102,6 +1117,7 @@ class Executor:
             user_content = f"{target_block}\n\n{user_content}"
         if context:
             user_content = f"{context}\n\n{user_content}"
+        user_content = with_operator_notes(user_content, turn_context.queued_notes())
         messages = [
             {
                 "role": "system",

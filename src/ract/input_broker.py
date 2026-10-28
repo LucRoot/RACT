@@ -29,21 +29,25 @@ class QueuedInput:
 
     _emit: Callable[[str, dict], None] = lambda kind, data: None
     model: QueueModel = field(default_factory=QueueModel)
+    # The reader thread adds lines while the worker drains them at model requests.
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def items(self) -> list[str]:
         return [line.text for line in self.model.items]
 
     def add(self, text: str) -> int:
-        self.model = self.model.append(text)
-        return len(self.model.items)
+        with self._lock:
+            self.model = self.model.append(text)
+            return len(self.model.items)
 
     def take_first(self) -> str | None:
         """Remove and return the next queued line for the next turn (no event: it is sent, not withdrawn)."""
-        if not self.model.items:
-            return None
-        text = self.model.items[0].text
-        self.model, _ = self.model.drop(1)
-        return text
+        with self._lock:
+            if not self.model.items:
+                return None
+            text = self.model.items[0].text
+            self.model, _ = self.model.drop(1)
+            return text
 
     def cancel(self, position: int) -> bool:
         """Withdraw the item at ``position`` (1 is the next to be sent). False when none is there."""

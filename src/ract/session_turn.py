@@ -51,6 +51,8 @@ class TurnRequest:
     refuse_changes: bool = False
     # A per-run token budget from --token-budget; None uses token_budget in ract.yaml (B-065).
     token_budget: int | None = None
+    # Package 3 (B-033s): returns the operator lines typed during the turn that are not yet sent.
+    queued: Any = None
 
 
 def _on_disk_name(root: Path, name: str) -> str:
@@ -360,7 +362,13 @@ def run_turn(
 
     reporter = _TurnReporter(stream, turn, cancel)
     written: list[str] = []
-    turn_context.bind(cancel, reporter, written=written, write_lock=request.write_lock)
+    turn_context.bind(
+        cancel,
+        reporter,
+        written=written,
+        write_lock=request.write_lock,
+        queued=request.queued,
+    )
     started = time.monotonic()
     project = Path(request.config).resolve().parent
     stream.emit("turn.started", {"input": request.intent, "queued": queued}, turn=turn)

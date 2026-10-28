@@ -1003,6 +1003,7 @@ class ReplSession:
             auto=s.auto,
             ask=ask and not dry,
             write_lock=self._write_lock,
+            queued=self._drain_queued,
         )
         turn_no = s.turns + 1
         cancel = CancelSignal()
@@ -1048,6 +1049,15 @@ class ReplSession:
                 ahead.stop()
                 self._broker.end_turn()
         return box.get("code", 1)
+
+    def _drain_queued(self) -> list[str]:
+        """Package 3 (B-033s): every queued line, taken for the next model request (once each)."""
+        if self._broker is None or self._queue_held:
+            return []
+        lines: list[str] = []
+        while (text := self._broker.queue.take_first()) is not None:
+            lines.append(text)
+        return lines
 
     def _take_queued(self) -> str | None:
         """The next line queued during a turn, or None (package 6, B-033s)."""
