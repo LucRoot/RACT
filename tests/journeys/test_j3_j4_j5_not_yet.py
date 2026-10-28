@@ -2,7 +2,7 @@
 
 J3 (ask about the code, read-only) and J4 (fix the failing test) wait for the
 read-only tool loop and the verifier (B-010a, gated). J5 needs the rewind (B-014c).
-J7 (resume) and J9 (weak model) run in tests/journeys/test_j7_resume.py and test_j9_weak_model.py.
+J7 (resume) and J9 (weak model) run in test_j7_resume.py and test_j9_weak_model.py.
 """
 
 from __future__ import annotations
@@ -26,18 +26,4 @@ def test_j4_fix_the_failing_test() -> None:
 
 @pytest.mark.skip(reason="J5 needs B-014c (rewind)")
 def test_j5_rewind() -> None:
-    raise AssertionError("not run")
-
-
-@pytest.mark.skip(
-    reason="J7 is batch 2 of B-074 (resume journey); not written in this batch"
-)
-def test_j7_resume() -> None:
-    raise AssertionError("not run")
-
-
-@pytest.mark.skip(
-    reason="J9 is batch 2 of B-074 (weak-model journey); not written in this batch"
-)
-def test_j9_weak_model() -> None:
     raise AssertionError("not run")
