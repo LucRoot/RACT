@@ -160,6 +160,21 @@ class _Session:
     def ctrl_c(self) -> float:
         return self.send("\x03")
 
+    def ctrl_z(self) -> float:
+        """End of input on Windows (Ctrl-Z, then Enter); the EOF probe uses it."""
+        return self.send("\x1a\r")
+
+    def raw(self, key: str) -> float:
+        """Send one raw key by name."""
+        keys = {
+            "ctrl_c": "\x03",
+            "ctrl_z": "\x1a",
+            "enter": "\r",
+            "backspace": "\x08",
+            "escape": "\x1b",
+        }
+        return self.send(keys[key])
+
     def expect(self, pattern: str, timeout: float = 30.0) -> bool:
         """Wait until the plain output since the last match contains pattern."""
         regex = re.compile(pattern)

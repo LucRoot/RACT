@@ -123,6 +123,8 @@ def _interactive(
     for kind, arg in steps:
         if kind == "line":
             sends.append((arg, session.send_line(arg)))
+        elif kind == "raw":
+            sends.append((arg, session.raw(arg)))
         elif kind == "ctrl_c":
             t = session.ctrl_c()
             sends.append(("^C", t))
