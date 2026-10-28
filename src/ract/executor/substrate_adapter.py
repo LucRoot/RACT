@@ -302,6 +302,10 @@ def _run_via_substrate_steps(
         # worktree, branch or commit (B-042). It reads the operator's files
         # where they are.
         harness.executor.step_number_offset = 0
+        # Nothing is applied after these steps, so their reports are not held (H4).
+        # The executor runs the whole plan in one call: held, each finished step
+        # replaced the one before it and only the last was reported.
+        harness.executor.hold_step_report = False
         return harness.executor.execute(
             intent,
             plan,
