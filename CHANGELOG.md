@@ -81,7 +81,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   argument keys are repaired and the repair is reported; ambiguous ones are refused with a hint.
   A reply cut off at the output limit is explained with token counts. Loop guards stop a turn
   that repeats the same call three times or hits the same failure twice. Nothing in the module
-  runs a tool; the agent loop that will use it is proposed in ADR-0047.
+  runs a tool; the read-only tools loop below uses it.
+- Plan approval (ADR-0049 D12). In `default` mode, a plan of two or more steps that changes a
+  file is shown once, before the first step, and you answer `approve`, `skip <n>` or `cancel`.
+  Approved files are not asked about again step by step; a file the plan did not list, or a
+  tool call, still asks. Skipped steps are reported as skipped by you and recorded in the run
+  checkpoint. `cancel` runs nothing and the turn ends `refused`. Ctrl-C at the question cancels
+  the turn. `ract -p` in `default` mode refuses such a plan before any step (exit 3) and names
+  `--accept-edits`. A resumed plan is not asked about again.
+- Read-only tools: `read_file`, `list_dir`, `glob` and `grep` (ADR-0047, tier 0). Paths stay
+  inside the project, after links too; files RACT never sends are refused; `.git`, `.ract`,
+  links and gitignored paths are skipped in walks unless asked. `grep` uses ripgrep from your
+  `PATH` (never one inside the project) and falls back to a built-in search. Every result is
+  labelled as untrusted file content and checked by the outbound scan before it reaches a
+  model.
+- An answer step may read the project with those tools before it answers: the model asks for a
+  tool, RACT runs it through the tool gate and returns the result, and `tool.call.started` and
+  `tool.call.finished` are in the event stream. Limits in `ract.yaml` under `agent`:
+  `max_turns` (40), `max_tool_calls` (64), `max_wall_seconds` (1800); `agent.read_tools:
+  false` keeps the single request. A model that repeats a call or a failure is asked for a
+  summary without tools, and a reply that is a plan where an answer was asked for is asked
+  again once in plain words. Tools are offered in the prompt with RACT's JSON envelope; native
+  tool calling per provider is not used yet.
+- File and line citations in an answer (`src/calc.py:12`) are checked against the repository.
+  The end of the turn prints how many are verified, unverified or not checked and names each
+  unverified one with the reason; `turn.finished` carries them as `citations`.
 - UX walkthrough tooling: `tests/ux/terminal_driver.py` runs a program in a real pseudo-terminal
   (ConPTY on Windows, `pty` elsewhere) and records output with timestamps;
   `python -m tests.ux.run_baseline` runs the session journeys against the fake model server and
