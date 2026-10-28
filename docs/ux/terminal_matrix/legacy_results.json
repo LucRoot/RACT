@@ -1,0 +1,38 @@
+[
+  {
+    "case": "cmd_cp437",
+    "ran_to_end": true,
+    "unicode_error": false,
+    "traceback": false,
+    "intent_echo_readable": true,
+    "question_marks_in_place_of_text": false,
+    "file_written": false
+  },
+  {
+    "case": "cmd_cp1252",
+    "ran_to_end": true,
+    "unicode_error": false,
+    "traceback": false,
+    "intent_echo_readable": true,
+    "question_marks_in_place_of_text": false,
+    "file_written": false
+  },
+  {
+    "case": "powershell5_cp437",
+    "ran_to_end": true,
+    "unicode_error": false,
+    "traceback": false,
+    "intent_echo_readable": true,
+    "question_marks_in_place_of_text": false,
+    "file_written": false
+  },
+  {
+    "case": "conpty_default",
+    "ran_to_end": true,
+    "unicode_error": false,
+    "traceback": false,
+    "intent_echo_readable": true,
+    "question_marks_in_place_of_text": false,
+    "file_written": false
+  }
+]

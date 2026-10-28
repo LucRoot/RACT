@@ -1,0 +1,29 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> add a greeting in src/calc.py
+  ... waiting on model (2 s)
+error: Planning failed: Could not parse JSON plan from model response. The
+  response did not contain a usable JSON plan. It began: This answer arrives
+  slowly, a few characters at a time, the way a large model on a laptop CPU
+  does.
+hint: the model's reply was not a plan; try again, or use a model that follows
+  JSON instructions (set it in ract.yaml)
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 8.2 s, 936 tokens in / 24 out
+ract> add a second greeting in src/calc.py
+  ... waiting on model (2 s)
+error: Planning failed: Could not parse JSON plan from model response. The
+  response did not contain a usable JSON plan. It began: This answer arrives
+  slowly, a few characters at a time, the way a large model on a laptop CPU
+  does.
+hint: the model's reply was not a plan; try again, or use a model that follows
+  JSON instructions (set it in ract.yaml)
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 6.7 s, 955 tokens in / 24 out
+ract> /exit

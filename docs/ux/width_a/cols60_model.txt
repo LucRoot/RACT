@@ -1,0 +1,13 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+you: /model
+local (manager, current)
+  adapter: local_http
+  model: fake-coder
+  host: 127.0.0.1:62006
+  capabilities: not checked; run ract doctor
+      --check-providers
+  price unknown
+you: /exit

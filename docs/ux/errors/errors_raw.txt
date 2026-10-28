@@ -1,0 +1,116 @@
+== 1 missing config
+$ ract run add a greeting --config ract.yaml
+exit 1
+ intent: add a greeting
+✗  failed: Configuration file not found: ract.yaml
+hint: run `ract setup` here to create one
+
+== 2 bad flag
+$ ract run --nope
+exit 2
+usage: ract [-h] [--config CONFIG] [--dry-run] [--ask]
+            [--mode {default,documentation,git}] [--session SESSION_ID]
+            [--resume] [--force] [--rollback] [--project-doc PROJECT_DOC]
+            [--token-budget N] [--yolo | --auto] [--reload] [--loop]
+            [--max-iterations MAX_ITERATIONS] [--allow-debt]
+            [--allow-load-bearing] [--allow-novelty-overrun] [--version]
+            [--json] [--about] [--init-provider INIT_PROVIDER] [--self-test]
+            [--review-diff REVIEW_DIFF] [--stream] [--welcome]
+            [intent]
+ract: error: unrecognized arguments: --nope
+
+== 3 unknown verb
+$ ract frobnicate
+exit 1
+ intent: frobnicate
+✗  failed: Configuration file not found: ract.yaml
+hint: run `ract setup` here to create one
+
+== 4 empty intent
+$ ract run 
+exit 2
+hint: use ract -p "your request" for a one-off run, or pipe text into ract -p; ract setup creates a config.
+usage: ract [-h] [--config CONFIG] [--dry-run] [--ask]
+            [--mode {default,documentation,git}] [--session SESSION_ID]
+            [--resume] [--force] [--rollback] [--project-doc PROJECT_DOC]
+            [--token-budget N] [--yolo | --auto] [--reload] [--loop]
+            [--max-iterations MAX_ITERATIONS] [--allow-debt]
+            [--allow-load-bearing] [--allow-novelty-overrun] [--version]
+            [--json] [--about] [--init-provider INIT_PROVIDER] [--self-test]
+            [--review-diff REVIEW_DIFF] [--stream] [--welcome]
+            [intent]
+ract: error: intent is required unless --self-test or --review-diff is used
+
+== 5 missing key variable
+$ ract run add a greeting --config ract.yaml --dry-run
+exit 1
+ intent: add a greeting
+note: this repository is not trusted, so RACT does not run its own commands or contact its endpoints this run:
+  network provider cloud: https://example.invalid/v1 (receives your requests and the project files sent with them)
+  To allow them: ract trust
+✗  failed: Provider call failed: refused: this repository's ract.yaml sends your
+requests to example.invalid, and the repository is not trusted
+hint: run `ract trust` here if you chose what ract.yaml names, or change ract.yaml
+
+== 6 refused connection
+$ ract run add a greeting --config ract.yaml --dry-run
+exit 1
+ intent: add a greeting
+✗  failed: Provider call failed: Request failed: nothing is answering at 
+http://127.0.0.1:9/v1 (connection refused).
+hint: start your model server, or fix the provider url in ract.yaml; `ract doctor --check-providers` checks it
+
+== 7 no git repository (refused server)
+$ ract run add a greeting --config ract.yaml
+exit 1
+ intent: add a greeting
+✗  failed: Planning failed: Provider call failed: Request failed: nothing is 
+answering at http://127.0.0.1:9/v1 (connection refused).
+hint: start your model server, or fix the provider url in ract.yaml; `ract doctor --check-providers` checks it
+
+== 8 dirty working tree
+$ ract run add a greeting --config ract.yaml
+exit 1
+ intent: add a greeting
+✗  failed: Planning failed: Provider call failed: Request failed: nothing is 
+answering at http://127.0.0.1:9/v1 (connection refused).
+hint: start your model server, or fix the provider url in ract.yaml; `ract doctor --check-providers` checks it
+
+== 9 binary file, doctor
+$ ract doctor
+exit 1
+─────────────────────── Doctor: 0/1 config checks passed ───────────────────────
+┏━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Status ┃ Check         ┃ Message                                 ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ FAIL   │ config_exists │ Configuration file not found: ract.yaml │
+└────────┴───────────────┴─────────────────────────────────────────┘
+Providers were not contacted. To check that each one answers, run: ract doctor 
+--check-providers
+Provenance: files written by ract runs are not signed with a Rootknot in this 
+release. See docs/PROVENANCE.md.
+Sandbox (Windows): no sandbox backend for this platform; no backend runs 
+commands in this build.
+  filesystem: not enforced in this build
+  network: not enforced in this build
+  process limits: not enforced in this build
+  environment: scrubbed by allowlist for hook commands; inherited from your 
+shell for test, lint and step commands
+
+== 10 large file, fence
+$ ract fence inspect --file logo.bin
+exit 1
+[ract] config not found: ract.yaml
+
+== 10b large file, fence
+$ ract fence inspect --file big.txt
+exit 1
+[ract] config not found: ract.yaml
+
+== 12 read-only directory
+not reproduced: a Windows read-only attribute on a folder does not stop file creation; needs an ACL deny, not run here
+
+== 13 headless -p with no config
+$ ract -p add a greeting --output-format json
+exit 2
+error: configuration file not found: ract.yaml. hint: run `ract setup --answers FILE` here (template: ract setup --print-defaults)

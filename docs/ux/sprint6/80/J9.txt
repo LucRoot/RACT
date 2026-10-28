@@ -1,0 +1,37 @@
+# J9: Weak or reasoning model
+# build: "[S6-8] run_baseline: RACT_UX_COLS sets the journey terminal width (80 by default)"  terminal: 80x40 pseudo-terminal  run: 2026-10-27 02:56
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-weak via local | master | default | T3 off
+ract> summarize the README
+error: Planning failed: Could not parse JSON plan from model response. The model
+  hit its output limit (finish_reason=length) before finishing the JSON plan. It
+  had already produced 780 characters of reasoning. Remove or raise 'max_tokens'
+  on this provider in ract.yaml, and check the server's own limit (...
+hint: raise or remove `max_tokens` for this provider in ract.yaml
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 0.9 s, 934 tokens in / 201 out
+ract> summarize the README
+Plan: 1 step, confidence 0.85
+  assumes: README summary
+  1. Summarize README.md
+[step 1] Summarize README.md
+[step 1] failed (0.0s)
+error: Step 1 returned an empty answer. The model returned 23 characters of
+  reasoning and no answer, so there was no answer to use. Raise or remove
+  'max_tokens' on this provider, or use a non-reasoning model for this role.
+hint: the model sent an empty reply for that step; run it again, or set a
+  stronger model for this provider in ract.yaml
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  2 model requests, 0.6 s, 1116 tokens in / 51 out
+ract> /exit
+
+## harness notes
+- hidden reasoning sent back to the model: False
+- hidden reasoning shown on screen: False

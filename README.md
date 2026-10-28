@@ -174,18 +174,20 @@ asks it to run (hooks, MCP servers, test gates) and runs them only if you
 say so; `ract trust` records the decision until those files change.
 
 Run `ract` with no arguments to work inside an interactive session (`/plan`, `/loop`,
-`/doctor`, `/set`, and every verb as a slash command). The commands below also work one at a
+`/doctor`, `/set`, and every verb as a slash command). The commands below work one at a
 time from the shell.
 
 ```bash
 ract init --template python-package --provider local
 ract memory init                     # build the three memory-discipline indexes for this repo
 ract doctor                          # verify workspace and dependencies
-ract fence inspect --file src/hello.py  # check safety guardrails and threat-model boundaries
+ract fence inspect --file src/<package>/__init__.py  # check safety guardrails; use any file in your project
 ract run "add a test for the hello-world script" --config ract.yaml --dry-run
 ract run "add a test for the hello-world script" --config ract.yaml
 ract run "refactor the greeting module" --config ract.yaml --loop --max-iterations 5
 ```
+
+Indexes need `RACT_EMBED_MODEL_ROOT` or `RACT_EMBED_ONLINE=1`.
 
 ### Headless (scripts and CI)
 
@@ -335,7 +337,7 @@ Three reproducible tasks under `evals/tasks/` (reports in `evals/runs/`). See [`
 
 ```bash
 ract doctor                              # workspace health + dependencies
-ract provenance verify src/hello.py      # check a file's Rootknot (RK-1 + RK-2 + RK-3 + AL-1)
+ract provenance verify <file>             # check a file's Rootknot (RK-1 + RK-2 + RK-3 + AL-1)
 ract conformance run --provider fake     # run the per-provider conformance corpus
 ract trace replay evals/runs/<run_id>    # replay a hash-chained event log
 pytest -q                                # full suite (includes tests/test_release_surface.py)

@@ -1,0 +1,10 @@
+checklist 100 steps: median 0.012 s, worst 0.013 s (n=5)
+checklist 500 steps: median 0.056 s, worst 0.058 s (n=5)
+checklist 1000 steps (growth check): median 0.112 s, worst 0.117 s (n=5)
+turn diff 1000 lines: median 0.085 s, worst 0.086 s (n=5)
+turn diff 5000 lines: median 0.003 s, worst 0.004 s (n=5)
+turn diff 5001 lines (past the matcher cap): median 0.003 s, worst 0.003 s (n=5)
+reply 100 KB single line: median 0.072 s, worst 0.077 s (n=5)
+reply 200 KB single line (growth check): median 0.155 s, worst 0.179 s (n=5)
+sessions list with 2000 saved: median 0.255 s, worst 0.276 s (n=5)
+REPL 200 turns (stub dispatch, no model): total 0.00 s, mean 0.0 ms per turn

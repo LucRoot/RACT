@@ -1,0 +1,5 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+last session h-7f3a9c21d0e4 (2026-10-25 23:24): fix the failing test in
+  tests/test_calc.py. /resume to continue it.
+RACT session fake-coder via local | master | default | T3 off
+ract> /exit

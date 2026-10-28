@@ -122,15 +122,15 @@ PRESETS: dict[str, dict[str, Any]] = {
         "prompts_dir": "prompts",
         "context_budget_tokens": 8192,
     },
-    "moonshot": {
+    "glm": {
         "project": {"name": "my-ract-project"},
-        "manager_provider": "moonshot",
+        "manager_provider": "glm",
         "providers": {
-            "moonshot": {
+            "glm": {
                 "adapter": "openai",
-                "url": "https://api.moonshot.cn/v1",
-                "api_key": "${MOONSHOT_API_KEY}",
-                "model": "moonshot-v1-8k",
+                "url": "https://integrate.api.nvidia.com/v1",
+                "api_key": "${NVIDIA_API_KEY}",
+                "model": "z-ai/glm-5.3",
             }
         },
         "prompts_dir": "prompts",

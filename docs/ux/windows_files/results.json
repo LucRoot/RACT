@@ -1,0 +1,196 @@
+[
+  {
+    "case": "long path over 260",
+    "target": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd...",
+    "exit": 0,
+    "seconds": 3.1,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "dddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.py\n[step 1] write the file -> dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.py\n[step 1] done dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.py (0.0s)\nwarning: provenance: 1 file(s) have no signature yet (dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.py). See docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: nothing\n  verified: RACT ran no tests this turn\n  unsigned: 1 file\n  2 model requests, 1.6 s, 1001 tokens in / 119 out\n",
+    "message": "ddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.py). See docs/PROVENANCE.md. | Done: 1 step ran; no tests were run. | changed: nothing | verified: RACT ran no tests this turn | unsigned: 1 file | 2 model requests, 1.6 s, 1001 tokens in / 119 out",
+    "state": {
+      "exists": false
+    }
+  },
+  {
+    "case": "reserved CON",
+    "target": "CON",
+    "exit": 1,
+    "seconds": 2.5,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"failed\", \"exit_code\": 1, \"session\": \"h-d78a15d56800\", \"turns\": 1, \"verdict\": \"The turn failed.\", \"final_text\": \"\", \"changed\": [], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": []}, \"cost\": {\"tokens_in\": 920, \"tokens_out\": 38, \"by_purpose\": {\"plan\": 890, \"step 1\": 68}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 3804, \"bytes_in\": 1220}, \"denials\": [], \"notices\": [], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"failed\", \"file\": \"CON\", \"verdict\": \"failed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> CON\n[step 1] write the file -> CON\n[step 1] failed (0.0s)\n  hint: Choose a different file name.\nerror: Step 1 not written: the path component 'CON' is a Windows device name\nhint: choose a different file name: CON, NUL, AUX, COM1 and LPT1 are reserved by Windows\nno files were changed\n  The turn failed.\n  changed: nothing\n  verified: RACT ran no tests this turn\n  2 model requests, 1.3 s, 920 tokens in / 38 out\n",
+    "message": "ON | [step 1] write the file -> CON | [step 1] failed (0.0s) | hint: Choose a different file name. | error: Step 1 not written: the path component 'CON' is a Windows device name | hint: choose a different file name: CON, NUL, AUX, COM1 and LPT1 are reserved by Windows | no files were changed | The turn failed. | changed: nothing | verified: RACT ran no tests this turn | 2 model requests, 1.3 s, 920 tokens in / 38 out",
+    "state": {
+      "exists": false
+    }
+  },
+  {
+    "case": "reserved NUL",
+    "target": "NUL",
+    "exit": 1,
+    "seconds": 2.6,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"failed\", \"exit_code\": 1, \"session\": \"h-b9e061cf712d\", \"turns\": 1, \"verdict\": \"The turn failed.\", \"final_text\": \"\", \"changed\": [], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": []}, \"cost\": {\"tokens_in\": 920, \"tokens_out\": 38, \"by_purpose\": {\"plan\": 890, \"step 1\": 68}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 3804, \"bytes_in\": 1220}, \"denials\": [], \"notices\": [], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"failed\", \"file\": \"NUL\", \"verdict\": \"failed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> NUL\n[step 1] write the file -> NUL\n[step 1] failed (0.0s)\n  hint: Choose a different file name.\nerror: Step 1 not written: the path component 'NUL' is a Windows device name\nhint: choose a different file name: CON, NUL, AUX, COM1 and LPT1 are reserved by Windows\nno files were changed\n  The turn failed.\n  changed: nothing\n  verified: RACT ran no tests this turn\n  2 model requests, 1.3 s, 920 tokens in / 38 out\n",
+    "message": "UL | [step 1] write the file -> NUL | [step 1] failed (0.0s) | hint: Choose a different file name. | error: Step 1 not written: the path component 'NUL' is a Windows device name | hint: choose a different file name: CON, NUL, AUX, COM1 and LPT1 are reserved by Windows | no files were changed | The turn failed. | changed: nothing | verified: RACT ran no tests this turn | 2 model requests, 1.3 s, 920 tokens in / 38 out",
+    "state": {
+      "exists": true
+    }
+  },
+  {
+    "case": "reserved aux.txt",
+    "target": "aux.txt",
+    "exit": 1,
+    "seconds": 2.9,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"failed\", \"exit_code\": 1, \"session\": \"h-a3d0e28d424d\", \"turns\": 1, \"verdict\": \"The turn failed.\", \"final_text\": \"\", \"changed\": [], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": []}, \"cost\": {\"tokens_in\": 921, \"tokens_out\": 39, \"by_purpose\": {\"plan\": 891, \"step 1\": 69}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 3808, \"bytes_in\": 1224}, \"denials\": [], \"notices\": [], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"failed\", \"file\": \"aux.txt\", \"verdict\": \"failed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> aux.txt\n[step 1] write the file -> aux.txt\n[step 1] failed (0.0s)\n  hint: Choose a different file name.\nerror: Step 1 not written: the path component 'aux.txt' is a Windows device name\nhint: choose a different file name: CON, NUL, AUX, COM1 and LPT1 are reserved by Windows\nno files were changed\n  The turn failed.\n  changed: nothing\n  verified: RACT ran no tests this turn\n  2 model requests, 1.4 s, 921 tokens in / 39 out\n",
+    "message": "ep 1] write the file -> aux.txt | [step 1] failed (0.0s) | hint: Choose a different file name. | error: Step 1 not written: the path component 'aux.txt' is a Windows device name | hint: choose a different file name: CON, NUL, AUX, COM1 and LPT1 are reserved by Windows | no files were changed | The turn failed. | changed: nothing | verified: RACT ran no tests this turn | 2 model requests, 1.4 s, 921 tokens in / 39 out",
+    "state": {
+      "exists": false
+    }
+  },
+  {
+    "case": "trailing dot",
+    "target": "notes.",
+    "exit": 1,
+    "seconds": 3.0,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"failed\", \"exit_code\": 1, \"session\": \"h-cb4d120f9692\", \"turns\": 1, \"verdict\": \"The turn failed.\", \"final_text\": \"\", \"changed\": [], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": []}, \"cost\": {\"tokens_in\": 921, \"tokens_out\": 38, \"by_purpose\": {\"plan\": 890, \"step 1\": 69}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 3807, \"bytes_in\": 1223}, \"denials\": [], \"notices\": [], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"failed\", \"file\": \"notes.\", \"verdict\": \"failed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> notes.\n[step 1] write the file -> notes.\n[step 1] failed (0.0s)\n  hint: Remove the trailing dot or space.\nerror: Step 1 not written: the path component 'notes.' ends in a dot or space, which Windows drops\nhint: remove the trailing dot or space from the file name, then run the intent again\nno files were changed\n  The turn failed.\n  changed: nothing\n  verified: RACT ran no tests this turn\n  2 model requests, 1.5 s, 921 tokens in / 38 out\n",
+    "message": "ile -> notes. | [step 1] failed (0.0s) | hint: Remove the trailing dot or space. | error: Step 1 not written: the path component 'notes.' ends in a dot or space, which Windows drops | hint: remove the trailing dot or space from the file name, then run the intent again | no files were changed | The turn failed. | changed: nothing | verified: RACT ran no tests this turn | 2 model requests, 1.5 s, 921 tokens in / 38 out",
+    "state": {
+      "exists": false
+    }
+  },
+  {
+    "case": "trailing space",
+    "target": "notes ",
+    "exit": 0,
+    "seconds": 3.5,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"done\", \"exit_code\": 0, \"session\": \"h-6a22584470ac\", \"turns\": 1, \"verdict\": \"Done: 1 step ran; no tests were run.\", \"final_text\": \"\", \"changed\": [\"notes\"], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": [\"notes\"]}, \"cost\": {\"tokens_in\": 921, \"tokens_out\": 38, \"by_purpose\": {\"plan\": 890, \"step 1\": 69}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 3806, \"bytes_in\": 1223}, \"denials\": [], \"notices\": [\"provenance: 1 file(s) have no signature yet (notes). See docs/PROVENANCE.md.\"], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"done\", \"file\": \"notes\", \"verdict\": \"passed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> notes\n[step 1] write the file -> notes\n[step 1] done notes (0.0s)\nwarning: provenance: 1 file(s) have no signature yet (notes). See docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: notes (new, 1 line); unstaged, review with git diff\n  way back: /undo\n  verified: RACT ran no tests this turn\n  assumed: write the file (planner confidence 0.90, not checked)\n  unsigned: 1 file\n  2 model requests, 1.9 s, 921 tokens in / 38 out\n",
+    "message": " -> notes | [step 1] done notes (0.0s) | warning: provenance: 1 file(s) have no signature yet (notes). See docs/PROVENANCE.md. | Done: 1 step ran; no tests were run. | changed: notes (new, 1 line); unstaged, review with git diff | way back: /undo | verified: RACT ran no tests this turn | assumed: write the file (planner confidence 0.90, not checked) | unsigned: 1 file | 2 model requests, 1.9 s, 921 tokens in / 38 out",
+    "state": {
+      "exists": true,
+      "bytes": 26,
+      "bom": false,
+      "crlf": true,
+      "content_ok": true
+    }
+  },
+  {
+    "case": "existing file with CRLF endings",
+    "target": "src/crlf.py",
+    "exit": 0,
+    "seconds": 3.6,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"done\", \"exit_code\": 0, \"session\": \"h-7262ae23ff75\", \"turns\": 1, \"verdict\": \"Done: 1 step ran; no tests were run.\", \"final_text\": \"\", \"changed\": [\"src/crlf.py\"], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": [\"src/crlf.py\"]}, \"cost\": {\"tokens_in\": 978, \"tokens_out\": 40, \"by_purpose\": {\"plan\": 907, \"step 1\": 111}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 4033, \"bytes_in\": 1230}, \"denials\": [], \"notices\": [\"provenance: 1 file(s) have no signature yet (src/crlf.py). See docs/PROVENANCE.md.\"], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"done\", \"file\": \"src/crlf.py\", \"verdict\": \"passed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> src/crlf.py\n[step 1] write the file -> src/crlf.py\n[step 1] done src/crlf.py (0.0s)\nwarning: provenance: 1 file(s) have no signature yet (src/crlf.py). See docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: src/crlf.py (+1 -2); unstaged, review with git diff\n  way back: /undo\n  verified: RACT ran no tests this turn\n  assumed: write the file (planner confidence 0.90, not checked)\n  unsigned: 1 file\n  2 model requests, 2.1 s, 978 tokens in / 40 out\n",
+    "message": "[step 1] done src/crlf.py (0.0s) | warning: provenance: 1 file(s) have no signature yet (src/crlf.py). See docs/PROVENANCE.md. | Done: 1 step ran; no tests were run. | changed: src/crlf.py (+1 -2); unstaged, review with git diff | way back: /undo | verified: RACT ran no tests this turn | assumed: write the file (planner confidence 0.90, not checked) | unsigned: 1 file | 2 model requests, 2.1 s, 978 tokens in / 40 out",
+    "state": {
+      "exists": true,
+      "bytes": 26,
+      "bom": false,
+      "crlf": true,
+      "content_ok": true
+    }
+  },
+  {
+    "case": "file with a byte order mark",
+    "target": "src/bom.py",
+    "exit": 0,
+    "seconds": 3.5,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"done\", \"exit_code\": 0, \"session\": \"h-d92d79dabce2\", \"turns\": 1, \"verdict\": \"Done: 1 step ran; no tests were run.\", \"final_text\": \"\", \"changed\": [\"src/bom.py\"], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": [\"src/bom.py\"]}, \"cost\": {\"tokens_in\": 977, \"tokens_out\": 39, \"by_purpose\": {\"plan\": 904, \"step 1\": 112}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 4024, \"bytes_in\": 1229}, \"denials\": [], \"notices\": [\"provenance: 1 file(s) have no signature yet (src/bom.py). See docs/PROVENANCE.md.\"], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"done\", \"file\": \"src/bom.py\", \"verdict\": \"passed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> src/bom.py\n[step 1] write the file -> src/bom.py\n[step 1] done src/bom.py (0.0s)\nwarning: provenance: 1 file(s) have no signature yet (src/bom.py). See docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: src/bom.py (+1 -2); unstaged, review with git diff\n  way back: /undo\n  verified: RACT ran no tests this turn\n  assumed: write the file (planner confidence 0.90, not checked)\n  unsigned: 1 file\n  2 model requests, 2.0 s, 977 tokens in / 39 out\n",
+    "message": " | [step 1] done src/bom.py (0.0s) | warning: provenance: 1 file(s) have no signature yet (src/bom.py). See docs/PROVENANCE.md. | Done: 1 step ran; no tests were run. | changed: src/bom.py (+1 -2); unstaged, review with git diff | way back: /undo | verified: RACT ran no tests this turn | assumed: write the file (planner confidence 0.90, not checked) | unsigned: 1 file | 2 model requests, 2.0 s, 977 tokens in / 39 out",
+    "state": {
+      "exists": true,
+      "bytes": 26,
+      "bom": false,
+      "crlf": true,
+      "content_ok": true
+    }
+  },
+  {
+    "case": "read-only file",
+    "target": "src/calc.py",
+    "exit": 1,
+    "seconds": 3.3,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"failed\", \"exit_code\": 1, \"session\": \"h-e3f5af7fa41d\", \"turns\": 1, \"verdict\": \"The turn failed.\", \"final_text\": \"\", \"changed\": [], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": []}, \"cost\": {\"tokens_in\": 951, \"tokens_out\": 40, \"by_purpose\": {\"plan\": 892, \"step 1\": 99}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 3927, \"bytes_in\": 1228}, \"denials\": [], \"notices\": [], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"done\", \"file\": \"src/calc.py\", \"verdict\": \"passed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> src/calc.py\n[step 1] write the file -> src/calc.py\n[step 1] done src/calc.py (0.0s)\nerror: Step 1 left these paths as they are: src/calc.py (could not change it: Permission denied). The step's changes for them are in .ract/pending/82db77149edc.patch. Already applied to your files in this run: nothing.\nhint: the file is read-only or open in another program: make it writable (attrib -R <file>) or close the program using it, then run the intent again\nno files were changed; previous version of 1 file saved; /undo restores them\n  The turn failed.\n  changed: nothing\n  way back: /undo\n  verified: RACT ran no tests this turn\n  2 model requests, 1.9 s, 951 tokens in / 40 out\n",
+    "message": " applied to your files in this run: nothing. | hint: the file is read-only or open in another program: make it writable (attrib -R <file>) or close the program using it, then run the intent again | no files were changed; previous version of 1 file saved; /undo restores them | The turn failed. | changed: nothing | way back: /undo | verified: RACT ran no tests this turn | 2 model requests, 1.9 s, 951 tokens in / 40 out",
+    "state": {
+      "exists": true,
+      "bytes": 34,
+      "bom": false,
+      "crlf": true,
+      "content_ok": false
+    }
+  },
+  {
+    "case": "file locked by another process",
+    "target": "src/calc.py",
+    "exit": 1,
+    "seconds": 2.2,
+    "traceback": true,
+    "unicode_error": false,
+    "raw_tail": " write the file\n  1. write the file -> src/calc.py\nHarness execution failed: could not snapshot the working tree: error: open(\"src/calc.py\"): Permission denied\nerror: unable to index file 'src/calc.py'\nfatal: updating files failed\nTraceback (most recent call last):\n  File \"C:\\repo-root\\RACT_wt\\mason\\src\\ract\\harness_report_enricher.py\", line 44, in enrich_harness_run\n    rooted_result = harness.run(\n                    ^^^^^^^^^^^^\n  File \"C:\\repo-root\\RACT_wt\\mason\\src\\ract\\harness.py\", line 925, in run\n    report_rooted = _run_via_substrate(\n                    ^^^^^^^^^^^^^^^^^^^\n  File \"C:\\repo-root\\RACT_wt\\mason\\src\\ract\\executor\\substrate_adapter.py\", line 253, in run_via_substrate\n    snapshot = take_snapshot(\n               ^^^^^^^^^^^^^^\n  File \"C:\\repo-root\\RACT_wt\\mason\\src\\ract\\executor\\worktree.py\", line 740, in take_snapshot\n    raise WorktreeError(\nract.executor.worktree.WorktreeError: could not snapshot the working tree: error: open(\"src/calc.py\"): Permission denied\nerror: unable to index file 'src/calc.py'\nfatal: updating files failed\nerror: could not snapshot the working tree: error: open(\"src/calc.py\"): Permission denied error: unable to index file 'src/calc.py' fatal: updating files failed\nhint: a file in the project could not be read, perhaps because another program has it open: close it and run the intent again\nno files were changed\n  The turn failed.\n  changed: nothing\n  verified: RACT ran no tests this turn\n  1 model request, 0.8 s, 827 tokens in / 34 out\n",
+    "message": "apshot the working tree: error: open(\"src/calc.py\"): Permission denied error: unable to index file 'src/calc.py' fatal: updating files failed | hint: a file in the project could not be read, perhaps because another program has it open: close it and run the intent again | no files were changed | The turn failed. | changed: nothing | verified: RACT ran no tests this turn | 1 model request, 0.8 s, 827 tokens in / 34 out",
+    "state": {
+      "exists": true,
+      "error": "PermissionError: [Errno 13] Permission denied: 'C:\\\\Users\\\\rootl\\\\AppData\\\\Local\\\\Temp\\\\tmpj2t3gqz7\\\\proj\\\\src\\\\calc.py'"
+    }
+  },
+  {
+    "case": "name differing only in case",
+    "target": "README.md",
+    "exit": 0,
+    "seconds": 3.1,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"done\", \"exit_code\": 0, \"session\": \"h-cd5c98a24b8b\", \"turns\": 1, \"verdict\": \"Done: 1 step ran; no tests were run.\", \"final_text\": \"\", \"changed\": [\"Readme.md\"], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": [\"README.md\"]}, \"cost\": {\"tokens_in\": 985, \"tokens_out\": 39, \"by_purpose\": {\"plan\": 898, \"step 1\": 126}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 4060, \"bytes_in\": 1228}, \"denials\": [], \"notices\": [\"provenance: 1 file(s) have no signature yet (README.md). See docs/PROVENANCE.md.\"], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"done\", \"file\": \"README.md\", \"verdict\": \"passed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> README.md\n[step 1] write the file -> README.md\n[step 1] done README.md (0.0s)\nwarning: provenance: 1 file(s) have no signature yet (README.md). See docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: Readme.md (+1 -1); unstaged, review with git diff\n  way back: /undo\n  verified: RACT ran no tests this turn\n  assumed: write the file (planner confidence 0.90, not checked)\n  unsigned: 1 file\n  2 model requests, 1.8 s, 985 tokens in / 39 out\n",
+    "message": ".md | [step 1] done README.md (0.0s) | warning: provenance: 1 file(s) have no signature yet (README.md). See docs/PROVENANCE.md. | Done: 1 step ran; no tests were run. | changed: Readme.md (+1 -1); unstaged, review with git diff | way back: /undo | verified: RACT ran no tests this turn | assumed: write the file (planner confidence 0.90, not checked) | unsigned: 1 file | 2 model requests, 1.8 s, 985 tokens in / 39 out",
+    "state": {
+      "exists": true,
+      "bytes": 26,
+      "bom": false,
+      "crlf": true,
+      "content_ok": true
+    }
+  },
+  {
+    "case": "junction into another folder",
+    "target": "linkdir/new.py",
+    "exit": 3,
+    "seconds": 3.3,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"failed\", \"exit_code\": 3, \"session\": \"h-cdf6d7bfc8c0\", \"turns\": 1, \"verdict\": \"The turn failed.\", \"final_text\": \"\", \"changed\": [], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": []}, \"cost\": {\"tokens_in\": 923, \"tokens_out\": 40, \"by_purpose\": {\"plan\": 892, \"step 1\": 71}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 3815, \"bytes_in\": 1231}, \"denials\": [], \"notices\": [], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"done\", \"file\": \"linkdir/new.py\", \"verdict\": \"passed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> linkdir/new.py\n[step 1] write the file -> linkdir/new.py\n[step 1] done linkdir/new.py (0.0s)\nerror: Step 1 left these paths as they are: linkdir/new.py (path refused: 'linkdir' is a symlink or junction). The step's changes for them are in .ract/pending/55751fa73894.patch. Already applied to your files in this run: nothing.\nhint: nothing was written for that step; change the intent as the error says\nno files were changed\n  The turn failed.\n  changed: nothing\n  verified: RACT ran no tests this turn\n  2 model requests, 1.8 s, 923 tokens in / 40 out\n",
+    "message": ": linkdir/new.py (path refused: 'linkdir' is a symlink or junction). The step's changes for them are in .ract/pending/55751fa73894.patch. Already applied to your files in this run: nothing. | hint: nothing was written for that step; change the intent as the error says | no files were changed | The turn failed. | changed: nothing | verified: RACT ran no tests this turn | 2 model requests, 1.8 s, 923 tokens in / 40 out",
+    "state": {
+      "exists": false
+    }
+  },
+  {
+    "case": "symlink file",
+    "target": "linkfile.txt",
+    "exit": 0,
+    "seconds": 3.6,
+    "traceback": false,
+    "unicode_error": false,
+    "raw_tail": "{\"schema\": \"ract.result/1\", \"outcome\": \"done\", \"exit_code\": 0, \"session\": \"h-5e37fe76f927\", \"turns\": 1, \"verdict\": \"Done: 1 step ran; no tests were run.\", \"final_text\": \"\", \"changed\": [\"linkfile.txt\"], \"verification\": {\"status\": \"not-run\", \"runs\": [], \"claims\": []}, \"provenance\": {\"signed\": false, \"unsigned_files\": [\"linkfile.txt\"]}, \"cost\": {\"tokens_in\": 936, \"tokens_out\": 40, \"by_purpose\": {\"plan\": 899, \"step 1\": 77}, \"total_usd\": null, \"requests\": 2, \"unreported\": 0, \"bytes_out\": 3869, \"bytes_in\": 1229}, \"denials\": [], \"notices\": [\"provenance: 1 file(s) have no signature yet (linkfile.txt). See docs/PROVENANCE.md.\"], \"events_path\": null, \"plan\": [{\"step\": 1, \"title\": \"write the file\", \"state\": \"done\", \"file\": \"linkfile.txt\", \"verdict\": \"passed\"}]}\nRACT session fake-coder via local | auto-accept | T3 off\nPlan: 1 step, confidence 0.90\n  assumes: write the file\n  1. write the file -> linkfile.txt\n[step 1] write the file -> linkfile.txt\n[step 1] done linkfile.txt (0.0s)\nwarning: provenance: 1 file(s) have no signature yet (linkfile.txt). See docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: linkfile.txt (new, 1 line); unstaged, review with git diff\n  way back: /undo\n  verified: RACT ran no tests this turn\n  assumed: write the file (planner confidence 0.90, not checked)\n  unsigned: 1 file\n  2 model requests, 2.0 s, 936 tokens in / 40 out\n",
+    "message": "done linkfile.txt (0.0s) | warning: provenance: 1 file(s) have no signature yet (linkfile.txt). See docs/PROVENANCE.md. | Done: 1 step ran; no tests were run. | changed: linkfile.txt (new, 1 line); unstaged, review with git diff | way back: /undo | verified: RACT ran no tests this turn | assumed: write the file (planner confidence 0.90, not checked) | unsigned: 1 file | 2 model requests, 2.0 s, 936 tokens in / 40 out",
+    "state": {
+      "exists": true,
+      "bytes": 26,
+      "bom": false,
+      "crlf": true,
+      "content_ok": true
+    }
+  }
+]

@@ -94,7 +94,7 @@ def test_successful_turn_streams_and_reports_what_changed(
     assert finished["outcome"] == "done"
     assert finished["changed"] == ["src/calc.py"]
     assert any(
-        e.kind == "notice" and "without a Rootknot" in e.data["text"] for e in events
+        e.kind == "notice" and "have no signature yet" in e.data["text"] for e in events
     )
     assert [e.seq for e in events] == sorted(e.seq for e in events)
 
@@ -192,6 +192,14 @@ def test_cancelled_turn_writes_nothing(tmp_path: Path, fake_model_server: Any) -
 )
 def test_every_error_gets_a_hint(error: str, expected: str) -> None:
     assert expected in hint_for(error)
+
+
+def test_an_empty_plan_is_not_blamed_on_the_provider() -> None:
+    # D3: the model answered, with no steps. The provider check does not apply.
+    hint = hint_for("Plan contains no steps.")
+    assert "check-providers" not in hint
+    assert "no steps" in hint
+    assert "/model" in hint
 
 
 @pytest.mark.skipif(

@@ -1,0 +1,8 @@
+== F-REPL /resume with no id, and /resume latest with no sessions
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> /resume
+✗  usage: /resume <id|latest>. /sessions lists the saved ids.
+ract> /resume latest
+ no sessions yet
+ract> /exit

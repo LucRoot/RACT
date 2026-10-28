@@ -1,0 +1,96 @@
+ RACT 0.5.2  config: ract.yaml
+       type an intent, or /help for
+       commands
+RACT session fake-coder via local |
+  master | default | T3 off
+you: /help
+              RACT session
++--------------------------------------+
+| Command          | What it does      |
+|------------------+-------------------|
+| <text>           | Run the text as   |
+|                  | an intent (same   |
+|                  | as /run <text>).  |
+| /run <intent>    | Plan and execute  |
+|                  | an intent.        |
+| /plan <intent>   | Plan only. Shows  |
+|                  | the plan, writes  |
+|                  | nothing.          |
+| /ask <question>  | Answer a          |
+|                  | question. No      |
+|                  | plan, and no file |
+|                  | is written.       |
+| /loop <intent>   | Run the           |
+|                  | quality-anchored  |
+|                  | loop until done   |
+|                  | or regressed.     |
+| /set <name>      | Change a setting: |
+| <value>          | dry-run, stream,  |
+|                  | auto, mode,       |
+|                  | iterations.       |
+| /settings        | Show the current  |
+|                  | settings.         |
+| /model [name]    | Show the          |
+|                  | configured        |
+|                  | models, or switch |
+|                  | the manager for   |
+|                  | this session.     |
+| /session         | Show, restart or  |
+| [new|<id>]       | switch the        |
+|                  | session that      |
+|                  | carries context   |
+|                  | between turns.    |
+| /sessions        | List recent       |
+|                  | sessions: id,     |
+|                  | time, turns, cost |
+|                  | and last request. |
+| /context         | What the last     |
+|                  | request sent, and |
+|                  | the room the      |
+|                  | model has.        |
+| /resume          | Switch to a saved |
+| <id|latest>      | session and show  |
+|                  | its last request. |
+| /config          | Validate the      |
+|                  | active config     |
+|                  | (same as ract     |
+|                  | config validate). |
+| /providers       | List configured   |
+|                  | providers and the |
+|                  | manager provider. |
+| /cost            | Requests, tokens  |
+|                  | and bytes sent    |
+|                  | off this machine  |
+|                  | in this session.  |
+| /mode            | plan: propose     |
+| [plan|default|au | only; default:    |
+| to-accept]       | ask before each   |
+|                  | change;           |
+|                  | auto-accept:      |
+|                  | apply changes.    |
+| /undo [--force]  | Reverse the last  |
+|                  | turn's file       |
+|                  | changes (skips    |
+|                  | files you edited  |
+|                  | since).           |
+| /redo [--force]  | Reverse the last  |
+|                  | /undo.            |
+| /doctor          | Run setup         |
+| [--check-provide | diagnostics       |
+| rs]              | against the       |
+|                  | active config.    |
+| /report [--last] | Show what the     |
+|                  | last run changed  |
+|                  | and why.          |
+| /<verb> ...      | Any other RACT    |
+|                  | verb, for example |
+|                  | /whisper, /fence, |
+|                  | /auction,         |
+|                  | /status.          |
+| /clear           | Clear the screen. |
+| /help            | Show this list.   |
+| /exit            | Leave the session |
+|                  | (Ctrl-D also      |
+|                  | works).           |
++--------------------------------------+
+you: /exit

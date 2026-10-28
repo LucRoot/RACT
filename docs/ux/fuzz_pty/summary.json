@@ -1,0 +1,44 @@
+[
+  {
+    "case": "eof_start_prompt",
+    "prompt_seen": true,
+    "traceback": false,
+    "lines": 4,
+    "tail": "ract> ^Z"
+  },
+  {
+    "case": "ctrl_c_twice_start_prompt",
+    "prompt_seen": true,
+    "traceback": false,
+    "lines": 3,
+    "tail": "ract> ract> /exit"
+  },
+  {
+    "case": "eof_approval_question",
+    "prompt_seen": true,
+    "traceback": false,
+    "lines": 26,
+    "tail": "ract>"
+  },
+  {
+    "case": "ctrl_c_twice_approval_question",
+    "prompt_seen": true,
+    "traceback": false,
+    "lines": 23,
+    "tail": "ract> /exit"
+  },
+  {
+    "case": "eof_setup_prompt",
+    "prompt_seen": true,
+    "traceback": false,
+    "lines": 4,
+    "tail": "Setup stopped; no ract.yaml was written."
+  },
+  {
+    "case": "ctrl_c_twice_setup_prompt",
+    "prompt_seen": true,
+    "traceback": false,
+    "lines": 3,
+    "tail": "Setup stopped; no ract.yaml was written."
+  }
+]

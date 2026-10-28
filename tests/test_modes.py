@@ -87,7 +87,8 @@ def test_default_mode_asks_before_the_change_in_a_real_session(
         # asks with no /mode command (B-034).
         assert session.expect(r"\| default \|", 30)  # the status line
         session.send_line("fix add")
-        assert session.expect(r"Approve step: .*src/calc\.py\? \[y/N\]", 60)
+        # The question wraps to the terminal width (UX package H), so the words can be on two lines.
+        assert session.expect(r"Approve step:[\s\S]*?src/calc\.py\?\s*\[y/N\]", 60)
         session.send_line(reply)
         assert session.expect(r"ract> ", 60)
     finally:

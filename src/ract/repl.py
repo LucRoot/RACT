@@ -21,6 +21,9 @@ from __future__ import annotations
 import shlex
 import sys
 import threading
+import difflib
+from datetime import datetime
+import textwrap
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -31,10 +34,13 @@ from rich.markup import escape
 
 from ract.providers import reasoning
 from ract.session_events import safe_text
+from ract.cell_wrap import wrap_cells
+from ract.tui import terminal_width
 
 # Verbs that accept ``--config`` and should follow the session's config path
 # when the operator did not pass one.
 _CONFIG_AWARE_VERBS = frozenset({"doctor", "report"})
+_STRAY_ANSWERS = frozenset({"y", "n", "yes", "no"})
 
 HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("<text>", "Run the text as an intent (same as /run <text>)."),
@@ -60,6 +66,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/resume <id|latest>", "Switch to a saved session and show its last request."),
     ("/config", "Validate the active config (same as ract config validate)."),
     ("/providers", "List configured providers and the manager provider."),
+    ("/permissions", "What RACT may change or send, in one screen."),
     ("/cost", "Requests, tokens and bytes sent off this machine in this session."),
     (
         "/mode [plan|default|auto-accept]",
@@ -187,6 +194,7 @@ class ReplSession:
             "report": self._cmd_report,
             "cost": self._cmd_cost,
             "mode": self._cmd_mode,
+            "permissions": self._cmd_permissions,
             "undo": self._cmd_undo,
             "redo": self._cmd_redo,
             "clear": self._cmd_clear,
@@ -215,6 +223,7 @@ class ReplSession:
         """Run until the operator exits. Returns a process exit code."""
         self._setup_readline()
         self._banner()
+        self._resume_offer()
         if self._event_mode:
             self._start_events()
         started = time.monotonic()
@@ -228,8 +237,12 @@ class ReplSession:
                     reason = "eof"
                     break
                 except KeyboardInterrupt:
-                    # Ctrl-C at the prompt abandons the line, like a shell.
-                    self._console.print("")
+                    # Ctrl-C at the prompt abandons the line, like a shell. A second Ctrl-C
+                    # while the line is cleared is still a stop, not a traceback (package P).
+                    try:
+                        self._console.print("")
+                    except KeyboardInterrupt:
+                        pass
                     continue
                 if not self.handle(line):
                     reason = "exit"
@@ -260,6 +273,12 @@ class ReplSession:
             return self._handle_command(text)
         if text in {"exit", "quit"}:
             return False
+        if text.lower() in _STRAY_ANSWERS:
+            # D4: an approval answer reaches this line only when no question is open.
+            self._console.print(
+                "no question is waiting; to send that text as a request, add a word to it"
+            )
+            return True
         self._run_intent(text)
         return True
 
@@ -280,9 +299,17 @@ class ReplSession:
         if name in self._verbs:
             self._run_verb(name, args)
             return True
-        self._console.error(
-            f"unknown command /{escape(name)}. Type /help for the list."
-        )
+        # Standard 8: a near miss gets the nearest command, not only a pointer to /help.
+        known = sorted({*self._builtins, *self._verbs})
+        near = difflib.get_close_matches(name, known, n=1, cutoff=0.6)
+        if near:
+            self._console.error(
+                f"unknown command /{escape(name)}. Did you mean /{escape(near[0])}?"
+            )
+        else:
+            self._console.error(
+                f"unknown command /{escape(name)}. Type /help for the list."
+            )
         return True
 
     def _cmd_help(self, args: list[str]) -> bool:
@@ -378,9 +405,28 @@ class ReplSession:
             return "plan"
         return "default" if self.state.auto else "auto-accept"
 
+    def _cmd_permissions(self, args: list[str]) -> bool:
+        """What RACT may change or send, in one screen (standard 13)."""
+        self._print_wrapped(f"Mode: {self._MODE_TEXT[self.permission_mode()]}")
+        self._print_wrapped(
+            "Network: requests go only to the providers named in ract.yaml; "
+            "/cost lists what was sent."
+        )
+        self._print_wrapped(
+            "Tier 3 (unrestricted): off. This release has no tier-3 policy."
+        )
+        self._print_wrapped(
+            "Sandbox: not enforced in this build; ract doctor shows what is checked."
+        )
+        self._print_wrapped(
+            "Repository commands (hooks, test gates) run only after you trust this "
+            "repository: ract trust."
+        )
+        return True
+
     def _cmd_mode(self, args: list[str]) -> bool:
         if not args:
-            self._console.print(self._MODE_TEXT[self.permission_mode()])
+            self._print_wrapped(self._MODE_TEXT[self.permission_mode()])
             return True
         wanted = self._MODE_ALIASES.get(args[0].lower(), args[0].lower())
         if wanted == "unrestricted":
@@ -401,7 +447,7 @@ class ReplSession:
             self._events.emit(
                 "mode.changed", {"mode": wanted, "tier3": "off", "by": "operator"}
             )
-        self._console.print(self._MODE_TEXT[wanted])
+        self._print_wrapped(self._MODE_TEXT[wanted])
         return True
 
     def _cmd_cost(self, args: list[str]) -> bool:
@@ -411,8 +457,8 @@ class ReplSession:
             egress_ledger.read(), self.state.started_at, this_process=True
         )
         for line in egress_ledger.describe(records):
-            self._console.print(line)
-        self._console.print(
+            self._print_wrapped(line)
+        self._print_wrapped(
             f"ledger: {egress_ledger.ledger_path()} (ract doctor --egress for history)"
         )
         return True
@@ -424,7 +470,6 @@ class ReplSession:
         return True
 
     def _cmd_model(self, args: list[str]) -> bool:
-        import shutil
 
         import yaml
 
@@ -483,7 +528,7 @@ class ReplSession:
             and isinstance(slot.get("url") or slot.get("base_url"), str)
             and trust.repository_named_host(slot.get("url") or slot.get("base_url"))
         }
-        width = max(60, min(shutil.get_terminal_size((80, 24)).columns, 100))
+        width = terminal_width()
         for line in model_blocks(providers, manager or "", named, width):
             self._console.print(escape(line))
         return True
@@ -501,7 +546,7 @@ class ReplSession:
         providers = config.get("providers") if isinstance(config, dict) else None
         if not isinstance(providers, dict) or not providers:
             self._console.error(
-                f"no providers in {self.state.config}. Leave and run ract setup to create a working one."
+                f"no providers in {self.state.config}. Run ract setup in another terminal to fix that."
             )
             return True
         manager, error = resolve_manager_provider(config)
@@ -617,11 +662,19 @@ class ReplSession:
         except OSError:
             records = []
         # No probe result is stored, so the window is unknown here.
-        for line in context_lines(records, None, width=self._context_width()):
+        for line in context_lines(records, None, width=self._render_width()):
             self._console.print(line)
         return True
 
-    def _context_width(self) -> int:
+    def _print_wrapped(self, text: str) -> None:
+        """Print a line folded to the terminal width, continuation lines indented (package A)."""
+        # By terminal columns (package I): a wide character is two columns. A path has no
+        # spaces to break at, so it folds rather than overflows.
+        for line in wrap_cells(text, terminal_width(), subsequent_indent="  ") or [""]:
+            self._console.print(escape(line))
+
+    def _render_width(self) -> int:
+        """The width the renderer fits its lines to: the terminal, between 40 and 80 (B-041c)."""
         import shutil
 
         return max(40, min(80, shutil.get_terminal_size((80, 24)).columns))
@@ -631,7 +684,7 @@ class ReplSession:
 
         rows, total = list_rows(sessions_dir(self.state.config))
         if not rows:
-            self._console.info("no sessions yet")
+            self._print_wrapped("no sessions yet: a request you type starts one")
             return True
         table = [
             [
@@ -661,7 +714,9 @@ class ReplSession:
         from ract.undo_backup import require_name
 
         if len(args) != 1:
-            self._console.error("usage: /resume <id|latest>")
+            self._console.error(
+                "usage: /resume <id|latest>. /sessions lists the saved ids."
+            )
             return True
         directory = sessions_dir(self.state.config)
         if args[0] == "latest":
@@ -669,7 +724,9 @@ class ReplSession:
             if row is None:
                 _, total = list_rows(directory, limit=0)
                 self._console.info(
-                    "no sessions yet" if total == 0 else "no readable session to resume"
+                    "no sessions yet: a request you type starts one"
+                    if total == 0
+                    else "no readable session to resume"
                 )
                 return True
         else:
@@ -765,6 +822,8 @@ class ReplSession:
             write,
             labels=plain_mode(),
             project=self.state.config.resolve().parent,
+            width=self._render_width(),
+            wrap=True,
         )
         self._events.subscribe(self._renderer)
         self._events.emit("session.started", self._session_facts())
@@ -839,10 +898,16 @@ class ReplSession:
         box: dict[str, int] = {}
 
         def work() -> None:
+            # Package T: an error the turn raises (a locked or unsnapshottable
+            # file, for one) is one sentence on the console, not a thread
+            # traceback that the interpreter prints after the prompt returns.
             try:
                 box["code"] = run_turn(
                     self._events, request, turn=turn_no, cancel=cancel
                 )
+            except Exception as exc:
+                self._console.error(f"the turn stopped: {exc}")
+                box["code"] = 1
             finally:
                 done.set()
 
@@ -901,7 +966,6 @@ class ReplSession:
     ) -> int:
         """Ctrl-C during a turn: acknowledge now, stop writes, prompt within 2 s."""
         received = time.monotonic()
-        cancel.set()
         self._events.emit(
             "turn.interrupting",
             {
@@ -913,6 +977,8 @@ class ReplSession:
             },
             turn=turn_no,
         )
+        # Announce first: a step that ends because of the cancel must follow "stopping...".
+        cancel.set()
         try:
             # LR:: This used to wait 1.5 s of the 2 s budget for the worker.
             # A worker blocked in a model call cannot finish in that time
@@ -1008,15 +1074,43 @@ class ReplSession:
             version = ract.__version__
         except Exception:  # noqa: BLE001
             version = "?"
-        self._console.info(
-            f"RACT {version}  config: {escape(str(self.state.config))}  "
+        # Wrap the raw text, then escape each line: an escape split across two
+        # lines would print wrong. The [ract] prefix takes seven columns (B-041c).
+        raw = (
+            f"RACT {version}  config: {self.state.config}  "
             "type an intent, or /help for commands"
         )
+        pieces = textwrap.wrap(raw, width=self._render_width() - 7)
+        self._console.info(escape(pieces[0]))
+        for piece in pieces[1:]:
+            self._console.print("       " + escape(piece))
         if not self.state.config.is_file():
-            self._console.warning(
-                f"{escape(str(self.state.config))} not found. "
-                "Leave and run ract setup to create one (it checks this machine and asks a few questions)."
+            raw_warning = (
+                f"{self.state.config} not found. "
+                "Run ract setup in another terminal to create one (it checks this machine and asks a few questions)."
             )
+            warning_pieces = textwrap.wrap(raw_warning, width=self._render_width() - 2)
+            self._console.warning(escape(warning_pieces[0]))
+            for piece in warning_pieces[1:]:
+                self._console.print("  " + escape(piece))
+
+    def _resume_offer(self) -> None:
+        """Name the newest saved session and the command that resumes it (J2)."""
+        from ract.session_listing import latest_row, sessions_dir
+
+        try:
+            row = latest_row(sessions_dir(self.state.config))
+        except OSError:
+            return
+        if row is None:
+            return
+        when = datetime.fromtimestamp(row.updated).strftime("%Y-%m-%d %H:%M")
+        request = safe_text(row.request) or "no request saved"
+        # A request cut for the listing already ends in "...": no second full stop.
+        stop = "" if request.endswith("...") else "."
+        self._print_wrapped(
+            f"last session {row.session_id} ({when}): {request}{stop} /resume to continue it."
+        )
 
     # --------------------------------------------------------------- history
 

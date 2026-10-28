@@ -1,0 +1,36 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> ajouter un message de bienvenue à café.py — ✓ 日本語
+Plan (3 steps):
+  assumes: The café greeting needs add() fixed — ✓ 日本語 text in the reply.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/café.py
+[ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[ ] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+[>] 1. Fix add() in src/calc.py so it adds -> src/café.py
+Approve step: [local] Fix add() in src/calc.py so it adds -> src/café.py?
+[y/N]: y
+--- src/café.py ---
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - b
+[!] 1. Fix add() in src/calc.py so it adds -> src/café.py (0.1s) failed
+error: Duplication guard blocked write: sub (src.calc) similarity=0.974; sub
+  (src.calc) similarity=1.000
+hint: run `ract doctor --check-providers` to check the setup, then try again
+no files were changed
+Plan (3 steps), final:
+[!] 1. Fix add() in src/calc.py so it adds -> src/café.py (0.1s) failed
+[-] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.0s) skipped
+[-] 3. Add tests/test_notes.py that che... -> tests/test_notes.py (0.0s) skipped
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  2 model requests, 2.2 s, 1091 tokens in / 133 out
+ract> y
+no question is waiting; to send that text as a request, add a word to it
+ract> y
+no question is waiting; to send that text as a request, add a word to it
+ract> /exit

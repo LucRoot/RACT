@@ -1,0 +1,16 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+ract> /permissions
+Mode: default: RACT asks before each step that changes a
+  file
+Network: requests go only to the providers named in
+  ract.yaml; /cost lists what was sent.
+Tier 3 (unrestricted): off. This release has no tier-3
+  policy.
+Sandbox: not enforced in this build; ract doctor shows what
+  is checked.
+Repository commands (hooks, test gates) run only after you
+  trust this repository: ract trust.
+ract> /exit

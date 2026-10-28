@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 
+import shutil
 from collections.abc import Callable
 
+from ract import question_gate
+from ract.cell_wrap import wrap_cells
 from ract.manager import Step
 
 
 ConsoleApprovalCallback = Callable[[Step], bool]
+
+
+def _terminal_width() -> int:
+    """The terminal's columns, between 40 and 80 (the same rule as the REPL)."""
+    return max(40, min(80, shutil.get_terminal_size((80, 24)).columns))
 
 
 def console_approval_callback(step: Step) -> bool:
@@ -22,14 +30,27 @@ def console_approval_callback(step: Step) -> bool:
     """
     if not step.expected_artifact and step.tool_call is None:
         return True
-    prompt = (
+    question = (
         f"Approve step: [{step.provider_hint}] {step.action} "
-        f"-> {step.expected_artifact or 'answer, no file written'}? [y/N]: "
+        f"-> {step.expected_artifact or 'answer, no file written'}? [y/N]:"
     )
+    # The question wraps to the terminal width; the answer goes on the last line (B-041c).
+    # Three columns stay free there, so the prompt and a one-character answer fit (package H).
+    # By terminal columns (package I): a wide character is two columns.
+    lines = wrap_cells(question, max(_terminal_width() - 3, 20))
+    for line in lines[:-1]:
+        print(line)
+    question_gate.open_question()
     try:
-        response = input(prompt).strip().lower()
+        response = input(f"{lines[-1]} ").strip().lower()
     except EOFError:
         return False
+    except KeyboardInterrupt:
+        # Ctrl-C at the prompt: end the line first, so the next output does not print onto it.
+        print()
+        raise
+    finally:
+        question_gate.close_question()
     return response in {"y", "yes"}
 
 

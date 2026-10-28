@@ -1,0 +1,5 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> /sessions
+ no sessions yet
+ract> /exit

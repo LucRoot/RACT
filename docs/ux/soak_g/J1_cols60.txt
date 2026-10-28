@@ -1,0 +1,11 @@
+No ract.yaml in this directory, so RACT does not know which
+model to use.
+Set one up now? [Y/n] (n opens the session without one) n
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+⚠  ract.yaml not found. Run ract setup in another terminal 
+to
+  create one (it checks this machine and asks a few
+  questions).
+RACT session no model via no provider | default | T3 off
+ract> /exit

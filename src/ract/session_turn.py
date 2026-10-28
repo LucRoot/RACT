@@ -53,6 +53,18 @@ class TurnRequest:
     token_budget: int | None = None
 
 
+def provenance_notice(unsigned: list[str]) -> str:
+    """The unsigned-files notice in the words an operator reads (standard 12).
+
+    The project term and the release status are left to docs/PROVENANCE.md; the
+    terminal names the files and the place that explains them.
+    """
+    return (
+        f"provenance: {len(unsigned)} file(s) have no signature yet "
+        f"({', '.join(unsigned)}). See docs/PROVENANCE.md."
+    )
+
+
 # (pattern on the error text, hint). First match wins. Every hint names the
 # next action or the exact command.
 _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -117,6 +129,44 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         re.compile(r"Interrupted", re.I),
         "run the intent again when you are ready",
+    ),
+    (
+        # Windows file names (package T). Each hint names the file action the user can take.
+        re.compile(r"is a Windows device name", re.I),
+        "choose a different file name: CON, NUL, AUX, COM1 and LPT1 are reserved by Windows",
+    ),
+    (
+        re.compile(r"ends in a dot or space", re.I),
+        "remove the trailing dot or space from the file name, then run the intent again",
+    ),
+    (
+        re.compile(r"could not change it|left these paths as they are", re.I),
+        "the file is read-only or open in another program: make it writable "
+        "(attrib -R <file>) or close the program using it, then run the intent again",
+    ),
+    (
+        re.compile(r"untracked, so git has no copy", re.I),
+        "git does not track this file yet: commit it (git add, then git commit) and run "
+        "the intent again, or apply the saved patch yourself",
+    ),
+    (
+        re.compile(r"could not snapshot the working tree", re.I),
+        "a file in the project could not be read, perhaps because another program has it "
+        "open: close it and run the intent again",
+    ),
+    (
+        # The duplication guard refused a write that repeats existing code (package R). The
+        # hint says what the user can ask for; the message and the guard are the harness's.
+        re.compile(r"Duplication guard blocked write", re.I),
+        "the change repeats code that already exists in the project; ask for something "
+        "new, or name the existing code you want reused",
+    ),
+    (
+        # The model answered with no steps (D3). The provider is reachable, so the
+        # provider check does not apply; the next action is a rephrase or a model.
+        re.compile(r"Plan contains no steps", re.I),
+        "the model returned no steps for this intent; rephrase it with the file and "
+        "the change you want, or pick another model with /model",
     ),
 )
 _DEFAULT_HINT = "run `ract doctor --check-providers` to check the setup, then try again"
@@ -417,12 +467,7 @@ def run_turn(
     if unsigned:
         stream.emit(
             "notice",
-            {
-                "level": "warning",
-                "text": f"provenance: {len(unsigned)} file(s) written without a Rootknot "
-                f"({', '.join(unsigned)}). Signing is not wired into this release; "
-                "see docs/PROVENANCE.md.",
-            },
+            {"level": "warning", "text": provenance_notice(unsigned)},
             turn=turn,
         )
     # A reply that says tests pass, in a turn where RACT ran none (R-113).

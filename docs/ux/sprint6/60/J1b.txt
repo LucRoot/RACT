@@ -1,0 +1,58 @@
+# J1b: First run following the printed hint
+# build: "[S6-8] run_baseline: RACT_UX_COLS sets the journey terminal width (80 by default)"  terminal: 80x40 pseudo-terminal  run: 2026-10-27 02:58
+## following the hint: `ract --init-provider local`
+$ ract --init-provider local
+[ract] wrote default prompt to prompts\manager.txt
+[ract] wrote ract.yaml using the 'local' preset
+[ract] set the required environment variables, then check that
+[ract] the provider answers and try a dry run:
+  ract doctor --check-providers
+  ract "your intent here" --dry-run
+[exit 0, 1.65s]
+
+## then `ract doctor`
+$ ract doctor
+─────────────────────── Doctor: 7/7 config checks passed ───────────────────────
+┏━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Status ┃ Check            ┃ Message                                      ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ PASS   │ config_exists    │ Found ract.yaml.                             │
+│ PASS   │ config_parse     │ ract.yaml parses cleanly.                    │
+│ PASS   │ project_name     │ Project name is 'my-ract-project'.           │
+│ PASS   │ manager_provider │ Manager provider 'local' is configured.      │
+│ PASS   │ providers        │ 1 provider(s) configured.                    │
+│ PASS   │ prompt_file      │ Manager prompt found at prompts\manager.txt. │
+│ PASS   │ skills           │ No skill configured; optional.               │
+└────────┴──────────────────┴──────────────────────────────────────────────┘
+Providers were not contacted. To check that each one answers, run: ract doctor 
+--check-providers
+Provenance: files written by ract runs are not signed with a Rootknot in this 
+release. See docs/PROVENANCE.md.
+Sandbox (Windows): no sandbox backend for this platform; no backend runs 
+commands in this build.
+  filesystem: not enforced in this build
+  network: not enforced in this build
+  process limits: not enforced in this build
+  environment: scrubbed by allowlist for hook commands; inherited from your 
+shell for test, lint and step commands
+[exit 0, 1.77s]
+
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session local-model via local | default | T3 off
+ract> explain what this folder contains
+  trying once more in 0.2 s: nothing is answering at
+    http://127.0.0.1:11434/v1 (connection refused)
+error: Planning failed: Provider call failed: Request
+  failed: nothing is answering at http://127.0.0.1:11434/v1
+  (connection refused).
+hint: start your model server, or fix the provider url in
+  ract.yaml; `ract doctor --check-providers` checks it
+file changes are not tracked here (not a git repository)
+  The turn failed.
+  changed: not tracked here (not a git repository)
+  verified: RACT ran no tests this turn
+  2 model requests, 1.7 s, tokens not reported by the
+    provider
+ract> /exit

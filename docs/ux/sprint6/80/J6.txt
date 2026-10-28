@@ -1,0 +1,29 @@
+# J6: Interrupt during a slow turn
+# build: "[S6-8] run_baseline: RACT_UX_COLS sets the journey terminal width (80 by default)"  terminal: 80x40 pseudo-terminal  run: 2026-10-27 02:55
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-slow via local | master | default | T3 off
+ract> explain this project
+  ... waiting on model (2 s)
+stopping...
+  the model call is still finishing and will write nothing
+  Stopped. Nothing more was written after the interrupt.
+  changed: not tracked here (not a git repository)
+  verified: RACT ran no tests this turn
+  3.2 s
+ract> /settings
+                     Settings                      
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ setting                  ┃ value                ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ config                   │ ract.yaml            │
+│ dry-run                  │ off                  │
+│ stream                   │ off                  │
+│ auto (approve each step) │ on                   │
+│ mode                     │ default              │
+│ iterations (for /loop)   │ 10                   │
+│ session                  │ repl-20261027-025546 │
+│ turns this session       │ 1                    │
+│ reasoning effort         │ off                  │
+└──────────────────────────┴──────────────────────┘
+ract> /exit

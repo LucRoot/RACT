@@ -1,0 +1,8 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+last session h-0123456789ab (2026-10-25 19:44): add a greeting to src/calc.py
+  and two tests for it.... /resume to continue it.
+RACT session fake-coder via local | master | default | T3 off
+ract> /resume latest
+✓  resumed h-0123456789ab, last request: add a greeting to src/calc.py and two 
+tests for it...
+ract> /exit

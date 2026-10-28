@@ -10,10 +10,15 @@ implements the same ``Renderer`` protocol, so the choice is a swap.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
+from rich.cells import cell_len
+
+from ract import question_gate
+from ract.cell_wrap import wrap_cells
 from ract.diff_render import draw_turn_diff
 from ract.session_events import SessionEvent, safe_text
 from ract.turn_summary import describe_change
@@ -65,12 +70,15 @@ class PlainRenderer:
         *,
         show_reasoning: bool = False,
         width: int = 80,
+        wrap: bool = False,
         labels: bool = False,
         project: Path | None = None,
     ) -> None:
         self._write = write
         self._show_reasoning = show_reasoning
         self._width = width
+        # Opt-in: the REPL wraps to the terminal; headless output is unchanged (B-041c).
+        self._wrap = wrap
         # The project folder the turn changed: the diff block reads its files
         # from here, and only from here (B-014b). None draws no diff block.
         self._project = project
@@ -82,6 +90,9 @@ class PlainRenderer:
         # Step records for the checklist, keyed by step number; None for a
         # one-step plan, which keeps the short lines.
         self._checklist: dict[Any, dict[str, Any]] | None = None
+        self._stop_requested = False
+        # The provenance warning is printed once per session (D7); the turn summary still counts.
+        self._provenance_shown = False
         self._mid_line = False
         self._last_heartbeat_ms = -1
         self._reasoning_chars = 0
@@ -97,10 +108,32 @@ class PlainRenderer:
     # -- helpers
 
     def _line(self, text: str) -> None:
+        # Package I: an escape byte in any line is replaced here too, not only at the event sources.
+        text = safe_text(text)
         if self._mid_line:
             self._write("\n")
             self._mid_line = False
-        self._write(text + "\n")
+        for piece in self._fit(text) if self._wrap else [text]:
+            self._write(piece + "\n")
+
+    def _fit(self, text: str) -> list[str]:
+        """The text as lines no wider than the renderer's width (B-041c).
+
+        A longer line wraps at a word boundary. Continuation lines keep the
+        line's own indent and add two spaces, so the wrapped text reads as one item.
+        """
+        if cell_len(text) <= self._width:
+            return [text]
+        indent = len(text) - len(text.lstrip(" "))
+        pad = " " * indent
+        # Columns, not characters: a wide character is two columns (package I).
+        pieces = wrap_cells(
+            text.strip(" "),
+            self._width,
+            initial_indent=pad,
+            subsequent_indent=pad + "  ",
+        )
+        return pieces or [text]
 
     def __call__(self, event: SessionEvent) -> None:
         self.on_event(event)
@@ -118,9 +151,16 @@ class PlainRenderer:
             handler(event.data)
 
     def _on_session_started(self, d: dict[str, Any]) -> None:
+        # "?" is the event's placeholder for a value no config named (D11).
+        model = d.get("model") if d.get("model") not in (None, "", "?") else "no model"
+        provider = (
+            d.get("provider")
+            if d.get("provider") not in (None, "", "?")
+            else "no provider"
+        )
         branch = f" | {d['branch']}" if d.get("branch") else ""
         self._line(
-            f"RACT session {d.get('model', '?')} via {d.get('provider', '?')}{branch} | {d.get('mode', 'default')} | T3 {d.get('tier3', 'off')}"
+            f"RACT session {model} via {provider}{branch} | {d.get('mode', 'default')} | T3 {d.get('tier3', 'off')}"
         )
 
     def _on_session_resumed(self, d: dict[str, Any]) -> None:
@@ -156,12 +196,14 @@ class PlainRenderer:
         self._plan = {}
         self._cost = {}
         self._checklist = None
+        self._stop_requested = False
         self._wrote_file = False
         self._labelled_summary = False
         if d.get("queued"):
             self._line(f"running queued: {d.get('input', '')}")
 
     def _on_turn_interrupting(self, d: dict[str, Any]) -> None:
+        self._stop_requested = True
         self._line("stopping...")
         if not d.get("cancellable", True):
             self._line("  the model call is still finishing and will write nothing")
@@ -238,6 +280,9 @@ class PlainRenderer:
         self._text_target = None
         seconds = int(d.get("duration_ms", 0)) / 1000
         outcome = d.get("outcome", "?")
+        if self._stop_requested and outcome == "failed":
+            # J6: the step ended after the operator stopped the turn; it was stopped, not failed.
+            outcome = "skipped"
         if d.get("artifact") and outcome == "done":
             self._wrote_file = True
         if self._checklist is not None and d.get("n") in self._checklist:
@@ -313,6 +358,9 @@ class PlainRenderer:
             self._line("  (thinking) " + text.replace("\n", "\n  (thinking) "))
 
     def _on_agent_heartbeat(self, d: dict[str, Any]) -> None:
+        # Adjudication row 5: no tick lands on an open approval question.
+        if question_gate.question_open():
+            return
         elapsed = int(d.get("elapsed_ms", 0))
         due = (
             self._last_heartbeat_ms < 0
@@ -379,7 +427,7 @@ class PlainRenderer:
         self._cost = dict(d)
 
     def _on_error_surfaced(self, d: dict[str, Any]) -> None:
-        self._line(f"error: {d.get('message', '')}")
+        self._line(f"error: {_readable_error(str(d.get('message', '')))}")
         self._line(f"hint: {d.get('hint', '')}")
         if d.get("workspace"):
             self._line(str(d["workspace"]))
@@ -387,6 +435,11 @@ class PlainRenderer:
             self._line(f"details: {d['log']}")
 
     def _on_notice(self, d: dict[str, Any]) -> None:
+        text = str(d.get("text", ""))
+        if text.startswith("provenance: "):
+            if self._provenance_shown:
+                return
+            self._provenance_shown = True
         prefix = "note" if d.get("level") == "info" else "warning"
         self._line(f"{prefix}: {d.get('text', '')}")
 
@@ -400,10 +453,11 @@ class PlainRenderer:
         self._text_target = None
         seconds = int(d.get("duration_ms", 0)) / 1000
         if self._checklist is not None:
-            # A step that never ended (an interrupted turn) stays unchecked.
+            # A step that did not end (the turn stopped first) was not run to its
+            # end, so it is skipped, not left looking like it is still to come (D1).
             for step in self._checklist.values():
-                if step["state"] == "running":
-                    step["state"] = "pending"
+                if step["state"] in ("pending", "running"):
+                    step["state"] = "skipped"
             self._line(f"Plan ({len(self._checklist)} steps), final:")
             for n in self._checklist:
                 self._line(self._checklist_line(n))
@@ -512,11 +566,31 @@ class PlainRenderer:
         if self._cost:
             tin, tout = self._cost.get("tokens_in"), self._cost.get("tokens_out")
             parts.append(
-                "tokens not reported"
+                "tokens not reported by the provider"
                 if tin is None and tout is None
                 else f"{tin or 0} tokens in / {tout or 0} out"
             )
         return ", ".join(parts)
+
+
+def _readable_error(message: str) -> str:
+    """The provider's own message in place of its raw JSON body (D8).
+
+    ``HTTP 503: {"error": {"message": "busy"}}`` reads as ``HTTP 503: busy``.
+    Text with no JSON body, or a body without an error message, is returned as is.
+    """
+    start = message.find("{")
+    if start < 0:
+        return message
+    try:
+        body = json.loads(message[start:])
+    except ValueError:
+        return message
+    error = body.get("error") if isinstance(body, dict) else None
+    text = error.get("message") if isinstance(error, dict) else None
+    if not isinstance(text, str) or not text:
+        return message
+    return f"{message[:start]}{text}"
 
 
 def _too_large(project: Path, path: str) -> bool:

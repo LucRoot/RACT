@@ -39,7 +39,7 @@ COST_INDEX: Dict[str, Dict[str, Any]] = {
         "currency": "USD",
         "note": "representative low-cost frontier proxy",
     },
-    "moonshot": {
+    "glm": {
         "input_per_1k": 0.5,
         "output_per_1k": 1.0,
         "currency": "USD",

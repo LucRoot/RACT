@@ -251,8 +251,8 @@ def test_repetitive_input_at_each_size_returns_within_two_seconds(count):
 
 
 def test_a_pair_at_the_cap_still_draws_its_change():
-    old = "".join(f"line {i}\n" for i in range(5_000))
-    new = old.replace("line 2500\n", "changed\n")
+    old = "".join(f"line {i}\n" for i in range(2_000))
+    new = old.replace("line 1000\n", "changed\n")
     lines = render_hunks("big.py", old, new)
     assert any(": lines " in line for line in lines)
 
@@ -273,8 +273,8 @@ def test_summary_counts_files_and_lines():
 
 def test_one_inserted_line_in_repetitive_input_is_counted_exactly():
     # G-130: with autojunk, a repetitive file once showed +1250 -1250 for one line.
-    old = "}\n" * 2_500
-    new = "}\n" * 1_250 + "x\n" + "}\n" * 1_250
+    old = "}\n" * 1_500
+    new = "}\n" * 750 + "x\n" + "}\n" * 750
     lines = render_hunks("gen.js", old, new)
     assert lines[0].endswith("+1 -0")
     hunks = [line for line in lines if ": lines " in line]
@@ -284,8 +284,8 @@ def test_one_inserted_line_in_repetitive_input_is_counted_exactly():
 
 
 def test_a_changed_line_among_repetitive_lines_is_visible_early():
-    old = "}\n" * 3_000
-    new = "}\n" * 1_500 + "x\n" + "}\n" * 1_499
+    old = "}\n" * 1_800
+    new = "}\n" * 900 + "x\n" + "}\n" * 899
     lines = render_hunks("gen.js", old, new)
     assert any(marker == "+" for marker, _ in _body(lines[:200]))
 

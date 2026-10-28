@@ -1,0 +1,25 @@
+{"schema": "ract.result/1", "outcome": "done", "exit_code": 0, "session": "h-f0f261bd8e14", "turns": 1, "verdict": "Done: 3 steps ran; no tests were run.", "final_text": "", "changed": ["src/calc.py", "src/notes.py", "tests/test_notes.py"], "verification": {"status": "not-run", "runs": [], "claims": []}, "provenance": {"signed": false, "unsigned_files": ["src/calc.py", "src/notes.py", "tests/test_notes.py"]}, "cost": {"tokens_in": 1392, "tokens_out": 155, "by_purpose": {"plan": 1059, "step 1": 184, "step 2": 144, "step 3": 160}, "total_usd": null, "requests": 4, "unreported": 0, "bytes_out": 5813, "bytes_in": 4728}, "denials": [], "notices": ["provenance: 3 file(s) have no signature yet (src/calc.py, src/notes.py, tests/test_notes.py). See docs/PROVENANCE.md."], "events_path": null, "plan": [{"step": 1, "title": "Fix add() in src/calc.py so it adds", "state": "done", "file": "src/calc.py", "verdict": "passed"}, {"step": 2, "title": "Add src/notes.py with the NOTE constant", "state": "done", "file": "src/notes.py", "verdict": "passed"}, {"step": 3, "title": "Add tests/test_notes.py that checks NOTE", "state": "done", "file": "tests/test_notes.py", "verdict": "passed"}]}
+RACT session fake-coder via local | auto-accept | T3 off
+Plan (3 steps):
+  assumes: The failing test needs add() fixed, a notes module, and a test for it.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[ ] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+[>] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[x] 1. Fix add() in src/calc.py so it adds -> src/calc.py (0.0s) passed
+[>] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[x] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.0s) passed
+[>] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+[x] 3. Add tests/test_notes.py that chec... -> tests/test_notes.py (0.0s) passed
+warning: provenance: 3 file(s) have no signature yet (src/calc.py, src/notes.py, tests/test_notes.py). See docs/PROVENANCE.md.
+Plan (3 steps), final:
+[x] 1. Fix add() in src/calc.py so it adds -> src/calc.py (0.0s) passed
+[x] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.0s) passed
+[x] 3. Add tests/test_notes.py that chec... -> tests/test_notes.py (0.0s) passed
+  Done: 3 steps ran; no tests were run.
+  changed: src/calc.py (+1 -1), src/notes.py (new, 1 line), tests/test_notes.py (new, 5 lines); unstaged, review with git diff
+  way back: /undo
+  verified: RACT ran no tests this turn
+  assumed: The failing test needs add() fixed, a notes module, and a test for it. (planner confidence 0.85, not checked)
+  unsigned: 3 files
+  4 model requests, 2.6 s, 1392 tokens in / 155 out

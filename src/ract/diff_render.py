@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import difflib
 
+from rich.cells import cell_len
+
 from ract.session_events import safe_text
 
 _NUL_WINDOW = 8192
 _NEW_FILE_PREVIEW = 20
 _EXACT_DIFF_LINES = 1_000
-_MAX_DIFF_LINES = 5_000
+# Package Q: the matcher is quadratic in this range (2.5 s at 5000 lines, 0.09 s at 1000),
+# so past 2000 lines the diff is a count of lines, not hunks.
+_MAX_DIFF_LINES = 2_000
 
 
 def _clean(text: str) -> str:
@@ -42,9 +46,19 @@ def _row(gutter: int, number: int, marker: str, text: str) -> str:
 
 
 def _fit(line: str, width: int) -> str:
-    if len(line) <= width:
+    """The line cut to ``width`` terminal columns, with "..." at the cut (package O)."""
+    if cell_len(line) <= width:
         return line
-    return line[: max(width - 3, 0)] + "..."
+    budget = max(width - 3, 0)
+    out = ""
+    used = 0
+    for ch in line:
+        step = cell_len(ch)
+        if used + step > budget:
+            break
+        out += ch
+        used += step
+    return out + "..."
 
 
 def _finish(lines: list[str], width: int, max_lines: int) -> list[str]:
@@ -152,7 +166,7 @@ def _diff(
     path = _clean(path)
     if any(t is not None and _is_binary(t) for t in (old, new)):
         size = len((new if new is not None else old or "").encode("utf-8", "replace"))
-        return [f"{path}: binary file, {size} bytes"], 0, 0
+        return [_fit(f"{path}: binary file, {size} bytes", width)], 0, 0
     if old is None or new is None:
         lines = _finish(_file_level(path, old, new), width, max_lines)
         if old is None:
@@ -162,7 +176,7 @@ def _diff(
         return [], 0, 0
     ending = _line_ending_change(old, new)
     if ending is not None:
-        return [f"{path}: line endings changed ({ending})"], 0, 0
+        return [_fit(f"{path}: line endings changed ({ending})", width)], 0, 0
 
     # Compare line by line with CRLF read as LF, so a real edit in a file whose
     # endings also differ shows only the edit.

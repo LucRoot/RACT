@@ -1,0 +1,4 @@
+J2: first feedback 4.08 s; 80 columns
+J6: first feedback 3.27 s; 80 columns
+J9: first feedback 2.81 s; 80 columns
+J10: first feedback 2.51 s; 80 columns

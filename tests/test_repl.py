@@ -83,6 +83,21 @@ def test_intent_starting_with_a_dash_is_not_parsed_as_an_option():
     assert calls[0][-2:] == ["--", "--help me with this"]
 
 
+@pytest.mark.parametrize("text", ["y", "n", "yes", "no", "Y"])
+def test_a_lone_yes_or_no_with_no_question_open_is_not_sent_to_the_model(text):
+    # D4: an answer typed when nothing is asking is not a request.
+    session, calls, console = _session()
+    assert session.handle(text) is True
+    assert calls == []
+    assert "no question is waiting" in console.text
+
+
+def test_a_yes_with_a_word_after_it_is_still_an_intent():
+    session, calls, _ = _session()
+    session.handle("yes, add a docstring to hello.py")
+    assert calls[0][-1] == "yes, add a docstring to hello.py"
+
+
 def test_blank_line_does_nothing():
     session, calls, _ = _session()
     assert session.handle("   ") is True

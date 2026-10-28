@@ -1,0 +1,26 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+ract> add a greeting in src/calc.py and two tests
+Plan (3 steps):
+  assumes: The failing test needs add() fixed, a notes
+    module, and a test for it.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[ ] 2. Add src/notes.py with the NOTE con... -> src/notes.py
+[ ] 3. Add tests/test_notes.py tha... -> tests/test_notes.py
+[>] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds ->
+src/calc.py? [y/N]:   ... waiting on model (4 s)
+[!] 1. Fix add() in src/calc... -> src/calc.py (9.1s) failed
+stopping...
+  the model call is still finishing and will write nothing
+Plan (3 steps), final:
+[!] 1. Fix add() in src/calc... -> src/calc.py (9.1s) failed
+[-] 2. Add src/notes.py wi... -> src/notes.py (0.0s) skipped
+[-] 3. Add tests/te... -> tests/test_notes.py (0.0s) skipped
+  Stopped. Nothing more was written after the interrupt.
+  changed: not tracked here (not a git repository)
+  verified: RACT ran no tests this turn
+  1 model request, 10.3 s, 940 tokens in / 119 out
+ract> /exit

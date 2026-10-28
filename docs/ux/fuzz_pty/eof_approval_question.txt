@@ -1,0 +1,26 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> add a greeting in src/calc.py and two tests
+Plan (3 steps):
+  assumes: The failing test needs add() fixed, a notes module, and a test for
+    it.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[ ] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+[>] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py?
+[y/N]: ^Z
+[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (0.0s) failed
+error: Approval denied for step 1: Fix add() in src/calc.py so it adds ->
+  src/calc.py
+hint: run `ract doctor --check-providers` to check the setup, then try again
+no files were changed
+Plan (3 steps), final:
+[!] 1. Fix add() in src/calc.py so it adds -> src/calc.py (0.0s) failed
+[-] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.0s) skipped
+[-] 3. Add tests/test_notes.py that che... -> tests/test_notes.py (0.0s) skipped
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 1.5 s, 940 tokens in / 119 out
+ract> 

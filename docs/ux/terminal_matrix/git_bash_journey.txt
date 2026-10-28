@@ -1,0 +1,126 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> add a greeting in src/calc.py and two tests
+Plan (3 steps):
+  assumes: The failing test needs add() fixed, a notes module, and a test for
+    it.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[ ] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+[>] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py?
+[y/N]: y
+--- src/calc.py ---
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - b
+[x] 1. Fix add() in src/calc.py so it adds -> src/calc.py (0.2s) passed
+[>] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+Approve step: [local] Add src/notes.py with the NOTE constant ->
+src/notes.py? [y/N]: y
+--- src/notes.py ---
+NOTE = "two"
+[x] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.1s) passed
+[>] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+Approve step: [local] Add tests/test_notes.py that checks NOTE ->
+tests/test_notes.py? [y/N]: y
+--- tests/test_notes.py ---
+from src.notes import NOTE
+
+
+def test_note():
+    assert NOTE == "two"
+[x] 3. Add tests/test_notes.py that chec... -> tests/test_notes.py (0.1s) passed
+warning: provenance: 3 file(s) have no signature yet (src/calc.py, src/notes.py,
+  tests/test_notes.py). See docs/PROVENANCE.md.
+Plan (3 steps), final:
+[x] 1. Fix add() in src/calc.py so it adds -> src/calc.py (0.2s) passed
+[x] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.1s) passed    
+[x] 3. Add tests/test_notes.py that chec... -> tests/test_notes.py (0.1s) passed
+  Done: 3 steps ran; no tests were run.
+  changed: src/calc.py (+1 -1), src/notes.py (new, 1 line), tests/test_notes.py 
+    (new, 5 lines); unstaged, review with git diff
+  src/calc.py: lines 1-5 -> 1-5, +1 -1
+  1   def add(a, b):
+  2 -     return a - b
+  2 +     return a + b
+  3
+  4   
+  5   def sub(a, b):
+  src/notes.py: new file, 1 line
+  1 + NOTE = "two"
+  tests/test_notes.py: new file, 5 lines
+  1 + from src.notes import NOTE
+  2 +
+  3 +
+  4 + def test_note():
+  5 +     assert NOTE == "two"
+  3 files, +7 -1
+  way back: /undo
+  verified: RACT ran no tests this turn
+  assumed: The failing test needs add() fixed, a notes module, and a test for   
+    it. (planner confidence 0.85, not checked)
+  unsigned: 3 files
+  4 model requests, 9.0 s, 1392 tokens in / 155 out
+ract>/help
+                                  RACT session                                  
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Command                          ┃ What it does                              ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ <text>                           │ Run the text as an intent (same as /run   │
+│                                  │ <text>).                                  │
+│ /run <intent>                    │ Plan and execute an intent.               │
+│ /plan <intent>                   │ Plan only. Shows the plan, writes         │
+│                                  │ nothing.                                  │
+│ /ask <question>                  │ Answer a question. No plan, and no file   │
+│                                  │ is written.                               │
+│ /loop <intent>                   │ Run the quality-anchored loop until done  │
+│                                  │ or regressed.                             │
+│ /set <name> <value>              │ Change a setting: dry-run, stream, auto,  │
+│                                  │ mode, iterations.                         │
+│ /settings                        │ Show the current settings.                │
+│ /model [name]                    │ Show the configured models, or switch the │
+│                                  │ manager for this session.                 │
+│ /session [new|<id>]              │ Show, restart or switch the session that  │
+│                                  │ carries context between turns.            │
+│ /sessions                        │ List recent sessions: id, time, turns,    │
+│                                  │ cost and last request.                    │
+│ /context                         │ What the last request sent, and the room  │
+│                                  │ the model has.                            │
+│ /resume <id|latest>              │ Switch to a saved session and show its    │
+│                                  │ last request.                             │
+│ /config                          │ Validate the active config (same as ract  │
+│                                  │ config validate).                         │
+│ /providers                       │ List configured providers and the manager │
+│                                  │ provider.                                 │
+│ /permissions                     │ What RACT may change or send, in one      │
+│                                  │ screen.                                   │
+│ /cost                            │ Requests, tokens and bytes sent off this  │
+│                                  │ machine in this session.                  │
+│ /mode [plan|default|auto-accept] │ plan: propose only; default: ask before   │
+│                                  │ each change; auto-accept: apply changes.  │
+│ /undo [--force]                  │ Reverse the last turn's file changes      │
+│                                  │ (skips files you edited since).           │
+│ /redo [--force]                  │ Reverse the last /undo.                   │
+│ /doctor [--check-providers]      │ Run setup diagnostics against the active  │
+│                                  │ config.                                   │
+│ /report [--last]                 │ Show what the last run changed and why.   │
+│ /<verb> ...                      │ Any other RACT verb, for example          │
+│                                  │ /whisper, /fence, /auction, /status.      │
+│ /clear                           │ Clear the screen.                         │
+│ /help                            │ Show this list.                           │
+│ /exit                            │ Leave the session (Ctrl-D also works).    │
+└──────────────────────────────────┴───────────────────────────────────────────┘
+ract> /sessions
+                                    Sessions                                    
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ Id                   ┃ Updated          ┃ Turns ┃ Cost ┃ Last request        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ repl-20261026-010713 │ 2026-10-26 01:07 │ -     │ -    │ add a greeting in   │
+│                      │                  │       │      │ src/calc.py and two │
+│                      │                  │       │      │ tests               │
+└──────────────────────┴──────────────────┴───────┴──────┴─────────────────────┘
+ract> /exit

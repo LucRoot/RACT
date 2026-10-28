@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from ract import egress_ledger
+from ract.plan_state import plan_items
 from ract.session_events import EventStream, JsonlSink, SessionEvent
 from ract.session_render import PlainRenderer
 
@@ -243,6 +244,8 @@ def result_object(
         # them here (for example a question answered instead of written).
         "notices": [str(e.data.get("text", "")) for e in events if e.kind == "notice"],
         "events_path": None,
+        # The plan steps, from the same events as the live checklist (B-053b).
+        "plan": plan_items(events),
     }
 
 
