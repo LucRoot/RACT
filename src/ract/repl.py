@@ -18,6 +18,8 @@ session has no history or completion. Nothing here adds a dependency.
 
 from __future__ import annotations
 
+import _thread
+import os
 import shlex
 import sys
 import threading
@@ -130,6 +132,11 @@ _EXIT_CLEANUP_SECONDS = 15.0
 class ReplSession:
     """Read-eval-print loop over the RACT command dispatcher."""
 
+    # The input broker of the running turn, when type-ahead is on (package 6).
+    _broker: Any = None
+    # Set by an interrupted turn: its queued lines wait until the operator types (package 6).
+    _queue_held: bool = False
+
     def __init__(
         self,
         config: Path | None = None,
@@ -195,6 +202,7 @@ class ReplSession:
             "cost": self._cmd_cost,
             "mode": self._cmd_mode,
             "permissions": self._cmd_permissions,
+            "queue": self._cmd_queue,
             "undo": self._cmd_undo,
             "redo": self._cmd_redo,
             "clear": self._cmd_clear,
@@ -231,7 +239,10 @@ class ReplSession:
         try:
             while True:
                 try:
-                    line = self._read_line(self.prompt())
+                    # A line queued during the last turn runs next (package 6), before any typed line.
+                    queued = self._take_queued()
+                    line = queued if queued is not None else self._read_line(self.prompt())
+                    self._queue_held = False
                 except EOFError:
                     self._console.print("")
                     reason = "eof"
@@ -404,6 +415,32 @@ class ReplSession:
         if self.state.dry_run:
             return "plan"
         return "default" if self.state.auto else "auto-accept"
+
+    def _cmd_queue(self, args: list[str]) -> bool:
+        """``/queue`` lists the lines typed during a turn; ``/queue drop <n>`` withdraws one (package 6)."""
+        from ract.ui import queue_view as qv
+
+        width = terminal_width()
+        model = self._broker.queue.model if self._broker is not None else qv.QueueModel()
+        if not args:
+            for line in qv.list_lines(model, width):
+                self._console.print(escape(line))
+            return True
+        if args[0] != "drop":
+            self._print_wrapped("usage: /queue, or /queue drop <n>")
+            return True
+        argument = " ".join(args[1:])
+        text = argument.strip()
+        if self._broker is None or not text.isdigit() or not 1 <= int(text) <= len(model.items):
+            _, lines = qv.drop_message(model, argument, width)
+            for line in lines:
+                self._console.print(escape(line))
+            return True
+        position = int(text)
+        removed = model.items[position - 1]
+        self._broker.queue.cancel(position)
+        self._print_wrapped(f"dropped {removed.id}: {removed.text}")
+        return True
 
     def _cmd_permissions(self, args: list[str]) -> bool:
         """What RACT may change or send, in one screen (standard 13)."""
@@ -914,6 +951,7 @@ class ReplSession:
         worker = threading.Thread(target=work, name="ract-turn", daemon=True)
         self._worker_done = done
         started = time.monotonic()
+        ahead = self._start_type_ahead(turn_no)
         worker.start()
         try:
             # Ctrl-C is delivered between waits (a timed wait is not
@@ -923,8 +961,45 @@ class ReplSession:
                 pass
         except KeyboardInterrupt:
             self._interrupted.append(done)
+            self._queue_held = True
             return self._interrupt(done, cancel, turn_no, started)
+        finally:
+            if ahead is not None:
+                ahead.stop()
+                self._broker.end_turn()
         return box.get("code", 1)
+
+    def _take_queued(self) -> str | None:
+        """The next line queued during a turn, or None (package 6, B-033s)."""
+        if self._broker is None or self._queue_held:
+            return None
+        return self._broker.queue.take_first()
+
+    def _start_type_ahead(self, turn_no: int) -> Any:
+        """Package 6 (B-033s): read typed lines during a turn into the input broker.
+
+        Off unless RACT_TYPE_AHEAD=1, on Windows, with a console on stdin. The lines are
+        queued and shown (input.queued); a queued line is not yet sent to the model (see
+        docs/review/B-033s.md).
+        """
+        if os.environ.get("RACT_TYPE_AHEAD") != "1" or os.name != "nt" or not sys.stdin.isatty():
+            return None
+        import msvcrt
+
+        from ract.input_broker import ConsoleLineSource, InputBroker, TypeAhead
+
+        def emit(kind: str, data: dict[str, Any]) -> None:
+            if self._events is not None:
+                self._events.emit(kind, data, turn=turn_no)
+
+        broker = InputBroker(emit=emit)
+        broker.start_turn()
+        self._broker = broker
+        # The reader reads every key, so Ctrl-C is handed to the main thread as an interrupt.
+        source = ConsoleLineSource(msvcrt.kbhit, msvcrt.getwch, on_ctrl_c=_thread.interrupt_main)
+        ahead = TypeAhead(broker, source)
+        ahead.start()
+        return ahead
 
     def _finish_interrupted_workers(self) -> dict[str, Any] | None:
         """Give interrupted turns' workers a bounded time to clean up.
