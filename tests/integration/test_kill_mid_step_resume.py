@@ -316,9 +316,6 @@ def test_kill_during_a_file_write_leaves_no_truncated_file(
 
     assert killed.returncode == 9, killed.stderr[-400:]
     found = [p for p in list(ws.rglob("notes.py")) + list(state_home.rglob("notes.py"))]
-    Path(
-        "C:/Users/rootl/AppData/Local/Temp/claude/C--RootClaw/4c0c3abd-c6e9-467b-a8eb-a9df19316368/scratchpad/b066/found.txt"
-    ).write_text(repr([str(p) for p in found]), encoding="utf-8")
     assert found, "no notes.py was written before the kill"
     assert all(p.read_text(encoding="utf-8") != NOTES for p in found[:1]), (
         "the kill should leave a half-written file"
