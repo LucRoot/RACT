@@ -214,6 +214,20 @@ def cancelled() -> bool:
     return bool(event is not None and event.is_set())
 
 
+def cancelled_within(seconds: float) -> bool:
+    """True when the turn is cancelled now or within *seconds*.
+
+    LR:: A Ctrl-C at a prompt read in the turn's worker ends that read with
+    EOF a moment before the session marks the turn cancelled (the interrupt
+    reaches the main thread). A prompt that reports its result at once
+    reported a failure the operator never chose (adjudication row 6); waiting
+    this long first lets the cancel win. A closed stdin has no cancel coming
+    and only pays the wait.
+    """
+    event = _cancel.get()
+    return bool(event is not None and event.wait(seconds))
+
+
 def report(kind: str, data: dict[str, Any]) -> None:
     """Emit a session event for the current turn, if a session is listening.
 

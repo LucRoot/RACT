@@ -11,6 +11,10 @@ from ract.manager import Plan, Step
 
 ConsoleApprovalCallback = Callable[[Step], bool]
 
+# How long a prompt whose read ended with EOF waits for a Ctrl-C's cancel to
+# arrive before it reports its result (adjudication row 6).
+_CTRL_C_GRACE_SECONDS = 0.5
+
 
 def _terminal_width() -> int:
     """The terminal's columns, between 40 and 80 (the same rule as the REPL)."""
@@ -44,6 +48,11 @@ def console_approval_callback(step: Step) -> bool:
     try:
         response = input(f"{lines[-1]} ").strip().lower()
     except EOFError:
+        # A Ctrl-C ends this read with EOF just before the turn is cancelled;
+        # let the cancel arrive, so the step ends skipped rather than failed.
+        from ract import turn_context
+
+        turn_context.cancelled_within(_CTRL_C_GRACE_SECONDS)
         return False
     except KeyboardInterrupt:
         # Ctrl-C at the prompt: end the line first, so the next output does not print onto it.
@@ -101,7 +110,9 @@ def console_plan_approval(plan: Plan):
         try:
             line = input(f"{lines[-1]} ")
         except EOFError:
-            line = "cancel"  # nobody can answer: nothing runs
+            # Nobody can answer, or a Ctrl-C ended the read: nothing runs.
+            turn_context.cancelled_within(_CTRL_C_GRACE_SECONDS)
+            line = "cancel"
         finally:
             question_gate.close_question()
         outcome = plan_gate.resolve_answer(steps, line)
