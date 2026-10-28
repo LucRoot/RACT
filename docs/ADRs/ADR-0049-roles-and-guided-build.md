@@ -45,7 +45,7 @@ done.
 | PLANNER | A Rooted plan: assumption, confidence and acceptance checks per step | Manager plan, extended with ChangePlan `verification_criteria` | strong preferred; weak with schema output | none | prompt and schema |
 | EDITOR | One change inside the policy | memory `edit` (CandidateDiff) through ADR-0047 write tools | either | `edit_file`, `write_file`, `apply_patch` (T1) | design only |
 | VERIFIER | Run tests, lint and type checks; report structured results | ALM gates G1 to G5, coverage and mutation gates | none: harness code, no model | `run_tests`, `lint`, `typecheck` (T3, ADR-0048) | result type, wired to coverage and mutation gates only |
-| REVIEWER | Read the diff, report findings with file and line | G7 companion provider | strong preferred | read-only (T0) | design only |
+| REVIEWER | Read the diff, report findings with file and line | G7 companion provider | strong preferred | read-only (T0) | same-provider review (D14); a second provider is gated |
 
 **Cut: SUMMARIZER.** The turn summary is assembled by the harness from
 events (B-038). A model that summarizes would put a model's claim back where
@@ -94,7 +94,7 @@ Roles pass typed artifacts, never free prose:
 | Plan with acceptance checks | PLANNER | EDITOR, VERIFIER | extends `manager.Plan` |
 | CandidateDiff | EDITOR | VERIFIER, REVIEWER, review and apply (ADR-0047 D6) | yes |
 | VerificationResult | VERIFIER (harness) | turn summary, anti-lazy gates | new; the `verification` object of `turn.finished` |
-| ReviewFindings | REVIEWER | the operator (advisory) | new |
+| ReviewFindings | REVIEWER | the operator; in `retry` mode, validated defects go back to the step once (D14) | new |
 
 Artifacts are stored per turn in the user state directory, keyed by the
 repository like the undo store (S-028), never under the workspace's
@@ -438,6 +438,152 @@ Tests (named now): `test_a_checkpoint_exists_after_step_1`;
 server); `test_no_half_written_file_remains_after_resume`; WRIGHT's B-066
 journey test runs on the one-shot path once this lands.
 
+### D14. A per-step review stage (REVIEWER, B-061)
+
+A step that changed files can be read by a REVIEWER before the turn reports
+it. The review is advice with evidence. It never approves anything: done is
+still the VerificationResult and the anti-lazy gates (D4), and no field of
+a review can change a tier, a policy, an approval or the verdict (INTENT
+invariants 8 and 10). Answer steps are not reviewed; their check is the
+citation check (D4, B-037).
+
+**Setting.** `review:` in `ract.yaml`, one of `off` (the default),
+`advisory` (findings are shown) and `retry` (validated defect findings also
+go back to the step once). `/model` shows the REVIEWER's provider, or
+"review off" with the setting that turns it on.
+
+**1. What the REVIEWER receives.** A `ReviewRequest`, built by the harness:
+the step's goal (its action text and the plan's acceptance checks for that
+step), the unified diff of the files the step changed (from the turn's undo
+copies, so it needs no git), and the VerificationResult summary (each check,
+pass or fail, and at most the last 40 lines of a failing output, as in D9).
+A diff over 2,000 lines is offloaded (D9) and the REVIEWER reads it in
+slices. The REVIEWER may read the project with the four tier-0 tools through
+the B-011a loop, with its own budgets (8 turns, 16 tool calls, 300 s). It
+receives nothing else: the writer's reasoning, its prose, the chat history,
+the `model summary` and any held-out predicate stay out, so the review
+judges the change and the evidence.
+
+**What it returns.** A `ReviewFindings` object, parsed by schema (extra keys
+refused, the B-017 ladder for the envelope): at most 20 findings, each
+`{path, line, severity, claim, evidence}`, where `severity` is `defect`,
+`risk` or `note` and `evidence` is the text the finding is about, quoted
+from the file at that line. There is no `approve`, `accept` or verdict
+field, so a reply cannot carry one.
+
+**2. Which model reviews.** Three choices, by configuration:
+
+| Reviewer | When | Marked in the summary |
+|---|---|---|
+| none: harness checks only | `review: off` (default) | nothing extra |
+| the same provider, fresh context | `review: advisory` or `retry`, no `roles.reviewer` | "reviewed by the same model" |
+| a second configured provider | `roles.reviewer` names another provider | the provider's name |
+
+The default for a laptop with one 7B model is `off`. A 7B model reviewing
+its own diff mostly agrees with it (the rubber stamp below), and each review
+costs a request on the same machine that runs the step. The harness checks
+that already run (anti-lazy gates, the write gate, the diffstat, the citation
+check) are the review in that setup. The operator turns review on when a
+measured reviewer is worth its cost (B-061e measures it; a real-model number
+waits for decision E).
+
+**3. How a finding changes the flow.** The harness validates every finding
+before anyone sees it:
+
+- the path resolves inside the project through `resolve_workspace_path`;
+- the line exists, and the evidence text is at that line or within two
+  lines of it (the B-037a citation verifier);
+- a `defect` whose line the step did not change becomes a `note`.
+
+A finding that fails a check is dropped and counted ("2 findings dropped:
+no such line"). In `advisory` mode the validated findings are shown below
+the turn summary, labeled as the reviewer's. In `retry` mode, validated
+`defect` findings go back to the step once, as feedback labeled as untrusted
+model output, inside the D5 bound of two retries (a review never adds a
+third). The VERIFIER runs again after that retry; the REVIEWER does not run
+again, so one step costs at most one review. The step is done or not done on
+the VerificationResult alone, before and after the retry.
+
+**4. Cost and ledger.** One review per changed step: one request plus its
+tool turns (at most 8 requests). A retry adds the step's own request and a
+VERIFIER run (no model). Each review request is recorded in the egress
+ledger with purpose `role:reviewer`, the D8 scheme, so `/cost` lists it
+under "model requests by purpose" with no new code there. The token budget
+(`--token-budget`) applies: a review that would cross it is skipped, and the
+summary says "review skipped: token budget". The turn summary's request
+count includes review requests.
+
+**5. Hostile content.** Diff and file text are repository data. They go to
+the REVIEWER inside a block that carries the `run_tool` untrusted label,
+after the outbound secret scan (S-022). The reply is parsed only as a
+`ReviewFindings` object or as tool calls for the four tier-0 tools through
+the tool gate; any other tool name is refused, and a tool call is never a
+finding. Text in the reply such as "approved", "LGTM" or a completion tag
+has no effect (D10). Every finding is displayed through `safe_text`. The
+REVIEWER prompt is package data; a repository role (D11) may not replace it
+or add output fields.
+
+**6. A weak reviewer, and the guard for each failure.**
+
+| Failure | Guard |
+|---|---|
+| Rubber stamp: no findings on a broken change | A review never makes a step done, so a stamp costs safety nothing; B-061e plants defects and reports the reviewer's recall, and `/model` shows "not measured" until it has a number |
+| Invented defects | A finding without a path and line, with a line that does not exist, or with evidence that is not at that line is dropped (validation above) |
+| Defects in code the step did not touch | Downgraded to `note`; never sent back as a retry |
+| A flood of findings | At most 20; the rest are dropped and counted |
+| A retry that makes things worse | The retry is inside the D5 bound, and the VERIFIER decides as for any retry |
+| Reviewing its own work | Marked "reviewed by the same model" in the summary |
+
+**7. What depends on gated lines.**
+
+| Part | Depends on | State |
+|---|---|---|
+| `ReviewRequest`, `ReviewFindings`, the finding validator | nothing gated (B-037a verifier, the path resolver) | can ship with the read-only slice |
+| The REVIEWER prompt and its reads | the read-only slice (B-010a, B-011a) | can ship with the slice; same Linux condition (B-046) |
+| `advisory` and `retry` on steps that write files today | the existing write path of a plan step | ungated; the write tools of ADR-0047 are not needed |
+| Reviewing an EDITOR's CandidateDiff | ADR-0047 write tools (T1) | gated with the EDITOR |
+| A second provider as reviewer | ADR-0048 approvals and the egress rules; S-030 network trust for a host the operator did not choose | gated |
+| A reviewer that runs tests | never: running checks is the VERIFIER's job | not planned |
+
+Nothing here needs a decision reserved to the OPERATOR: no new tier, no
+policy file, and no model output approves an action. The `review:` key is a
+config-schema change, which is senior-only.
+
+**Events.** `review.started` and `review.finished` join the session stream
+(registered for the drift guard), and `turn.finished` gains `review`:
+null when no review ran, otherwise the reviewer, the counts (shown,
+dropped, sent back) and the validated findings.
+
+Tests (named now): `test_a_finding_without_a_path_and_line_is_dropped`;
+`test_a_finding_whose_evidence_is_not_at_the_line_is_dropped`;
+`test_a_defect_on_an_unchanged_line_becomes_a_note`;
+`test_an_approval_in_the_review_reply_changes_nothing`;
+`test_a_review_reply_naming_a_write_tool_is_refused`;
+`test_review_off_sends_no_review_request` (requests counted at the fake
+server); `test_retry_mode_sends_validated_defects_back_once`;
+`test_the_step_verdict_is_the_verification_result_with_or_without_review`;
+`test_review_requests_are_in_the_ledger_as_role_reviewer`;
+`test_a_hostile_finding_is_printed_escaped`.
+
+**Cards it creates** (sizes are estimates; all after this section is
+reviewed):
+
+- B-061a (BUILDER, about 2 h): the two types, the schema and the finding
+  validator, with the hostile tests. Senior-only: it reads workspace files.
+- B-061b (BUILDER, about 2 h): the REVIEWER prompt as package data, its
+  golden test, the call through the read-only loop with its budgets, the
+  ledger purpose.
+- B-061c (BUILDER, about 3 h): the `review:` setting, the harness call
+  after the VerificationResult, `advisory` output in the turn summary, the
+  two events and the `turn.finished` field, EVENTS_SESSION.md.
+- B-061d (BUILDER, about 2 h, after B-061c): `retry` mode inside the D5
+  bound.
+- B-061e (WRIGHT, about 2 h, after B-061c): a fake-server journey with a
+  planted defect the reviewer finds, an invented one that is dropped, and a
+  stamp that changes nothing; the recall report it feeds to `/model`.
+- A second-provider reviewer: no card until ADR-0048 and S-030 are
+  ratified.
+
 ## Model integration
 
 - **Capability probe.** Chat, streaming, native tool calling (one request
@@ -487,6 +633,8 @@ Ungated, in order, each its own commit with tests:
    with the loop runner.
 9. Repository roles under the D11 rules, about 3 hours, after the role
    loader (item 1) and the MANAGER's acceptance of D11.
+10. The review stage (D14): B-061a to B-061e, about 11 hours, after the
+   MANAGER reviews D14.
 
 Design only until ratified: EDITOR, the command-running VERIFIER, REVIEWER
 calls that send diffs to a second provider, and anything at tier 2 or 3.
@@ -511,6 +659,7 @@ calls that send diffs to a second provider, and anything at tier 2 or 3.
 | VERIFIER result type (D3, D4) | the existing coverage and mutation gates | ungated |
 | VERIFIER running tests, lint, type checks | ADR-0048 D5 `run_command` and tier 3 | gated |
 | EDITOR | ADR-0047 D1, D4 write tools (T1) and D6 review and apply | gated |
+| REVIEWER on the same provider (D14) | the read-only slice and the B-037a verifier | ungated design; cards B-061a to B-061e |
 | REVIEWER sending a diff to a second provider | ADR-0048 (approvals) and the egress rules | gated |
 | Capability probe, `/model`, setup help (Model integration) | nothing gated; the probe is one visible request per provider | ungated |
 | Playbooks other than explain code | EDITOR and the command-running VERIFIER | gated |
