@@ -122,7 +122,18 @@ class WorkspacePathRefused(ValueError):
         self.refusal = refusal
 
 
+# MAX_PATH counts the terminating NUL, so 259 characters is the longest
+# path Windows opens without long-path support (BUILDER review of H1).
 _WINDOWS_MAX_PATH = 260
+
+
+def _too_long(length: int, what: str) -> Refusal:
+    return _refuse(
+        "too_long",
+        f"{what} is {length} characters; Windows refuses paths of "
+        f"{_WINDOWS_MAX_PATH} characters or more",
+        "Use a shorter folder or file name, or move the project to a shorter folder.",
+    )
 
 
 def _refuse(code: str, message: str, hint: str) -> Refusal:
@@ -138,13 +149,8 @@ def _string_checks(raw: str, *, windows: bool) -> Refusal | None:
             "the path contains a NUL or control character",
             "Remove control characters from the path.",
         )
-    if windows and len(raw) > _WINDOWS_MAX_PATH:
-        return _refuse(
-            "too_long",
-            f"the path is {len(raw)} characters; Windows refuses paths over "
-            f"{_WINDOWS_MAX_PATH} characters",
-            "Use a shorter folder or file name.",
-        )
+    if windows and len(raw) >= _WINDOWS_MAX_PATH:
+        return _too_long(len(raw), "the path")
     segments = re.split(r"[\\/]", raw)
     if any(seg == ".." for seg in segments):
         return _refuse(
@@ -264,8 +270,11 @@ def resolve_workspace_path(
             refusal = _location_checks(
                 Path(root_real), rel_parts, purpose=purpose, fold=fold
             )
+            full = Path(root_real).joinpath(*rel_parts)
+            # Windows measures the whole path, the project folder included.
+            if refusal is None and win and len(str(full)) >= _WINDOWS_MAX_PATH:
+                refusal = _too_long(len(str(full)), "the full path")
             if refusal is None:
-                full = Path(root_real).joinpath(*rel_parts)
                 return Rooted(
                     value=full,
                     assumption=f"{raw!r} names a location inside the project root.",

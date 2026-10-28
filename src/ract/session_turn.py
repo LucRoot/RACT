@@ -86,8 +86,8 @@ def provenance_notice(unsigned: list[str]) -> str:
 # next action or the exact command.
 _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
-        # Package 4 (H1): Windows refuses a path over 260 characters.
-        re.compile(r"Windows refuses paths over \d+ characters", re.I),
+        # Package 4 (H1): Windows refuses a path of 260 characters or more.
+        re.compile(r"Windows refuses paths of \d+ characters or more", re.I),
         "use a shorter folder or file name, then run the intent again",
     ),
     (
