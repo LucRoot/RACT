@@ -370,7 +370,11 @@ def test_heartbeat_counts_injected_ticks_not_wall_time() -> None:
             beat_seen.release()
 
     stream.subscribe(record)
-    now = [time.monotonic()]
+    # Both clocks start at zero. From time.monotonic() after days of uptime,
+    # (t + 0.05) - t is a hair under 0.05, the quiet-while-active check skips
+    # the beat and the elapsed time reads 49 ms; the arithmetic is exact here.
+    stream.last_activity = 0.0
+    now = [0.0]
     ticks = _Ticks(now)
     with Heartbeat(
         stream,
