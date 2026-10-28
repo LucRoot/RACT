@@ -158,12 +158,9 @@ def test_ract_auction_reports_zero_dead_modules():
     # cannot see through the lazy import, so both are allowlisted here
     # (same pattern as ``loop.py`` above).
     allowlist.add("sandbox_linux.py")
-    # S6-0 (sprint 6 landing gate): three prepared modules with no production wiring on this branch.
-    # plan_approval_view.py (package K) and queue_view.py (package J) are pure screens whose wiring is
-    # BUILDER work (B-064b, B-033a); the queue wiring exists on work/mason/B-033s, not on this branch.
-    # cli_examples.py is imported locally inside cli.py's help functions, which the auction does not follow.
-    allowlist.add("plan_approval_view.py")
-    allowlist.add("queue_view.py")
+    # S6-0 (sprint 6 landing gate): cli_examples.py is imported locally inside cli.py's help functions,
+    # which the auction does not follow. (queue_view.py and plan_approval_view.py had entries too; on the
+    # merged tree the REPL and plan_gate import them, so the entries are gone, as ruling 19 says.)
     allowlist.add("cli_examples.py")
     # S6-I (merged tip): plan_gate.py is the package 2 decision module (ADR-0049 D12). Its executor and REPL
     # wiring is not built yet (docs/review/B-064a.md), so the auction sees no production reference.
