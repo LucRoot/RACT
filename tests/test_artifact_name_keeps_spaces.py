@@ -22,3 +22,16 @@ def test_line_endings_are_removed():
 def test_an_empty_name_stays_empty():
     assert _artifact_name("") == ""
     assert _artifact_name(None) == ""
+
+
+def test_a_leading_space_is_removed_as_before():
+    # BUILDER review of H2: the old strip removed a leading space too. Kept, " src/a.py"
+    # passed the path check and was written into a new folder named " src".
+    assert _artifact_name(" src/a.py") == "src/a.py"
+    assert _artifact_name("\tsrc/a.py") == "src/a.py"
+
+
+def test_a_name_of_only_spaces_is_no_file():
+    # It was an answer step (no file) before; kept, it became a write the path check refuses.
+    assert _artifact_name("   ") == ""
+    assert _artifact_name(" \r\n") == ""

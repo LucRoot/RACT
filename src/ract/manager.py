@@ -23,12 +23,17 @@ from ract.temperature_router import TemperatureRouter
 def _artifact_name(raw: object) -> str:
     """The planned file name, without line endings (package 5, H2).
 
-    Spaces are kept on purpose: a trailing space is a name Windows drops, and the path check
-    refuses it with a sentence rather than writing a different file.
+    A trailing space is kept on purpose: it is a name Windows drops, and the path check
+    refuses it with a sentence rather than writing a different file. Leading spaces are
+    removed as the old strip did (a kept one wrote into a new folder whose name starts
+    with a space), and a name of only spaces is no file, as before (BUILDER review).
     """
     if raw is None:
         return ""
-    return str(raw).strip(chr(13) + chr(10))
+    text = str(raw).strip(chr(13) + chr(10))
+    if not text.strip():
+        return ""
+    return text.lstrip()
 
 
 @dataclass(frozen=True)
