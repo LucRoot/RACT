@@ -110,7 +110,6 @@ def bind(
     _queued.set(queued)
 
 
-@contextmanager
 def queued_notes() -> list[str]:
     """The operator lines queued during this turn that are not yet sent (package 3).
 
@@ -121,6 +120,7 @@ def queued_notes() -> list[str]:
     return source() if source is not None else []
 
 
+@contextmanager
 def repository_extensions_off() -> Iterator[None]:
     """Load no repository-supplied extension in this block.
 
