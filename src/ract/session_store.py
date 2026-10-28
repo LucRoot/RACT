@@ -50,6 +50,53 @@ def _decode_state(data: Any) -> Any:
     return data
 
 
+# B-079 (decision X, D-059): the store lives under .ract/ with the rest of the
+# workspace state. Releases before it kept sessions in .ract_sessions/.
+DEFAULT_DIR = Path(".ract") / "sessions"
+OLD_DEFAULT_DIR = Path(".ract_sessions")
+_COPIED_MARK = ".moved-from-ract_sessions"
+
+
+def copy_old_sessions(
+    new_dir: Path = DEFAULT_DIR, old_dir: Path = OLD_DEFAULT_DIR
+) -> list[str] | None:
+    """Copy sessions from the old store into the new one, once (B-079).
+
+    LR:: Returns None when there was nothing to do (no old folder, or the copy
+    already ran), else the ids copied. A session already in the new store is
+    kept. Only regular ``<id>.json`` files directly in the old folder, with a
+    valid session id, are copied; links and a linked old folder are skipped.
+    The old folder is left as it was. A mark in the new store makes it once.
+    """
+    from ract.undo_backup import require_name
+
+    mark = new_dir / _COPIED_MARK
+    if mark.exists() or not old_dir.is_dir() or old_dir.is_symlink():
+        return None
+    real_old = old_dir.resolve()
+    if real_old.parent != old_dir.absolute().parent:
+        return None
+    new_dir.mkdir(parents=True, exist_ok=True)
+    copied: list[str] = []
+    for path in sorted(old_dir.glob("*.json")):
+        if path.is_symlink() or not path.is_file() or path.resolve().parent != real_old:
+            continue
+        try:
+            require_name(path.stem, "session id")
+        except ValueError:
+            continue
+        target = new_dir / path.name
+        if target.exists():
+            continue
+        shutil.copy2(path, target)
+        copied.append(path.stem)
+    mark.write_text(
+        f"Sessions were copied here from {old_dir} once; that folder was left as it was.\n",
+        encoding="utf-8",
+    )
+    return copied
+
+
 class SessionStoreError(Exception):
     """Base exception for session-store failures."""
 
@@ -63,7 +110,7 @@ class SessionStore:
         self, base_dir: Path | str | _SentinelType = _SENTINEL_DEFAULT
     ) -> None:
         if isinstance(base_dir, _SentinelType):
-            resolved: Path | str = ".ract_sessions"
+            resolved: Path | str = DEFAULT_DIR
         else:
             resolved = base_dir
         self.base_dir = Path(resolved)

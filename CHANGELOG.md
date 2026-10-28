@@ -88,6 +88,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   saves transcripts, timings and redacted paths. Baseline transcripts and a defect list for the
   current session are in `docs/ux/baseline/`.
 
+### Changed
+
+- `ract session list|export|import|backup|restore` keep their store in `.ract/sessions`, the
+  folder the interactive session and `ract plan export` already use, instead of
+  `.ract_sessions/`. The first time one of them runs with the default store, sessions saved in
+  `.ract_sessions/` are copied in (a session already there is kept) and a notice says so; the
+  old folder is left as it was and can be removed. `--store` still names any folder.
+
 ### Fixed
 
 - A `.ract/handshakes.json` shipped in a repository could mark a handshake as approved,

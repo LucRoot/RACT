@@ -12,7 +12,7 @@ Prior state (audited): workspace state fragmented across three roots:
   record (``memory/probes/scheduler.py``), repo fingerprint
   (``memory/repo_fingerprint.py``), historical docstrings.
 - ``.ract_sessions/`` -- session store (``cli.py``); already outside
-  ``.rack/`` / ``.ract/``.
+  ``.rack/`` / ``.ract/``. Moved to ``.ract/sessions/`` by B-079 (see below).
 
 Module_10 unifies on ``.ract/`` (matches the package name, the CLI
 entry point, and the docs the operator reads first). The three
@@ -27,9 +27,10 @@ non-``.ract/`` state hierarchies migrate to:
 - ``.ract/index/`` (implicit; ``.rack/index/`` never actually existed
   because ``cli_memory.py`` was already writing to ``.ract/memory/``).
 
-``.ract_sessions/`` is NOT collapsed into ``.ract/sessions/`` in this
-module -- it is a separate audit finding (Lens A N4) and touching it
-would break every existing session on disk. Flagged for v0.6.
+``.ract_sessions/`` was left out of this module (Lens A N4). B-079 moved
+the ``ract session ...`` default to ``.ract/sessions/``; sessions found in
+``.ract_sessions/`` are copied there once (``session_store.copy_old_sessions``)
+and the old folder is left as it was.
 
 Migration shim (``migrate_rack_to_ract``):
 

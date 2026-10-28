@@ -3996,19 +3996,43 @@ def _session_substrate_command(parsed: argparse.Namespace) -> int:
     return 1
 
 
+def _session_store_dir(store: Path | None) -> Path:
+    """The ``ract session`` store: *store* as given, else ``.ract/sessions`` (B-079).
+
+    With the default, sessions an older release saved in ``.ract_sessions/``
+    are copied in once, and a notice on stderr says so.
+    """
+    from ract.session_store import DEFAULT_DIR, OLD_DEFAULT_DIR, copy_old_sessions
+
+    if store is not None:
+        return store
+    copied = copy_old_sessions(DEFAULT_DIR, OLD_DEFAULT_DIR)
+    if copied is not None:
+        print(
+            f"ract: sessions are now kept in {DEFAULT_DIR}; copied {len(copied)} "
+            f"from {OLD_DEFAULT_DIR}, which is left as it was and can be removed.",
+            file=sys.stderr,
+        )
+    return DEFAULT_DIR
+
+
 def _session_command(args: list[str]) -> int:
     """Handle 'ract session list|export|import|backup|restore ...'."""
     parser = argparse.ArgumentParser(prog="ract session")
     subparsers = parser.add_subparsers(dest="action", required=True)
 
     list_parser = subparsers.add_parser("list", help="List saved sessions")
-    list_parser.add_argument("--store", type=Path, default=Path(".ract_sessions"))
+    list_parser.add_argument(
+        "--store", type=Path, help="Session store (default .ract/sessions)"
+    )
     list_parser.add_argument("--json", action="store_true", dest="json_output")
 
     export_parser = subparsers.add_parser("export", help="Export a session")
     export_parser.add_argument("--session", required=True)
     export_parser.add_argument("--output", type=Path)
-    export_parser.add_argument("--store", type=Path, default=Path(".ract_sessions"))
+    export_parser.add_argument(
+        "--store", type=Path, help="Session store (default .ract/sessions)"
+    )
     export_parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
     export_parser.add_argument("--json", action="store_true", dest="json_output")
     export_parser.add_argument("--csv", action="store_true", dest="csv_output")
@@ -4018,13 +4042,17 @@ def _session_command(args: list[str]) -> int:
 
     import_parser = subparsers.add_parser("import", help="Import a session")
     import_parser.add_argument("--input", required=True, type=Path)
-    import_parser.add_argument("--store", type=Path, default=Path(".ract_sessions"))
+    import_parser.add_argument(
+        "--store", type=Path, help="Session store (default .ract/sessions)"
+    )
     import_parser.add_argument("--json", action="store_true", dest="json_output")
 
     backup_parser = subparsers.add_parser("backup", help="Backup a session")
     backup_parser.add_argument("--session", default="<session-id>")
     backup_parser.add_argument("--backup-dir", type=Path)
-    backup_parser.add_argument("--store", type=Path, default=Path(".ract_sessions"))
+    backup_parser.add_argument(
+        "--store", type=Path, help="Session store (default .ract/sessions)"
+    )
     backup_parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
     backup_parser.add_argument(
         "--markdown", action="store_true", dest="markdown_output"
@@ -4033,7 +4061,9 @@ def _session_command(args: list[str]) -> int:
     restore_parser = subparsers.add_parser("restore", help="Restore a session")
     restore_parser.add_argument("--session", default="<session-id>")
     restore_parser.add_argument("--backup-dir", type=Path)
-    restore_parser.add_argument("--store", type=Path, default=Path(".ract_sessions"))
+    restore_parser.add_argument(
+        "--store", type=Path, help="Session store (default .ract/sessions)"
+    )
     restore_parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
     restore_parser.add_argument(
         "--markdown", action="store_true", dest="markdown_output"
@@ -4098,7 +4128,7 @@ def _session_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
     if parsed.action in {"ls", "diff"}:
         return _session_substrate_command(parsed)
-    store = SessionStore(parsed.store)
+    store = SessionStore(_session_store_dir(parsed.store))
 
     if parsed.action == "list":
         sessions = store.list_sessions()

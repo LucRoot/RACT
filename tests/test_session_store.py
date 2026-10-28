@@ -91,7 +91,7 @@ def test_default_base_dir_is_created(tmp_path: Path) -> None:
     try:
         os.chdir(tmp_path)
         store = SessionStore()
-        assert store.base_dir.name == ".ract_sessions"
+        assert store.base_dir == Path(".ract") / "sessions"
         assert store.base_dir.exists()
     finally:
         os.chdir(original)
