@@ -664,6 +664,13 @@ _EXEMPT_SITES: dict[str, str] = {
         "a tool_use invocation; the model-facing gate is Executor's "
         "MCP tool_call path which DOES route through invoke_tool."
     ),
+    "tools/read.py": (
+        "tool implementation: the read-only tools' own subprocesses (git "
+        "check-ignore, ripgrep, the Python grep fallback), each with a fixed "
+        "argv, a scrubbed environment and a timeout; the model fills only "
+        "data fields. Calls to the tools go through SubstrateLoop.invoke_tool "
+        "(B-011a), the way the MCP transport sits beneath its gated path."
+    ),
     "mcp_adapter.py": (
         "provider-transport: StdioMcpClient subprocess is the MCP "
         "transport under Executor's MCP tool_call path. That path "

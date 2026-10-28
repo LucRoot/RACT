@@ -162,6 +162,9 @@ def test_ract_auction_reports_zero_dead_modules():
     # which the auction does not follow. (queue_view.py and plan_approval_view.py had entries too; on the
     # merged tree the REPL and plan_gate import them, so the entries are gone, as ruling 19 says.)
     allowlist.add("cli_examples.py")
+    # B-010a: tools/read.py holds the four read-only tools; the per-step loop
+    # that calls ract.tools.run_tool is B-011a. Remove this line in that series.
+    allowlist.add("read.py")
     allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped
