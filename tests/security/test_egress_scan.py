@@ -146,7 +146,9 @@ def test_a_step_whose_target_holds_a_secret_is_refused_before_any_request(
     assert len(server.chat_requests) == 1  # the plan only; no step request
     assert (ws / "settings.env.txt").read_text(encoding="utf-8") == config
     out = result.stdout + result.stderr
-    assert "holds secret-shaped values (1 secret assignment)" in out
+    # The console wraps long lines to the terminal width (UX package A), so the
+    # sentence can break across lines; the words are compared, not the breaks.
+    assert "holds secret-shaped values (1 secret assignment)" in " ".join(out.split())
     assert "tok_9f8e7d6c5b4a3210" not in out
 
 
