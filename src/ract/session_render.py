@@ -439,6 +439,26 @@ class PlainRenderer:
         prefix = "note" if d.get("level") == "info" else "warning"
         self._line(f"{prefix}: {d.get('text', '')}")
 
+    def _citation_lines(self, citations: dict[str, Any]) -> None:
+        """One line of counts, then each citation that is not verified (B-037b)."""
+        counts = {
+            k: int(citations.get(k) or 0)
+            for k in ("verified", "unverified", "not_checked")
+        }
+        if not any(counts.values()):
+            return
+        parts = [f"{counts['verified']} verified", f"{counts['unverified']} unverified"]
+        if counts["not_checked"]:
+            parts.append(f"{counts['not_checked']} not checked")
+        self._line("  citations: " + ", ".join(parts))
+        for item in citations.get("items") or []:
+            if item.get("status") == "verified":
+                continue
+            self._line(
+                f"    {safe_text(str(item.get('path')))}:{safe_text(str(item.get('lines')))}: "
+                f"{safe_text(str(item.get('reason')))}"
+            )
+
     def _on_turn_finished(self, d: dict[str, Any]) -> None:
         """The harness's account of the turn (B-038), never the model's.
 
@@ -485,6 +505,7 @@ class PlainRenderer:
             self._line(f"  verified: {verification.get('status')}")
         for claim in verification.get("claims") or []:
             self._line(f'  the reply says "{claim}"; nothing in this turn checked that')
+        self._citation_lines(d.get("citations") or {})
         if self._plan.get("assumption") and changed:
             confidence = self._plan.get("confidence")
             conf = (

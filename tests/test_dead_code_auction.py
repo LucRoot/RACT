@@ -350,15 +350,6 @@ def test_ract_auction_reports_zero_dead_modules():
     # mirrors the transitional-substrate pattern above.
     allowlist.add("process_group.py")
     allowlist.add("sycophancy_v2.py")
-    # v0.6: ``tool_calls.py`` is the tool-call extraction ladder. It is a
-    # pure parser that the per-step agent loop (ADR-0047 D5) imports once
-    # that loop is ratified and built. Until then only tests call it.
-    # Remove this line in the commit that wires the agent loop.
-    allowlist.add("tool_calls.py")
-    # v0.6 (B-037a): ``citations.py`` checks the file and line citations in an
-    # answer. It is a pure module; the turn summary that calls it is B-037b.
-    # Remove this line in the commit that wires B-037b.
-    allowlist.add("citations.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},

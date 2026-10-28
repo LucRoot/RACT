@@ -428,7 +428,11 @@ def run_turn(
     backup_id = backup_box[0].turn_id if backup_box and backup_box[0].changed else None
 
     def finished(
-        outcome: str, verdict: str, unsigned: list[str], claims: list[str] | None = None
+        outcome: str,
+        verdict: str,
+        unsigned: list[str],
+        claims: list[str] | None = None,
+        answer: str | None = None,
     ) -> None:
         # The harness runs no checks in a turn yet (ADR-0049 D4: the
         # VERIFIER is harness code), so the record holds no runs and every
@@ -448,6 +452,7 @@ def run_turn(
                 "checkpoint": None,
                 "verification": verification,
                 "provenance": _provenance(unsigned),
+                "citations": None if answer is None else _citations(project, answer),
             },
             turn=turn,
         )
@@ -505,8 +510,42 @@ def run_turn(
         for sr in getattr(value, "step_results", [])
         if not sr.step.expected_artifact and sr.step.tool_call is None
     )
-    finished("done", verdict, unsigned, turn_summary.unverified_claims(answer))
+    finished("done", verdict, unsigned, turn_summary.unverified_claims(answer), answer)
     return 0
+
+
+# At most this many citation items travel in one event; the counts cover all.
+_CITATION_ITEMS = 60
+
+
+def _citations(root: Path, answer: str) -> dict[str, Any]:
+    """The answer's file and line citations, checked against the repository (B-037b).
+
+    LR:: The model's word that something is at a file and line is checked by
+    the harness (B-037a verifier) before the summary shows it: verified,
+    unverified with the reason, or not checked (a protected or outside path,
+    too many). Paths and reasons are made printable here.
+    """
+    from ract import citations as cite
+    from ract.session_events import safe_text
+
+    results = cite.verify(root, cite.extract(answer))
+    counts = {"verified": 0, "unverified": 0, "not_checked": 0}
+    items = []
+    for result in results:
+        key = "not_checked" if result.status == "not checked" else result.status
+        counts[key] = counts.get(key, 0) + 1
+        c = result.citation
+        if len(items) < _CITATION_ITEMS:
+            items.append(
+                {
+                    "path": safe_text(c.path),
+                    "lines": str(c.start) if c.start == c.end else f"{c.start}-{c.end}",
+                    "status": result.status,
+                    "reason": safe_text(result.reason),
+                }
+            )
+    return {**counts, "items": items}
 
 
 def _first_sentences(text: str, limit: int = 300) -> str:
