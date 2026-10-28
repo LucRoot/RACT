@@ -75,7 +75,9 @@ def resolve_answer(steps: list[Step], line: str) -> Resolution:
         skipped = [step for step in steps if step.n in dropped]
         return Resolution("approved", kept=kept, skipped=skipped)
     # edit is a later step of the card; until it is built, an edit asks again
-    return Resolution("ask_again", error="edit is not available yet; approve, skip <n> or cancel")
+    return Resolution(
+        "ask_again", error="edit is not available yet; approve, skip <n> or cancel"
+    )
 
 
 class ApprovalMemory:
@@ -108,13 +110,23 @@ def approval_requested_payload(steps: list[Step]) -> dict:
     }
 
 
-def answered_payload(steps: list[Step], answer: str, outcome: Resolution) -> dict:
+def answered_payload(
+    steps: list[Step], answer: str, outcome: Resolution, *, edited: int | None = None
+) -> dict:
     """The data of ``plan.approval_answered`` (ADR-0049 D12). Reasons are ``user`` for the step the
     operator skipped, and ``depends on step <k>`` for the steps that depend on it (k is that step).
+    ``edited`` is the number of the step an ``edit`` changed, or None.
     """
     kept = [s.n for s in outcome.kept]
     skipped_numbers = [s.n for s in outcome.skipped]
-    typed = next((n for n in skipped_numbers if answer == "skip" and n == _skip_target(outcome, steps)), None)
+    typed = next(
+        (
+            n
+            for n in skipped_numbers
+            if answer == "skip" and n == _skip_target(outcome, steps)
+        ),
+        None,
+    )
     skipped = []
     for n in skipped_numbers:
         if answer == "skip" and n == typed:
@@ -126,7 +138,7 @@ def answered_payload(steps: list[Step], answer: str, outcome: Resolution) -> dic
         "answer": answer,
         "kept": kept,
         "skipped": skipped,
-        "edited": False,
+        "edited": edited,
     }
 
 

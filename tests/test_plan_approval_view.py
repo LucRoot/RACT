@@ -92,14 +92,6 @@ def test_the_plan_hash_ignores_confidence_and_assumption_and_changes_with_the_st
     assert pav.plan_hash(pav.edit(PLAN, 1, "Something else")) != base
 
 
-def test_the_answer_record_keeps_the_skipped_and_kept_steps():
-    record = pav.answer_record(pav.skip(PLAN, 2), "approve", edited=False)
-    assert record["kept"] == [1, 3]
-    assert record["skipped"] == [{"n": 2, "reason": "skipped by the operator"}]
-    assert record["plan_hash"] == pav.plan_hash(PLAN)
-    assert record["edited"] is False
-
-
 def test_the_module_imports_nothing_from_the_event_or_input_layers():
     source = Path(pav.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)

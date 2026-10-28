@@ -93,7 +93,9 @@ def test_a_changed_plan_asks_again():
 
     memory = ApprovalMemory()
     memory.record(_steps(3))
-    assert memory.needs_approval(_steps(3, target="src/other.py"), mode="default") is True
+    assert (
+        memory.needs_approval(_steps(3, target="src/other.py"), mode="default") is True
+    )
 
 
 def test_the_memory_restores_from_saved_hashes():
@@ -137,3 +139,44 @@ def test_approved_payload_reasons_follow_d12_user_or_depends_on_step():
         {"n": 2, "reason": "user"},
         {"n": 3, "reason": "depends on step 2"},
     ]
+
+
+def test_edited_is_a_step_number_or_null_as_d12_says():
+    # BUILDER review of B-064a: D12 gives `edited` as a step number or null.
+    from pathlib import Path
+
+    from ract.plan_gate import answered_payload, resolve_answer
+
+    steps = [
+        Step(n=1, action="a", target="src/a.py"),
+        Step(n=2, action="b", target="src/b.py"),
+    ]
+    payload = answered_payload(steps, "approve", resolve_answer(steps, "approve"))
+    assert payload["edited"] is None
+    doc = (Path(__file__).parents[1] / "docs" / "EVENTS_SESSION.md").read_text(
+        encoding="utf-8"
+    )
+    row = next(line for line in doc.splitlines() if "`plan.approval_answered`" in line)
+    assert "`edited` (step number or null)" in row
+
+
+def test_the_plan_hash_is_the_one_the_run_checkpoint_keeps():
+    # One D12 hash in the code base: the approval memory and the D13 checkpoint agree.
+    from ract import run_checkpoint
+    from ract.manager import Plan
+    from ract.manager import Step as PlanStep
+    from ract.ui.plan_approval_view import plan_hash
+
+    steps = [
+        Step(n=1, action="a", target="src/a.py"),
+        Step(n=2, action="answer only", target=None),
+    ]
+    plan = Plan(
+        assumption="x",
+        confidence=0.5,
+        steps=[
+            PlanStep(action="a", provider_hint="local", expected_artifact="src/a.py"),
+            PlanStep(action="answer only", provider_hint="local", expected_artifact=""),
+        ],
+    )
+    assert plan_hash(steps) == run_checkpoint.plan_hash(plan)

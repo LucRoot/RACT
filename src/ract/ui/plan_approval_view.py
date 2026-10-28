@@ -8,6 +8,7 @@ edited plan is plain data. The BUILDER wires the prompt and the events (ADR-0049
 Shape assumed beside this module (see the note in docs/ux/plan_approval_shape.md):
   plan.approval_requested  {plan_hash, steps}
   plan.approval_answered   {plan_hash, answer, kept, skipped: [{n, reason}], edited}
+  (both payloads are built by ract.plan_gate, the one place that follows D12)
   cancel ends the turn with the existing outcome "refused".
 """
 
@@ -113,20 +114,3 @@ def plan_hash(steps: list[Step]) -> str:
         [{"action": s.action, "n": s.n, "target": s.target} for s in steps]
     )
     return hashlib.sha256(canonical).hexdigest()
-
-
-def answer_record(steps: list[Step], answer: str, edited: bool) -> dict:
-    """The data of ``plan.approval_answered``, built and not emitted here."""
-    skipped = [
-        {"n": s.n, "reason": "skipped by the operator"}
-        for s in steps
-        if s.state == "skipped"
-    ]
-    kept = [s.n for s in steps if s.state != "skipped"]
-    return {
-        "plan_hash": plan_hash(steps),
-        "answer": answer,
-        "kept": kept,
-        "skipped": skipped,
-        "edited": edited,
-    }
