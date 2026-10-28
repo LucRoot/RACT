@@ -162,11 +162,21 @@ def contains_tool_markup(text: str) -> bool:
 # Rung parsers. Each returns a list of (name, arguments) or None.
 # ---------------------------------------------------------------------------
 
-_TAG_RE = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL | re.IGNORECASE)
-_HARMONY_RE = re.compile(
-    r"to=functions\.([A-Za-z_][\w.-]*)[^\n<]*?(?:<\|constrain\|>\s*json\s*)?<\|message\|>(.*?)(?:<\|call\|>|<\|end\|>|\Z)",
-    re.DOTALL,
+# LR:: The tag and Harmony forms are found with ``str.find``, not a lazy
+# regex: a reply of repeated unclosed markers (a weak model looping at its
+# token limit) made the regexes quadratic, 80 s for 100 KB (AUD-008).
+_TAG_OPEN = "<tool_call>"
+_TAG_CLOSE = "</tool_call>"
+_HARMONY_START = "to=functions."
+_HARMONY_NAME_RE = re.compile(r"to=functions\.([A-Za-z_][\w.-]*)")
+_HARMONY_MESSAGE = "<|message|>"
+# What may sit between the recipient and <|message|>: plain words, an optional
+# <|channel|> segment (the role-header form, AUD-016) and an optional
+# <|constrain|>json. Longer than this, it is not a header.
+_HARMONY_HEADER_RE = re.compile(
+    r"[^\n<]*(?:<\|channel\|>[^\n<]*)?(?:<\|constrain\|>\s*json\s*)?"
 )
+_HARMONY_HEADER_MAX = 200
 _FENCE_RE = re.compile(
     r"```(?:json|tool_call|tool)?\s*\n(.*?)\n?```", re.DOTALL | re.IGNORECASE
 )
@@ -237,8 +247,63 @@ def _calls_from_json_text(
     return [c for c in calls if c is not None]
 
 
+def _tag_spans(text: str) -> list[tuple[int, int, str]]:
+    """``(start, end, body)`` of each closed ``<tool_call>`` block, in one pass."""
+    lower = text.lower()
+    spans: list[tuple[int, int, str]] = []
+    pos = 0
+    while True:
+        start = lower.find(_TAG_OPEN, pos)
+        if start < 0:
+            return spans
+        close = lower.find(_TAG_CLOSE, start + len(_TAG_OPEN))
+        if close < 0:
+            return spans  # no close anywhere after: no more blocks
+        # The first open before the close starts the block, as with the lazy
+        # regex it replaces; a later open is part of the body.
+        end = close + len(_TAG_CLOSE)
+        spans.append((start, end, text[start + len(_TAG_OPEN) : close].strip()))
+        pos = end
+
+
+def _harmony_spans(text: str) -> list[tuple[int, int, str, str]]:
+    """``(start, end, name, body)`` of each Harmony call, scanning the text once."""
+    spans: list[tuple[int, int, str, str]] = []
+    pos = 0
+    next_message = -2  # unknown
+    while True:
+        start = text.find(_HARMONY_START, pos)
+        if start < 0:
+            return spans
+        name_match = _HARMONY_NAME_RE.match(text, start)
+        if name_match is None:
+            pos = start + len(_HARMONY_START)
+            continue
+        header_start = name_match.end()
+        if next_message < header_start:
+            next_message = text.find(_HARMONY_MESSAGE, header_start)
+        if next_message < 0:
+            return spans  # no <|message|> after this point: no more calls
+        header = text[header_start:next_message]
+        if len(header) > _HARMONY_HEADER_MAX or not _HARMONY_HEADER_RE.fullmatch(
+            header
+        ):
+            pos = header_start
+            continue
+        body_start = next_message + len(_HARMONY_MESSAGE)
+        ends = [
+            (index, marker)
+            for marker in ("<|call|>", "<|end|>")
+            if (index := text.find(marker, body_start)) >= 0
+        ]
+        body_end, marker = min(ends) if ends else (len(text), "")
+        end = body_end + len(marker)
+        spans.append((start, end, name_match.group(1), text[body_start:body_end]))
+        pos = end
+
+
 def _parse_tag(text: str) -> list[ParsedCall] | None:
-    bodies = _TAG_RE.findall(text)
+    bodies = [body for _, _, body in _tag_spans(text)]
     if not bodies:
         return None
     calls: list[ParsedCall] = []
@@ -251,11 +316,11 @@ def _parse_tag(text: str) -> list[ParsedCall] | None:
 
 
 def _parse_harmony(text: str) -> list[ParsedCall] | None:
-    matches = _HARMONY_RE.findall(text)
+    matches = _harmony_spans(text)
     if not matches:
         return None
     calls: list[ParsedCall] = []
-    for name, body in matches:
+    for _, _, name, body in matches:
         try:
             args = _loads(body.strip() or "{}")
         except (json.JSONDecodeError, ValueError, RecursionError):
@@ -347,6 +412,18 @@ def _repair_name(
     return None, None, f"no tool named {name!r}; available: {sorted(tools)}"
 
 
+# A key shorter than this (letters and digits only) is never repaired (AUD-005).
+_MIN_REPAIR_CHARS = 3
+
+
+def _repairs_to(key: str, arg: str) -> bool:
+    """True when *key* is a near miss for the argument *arg*."""
+    nkey, narg = _norm(key), _norm(arg)
+    if len(nkey) < _MIN_REPAIR_CHARS or len(narg) < _MIN_REPAIR_CHARS:
+        return False
+    return nkey == narg or narg.endswith(nkey) or nkey.endswith(narg)
+
+
 def _repair_keys(
     args: dict[str, Any], signature: ToolSignature
 ) -> tuple[dict[str, Any] | None, list[Repair], str]:
@@ -354,18 +431,32 @@ def _repair_keys(
         return args, [], ""
     fixed: dict[str, Any] = {}
     repairs: list[Repair] = []
+    # Exact keys first, so a near miss can never take an argument given by name.
     for key, value in args.items():
         if key in signature.arg_keys:
             fixed[key] = value
+    for key, value in args.items():
+        if key in signature.arg_keys:
             continue
-        unused = [k for k in signature.arg_keys if k not in args]
+        # LR:: A repair may not land on an argument already filled, by name or
+        # by an earlier repair: "target_path" and "backup_path" both became
+        # "path" and the last one won (AUD-005). A key shorter than three
+        # characters is not repaired: "_" and "e" matched any key ending in
+        # nothing or in "e".
         candidates = [
-            k
-            for k in unused
-            if _norm(k) == _norm(key)
-            or _norm(k).endswith(_norm(key))
-            or _norm(key).endswith(_norm(k))
+            k for k in signature.arg_keys if k not in fixed and _repairs_to(key, k)
         ]
+        taken = [k for k in signature.arg_keys if k in fixed and _repairs_to(key, k)]
+        if not candidates and taken:
+            return (
+                None,
+                [],
+                (
+                    f"argument {key!r} is not an argument of {signature.name} (it "
+                    f"would repair to {taken[0]!r}, which another key already gives); "
+                    f"expected keys: {sorted(signature.arg_keys)}"
+                ),
+            )
         if len(candidates) != 1:
             reason = (
                 "matches more than one argument" if candidates else "is not an argument"
@@ -408,6 +499,8 @@ def _native_calls(message: Mapping[str, Any]) -> list[tuple[str, Any, str]] | No
     calls = []
     for i, item in enumerate(raw):
         function = item.get("function", {}) if isinstance(item, dict) else {}
+        if not isinstance(function, dict):
+            return []  # a string, null or list where the function object belongs
         name = function.get("name")
         if not isinstance(name, str) or not name:
             return []
@@ -431,7 +524,8 @@ def _decode_arguments(raw: Any) -> tuple[dict[str, Any] | None, str]:
         value = _loads(raw)
     except _DuplicateKeyError as exc:
         return None, f"arguments name a key twice ({exc})"
-    except (json.JSONDecodeError, RecursionError):
+    except (json.JSONDecodeError, ValueError, RecursionError):
+        # ValueError: an integer over Python's digit limit (AUD-006).
         snippet = raw[:80] + ("..." if len(raw) > 80 else "")
         return None, f"arguments are not valid JSON: {snippet!r}"
     if not isinstance(value, dict):
@@ -441,7 +535,11 @@ def _decode_arguments(raw: Any) -> tuple[dict[str, Any] | None, str]:
 
 def _has_duplicate_keys(text: str) -> bool:
     """True when some JSON object in the reply names a key twice."""
-    candidates = [text.strip(), *_FENCE_RE.findall(text), *_TAG_RE.findall(text)]
+    candidates = [
+        text.strip(),
+        *_FENCE_RE.findall(text),
+        *(body for _, _, body in _tag_spans(text)),
+    ]
     for candidate in candidates:
         try:
             _loads(candidate.strip())
@@ -454,11 +552,14 @@ def _has_duplicate_keys(text: str) -> bool:
 
 def _prose_around(text: str, rung: Rung) -> tuple[int, int]:
     """Visible characters before the first and after the last call span."""
-    patterns = {"tag": _TAG_RE, "harmony": _HARMONY_RE, "fenced_json": _FENCE_RE}
-    pattern = patterns.get(rung)
-    if pattern is None:
+    if rung == "tag":
+        spans = [(start, end) for start, end, _ in _tag_spans(text)]
+    elif rung == "harmony":
+        spans = [(start, end) for start, end, _, _ in _harmony_spans(text)]
+    elif rung == "fenced_json":
+        spans = [m.span() for m in _FENCE_RE.finditer(text)]
+    else:
         return 0, 0
-    spans = [m.span() for m in pattern.finditer(text)]
     if not spans:
         return 0, 0
     before = text[: spans[0][0]]
@@ -505,7 +606,7 @@ def extract(
     """Read one chat-completion response. Never raises on a malformed one."""
     by_name = {t.name: t for t in tools}
     message = _message(response)
-    content = str(message.get("content") or "")
+    content = _content_text(message.get("content"))
     visible = strip_reasoning(content)
 
     parsed: list[tuple[str, Any, str]] | None = None
@@ -726,34 +827,74 @@ def next_action(
 # ---------------------------------------------------------------------------
 
 
+def _content_text(value: Any) -> str:
+    """Message content as text: a string, or the text parts of a list joined (AUD-006)."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts = []
+        for part in value:
+            if isinstance(part, str):
+                parts.append(part)
+            elif isinstance(part, dict) and isinstance(part.get("text"), str):
+                parts.append(part["text"])
+        return "".join(parts)
+    return ""
+
+
 def accumulate_stream(chunks: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
-    """Fold streamed chat-completion chunks into one non-streaming response."""
+    """Fold streamed chat-completion chunks into one non-streaming response.
+
+    LR:: A field of the wrong type is skipped, never raised on (AUD-006): a
+    null index is call 0, a chunk, choice, delta, call or function that is
+    not an object is ignored, list content is joined, and arguments sent as
+    one object are kept as its JSON.
+    """
     content: list[str] = []
     reasoning: list[str] = []
     calls: dict[int, dict[str, Any]] = {}
     finish = None
     usage = None
     for chunk in chunks:
+        if not isinstance(chunk, Mapping):
+            continue
         if isinstance(chunk.get("usage"), dict):
             usage = chunk["usage"]
-        choices = chunk.get("choices") or []
-        if not choices:
+        choices = chunk.get("choices")
+        if not isinstance(choices, list) or not choices:
             continue
         choice = choices[0]
+        if not isinstance(choice, Mapping):
+            continue
         finish = choice.get("finish_reason") or finish
-        delta = choice.get("delta") or {}
-        if delta.get("content"):
-            content.append(delta["content"])
-        if delta.get("reasoning_content"):
+        delta = choice.get("delta")
+        if not isinstance(delta, Mapping):
+            continue
+        text = _content_text(delta.get("content"))
+        if text:
+            content.append(text)
+        if isinstance(delta.get("reasoning_content"), str):
             reasoning.append(delta["reasoning_content"])
-        for tc in delta.get("tool_calls") or []:
-            entry = calls.setdefault(
-                int(tc.get("index", 0)), {"id": "", "name": "", "arguments": ""}
-            )
-            entry["id"] = tc.get("id") or entry["id"]
-            function = tc.get("function") or {}
-            entry["name"] = function.get("name") or entry["name"]
-            entry["arguments"] += function.get("arguments") or ""
+        tool_calls = delta.get("tool_calls")
+        for tc in tool_calls if isinstance(tool_calls, list) else []:
+            if not isinstance(tc, Mapping):
+                continue
+            index = tc.get("index")
+            if isinstance(index, bool) or not isinstance(index, int):
+                index = 0
+            entry = calls.setdefault(index, {"id": "", "name": "", "arguments": ""})
+            if isinstance(tc.get("id"), str) and tc["id"]:
+                entry["id"] = tc["id"]
+            function = tc.get("function")
+            if not isinstance(function, Mapping):
+                continue
+            if isinstance(function.get("name"), str) and function["name"]:
+                entry["name"] = function["name"]
+            arguments = function.get("arguments")
+            if isinstance(arguments, str):
+                entry["arguments"] += arguments
+            elif isinstance(arguments, dict):
+                entry["arguments"] = json.dumps(arguments)
     message: dict[str, Any] = {"role": "assistant", "content": "".join(content)}
     if reasoning:
         message["reasoning_content"] = "".join(reasoning)
