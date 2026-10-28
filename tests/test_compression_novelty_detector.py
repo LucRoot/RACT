@@ -16,9 +16,20 @@ class FakeHandshakeRegistry(HandshakeRegistry):
 
     def __init__(self) -> None:
         self._items: list[HandshakeItem] = []
+        self._marks: dict[tuple[str, str], str] = {}
 
     def _load(self) -> list[dict]:
         return []
+
+    # The request and approval marks (S-035, B-082) stay in memory too (B-088).
+    def _read_mark(self, milestone_id: str, kind: str) -> str | None:
+        return self._marks.get((milestone_id, kind))
+
+    def _write_mark(self, milestone_id: str, kind: str, digest: str | None) -> None:
+        if digest is None:
+            self._marks.pop((milestone_id, kind), None)
+        else:
+            self._marks[(milestone_id, kind)] = digest
 
     def _save(self, items: list[HandshakeItem]) -> None:
         self._items = list(items)

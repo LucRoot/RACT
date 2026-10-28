@@ -117,18 +117,32 @@ class HandshakeRegistry:
         name = hashlib.sha256(milestone_id.encode("utf-8")).hexdigest()[:32]
         return self._approvals_dir() / f"{name}.{kind}"
 
-    def _approval_mark(self, milestone_id: str) -> Path:
-        return self._mark(milestone_id, "approved")
+    def _read_mark(self, milestone_id: str, kind: str) -> str | None:
+        """The digest this machine recorded for an id, or None.
+
+        Mark storage is these two methods only (B-088), the way ``_load`` and
+        ``_save`` are for the registry file, so a registry kept in memory
+        overrides them together.
+        """
+        mark = self._mark(milestone_id, kind)
+        if mark.is_symlink() or not mark.is_file():
+            return None
+        try:
+            return mark.read_bytes()[:128].decode("ascii").strip()
+        except (OSError, UnicodeDecodeError):
+            return None
+
+    def _write_mark(self, milestone_id: str, kind: str, digest: str | None) -> None:
+        """Record *digest* as this machine's mark for an id; None removes it."""
+        mark = self._mark(milestone_id, kind)
+        if digest is None:
+            mark.unlink(missing_ok=True)
+            return
+        mark.parent.mkdir(parents=True, exist_ok=True)
+        mark.write_text(digest, encoding="ascii")
 
     def _marked(self, item: HandshakeItem, kind: str) -> bool:
-        mark = self._mark(item.id, kind)
-        if mark.is_symlink() or not mark.is_file():
-            return False
-        try:
-            recorded = mark.read_bytes()[:128].decode("ascii").strip()
-        except (OSError, UnicodeDecodeError):
-            return False
-        return recorded == _approval_digest(item)
+        return self._read_mark(item.id, kind) == _approval_digest(item)
 
     def _approved_here(self, item: HandshakeItem) -> bool:
         return self._marked(item, "approved")
@@ -232,9 +246,7 @@ class HandshakeRegistry:
         )
         items.append(item)
         self._save(items)
-        request = self._mark(item.id, "requested")
-        request.parent.mkdir(parents=True, exist_ok=True)
-        request.write_text(_approval_digest(item), encoding="ascii")
+        self._write_mark(item.id, "requested", _approval_digest(item))
         # module_05: emit at the request site so the log is complete
         # regardless of who called ``add`` (compiler group requests,
         # handshake CLI, MilestoneOracle escalations).
@@ -340,12 +352,8 @@ class HandshakeRegistry:
 
 def _record_approval_mark(registry: HandshakeRegistry, item: HandshakeItem) -> None:
     """Record on this machine that the operator approved *item*, or clear it."""
-    mark = registry._approval_mark(item.id)
-    if item.status != "approved":
-        mark.unlink(missing_ok=True)
-        return
-    mark.parent.mkdir(parents=True, exist_ok=True)
-    mark.write_text(_approval_digest(item), encoding="ascii")
+    digest = _approval_digest(item) if item.status == "approved" else None
+    registry._write_mark(item.id, "approved", digest)
 
 
 def _emit_handshake_event(kind: str, item: HandshakeItem, *, reason: str) -> None:
