@@ -112,6 +112,10 @@ class Executor:
     # Added to the step numbers this executor reports, so a one-step plan run
     # by the substrate adapter carries the whole plan's numbering.
     step_number_offset: int = 0
+    # S6-4 (H4): set by the substrate, which applies a step's files after the step
+    # ran in its worktree. While set, a finished step is held and reported by
+    # release_held_step once the apply result is known.
+    hold_step_report: bool = False
 
     def __init__(
         self,
@@ -1128,6 +1132,9 @@ class Executor:
             return
         n, step, started = self._open_step
         self._open_step = None
+        if self.hold_step_report:
+            self._held_step = (n, step, started, confidence)
+            return
         run_checkpoint.step_finished(n)
         turn_context.report(
             "step.finished",
@@ -1138,6 +1145,32 @@ class Executor:
                 "confidence": confidence,
                 "duration_ms": int((time.monotonic() - started) * 1000),
                 "hint": None,
+            },
+        )
+
+    def release_held_step(self, outcome: str, error: str | None = None) -> None:
+        """Report the step held by ``hold_step_report`` with its final outcome.
+
+        ``outcome`` is ``done`` once the step's files are applied; any other value
+        ends the step as that outcome with ``error`` as its hint. A held step is
+        never reported as done unless the caller says it was applied.
+        """
+        held = getattr(self, "_held_step", None)
+        if held is None:
+            return
+        self._held_step = None
+        n, step, started, confidence = held
+        if outcome == "done":
+            run_checkpoint.step_finished(n)
+        turn_context.report(
+            "step.finished",
+            {
+                "n": n,
+                "outcome": outcome,
+                "artifact": step.expected_artifact or None,
+                "confidence": confidence,
+                "duration_ms": int((time.monotonic() - started) * 1000),
+                "hint": None if outcome == "done" else error,
             },
         )
 
