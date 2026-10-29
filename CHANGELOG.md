@@ -131,6 +131,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A cancelled plan in `ract run` is the choice you made: it prints as a plain line and the run
+  exits 0, without the provider-check hint.
 - In a terminal, `ract run "<intent>"` and `ract "<intent>"` with no approval flag now ask
   before they change files, as the session already did: the plan question for a plan that
   changes files, then each step outside the approved plan. Before, they wrote without asking.

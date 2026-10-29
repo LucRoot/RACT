@@ -80,6 +80,17 @@ def test_a_plan_that_changes_files_asks_and_cancel_writes_nothing(
     )
     assert seen == [True], recording.plain[-2000:]
     assert not (ws / "src" / "a.py").exists() and not (ws / "src" / "b.py").exists()
+    # B-103 (S2 D11): a cancel is the operator's choice, not a setup problem.
+    assert recording.exit_code == 0, recording.plain[-2000:]
+    assert "check-providers" not in recording.plain
+
+
+def test_a_cancelled_plan_has_its_own_hint() -> None:
+    from ract.plan_gate import CANCELLED
+    from ract.session_turn import hint_for
+
+    hint = hint_for(CANCELLED)
+    assert "cancelled" in hint and "doctor" not in hint
 
 
 @pytest.mark.parametrize("argv", ENTRY_POINTS, ids=["ract-run", "bare-ract"])

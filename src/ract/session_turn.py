@@ -129,6 +129,12 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "run the request again, or name one file per step",
     ),
     (
+        # B-103 (S2 D11): the operator cancelled the plan; not a setup problem.
+        re.compile(r"Plan cancelled: nothing was run", re.I),
+        "you cancelled the plan; run the intent again when you want it, or "
+        "change the request",
+    ),
+    (
         re.compile(r"refused to replace", re.I),
         "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
         "in the intent which change you want",

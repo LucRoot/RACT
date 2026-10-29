@@ -5146,6 +5146,13 @@ def main(argv: list[str] | None = None) -> int:
         ask=args.ask,
         run_id=run_id,
     )
+    from ract import plan_gate
+
+    if not result.is_ok() and (result.error or "").startswith(plan_gate.CANCELLED):
+        # B-103 (S2 D11): the operator cancelled the plan; nothing ran, which is
+        # what they chose. Exit 0, as a session turn does (ADR-0049 D12).
+        console.direct(result.error or plan_gate.CANCELLED)
+        return 0
     if not result.is_ok():
         console.error(f"failed: {result.error}")
         # One hint table for the session, headless and one-shot runs (B-073).
