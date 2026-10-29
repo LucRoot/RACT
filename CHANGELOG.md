@@ -131,6 +131,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- In a terminal, `ract run "<intent>"` and `ract "<intent>"` with no approval flag now ask
+  before they change files, as the session already did: the plan question for a plan that
+  changes files, then each step outside the approved plan. Before, they wrote without asking.
+  `--yolo` skips the questions; `ract -p` still refuses changes without `--accept-edits`.
 - `ract -p` with a stdin that a parent leaves open no longer waits without a word: after five
   seconds of nothing a notice goes to stderr, and after 30 seconds (`RACT_STDIN_IDLE_TIMEOUT`)
   the run exits 2 with a hint. `--no-stdin` skips reading stdin. Data that keeps arriving is

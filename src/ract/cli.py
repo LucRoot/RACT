@@ -4016,6 +4016,21 @@ def _session_store_dir(store: Path | None) -> Path:
     return DEFAULT_DIR
 
 
+def _default_mode_asks(args: argparse.Namespace) -> bool:
+    """True when a run takes the default mode's questions (B-101).
+
+    LR:: ``ract run`` and a bare ``ract "intent"`` with no approval flag wrote
+    files without asking: the plan question and the per-step question were
+    wired to ``--auto`` only (S2 D4, B-098). The default mode asks in a
+    terminal. A dry run, an answer (``--ask``) and a run with ``--yolo`` or
+    ``--auto`` are unchanged; without a terminal nothing can be asked, and the
+    run is unchanged too (escalated, see the log).
+    """
+    if args.yolo or args.auto or args.dry_run or getattr(args, "ask", False):
+        return False
+    return sys.stdin.isatty()
+
+
 def _session_command(args: list[str]) -> int:
     """Handle 'ract session list|export|import|backup|restore ...'."""
     parser = argparse.ArgumentParser(prog="ract session")
@@ -4793,12 +4808,12 @@ def main(argv: list[str] | None = None) -> int:
     approval_group.add_argument(
         "--yolo",
         action="store_true",
-        help="Execute all steps without approval prompts (default).",
+        help="Execute all steps without approval prompts.",
     )
     approval_group.add_argument(
         "--auto",
         action="store_true",
-        help="Prompt for approval before each step (mutually exclusive with --yolo).",
+        help="Ask before the plan and before each step (the default in a terminal).",
     )
     parser.add_argument(
         "--reload",
@@ -5021,7 +5036,16 @@ def main(argv: list[str] | None = None) -> int:
         console.user_input("project doc", str(args.project_doc))
     if args.yolo:
         console.direct("yolo mode: executing without approval")
-    if args.auto:
+    default_asks = _default_mode_asks(args)
+    if default_asks:
+        # B-101 (D-026, decision O, D-103): with no approval flag, a run in a
+        # terminal is in `default` mode and asks: the plan question for a plan
+        # that changes files, then each step outside the approved plan.
+        args.auto = True
+        console.direct(
+            "default mode: RACT asks before it changes a file (--yolo skips)"
+        )
+    if args.auto and not default_asks:
         # v0.5.1 wiring module_10 (Lens A M4): TTY guard.
         # ``--auto`` calls the ConsoleApprovalCallback which reads
         # ``input()``. In headless CI (no TTY) the ``input()`` call

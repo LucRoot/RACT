@@ -16,7 +16,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--ask` | `ract run` | Answer the intent as a question: no plan, and no file is written. |
 | `--asset` | `ract release create` | Path to asset file (repeatable) |
 | `--at` | `ract trace fork` | - |
-| `--auto` | `ract run` | Prompt for approval before each step (mutually exclusive with --yolo). |
+| `--auto` | `ract run` | Ask before the plan and before each step (the default in a terminal). |
 | `--backup-dir` | `ract session backup` | - |
 | `--bare` | `ract -p` | load no repository-supplied extension (hooks, MCP servers, skills); a headless run already loads none in this release |
 | `--base-url` | `ract openapi` | Override the base URL from the spec (client only). |
@@ -141,4 +141,4 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--with` | `ract trace fork` | - |
 | `--workspace` | `ract provenance verify` | Workspace root (for SQLite index fallback). Inferred if omitted. |
 | `--wsl-distro` | `ract mutation` | WSL distro to use (defaults to a running Linux distro). |
-| `--yolo` | `ract run` | Execute all steps without approval prompts (default). |
+| `--yolo` | `ract run` | Execute all steps without approval prompts. |
