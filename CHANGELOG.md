@@ -122,6 +122,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A file step whose reply was cut off at the model's output limit, or a Python file that ends
+  inside a string, is asked for once more and refused if it is cut off again; nothing is written.
+  A new Python file that does not parse is refused with the line of the error, as a replacement
+  already was. Before, both were written and reported done.
 - `plan.proposed` and `plan.approval_requested` carried a plan step's text as the model wrote
   it, terminal escapes included; that text is now made printable, as every other event's is.
   `plan_hash` is unchanged.

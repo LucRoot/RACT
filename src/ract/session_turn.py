@@ -113,6 +113,17 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "block in ract.yaml if the server needs no key",
     ),
     (
+        # B-095 (S2 D1): a reply cut off at the output limit, twice.
+        re.compile(r"was cut off twice", re.I),
+        "raise max_tokens for this provider in ract.yaml, or ask for a smaller change",
+    ),
+    (
+        # B-095 (S2 D2): a new file that does not parse.
+        re.compile(r"refused to create .*not valid python", re.I),
+        "the model's file has a syntax error; run the request again, or ask for a "
+        "smaller change",
+    ),
+    (
         re.compile(r"refused to replace", re.I),
         "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
         "in the intent which change you want",

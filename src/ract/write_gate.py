@@ -10,6 +10,8 @@ file:
 
 - a step whose action reads like a question never replaces an existing file;
 - a file RACT can parse that parsed before must still parse after;
+- a new Python file must parse (B-095: a new file was written with a
+  syntax error and the run reported done);
 - any other file of more than 50 lines is not cut to under a tenth of its
   size unless the action says it deletes or truncates.
 """
@@ -78,12 +80,16 @@ _SIZE_RULE_FRACTION = 0.1
 class ReplacementRefused(Exception):
     """A step's reply would have replaced an existing file and was refused."""
 
-    def __init__(self, path: str, reason: str, rule: str) -> None:
+    def __init__(
+        self, path: str, reason: str, rule: str, *, created: bool = False
+    ) -> None:
         super().__init__(f"{path}: {reason}")
         self.path = path
         self.reason = reason
         # "question", "parse" or "size": which check refused the write.
         self.rule = rule
+        # True when the refused write would have created the file.
+        self.created = created
 
 
 def reads_like_a_question(action: str) -> bool:
@@ -158,6 +164,40 @@ _KINDS = {
 }
 
 
+def python_error(text: str) -> SyntaxError | None:
+    """The SyntaxError of *text* as Python, or None when it parses."""
+    try:
+        ast.parse(text)
+    except SyntaxError as exc:
+        return exc
+    except ValueError as exc:  # a NUL byte in the source
+        return SyntaxError(str(exc))
+    return None
+
+
+def _where(exc: SyntaxError) -> str:
+    return f"line {exc.lineno}: {exc.msg}" if exc.lineno else str(exc.msg)
+
+
+def check_new_file(path: str, new: str) -> None:
+    """Raise ReplacementRefused when a new Python file at *path* does not parse.
+
+    LR:: A replacement was parse-checked (S-026) and a new file was not, so a
+    model's broken file was written and the run said done (S2 D2). Only
+    Python is checked here; other new files are written as before.
+    """
+    if _KINDS.get(PurePosixPath(path.replace("\\", "/")).suffix.lower()) != "python":
+        return
+    error = python_error(new)
+    if error is not None:
+        raise ReplacementRefused(
+            path,
+            f"the reply is not valid python ({_where(error)})",
+            "parse",
+            created=True,
+        )
+
+
 def check_replacement(path: str, old: bytes, new: str, action: str) -> None:
     """Raise ReplacementRefused when *new* should not replace *old* at *path*."""
     if reads_like_a_question(action):
@@ -174,9 +214,11 @@ def check_replacement(path: str, old: bytes, new: str, action: str) -> None:
     kind = _KINDS.get(PurePosixPath(path.replace("\\", "/")).suffix.lower())
     if kind is not None:
         if _parses(kind, old_text) and not _parses(kind, new):
+            error = python_error(new) if kind == "python" else None
+            where = f" ({_where(error)})" if error is not None else ""
             raise ReplacementRefused(
                 path,
-                f"the reply is not a valid {kind} file, and the current one is",
+                f"the reply is not a valid {kind} file, and the current one is{where}",
                 "parse",
             )
         return
@@ -199,6 +241,8 @@ __all__ = [
     "WRITE_VERBS",
     "answer_instead",
     "ReplacementRefused",
+    "check_new_file",
     "check_replacement",
+    "python_error",
     "reads_like_a_question",
 ]

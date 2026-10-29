@@ -583,6 +583,9 @@ class Executor:
             write_gate.check_replacement(
                 expected_artifact, full_path.read_bytes(), cleaned, action
             )
+        else:
+            # B-095: a new Python file must parse too.
+            write_gate.check_new_file(expected_artifact, cleaned)
         # Keep the previous bytes for the turn, or record that the turn
         # creates the file: /undo removes it and a resumed run (D13) resets it.
         undo_backup.save_before_replace(self.project_dir, [full_path])
@@ -1040,15 +1043,63 @@ class Executor:
         for adapter in candidates:
             if turn_context.cancelled():
                 break  # an interrupted turn tries no further provider
+
+            def request(msgs: list[dict[str, str]], _adapter=adapter) -> Rooted:
+                if stream and "streaming" in _adapter.capabilities():
+                    return self._stream_completion(
+                        _adapter, msgs, stream_callback, temperature=temperature
+                    )
+                return _adapter.complete(msgs, max_tokens=1024, temperature=temperature)
+
             try:
-                if stream and "streaming" in adapter.capabilities():
-                    response_rooted = self._stream_completion(
-                        adapter, messages, stream_callback, temperature=temperature
-                    )
-                else:
-                    response_rooted = adapter.complete(
-                        messages, max_tokens=1024, temperature=temperature
-                    )
+                response_rooted = request(messages)
+                cut = self._cut_off(response_rooted, step)
+                if cut and not turn_context.cancelled():
+                    # B-095: one more request, inside the D5 bound of two.
+                    if turn_context.has_reporter():
+                        turn_context.report(
+                            "notice",
+                            {
+                                "level": "warning",
+                                "text": f"step {self._shown(index)}: the reply for "
+                                f"{step.expected_artifact} was cut off ({cut}); "
+                                "asking once more for the complete file",
+                            },
+                        )
+                    retry = [
+                        *messages[:-1],
+                        {
+                            "role": "user",
+                            "content": messages[-1]["content"]
+                            + "\n\nYour previous reply stopped before the file was "
+                            "complete. Return the complete file only, with no "
+                            "explanation, and keep it short enough to finish.",
+                        },
+                    ]
+                    response_rooted = request(retry)
+                    cut = self._cut_off(response_rooted, step)
+                    if cut:
+                        return Rooted(
+                            value=None,
+                            assumption=(
+                                f"Step {self._shown(index)}'s reply is a complete "
+                                f"{step.expected_artifact}."
+                            ),
+                            confidence=0.0,
+                            provenance=[
+                                f"executor.step:{index}",
+                                f"provider:{adapter.name}",
+                            ],
+                            error=(
+                                f"Step {self._shown(index)}'s reply for "
+                                f"{step.expected_artifact} was cut off twice ({cut}). "
+                                "Nothing was written."
+                            ),
+                            hint=(
+                                "raise max_tokens for this provider in ract.yaml, or "
+                                "ask for a smaller change"
+                            ),
+                        )
             except Exception as exc:  # noqa: BLE001
                 info = classify_error(exc)
                 errors.append(f"{adapter.name}: {info.category} {info.message}")
@@ -1087,6 +1138,39 @@ class Executor:
             error="; ".join(errors) if errors else "All providers failed.",
             hint=final_hint,
         )
+
+    def _cut_off(self, response: Rooted, step: Step) -> str:
+        """Why a file step's reply is cut off, or "" (B-095, S2 D1).
+
+        LR:: A reply that stopped at the output limit was written as a
+        complete file and the run said done. Cut off means the provider's
+        finish reason is ``length`` (``max_tokens`` on some servers), or a
+        Python file that ends inside a string or docstring. Answer steps and
+        tool calls are not judged here.
+        """
+        if not step.expected_artifact or step.tool_call is not None:
+            return ""
+        if not response.is_ok():
+            return ""
+        raw = response.unwrap()
+        choice = (raw.get("choices") or [{}])[0] if isinstance(raw, dict) else {}
+        reason = str(choice.get("finish_reason") or "")
+        if reason in {"length", "max_tokens"}:
+            return f"finish reason {reason}"
+        if not step.expected_artifact.lower().endswith(".py"):
+            return ""
+        text = strip_reasoning((choice.get("message") or {}).get("content") or "")
+        text = self._normalize_model_output(text, step.expected_artifact)
+        error = write_gate.python_error(text)
+        if error is None:
+            return ""
+        message = str(error.msg or "")
+        last_line = len(text.rstrip("\n").splitlines())
+        if "unterminated triple-quoted" in message or (
+            "unterminated string" in message and (error.lineno or 0) >= last_line
+        ):
+            return "the file ends inside a string"
+        return ""
 
     def _answer_with_read_tools(
         self,
@@ -1764,6 +1848,20 @@ class Executor:
                     ):
                         unsigned_artifacts.append(step.expected_artifact)
             except write_gate.ReplacementRefused as refused:
+                if refused.created:
+                    return Rooted(
+                        value=None,
+                        assumption=(
+                            f"Step {self._shown(index)}'s reply is a valid {step.expected_artifact}."
+                        ),
+                        confidence=0.0,
+                        provenance=[f"executor.step:{index}", "write_gate"],
+                        error=(
+                            f"Step {self._shown(index)} refused to create {refused.path}: "
+                            f"{refused.reason}. Nothing was written."
+                        ),
+                        hint="run the request again, or ask for a smaller change",
+                    )
                 return Rooted(
                     value=None,
                     assumption=(
