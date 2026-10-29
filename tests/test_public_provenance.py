@@ -179,6 +179,11 @@ ALLOWED_IMPORT_ROOTS = {
     # Object API surface (CreateJobObject, TerminateJobObject).
     "signal",
     "ctypes",
+    # B-093: ``ract -p`` polls piped stdin without a reader thread: stdlib
+    # ``select`` on POSIX (Windows uses ``ctypes`` PeekNamedPipe) and stdlib
+    # ``stat`` to tell a pipe from a regular file.
+    "select",
+    "stat",
     # v0.5.1 external-review response (module_08): polyglot G5/G6 via
     # tree-sitter loads three additional grammar packages beyond the
     # memory-discipline module_02 set. All three are optional-dep
