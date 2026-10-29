@@ -1,0 +1,35 @@
+# driver: tests/ux/terminal_driver.py (ConPTY); mode default; commit d5dbda0
+[]
+ intent: Make add() in src/calc.py return a + b. Add src/notes.py with the 
+constant NOTE = "two". Add tests/test_notes.py with a test that checks NOTE 
+equals "two".
+note: previous version of 1 file saved; /undo restores them
+▸ assumptions:
+  • The user wants to fix the add function, add a new notes module with a 
+constant, and add a test for that constant.
+  • Step 1 (Fix add() in src/calc.py to return a + b instead of a - b) produced 
+artifact: src/calc.py
+  • Step 2 (Create src/notes.py with constant NOTE = "two") produced artifact: 
+src/notes.py
+  • Step 3 (Create tests/test_notes.py with a test that asserts NOTE equals 
+"two") produced artifact: tests/test_notes.py
+▸ results:
+────── Step 1: Fix add() in src/calc.py to return a + b instead of a - b ───────
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - b
+──────────── Step 2: Create src/notes.py with constant NOTE = "two" ────────────
+NOTE = "two"
+─ Step 3: Create tests/test_notes.py with a test that asserts NOTE equals "tw… ─
+NOTE = "two"
+
+
+def test_note():
+    assert NOTE == "two"
+⚠  provenance: 3 file(s) written without a Rootknot (src/calc.py, src/notes.py, 
+tests/test_notes.py). Signing is not wired into this release; see 
+docs/PROVENANCE.md.
+▸ quality score: 0.712

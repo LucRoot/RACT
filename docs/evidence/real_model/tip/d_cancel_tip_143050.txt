@@ -1,0 +1,15 @@
+# driver: tests/ux/terminal_driver.py (ConPTY); mode cancel; commit d5dbda0
+[('plan', True, 6.5, 'a')]
+ intent: Make add() in src/calc.py return a + b. Add src/notes.py with the 
+constant NOTE = "two". Add tests/test_notes.py with a test that checks NOTE 
+equals "two".
+▸ auto mode: approval required per step
+Plan: 3 steps
+[ ] 1. Fix add() in src/calc.py to return a + b instead of a - b ->
+      src/calc.py
+[ ] 2. Create src/notes.py with constant NOTE = "two" -> src/notes.py
+[ ] 3. Create tests/test_notes.py with a test that asserts NOTE equals "two"
+      -> tests/test_notes.py
+Run it? [a]pprove [s]kip <n> [e]dit <n> [c]ancel c
+✗  failed: Plan cancelled: nothing was run and no file changed.
+hint: run `ract doctor --check-providers` to check the setup, then try again

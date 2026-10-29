@@ -1,0 +1,28 @@
+# capture: f_ask
+# commit: d5dbda0 (feature tip, LANDED; code under test is the export of this commit)
+# date: 2026-10-29 13:55 PDT
+# provider: hosted, model [large hosted model, structurer role] (the repository has no provider preset; ract.yaml is scratch)
+# settings: openai_compatible, url [hosted endpoint, held on the operator board], key from environment (not printed)
+# intent: What does add() in src/calc.py return, and does test_add pass?
+# args: --ask
+# ---
+ intent: What does add() in src/calc.py return, and does test_add pass?
+▸ assumptions:
+  • The user asked a question; the answer is shown and no file is written.
+  • Step 1 (What does add() in src/calc.py return, and does test_add pass?) 
+answered.
+▸ results:
+──── Step 1: What does add() in src/calc.py return, and does test_add pass? ────
+`add()` in `src/calc.py` returns `a - b` (subtraction), not addition:
+
+```python
+# src/calc.py, line 2-3
+def add(a, b):
+    return a - b
+```
+
+The test `test_add` expects `add(2, 3) == 5`, but since `add(2, 3)` returns `2 -
+3 = -1`, the assertion fails. So **`test_add` does not pass**.
+▸ quality score: 0.5
+# ---
+# exit code: 0, wall seconds: 6

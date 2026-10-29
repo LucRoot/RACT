@@ -1,0 +1,30 @@
+# capture: a_single_file
+# commit: d5dbda0 (feature tip, LANDED; code under test is the export of this commit)
+# date: 2026-10-29 13:51 PDT
+# provider: hosted, model [large hosted model, structurer role] (the repository has no provider preset; ract.yaml is scratch)
+# settings: openai_compatible, url [hosted endpoint, held on the operator board], key from environment (not printed)
+# intent: Fix add() in src/calc.py so it returns a + b. Change nothing else.
+# args: --yolo --stream
+# ---
+ intent: Fix add() in src/calc.py so it returns a + b. Change nothing else.
+▸ yolo mode: executing without approval
+▸ streaming mode: printing deltas as they arrive
+snapshotting your working tree: 1 of 1 untracked files
+--- src/calc.py ---
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - bnote: previous version of 1 file saved; /undo restores them
+▸ assumptions:
+  • The add() function in src/calc.py incorrectly uses subtraction instead of 
+addition. The sub() function is correct and should not be changed.
+  • Step 1 (Fix the add() function to return a + b instead of a - b) produced 
+artifact: src/calc.py
+▸ streaming complete
+⚠  provenance: 1 file(s) written without a Rootknot (src/calc.py). Signing is 
+not wired into this release; see docs/PROVENANCE.md.
+▸ quality score: 0.475
+# ---
+# exit code: 0, wall seconds: 22

@@ -1,0 +1,43 @@
+# driver: tests/ux/terminal_driver.py (ConPTY); mode auto; commit d5dbda0
+[('plan', True, 18.1, 'a'), (False, 438.1, 'y')]
+ intent: Make add() in src/calc.py return a + b. Add src/notes.py with the 
+constant NOTE = "two". Add tests/test_notes.py with a test that checks NOTE 
+equals "two".
+▸ auto mode: approval required per step
+Plan: 3 steps
+[ ] 1. Fix the add function in src/calc.py to return a + b instead of a - b
+      -> src/calc.py
+[ ] 2. Create src/notes.py with the constant NOTE = "two" -> src/notes.py
+[ ] 3. Create tests/test_notes.py with a test that verifies NOTE equals "two"
+      -> tests/test_notes.py
+Run it? [a]pprove [s]kip <n> [e]dit <n> [c]ancel a
+note: previous version of 1 file saved; /undo restores them
+▸ assumptions:
+  • The user wants to fix the add function, add a new notes module with a 
+constant, and add a test for that constant
+  • Step 1 (Fix the add function in src/calc.py to return a + b instead of a - 
+b) produced artifact: src/calc.py
+  • Step 2 (Create src/notes.py with the constant NOTE = "two") produced 
+artifact: src/notes.py
+  • Step 3 (Create tests/test_notes.py with a test that verifies NOTE equals 
+"two") produced artifact: tests/test_notes.py
+▸ results:
+─ Step 1: Fix the add function in src/calc.py to return a + b instead of a - b ─
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - b
+────────── Step 2: Create src/notes.py with the constant NOTE = "two" ──────────
+NOTE = "two"
+─ Step 3: Create tests/test_notes.py with a test that verifies NOTE equals "t… ─
+NOTE = "two"
+
+
+def test_note_equals_two():
+    assert NOTE == "two"
+⚠  provenance: 3 file(s) written without a Rootknot (src/calc.py, src/notes.py, 
+tests/test_notes.py). Signing is not wired into this release; see 
+docs/PROVENANCE.md.
+▸ quality score: 0.712
