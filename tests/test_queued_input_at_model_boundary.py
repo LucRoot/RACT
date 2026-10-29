@@ -122,3 +122,42 @@ def test_concurrent_adds_and_takes_keep_every_line():
     while (item := broker.queue.take_first()) is not None:
         taken.append(item)
     assert sorted(taken) == sorted(f"line {n}" for n in range(200))
+
+
+
+def test_cancel_and_add_from_two_threads_lose_no_line():
+    # L-196: every mutator takes the queue's lock, so a cancel racing an add cannot drop a line.
+    import threading
+
+    broker = InputBroker(emit=lambda kind, data: None)
+    broker.start_turn()
+    for n in range(50):
+        broker.feed(f"seed {n}")
+    removed: list[bool] = []
+
+    def adder() -> None:
+        for n in range(200):
+            broker.feed(f"added {n}")
+
+    def canceller() -> None:
+        for _ in range(50):
+            removed.append(broker.queue.cancel(1))
+
+    threads = [threading.Thread(target=adder), threading.Thread(target=canceller)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    # Conservation: every line added (50 seeds + 200) is either still queued or was withdrawn.
+    assert len(broker.queue.items()) + sum(removed) == 250
+
+
+def test_a_line_typed_after_the_last_model_request_stays_queued_for_the_next_turn():
+    session = _session_with_broker()
+    broker = session._broker
+    broker.feed("first")
+    assert session._drain_queued() == ["first"]  # the turn's only model request takes it
+    # No request follows: the line typed now is not sent in this turn.
+    broker.feed("typed after the last request")
+    assert broker.queue.items() == ["typed after the last request"]
+    assert session._take_queued() == "typed after the last request"  # the next turn sends it

@@ -33,7 +33,8 @@ class QueuedInput:
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def items(self) -> list[str]:
-        return [line.text for line in self.model.items]
+        with self._lock:
+            return [line.text for line in self.model.items]
 
     def add(self, text: str) -> int:
         with self._lock:
@@ -51,10 +52,11 @@ class QueuedInput:
 
     def cancel(self, position: int) -> bool:
         """Withdraw the item at ``position`` (1 is the next to be sent). False when none is there."""
-        try:
-            self.model, _ = self.model.drop(position)
-        except QueueError:
-            return False
+        with self._lock:
+            try:
+                self.model, _ = self.model.drop(position)
+            except QueueError:
+                return False
         self._emit("input.withdrawn", {"position": position})
         return True
 
