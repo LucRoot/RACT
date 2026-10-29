@@ -192,6 +192,7 @@ def test_model_says_review_off_or_names_the_reviewer() -> None:
     from ract.repl import _review_line
 
     assert _review_line({}).startswith("review: off")
-    assert (
-        _review_line({"review": "advisory"}) == f"review: advisory, {stage.SAME_MODEL}"
-    )
+    assert _review_line({"review": "advisory"}) == "review: advisory (same model)"
+    # /model fits a 40-column terminal (tests/test_ux_width.py).
+    for config in ({}, {"review": "retry"}, {"review": "bad"}):
+        assert len(_review_line(config)) <= 40

@@ -131,15 +131,15 @@ _EXIT_CLEANUP_SECONDS = 15.0
 
 def _review_line(config: dict) -> str:
     """The reviewer line of /model (ADR-0049 D14, B-061c)."""
-    from ract.review.stage import SAME_MODEL, ReviewConfigError, mode
+    from ract.review.stage import ReviewConfigError, mode
 
     try:
         review = mode(config)
     except ReviewConfigError:
-        return "review: off (the review setting in ract.yaml is not valid)"
+        return "review: off (setting not valid)"
     if review == "off":
-        return "review: off (set review: advisory in ract.yaml to turn it on)"
-    return f"review: {review}, {SAME_MODEL}"
+        return "review: off"
+    return f"review: {review} (same model)"
 
 
 class ReplSession:
