@@ -59,5 +59,5 @@ def remember(
     path = approvals_path(root, session_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(".json.tmp")
-    temp.write_text(json.dumps(approved, sort_keys=True), encoding="utf-8")
+    temp.write_text(json.dumps(approved), encoding="utf-8")
     os.replace(temp, path)
