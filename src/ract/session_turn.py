@@ -124,6 +124,11 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "smaller change",
     ),
     (
+        # B-096 (S2 D3): the reply is labelled as another file.
+        re.compile(r"label of another file", re.I),
+        "run the request again, or name one file per step",
+    ),
+    (
         re.compile(r"refused to replace", re.I),
         "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
         "in the intent which change you want",

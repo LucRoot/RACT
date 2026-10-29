@@ -122,6 +122,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The `--- path ---` label RACT puts around a file in the prompt is no longer written into the
+  file when the model copies it into its reply; a reply labelled as another file is refused.
 - A file step whose reply was cut off at the model's output limit, or a Python file that ends
   inside a string, is asked for once more and refused if it is cut off again; nothing is written.
   A new Python file that does not parse is refused with the line of the error, as a replacement

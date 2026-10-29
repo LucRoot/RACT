@@ -9,6 +9,7 @@ result is Rooted so the harness can decide whether to continue, retry, or stop.
 
 import hashlib
 import json
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -116,6 +117,18 @@ def unfinished_step_outcome(error: str, *, cancelled: bool) -> str:
     if cancelled:
         return "skipped"
     return "refused" if "refused" in error.lower() else "failed"
+
+
+# A context label as the prompt writes it around a file (``_target_file_block``
+# and the harness context): ``--- path ---`` alone on a line.
+_CONTEXT_LABEL = re.compile(r"--- (\S(?:.*\S)?) ---")
+
+
+def _safe_label(text: str) -> str:
+    """A label path made printable for a message."""
+    from ract.session_events import safe_text
+
+    return safe_text(text)[:200]
 
 
 class Executor:
@@ -533,7 +546,51 @@ class Executor:
         content = self._strip_markdown_fences(content)
         content = self._strip_artifact_path_line(content, expected_artifact)
         content = self._strip_markdown_fences(content)
+        content = self._strip_context_label(content, expected_artifact)
         return content
+
+    @staticmethod
+    def _context_label(line: str) -> str | None:
+        """The path in a ``--- path ---`` context label line, or None."""
+        match = _CONTEXT_LABEL.fullmatch(line.strip())
+        if match is None or match.group(1).startswith("end "):
+            return None
+        return match.group(1).replace("\\", "/")
+
+    @classmethod
+    def _strip_context_label(cls, content: str, expected_artifact: str) -> str:
+        """Remove the context label the model copied around the step's own file.
+
+        LR:: The prompt shows a file between ``--- path ---`` and
+        ``--- end path ---``; models copy those lines into the reply and RACT
+        wrote them into the file (S2 D3, B-096). Only a leading label for the
+        step's own path, and the matching end line at the very end, are
+        removed. A label for another path is left, and the step refuses it
+        (``_label_for_another_path``); a label inside the file is content.
+        """
+        own = expected_artifact.replace("\\", "/")
+        lines = content.split("\n")
+        first = next((i for i, line in enumerate(lines) if line.strip()), None)
+        if first is None or cls._context_label(lines[first]) != own:
+            return content
+        lines = lines[first + 1 :]
+        last = next(
+            (i for i in range(len(lines) - 1, -1, -1) if lines[i].strip()), None
+        )
+        if last is not None and lines[last].strip() == f"--- end {own} ---":
+            lines = lines[:last] + lines[last + 1 :]
+        return "\n".join(lines)
+
+    @classmethod
+    def _label_for_another_path(
+        cls, content: str, expected_artifact: str
+    ) -> str | None:
+        """The path of a leading context label that names another file, or None."""
+        first = next((line for line in content.split("\n") if line.strip()), "")
+        label = cls._context_label(first)
+        if label is None or label == expected_artifact.replace("\\", "/"):
+            return None
+        return label
 
     @staticmethod
     def _strip_artifact_path_line(content: str, expected_artifact: str) -> str:
@@ -1645,6 +1702,26 @@ class Executor:
                 )
                 continue
             content = self._normalize_model_output(content, step.expected_artifact)
+            other = (
+                self._label_for_another_path(content, step.expected_artifact)
+                if step.expected_artifact
+                else None
+            )
+            if other is not None:
+                return Rooted(
+                    value=None,
+                    assumption=(
+                        f"Step {self._shown(index)}'s reply is {step.expected_artifact}."
+                    ),
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}"],
+                    error=(
+                        f"Step {self._shown(index)}'s reply starts with the label of "
+                        f"another file ({_safe_label(other)}), so it is not "
+                        f"{step.expected_artifact}. Nothing was written."
+                    ),
+                    hint="run the request again, or name one file per step",
+                )
 
             # An empty answer must never overwrite the target file. A reasoning
             # model that runs out of output budget returns exactly this, and the
