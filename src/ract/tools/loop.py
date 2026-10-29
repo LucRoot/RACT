@@ -70,7 +70,8 @@ class LoopBudgets:
     max_wall_seconds: float = 1800.0
 
 
-def _system_prompt() -> str:
+def tool_lines() -> str:
+    """One ``- name(args)`` line per registered tool, for a system prompt."""
     tools = []
     for spec in REGISTRY.values():
         fields = ", ".join(
@@ -78,10 +79,14 @@ def _system_prompt() -> str:
             for name, field in spec.args_model.model_fields.items()
         )
         tools.append(f"- {spec.name}({fields})")
+    return "\n".join(tools)
+
+
+def _system_prompt() -> str:
     return (
         "You answer questions about the project in the current folder. You may "
         "read it with these tools, one call per reply:\n"
-        + "\n".join(tools)
+        + tool_lines()
         + "\nTo call a tool, reply with only one JSON object: "
         '{"tool": "<tool name>", "arguments": {...}}. When you know the answer, '
         'reply with {"final": "<your answer>"} or with the answer in plain words.\n'
@@ -227,8 +232,13 @@ def answer_with_tools(
     *,
     budgets: LoopBudgets | None = None,
     max_tokens: int | None = None,
+    system: str | None = None,
 ) -> Rooted[str]:
-    """Answer *question*, letting the model read the project at *root*."""
+    """Answer *question*, letting the model read the project at *root*.
+
+    *system* replaces the question-answering system prompt for another role
+    (the REVIEWER, B-061b); the tools, the gate and the budgets are the same.
+    """
     budgets = budgets or LoopBudgets()
     root = Path(root)
     gate = _gate(root, budgets)
@@ -236,7 +246,7 @@ def answer_with_tools(
     guard = LoopGuard()
     ids = itertools.count(1)
     messages: list[dict[str, Any]] = [
-        {"role": "system", "content": _system_prompt()},
+        {"role": "system", "content": system or _system_prompt()},
         {"role": "user", "content": question},
     ]
     deadline = time.monotonic() + budgets.max_wall_seconds
@@ -331,4 +341,10 @@ def answer_with_tools(
     )
 
 
-__all__ = ["LoopBudgets", "PLAIN_WORDS_REQUEST", "SUMMARY_REQUEST", "answer_with_tools"]
+__all__ = [
+    "LoopBudgets",
+    "PLAIN_WORDS_REQUEST",
+    "SUMMARY_REQUEST",
+    "answer_with_tools",
+    "tool_lines",
+]

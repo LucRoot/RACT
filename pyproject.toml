@@ -90,6 +90,7 @@ packages = ["src/ract"]
 include = [
     "src/ract/py.typed",
     "src/ract/default_prompts/manager.txt",
+    "src/ract/default_prompts/reviewer.txt",
     "src/ract/project_templates/*.json",
     "src/ract/setup/model_tiers.yaml",
 ]
