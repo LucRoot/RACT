@@ -378,6 +378,8 @@ class Harness:
         # B-011a (decision C, D-050): answer steps may read the project with
         # the tier-0 tools, within the budgets in ract.yaml (``agent``).
         self.executor.read_tools = _read_tools_budgets(self.config)
+        # B-061c (ADR-0049 D14): the per-step review; off unless ract.yaml says.
+        self.executor.review_mode = _review_mode(self.config)
         # v0.5.1 wiring module_03 (Lens C C-01) production wire-in.
         # Construct a lightweight SubstrateLoop bound to the project
         # dir and install it on the Executor. This makes every MCP
@@ -1110,6 +1112,17 @@ def _approved_plan_callback(
         return base(step)
 
     return callback
+
+
+def _review_mode(config: dict[str, Any]) -> str:
+    """``review`` from ract.yaml; a value config_check reports is treated as off."""
+    from ract.review.stage import ReviewConfigError, mode
+
+    try:
+        return mode(config)
+    except ReviewConfigError as exc:
+        print(f"[harness] {exc}; the review stays off", flush=True)
+        return "off"
 
 
 def _read_tools_budgets(config: dict[str, Any]) -> Any:

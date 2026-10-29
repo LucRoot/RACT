@@ -111,6 +111,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `python -m tests.ux.run_baseline` runs the session journeys against the fake model server and
   saves transcripts, timings and redacted paths. Baseline transcripts and a defect list for the
   current session are in `docs/ux/baseline/`.
+- `review: advisory` in ract.yaml: after each step that writes a file, the model reviews the
+  change with a fresh context and reports findings with file, line and quoted evidence. RACT
+  checks every finding against the repository, drops what does not check out, and shows the rest
+  below the turn summary as advice; a review never changes whether a step is done. Off by
+  default; `/model` shows the setting.
 
 ### Changed
 

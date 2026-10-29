@@ -301,6 +301,8 @@ class _TurnReporter:
         self._writer: TextWriter | None = None
         self.plan_reported = False
         self.streamed = False
+        # B-061c: each ``review.finished`` of the turn, for ``turn.finished.review``.
+        self.reviews: list[dict[str, Any]] = []
 
     def __call__(self, kind: str, data: dict[str, Any]) -> None:
         with self._lock:
@@ -308,6 +310,8 @@ class _TurnReporter:
                 self._close_writer()
             if kind == "plan.proposed":
                 self.plan_reported = True
+            if kind == "review.finished":
+                self.reviews.append(data)
             self._stream.emit(kind, data, turn=self._turn)
             if kind == "step.started" and data.get("target"):
                 self._writer = self._stream.writer(
@@ -481,6 +485,7 @@ def run_turn(
                 "verification": verification,
                 "provenance": _provenance(unsigned),
                 "citations": None if answer is None else _citations(project, answer),
+                "review": list(reporter.reviews) or None,
             },
             turn=turn,
         )

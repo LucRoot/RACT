@@ -75,6 +75,13 @@ def find_config_problems(config: dict[str, Any]) -> list[str]:
     except BudgetConfigError as exc:
         problems.append(str(exc))
 
+    from ract.review.stage import ReviewConfigError, mode
+
+    try:
+        mode(config)
+    except ReviewConfigError as exc:
+        problems.append(str(exc))
+
     providers = config.get("providers")
     if isinstance(providers, dict):
         for name, settings in providers.items():

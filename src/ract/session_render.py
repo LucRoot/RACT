@@ -459,6 +459,27 @@ class PlainRenderer:
                 f"{safe_text(str(item.get('reason')))}"
             )
 
+    def _on_review_finished(self, d: dict[str, Any]) -> None:
+        """The REVIEWER's findings for one step, labeled as its advice (B-061c)."""
+        who = safe_text(str(d.get("reviewer") or "the reviewer"))
+        n = d.get("n")
+        if d.get("status") != "done":
+            note = safe_text(str(d.get("note") or "review not completed"))
+            self._line(f"  review of step {n}: {note}")
+            return
+        findings = d.get("findings") or []
+        dropped = sum((d.get("dropped") or {}).values())
+        tail = f", {dropped} dropped as unchecked" if dropped else ""
+        self._line(
+            f"  review of step {n} ({who}, advice only): {len(findings)} finding"
+            f"{'' if len(findings) == 1 else 's'}{tail}"
+        )
+        for f in findings:
+            self._line(
+                f"    {safe_text(str(f.get('path')))}:{f.get('line')} "
+                f"{safe_text(str(f.get('severity')))}: {safe_text(str(f.get('claim')))}"
+            )
+
     def _on_turn_finished(self, d: dict[str, Any]) -> None:
         """The harness's account of the turn (B-038), never the model's.
 

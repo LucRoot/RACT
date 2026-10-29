@@ -129,6 +129,19 @@ _INTERRUPT_GRACE_SECONDS = 0.3
 _EXIT_CLEANUP_SECONDS = 15.0
 
 
+def _review_line(config: dict) -> str:
+    """The reviewer line of /model (ADR-0049 D14, B-061c)."""
+    from ract.review.stage import SAME_MODEL, ReviewConfigError, mode
+
+    try:
+        review = mode(config)
+    except ReviewConfigError:
+        return "review: off (the review setting in ract.yaml is not valid)"
+    if review == "off":
+        return "review: off (set review: advisory in ract.yaml to turn it on)"
+    return f"review: {review}, {SAME_MODEL}"
+
+
 class ReplSession:
     """Read-eval-print loop over the RACT command dispatcher."""
 
@@ -576,6 +589,7 @@ class ReplSession:
         width = terminal_width()
         for line in model_blocks(providers, manager or "", named, width):
             self._console.print(escape(line))
+        self._console.print(escape(_review_line(config)))
         return True
 
     def _cmd_providers(self, args: list[str]) -> bool:

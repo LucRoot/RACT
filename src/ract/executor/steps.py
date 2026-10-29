@@ -144,6 +144,8 @@ class Executor:
     # B-011a: the budgets of the read-only tools loop for answer steps, set by
     # the harness from ract.yaml (``agent``); None keeps the single completion.
     read_tools: Any = None
+    # B-061c: ``review`` from ract.yaml (off, advisory, retry); off reviews nothing.
+    review_mode: str = "off"
 
     def __init__(
         self,
@@ -1229,6 +1231,45 @@ class Executor:
             return "the file ends inside a string"
         return ""
 
+    def _current_text(self, expected_artifact: str) -> str | None:
+        """The target's text before the step writes it, or None (new, unreadable, refused)."""
+        if self.project_dir is None or not expected_artifact:
+            return None
+        target = resolve_workspace_path(
+            self.project_dir, expected_artifact, purpose="send"
+        ).value
+        if target is None or not target.is_file():
+            return None
+        try:
+            return target.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return None
+
+    def _review_step(self, index: int, step: Step, before: str | None) -> None:
+        """Run the REVIEWER on step *index*'s written file (ADR-0049 D14, B-061c)."""
+        from ract.review.stage import review_written_step
+
+        after = self._current_text(step.expected_artifact)
+        if after is None:
+            return  # nothing the REVIEWER may be sent
+        primary = self.router.select_for_hint(step.provider_hint)
+        if not primary.is_ok():
+            return
+        adapter = primary.unwrap()
+
+        def complete(messages: list[dict[str, Any]]) -> Rooted[dict[str, Any]]:
+            return adapter.complete(messages, max_tokens=1024, temperature=0.0)
+
+        review_written_step(
+            complete,
+            root=self.project_dir,
+            n=self._shown(index),
+            goal=step.action,
+            path=step.expected_artifact,
+            before=before,
+            after=after,
+        )
+
     def _answer_with_read_tools(
         self,
         candidates: list[ProviderAdapter],
@@ -1920,6 +1961,11 @@ class Executor:
                             hint="novelty",
                         )
 
+            before_text = (
+                self._current_text(step.expected_artifact)
+                if self.review_mode != "off"
+                else None
+            )
             try:
                 with turn_context.persisting() as allowed:
                     if allowed and not self._write_artifact(
@@ -1998,6 +2044,9 @@ class Executor:
             assumptions.append(
                 f"Step {self._shown(index)} ({step.action}) produced artifact: {step.expected_artifact}"
             )
+            if self.review_mode != "off" and self.project_dir is not None:
+                # B-061c: advice only; the step is already done or not.
+                self._review_step(index, step, before_text)
 
             # Record the artifact in provenance so callers can audit what was
             # produced without re-hashing the raw response themselves.
