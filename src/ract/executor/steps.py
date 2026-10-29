@@ -654,6 +654,20 @@ class Executor:
         else:
             # B-095: a new Python file must parse too.
             write_gate.check_new_file(expected_artifact, cleaned)
+        if expected_artifact.lower().endswith(".py"):
+            # B-102: a name imported from a project module must exist there.
+            from ract.import_check import missing_names
+
+            missing = missing_names(self.project_dir, expected_artifact, cleaned)
+            if missing:
+                raise write_gate.ReplacementRefused(
+                    expected_artifact,
+                    "it imports a name that does not exist ("
+                    + "; ".join(m.describe() for m in missing[:3])
+                    + ")",
+                    "imports",
+                    created=old is None,
+                )
         # Keep the previous bytes for the turn, or record that the turn
         # creates the file: /undo removes it and a resumed run (D13) resets it.
         undo_backup.save_before_replace(self.project_dir, [full_path])

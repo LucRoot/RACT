@@ -131,6 +131,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A Python file a step writes is checked for names it imports from the project that do not
+  exist there (`from src import NOTE` when `NOTE` is in `src/notes.py`); such a write is
+  refused with the line and the name, and nothing is written. Only source is read.
 - A cancelled plan in `ract run` is the choice you made: it prints as a plain line and the run
   exits 0, without the provider-check hint.
 - In a terminal, `ract run "<intent>"` and `ract "<intent>"` with no approval flag now ask

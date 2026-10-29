@@ -135,6 +135,12 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "change the request",
     ),
     (
+        # B-102 (S2 D10): a written file imports a name its module lacks.
+        re.compile(r"imports a name that does not exist", re.I),
+        "the file imports a name its module does not define; run the request again, "
+        "or name the module and the name in the intent",
+    ),
+    (
         re.compile(r"refused to replace", re.I),
         "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
         "in the intent which change you want",
