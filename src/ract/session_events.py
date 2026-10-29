@@ -361,13 +361,15 @@ class TextWriter:
 def plan_event_data(plan: Any) -> dict[str, Any]:
     """``plan.proposed`` data from a Rooted plan (assumption, confidence, steps)."""
     return {
-        "assumption": str(getattr(plan, "assumption", "")),
+        "assumption": safe_text(str(getattr(plan, "assumption", ""))),
         "confidence": float(getattr(plan, "confidence", 0.0)),
         "steps": [
             {
                 "n": n,
-                "action": str(step.action),
-                "target": step.expected_artifact or None,
+                "action": safe_text(str(step.action)),
+                "target": safe_text(step.expected_artifact)
+                if step.expected_artifact
+                else None,
             }
             for n, step in enumerate(getattr(plan, "steps", []), 1)
         ],

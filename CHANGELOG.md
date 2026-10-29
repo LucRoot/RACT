@@ -122,6 +122,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `plan.proposed` and `plan.approval_requested` carried a plan step's text as the model wrote
+  it, terminal escapes included; that text is now made printable, as every other event's is.
+  `plan_hash` is unchanged.
 - `api_key: ${VAR}` with VAR unset now stops before any request and names VAR, with what to do.
   Before, the request went out without the key and the turn failed with no cause.
 - A repository can ship a `.rack` that is a file or a link. The first-run move of `.rack/` to

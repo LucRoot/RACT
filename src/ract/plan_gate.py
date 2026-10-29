@@ -132,9 +132,20 @@ class ApprovalMemory:
 
 def approval_requested_payload(steps: list[Step]) -> dict:
     """The data of ``plan.approval_requested`` (ADR-0049 D12): the hash and the steps as in plan.proposed."""
+    # The hash is over the plan's own text (approvals and checkpoints compare
+    # it); the shown text is made printable, as every event's text is.
+    from ract.session_events import safe_text
+
     return {
         "plan_hash": plan_hash(steps),
-        "steps": [{"n": s.n, "action": s.action, "target": s.target} for s in steps],
+        "steps": [
+            {
+                "n": s.n,
+                "action": safe_text(s.action),
+                "target": safe_text(s.target) if s.target else None,
+            }
+            for s in steps
+        ],
     }
 
 
