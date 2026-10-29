@@ -127,8 +127,6 @@ def console_plan_approval(plan: Plan):
         return screen_lines(shown, max(_terminal_width() - 3, 20))
 
     lines = screen(steps)
-    for line in lines[:-1]:
-        print(line)
     while True:
         question_gate.open_question()
         try:

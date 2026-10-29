@@ -66,3 +66,17 @@ def test_red_team_an_edit_line_cannot_be_an_approval():
     # The text of an edit is never read as an answer: after an edit the next line is still asked for.
     outcome = plan_gate.resolve_answer(PLAN, "edit 2")
     assert outcome.kind != "approved"
+
+
+def test_the_first_question_prints_only_the_question_line(monkeypatch, capsys):
+    # The checklist was already shown by plan.proposed (one renderer); the console adds only the question.
+    from ract import turn_context
+
+    monkeypatch.setattr(approval_callback, "_plan_steps", lambda plan: list(PLAN))
+    monkeypatch.setattr(turn_context, "report", lambda kind, data: None)
+    prompts: list[str] = []
+    monkeypatch.setattr("builtins.input", lambda prompt="": prompts.append(prompt) or "cancel")
+    approval_callback.console_plan_approval(object())
+    printed = capsys.readouterr().out
+    assert "[ ] 1." not in printed
+    assert prompts and "Run it?" in prompts[0]

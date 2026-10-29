@@ -1,0 +1,20 @@
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> fix the failing test in tests/test_calc.py
+Plan (3 steps):
+  assumes: The failing test needs add() fixed, a notes module, and a test for
+    it.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[ ] 3. Add tests/test_notes.py that checks NOTE -> tests/test_notes.py
+Run it? [a]pprove [s]kip <n> [e]dit <n> [c]ancel cancel
+note: Plan cancelled: nothing was run and no file changed.
+Plan (3 steps), final:
+[-] 1. Fix add() in src/calc.py so it adds -> src/calc.py (0.0s) skipped
+[-] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.0s) skipped
+[-] 3. Add tests/test_notes.py that che... -> tests/test_notes.py (0.0s) skipped
+  You cancelled the plan; nothing was run.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 3.2 s, 939 tokens in / 119 out
+ract> /exit
