@@ -63,6 +63,9 @@ _TOP_KEYS = {
 _PLAN_KEYS = {"assumption", "confidence", "steps"}
 _STEP_KEYS = {"n", "action", "target", "provider_hint", "tool_call"}
 _PROGRESS_KEYS = {"n", "backup_id", "worktree", "files"}
+# B-097: how a step that did not finish ended, when it was not interrupted.
+# Optional, so a checkpoint written before it is still read.
+_ENDED = frozenset({"refused", "failed"})
 _FILE_KEYS = {"path", "before", "after", "written"}
 _HEX = set("0123456789abcdef")
 
@@ -209,7 +212,14 @@ def _check_schema(data: object, root: Path, run_id: str) -> dict[str, Any]:
         raise CheckpointRefused("finished is not a list of distinct step numbers")
     progress = top["in_progress"]
     if progress is not None:
-        progress = _check_keys(progress, _PROGRESS_KEYS, "in_progress")
+        keys = (
+            (_PROGRESS_KEYS | {"ended"})
+            if isinstance(progress, dict) and "ended" in progress
+            else _PROGRESS_KEYS
+        )
+        progress = _check_keys(progress, keys, "in_progress")
+        if "ended" in progress and progress["ended"] not in _ENDED:
+            raise CheckpointRefused("in_progress ended is not refused or failed")
         n = progress["n"]
         if not _is_int(n) or not 1 <= n <= len(steps) or n in finished:
             raise CheckpointRefused(
@@ -397,6 +407,14 @@ class RunCheckpoint:
         if changed:
             self._write()
 
+    def step_ended(self, n: int, outcome: str) -> None:
+        """Step *n* ended without finishing: refused or failed (B-097)."""
+        progress = self.state["in_progress"] if self.state is not None else None
+        if progress is None or progress["n"] != n or outcome not in _ENDED:
+            return
+        progress["ended"] = outcome
+        self._write()
+
     def step_finished(self, n: int) -> None:
         if self.state is None:
             return
@@ -504,6 +522,12 @@ def step_finished(n: int) -> None:
     checkpoint = _active.get()
     if checkpoint is not None and not _deferred.get():
         checkpoint.step_finished(n)
+
+
+def step_ended(n: int, outcome: str) -> None:
+    checkpoint = _active.get()
+    if checkpoint is not None:
+        checkpoint.step_ended(n, outcome)
 
 
 def note_worktree(step_id_hex: str) -> None:
@@ -628,6 +652,8 @@ def resume_notices(state: dict[str, Any], reset: ResetResult) -> list[str]:
     """One line per step, shown before anything runs."""
     progress = state["in_progress"]
     interrupted = progress["n"] if progress is not None else None
+    ended = progress.get("ended") if progress is not None else None
+    how = {"refused": "was refused", "failed": "failed"}.get(ended, "was interrupted")
     lines = []
     for n in range(1, len(state["plan"]["steps"]) + 1):
         if n in state["finished"]:
@@ -636,7 +662,7 @@ def resume_notices(state: dict[str, Any], reset: ResetResult) -> list[str]:
             undone = "its partial change was undone"
             if reset.left:
                 undone += " except " + ", ".join(path for path, _ in reset.left)
-            lines.append(f"step {n} was interrupted; {undone}; running it again")
+            lines.append(f"step {n} {how}; {undone}; running it again")
         else:
             lines.append(f"step {n} next")
     return lines

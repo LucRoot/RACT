@@ -122,6 +122,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- "Approval denied for step N" names the step you were asked about, and its hint says the step
+  was not approved. A resumed run says a step "was refused" or "failed" instead of "was
+  interrupted" when that is how it ended.
 - The `--- path ---` label RACT puts around a file in the prompt is no longer written into the
   file when the model copies it into its reply; a reply labelled as another file is refused.
 - A file step whose reply was cut off at the model's output limit, or a Python file that ends

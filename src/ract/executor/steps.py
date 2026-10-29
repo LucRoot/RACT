@@ -1334,13 +1334,15 @@ class Executor:
         if self._open_step is not None:
             n, step, started = self._open_step
             error = result.error or "the step did not finish"
+            outcome = unfinished_step_outcome(error, cancelled=turn_context.cancelled())
+            if outcome != "skipped":
+                # B-097 (S2 D7): a resumed run says how this step ended.
+                run_checkpoint.step_ended(n, outcome)
             turn_context.report(
                 "step.finished",
                 {
                     "n": n,
-                    "outcome": unfinished_step_outcome(
-                        error, cancelled=turn_context.cancelled()
-                    ),
+                    "outcome": outcome,
                     "artifact": None,
                     "confidence": None,
                     "duration_ms": int((time.monotonic() - started) * 1000),
@@ -1484,7 +1486,7 @@ class Executor:
                     confidence=0.0,
                     provenance=[f"executor.step:{index}"],
                     error=(
-                        f"Approval denied for step {index}: {step.action}"
+                        f"Approval denied for step {self._shown(index)}: {step.action}"
                         + (
                             f" -> {step.expected_artifact}"
                             if step.expected_artifact

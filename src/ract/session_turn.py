@@ -129,6 +129,12 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "run the request again, or name one file per step",
     ),
     (
+        # B-097 (S2 D9): an approval the user said no to is not a setup problem.
+        re.compile(r"Approval denied for step", re.I),
+        "you did not approve that step, so nothing after it ran; run the intent "
+        "again and approve it, or change the request",
+    ),
+    (
         re.compile(r"refused to replace", re.I),
         "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
         "in the intent which change you want",
