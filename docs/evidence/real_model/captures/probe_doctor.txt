@@ -1,0 +1,39 @@
+────────────────────────── Doctor: 9/9 checks passed ───────────────────────────
+┏━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Status ┃ Check                     ┃ Message                                 ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ PASS   │ config_exists             │ Found ract.yaml.                        │
+│ PASS   │ config_parse              │ ract.yaml parses cleanly.               │
+│ PASS   │ project_name              │ Project name is 'calc-s2'.              │
+│ PASS   │ manager_provider          │ Manager provider 'hosted' is configured.   │
+│ PASS   │ providers                 │ 1 provider(s) configured.               │
+│ PASS   │ provider_reachable:hosted    │ Provider 'hosted' is reachable.            │
+│ PASS   │ provider_capabilities:hosted │ chat works                              │
+│ PASS   │ prompt_file               │ Manager prompt found at                 │
+│        │                           │ prompts\manager.txt.                    │
+│ PASS   │ skills                    │ No skill configured; optional.          │
+└────────┴───────────────────────────┴─────────────────────────────────────────┘
+provider hosted ([hosted endpoint, held on the operator board])  model: 
+[large hosted model, structurer role]
+  chat:             works (1.1 s)
+  streaming:        works (1 text piece)
+  tool calling:     failed (did not answer within 15 s)
+  reasoning text:   returned
+  context window:   unknown (the server does not say)
+                    Set context_budget_tokens in ract.yaml to the size the 
+server runs with.
+Advice
+model '[large hosted model, structurer role]' is about 550 billion parameters; at
+  4-bit that needs roughly 332 GB; this machine has 63 GB total and 9 GB free
+  right now. These are estimates. Load a smaller model, or free memory before
+  loading it
+provider 'hosted': the key and host pair, and one tiny request worked.
+Provenance: files written by ract runs are not signed with a Rootknot in this 
+release. See docs/PROVENANCE.md.
+Sandbox (Windows): no sandbox backend for this platform; no backend runs 
+commands in this build.
+  filesystem: not enforced in this build
+  network: not enforced in this build
+  process limits: not enforced in this build
+  environment: scrubbed by allowlist for hook commands; inherited from your 
+shell for test, lint and step commands

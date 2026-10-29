@@ -1,0 +1,41 @@
+# capture: b_three_steps_run1
+# commit: e2cb4b6 (work/mason/integrated, NOT LANDED; code under test is that export)
+# date: 2026-10-28 12:15 PDT
+# provider: hosted, model [large hosted model, structurer role] (the repository has no provider preset; ract.yaml is scratch)
+# settings: openai_compatible, url [hosted endpoint, held on the operator board], key from environment (not printed)
+# intent: Make add() in src/calc.py return a + b. Add src/notes.py with the constant NOTE = "two". Add tests/test_notes.py with a test that checks NOTE equals "two".
+# args: --yolo --stream
+# ---
+ intent: Make add() in src/calc.py return a + b. Add src/notes.py with the 
+constant NOTE = "two". Add tests/test_notes.py with a test that checks NOTE 
+equals "two".
+▸ yolo mode: executing without approval
+▸ streaming mode: printing deltas as they arrive
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - b--- src/notes.py ---
+NOTE = "two"--- tests/test_notes.py ---
+NOTE = "two"
+
+
+def test_note():
+    assert NOTE == "two"note: previous version of 1 file saved; /undo restores them
+▸ assumptions:
+  • The user wants to fix the add() function to return a + b, create a new 
+notes.py module with a constant, and add a corresponding test file.
+  • Step 1 (Fix add() in src/calc.py to return a + b instead of a - b) produced 
+artifact: src/calc.py
+  • Step 2 (Create src/notes.py with constant NOTE = "two") produced artifact: 
+src/notes.py
+  • Step 3 (Create tests/test_notes.py with a test that asserts NOTE equals 
+"two") produced artifact: tests/test_notes.py
+▸ streaming complete
+⚠  provenance: 3 file(s) written without a Rootknot (src/calc.py, src/notes.py, 
+tests/test_notes.py). Signing is not wired into this release; see 
+docs/PROVENANCE.md.
+▸ quality score: 0.712
+# ---
+# exit code: 0, wall seconds: 28

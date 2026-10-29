@@ -1,0 +1,29 @@
+# capture: c_failing_test
+# commit: e2cb4b6 (work/mason/integrated, NOT LANDED; code under test is that export)
+# date: 2026-10-28 12:17 PDT
+# provider: hosted, model [large hosted model, structurer role] (the repository has no provider preset; ract.yaml is scratch)
+# settings: openai_compatible, url [hosted endpoint, held on the operator board], key from environment (not printed)
+# intent: The test test_add in tests/test_calc.py fails. Make it pass without changing the test.
+# args: --yolo --stream
+# ---
+ intent: The test test_add in tests/test_calc.py fails. Make it pass without 
+changing the test.
+▸ yolo mode: executing without approval
+▸ streaming mode: printing deltas as they arrive
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - bnote: previous version of 1 file saved; /undo restores them
+▸ assumptions:
+  • The add function in src/calc.py incorrectly returns a - b instead of a + b, 
+causing test_add to fail
+  • Step 1 (Fix the add function in src/calc.py to return a + b instead of a - 
+b) produced artifact: src/calc.py
+▸ streaming complete
+⚠  provenance: 1 file(s) written without a Rootknot (src/calc.py). Signing is 
+not wired into this release; see docs/PROVENANCE.md.
+▸ quality score: 0.475
+# ---
+# exit code: 0, wall seconds: 13

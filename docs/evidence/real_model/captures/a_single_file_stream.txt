@@ -1,0 +1,23 @@
+# capture: a_single_file_stream
+# commit: e2cb4b6 (work/mason/integrated, NOT LANDED; code under test is that export)
+# date: 2026-10-28 12:12 PDT
+# provider: hosted, model [large hosted model, structurer role] (the repository has no provider preset; ract.yaml is scratch)
+# settings: openai_compatible, url [hosted endpoint, held on the operator board], key from environment (not printed)
+# intent: Fix add() in src/calc.py so it returns a + b. Change nothing else.
+# args: --yolo --stream
+# ---
+ intent: Fix add() in src/calc.py so it returns a + b. Change nothing else.
+▸ yolo mode: executing without approval
+▸ streaming mode: printing deltas as they arrive
+--- src/calc.py ---
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - b✗  failed: Step 1 refused to replace src/calc.py: the reply is not a valid 
+python file, and the current one is. Nothing was written.
+hint: use /ask (or `ract -p --ask`) for an answer that writes no file, or say in the intent which change you want
+hint: ract run --session run-20261028T191234Z-3e91e0 --resume continues this run; finished steps are not run again
+# ---
+# exit code: 1, wall seconds: 19
