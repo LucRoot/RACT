@@ -45,7 +45,9 @@ _extensions_off: ContextVar[bool] = ContextVar(
 )
 _write_lock: ContextVar[Any] = ContextVar("ract_turn_write_lock", default=None)
 # Package 3 (B-033s): the lines typed during the turn and not yet sent; drained at each model request.
-_queued: ContextVar[Callable[[], list[str]] | None] = ContextVar("ract_turn_queued", default=None)
+_queued: ContextVar[Callable[[], list[str]] | None] = ContextVar(
+    "ract_turn_queued", default=None
+)
 
 
 class CancelSignal(threading.Event):

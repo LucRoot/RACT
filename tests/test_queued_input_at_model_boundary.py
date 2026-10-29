@@ -124,7 +124,6 @@ def test_concurrent_adds_and_takes_keep_every_line():
     assert sorted(taken) == sorted(f"line {n}" for n in range(200))
 
 
-
 def test_cancel_and_add_from_two_threads_lose_no_line():
     # L-196: every mutator takes the queue's lock, so a cancel racing an add cannot drop a line.
     import threading
@@ -156,8 +155,12 @@ def test_a_line_typed_after_the_last_model_request_stays_queued_for_the_next_tur
     session = _session_with_broker()
     broker = session._broker
     broker.feed("first")
-    assert session._drain_queued() == ["first"]  # the turn's only model request takes it
+    assert session._drain_queued() == [
+        "first"
+    ]  # the turn's only model request takes it
     # No request follows: the line typed now is not sent in this turn.
     broker.feed("typed after the last request")
     assert broker.queue.items() == ["typed after the last request"]
-    assert session._take_queued() == "typed after the last request"  # the next turn sends it
+    assert (
+        session._take_queued() == "typed after the last request"
+    )  # the next turn sends it

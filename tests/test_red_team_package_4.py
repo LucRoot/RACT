@@ -12,7 +12,11 @@ from ract.session_events import safe_text
 from ract.ui.plan_approval_view import Step, plan_hash
 
 BIG = [Step(n, f"step {n}", f"src/part{n}.py") for n in range(1, 201)]
-SMALL = [Step(1, "read", "src/calc.py"), Step(2, "fix", "src/calc.py"), Step(3, "notes", "NOTES.md")]
+SMALL = [
+    Step(1, "read", "src/calc.py"),
+    Step(2, "fix", "src/calc.py"),
+    Step(3, "notes", "NOTES.md"),
+]
 
 
 def test_a_saved_hash_of_a_200_step_plan_does_not_match_the_same_plan_with_one_step_changed():
@@ -28,7 +32,9 @@ def test_skip_at_the_ends_of_a_200_step_plan_is_in_range():
     assert plan_gate.resolve_answer(BIG, "edit 0").kind == "ask_again"
 
 
-def test_an_answer_after_a_cancel_is_not_remembered_as_an_approval(tmp_path, monkeypatch):
+def test_an_answer_after_a_cancel_is_not_remembered_as_an_approval(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr(approval_callback, "_plan_steps", lambda plan: list(SMALL))
     asked = []
 

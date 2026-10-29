@@ -26,8 +26,12 @@ print("ERROR=" + str(result.error))
 def test_a_raising_harness_prints_no_traceback_on_stderr():
     proc = subprocess.run(
         [sys.executable, "-c", _SCRIPT],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-        cwd=Path(__file__).resolve().parent.parent, timeout=120,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=Path(__file__).resolve().parent.parent,
+        timeout=120,
     )
     assert "Traceback" not in proc.stderr, proc.stderr
     assert "could not snapshot" in proc.stdout
