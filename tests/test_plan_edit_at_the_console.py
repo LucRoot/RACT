@@ -75,8 +75,32 @@ def test_the_first_question_prints_only_the_question_line(monkeypatch, capsys):
     monkeypatch.setattr(approval_callback, "_plan_steps", lambda plan: list(PLAN))
     monkeypatch.setattr(turn_context, "report", lambda kind, data: None)
     prompts: list[str] = []
-    monkeypatch.setattr("builtins.input", lambda prompt="": prompts.append(prompt) or "cancel")
+    monkeypatch.setattr(
+        "builtins.input", lambda prompt="": prompts.append(prompt) or "cancel"
+    )
     approval_callback.console_plan_approval(object())
     printed = capsys.readouterr().out
     assert "[ ] 1." not in printed
     assert prompts and "Run it?" in prompts[0]
+
+
+def test_a_printed_error_fits_a_40_column_terminal(monkeypatch, capsys):
+    # BUILDER's package 2 handoff: "'/exit' is not an answer; ..." was 51 characters at 40 columns.
+    monkeypatch.setattr(approval_callback, "_terminal_width", lambda: 40)
+    approval_callback._print_wrapped(
+        "'/exit' is not an answer; type a, s <n>, e <n> or c"
+    )
+    lines = capsys.readouterr().out.splitlines()
+    assert lines and all(len(line) <= 40 for line in lines)
+
+
+def test_the_edit_prompt_opens_the_question_gate(monkeypatch):
+    from ract import question_gate
+
+    events: list[str] = []
+    monkeypatch.setattr(question_gate, "open_question", lambda: events.append("open"))
+    monkeypatch.setattr(question_gate, "close_question", lambda: events.append("close"))
+    monkeypatch.setattr("builtins.input", lambda prompt="": "fix add() only")
+    steps, error = approval_callback._edit_step(PLAN, 2, plan_gate)
+    assert error is None
+    assert events == ["open", "close"]

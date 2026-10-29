@@ -73,16 +73,26 @@ def _plan_steps(plan: Plan) -> list:
     ]
 
 
+def _print_wrapped(text: str) -> None:
+    """Print a console message wrapped to the terminal width (package 2: no line runs past it)."""
+    for line in wrap_cells(text, max(_terminal_width() - 3, 20)):
+        print(line)
+
+
 def _edit_step(steps: list, n: int, plan_gate):
     """Ask for the new text of step ``n`` and apply it (D12). Returns (steps, error).
 
     With no project root at the console, a path the new text names must already be in the plan:
     any other path is refused.
     """
+    # The question gate silences the heartbeat while the operator answers (BUILDER's package 2 handoff).
+    question_gate.open_question()
     try:
         text = input(f"new text for step {n}: ")
     except EOFError:
         return steps, "no new text was given; the step is unchanged"
+    finally:
+        question_gate.close_question()
     edited, error = plan_gate.apply_edit(
         steps,
         n,
@@ -159,11 +169,11 @@ def console_plan_approval(plan: Plan):
                 for shown_line in lines[:-1]:
                     print(shown_line)
             else:
-                print(error)
+                _print_wrapped(error)
             continue
         if outcome.kind != "ask_again":
             break
-        print(outcome.error)
+        _print_wrapped(outcome.error)
     # L-196 point 1: the whole plan as approved, edits included, is what the run takes.
     outcome = replace(outcome, shown=list(steps))
     if outcome.kind == "refused":
