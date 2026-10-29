@@ -18,6 +18,6 @@ def test_j4_fix_the_failing_test() -> None:
     raise AssertionError("not run")
 
 
-@pytest.mark.skip(reason="J5 needs B-014c (rewind)")
+@pytest.mark.skip(reason="J5 needs B-014c (per-hunk accept, reject and edit)")
 def test_j5_rewind() -> None:
     raise AssertionError("not run")
