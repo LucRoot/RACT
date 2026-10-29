@@ -9,7 +9,9 @@ docs/EVENTS_SESSION.md: `--output-format text` prints the answer text,
 stdout carries only that; progress, notices and errors go to stderr. The run
 itself prints to stdout from deep inside (snapshot notes, the adapter), so it
 runs with stdout redirected to stderr, and only this module writes the real
-stdout. Nothing in headless mode waits for input.
+stdout. Nothing in headless mode waits for input, except piped stdin, which
+is read until it closes: a stdin that sends nothing for the idle timeout ends
+the run with exit 2 (B-093), and ``--no-stdin`` skips it.
 
 Exit codes: 0 done, 1 the task failed, 2 usage or configuration error,
 3 refused, 4 budget (reserved), 5 interrupted (SIGINT), 6 provider
@@ -21,7 +23,9 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import signal
+import stat
 import sys
 import threading
 import time
@@ -67,6 +71,12 @@ def _parser() -> argparse.ArgumentParser:
         "stream-json: every session event as a JSON line",
     )
     parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
+    parser.add_argument(
+        "--no-stdin",
+        dest="no_stdin",
+        action="store_true",
+        help="Do not read stdin (for a parent that leaves it open).",
+    )
     parser.add_argument(
         "--token-budget",
         dest="token_budget",
@@ -185,13 +195,121 @@ class _StderrRenderer(PlainRenderer):
         return  # the text is the result, written to stdout
 
 
-def _read_stdin(stdin: TextIO) -> str:
+# B-093 (D-102): a stdin that sends nothing is announced after NOTICE_AFTER
+# seconds and ends the run after the idle timeout; every byte restarts the
+# timer and there is no total cap.
+NOTICE_AFTER = 5.0
+IDLE_TIMEOUT = 30.0
+IDLE_TIMEOUT_ENV = "RACT_STDIN_IDLE_TIMEOUT"
+_POLL = 0.1
+
+
+class StdinStalled(Exception):
+    """Nothing arrived on piped stdin for the idle timeout."""
+
+    def __init__(self, seconds: float) -> None:
+        super().__init__(seconds)
+        self.seconds = seconds
+
+
+def _idle_timeout() -> float:
+    raw = os.environ.get(IDLE_TIMEOUT_ENV)
+    if raw is None:
+        return IDLE_TIMEOUT
+    try:
+        value = float(raw)
+    except ValueError:
+        return IDLE_TIMEOUT
+    return value if value > 0 else IDLE_TIMEOUT
+
+
+def _bytes_ready(fd: int) -> int | None:
+    """Bytes readable now on *fd* without blocking (0 when none yet), or None at EOF.
+
+    LR:: Polling, not a reader thread, so a stall is noticed on time and no
+    thread is left blocked in a read. Windows pipes have no select(), so the
+    pipe is asked with PeekNamedPipe; a closed pipe reads as EOF.
+    """
+    if os.name == "nt":
+        import ctypes
+        import msvcrt
+        from ctypes import wintypes
+
+        handle = msvcrt.get_osfhandle(fd)
+        avail = wintypes.DWORD(0)
+        ok = ctypes.windll.kernel32.PeekNamedPipe(
+            wintypes.HANDLE(handle), None, 0, None, ctypes.byref(avail), None
+        )
+        if not ok:
+            return None  # the writer closed the pipe (ERROR_BROKEN_PIPE)
+        return int(avail.value)
+    import select
+
+    readable, _, _ = select.select([fd], [], [], 0)
+    return 65536 if readable else 0
+
+
+def _read_stdin(
+    stdin: TextIO,
+    *,
+    notice: Any = None,
+    idle_timeout: float | None = None,
+) -> str:
+    """Piped stdin until it closes; StdinStalled when nothing arrives in time."""
     if stdin.isatty():
         return ""
     try:
-        return stdin.read()
-    except (OSError, ValueError):
-        return ""
+        fd = stdin.fileno()
+        mode = os.fstat(fd).st_mode
+    except (OSError, ValueError, AttributeError):
+        # A stand-in without a descriptor (tests, an embedding caller): read it whole.
+        try:
+            return stdin.read()
+        except (OSError, ValueError):
+            return ""
+    if not (stat.S_ISFIFO(mode) or stat.S_ISSOCK(mode) or stat.S_ISCHR(mode)):
+        try:
+            return stdin.read()  # a regular file ends by itself
+        except (OSError, ValueError):
+            return ""
+    limit = _idle_timeout() if idle_timeout is None else idle_timeout
+    chunks: list[bytes] = []
+    last = time.monotonic()
+    noticed = False
+    while True:
+        try:
+            ready = _bytes_ready(fd)
+        except (OSError, ValueError) as exc:
+            print(
+                f"[headless] cannot poll stdin ({exc}); reading it whole",
+                file=sys.stderr,
+            )
+            data = os.read(fd, 1 << 20)
+            while data:
+                chunks.append(data)
+                data = os.read(fd, 1 << 20)
+            break
+        if ready is None:
+            break
+        if ready:
+            data = os.read(fd, max(ready, 1))
+            if not data:
+                break
+            chunks.append(data)
+            last = time.monotonic()
+            continue
+        idle = time.monotonic() - last
+        if not noticed and idle >= NOTICE_AFTER and notice is not None:
+            notice(
+                "ract: waiting for stdin to close; pass --no-stdin when nothing "
+                "is piped"
+            )
+            noticed = True
+        if idle >= limit:
+            raise StdinStalled(limit)
+        time.sleep(_POLL)
+    encoding = getattr(stdin, "encoding", None) or "utf-8"
+    return b"".join(chunks).decode(encoding, errors="replace")
 
 
 def build_prompt(argument: str | None, piped: str) -> str:
@@ -268,7 +386,23 @@ def run_headless(
         print(f"error: {problem}. hint: run without it", file=err)
         return 2
     words = " ".join(part for part in (args.prompt, *args.rest) if part)
-    prompt = build_prompt(words or None, _read_stdin(stdin or sys.stdin))
+    try:
+        piped = (
+            ""
+            if args.no_stdin
+            else _read_stdin(
+                stdin or sys.stdin, notice=lambda text: print(text, file=err)
+            )
+        )
+    except StdinStalled as stalled:
+        print(
+            f"error: nothing arrived on stdin for {stalled.seconds:g} s and it is still "
+            "open. hint: pass --no-stdin when nothing is piped, or close stdin "
+            f"(the wait is {IDLE_TIMEOUT_ENV} seconds)",
+            file=err,
+        )
+        return 2
+    prompt = build_prompt(words or None, piped)
     if not prompt:
         print(
             'error: no prompt. hint: ract -p "what to do", or pipe it: '

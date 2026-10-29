@@ -131,6 +131,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract -p` with a stdin that a parent leaves open no longer waits without a word: after five
+  seconds of nothing a notice goes to stderr, and after 30 seconds (`RACT_STDIN_IDLE_TIMEOUT`)
+  the run exits 2 with a hint. `--no-stdin` skips reading stdin. Data that keeps arriving is
+  read to the end.
 - A step that rewrites a file which starts with a byte order mark keeps the mark; a file
   without one, and a new file, get none, even when the model's reply carries one. A change
   sent as a diff keeps it too.

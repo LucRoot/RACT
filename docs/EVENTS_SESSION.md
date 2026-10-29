@@ -259,7 +259,7 @@ sequences, so `ract -p "..." > out.txt` gives a clean file.
 |---|---|
 | 0 | done |
 | 1 | the task failed, or its tests failed |
-| 2 | usage or configuration error |
+| 2 | usage or configuration error; also stdin stalled: piped stdin stayed open and sent nothing for 30 s (`RACT_STDIN_IDLE_TIMEOUT` changes it; `--no-stdin` skips the read) |
 | 3 | refused by policy or tier; also the first denial when `--fail-on-denial` is set |
 | 4 | a budget was exhausted (turns, tokens, wall time, cost) |
 | 5 | interrupted (SIGINT, Ctrl-C) |
