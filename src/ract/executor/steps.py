@@ -642,11 +642,14 @@ class Executor:
         )
         full_path.parent.mkdir(parents=True, exist_ok=True)
         cleaned = self._strip_markdown_fences(content)
-        if full_path.is_file():
+        old = full_path.read_bytes() if full_path.is_file() else None
+        # B-092: a leading BOM is kept on a rewrite, never added or doubled.
+        cleaned = write_gate.with_bom_of(old, cleaned)
+        if old is not None:
             # S-026: refuse a reply that is plainly not the file (raises
             # ReplacementRefused).
             write_gate.check_replacement(
-                expected_artifact, full_path.read_bytes(), cleaned, action
+                expected_artifact, old, cleaned.lstrip(write_gate.BOM), action
             )
         else:
             # B-095: a new Python file must parse too.

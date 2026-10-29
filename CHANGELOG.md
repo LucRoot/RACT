@@ -131,6 +131,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A step that rewrites a file which starts with a byte order mark keeps the mark; a file
+  without one, and a new file, get none, even when the model's reply carries one. A change
+  sent as a diff keeps it too.
 - "Approval denied for step N" names the step you were asked about, and its hint says the step
   was not approved. A resumed run says a step "was refused" or "failed" instead of "was
   interrupted" when that is how it ended.

@@ -164,6 +164,23 @@ _KINDS = {
 }
 
 
+BOM = "\ufeff"
+
+
+def with_bom_of(old: bytes | None, new: str) -> str:
+    """*new* with the leading byte order mark *old* had, and only that (B-092, D-100).
+
+    LR:: A full rewrite dropped a file's BOM, because the model's reply has
+    none. The rule: a file that started with a BOM keeps exactly one; a file
+    without one, or a new file (*old* None), gets none, even when the reply
+    carries one. Nothing else about the encoding changes.
+    """
+    body = new.lstrip(BOM)
+    if old is not None and old.startswith(b"\xef\xbb\xbf"):
+        return BOM + body
+    return body
+
+
 def python_error(text: str) -> SyntaxError | None:
     """The SyntaxError of *text* as Python, or None when it parses."""
     try:
@@ -208,7 +225,8 @@ def check_replacement(path: str, old: bytes, new: str, action: str) -> None:
             "question",
         )
     try:
-        old_text = old.decode("utf-8")
+        # A leading BOM is not content (B-092); ast.parse refuses U+FEFF.
+        old_text = old.decode("utf-8").lstrip(BOM)
     except UnicodeDecodeError:
         return  # not a text file RACT can judge; the backup still keeps it
     kind = _KINDS.get(PurePosixPath(path.replace("\\", "/")).suffix.lower())
@@ -241,8 +259,10 @@ __all__ = [
     "WRITE_VERBS",
     "answer_instead",
     "ReplacementRefused",
+    "BOM",
     "check_new_file",
     "check_replacement",
     "python_error",
+    "with_bom_of",
     "reads_like_a_question",
 ]

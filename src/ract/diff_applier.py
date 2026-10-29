@@ -199,6 +199,10 @@ class DiffApplier:
 
         original_bytes = target.read_bytes()
         original_text = original_bytes.decode("utf-8")
+        # B-092: a leading BOM is not part of line 1 for matching, and is
+        # written back unchanged.
+        bom = "\ufeff" if original_text.startswith("\ufeff") else ""
+        original_text = original_text[len(bom) :]
         # Detect the file's newline convention so we preserve it exactly.
         newline = "\r\n" if b"\r\n" in original_bytes else "\n"
         original_lines = original_text.splitlines()
@@ -231,7 +235,7 @@ class DiffApplier:
         undo_backup.save_before_replace(self.project_dir, [target])
         # Write without newline translation so the detected convention survives.
         with open(target, "w", encoding="utf-8", newline="") as f:
-            f.write(merged_text)
+            f.write(bom + merged_text)
         run_checkpoint.note_written(self.project_dir, [target])
 
         return DiffApplyResult(
