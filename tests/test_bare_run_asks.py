@@ -119,3 +119,22 @@ def test_yolo_still_asks_nothing(tmp_path: Path) -> None:
     )
     assert "[a]pprove" not in recording.plain and "[y/N]" not in recording.plain
     assert (ws / "src" / "a.py").is_file()
+
+
+def test_stdin_from_nul_is_not_a_terminal() -> None:
+    """Windows isatty() is True for NUL; a run with stdin from NUL must not ask."""
+    import subprocess
+    import sys
+
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from ract.tui import stdin_is_terminal; print(stdin_is_terminal())",
+        ],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert probe.stdout.strip() == "False", probe.stderr

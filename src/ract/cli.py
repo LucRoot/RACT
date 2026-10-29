@@ -4028,7 +4028,9 @@ def _default_mode_asks(args: argparse.Namespace) -> bool:
     """
     if args.yolo or args.auto or args.dry_run or getattr(args, "ask", False):
         return False
-    return sys.stdin.isatty()
+    from ract.tui import stdin_is_terminal
+
+    return stdin_is_terminal()
 
 
 def _session_command(args: list[str]) -> int:

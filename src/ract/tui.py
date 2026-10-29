@@ -48,6 +48,37 @@ def _reconfigure_utf8() -> None:
                 pass
 
 
+def stdin_is_terminal() -> bool:
+    """True when stdin is a terminal a person can answer at.
+
+    LR:: On Windows ``isatty()`` is also True for the NUL device, so a run
+    started with stdin from NUL (a script, a test, ``< NUL``) looked like a
+    terminal and asked a question nobody could answer (B-101). There a
+    console handle is the test: ``GetConsoleMode`` succeeds only for one.
+    """
+    try:
+        if not sys.stdin.isatty():
+            return False
+    except (AttributeError, ValueError):
+        return False
+    if os.name != "nt":
+        return True
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    try:
+        handle = msvcrt.get_osfhandle(sys.stdin.fileno())
+    except (OSError, ValueError, AttributeError):
+        return False
+    mode = wintypes.DWORD()
+    return bool(
+        ctypes.windll.kernel32.GetConsoleMode(
+            wintypes.HANDLE(handle), ctypes.byref(mode)
+        )
+    )
+
+
 def terminal_width() -> int:
     """The columns a line should fit: the terminal, between 40 and 80 (B-041c)."""
     import shutil
