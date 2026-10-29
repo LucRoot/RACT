@@ -116,6 +116,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   checks every finding against the repository, drops what does not check out, and shows the rest
   below the turn summary as advice; a review never changes whether a step is done. Off by
   default; `/model` shows the setting.
+- `review: retry`: the defects a review finds and checks against the repository go back to
+  the step once, as untrusted advice, and the step is written again through every check a step
+  passes. A step retries at most twice in all (a reply cut off at the limit counts); with that
+  used, the findings stay advice and the summary says so.
 
 ### Changed
 

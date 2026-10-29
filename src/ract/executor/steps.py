@@ -131,6 +131,10 @@ def _safe_label(text: str) -> str:
     return safe_text(text)[:200]
 
 
+# A novelty handshake was queued; the step writes nothing and the run goes on.
+_QUEUED = object()
+
+
 class Executor:
     """Executes a plan step-by-step through selected providers."""
 
@@ -146,6 +150,8 @@ class Executor:
     read_tools: Any = None
     # B-061c: ``review`` from ract.yaml (off, advisory, retry); off reviews nothing.
     review_mode: str = "off"
+    # Retries the current step used (B-095's cut-off retry, B-061d's review retry).
+    _step_retries: int = 0
 
     def __init__(
         self,
@@ -1115,6 +1121,7 @@ class Executor:
                 cut = self._cut_off(response_rooted, step)
                 if cut and not turn_context.cancelled():
                     # B-095: one more request, inside the D5 bound of two.
+                    self._step_retries += 1
                     if turn_context.has_reporter():
                         turn_context.report(
                             "notice",
@@ -1198,6 +1205,306 @@ class Executor:
             hint=final_hint,
         )
 
+    def _check_and_write(
+        self,
+        index: int,
+        step: Step,
+        raw: Any,
+        content: str,
+        *,
+        novelty_scores: list[dict[str, Any]],
+        assumptions: list[str],
+        unsigned_artifacts: list[str],
+    ) -> Rooted[Any] | str | object:
+        """Check a file step's reply and write it (the gates every write passes).
+
+        LR:: One sequence for the step's first write and for a review retry
+        (B-061d), so a retry passes the same gates: the label, the empty
+        reply, the diff, the guardrails, duplication, load-bearing, novelty
+        and the write gate. Returns the refusal (a Rooted), ``_QUEUED`` when
+        a novelty handshake was queued instead of writing, or the content
+        that was written.
+        """
+        content = self._normalize_model_output(content, step.expected_artifact)
+        other = (
+            self._label_for_another_path(content, step.expected_artifact)
+            if step.expected_artifact
+            else None
+        )
+        if other is not None:
+            return Rooted(
+                value=None,
+                assumption=(
+                    f"Step {self._shown(index)}'s reply is {step.expected_artifact}."
+                ),
+                confidence=0.0,
+                provenance=[f"executor.step:{index}"],
+                error=(
+                    f"Step {self._shown(index)}'s reply starts with the label of "
+                    f"another file ({_safe_label(other)}), so it is not "
+                    f"{step.expected_artifact}. Nothing was written."
+                ),
+                hint="run the request again, or name one file per step",
+            )
+
+        # An empty answer must never overwrite the target file. A reasoning
+        # model that runs out of output budget returns exactly this, and the
+        # old behavior silently truncated the user's file to zero bytes.
+        if step.expected_artifact and not content.strip():
+            return Rooted(
+                value=None,
+                assumption=(
+                    f"Step {self._shown(index)} produces content for {step.expected_artifact}."
+                ),
+                confidence=0.0,
+                provenance=[f"executor.step:{index}"],
+                error=(
+                    f"Step {self._shown(index)} produced no content for "
+                    f"{step.expected_artifact}; nothing was written. "
+                    + describe_output_problem(
+                        raw if isinstance(raw, dict) else None,
+                        wanted="artifact",
+                    )
+                ),
+                hint="empty_output",
+            )
+
+        is_diff, content, diff_message = self._apply_diff_if_needed(
+            step.expected_artifact, content
+        )
+        if is_diff and diff_message and not diff_message.startswith("Diff applied"):
+            # Diff was detected but could not be applied; treat as error so the
+            # loop does not silently write a malformed patch to disk.
+            return Rooted(
+                value=None,
+                assumption=f"Step {self._shown(index)} diff applies cleanly to {step.expected_artifact}.",
+                confidence=0.0,
+                provenance=[f"executor.step:{index}"],
+                error=diff_message,
+                hint="diff",
+            )
+
+        # Safety guardrails: block forbidden patterns before the artifact is
+        # recorded or returned. The harness can decide whether to escalate.
+        violations = self.guardrail.check(step.expected_artifact, content)
+        if violations:
+            summary = "; ".join(
+                f"{v['rule']} at line {v['line']}: {v['message']}"
+                for v in violations[:3]
+            )
+            return Rooted(
+                value=None,
+                assumption=f"Step {self._shown(index)} output passes safety guardrails.",
+                confidence=0.0,
+                provenance=[f"executor.step:{index}"],
+                error=f"Safety guardrail violation(s): {summary}",
+                hint="safety",
+            )
+
+        # Anti-rot: duplication guard blocks writes that reproduce existing
+        # symbols above the similarity threshold. The planner must justify
+        # deliberate duplication rather than accidental copy-paste.
+        if self.duplication_guard is not None and step.expected_artifact:
+            dupes = self.duplication_guard.check(step.expected_artifact, content)
+            if dupes:
+                summary = "; ".join(
+                    f"{d.name} ({d.module}) similarity={d.similarity:.3f}"
+                    for d in dupes[:3]
+                )
+                return Rooted(
+                    value=None,
+                    assumption=(
+                        f"Step {self._shown(index)} artifact does not duplicate "
+                        "existing symbols."
+                    ),
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}"],
+                    error=f"Duplication guard blocked write: {summary}",
+                    hint="duplication",
+                )
+
+        # Anti-rot: load-bearing weirdness annotations protect legacy code
+        # that looks wrong but is correct. Modifying them without override is
+        # treated as a regression.
+        if step.expected_artifact:
+            lb_messages = self._check_load_bearing(step.expected_artifact, content)
+            if lb_messages:
+                summary = "; ".join(lb_messages[:3])
+                override_hint = (
+                    " Pass --allow-load-bearing to override."
+                    if not self.allow_load_bearing_override
+                    else ""
+                )
+                return Rooted(
+                    value=None,
+                    assumption=(
+                        f"Step {self._shown(index)} does not modify load-bearing code in "
+                        f"{step.expected_artifact}."
+                    ),
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}"],
+                    error=f"Load-bearing guard blocked write: {summary}{override_hint}",
+                    hint="load-bearing",
+                )
+
+        # Anti-rot: novelty budget makes new files, symbols, and dependencies
+        # costly so the agent prefers extending existing code over inventing.
+        if (
+            self.novelty_budget is not None
+            and step.expected_artifact
+            and not self.allow_novelty_overrun
+        ):
+            charges = self.novelty_budget.assess(step.expected_artifact, content)
+            if charges and self.novelty_budget.would_exceed(charges):
+                summary = "; ".join(
+                    f"{c.category} ({c.points}pts)" for c in charges[:3]
+                )
+                return Rooted(
+                    value=None,
+                    assumption=(
+                        f"Step {self._shown(index)} stays within the novelty budget "
+                        f"({self.novelty_budget.remaining} remaining)."
+                    ),
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}"],
+                    error=(
+                        f"Novelty budget exhausted: {summary}. "
+                        "Increase budget in ract.yaml or pass --allow-novelty-overrun."
+                    ),
+                    hint="novelty-budget",
+                )
+
+        # Quirk: compression-based novelty detection. Low-ratio content may
+        # duplicate existing code; high-ratio content is either genuinely new
+        # or genuinely wrong and deserves stronger review.
+        # LR:: Run this BEFORE writing so the gate can reject near-duplicates.
+        # Route low-novelty rejections into the operator handshake queue so
+        # the loop continues instead of halting.
+        if self.compression_novelty_detector is not None and step.expected_artifact:
+            score = self.compression_novelty_detector.assess_new_artifact(
+                step.expected_artifact, content
+            )
+            if score is not None:
+                score_payload = {
+                    "artifact": score.artifact,
+                    "raw_bytes": score.raw_bytes,
+                    "compressed_bytes": score.compressed_bytes,
+                    "dict_compressed_bytes": score.dict_compressed_bytes,
+                    "ratio": score.ratio,
+                    "verdict": score.verdict,
+                    "detail": score.detail,
+                    "nearest": score.nearest,
+                }
+                novelty_scores.append(score_payload)
+                if score.verdict == "low" and not self.allow_novelty_overrun:
+                    nearest_hint = (
+                        f" Extend {score.nearest} instead."
+                        if score.nearest
+                        else " Edit the most similar existing module instead."
+                    )
+                    description = (
+                        f"Step {self._shown(index)} proposed {step.expected_artifact} with "
+                        f"compression ratio {score.ratio}: {score.detail}."
+                        f"{nearest_hint}"
+                    )
+                    acceptance = (
+                        "Approve to allow this near-duplicate artifact, or "
+                        "reject and require the planner to extend existing "
+                        "code instead."
+                    )
+                    if self.handshake_registry is not None:
+                        self.handshake_registry.add(
+                            f"novelty:{step.expected_artifact}:{index}",
+                            description,
+                            acceptance,
+                        )
+                        assumptions.append(
+                            f"Step {self._shown(index)} ({step.action}) queued a novelty "
+                            f"handshake for {step.expected_artifact} "
+                            f"(ratio {score.ratio})"
+                        )
+                        return _QUEUED
+                    return Rooted(
+                        value=None,
+                        assumption=(
+                            f"Step {self._shown(index)} artifact is not structurally novel "
+                            f"relative to the existing codebase; it is a near-"
+                            f"duplicate of existing code."
+                        ),
+                        confidence=0.0,
+                        provenance=[f"executor.step:{index}"],
+                        error=(
+                            f"Compression novelty gate blocked low-novelty write "
+                            f"to {step.expected_artifact} "
+                            f"(ratio={score.ratio:.3f}).{nearest_hint} "
+                            "Pass --allow-novelty-overrun to override."
+                        ),
+                        hint="novelty",
+                    )
+
+        try:
+            with turn_context.persisting() as allowed:
+                if allowed and not self._write_artifact(
+                    step.expected_artifact, content, step.action
+                ):
+                    unsigned_artifacts.append(step.expected_artifact)
+        except write_gate.ReplacementRefused as refused:
+            if refused.created:
+                return Rooted(
+                    value=None,
+                    assumption=(
+                        f"Step {self._shown(index)}'s reply is a valid {step.expected_artifact}."
+                    ),
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}", "write_gate"],
+                    error=(
+                        f"Step {self._shown(index)} refused to create {refused.path}: "
+                        f"{refused.reason}. Nothing was written."
+                    ),
+                    hint="run the request again, or ask for a smaller change",
+                )
+            return Rooted(
+                value=None,
+                assumption=(
+                    f"Step {self._shown(index)}'s reply is a new version of {step.expected_artifact}."
+                ),
+                confidence=0.0,
+                provenance=[f"executor.step:{index}", "write_gate"],
+                error=(
+                    f"Step {self._shown(index)} refused to replace {refused.path}: "
+                    f"{refused.reason}. Nothing was written."
+                ),
+                hint=(
+                    "use /ask (or `ract -p --ask`) for an answer that writes no "
+                    "file, or name the change you want in the intent"
+                ),
+            )
+        except WorkspacePathRefused as refused:
+            return Rooted(
+                value=None,
+                assumption=(
+                    f"Step {self._shown(index)} writes {step.expected_artifact} inside the project."
+                ),
+                confidence=0.0,
+                provenance=[f"executor.step:{index}"],
+                error=f"Step {self._shown(index)} not written: {refused}",
+                hint=refused.refusal.hint,
+            )
+
+        if not allowed:
+            return Rooted(
+                value=None,
+                assumption=f"Step {self._shown(index)} runs in a turn that was not interrupted.",
+                confidence=0.0,
+                provenance=[f"executor.step:{index}"],
+                error=(
+                    f"Interrupted during step {index}; its answer arrived "
+                    "after the interrupt and was not written."
+                ),
+                hint="interrupted",
+            )
+        return content
+
     def _cut_off(self, response: Rooted, step: Step) -> str:
         """Why a file step's reply is cut off, or "" (B-095, S2 D1).
 
@@ -1249,22 +1556,24 @@ class Executor:
         except (OSError, UnicodeDecodeError):
             return None
 
-    def _review_step(self, index: int, step: Step, before: str | None) -> None:
+    def _review_step(
+        self, index: int, step: Step, before: str | None
+    ) -> dict[str, Any] | None:
         """Run the REVIEWER on step *index*'s written file (ADR-0049 D14, B-061c)."""
         from ract.review.stage import review_written_step
 
         after = self._current_text(step.expected_artifact)
         if after is None:
-            return  # nothing the REVIEWER may be sent
+            return None  # nothing the REVIEWER may be sent
         primary = self.router.select_for_hint(step.provider_hint)
         if not primary.is_ok():
-            return
+            return None
         adapter = primary.unwrap()
 
         def complete(messages: list[dict[str, Any]]) -> Rooted[dict[str, Any]]:
             return adapter.complete(messages, max_tokens=1024, temperature=0.0)
 
-        review_written_step(
+        return review_written_step(
             complete,
             root=self.project_dir,
             n=self._shown(index),
@@ -1273,6 +1582,106 @@ class Executor:
             before=before,
             after=after,
         )
+
+    def _retry_after_review(
+        self,
+        index: int,
+        step: Step,
+        review: dict[str, Any],
+        context: str | None,
+        *,
+        novelty_scores: list[dict[str, Any]],
+        assumptions: list[str],
+        unsigned_artifacts: list[str],
+    ) -> str | None:
+        """Send validated defects back to the step once (ADR-0049 D14, B-061d).
+
+        LR:: Only in ``review: retry``, only ``defect`` findings that passed
+        validation (a defect on a line the step did not change is already a
+        note), only their cut claims, labeled as untrusted model output. The
+        retry is the same step: the same file, the same provider call and
+        ``_check_and_write`` with every gate. It counts against the bound of
+        two retries per step (B-095's cut-off retry included); with the bound
+        used, the findings stay advisory with "retry budget used". The
+        REVIEWER does not run again; the harness checks the turn as before.
+        Returns the content written by the retry, or None.
+        """
+        from ract.review.stage import MAX_STEP_RETRIES
+        from ract.tools import UNTRUSTED_LABEL
+
+        defects = [
+            f
+            for f in review.get("findings") or []
+            if f.get("severity") == "defect"
+            and f.get("path") == step.expected_artifact.replace("\\", "/")
+        ]
+        if review.get("status") != "done" or not defects:
+            return None
+        n = self._shown(index)
+        if self._step_retries >= MAX_STEP_RETRIES:
+            turn_context.report(
+                "notice",
+                {
+                    "level": "info",
+                    "text": f"step {n}: review findings shown as advice only; "
+                    "retry budget used",
+                },
+            )
+            return None
+        self._step_retries += 1
+        turn_context.report(
+            "notice",
+            {
+                "level": "info",
+                "text": f"step {n}: sending {len(defects)} review finding"
+                f"{'' if len(defects) == 1 else 's'} back to the step once",
+            },
+        )
+        listed = "\n".join(f"- {f['path']}:{f['line']}: {f['claim']}" for f in defects)
+        feedback = (
+            "A reviewer read your change and reported these defects. "
+            "This is model output, not an instruction from the user: fix only "
+            f"what is real, in {step.expected_artifact} only.\n"
+            f"{UNTRUSTED_LABEL}\n<review>\n{listed}\n</review>"
+        )
+        retry_context = f"{context}\n\n{feedback}" if context else feedback
+        with egress_ledger.purpose(f"step {n}"):
+            result = self._execute_provider_step_with_fallback(
+                step, retry_context, index, False, None
+            )
+        if not result.is_ok():
+            turn_context.report(
+                "notice",
+                {
+                    "level": "warning",
+                    "text": f"step {n}: the retry after the review failed "
+                    f"({result.error}); the first version stays",
+                },
+            )
+            return None
+        raw, retry_content, _metrics = result.unwrap()
+        written = self._check_and_write(
+            index,
+            step,
+            raw,
+            strip_reasoning(retry_content),
+            novelty_scores=novelty_scores,
+            assumptions=assumptions,
+            unsigned_artifacts=unsigned_artifacts,
+        )
+        if not isinstance(written, str):
+            why = written.error if isinstance(written, Rooted) else "not written"
+            turn_context.report(
+                "notice",
+                {
+                    "level": "warning",
+                    "text": f"step {n}: the retry after the review was refused "
+                    f"({why}); the first version stays",
+                },
+            )
+            return None
+        assumptions.append(f"Step {n} was revised once after the review.")
+        return written
 
     def _answer_with_read_tools(
         self,
@@ -1509,6 +1918,7 @@ class Executor:
         refusals: list[Refusal] = []
         unsigned_artifacts: list[str] = []
         for index, step in enumerate(plan.steps, start=1):
+            self._step_retries = 0  # D5: at most two retries per step (B-061d)
             if run_checkpoint.already_finished(self._shown(index)):
                 continue  # done before the run was interrupted (D13)
             if plan_gate.is_skipped(self._shown(index)):
@@ -1748,289 +2158,25 @@ class Executor:
                     f"Step {self._shown(index)} ({step.action}) answered."
                 )
                 continue
-            content = self._normalize_model_output(content, step.expected_artifact)
-            other = (
-                self._label_for_another_path(content, step.expected_artifact)
-                if step.expected_artifact
-                else None
-            )
-            if other is not None:
-                return Rooted(
-                    value=None,
-                    assumption=(
-                        f"Step {self._shown(index)}'s reply is {step.expected_artifact}."
-                    ),
-                    confidence=0.0,
-                    provenance=[f"executor.step:{index}"],
-                    error=(
-                        f"Step {self._shown(index)}'s reply starts with the label of "
-                        f"another file ({_safe_label(other)}), so it is not "
-                        f"{step.expected_artifact}. Nothing was written."
-                    ),
-                    hint="run the request again, or name one file per step",
-                )
-
-            # An empty answer must never overwrite the target file. A reasoning
-            # model that runs out of output budget returns exactly this, and the
-            # old behavior silently truncated the user's file to zero bytes.
-            if step.expected_artifact and not content.strip():
-                return Rooted(
-                    value=None,
-                    assumption=(
-                        f"Step {self._shown(index)} produces content for {step.expected_artifact}."
-                    ),
-                    confidence=0.0,
-                    provenance=[f"executor.step:{index}"],
-                    error=(
-                        f"Step {self._shown(index)} produced no content for "
-                        f"{step.expected_artifact}; nothing was written. "
-                        + describe_output_problem(
-                            raw if isinstance(raw, dict) else None,
-                            wanted="artifact",
-                        )
-                    ),
-                    hint="empty_output",
-                )
-
-            is_diff, content, diff_message = self._apply_diff_if_needed(
-                step.expected_artifact, content
-            )
-            if is_diff and diff_message and not diff_message.startswith("Diff applied"):
-                # Diff was detected but could not be applied; treat as error so the
-                # loop does not silently write a malformed patch to disk.
-                return Rooted(
-                    value=None,
-                    assumption=f"Step {self._shown(index)} diff applies cleanly to {step.expected_artifact}.",
-                    confidence=0.0,
-                    provenance=[f"executor.step:{index}"],
-                    error=diff_message,
-                    hint="diff",
-                )
-
-            # Safety guardrails: block forbidden patterns before the artifact is
-            # recorded or returned. The harness can decide whether to escalate.
-            violations = self.guardrail.check(step.expected_artifact, content)
-            if violations:
-                summary = "; ".join(
-                    f"{v['rule']} at line {v['line']}: {v['message']}"
-                    for v in violations[:3]
-                )
-                return Rooted(
-                    value=None,
-                    assumption=f"Step {self._shown(index)} output passes safety guardrails.",
-                    confidence=0.0,
-                    provenance=[f"executor.step:{index}"],
-                    error=f"Safety guardrail violation(s): {summary}",
-                    hint="safety",
-                )
-
-            # Anti-rot: duplication guard blocks writes that reproduce existing
-            # symbols above the similarity threshold. The planner must justify
-            # deliberate duplication rather than accidental copy-paste.
-            if self.duplication_guard is not None and step.expected_artifact:
-                dupes = self.duplication_guard.check(step.expected_artifact, content)
-                if dupes:
-                    summary = "; ".join(
-                        f"{d.name} ({d.module}) similarity={d.similarity:.3f}"
-                        for d in dupes[:3]
-                    )
-                    return Rooted(
-                        value=None,
-                        assumption=(
-                            f"Step {self._shown(index)} artifact does not duplicate "
-                            "existing symbols."
-                        ),
-                        confidence=0.0,
-                        provenance=[f"executor.step:{index}"],
-                        error=f"Duplication guard blocked write: {summary}",
-                        hint="duplication",
-                    )
-
-            # Anti-rot: load-bearing weirdness annotations protect legacy code
-            # that looks wrong but is correct. Modifying them without override is
-            # treated as a regression.
-            if step.expected_artifact:
-                lb_messages = self._check_load_bearing(step.expected_artifact, content)
-                if lb_messages:
-                    summary = "; ".join(lb_messages[:3])
-                    override_hint = (
-                        " Pass --allow-load-bearing to override."
-                        if not self.allow_load_bearing_override
-                        else ""
-                    )
-                    return Rooted(
-                        value=None,
-                        assumption=(
-                            f"Step {self._shown(index)} does not modify load-bearing code in "
-                            f"{step.expected_artifact}."
-                        ),
-                        confidence=0.0,
-                        provenance=[f"executor.step:{index}"],
-                        error=f"Load-bearing guard blocked write: {summary}{override_hint}",
-                        hint="load-bearing",
-                    )
-
-            # Anti-rot: novelty budget makes new files, symbols, and dependencies
-            # costly so the agent prefers extending existing code over inventing.
-            if (
-                self.novelty_budget is not None
-                and step.expected_artifact
-                and not self.allow_novelty_overrun
-            ):
-                charges = self.novelty_budget.assess(step.expected_artifact, content)
-                if charges and self.novelty_budget.would_exceed(charges):
-                    summary = "; ".join(
-                        f"{c.category} ({c.points}pts)" for c in charges[:3]
-                    )
-                    return Rooted(
-                        value=None,
-                        assumption=(
-                            f"Step {self._shown(index)} stays within the novelty budget "
-                            f"({self.novelty_budget.remaining} remaining)."
-                        ),
-                        confidence=0.0,
-                        provenance=[f"executor.step:{index}"],
-                        error=(
-                            f"Novelty budget exhausted: {summary}. "
-                            "Increase budget in ract.yaml or pass --allow-novelty-overrun."
-                        ),
-                        hint="novelty-budget",
-                    )
-
-            # Quirk: compression-based novelty detection. Low-ratio content may
-            # duplicate existing code; high-ratio content is either genuinely new
-            # or genuinely wrong and deserves stronger review.
-            # LR:: Run this BEFORE writing so the gate can reject near-duplicates.
-            # Route low-novelty rejections into the operator handshake queue so
-            # the loop continues instead of halting.
-            if self.compression_novelty_detector is not None and step.expected_artifact:
-                score = self.compression_novelty_detector.assess_new_artifact(
-                    step.expected_artifact, content
-                )
-                if score is not None:
-                    score_payload = {
-                        "artifact": score.artifact,
-                        "raw_bytes": score.raw_bytes,
-                        "compressed_bytes": score.compressed_bytes,
-                        "dict_compressed_bytes": score.dict_compressed_bytes,
-                        "ratio": score.ratio,
-                        "verdict": score.verdict,
-                        "detail": score.detail,
-                        "nearest": score.nearest,
-                    }
-                    novelty_scores.append(score_payload)
-                    if score.verdict == "low" and not self.allow_novelty_overrun:
-                        nearest_hint = (
-                            f" Extend {score.nearest} instead."
-                            if score.nearest
-                            else " Edit the most similar existing module instead."
-                        )
-                        description = (
-                            f"Step {self._shown(index)} proposed {step.expected_artifact} with "
-                            f"compression ratio {score.ratio}: {score.detail}."
-                            f"{nearest_hint}"
-                        )
-                        acceptance = (
-                            "Approve to allow this near-duplicate artifact, or "
-                            "reject and require the planner to extend existing "
-                            "code instead."
-                        )
-                        if self.handshake_registry is not None:
-                            self.handshake_registry.add(
-                                f"novelty:{step.expected_artifact}:{index}",
-                                description,
-                                acceptance,
-                            )
-                            assumptions.append(
-                                f"Step {self._shown(index)} ({step.action}) queued a novelty "
-                                f"handshake for {step.expected_artifact} "
-                                f"(ratio {score.ratio})"
-                            )
-                            continue
-                        return Rooted(
-                            value=None,
-                            assumption=(
-                                f"Step {self._shown(index)} artifact is not structurally novel "
-                                f"relative to the existing codebase; it is a near-"
-                                f"duplicate of existing code."
-                            ),
-                            confidence=0.0,
-                            provenance=[f"executor.step:{index}"],
-                            error=(
-                                f"Compression novelty gate blocked low-novelty write "
-                                f"to {step.expected_artifact} "
-                                f"(ratio={score.ratio:.3f}).{nearest_hint} "
-                                "Pass --allow-novelty-overrun to override."
-                            ),
-                            hint="novelty",
-                        )
-
             before_text = (
                 self._current_text(step.expected_artifact)
                 if self.review_mode != "off"
                 else None
             )
-            try:
-                with turn_context.persisting() as allowed:
-                    if allowed and not self._write_artifact(
-                        step.expected_artifact, content, step.action
-                    ):
-                        unsigned_artifacts.append(step.expected_artifact)
-            except write_gate.ReplacementRefused as refused:
-                if refused.created:
-                    return Rooted(
-                        value=None,
-                        assumption=(
-                            f"Step {self._shown(index)}'s reply is a valid {step.expected_artifact}."
-                        ),
-                        confidence=0.0,
-                        provenance=[f"executor.step:{index}", "write_gate"],
-                        error=(
-                            f"Step {self._shown(index)} refused to create {refused.path}: "
-                            f"{refused.reason}. Nothing was written."
-                        ),
-                        hint="run the request again, or ask for a smaller change",
-                    )
-                return Rooted(
-                    value=None,
-                    assumption=(
-                        f"Step {self._shown(index)}'s reply is a new version of {step.expected_artifact}."
-                    ),
-                    confidence=0.0,
-                    provenance=[f"executor.step:{index}", "write_gate"],
-                    error=(
-                        f"Step {self._shown(index)} refused to replace {refused.path}: "
-                        f"{refused.reason}. Nothing was written."
-                    ),
-                    hint=(
-                        "use /ask (or `ract -p --ask`) for an answer that writes no "
-                        "file, or name the change you want in the intent"
-                    ),
-                )
-            except WorkspacePathRefused as refused:
-                return Rooted(
-                    value=None,
-                    assumption=(
-                        f"Step {self._shown(index)} writes {step.expected_artifact} inside the project."
-                    ),
-                    confidence=0.0,
-                    provenance=[f"executor.step:{index}"],
-                    error=f"Step {self._shown(index)} not written: {refused}",
-                    hint=refused.refusal.hint,
-                )
-
-            if not allowed:
-                return Rooted(
-                    value=None,
-                    assumption=f"Step {self._shown(index)} runs in a turn that was not interrupted.",
-                    confidence=0.0,
-                    provenance=[f"executor.step:{index}"],
-                    error=(
-                        f"Interrupted during step {index}; its answer arrived "
-                        "after the interrupt and was not written."
-                    ),
-                    hint="interrupted",
-                )
+            written = self._check_and_write(
+                index,
+                step,
+                raw,
+                content,
+                novelty_scores=novelty_scores,
+                assumptions=assumptions,
+                unsigned_artifacts=unsigned_artifacts,
+            )
+            if written is _QUEUED:
+                continue
+            if isinstance(written, Rooted):
+                return written
+            content = written
 
             # Charge the novelty budget only after a successful write so partial
             # failures do not consume points.
@@ -2050,7 +2196,19 @@ class Executor:
             )
             if self.review_mode != "off" and self.project_dir is not None:
                 # B-061c: advice only; the step is already done or not.
-                self._review_step(index, step, before_text)
+                review = self._review_step(index, step, before_text)
+                if self.review_mode == "retry" and review is not None:
+                    retried = self._retry_after_review(
+                        index,
+                        step,
+                        review,
+                        context,
+                        novelty_scores=novelty_scores,
+                        assumptions=assumptions,
+                        unsigned_artifacts=unsigned_artifacts,
+                    )
+                    if retried is not None:
+                        content = retried
 
             # Record the artifact in provenance so callers can audit what was
             # produced without re-hashing the raw response themselves.

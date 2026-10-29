@@ -26,6 +26,8 @@ from ract.review.reviewer import review_step
 
 MODES = ("off", "advisory", "retry")
 MIN_TOKENS_TO_START = 20_000  # the MANAGER's default (D-093), reversible
+# ADR-0049 D5: at most two retries per step; a review retry counts (B-061d).
+MAX_STEP_RETRIES = 2
 SAME_MODEL = "reviewed by the same model"
 
 
