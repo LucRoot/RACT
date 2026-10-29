@@ -1213,12 +1213,16 @@ class Executor:
             return ""
         raw = response.unwrap()
         choice = (raw.get("choices") or [{}])[0] if isinstance(raw, dict) else {}
+        text = strip_reasoning((choice.get("message") or {}).get("content") or "")
+        if not text.strip():
+            # An empty reply (a reasoning model that spent the budget thinking)
+            # is the empty-output refusal's case, with its own explanation.
+            return ""
         reason = str(choice.get("finish_reason") or "")
         if reason in {"length", "max_tokens"}:
             return f"finish reason {reason}"
         if not step.expected_artifact.lower().endswith(".py"):
             return ""
-        text = strip_reasoning((choice.get("message") or {}).get("content") or "")
         text = self._normalize_model_output(text, step.expected_artifact)
         error = write_gate.python_error(text)
         if error is None:
