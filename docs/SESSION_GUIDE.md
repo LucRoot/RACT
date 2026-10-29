@@ -144,7 +144,7 @@ Plan: 1 step, confidence 1.00
     written.
   1. what does add() do in src/calc.py?
 [step 1] what does add() do in src/calc.py?
-{"final":"add(a, b) in src/calc.py returns a + b: the sum of its two arguments."}
+{"final":"add(a, b) in src/calc.py returns a - b, but it should return a + b."}
 [step 1] done (0.1s)
   Done: 1 step ran; no tests were run.
   changed: nothing
