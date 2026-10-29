@@ -73,6 +73,27 @@ def _plan_steps(plan: Plan) -> list:
     ]
 
 
+def _edit_step(steps: list, n: int, plan_gate):
+    """Ask for the new text of step ``n`` and apply it (D12). Returns (steps, error).
+
+    With no project root at the console, a path the new text names must already be in the plan:
+    any other path is refused.
+    """
+    try:
+        text = input(f"new text for step {n}: ")
+    except EOFError:
+        return steps, "no new text was given; the step is unchanged"
+    edited, error = plan_gate.apply_edit(
+        steps,
+        n,
+        text,
+        check_path=lambda path: f"{path} is not in the plan and the console cannot check it",
+    )
+    if error is not None:
+        return steps, error
+    return edited, None
+
+
 def console_plan_approval(plan: Plan):
     """Show the plan once and read the operator's answer before any step runs (D12).
 
@@ -94,15 +115,18 @@ def console_plan_approval(plan: Plan):
     turn_context.report(
         "plan.approval_requested", plan_gate.approval_requested_payload(steps)
     )
-    shown = [
-        replace(
-            step,
-            action=safe_text(step.action),
-            target=safe_text(step.target) if step.target else None,
-        )
-        for step in steps
-    ]
-    lines = screen_lines(shown, max(_terminal_width() - 3, 20))
+    def screen(current: list) -> list[str]:
+        shown = [
+            replace(
+                step,
+                action=safe_text(step.action),
+                target=safe_text(step.target) if step.target else None,
+            )
+            for step in current
+        ]
+        return screen_lines(shown, max(_terminal_width() - 3, 20))
+
+    lines = screen(steps)
     for line in lines[:-1]:
         print(line)
     while True:
@@ -116,6 +140,16 @@ def console_plan_approval(plan: Plan):
         finally:
             question_gate.close_question()
         outcome = plan_gate.resolve_answer(steps, line)
+        if outcome.kind == "edit":
+            # D12: the new text is one line, checked for new paths; the plan is shown again.
+            steps, error = _edit_step(steps, outcome.n, plan_gate)
+            if error is None:
+                lines = screen(steps)
+                for shown_line in lines[:-1]:
+                    print(shown_line)
+            else:
+                print(error)
+            continue
         if outcome.kind != "ask_again":
             break
         print(outcome.error)

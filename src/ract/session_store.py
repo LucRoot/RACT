@@ -25,6 +25,8 @@ class SessionState:
     plan: Plan
     artifacts: Dict[str, Any] = field(default_factory=dict)
     outcomes: List[str] = field(default_factory=list)
+    # Plan hashes the operator approved (ADR-0049 D12): a resumed session does not ask again.
+    plan_approvals: List[str] = field(default_factory=list)
 
 
 class _RACTJSONEncoder(json.JSONEncoder):

@@ -7,10 +7,10 @@ a step with no target is an answer step and writes nothing.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from ract.ui.plan_approval_view import Step, parse_answer, plan_hash
 
@@ -73,6 +73,69 @@ class Resolution:
     kept: list[Step] = field(default_factory=list)
     skipped: list[Step] = field(default_factory=list)
     error: str | None = None
+    # For ``edit``: the step whose new text the caller asks for.
+    n: int | None = None
+
+
+_EDIT_LIMIT = 2000
+
+
+@dataclass(frozen=True)
+class PlanDecision:
+    """What the run does with the plan: ``run`` the ``steps`` (skipped steps are listed), or ``refused``.
+
+    ``refused`` carries ``reason``; a headless run maps it to exit 3, a session ends the turn with the
+    ``refused`` outcome.
+    """
+
+    kind: str
+    steps: list[Step] = field(default_factory=list)
+    skipped: list[Step] = field(default_factory=list)
+    reason: str | None = None
+
+
+def _path_candidates(text: str) -> list[str]:
+    """File-like tokens in a line of step text: a slash or a dot with a short extension."""
+    out = []
+    for token in text.replace(",", " ").split():
+        token = token.strip("`'\"()")
+        if ("/" in token or "\\" in token or "." in token) and not token.startswith(
+            "-"
+        ):
+            out.append(token)
+    return out
+
+
+def apply_edit(
+    steps: list[Step],
+    n: int,
+    new_action: str,
+    *,
+    check_path: Callable[[str], str | None],
+) -> tuple[list[Step] | None, str | None]:
+    """The plan with step ``n``'s text replaced (one line), or an error sentence.
+
+    A path the new text names must be one the original plan already named, or one the path check
+    accepts (``check_path`` returns None for an accepted path, else the refusal sentence). Nothing
+    the text says is run; the edited plan is shown again by the caller.
+    """
+    text = " ".join(new_action.split())
+    if not text:
+        return None, "an edit needs one line of new text"
+    if len(text) > _EDIT_LIMIT:
+        return None, f"an edit is limited to {_EDIT_LIMIT} characters"
+    original = {s.target for s in steps if s.target}
+    for token in _path_candidates(text):
+        if token in original:
+            continue
+        refusal = check_path(token)
+        if refusal is not None:
+            return (
+                None,
+                f"the edit names {token}, which the plan did not list and the path check refuses: {refusal}",
+            )
+    edited = [replace(s, action=text) if s.n == n else s for s in steps]
+    return edited, None
 
 
 def resolve_answer(steps: list[Step], line: str) -> Resolution:
@@ -102,10 +165,8 @@ def resolve_answer(steps: list[Step], line: str) -> Resolution:
         kept = [step for step in steps if step.n not in dropped]
         skipped = [step for step in steps if step.n in dropped]
         return Resolution("approved", kept=kept, skipped=skipped)
-    # edit is a later step of the card; until it is built, an edit asks again
-    return Resolution(
-        "ask_again", error="edit is not available yet; approve, skip <n> or cancel"
-    )
+    # edit n: the caller asks for the new text and shows the plan again (D12).
+    return Resolution("edit", n=answer.n)
 
 
 class ApprovalMemory:
