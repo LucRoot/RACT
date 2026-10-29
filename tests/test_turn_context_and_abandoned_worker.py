@@ -347,7 +347,7 @@ def test_a_write_already_in_progress_finishes_before_the_next_turn_writes(
 
     lock: Any = SpyLock() if with_lock else None
 
-    def save(session_id: Any, store: Any, intent: str, result: Any) -> None:
+    def save(session_id: Any, store: Any, intent: str, result: Any, plan_approvals: Any = None) -> None:
         name = threading.current_thread().name
         order.append(f"{name} start")
         if name == "turn-2":
@@ -355,7 +355,7 @@ def test_a_write_already_in_progress_finishes_before_the_next_turn_writes(
         if name == "turn-1":
             in_write.set()
             assert release.wait(30)
-        real_save(session_id, store, intent, result)
+        real_save(session_id, store, intent, result, plan_approvals=plan_approvals)
         order.append(f"{name} end")
 
     monkeypatch.setattr(runner, "_save_session", save)
