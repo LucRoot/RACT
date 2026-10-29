@@ -91,17 +91,27 @@ def check_entry(root: Path, base: Path, entry: object) -> str | None:
     LR:: Manifest entries are relative paths written by RACT. Anything else
     (absolute, a drive or UNC path, a `..` or empty part, `.git`/`.ract`, or
     a path whose real location leaves *base* through a link) is refused.
+    S-036: a NUL character is refused (it crashed the write that followed),
+    and on Windows so are a `:` stream suffix (an alternate data stream
+    hides data inside a file) and device names such as `con` or `aux.txt`.
+    Those two are legal file names elsewhere, so only Windows refuses them.
     """
     if not isinstance(entry, str) or not entry.strip():
         return "not a path"
+    if "\x00" in entry:
+        return "a path with a NUL character"
     text = entry.replace("\\", "/")
     if text.startswith("/") or (len(text) > 1 and text[1] == ":"):
         return "an absolute path"
+    if os.name == "nt" and ":" in text:
+        return "a name with a ':' stream suffix"
     parts = text.split("/")
     if any(part in ("", ".", "..") for part in parts):
         return "a path with an empty, '.' or '..' part"
     if parts[0] in _PROTECTED:
         return f"a path under {parts[0]}/"
+    if os.name == "nt" and any(_is_device_name(part) for part in parts):
+        return "a Windows device name"
     real_base = Path(os.path.realpath(base))
     real = Path(os.path.realpath(base / text))
     if real != real_base and real_base not in real.parents:
@@ -109,6 +119,17 @@ def check_entry(root: Path, base: Path, entry: object) -> str | None:
     if real.parts and real.relative_to(real_base).parts[:1] in ((".git",), (".ract",)):
         return "a path under .git/ or .ract/"
     return None
+
+
+_DEVICE_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    | {f"{kind}{n}" for kind in ("COM", "LPT") for n in "123456789\u00b9\u00b2\u00b3"}
+)
+
+
+def _is_device_name(part: str) -> bool:
+    """True for a Windows device name, with or without an extension (``aux.txt``)."""
+    return part.split(".")[0].rstrip(" ").upper() in _DEVICE_NAMES
 
 
 def _sha256(path: Path) -> str | None:

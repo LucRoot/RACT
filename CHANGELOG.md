@@ -122,6 +122,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A repository can ship a `.rack` that is a file or a link. The first-run move of `.rack/` to
+  `.ract/` now leaves such a `.rack` as it is and says so; before, a file named `.rack` became a
+  file named `.ract`. Undo, rollback and session import refuse a saved path that holds a NUL
+  character (it crashed the write), and on Windows a name with a `:` stream suffix or a device
+  name such as `con` or `aux.txt`.
 - A `.ract/handshakes.json` shipped in a repository could mark a handshake as approved,
   and that widened the run's capability manifest. An approval now widens only when this
   machine recorded it (`ract handshakes approve` writes a mark in the user state directory

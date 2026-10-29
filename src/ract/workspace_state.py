@@ -99,6 +99,10 @@ def migrate_rack_to_ract(root: Path | str) -> str:
     - ``"noop_already"``: only ``.ract/`` existed. Already migrated.
     - ``"warned_both"``: both existed. ``.ract/`` is preferred; the
       caller must resolve ``.rack/`` manually. WARN emitted.
+    - ``"skipped_not_a_folder"``: ``.rack`` is a file, a link or a
+      junction. It is left as it is and a WARN says so (B-075b): a
+      repository can ship it, and renaming it would make a file or a
+      link to somewhere else the state folder.
 
     The shim runs at most one syscall in each non-warning path and
     is safe to invoke on every CLI dispatch.
@@ -140,6 +144,18 @@ def migrate_rack_to_ract(root: Path | str) -> str:
     if not legacy_exists:
         return "noop_fresh"
 
+    if not _is_plain_folder(legacy):
+        msg = (
+            f"workspace state migration: {LEGACY_STATE_DIR_NAME} at {root_path} "
+            "is not a folder (a file or a link); it was left as it is and "
+            f"nothing was moved to {WORKSPACE_STATE_DIR_NAME}."
+        )
+        _LOG.warning(msg)
+        import sys as _sys
+
+        print(f"[ract] WARN: {msg}", file=_sys.stderr)
+        return "skipped_not_a_folder"
+
     # Only legacy exists -- rename in place.
     try:
         os.rename(legacy, modern)
@@ -157,6 +173,21 @@ def migrate_rack_to_ract(root: Path | str) -> str:
         modern,
     )
     return "migrated"
+
+
+def _is_plain_folder(path: Path) -> bool:
+    """True when *path* is a directory itself: no file, no symlink, no junction.
+
+    A junction is not a symlink to ``is_symlink`` on Python 3.11, so the
+    resolved path must also be the path itself.
+    """
+    if path.is_symlink() or not path.is_dir():
+        return False
+    try:
+        return path.resolve() == path.absolute().resolve().parent / path.name
+    except OSError as exc:
+        _LOG.warning("workspace state migration: cannot resolve %s: %s", path, exc)
+        return False
 
 
 # RACT 0.5.1 -- v0.5.1 wiring module_10 (Lens A C2)

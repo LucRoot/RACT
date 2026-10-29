@@ -57,12 +57,8 @@ def test_both_folders_present_nothing_is_overwritten_and_the_user_is_told(
     assert "BOTH" in capsys.readouterr().err
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-075b FOUND: migrate_rack_to_ract renames a file named .rack to a file named .ract (workspace_state.py, the os.rename branch); BUILDER",
-)
 def test_a_rack_that_is_a_file_is_not_renamed_into_the_state_folder(
-    tmp_path: Path,
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     (tmp_path / ".rack").write_bytes(b"not a folder")
 
@@ -71,6 +67,34 @@ def test_a_rack_that_is_a_file_is_not_renamed_into_the_state_folder(
     assert not ((tmp_path / ".ract").is_file()), (
         f"a file named .rack was renamed to a file named .ract (result {result!r})"
     )
+    assert result == "skipped_not_a_folder"
+    assert (tmp_path / ".rack").read_bytes() == b"not a folder"
+    assert "is not a folder" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name != "nt", reason="junctions are a Windows feature")
+def test_a_junctioned_legacy_folder_is_not_renamed_into_the_state_folder(
+    tmp_path: Path,
+) -> None:
+    import subprocess
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "keep.txt").write_bytes(b"outside")
+    project = tmp_path / "project"
+    project.mkdir()
+    made = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(project / ".rack"), str(outside)],
+        capture_output=True,
+        text=True,
+    )
+    if made.returncode != 0:
+        pytest.skip(f"mklink /J failed: {made.stderr.strip()}")
+
+    assert migrate_rack_to_ract(project) == "skipped_not_a_folder"
+
+    assert not (project / ".ract").exists()
+    assert (outside / "keep.txt").read_bytes() == b"outside"
 
 
 def test_a_very_large_legacy_tree_migrates_in_one_rename(tmp_path: Path) -> None:
