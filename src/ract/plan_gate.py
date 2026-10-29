@@ -13,7 +13,6 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 
-from ract.session_events import safe_text
 from ract.ui.plan_approval_view import Step, parse_answer, plan_hash
 
 ASK_MODES = frozenset({"default"})
