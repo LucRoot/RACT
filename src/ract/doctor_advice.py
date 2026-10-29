@@ -15,6 +15,7 @@ import re
 import textwrap
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from ract.providers.capability_probe import ProviderProbe
 from ract.session_events import safe_text
@@ -41,6 +42,25 @@ class KeyFacts:
     is_set: bool
     host: str
     paired: bool
+
+
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _is_local(settings: object) -> bool:
+    """True when the provider's url names this machine (B-094).
+
+    A provider with no url, or a url that does not parse, is treated as local
+    so that the existing advice still applies to it.
+    """
+    url = settings.get("url") if isinstance(settings, dict) else None
+    if not isinstance(url, str) or not url:
+        return True
+    try:
+        host = (urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return True
+    return host in _LOCAL_HOSTS or host.endswith(".localhost") or host == ""
 
 
 def model_size_billions(model: object) -> float | None:
@@ -75,6 +95,10 @@ def advise(
         and memory.free_gb is not None
     ):
         for settings in providers.values():
+            if not _is_local(settings):
+                # The estimate is for this machine's memory. A hosted endpoint
+                # runs the model elsewhere, so it gets no memory advice (B-094).
+                continue
             model = settings.get("model") if isinstance(settings, dict) else None
             size = model_size_billions(model)
             if size is None:

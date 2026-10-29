@@ -281,6 +281,15 @@ def _probe_tools(adapter: Any, name: str, model: str, scrub: _Scrubber) -> Findi
                 TOOLS_FALLBACK,
             )
         return Finding("tool calling", "failed", _explain(exc, adapter, scrub))
+    except httpx.TimeoutException:
+        # No answer is not a refusal: the server may be busy or may not get to the
+        # tool request in time. The probe does not know, so it says unknown (B-094).
+        return Finding(
+            "tool calling",
+            "unknown",
+            f"no answer in {PROBE_TIMEOUT_S:g} s",
+            "check that the server is not busy, or raise timeout in ract.yaml",
+        )
     except Exception as exc:  # noqa: BLE001 - every failure becomes a finding
         return Finding("tool calling", "failed", _explain(exc, adapter, scrub))
 
