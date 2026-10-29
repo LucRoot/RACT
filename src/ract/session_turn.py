@@ -107,6 +107,12 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "stronger model for this provider in ract.yaml",
     ),
     (
+        # S2 (B-074 FOUND): api_key names an environment variable that is unset.
+        re.compile(r"is not set in this environment; nothing was sent", re.I),
+        "set the variable the message names, or remove api_key from that provider's "
+        "block in ract.yaml if the server needs no key",
+    ),
+    (
         re.compile(r"refused to replace", re.I),
         "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
         "in the intent which change you want",

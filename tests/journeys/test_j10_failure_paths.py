@@ -12,7 +12,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 from tests.fixtures.fake_model_server import FakeModelServer, Scenario
 from tests.ux import run_baseline as rb
@@ -56,10 +55,6 @@ def test_provider_down_gives_a_cause_and_a_next_action(tmp_path: Path) -> None:
     assert "nothing is answering at" in _output(proc)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="B-074 FOUND: a missing key variable is not named; the run sends the request anyway and the step fails with no cause (S2, key handling: BUILDER)",
-)
 def test_a_missing_key_variable_is_named(tmp_path: Path) -> None:
     with FakeModelServer("plan_three_steps") as server:
         ws = rb._workspace(tmp_path, "nokey", git=True, files=rb.CALC_FILES)

@@ -160,6 +160,10 @@ class OpenAICompatibleProvider(ProviderAdapter):
         )
         self._env_key_withheld = False
         self._env_var = env_var
+        # The variable an explicit ``api_key: ${VAR}`` names, when it is unset.
+        self._missing_key_var = (
+            env_var if reference is not None and not os.environ.get(env_var) else None
+        )
         if env_var is None:
             self.api_key = str(raw_key)
         else:
@@ -258,6 +262,30 @@ class OpenAICompatibleProvider(ProviderAdapter):
             hint=(
                 "run `ract trust` here if you chose that host, or set the provider "
                 "url to a host you chose"
+            ),
+        )
+
+    def _missing_key_refusal(self) -> Rooted[dict[str, Any]] | None:
+        """The refusal for ``api_key: ${VAR}`` when VAR is not set (B-074 FOUND).
+
+        LR:: The request went out without the key and the turn failed with no
+        cause. The configuration asks for a key by name, so the name is the
+        cause: say it, and send nothing.
+        """
+        if self._missing_key_var is None:
+            return None
+        return Rooted(
+            value=None,
+            assumption="The key the provider block names is set.",
+            confidence=0.0,
+            provenance=[self.name],
+            error=(
+                f"api_key in ract.yaml names ${{{self._missing_key_var}}}, and "
+                f"{self._missing_key_var} is not set in this environment; nothing was sent"
+            ),
+            hint=(
+                f"set {self._missing_key_var}, or remove api_key from this provider's "
+                "block in ract.yaml if the server needs no key"
             ),
         )
 
@@ -407,7 +435,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
         max_tokens: int = 512,
         temperature: float = 0.3,
     ) -> Rooted[dict[str, Any]]:
-        refusal = self._untrusted_host_refusal()
+        refusal = self._untrusted_host_refusal() or self._missing_key_refusal()
         if refusal is not None:
             return refusal
         payload = self._build_payload(
@@ -537,7 +565,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
         Each yielded value is a single server-sent event chunk.  The caller is
         responsible for accumulating ``choices[0].delta.content`` values.
         """
-        refusal = self._untrusted_host_refusal()
+        refusal = self._untrusted_host_refusal() or self._missing_key_refusal()
         if refusal is not None:
             yield refusal
             return
