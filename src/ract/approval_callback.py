@@ -87,7 +87,9 @@ def _edit_step(steps: list, n: int, plan_gate):
         steps,
         n,
         text,
-        check_path=lambda path: f"{path} is not in the plan and the console cannot check it",
+        check_path=lambda path: (
+            f"{path} is not in the plan and the console cannot check it"
+        ),
     )
     if error is not None:
         return steps, error
@@ -115,6 +117,7 @@ def console_plan_approval(plan: Plan):
     turn_context.report(
         "plan.approval_requested", plan_gate.approval_requested_payload(steps)
     )
+
     def screen(current: list) -> list[str]:
         shown = [
             replace(
@@ -127,6 +130,7 @@ def console_plan_approval(plan: Plan):
         return screen_lines(shown, max(_terminal_width() - 3, 20))
 
     lines = screen(steps)
+    edited_n: int | None = None
     while True:
         question_gate.open_question()
         try:
@@ -142,6 +146,15 @@ def console_plan_approval(plan: Plan):
             # D12: the new text is one line, checked for new paths; the plan is shown again.
             steps, error = _edit_step(steps, outcome.n, plan_gate)
             if error is None:
+                edited_n = outcome.n
+                # L-196 point 5: the edited plan is announced again, with its new hash.
+                turn_context.report(
+                    "plan.proposed", plan_gate.approval_requested_payload(steps)
+                )
+                turn_context.report(
+                    "plan.approval_requested",
+                    plan_gate.approval_requested_payload(steps),
+                )
                 lines = screen(steps)
                 for shown_line in lines[:-1]:
                     print(shown_line)
@@ -151,12 +164,15 @@ def console_plan_approval(plan: Plan):
         if outcome.kind != "ask_again":
             break
         print(outcome.error)
+    # L-196 point 1: the whole plan as approved, edits included, is what the run takes.
+    outcome = replace(outcome, shown=list(steps))
     if outcome.kind == "refused":
         answer = "cancel"
     else:
         answer = "skip" if outcome.skipped else "approve"
     turn_context.report(
-        "plan.approval_answered", plan_gate.answered_payload(steps, answer, outcome)
+        "plan.approval_answered",
+        plan_gate.answered_payload(steps, answer, outcome, edited=edited_n),
     )
     return outcome
 

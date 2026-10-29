@@ -25,7 +25,7 @@ from ract.preflight_validator import PreflightValidator
 from ract.project_document import ProjectDocument
 from ract.rooted import Rooted
 from ract.session_rollback import SessionRollback, SnapshotNotFoundError
-from ract.session_store import SessionCorruptedError, SessionState, SessionStore, SessionStoreError
+from ract.session_store import SessionCorruptedError, SessionState, SessionStore
 
 # LR:: Supported run modes. These are intentionally simple: the harness does the
 # heavy lifting; the runner just forwards the selection.
@@ -173,38 +173,41 @@ def _resume_checkpoint(
     return {**state, "in_progress": None}, plan
 
 
-def _resumed_approvals(store: SessionStore, session_id: str | None, resume: bool) -> list[str]:
-    """The plan hashes approved in the session being resumed (D12); none for a fresh run."""
-    if not resume or not session_id:
-        return []
-    try:
-        state = store.load(session_id)
-    except (SessionStoreError, KeyError, OSError):
-        return []
-    return [str(h) for h in state.get("plan_approvals", [])]
-
-
-def _persisting_approval(ask, known: list[str]):
-    """Wrap the console plan question: a plan whose hash the session approved is not asked again.
-
-    ``known`` is the session's list of approved hashes; a new approval is added to it so the
-    session saves it (D12). Any other answer is returned as the question gave it.
-    """
-    from ract import plan_gate
+def _approvals_for_resume(
+    config_path: Path, session_id: str | None, resume: bool, plan: Plan | None
+) -> frozenset[int]:
+    """The steps the operator skipped in the plan being resumed (D12); none for a fresh run."""
+    from ract import plan_approval_store
     from ract.approval_callback import _plan_steps
     from ract.ui.plan_approval_view import plan_hash
 
-    def ask_once(plan):
-        steps = _plan_steps(plan)
-        digest = plan_hash(steps)
-        if digest in known:
-            return plan_gate.Resolution("approved", kept=list(steps))
+    if plan is None or not resume or not session_id:
+        return frozenset()
+    known = plan_approval_store.load(config_path.parent, session_id)
+    return frozenset(known.get(plan_hash(_plan_steps(plan)), []))
+
+
+def _remembering_approval(ask, config_path: Path, session_id: str | None):
+    """Wrap the console plan question: an approval is remembered for the session (D12).
+
+    The entry is keyed by the hash of the plan as it will run (edits included) and holds the
+    skipped step numbers, so a resumed run takes the same skips without asking.
+    """
+    from ract import plan_approval_store
+    from ract.approval_callback import _plan_steps
+    from ract.ui.plan_approval_view import plan_hash
+
+    def ask_and_remember(plan):
         outcome = ask(plan)
-        if outcome is not None and outcome.kind == "approved":
-            known.append(digest)
+        if outcome is not None and outcome.kind == "approved" and session_id:
+            shown = outcome.shown or _plan_steps(plan)
+            skipped = [step.n for step in outcome.skipped]
+            plan_approval_store.remember(
+                config_path.parent, session_id, plan_hash(shown), skipped
+            )
         return outcome
 
-    return ask_once
+    return ask_and_remember
 
 
 def _save_session(
@@ -212,7 +215,6 @@ def _save_session(
     store: SessionStore,
     intent: str,
     result: Rooted[ExecutionReport | Plan],
-    plan_approvals: list[str] | None = None,
 ) -> None:
     """Persist session state after a run so it can be resumed later."""
     if session_id is None:
@@ -236,7 +238,6 @@ def _save_session(
 
     state = SessionState(
         intent=intent,
-        plan_approvals=list(plan_approvals or []),
         # An empty assumption marks "no plan recorded" (a failed turn); the
         # report says so instead of printing a default as data.
         plan=plan or Plan(assumption="", confidence=0.0, steps=[]),
@@ -574,8 +575,6 @@ def _run_ract(
     if project_doc_prefix:
         intent = f"{project_doc_prefix}\n\n{intent}"
 
-    # D12: the approvals the session already holds, and the ones this run adds, are saved with it.
-    known_approvals = _resumed_approvals(store, session_id, resume)
     memory_arena = _memory_arena_for(config_path, session_id)
 
     if dry_run:
@@ -599,7 +598,7 @@ def _run_ract(
             if memory_arena is not None:
                 assert session_id is not None  # guarded by _memory_arena_for
                 memory_arena.save(_memory_arena_path(config_path, session_id))
-            _save_session(session_id, store, intent, result, plan_approvals=known_approvals)
+            _save_session(session_id, store, intent, result)
         return result
 
     approval_callback: Callable[[Step], bool] | None = None
@@ -616,7 +615,7 @@ def _run_ract(
     elif yolo:
         approval_callback = yolo_approval_callback
     if plan_approval is console_plan_approval:
-        plan_approval = _persisting_approval(plan_approval, known_approvals)
+        plan_approval = _remembering_approval(plan_approval, config_path, session_id)
 
     def _capture_snapshot(plan: Plan) -> None:
         if session_id is None:
@@ -643,6 +642,9 @@ def _run_ract(
                 ask=ask,
                 plan_override=plan,
                 plan_approval=plan_approval,
+                skipped_steps=_approvals_for_resume(
+                    config_path, session_id, resume, plan
+                ),
             ),
         )
 
@@ -683,7 +685,7 @@ def _run_ract(
         if memory_arena is not None:
             assert session_id is not None
             memory_arena.save(_memory_arena_path(config_path, session_id))
-        _save_session(session_id, store, intent, result, plan_approvals=known_approvals)
+        _save_session(session_id, store, intent, result)
     return result
 
 

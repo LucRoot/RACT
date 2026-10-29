@@ -7,11 +7,13 @@ a step with no target is an answer step and writes nothing.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 
+from ract.session_events import safe_text
 from ract.ui.plan_approval_view import Step, parse_answer, plan_hash
 
 ASK_MODES = frozenset({"default"})
@@ -75,33 +77,27 @@ class Resolution:
     error: str | None = None
     # For ``edit``: the step whose new text the caller asks for.
     n: int | None = None
+    # The whole plan as the operator approved it, edits included (the run takes this text).
+    shown: list[Step] = field(default_factory=list)
 
 
 _EDIT_LIMIT = 2000
 
 
-@dataclass(frozen=True)
-class PlanDecision:
-    """What the run does with the plan: ``run`` the ``steps`` (skipped steps are listed), or ``refused``.
-
-    ``refused`` carries ``reason``; a headless run maps it to exit 3, a session ends the turn with the
-    ``refused`` outcome.
-    """
-
-    kind: str
-    steps: list[Step] = field(default_factory=list)
-    skipped: list[Step] = field(default_factory=list)
-    reason: str | None = None
+_PATH_SHAPE = re.compile(r"[A-Za-z_][^.\s]*\.[A-Za-z][A-Za-z0-9]{0,7}$")
 
 
 def _path_candidates(text: str) -> list[str]:
-    """File-like tokens in a line of step text: a slash or a dot with a short extension."""
+    """File-like tokens in a line of step text: a path with a separator, or a name with an extension.
+
+    Trailing punctuation is stripped first, so "b." at the end of a sentence is not a path.
+    """
     out = []
     for token in text.replace(",", " ").split():
-        token = token.strip("`'\"()")
-        if ("/" in token or "\\" in token or "." in token) and not token.startswith(
-            "-"
-        ):
+        token = token.strip("`'\"()").rstrip(".;:!?")
+        if token.startswith("-") or not token:
+            continue
+        if "/" in token or "\\" in token or _PATH_SHAPE.search(token):
             out.append(token)
     return out
 

@@ -30,6 +30,7 @@ def enrich_harness_run(
     ask: bool = False,
     plan_override: Plan | None = None,
     plan_approval: Callable[[Plan], Any] | None = None,
+    skipped_steps: frozenset[int] = frozenset(),
 ) -> Rooted[ExecutionReport]:
     """
     Run the harness with the given intent and attach a diff summary.
@@ -54,6 +55,7 @@ def enrich_harness_run(
             ask=ask,
             plan_override=plan_override,
             plan_approval=plan_approval,
+            skipped_steps=skipped_steps,
         )
     except Exception as exc:
         # Package 5 (handoff 7): one line on stderr; the traceback goes to debug level.

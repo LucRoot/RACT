@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from dataclasses import replace
 
 from ract.codebase_historian import CodebaseHistorian
 from ract.config_check import resolve_manager_provider
@@ -249,6 +250,20 @@ def _curate_context(
         return ""
 
     return "Context:\n" + "".join(content for _path, content in selected)
+
+
+def _plan_with_shown_actions(plan: Plan, shown: list) -> Plan:
+    """The plan with each step's text replaced by the text the operator approved (L-196 point 1)."""
+    if not shown:
+        return plan
+    approved = {step.n: step.action for step in shown}
+    steps = [
+        replace(step, action=approved[i])
+        if i in approved and approved[i] != step.action
+        else step
+        for i, step in enumerate(plan.steps, start=1)
+    ]
+    return replace(plan, steps=steps)
 
 
 class Harness:
@@ -729,6 +744,7 @@ class Harness:
         ask: bool = False,
         plan_override: Plan | None = None,
         plan_approval: Callable[["Plan"], Any] | None = None,
+        skipped_steps: frozenset[int] = frozenset(),
     ) -> Rooted[ExecutionReport]:
         """Plan and execute the intent.
 
@@ -899,7 +915,8 @@ class Harness:
                 error="Plan contains a dependency cycle; cannot execute.",
             )
 
-        skipped: frozenset[int] = frozenset()
+        # Steps the operator skipped before a resumed run (L-196 point 2); a fresh approval replaces them.
+        skipped: frozenset[int] = skipped_steps
         if plan_approval is not None and plan_override is None:
             outcome = plan_approval(plan)
             if outcome is not None and outcome.kind == "refused":
@@ -921,6 +938,8 @@ class Harness:
                 )
             if outcome is not None:
                 skipped = frozenset(step.n for step in outcome.skipped)
+                # L-196 point 1: the run takes the text the operator approved, by step number.
+                plan = _plan_with_shown_actions(plan, outcome.shown)
                 if approval_callback is not None:
                     approval_callback = _approved_plan_callback(
                         approval_callback,

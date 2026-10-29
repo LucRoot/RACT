@@ -7,7 +7,7 @@ text carrying an escape sequence; an edit text that reads like an approval.
 
 from __future__ import annotations
 
-from ract import approval_callback, plan_gate, ract_runner
+from ract import approval_callback, plan_approval_store, plan_gate, ract_runner
 from ract.session_events import safe_text
 from ract.ui.plan_approval_view import Step, plan_hash
 
@@ -28,19 +28,17 @@ def test_skip_at_the_ends_of_a_200_step_plan_is_in_range():
     assert plan_gate.resolve_answer(BIG, "edit 0").kind == "ask_again"
 
 
-def test_an_answer_after_a_cancel_is_not_remembered_as_an_approval(monkeypatch):
+def test_an_answer_after_a_cancel_is_not_remembered_as_an_approval(tmp_path, monkeypatch):
     monkeypatch.setattr(approval_callback, "_plan_steps", lambda plan: list(SMALL))
-    known: list[str] = []
     asked = []
 
     def ask(plan):
         asked.append(plan)
         return plan_gate.resolve_answer(SMALL, "cancel")
 
-    once = ract_runner._persisting_approval(ask, known)
+    once = ract_runner._remembering_approval(ask, tmp_path / "ract.yaml", "s-1")
     assert once(object()).kind == "refused"
-    assert known == []
-    # The next question about the same plan is asked again: a cancel is not an approval.
+    assert plan_approval_store.load(tmp_path, "s-1") == {}
     assert once(object()).kind == "refused"
     assert len(asked) == 2
 

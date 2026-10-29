@@ -115,6 +115,8 @@ def test_run_ract_execution_success(tmp_path: Path) -> None:
         plan_override=None,
         # Neither auto nor refuse_changes: no plan approval (D12).
         plan_approval=None,
+        # A fresh run carries no remembered skips (L-196 point 2).
+        skipped_steps=frozenset(),
     )
 
 
