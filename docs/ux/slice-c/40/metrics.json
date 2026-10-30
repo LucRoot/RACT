@@ -1,0 +1,28 @@
+{
+  "SC1": {
+    "answers": 2,
+    "exit_code": 0,
+    "wall_s": 10.82,
+    "notes": [
+      "expect '\\\\[y/N\\\\]': seen",
+      "expect 'Run it once': seen"
+    ]
+  },
+  "SC2": {
+    "answers": 2,
+    "exit_code": 0,
+    "wall_s": 11.67,
+    "notes": [
+      "expect '\\\\[y/N\\\\]': seen",
+      "expect 'Run it once': seen"
+    ]
+  },
+  "SC3": {
+    "answers": 1,
+    "exit_code": 0,
+    "wall_s": 10.33,
+    "notes": [
+      "expect '\\\\[y/N\\\\]': seen"
+    ]
+  }
+}

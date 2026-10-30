@@ -1,0 +1,35 @@
+   0.034s out 
+   0.957s out  RACT 0.5.2  config: ract.yaml  type an intent, or\n
+   0.975s out        /help for commands\n
+   1.313s out RACT session fake-coder via local | master | default\n
+   1.334s out   | T3 ask\nract> 
+   1.336s  in 'tests/test_calc.py::test_add fails, fix it\r'
+   1.350s out tests/test_calc.py::test_add fails, fix it\n
+   1.914s out Plan: 1 step, confidence 0.85\n
+   1.925s out   assumes: The failing test is caused by add() subtracting.\n  1. Fix add() in src/calc.py so it adds -> src/calc.py\n
+   2.807s out [step 1] Fix add() in src/calc.py so it adds -> src/calc.py\n
+   2.826s out Approve step: [local] Fix add() in src/calc.py so it adds\n-> src/calc.py? [y/N]: 
+   2.826s  in 'y\r'
+   2.842s out y\n--- src/calc.py ---\ndef add(a, b):\n    return a + b\n\n\n\n\n\n\n\n\n\n\n\n\ndef sub(a, b):\n    return a - b\n
+   3.660s out [step 1] done src/calc.py (0.8s)\n
+   3.819s out Tier 3: run a command? python -m pytest\n
+   3.835s out tests/test_calc.py::test_add\nexecutable:\n<tmp>\s\nc2_60_cfg\walk-bin\python.EXE\nin: the step's worktree\nnetwork: off (not enforced on this machine
+   3.845s  in 'n\r'
+   3.850s out n\nwarning: provenance: 1 file(s) have no signature yet\n  (src/calc.py). See docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: src/calc.py (+1 -1); unstaged, review with git\n  
+   3.861s out   src/calc.py: lines 1-5 -> 1-5, +1 -1\n  1   def add(a, b):\n  2 -     return a - b\n  2 +     return a + b\n
+   3.861s out \n  3\n
+   3.861s out \n  4\n
+   3.861s out \n  5   def sub(a, b):\n
+   3.861s out \n  1 file, +1 -1\n
+   3.861s out \n  way back: /undo, or /review per hunk\n
+   3.861s out \n  verified: no\n
+   3.862s out \n  assumed: The failing test is caused by add() subtracting. \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   3.862s out \n    (planner confidence 0.85, not checked)\n
+   3.862s out \n  unsigned: 1 file\n
+   3.862s out \n  2 model requests, 2.4 s, 1107 tokens in / 68 out\n
+   3.862s out \n  not verified: you declined the command; nothing ran       \n
+   3.866s out \nract>
+   7.900s  in '/exit\r'
+   7.900s out /exit\n
+   7.900s out \n
+   7.997s out 

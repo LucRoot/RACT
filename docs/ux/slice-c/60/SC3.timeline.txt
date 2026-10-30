@@ -1,0 +1,22 @@
+   0.036s out 
+   1.122s out  RACT 0.5.2  config: ract.yaml  type an intent, or\n
+   1.143s out        /help for commands\n
+   1.481s out RACT session fake-coder via local | master | default\n
+   1.502s out   | T3 off (no grant)\nract> 
+   1.518s  in 'tests/test_calc.py::test_add fails, fix it\r'
+   1.518s out tests/test_calc.py::test_add fails, fix it\n
+   2.210s out Plan: 1 step, confidence 0.85\n
+   2.220s out   assumes: The failing test is caused by add() subtracting.\n  1. Fix add() in src/calc.py so it adds -> src/calc.py\n
+   3.146s out [step 1] Fix add() in src/calc.py so it adds -> src/calc.py\n
+   3.156s out Approve step: [local] Fix add() in src/calc.py so it adds\n-> src/calc.py? [y/N]: 
+   3.168s  in 'y\r'
+   3.171s out y\n
+   3.187s out --- src/calc.py ---\ndef add(a, b):\n    return a + b\n\n\n\n\n\n\n\n\n\n\n\n\n\ndef sub(a, b):\n    return a - b\n
+   4.006s out [step 1] done src/calc.py (0.9s)\n
+   4.139s out warning: provenance: 1 file(s) have no signature yet\n
+   4.153s out   (src/calc.py). See docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: src/calc.py (+1 -1); unstaged, review with git\n    diff\n  src/calc.py: lines 1-5 -> 1-5, +1 -1\n  1   def
+   4.169s out ract> 
+   9.226s  in '/exit\r'
+   9.227s out /exit\n
+   9.227s out \n
+   9.481s out 

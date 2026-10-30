@@ -1,0 +1,48 @@
+   0.041s out 
+   1.108s out  RACT 0.5.2  config: ract.yaml\n
+   1.118s out        type an intent, or /help for\n       commands\n
+   1.478s out RACT session fake-coder via local\n
+   1.491s out   | master | default | T3 ask\nract> 
+   1.499s  in 'tests/test_calc.py::test_add fails, fix it\r'
+   1.507s out tests/test_calc.py::test_add fails, fix it\n
+   2.118s out Plan: 1 step, confidence 0.85\n
+   2.129s out   assumes: The failing test is caused by\n    add() subtracting.\n  1. Fix add() in src/calc.py so it adds\n    -> src/calc.py\n
+   2.987s out [step 1] Fix add() in src/calc.py so it\n
+   3.005s out   adds -> src/calc.py\nApprove step: [local] Fix add() in\nsrc/calc.py so it adds ->\nsrc/calc.py? [y/N]: 
+   3.008s  in 'y\r'
+   3.021s out y\n--- src/calc.py ---\ndef add(a, b):\n    return a + b\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\ndef sub(a, b):\n    return a - b\n
+   3.779s out [step 1] done src/calc.py (0.8s)\n
+   3.926s out Tier 3: run a command? python -m\n
+   3.928s out pytest tests/test_calc.py::test_add\nexecutable:\n~\AppData\Local\Temp\rac\nt-slice-c-sbcd2b4m\sc1_40_cfg\walk-bi\nn\python.EXE\nin: the step's worktree\nnetwork: off (not enforced on thi
+   3.942s out \nRun it once? [y/N]:
+   3.963s  in 'y\r'
+   3.964s out y\n
+   3.964s out \n
+   3.974s out warning: provenance: 1 file(s) have no\n
+   3.974s out \n
+   3.975s out   signature yet (src/calc.py). See\n
+   3.977s out \n  docs/PROVENANCE.md.\n
+   3.978s out \n  Done: 1 step ran; no tests were run.  \n
+   3.979s out \n  changed: src/calc.py (+1 -1);\n
+   3.979s out \n    unstaged, review with git diff      \n
+   3.990s out \n
+   3.990s out   src/calc.py: lines 1-5 -> 1-5, +1 -1\n
+   3.990s out \n  1   def add(a, b):\n
+   3.990s out \n  2 -     return a - b\n
+   3.990s out \n  2 +     return a + b\n
+   3.990s out \n  3\n
+   3.991s out \n  4\n  5   def sub(a, b):\n  1 file, +1 -1\n
+   3.991s out \n  way back: /undo, or /review per hunk  \n
+   3.991s out \n  verified: no\n
+   3.991s out \n  assumed: The failing test is caused by\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   3.991s out \n    add() subtracting. (planner\n    confidence 0.85, not checked)       \n
+   3.991s out \n  unsigned: 1 file\n
+   3.991s out \n  2 model requests, 2.4 s, 1107 tokens  \n
+   3.991s out \n    in / 68 out\n
+   3.991s out \n  not verified: the scripted runner     \n
+   3.991s out \n    answered; no command ran\n
+   4.006s out \nract>
+   8.008s  in '/exit\r'
+   8.009s out /exit\n
+   8.009s out \n
+   8.109s out 

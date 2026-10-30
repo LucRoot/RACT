@@ -1,0 +1,63 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml
+]0;<repo>\.venv\Scripts\python.exe[?25h[m       type an intent, or /help for
+       commands
+RACT session fake-coder via local
+  | master | default | T3 ask
+ract> tests/test_calc.py::test_add fails, fix it
+Plan: 1 step, confidence 0.85
+  assumes: The failing test is caused by
+    add() subtracting.
+  1. Fix add() in src/calc.py so it adds
+    -> src/calc.py
+[step 1] Fix add() in src/calc.py so it
+  adds -> src/calc.py
+Approve step: [local] Fix add() in
+src/calc.py so it adds ->
+src/calc.py? [y/N]: [?25ly
+--- src/calc.py ---
+def add(a, b):
+    return a + b[23;1Hdef sub(a, b):
+    return a - b
+[?25h[step 1] done src/calc.py (0.8s)
+Tier 3: run a command? python -m
+pytest tests/test_calc.py::test_add
+executable:
+~\AppData\Local\Temp\rac
+t-slice-c-sbcd2b4m\sc1_40_cfg\walk-bi
+n\python.EXE
+in: the step's worktree
+network: off (not enforced on this
+machine)
+sandbox: best effort: not enforced on
+this machine
+rule: tests (the rule tests)
+the model's reason: the request names
+this test; RACT runs it to check the
+turn
+Run it once? [y/N]:[1Cy
+warning: provenance: 1 file(s) have no
+  signature yet (src/calc.py). See
+  docs/PROVENANCE.md.
+  Done: 1 step ran; no tests were run.  
+  changed: src/calc.py (+1 -1);
+    unstaged, review with git diff      
+  src/calc.py: lines 1-5 -> 1-5, +1 -1
+  1   def add(a, b):
+  2 -     return a - b
+  2 +     return a + b
+  3
+  4
+  5   def sub(a, b):
+  1 file, +1 -1
+  way back: /undo, or /review per hunk  
+  verified: no
+  assumed: The failing test is caused by[40;1H
+    add() subtracting. (planner
+    confidence 0.85, not checked)       
+  unsigned: 1 file
+  2 model requests, 2.4 s, 1107 tokens  
+    in / 68 out
+  not verified: the scripted runner     
+    answered; no command ran
+ract>[1C/exit
+[?9001l[?1004l
