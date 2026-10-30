@@ -76,6 +76,10 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ),
     ("/diff", "Show the last turn's changes, from the copies it saved."),
     (
+        "/review",
+        "Go through the last turn's changes hunk by hunk: accept, reject, edit or skip.",
+    ),
+    (
         "/undo [--force|list]",
         "Reverse the last turn's file changes (skips files you edited since); "
         "list shows each checkpoint.",
@@ -220,6 +224,7 @@ class ReplSession:
             "queue": self._cmd_queue,
             "undo": self._cmd_undo,
             "diff": self._cmd_diff,
+            "review": self._cmd_review,
             "redo": self._cmd_redo,
             "clear": self._cmd_clear,
         }
@@ -424,6 +429,43 @@ class ReplSession:
             self._print_wrapped(
                 f"{len(changes) - self._DIFF_FILES} more changed files are not shown"
             )
+        return True
+
+    def _cmd_review(self, args: list[str]) -> bool:
+        """The last turn's change, hunk by hunk: accept, reject, edit or skip (B-014c)."""
+        from ract import review_hunks
+
+        width = self._render_width()
+
+        def ask(question: str) -> str | None:
+            # The question folds to the width; the answer goes on its last line.
+            lines = wrap_cells(question, max(width - 3, 20)) or [""]
+            for line in lines[:-1]:
+                self._console.print(escape(line))
+            try:
+                return self._read_line(lines[-1] + " ")
+            except EOFError:
+                return None
+
+        def show(line: str) -> None:
+            self._console.print(escape(line))
+
+        try:
+            review = review_hunks.review_last_turn(
+                self.state.config.resolve().parent, ask, show, width=width
+            )
+        except KeyboardInterrupt:
+            self._console.print("")
+            self._print_wrapped(
+                "review interrupted: the file asked about is left as it is; "
+                "files answered before it keep their answers"
+            )
+            return True
+        if review.turn is None:
+            self._print_wrapped("no turn has changed a file yet")
+            return True
+        for line in review_hunks.report_lines(review) or ["nothing to review"]:
+            self._print_wrapped(line)
         return True
 
     def _undo_list(self) -> bool:

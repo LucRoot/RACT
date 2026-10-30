@@ -1,0 +1,51 @@
+   0.072s out 
+   1.226s out  RACT 0.5.2  config: ract.yaml\n
+   1.235s out        type an intent, or /help for\n       commands\n
+   1.504s out RACT session fake-coder via local |\n
+   1.515s out   master | default | T3 off\nract> 
+   1.528s  in 'tests/test_calc.py::test_add fails, fix it\r'
+   1.530s out tests/test_calc.py::test_add fails, fix it\n
+   2.122s out Plan: 1 step, confidence 0.85\n
+   2.137s out   assumes: The failing test is caused by\n    add() subtracting.\n  1. Fix add() in src/calc.py so it adds\n    -> src/calc.py\n
+   3.241s out [step 1] Fix add() in src/calc.py so it\n
+   3.251s out   adds -> src/calc.py\nApprove step: [local] Fix add() in\nsrc/calc.py so it adds ->\nsrc/calc.py? [y/N]: 
+   3.268s  in 'y\r'
+   3.268s out y\n
+   3.283s out --- src/calc.py ---\ndef add(a, b):\n    return a + b\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\ndef sub(a, b):\n    return a - b\n
+   4.204s out [step 1] done src/calc.py (1.0s)\n
+   4.356s out warning: provenance: 1 file(s) have no\n
+   4.367s out   signature yet (src/calc.py). See\n  docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: src/calc.py (+1 -1);\n    unstaged, review with git diff\n  src/calc.py: lines 1-5 -> 1-5,
+   4.367s out \n  verified: RACT ran no tests this turn \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   4.367s out \n  assumed: The failing test is caused by\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   4.367s out \n    add() subtracting. (planner\n    confidence 0.85, not checked)       \n
+   4.367s out \n  unsigned: 1 file\n
+   4.367s out \n  2 model requests, 2.8 s, 1107 tokens  \n
+   4.367s out \n    in / 68 out\n
+   4.375s out \nract>
+  10.384s  in '/review\r'
+  10.385s out /review\n
+  10.385s out \n
+  10.404s out Hunk 1 of 1 in src/calc.py:\n
+  10.405s out \nsrc/calc.py: lines 1-5 -> 1-5, +1 -1    \n
+  10.406s out \n1   def add(a, b):\n
+  10.406s out \n2 -     return a - b\n
+  10.406s out \n2 +     return a + b\n
+  10.407s out \n3\n
+  10.407s out \n4\n
+  10.407s out \n5   def sub(a, b):\n
+  10.408s out \na accept, r reject, e edit, s skip, A   \n
+  10.408s out \naccept the rest of the file, R reject   \n
+  10.415s out \nthe rest of the file:
+  10.426s  in 'r\r'
+  10.426s out r\n
+  10.431s out \n
+  10.434s out src/calc.py: the turn's saved copy is\n
+  10.434s out \n  back\n
+  10.446s out \nract>
+  12.446s  in '/diff\r'
+  12.446s  in '/exit\r'
+  12.447s out /diff\n
+  12.447s out \n
+  12.462s out ract> /exit\n
+  12.474s out \n
+  12.554s out 

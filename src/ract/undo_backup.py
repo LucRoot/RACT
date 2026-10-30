@@ -331,6 +331,40 @@ def previous_version(
     return saved.read_bytes()
 
 
+def note_reviewed(root: Path | str, turn_id: object, relative_path: object) -> None:
+    """Record *relative_path* as ``/review`` left it, so ``/undo`` still restores it (B-014c).
+
+    LR:: ``/undo`` skips a file whose contents differ from what the turn
+    wrote (the user edited it since). A file rewritten by ``/review`` is
+    not such an edit: its hash in the turn's manifest is updated, and the
+    saved copy, which is what ``/undo`` restores, is not touched. The id and
+    the path are checked as ``previous_version`` checks them; the path must
+    be one the turn saved or created. A bad id or path raises ValueError.
+    """
+    name = require_name(turn_id, "turn id")
+    base = Path(os.path.realpath(root))
+    folder = turns_dir(base) / name
+    problem = check_entry(base, base, relative_path)
+    if problem is not None:
+        raise ValueError(f"{relative_path!r} is not a project file: {problem}")
+    assert isinstance(relative_path, str)
+    manifest_path = folder / MANIFEST
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"turn {name} has no readable manifest") from exc
+    if not isinstance(manifest, dict) or manifest.get("root") != repository_key(base):
+        raise ValueError(f"turn {name} belongs to another repository")
+    key = relative_path.replace("\\", "/")
+    if key not in _names(manifest.get("saved")) + _names(manifest.get("created")):
+        raise ValueError(f"turn {name} did not change {key!r}")
+    after = manifest.get("after")
+    after = after if isinstance(after, dict) else {}
+    after[key] = _sha256(base / key)
+    manifest["after"] = after
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+
 def _stamp_time(turn_id: str) -> str:
     """The local time a turn id was made, as ``YYYY-MM-DD HH:MM``, or "" when unreadable."""
     try:

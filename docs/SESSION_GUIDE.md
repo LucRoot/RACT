@@ -158,6 +158,8 @@ ract> /exit
 `/mode` shows how RACT applies changes. `/cost` shows the requests this session
 sent off the machine. `/undo` reverses the last turn's file changes, and says so
 when there is none.
+`/review` goes through the last turn's changes hunk by hunk: accept, reject
+(the turn's saved copy of that hunk comes back), edit or skip each one.
 
 ```text
 ract> /mode

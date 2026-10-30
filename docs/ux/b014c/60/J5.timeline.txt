@@ -1,0 +1,42 @@
+   0.045s out 
+   1.082s out  RACT 0.5.2  config: ract.yaml  type an intent, or\n
+   1.091s out        /help for commands\n
+   1.342s out RACT session fake-coder via local | master | default | T3\n
+   1.357s out   off\nract> 
+   1.374s  in 'tests/test_calc.py::test_add fails, fix it\r'
+   1.375s out tests/test_calc.py::test_add fails, fix it\n
+   1.952s out Plan: 1 step, confidence 0.85\n
+   1.966s out   assumes: The failing test is caused by add() subtracting.\n  1. Fix add() in src/calc.py so it adds -> src/calc.py\n
+   2.971s out [step 1] Fix add() in src/calc.py so it adds -> src/calc.py\n
+   2.979s out Approve step: [local] Fix add() in src/calc.py so it adds\n-> src/calc.py? [y/N]: 
+   2.994s  in 'y\r'
+   2.995s out y\n
+   3.010s out --- src/calc.py ---\ndef add(a, b):\n    return a + b\n\n\n\n\n\n\n\n\n\n\n\n\n\ndef sub(a, b):\n    return a - b\n
+   3.819s out [step 1] done src/calc.py (0.8s)\n
+   3.979s out warning: provenance: 1 file(s) have no signature yet\n
+   3.993s out   (src/calc.py). See docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: src/calc.py (+1 -1); unstaged, review with git\n    diff\n  src/calc.py: lines 1-5 -> 1-5, +1 -1\n  1   def
+   9.998s  in '/review\r'
+   9.998s out /review\n
+  10.012s out Hunk 1 of 1 in src/calc.py:\n
+  10.012s out \nsrc/calc.py: lines 1-5 -> 1-5, +1 -1\n
+  10.013s out \n1   def add(a, b):\n
+  10.013s out \n2 -     return a - b\n
+  10.013s out \n
+  10.013s out 2 +     return a + b\n
+  10.014s out \n3\n
+  10.014s out \n4\n
+  10.015s out \n5   def sub(a, b):\n
+  10.015s out \na accept, r reject, e edit, s skip, A accept the rest of    \n
+  10.030s out \nthe file, R reject the rest of the file:
+  10.039s  in 'r\r'
+  10.039s out r\n
+  10.045s out \n
+  10.046s out src/calc.py: the turn's saved copy is back\n
+  10.061s out \nract>
+  12.067s  in '/diff\r'
+  12.067s  in '/exit\r'
+  12.067s out /diff\n
+  12.067s out \n
+  12.081s out ract> /exit\n
+  12.095s out \n
+  12.163s out 

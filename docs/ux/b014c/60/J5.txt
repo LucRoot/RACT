@@ -1,0 +1,60 @@
+# J5: Review a change hunk by hunk
+# build: "[S7-5] Package 5: the ten journeys at 80 and 60 columns on the landed tip 91d8d86, with the look-again passes (docs/ux/sprint7/JOURNEYS.md)" +src-changes  terminal: 80x40 pseudo-terminal  run: 2026-10-30 02:01
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+ract> tests/test_calc.py::test_add fails, fix it
+Plan: 1 step, confidence 0.85
+  assumes: The failing test is caused by add() subtracting.
+  1. Fix add() in src/calc.py so it adds -> src/calc.py
+[step 1] Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds
+-> src/calc.py? [y/N]: y
+--- src/calc.py ---
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - b
+[step 1] done src/calc.py (0.8s)
+warning: provenance: 1 file(s) have no signature yet
+  (src/calc.py). See docs/PROVENANCE.md.
+  Done: 1 step ran; no tests were run.
+  changed: src/calc.py (+1 -1); unstaged, review with git
+    diff
+  src/calc.py: lines 1-5 -> 1-5, +1 -1
+  1   def add(a, b):
+  2 -     return a - b
+  2 +     return a + b
+  3   
+  4   
+  5   def sub(a, b):
+  1 file, +1 -1
+  way back: /undo
+  verified: RACT ran no tests this turn
+  assumed: The failing test is caused by add() subtracting.
+    (planner confidence 0.85, not checked)
+  unsigned: 1 file
+  2 model requests, 2.6 s, 1107 tokens in / 68 out
+ract> /review
+Hunk 1 of 1 in src/calc.py:
+src/calc.py: lines 1-5 -> 1-5, +1 -1
+1   def add(a, b):
+2 -     return a - b
+2 +     return a + b
+3
+4
+5   def sub(a, b):
+a accept, r reject, e edit, s skip, A accept the rest of    
+the file, R reject the rest of the file:r
+src/calc.py: the turn's saved copy is back
+ract>/diff
+ract> /exit
+
+## harness notes
+- expect '\\[y/N\\]': seen
+- expect 'reject\\s+the\\s+rest\\s+of\\s+the\\s+file:': seen
+- src/calc.py after /review: def add(a, b):\n    return a - b\n\n\ndef sub(a, b):\n    return a - b\n

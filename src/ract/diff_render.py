@@ -196,39 +196,79 @@ def _diff(
             max_lines,
         )
         return lines, max(grew, 0), max(-grew, 0)
-    # Exact matching for short files. Past _EXACT_DIFF_LINES, difflib's junk
-    # heuristic keeps repetitive lines from making the match quadratic (G-117).
-    longest = max(len(old_lines), len(new_lines))
-    plan = _Plan(_opcodes(old_lines, new_lines, longest > _EXACT_DIFF_LINES))
     out: list[str] = []
     total_added = total_removed = 0
-    for group in plan.get_grouped_opcodes(context):
-        first, last = group[0], group[-1]
-        added = sum(
-            j2 - j1 for tag, _, _, j1, j2 in group if tag in {"insert", "replace"}
-        )
-        removed = sum(
-            i2 - i1 for tag, i1, i2, _, _ in group if tag in {"delete", "replace"}
-        )
+    for group in group_hunks(old_lines, new_lines, context) or []:
+        added, removed = hunk_counts(group)
         total_added += added
         total_removed += removed
-        out.append(
-            f"{path}: lines {_span(first[1], last[2])} -> "
-            f"{_span(first[3], last[4])}, +{added} -{removed}"
-        )
-        gutter = len(str(max(last[2], last[4], 1)))
-        for tag, i1, i2, j1, j2 in group:
-            if tag == "equal":
-                out += [_row(gutter, k + 1, " ", old_lines[k]) for k in range(i1, i2)]
-            if tag in {"delete", "replace"}:
-                out += [_row(gutter, k + 1, "-", old_lines[k]) for k in range(i1, i2)]
-            if tag in {"insert", "replace"}:
-                out += [_row(gutter, k + 1, "+", new_lines[k]) for k in range(j1, j2)]
+        out += _hunk_rows(path, old_lines, new_lines, group)
     if old and not old.endswith("\n"):
         out.append(f"{path}: old text has no newline at end of file")
     if new and not new.endswith("\n"):
         out.append(f"{path}: new text has no newline at end of file")
     return _finish(out, width, max_lines), total_added, total_removed
+
+
+def group_hunks(
+    old_lines: list[str], new_lines: list[str], context: int = 3
+) -> list[list[tuple]] | None:
+    """The change as difflib opcode groups, one group per hunk as it is drawn.
+
+    None past the size cap (the matcher is quadratic there): the caller treats
+    the file as one change. B-014c asks about these same groups, so the hunks
+    a user accepts are the hunks the summary draws.
+    """
+    if max(len(old_lines), len(new_lines)) > _MAX_DIFF_LINES:
+        return None
+    # Exact matching for short files. Past _EXACT_DIFF_LINES, difflib's junk
+    # heuristic keeps repetitive lines from making the match quadratic (G-117).
+    longest = max(len(old_lines), len(new_lines))
+    plan = _Plan(_opcodes(old_lines, new_lines, longest > _EXACT_DIFF_LINES))
+    return [group for group in plan.get_grouped_opcodes(context)]
+
+
+def hunk_counts(group: list[tuple]) -> tuple[int, int]:
+    """Lines added and removed in one hunk."""
+    added = sum(j2 - j1 for tag, _, _, j1, j2 in group if tag in {"insert", "replace"})
+    removed = sum(
+        i2 - i1 for tag, i1, i2, _, _ in group if tag in {"delete", "replace"}
+    )
+    return added, removed
+
+
+def _hunk_rows(
+    path: str, old_lines: list[str], new_lines: list[str], group: list[tuple]
+) -> list[str]:
+    first, last = group[0], group[-1]
+    added, removed = hunk_counts(group)
+    out = [
+        f"{path}: lines {_span(first[1], last[2])} -> "
+        f"{_span(first[3], last[4])}, +{added} -{removed}"
+    ]
+    gutter = len(str(max(last[2], last[4], 1)))
+    for tag, i1, i2, j1, j2 in group:
+        if tag == "equal":
+            out += [_row(gutter, k + 1, " ", old_lines[k]) for k in range(i1, i2)]
+        if tag in {"delete", "replace"}:
+            out += [_row(gutter, k + 1, "-", old_lines[k]) for k in range(i1, i2)]
+        if tag in {"insert", "replace"}:
+            out += [_row(gutter, k + 1, "+", new_lines[k]) for k in range(j1, j2)]
+    return out
+
+
+def draw_hunk(
+    path: str,
+    old_lines: list[str],
+    new_lines: list[str],
+    group: list[tuple],
+    width: int = 80,
+    max_lines: int = 200,
+) -> list[str]:
+    """One hunk of ``group_hunks``, drawn as ``render_hunks`` draws it (B-014c)."""
+    return _finish(
+        _hunk_rows(_clean(path), old_lines, new_lines, group), width, max_lines
+    )
 
 
 def render_hunks(

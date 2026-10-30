@@ -516,7 +516,8 @@ class PlainRenderer:
         if d.get("undo"):
             # The folder is in the user state directory (S-028); the
             # command is what the user needs, the path is in the event.
-            self._line("  way back: /undo")
+            # B-014c: /review takes the change back hunk by hunk.
+            self._line("  way back: /undo, or /review per hunk")
         if d.get("checkpoint"):
             self._line(f"  checkpoint {d['checkpoint']}, /undo to revert")
         verification = d.get("verification") or {}

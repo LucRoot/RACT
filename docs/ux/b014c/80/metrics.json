@@ -1,0 +1,39 @@
+{
+  "J5": {
+    "startup_to_prompt_s": 1.49,
+    "inputs": [
+      {
+        "input": "tests/test_calc.py::test_add fails, fix it",
+        "first_visible_output_s": 0.01,
+        "longest_silence_s": 1.106
+      },
+      {
+        "input": "y",
+        "first_visible_output_s": 0.001,
+        "longest_silence_s": 0.875
+      },
+      {
+        "input": "/review",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.018
+      },
+      {
+        "input": "r",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.009
+      },
+      {
+        "input": "/diff",
+        "first_visible_output_s": 0.0,
+        "longest_silence_s": 0.0
+      }
+    ],
+    "exit_code": 0,
+    "wall_s": 13.13,
+    "notes": [
+      "expect '\\\\[y/N\\\\]': seen",
+      "expect 'reject\\\\s+the\\\\s+rest\\\\s+of\\\\s+the\\\\s+file:': seen",
+      "src/calc.py after /review: def add(a, b):\\n    return a - b\\n\\n\\ndef sub(a, b):\\n    return a - b\\n"
+    ]
+  }
+}

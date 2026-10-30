@@ -1,0 +1,39 @@
+   0.051s out 
+   1.200s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   1.218s out 
+   1.472s out RACT session fake-coder via local | master | default | T3 off\n
+   1.485s out ract> 
+   1.490s  in 'tests/test_calc.py::test_add fails, fix it\r'
+   1.500s out tests/test_calc.py::test_add fails, fix it\n
+   2.127s out Plan: 1 step, confidence 0.85\n
+   2.137s out   assumes: The failing test is caused by add() subtracting.\n  1. Fix add() in src/calc.py so it adds -> src/calc.py\n
+   3.244s out [step 1] Fix add() in src/calc.py so it adds -> src/calc.py\n
+   3.260s out Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py?\n[y/N]: 
+   3.275s  in 'y\r'
+   3.275s out y\n
+   3.291s out --- src/calc.py ---\ndef add(a, b):\n    return a + b\n\n\n\n\n\n\n\n\n\n\n\ndef sub(a, b):\n    return a - b\n
+   4.166s out [step 1] done src/calc.py (0.9s)\n
+   4.341s out warning: provenance: 1 file(s) have no signature yet (src/calc.py). See\n
+   4.350s out   docs/PROVENANCE.md.\n  Done: 1 step ran; no tests were run.\n  changed: src/calc.py (+1 -1); unstaged, review with git diff\n
+   4.365s out   src/calc.py: lines 1-5 -> 1-5, +1 -1\n  1   def add(a, b):\n  2 -     return a - b\n  2 +     return a + b\n  3   \n  4   \n  5   def sub(a, b):\n  1 file, +1 -1\n  way back: /undo\n  verified: RACT
+  10.387s  in '/review\r'
+  10.388s out /review\n
+  10.406s out Hunk 1 of 1 in src/calc.py:\nsrc/calc.py: lines 1-5 -> 1-5, +1 -1\n1   def add(a, b):\n2 -     return a - b\n
+  10.406s out \n2 +     return a + b\n
+  10.407s out \n3\n
+  10.407s out \n4\n
+  10.407s out \n5   def sub(a, b):\n
+  10.407s out \na accept, r reject, e edit, s skip, A accept the rest of the file, R reject     \n
+  10.414s out \nthe rest of the file:
+  10.429s  in 'r\r'
+  10.429s out r\n
+  10.430s out \n
+  10.437s out src/calc.py: the turn's saved copy is back\n
+  10.445s out \nract>
+  12.449s  in '/diff\r'
+  12.449s  in '/exit\r'
+  12.449s out /diff\n
+  12.449s out \n
+  12.464s out ract> /exit\n
+  12.471s out \n
+  12.555s out 

@@ -289,6 +289,34 @@ def j4(tmp: Path, j: Journey) -> Recording:
         return rec
 
 
+def j5(tmp: Path, j: Journey) -> Recording:
+    # B-014c: the J4 fix, approved, then taken back hunk by hunk with /review.
+    with FakeModelServer("baseline_j4_today") as server:
+        ws = _workspace(tmp, "j5", git=True, files=CALC_FILES)
+        _configure(ws, server.base_url, "fake-coder")
+        rec = _interactive(
+            j,
+            ws,
+            [
+                ("line", "tests/test_calc.py::test_add fails, fix it"),
+                ("expect", r"\[y/N\]"),
+                ("line", "y"),
+                ("quiet", 6.0),
+                ("line", "/review"),
+                ("expect", r"reject\s+the\s+rest\s+of\s+the\s+file:"),
+                ("line", "r"),
+                ("quiet", 2.0),
+                ("line", "/diff"),
+                ("quiet", 2.0),
+            ],
+        )
+        j.note(
+            "src/calc.py after /review: "
+            + (ws / "src" / "calc.py").read_text(encoding="utf-8").replace("\n", "\\n")
+        )
+        return rec
+
+
 def j6(tmp: Path, j: Journey) -> Recording:
     with FakeModelServer("baseline_j6_today") as server:
         ws = _workspace(tmp, "j6", git=True, files=APP_FILES)
@@ -550,6 +578,7 @@ JOURNEYS: dict[str, tuple[str, Callable[[Path, Journey], Recording | None]]] = {
     "J2": ("Daily start in a configured repo", j2),
     "J3": ("Ask about the code (read-only)", j3),
     "J4": ("Fix the failing test", j4),
+    "J5": ("Review a change hunk by hunk", j5),
     "J6": ("Interrupt during a slow turn", j6),
     "J7": ("Resume an earlier session", j7),
     "J8": ("Headless use", j8),

@@ -122,6 +122,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   used, the findings stay advice and the summary says so.
 - `/diff` in the session shows the last turn's changes from the copies it saved, and `/undo
   list` shows each checkpoint with its time, its files and its turn.
+- `/review` in the session goes through the last turn's changes hunk by hunk: accept (`a`),
+  reject (`r`, the turn's saved copy of that hunk comes back), edit (`e`), skip (`s`), or
+  accept (`A`) or reject (`R`) the rest of the file. A file the turn created is removed when
+  rejected, a file it deleted can be restored, and `/undo` still reverses the whole turn
+  afterwards. The turn summary's way-back line names it.
 
 ### Changed
 
