@@ -20,7 +20,8 @@ from ract.session_turn import TurnRequest, run_turn
 from ract.turn_summary import names_a_test
 from tests.test_session_turn import _repo
 
-LAST_LINE = "not verified: RACT cannot run tests yet (slice c)"
+# B-112: the line now says why the named test did not run.
+LAST_LINE = "not verified: tier 3 is off: no grant"
 
 
 @pytest.mark.parametrize(
@@ -74,6 +75,7 @@ def test_wrights_failing_test_task_is_not_verified(
         "runs": [],
         "claims": [],
         "test_named": True,
+        "not_run_reason": "tier 3 is off: no grant",
     }
     lines = [line.strip() for line in text.strip().splitlines()]
     assert "verified: no" in lines

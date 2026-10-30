@@ -45,3 +45,9 @@ The audit records are kept in the project's coordination folder, which is not pa
 ## Declared, not enforced
 
 On Windows without WSL2, the sandbox backend does not enforce confinement. The stub backend emits `sandbox.unenforced` into the event log when it runs a command. Read every sandbox claim in this page and in the other documents as a declaration of intent unless the run record shows `sandbox.granted`.
+
+## Commands under a grant
+
+A command runs only under a signed tier-3 grant and, in `ask` mode, only after you answer its prompt (ADR-0048 D5, D6). It never runs through a shell; its environment is the scrubbed allowlist plus the rule's `env_extra`, with no `RACT_*` name except `RACT_RUN_ID`; its home folders are a temporary folder of the step. No backend confines commands yet on any platform, so the process, memory and CPU limits and "network off" are not enforced; the wall-clock timeout is. Each run is recorded in the project's `commands.jsonl` in the user state folder: command records are in the trace; they are not part of the signed Rootknot.
+
+`RACT_FAKE_RUNNER` names a JSON script of results that answers each command instead of running it. It exists for RACT's own tests and walkthroughs, which never run a command; every result it gives says `runner: fake`, and a fake run never makes a turn verified.

@@ -557,6 +557,15 @@ class PlainRenderer:
         for name in verification.get("no_project_code") or []:
             # B-120: a warning, never a verdict.
             self._line(f"  {safe_text(str(name))} does not use project code")
+        for run in verification.get("runs") or []:
+            self._line(
+                f"  ran: {safe_text(str(run.get('command', '')))}, exit {run.get('exit_code')}"
+            )
+        if verification.get("runs"):
+            # ADR-0048 D10, condition 4: said wherever the verdict speaks of a run.
+            from ract.tools.command import TRACE_NOTE
+
+            self._line(f"  {TRACE_NOTE}")
         for claim in verification.get("claims") or []:
             self._line(f'  the reply says "{claim}"; nothing in this turn checked that')
         self._citation_lines(d.get("citations") or {})
@@ -575,7 +584,8 @@ class PlainRenderer:
             )
         self._line("  " + self._cost_line(seconds))
         if test_named:
-            self._line("  not verified: RACT cannot run tests yet (slice c)")
+            why = verification.get("not_run_reason") or "no test ran"
+            self._line(f"  not verified: {safe_text(str(why))}")
 
     def _turn_diff(self, d: dict[str, Any]) -> list[str]:
         """The turn's diff lines, drawn from its backup and the project (B-014b).

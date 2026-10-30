@@ -189,6 +189,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   shows the grant. No platform confines commands yet, so every grant says `sandbox:
   best_effort` and RACT says so; the signing key stays unlocked in memory only where commands
   are confined (`unlock_window_minutes`), and `/permissions lock` closes it.
+- `run_tests` (ADR-0048 D4 to D6, B-112): under a signed grant's test rule, the model can run
+  the project's tests, and a request that names a failing test ends with that test run: the
+  verdict says it passed or failed and the summary shows the run. Every run asks first in a
+  session (`Run it once? [y/N]`), showing the full command, the resolved program, the folder,
+  network and that no sandbox confines it here; `--yolo` and runs with nobody to ask never run
+  one. Shells, inline code (`python -c`), `xargs`, `find -exec`, package publishing and RACT's
+  own governance never run; a program planted in the project does not satisfy a rule for the
+  real one. The command gets a scrubbed environment and its own home folder, stops at its time
+  limit, and is recorded in the project's `commands.jsonl`: command records are in the trace;
+  they are not part of the signed Rootknot. When the named test does not run, the summary's last
+  line says why.
 
 ### Changed
 

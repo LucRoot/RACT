@@ -173,6 +173,12 @@ class Executor:
     # The operator's answer to a tier-2 tool call (ADR-0047 D6, ADR-0048 D6),
     # set by the runner when someone can answer; None refuses every tier-2 call.
     tier_2_approver: Any = None
+    # B-112: the operator's answer to a tier-3 command (ADR-0048 D6), set by
+    # the runner when someone can answer; None refuses every tier-3 call.
+    tier_3_approver: Any = None
+    # The operator's project, whose .ract/policy.yaml is the grant; the step
+    # worktree never carries it (.ract/ stays out of the snapshot).
+    grant_root: Path | None = None
     # B-110 D6: asks the operator about each hunk a step proposes, before the
     # substrate applies it; set by the runner in the asking mode with
     # step_tools on. None applies the step as it is (auto-accept, --yolo).
@@ -1791,16 +1797,22 @@ class Executor:
                 )
 
             work = StepWork()
+            from ract.policy import tier3
+
+            context = tier3.for_project(
+                self.grant_root or self.project_dir, self.tier_3_approver
+            )
             try:
-                done = work_with_tools(
-                    complete,
-                    instruction,
-                    self.project_dir,
-                    budgets=self.step_tools,
-                    max_tokens=1024,
-                    approve_tier_2=self.tier_2_approver,
-                    work=work,
-                )
+                with tier3.bound(context):
+                    done = work_with_tools(
+                        complete,
+                        instruction,
+                        self.project_dir,
+                        budgets=self.step_tools,
+                        max_tokens=1024,
+                        approve_tier_2=self.tier_2_approver,
+                        work=work,
+                    )
             except Exception as exc:  # noqa: BLE001
                 info = classify_error(exc)
                 errors.append(f"{adapter.name}: {info.category} {info.message}")

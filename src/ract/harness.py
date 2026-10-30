@@ -394,6 +394,7 @@ class Harness:
         # the tier-0 tools, within the budgets in ract.yaml (``agent``).
         self.executor.read_tools = _read_tools_budgets(self.config)
         self.executor.step_tools = _step_tools_budgets(self.config)
+        self.executor.grant_root = self.project_dir
         # B-061c (ADR-0049 D14): the per-step review; off unless ract.yaml says.
         self.executor.review_mode = _review_mode(self.config)
         # v0.5.1 wiring module_03 (Lens C C-01) production wire-in.

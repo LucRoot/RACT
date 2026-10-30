@@ -77,6 +77,15 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "docs/PROVIDER_SETUP.md",
     ),
     EnvVar(
+        "RACT_FAKE_RUNNER",
+        "diagnostic",
+        "unset (commands run for real, under the grant)",
+        "ract.tools.command: a JSON script of results answers each command instead of running "
+        "it; every result says runner: fake and never counts as verified (B-112, tests and "
+        "walkthroughs only)",
+        "docs/SECURITY.md",
+    ),
+    EnvVar(
         "RACT_NO_NETWORK",
         "security",
         "unset (network allowed)",

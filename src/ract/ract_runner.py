@@ -18,6 +18,7 @@ from ract.approval_callback import (
     console_git_init_offer,
     console_proposed_reviewer,
     console_tier_2_choice,
+    console_tier_3_prompt,
     review_replaces_step_question,
     console_plan_approval,
     refuse_changes_callback,
@@ -623,6 +624,9 @@ def _run_ract(
         harness.executor.tier_2_approver = SessionApprovals(
             config_path.parent, session_id, console_tier_2_choice
         )
+        # A tier-3 command asks the operator at the terminal (ADR-0048 D6);
+        # --yolo and headless runs leave it unset, so tier 3 never runs there.
+        harness.executor.tier_3_approver = console_tier_3_prompt
         harness.git_init_offer = console_git_init_offer
         if harness.executor.step_tools is not None:
             # Proposed -> reviewed -> applied: each hunk is asked about before

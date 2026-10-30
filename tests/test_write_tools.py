@@ -175,6 +175,8 @@ def test_every_registered_tool_has_its_tier_pinned() -> None:
         "delete_file": T1,
         "move_file": T1,
         "apply_patch": T1,
+        # B-112: runs a command under the grant's test rule, asked first.
+        "run_tests": CapabilityTier.TIER_3_EXTERNAL,
     }
     assert {name: spec.tier for name, spec in REGISTRY.items()} == pinned
     for spec in REGISTRY.values():

@@ -147,9 +147,13 @@ def run_tool(
     try:
         tier = _call_tier(spec, args, Path(root))
         if tier is CapabilityTier.TIER_3_EXTERNAL:
-            raise ToolRefused(
-                f"{name} would act at tier 3", "tier 3 needs a signed grant"
-            )
+            # B-112 (ADR-0048 D6): only inside a step that carries the tier-3
+            # context (the grant, the operator who answers); the tool then
+            # checks the grant, the matcher and asks.
+            from ract.policy import tier3
+
+            if tier3.current() is None:
+                raise ToolRefused(f"{name} would act at tier 3", tier3.NO_GRANT_HINT)
         if tier is CapabilityTier.TIER_2_ENV and not (
             approve_tier_2 is not None and approve_tier_2(name, args)
         ):
@@ -195,9 +199,10 @@ def run_tool(
 
 
 from ract.tools.read import READ_TOOLS  # noqa: E402  (needs the names above)
+from ract.tools.tests_tool import RUN_TESTS  # noqa: E402
 from ract.tools.write import WRITE_TOOLS  # noqa: E402
 
-for _spec in (*READ_TOOLS, *WRITE_TOOLS):
+for _spec in (*READ_TOOLS, *WRITE_TOOLS, RUN_TESTS):
     register(_spec)
 
 __all__ = [

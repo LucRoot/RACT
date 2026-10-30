@@ -144,16 +144,23 @@ def _signatures(tools: dict[str, Any] | None = None) -> list[ToolSignature]:
 _GATE_TYPES = {str: str, int: int, bool: bool, float: float}
 
 
+def _gate_type(annotation: Any) -> type:
+    """The gate's type for a field: ``list`` for ``list[str]``, the member of an optional."""
+    import typing
+
+    origin = typing.get_origin(annotation)
+    if origin in (list, tuple, dict):
+        return origin
+    if origin is not None:  # a union such as ``str | None``
+        inner = [t for t in typing.get_args(annotation) if t is not type(None)]
+        return _gate_type(inner[0]) if inner else str
+    return _GATE_TYPES.get(annotation, str)
+
+
 def _gate_schema(spec: Any) -> ToolArgSchema:
     args = []
     for name, info in spec.args_model.model_fields.items():
-        annotation = info.annotation
-        inner = [
-            t
-            for t in getattr(annotation, "__args__", (annotation,))
-            if t is not type(None)
-        ]
-        type_ = _GATE_TYPES.get(inner[0] if inner else str, str)
+        type_ = _gate_type(info.annotation)
         args.append(
             ToolArgSpec(name=name, type_=type_, optional=not info.is_required())
         )
@@ -412,6 +419,24 @@ def _used_tokens(raw: Any) -> int:
     )
 
 
+def _note_written(changes: list[dict[str, Any]]) -> None:
+    """Tell the step's tier-3 context which files this step wrote (ADR-0048 D4).
+
+    A command whose arguments name one of them always asks.
+    """
+    from ract.policy import tier3
+
+    context = tier3.current()
+    if context is None:
+        return
+    for change in changes:
+        for path in [change.get("path"), change.get("destination")] + [
+            f.get("path") for f in change.get("files") or []
+        ]:
+            if path:
+                context.model_written.add(str(path))
+
+
 def _drive(
     complete: Complete,
     messages: list[dict[str, Any]],
@@ -520,6 +545,7 @@ def _drive(
                         for fact in (facts_out or [])[before:]
                         if tools[fact["tool"]].mutates
                     ]
+                    _note_written(work.changes)
                     failed = not ok
                 if not ok and guard.record_failure(call, text):
                     summarize = True

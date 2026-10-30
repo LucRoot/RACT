@@ -515,18 +515,33 @@ def run_turn(
         unsigned: list[str],
         claims: list[str] | None = None,
         answer: str | None = None,
+        runs: list[Any] | None = None,
+        not_run_reason: str = "",
     ) -> None:
-        # The harness runs no checks in a turn yet (ADR-0049 D4: the
-        # VERIFIER is harness code), so the record holds no runs and every
-        # success claim in the answer stays reported, not believed.
-        verification = VerificationRecord().result(claims or []).to_event()
+        # The VERIFIER is harness code (ADR-0049 D4): only the runs the
+        # harness made count, and a run by the scripted runner never does.
+        record = VerificationRecord()
+        fake = [r for r in runs or [] if r.runner == "fake"]
+        for run in runs or []:
+            if run.runner != "fake":
+                code = run.exit_code if run.exit_code is not None else -1
+                record.record(
+                    run.argv, code if run.killed_by is None else -1, run.duration_ms
+                )
+        verification = record.result(claims or []).to_event()
+        if fake:
+            verification["fake_runs"] = len(fake)
         if verification.get("status") == "not-run" and turn_summary.names_a_test(
             request.intent
         ):
-            # B-121: a request about a failing test that ran no test is not
-            # verified; B-112 (run_tests) removes this when it lands. Present
-            # only when true, so the object is unchanged for every other turn.
+            # B-121, now with B-112's reason: the request named a test and no
+            # real run backs the turn. Present only then.
             verification["test_named"] = True
+            verification["not_run_reason"] = not_run_reason or (
+                "the scripted runner answered; no command ran"
+                if fake
+                else "no test ran"
+            )
         # B-120: a new or rewritten test file that never touches project code.
         no_project_code = _tests_without_project_code(project, changed or [])
         if no_project_code:
@@ -577,6 +592,8 @@ def run_turn(
 
     value = result.unwrap()
     unsigned: list[str] = []
+    runs: list[Any] = []
+    not_run_reason = ""
     if request.dry_run or not hasattr(value, "step_results"):
         if not reporter.plan_reported:
             stream.emit("plan.proposed", plan_event_data(value), turn=turn)
@@ -595,6 +612,21 @@ def run_turn(
         unsigned = list(getattr(value, "unsigned_artifacts", []))
         n = len(value.step_results)
         verdict = f"Done: {n} step{'s' if n != 1 else ''} ran; no tests were run."
+        if turn_summary.names_a_test(request.intent):
+            # J4 (B-112): the named test runs, under the grant, asked first.
+            from ract.approval_callback import console_tier_3_prompt
+            from ract.policy.verify import run_named_tests
+
+            runs, not_run_reason = run_named_tests(
+                project, request.intent, console_tier_3_prompt if request.auto else None
+            )
+            real = [r for r in runs if r.runner != "fake"]
+            if real:
+                passed = all(r.passed for r in real)
+                verdict = (
+                    f"Done: {n} step{'s' if n != 1 else ''} ran; the named test "
+                    + ("passed." if passed else "failed.")
+                )
     if unsigned:
         stream.emit(
             "notice",
@@ -607,7 +639,15 @@ def run_turn(
         for sr in getattr(value, "step_results", [])
         if not sr.step.expected_artifact and sr.step.tool_call is None
     )
-    finished("done", verdict, unsigned, turn_summary.unverified_claims(answer), answer)
+    finished(
+        "done",
+        verdict,
+        unsigned,
+        turn_summary.unverified_claims(answer),
+        answer,
+        runs=runs,
+        not_run_reason=not_run_reason,
+    )
     return 0
 
 

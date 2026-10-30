@@ -153,6 +153,44 @@ def console_proposed_reviewer(path: str, before: bytes | None, after: bytes | No
     return review_proposed_file(path, before, after, ask, print, width)
 
 
+def console_tier_3_prompt(facts: dict) -> bool:
+    """Ask the operator before a tier-3 command runs (ADR-0048 D6). True on yes.
+
+    LR:: The prompt shows the full argv with control characters made
+    visible, the resolved executable, the folder, network on or off and
+    that no sandbox confines it here; the model's reason is labeled as the
+    model's. Only "y" or "yes" typed at the console runs it, once.
+    """
+    from ract.session_events import safe_text
+
+    argv = " ".join(safe_text(str(a)) for a in facts.get("argv", []))
+    _print_wrapped(f"Tier 3: run a command? {argv}")
+    _print_wrapped(
+        f"  executable: {safe_text(str(facts.get('executable') or 'not resolved'))}"
+    )
+    _print_wrapped(f"  in: {safe_text(str(facts.get('cwd', '')))}")
+    _print_wrapped(f"  network: {safe_text(str(facts.get('network', 'off')))}")
+    _print_wrapped(f"  sandbox: {safe_text(str(facts.get('sandbox', '')))}")
+    _print_wrapped(
+        f"  rule: {safe_text(str(facts.get('rule') or 'none'))} ({safe_text(str(facts.get('why', '')))})"
+    )
+    for note in facts.get("notes") or []:
+        _print_wrapped(f"  note: {safe_text(str(note))}")
+    if facts.get("reason"):
+        _print_wrapped(f"  the model's reason: {safe_text(str(facts['reason']))}")
+    question_gate.open_question()
+    try:
+        response = read_line("Run it once? [y/N]: ").strip().lower()
+    except EOFError:
+        return False
+    except KeyboardInterrupt:
+        print()
+        raise
+    finally:
+        question_gate.close_question()
+    return response in {"y", "yes"}
+
+
 def console_git_init_offer(command: str, count: int, left_out: list[str]) -> bool:
     """Offer ``git init`` at the console, as a tier-2 action (B-110 D6). True on yes."""
     from ract.session_events import safe_text
