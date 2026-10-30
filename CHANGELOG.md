@@ -120,6 +120,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the step once, as untrusted advice, and the step is written again through every check a step
   passes. A step retries at most twice in all (a reply cut off at the limit counts); with that
   used, the findings stay advice and the summary says so.
+- `/diff` in the session shows the last turn's changes from the copies it saved, and `/undo
+  list` shows each checkpoint with its time, its files and its turn.
 
 ### Changed
 

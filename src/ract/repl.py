@@ -74,9 +74,11 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
         "/mode [plan|default|auto-accept]",
         "plan: propose only; default: ask before each change; auto-accept: apply changes.",
     ),
+    ("/diff", "Show the last turn's changes, from the copies it saved."),
     (
-        "/undo [--force]",
-        "Reverse the last turn's file changes (skips files you edited since).",
+        "/undo [--force|list]",
+        "Reverse the last turn's file changes (skips files you edited since); "
+        "list shows each checkpoint.",
     ),
     ("/redo [--force]", "Reverse the last /undo."),
     ("/doctor [--check-providers]", "Run setup diagnostics against the active config."),
@@ -217,6 +219,7 @@ class ReplSession:
             "permissions": self._cmd_permissions,
             "queue": self._cmd_queue,
             "undo": self._cmd_undo,
+            "diff": self._cmd_diff,
             "redo": self._cmd_redo,
             "clear": self._cmd_clear,
         }
@@ -393,9 +396,62 @@ class ReplSession:
         self._run_verb("report", args or ["--last"])
         return True
 
+    # B-085: the summary's caps (standard 13).
+    _DIFF_FILES = 20
+    _DIFF_LINES = 2000
+
+    def _cmd_diff(self, args: list[str]) -> bool:
+        """The last turn's diff, read from its saved copies (B-085)."""
+        from ract import undo_backup
+        from ract.diff_render import draw_turn_diff
+
+        turn, changes, notes = undo_backup.last_turn_changes(
+            self.state.config.resolve().parent
+        )
+        if turn is None:
+            self._print_wrapped("no turn has changed a file yet")
+            return True
+        for note in notes:
+            self._print_wrapped(safe_text(note))
+        lines = draw_turn_diff(
+            changes[: self._DIFF_FILES],
+            width=self._render_width(),
+            max_lines=self._DIFF_LINES,
+        )
+        for line in lines:
+            self._console.print(escape(line))
+        if len(changes) > self._DIFF_FILES:
+            self._print_wrapped(
+                f"{len(changes) - self._DIFF_FILES} more changed files are not shown"
+            )
+        return True
+
+    def _undo_list(self) -> bool:
+        """Each checkpoint: time, kind, turn and the files it holds (B-085)."""
+        from ract import undo_backup
+
+        rows = undo_backup.checkpoints(self.state.config.resolve().parent)
+        if not rows:
+            self._print_wrapped(
+                "no checkpoints yet: a turn that changes a file makes one"
+            )
+            return True
+        for row in rows:
+            files = [*row["saved"], *row["created"]]
+            shown = ", ".join(safe_text(f) for f in files[:5])
+            more = f" and {len(files) - 5} more" if len(files) > 5 else ""
+            state = " (undone)" if row["done"] else ""
+            self._print_wrapped(
+                f"{row['time']} {row['kind']} {safe_text(row['turn'])}{state}: "
+                f"{len(files)} file{'s' if len(files) != 1 else ''}: {shown}{more}"
+            )
+        return True
+
     def _cmd_undo(self, args: list[str]) -> bool:
         from ract import undo_backup
 
+        if args[:1] == ["list"]:
+            return self._undo_list()
         result = undo_backup.undo(
             self.state.config.resolve().parent, force="--force" in args
         )

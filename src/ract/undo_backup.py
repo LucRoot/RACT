@@ -331,6 +331,87 @@ def previous_version(
     return saved.read_bytes()
 
 
+def _stamp_time(turn_id: str) -> str:
+    """The local time a turn id was made, as ``YYYY-MM-DD HH:MM``, or "" when unreadable."""
+    try:
+        made = datetime.strptime(turn_id.split("-", 1)[0], "%Y%m%dT%H%M%S%fZ")
+    except ValueError:
+        return ""
+    return made.replace(tzinfo=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+
+
+def _names(value: object) -> list[str]:
+    return [p for p in value if isinstance(p, str)] if isinstance(value, list) else []
+
+
+def checkpoints(root: Path | str) -> list[dict[str, Any]]:
+    """Each saved turn of this repository, newest first (B-085, ``/undo list``).
+
+    Each row: ``turn`` (the folder's name), ``time``, ``kind`` (turn, undo or
+    redo), ``saved`` and ``created`` (relative paths), ``done`` (undone).
+    Only folders whose manifest names this repository are listed.
+    """
+    base = Path(os.path.realpath(root))
+    rows = [
+        {
+            "turn": folder.name,
+            "time": _stamp_time(folder.name),
+            "kind": str(data.get("kind") or "turn"),
+            "saved": _names(data.get("saved")),
+            "created": _names(data.get("created")),
+            "done": bool(data.get("done")),
+        }
+        for folder, data in _manifests(base)
+    ]
+    rows.reverse()
+    return rows
+
+
+def last_turn_changes(
+    root: Path | str,
+) -> tuple[str | None, list[tuple[str, str | None, str | None]], list[str]]:
+    """The last turn's files as ``(path, before, after)``, and a note per file that cannot be shown.
+
+    LR:: ``/diff`` (B-085) draws these with the turn summary's renderer.
+    ``before`` comes from the turn's saved copy through ``previous_version``
+    (every check it makes applies); ``after`` is the file now, or None when it
+    is gone. A path from a manifest is not trusted: one that fails
+    ``check_entry`` is a note, never a read.
+    """
+    base = Path(os.path.realpath(root))
+    turns = [
+        row for row in checkpoints(base) if row["kind"] == "turn" and not row["done"]
+    ]
+    if not turns:
+        return None, [], []
+    last = turns[0]
+    changes: list[tuple[str, str | None, str | None]] = []
+    notes: list[str] = []
+
+    def now(key: str) -> str | None:
+        target = base / key
+        if target.is_symlink() or not target.is_file():
+            return None
+        return target.read_bytes().decode("utf-8", errors="replace")
+
+    for key in [*last["saved"], *last["created"]]:
+        if check_entry(base, base, key) is not None:
+            notes.append(f"diff not available for {key}")
+            continue
+        before: str | None = None
+        if key in last["saved"]:
+            try:
+                saved = previous_version(base, last["turn"], key)
+            except ValueError:
+                saved = None
+            if saved is None:
+                notes.append(f"diff not available for {key}")
+                continue
+            before = saved.decode("utf-8", errors="replace")
+        changes.append((key, before, now(key)))
+    return last["turn"], changes, notes
+
+
 def _manifests(root: Path) -> list[tuple[Path, dict[str, Any]]]:
     undo = turns_dir(root)
     if not undo.is_dir():
