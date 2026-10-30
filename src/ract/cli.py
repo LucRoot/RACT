@@ -1549,13 +1549,21 @@ def _doctor_env(*, json_output: bool) -> int:
         {"name": var.name, "class": var.cls, "set": bool(os.environ.get(var.name))}
         for var in env_registry.ENV_VARS
     ]
+    # G-215 C5: the runner in effect, so a fake run never reads as a real one.
+    fake = bool(os.environ.get("RACT_FAKE_RUNNER"))
+    runner = "fake" if fake else "process"
     if json_output:
-        print(json.dumps({"variables": rows}, indent=2))
+        print(json.dumps({"variables": rows, "runner": runner}, indent=2))
         return 0
     print(f"{'name':28} {'class':12} state")
     for row in rows:
         state = "set" if row["set"] else "not set"
         print(f"{row['name']:28} {row['class']:12} {state}")
+    if fake:
+        print(
+            "\nrunner: fake (RACT_FAKE_RUNNER is set): no command runs, every result "
+            "says runner: fake and none counts as verified"
+        )
     return 0
 
 

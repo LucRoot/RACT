@@ -23,6 +23,7 @@ only when every argument is plain. Everything else asks in ``ask`` mode;
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 from dataclasses import dataclass, field
@@ -117,6 +118,22 @@ class Match:
     rule_id: str | None = None
     repository_code: bool = False
     notes: tuple[str, ...] = field(default=())
+    # G-215 C3: the executable's SHA-256 when it was resolved, so the run can
+    # refuse a file that changed between the classification and the spawn.
+    executable_sha256: str | None = None
+
+
+def file_digest(path: str) -> str | None:
+    """The SHA-256 of the file at *path*, read in chunks, or None if it cannot be read."""
+    digest = hashlib.sha256()
+    try:
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1_048_576), b""):
+                digest.update(chunk)
+    except OSError as exc:
+        print(f"[matcher] the executable was not hashed: {exc}", flush=True)
+        return None
+    return digest.hexdigest()
 
 
 def _name(arg: str) -> str:
@@ -429,6 +446,7 @@ def classify(
                 rule.id,
                 in_repo,
                 tuple(notes),
+                file_digest(executable),
             )
     return Match(
         "asks",
@@ -438,7 +456,8 @@ def classify(
         None,
         in_repo,
         tuple(notes),
+        file_digest(executable),
     )
 
 
-__all__ = ["Match", "classify"]
+__all__ = ["Match", "classify", "file_digest"]
