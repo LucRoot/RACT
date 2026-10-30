@@ -77,6 +77,13 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "docs/PROVIDER_SETUP.md",
     ),
     EnvVar(
+        "RACT_NO_NETWORK",
+        "security",
+        "unset (network allowed)",
+        "ract.egress_ledger: any value but 0, false, no or off refuses every non-loopback request (V7-06)",
+        "docs/EGRESS.md",
+    ),
+    EnvVar(
         "RACT_EMBED_ONLINE",
         "security",
         "unset (no model download)",
