@@ -170,6 +170,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The tier-2 question takes `y` (once), `s` (the same files for the rest of this session) or
   no. An allowance for the session lives in memory only: `/resume` and a new process start
   without it, and the question then says "approvals from session <id> do not carry over".
+- With `agent.step_tools: true`, a step that would change files in a folder that is not a git
+  repository first offers, as a tier-2 action, to run `git init` and commit the current files,
+  with the count and the sensitive names it leaves out (`.env` and other secret-shaped names
+  are never committed). On no, or with nobody to ask, nothing is changed and RACT says how to
+  enable edits later; questions about the code work without it.
 
 ### Changed
 

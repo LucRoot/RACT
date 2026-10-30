@@ -732,6 +732,41 @@ class Harness:
             lines.append(r.content)
         return "\n".join(lines)
 
+    # B-110 D6: asks whether to make a non-repository folder a git repository;
+    # set by the runner when someone can answer. None declines.
+    git_init_offer: Any = None
+
+    def _offer_git_init(self) -> Rooted[Any] | None:
+        """The git init offer (ADR-0047 D6): None when the folder is now a repository.
+
+        LR:: Shown as a tier-2 action with the exact command, the number of
+        files and the sensitive names left out. Only the operator's yes runs
+        it; with nobody to ask, or on no, nothing is changed and the error
+        says how to enable edits later.
+        """
+        from ract.executor.worktree import INIT_COMMAND, init_preview, init_repository
+
+        assert self.project_dir is not None
+        count, left_out = init_preview(self.project_dir)
+        offer = self.git_init_offer
+        if offer is None or not offer(INIT_COMMAND, count, left_out):
+            return _git_init_declined(
+                "nobody could answer the offer to make it one"
+                if offer is None
+                else "you declined `git init`"
+            )
+        try:
+            init_repository(self.project_dir)
+        except WorktreeError as exc:
+            return _git_init_declined(f"git init did not finish ({exc})")
+        print(
+            f"note: made this folder a git repository with {count} "
+            f"file{'s' if count != 1 else ''} committed"
+            + (f"; left out: {', '.join(left_out[:5])}" if left_out else ""),
+            flush=True,
+        )
+        return None
+
     def run(
         self,
         intent: str,
@@ -966,6 +1001,17 @@ class Harness:
                 substrate_ready = True
             except WorktreeError:
                 legacy_reason = "this directory is not a git repository"
+                plan_writes_files = any(
+                    step.expected_artifact and step.tool_call is None
+                    for step in plan.steps
+                )
+                if self.executor.step_tools is not None and plan_writes_files:
+                    # B-110 D6: edits need a worktree, so the first change is an
+                    # offer to make this folder a repository (tier 2).
+                    offered = self._offer_git_init()
+                    if offered is not None:
+                        return offered
+                    substrate_ready = True
         if self.project_dir is not None and not (use_substrate and substrate_ready):
             # LR:: The in-place path has no worktree, no step branch and no
             # rollback point. It used to be taken silently, including after
@@ -1169,6 +1215,23 @@ def _read_tools_budgets(config: dict[str, Any]) -> Any:
         max_tool_calls=int(number("max_tool_calls", defaults.max_tool_calls)),
         max_wall_seconds=float(number("max_wall_seconds", defaults.max_wall_seconds)),
         max_tokens_per_step=int(number("max_tokens_per_step", 0)) or None,
+    )
+
+
+def _git_init_declined(why: str) -> Rooted[Any]:
+    return Rooted(
+        value=None,
+        assumption="This folder is a git repository, or the operator made it one.",
+        confidence=0.0,
+        provenance=["harness.git_init_offer"],
+        error=(
+            f"Nothing was changed: this folder is not a git repository and {why}. "
+            "RACT edits in a worktree, which needs one."
+        ),
+        hint=(
+            "run `git init` and commit your files, or answer yes to the offer next "
+            "time; questions about the code work without it"
+        ),
     )
 
 

@@ -1142,6 +1142,93 @@ def reviewed_commit(repo: Path, after: str, kept: dict[str, bytes | None]) -> st
             print(f"[worktree] temporary index not removed: {exc}", flush=True)
 
 
+INIT_COMMAND = (
+    "git init, then git add of the current files (sensitive files left out) "
+    'and git commit -m "ract: initial commit of the current files"'
+)
+
+
+def init_preview(root: Path) -> tuple[int, list[str]]:
+    """What ``init_repository`` would commit: the file count and the names left out.
+
+    Read-only: walks the folder (no ``.git`` yet), skipping ``.ract/`` and
+    secret-shaped names the way the base snapshot does.
+    """
+    count = 0
+    left_out: list[str] = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        name = path.relative_to(root).as_posix()
+        if name.split("/", 1)[0] == ".git":
+            continue
+        if _is_snapshot_excluded(name):
+            if name.split("/", 1)[0] != ".ract":
+                left_out.append(name)
+            continue
+        count += 1
+    return count, left_out
+
+
+def init_repository(root: Path) -> list[str]:
+    """``git init`` plus an initial commit of the current files; the names left out.
+
+    LR:: ADR-0047 D6: offered as a tier-2 action when a step would change files
+    in a folder that is not a repository, and run only on the operator's yes.
+    Sensitive files (secret-shaped names, ``.ract/``) are not added, so they
+    never reach a worktree; ``.gitignore`` is honored. RACT's identity, no
+    operator hook, no signing. Raises ``WorktreeError`` when git fails.
+    """
+    done = _git_in(root, "init", "-q")
+    if done.returncode != 0:
+        raise WorktreeError(f"git init failed: {done.stderr.strip()}")
+    names = _untracked_files(root)
+    keep = [n for n in names if not _is_snapshot_excluded(n)]
+    left_out = [
+        n for n in names if _is_snapshot_excluded(n) and not n.startswith(".ract/")
+    ]
+    env = ract_commit_env()
+    for start in range(0, len(keep), 200):
+        added = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                *_no_hooks(),
+                "add",
+                "--",
+                *keep[start : start + 200],
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+        if added.returncode != 0:
+            raise WorktreeError(f"git add failed: {added.stderr.strip()}")
+    committed = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            *_no_hooks(),
+            *_NO_SIGNING,
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "ract: initial commit of the current files",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    if committed.returncode != 0:
+        raise WorktreeError(f"git commit failed: {committed.stderr.strip()}")
+    return left_out
+
+
 CHECKPOINT_REFS = "refs/ract/checkpoints"
 
 

@@ -153,6 +153,32 @@ def console_proposed_reviewer(path: str, before: bytes | None, after: bytes | No
     return review_proposed_file(path, before, after, ask, print, width)
 
 
+def console_git_init_offer(command: str, count: int, left_out: list[str]) -> bool:
+    """Offer ``git init`` at the console, as a tier-2 action (B-110 D6). True on yes."""
+    from ract.session_events import safe_text
+
+    _print_wrapped(
+        "Tier 2: this folder is not a git repository. RACT makes changes in a "
+        "worktree, which needs one. It would run: " + command + "."
+    )
+    _print_wrapped(f"{count} file{'s' if count != 1 else ''} would be committed.")
+    if left_out:
+        shown = ", ".join(safe_text(n) for n in left_out[:5])
+        more = f" and {len(left_out) - 5} more" if len(left_out) > 5 else ""
+        _print_wrapped(f"Left out as sensitive: {shown}{more}.")
+    question_gate.open_question()
+    try:
+        response = read_line("Make it a git repository? [y/N]: ").strip().lower()
+    except EOFError:
+        return False
+    except KeyboardInterrupt:
+        print()
+        raise
+    finally:
+        question_gate.close_question()
+    return response in {"y", "yes"}
+
+
 def review_replaces_step_question(
     base: ConsoleApprovalCallback,
 ) -> ConsoleApprovalCallback:
