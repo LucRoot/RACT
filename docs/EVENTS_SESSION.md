@@ -141,6 +141,7 @@ next turn (`turn.started` with `queued: true`).
 |---|---|---|
 | `status` | `verified`, `failed`, `stale`, `no-tests`, `not-run` | `verified`: tests ran after the last change and passed. `failed`: a check ran after the last change and failed. `stale`: they passed before a later change. `no-tests`: the project has none RACT can find. `not-run`: tests exist and did not run. |
 | `runs` | list of `{command, exit_code, duration_ms}` | Each test or check command the harness ran in this turn, in order. |
+| `no_project_code` | list of paths, present only when not empty | Test files the turn created or rewrote that import no module of the project and start no process, so they cannot exercise project code (for example a test that defines the value it checks). A warning shown next to the verified line; it never makes a turn verified. |
 | `claims` | list of strings | Claims in the turn's answer text that a verifier run would have to back (`tests pass`, `verified`, `tested`) and that nothing in the turn checked. Instructions and conditions ("check that the tests pass") are not claims. |
 | `test_named` | `true`, present only with `not-run` | True when the request names a test (a test file, a test function, a node id) or says a test fails. RACT cannot run tests yet (slice c), so such a turn is not verified: the summary says `verified: no` and ends with "not verified: RACT cannot run tests yet (slice c)". |
 

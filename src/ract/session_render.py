@@ -552,6 +552,9 @@ class PlainRenderer:
             self._line("  verified: RACT ran no tests this turn")
         else:
             self._line(f"  verified: {verification.get('status')}")
+        for name in verification.get("no_project_code") or []:
+            # B-120: a warning, never a verdict.
+            self._line(f"  {safe_text(str(name))} does not use project code")
         for claim in verification.get("claims") or []:
             self._line(f'  the reply says "{claim}"; nothing in this turn checked that')
         self._citation_lines(d.get("citations") or {})

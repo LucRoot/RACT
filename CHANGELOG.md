@@ -190,6 +190,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A test file a turn creates or rewrites that imports nothing of the project and starts no
+  process (a test that defines the value it checks) is named next to the verified line: "tests/
+  test_notes.py does not use project code". It is a warning; nothing is refused, and it never
+  makes a turn verified. `turn.finished` carries `verification.no_project_code`.
 - A request that names a test or says one fails (`tests/test_calc.py::test_add fails, fix
   it`) no longer ends on a plain "Done" while RACT runs no tests: the summary says `verified:
   no` and its last line is "not verified: RACT cannot run tests yet (slice c)". The

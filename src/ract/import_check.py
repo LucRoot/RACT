@@ -116,6 +116,82 @@ def _missing_module(
     return True
 
 
+# Calls that may start the project as a process (its CLI, a script): a test
+# that makes one may test project code without importing it.
+_PROCESS_CALLS = frozenset(
+    {
+        "run",
+        "Popen",
+        "call",
+        "check_call",
+        "check_output",
+        "system",
+        "popen",
+        "spawn",
+        "invoke",
+        "create_subprocess_exec",
+        "create_subprocess_shell",
+    }
+)
+
+
+def is_test_file(path: str) -> bool:
+    """A Python test file by pytest's usual names, or anything under a tests folder."""
+    posix = path.replace("\\", "/")
+    name = posix.rsplit("/", 1)[-1]
+    if not name.endswith(".py") or name == "__init__.py" or name == "conftest.py":
+        return False
+    return (
+        name.startswith("test_")
+        or name.endswith("_test.py")
+        or "/tests/" in f"/{posix}"
+        or "/test/" in f"/{posix}"
+    )
+
+
+def uses_project_code(root: Path | str, path: str, text: str) -> bool | None:
+    """Whether a test file imports a project module or may start a project process (B-120).
+
+    LR:: On the hosted model a written test defined ``NOTE = "two"`` itself
+    and never imported the module it was meant to test: it checked a copy.
+    What a test means cannot be decided statically, but a test file that
+    imports nothing of the project and starts no process cannot exercise
+    project code. Relative imports count as the project's; ``conftest``
+    fixtures are not seen here, so this is a warning and never a verdict.
+    None when the file does not parse.
+    """
+    root = Path(root)
+    try:
+        tree = ast.parse(text.lstrip("\ufeff"))
+    except (SyntaxError, ValueError):
+        return None
+    roots = [root / sub if sub else root for sub in _SOURCE_ROOTS]
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level:
+                return True
+            first = (node.module or "").split(".")[0]
+            if any(_is_project_path(root, b, first, set()) for b in roots):
+                return True
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                first = alias.name.split(".")[0]
+                if any(_is_project_path(root, b, first, set()) for b in roots):
+                    return True
+        elif isinstance(node, ast.Call):
+            func = node.func
+            name = (
+                func.attr
+                if isinstance(func, ast.Attribute)
+                else func.id
+                if isinstance(func, ast.Name)
+                else ""
+            )
+            if name in _PROCESS_CALLS:
+                return True
+    return False
+
+
 def _nested_statements(node: ast.stmt) -> list[ast.stmt]:
     """The statements under a top-level if, try, with, for or while."""
     out: list[ast.stmt] = []

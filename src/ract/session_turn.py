@@ -288,6 +288,27 @@ def _changed(
     return sorted(p for p in paths if not p.startswith(".ract/"))
 
 
+def _tests_without_project_code(project: Path, changed: list[str]) -> list[str]:
+    """The changed test files that import no project module and start no process (B-120)."""
+    from ract.import_check import is_test_file, uses_project_code
+
+    found: list[str] = []
+    for name in changed:
+        if not is_test_file(name):
+            continue
+        target = project / name
+        try:
+            if target.is_symlink() or not target.is_file():
+                continue
+            text = target.read_bytes().decode("utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            print(f"[session_turn] {name} not read for B-120: {exc}", flush=True)
+            continue
+        if uses_project_code(project, name, text) is False:
+            found.append(name)
+    return found
+
+
 def _workspace_line(changed: list[str] | None) -> str:
     if changed is None:
         return "file changes are not tracked here (not a git repository)"
@@ -506,6 +527,10 @@ def run_turn(
             # verified; B-112 (run_tests) removes this when it lands. Present
             # only when true, so the object is unchanged for every other turn.
             verification["test_named"] = True
+        # B-120: a new or rewritten test file that never touches project code.
+        no_project_code = _tests_without_project_code(project, changed or [])
+        if no_project_code:
+            verification["no_project_code"] = no_project_code
         stream.emit(
             "turn.finished",
             {
