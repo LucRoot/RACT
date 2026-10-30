@@ -572,21 +572,27 @@ class ReplSession:
 
     def _cmd_checkpoint(self, args: list[str]) -> bool:
         """``/checkpoint``: each checkpoint numbered, newest first (B-110 D6)."""
+        from ract.ui.workspace_screens import Checkpoint, checkpoint_lines
+
         rows = self._turn_checkpoints()
+        # MASON's view (B-110 D6); 1 is the newest, as /restore N counts.
+        for line in checkpoint_lines(
+            [
+                Checkpoint(
+                    number=n,
+                    when=row["time"],
+                    turn=row["turn"],
+                    files=len([*row["saved"], *row["created"]]),
+                    undone=bool(row["done"]),
+                    names=tuple(str(f) for f in [*row["saved"], *row["created"]]),
+                )
+                for n, row in enumerate(rows, start=1)
+            ],
+            self._render_width(),
+        ):
+            self._print_wrapped(line)
         if not rows:
-            self._print_wrapped(
-                "no checkpoints yet: a turn that changes a file makes one"
-            )
             return True
-        for n, row in enumerate(rows, start=1):
-            files = [*row["saved"], *row["created"]]
-            shown = ", ".join(safe_text(f) for f in files[:3])
-            more = f" and {len(files) - 3} more" if len(files) > 3 else ""
-            state = " (undone)" if row["done"] else ""
-            self._print_wrapped(
-                f"{n}. {row['time']}{state}: {len(files)} "
-                f"file{'s' if len(files) != 1 else ''}: {shown}{more}"
-            )
         self._print_wrapped(
             "/restore N goes back to checkpoint N; /undo reverses the newest"
         )

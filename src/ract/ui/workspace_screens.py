@@ -59,6 +59,8 @@ class Checkpoint:
     turn: str
     files: int
     undone: bool = False
+    # The files the checkpoint saved or created, as /checkpoint names them.
+    names: tuple[str, ...] = ()
 
 
 def _fold(text: str, width: int, indent: str = "    ") -> list[str]:
@@ -130,15 +132,22 @@ def apply_result_lines(result: ApplyResult, width: int) -> list[str]:
 
 
 def checkpoint_lines(checkpoints: list[Checkpoint], width: int) -> list[str]:
-    """``/checkpoint``: newest first, one line per checkpoint, the undone ones marked."""
+    """``/checkpoint``: one line per checkpoint, the undone ones marked.
+
+    In the order given, which is the session's: 1 is the newest, the number
+    ``/restore N`` takes. At most three file names are shown per line.
+    """
     if not checkpoints:
-        return ["no checkpoints in this session"]
+        return ["no checkpoints yet: a turn that changes a file makes one"]
     out: list[str] = []
-    for cp in sorted(checkpoints, key=lambda c: c.number, reverse=True):
+    for cp in checkpoints:
         mark = " (undone)" if cp.undone else ""
         files = "file" if cp.files == 1 else "files"
+        shown = ", ".join(safe_text(name) for name in cp.names[:3])
+        more = f" and {len(cp.names) - 3} more" if len(cp.names) > 3 else ""
         out += _fold(
-            f"{cp.number} {cp.when} {safe_text(cp.turn)}: {cp.files} {files}{mark}",
+            f"{cp.number}. {cp.when}{mark}: {cp.files} {files}"
+            + (f": {shown}{more}" if cp.names else ""),
             width,
             indent="  ",
         )

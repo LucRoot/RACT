@@ -91,21 +91,32 @@ def test_a_single_hunk_is_singular() -> None:
 
 @pytest.mark.parametrize("width", WIDTHS)
 def test_checkpoints_are_newest_first_and_mark_the_undone_ones(width: int) -> None:
+    # The session's numbering: 1 is the newest, the number /restore N takes.
     lines = checkpoint_lines(
         [
-            Checkpoint(number=1, when="10:00", turn="t-1", files=1),
-            Checkpoint(number=2, when="10:05", turn="t-2", files=3, undone=True),
+            Checkpoint(
+                number=1,
+                when="10:05",
+                turn="t-2",
+                files=3,
+                undone=True,
+                names=("a.py", "b.py", "c.py"),
+            ),
+            Checkpoint(number=2, when="10:00", turn="t-1", files=1, names=("a.py",)),
         ],
         width,
     )
     for line in lines:
         assert len(line) <= width, line
-    assert lines[0].startswith("2 ") and "(undone)" in lines[0]
-    assert lines[-1].startswith("1 ") and "(undone)" not in lines[-1]
+    assert lines[0].startswith("1. ") and "(undone)" in lines[0]
+    assert lines[-1].startswith("2. ") and "(undone)" not in lines[-1]
+    assert "1 file: a.py" in " ".join(lines)
 
 
 def test_no_checkpoint_says_so() -> None:
-    assert checkpoint_lines([], 80) == ["no checkpoints in this session"]
+    assert checkpoint_lines([], 80) == [
+        "no checkpoints yet: a turn that changes a file makes one"
+    ]
 
 
 @pytest.mark.parametrize("width", WIDTHS)
