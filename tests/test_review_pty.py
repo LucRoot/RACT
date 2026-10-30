@@ -48,12 +48,9 @@ def test_review_rejects_the_fix_and_undo_stays_true(
     finally:
         if session.alive():
             session.send_line("/exit")
-        rec = session.close(timeout=15)
+        session.close(timeout=15)
     assert (ws / "src" / "calc.py").read_text(encoding="utf-8") == before
-    # The card's width rule is for /review's own output: from the command to its
-    # last line. The banner is not B-014c's, and ConPTY can repaint it later.
-    hunk = rec.plain.index("Hunk 1 of 1")
-    start = rec.plain.rindex("/review", 0, hunk)
-    end = rec.plain.index("saved", hunk)
-    for line in rec.plain[start:end].splitlines()[1:]:
-        assert len(line) <= cols, line
+    # No width check here: the text rebuilt from ConPTY's output joins repainted
+    # regions into long lines, so it is not the screen. The width rule is
+    # checked on the session's console (test_review_hunks, 40 columns) and in
+    # the J5 walks at 80, 60 and 40 columns (docs/ux/b014c).
