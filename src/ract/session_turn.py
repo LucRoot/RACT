@@ -499,10 +499,13 @@ def run_turn(
         # VERIFIER is harness code), so the record holds no runs and every
         # success claim in the answer stays reported, not believed.
         verification = VerificationRecord().result(claims or []).to_event()
-        if verification.get("status") == "not-run":
+        if verification.get("status") == "not-run" and turn_summary.names_a_test(
+            request.intent
+        ):
             # B-121: a request about a failing test that ran no test is not
-            # verified; B-112 (run_tests) removes this when it lands.
-            verification["test_named"] = turn_summary.names_a_test(request.intent)
+            # verified; B-112 (run_tests) removes this when it lands. Present
+            # only when true, so the object is unchanged for every other turn.
+            verification["test_named"] = True
         stream.emit(
             "turn.finished",
             {

@@ -90,6 +90,6 @@ def test_a_request_naming_no_test_keeps_the_plain_line(
     code, events, text = _turn(ws, "make add() add")
 
     assert code == 0
-    assert events[-1].data["verification"]["test_named"] is False
+    assert "test_named" not in events[-1].data["verification"]
     assert "verified: RACT ran no tests this turn" in text
     assert LAST_LINE not in text
