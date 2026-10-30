@@ -16,7 +16,7 @@ from ract.memory_arena import MemoryArena
 from ract.approval_callback import (
     console_approval_callback,
     console_proposed_reviewer,
-    console_tier_2_callback,
+    console_tier_2_choice,
     review_replaces_step_question,
     console_plan_approval,
     refuse_changes_callback,
@@ -617,7 +617,11 @@ def _run_ract(
         plan_approval = console_plan_approval
         # Someone is at the terminal: a tier-2 tool call asks them (B-110 D6).
         # --yolo and headless runs leave it unset, so a tier-2 call is refused.
-        harness.executor.tier_2_approver = console_tier_2_callback
+        from ract.tier2_approvals import SessionApprovals
+
+        harness.executor.tier_2_approver = SessionApprovals(
+            config_path.parent, session_id, console_tier_2_choice
+        )
         if harness.executor.step_tools is not None:
             # Proposed -> reviewed -> applied: each hunk is asked about before
             # it reaches the files, which replaces the per-step question.

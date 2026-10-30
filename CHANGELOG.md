@@ -167,6 +167,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   without an answer applies nothing and names the branch the proposal is on. The review
   replaces the per-step question for a step that writes a file; a tool call still asks first.
   `--yolo`, auto-accept and runs with nobody to ask apply the step as proposed.
+- The tier-2 question takes `y` (once), `s` (the same files for the rest of this session) or
+  no. An allowance for the session lives in memory only: `/resume` and a new process start
+  without it, and the question then says "approvals from session <id> do not carry over".
 
 ### Changed
 

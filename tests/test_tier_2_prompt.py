@@ -38,10 +38,10 @@ def _answer(
 def test_yes_typed_at_the_terminal_allows_once(monkeypatch, typed: str) -> None:
     prompts = _answer(monkeypatch, typed)
     assert console_tier_2_callback("write_file", WORKFLOW) is True
-    assert prompts == ["Allow this change once? [y/N]: "]
+    assert prompts == ["Allow this change? [y/s/N]: "]
 
 
-@pytest.mark.parametrize("typed", ["", "n", "no", "always", "approved"])
+@pytest.mark.parametrize("typed", ["", "n", "no", "always", "approved", "a"])
 def test_anything_else_refuses(monkeypatch, typed: str) -> None:
     _answer(monkeypatch, typed)
     assert console_tier_2_callback("write_file", WORKFLOW) is False
@@ -82,3 +82,87 @@ def test_no_line_runs_past_40_columns(monkeypatch, capsys) -> None:
     console_tier_2_callback("write_file", long)
     for line in capsys.readouterr().out.splitlines():
         assert len(line) <= 40, line
+
+
+# ------------------------------------------------------------------ for this session
+
+
+def _session(tmp_path, session_id, answers):
+    from ract.tier2_approvals import SessionApprovals
+
+    asked: list[str] = []
+
+    def ask(name, args, note):
+        asked.append(note)
+        return answers.pop(0)
+
+    return SessionApprovals(tmp_path, session_id, ask), asked
+
+
+@pytest.fixture
+def state(tmp_path, monkeypatch):
+    monkeypatch.setattr("ract.core.keys._default_state_dir", lambda: tmp_path / "state")
+    from ract import tier2_approvals
+
+    tier2_approvals._LIVE.clear()
+    yield tmp_path
+    tier2_approvals._LIVE.clear()
+
+
+def test_s_allows_the_same_file_for_the_rest_of_the_session(state) -> None:
+    approve, asked = _session(state, "s-1", ["session"])
+    assert approve("write_file", WORKFLOW) is True
+    assert approve("write_file", WORKFLOW) is True  # not asked again
+    assert asked == [""]
+    other = WriteFileArgs(path=".envrc", content="x\n", create=True)
+    approve.ask = lambda *_a: "deny"
+    assert approve("write_file", other) is False  # another file still asks
+
+
+def test_once_asks_again_next_time(state) -> None:
+    approve, asked = _session(state, "s-1", ["once", "deny"])
+    assert approve("write_file", WORKFLOW) is True
+    assert approve("write_file", WORKFLOW) is False
+    assert len(asked) == 2
+
+
+def test_a_resumed_session_asks_again_and_says_why(state) -> None:
+    from ract import tier2_approvals
+
+    first, _ = _session(state, "s-0192", ["session"])
+    assert first("write_file", WORKFLOW) is True
+    tier2_approvals.forget("s-0192")  # /resume, or a new process
+    again, asked = _session(state, "s-0192", ["deny"])
+    assert again("write_file", WORKFLOW) is False
+    assert asked == ["approvals from session s-0192 do not carry over"]
+
+
+def test_the_record_on_disk_never_approves(state) -> None:
+    from ract import tier2_approvals
+
+    first, _ = _session(state, "s-1", ["session"])
+    first("write_file", WORKFLOW)
+    tier2_approvals.forget("s-1")
+    assert tier2_approvals.recorded(state, "s-1") == {".github/workflows/ci.yml"}
+    again, asked = _session(state, "s-1", ["deny"])
+    assert again("write_file", WORKFLOW) is False and len(asked) == 1
+
+
+def test_no_session_means_no_session_allowance(state) -> None:
+    approve, asked = _session(state, None, ["session", "deny"])
+    assert approve("write_file", WORKFLOW) is True
+    assert approve("write_file", WORKFLOW) is False
+    assert len(asked) == 2
+
+
+def test_the_note_is_printed_before_the_change(monkeypatch, capsys) -> None:
+    from ract.approval_callback import console_tier_2_choice
+
+    _answer(monkeypatch, "s")
+    choice = console_tier_2_choice(
+        "write_file", WORKFLOW, "approvals from session s-9 do not carry over"
+    )
+    out = capsys.readouterr().out
+    assert choice == "session"
+    assert out.index("do not carry over") < out.index("Tier 2:")
+    assert "y allows it once, s for this session, N refuses" in out

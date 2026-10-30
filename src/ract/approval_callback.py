@@ -82,17 +82,22 @@ def _tier_2_change(name: str, args: object) -> list[str]:
     return lines
 
 
-def console_tier_2_callback(name: str, args: object) -> bool:
-    """Ask the operator before a tier-2 tool call (ADR-0047 D6, ADR-0048 D6).
+def console_tier_2_choice(name: str, args: object, note: str = "") -> str:
+    """Ask the operator before a tier-2 tool call: "once", "session" or "deny".
 
-    LR:: The call touches a control or executable-configuration file. The
-    change is shown as it would be written, with control characters made
-    visible, and only "y" or "yes" typed at the terminal runs it. A model's
-    words never reach this answer: the question is read from the console.
+    LR:: ADR-0047 D6, ADR-0048 D6. The call touches a control or
+    executable-configuration file. The change is shown as it would be
+    written, with control characters made visible; "y" allows it once, "s"
+    allows writes to the same files for the rest of this session (in memory
+    only, ``tier2_approvals``), anything else refuses. *note* says why a
+    resumed session is asked again. A model's words never reach this answer:
+    the question is read from the console.
     """
     from ract.session_events import safe_text
 
     width = max(_terminal_width() - 3, 20)
+    if note:
+        _print_wrapped(note)
     _print_wrapped(
         "Tier 2: this change touches a control or executable-configuration "
         "file. The change:"
@@ -100,17 +105,27 @@ def console_tier_2_callback(name: str, args: object) -> bool:
     for line in _tier_2_change(name, args):
         for part in wrap_cells(safe_text(line), width):
             print(part)
+    _print_wrapped("y allows it once, s for this session, N refuses")
     question_gate.open_question()
     try:
-        response = read_line("Allow this change once? [y/N]: ").strip().lower()
+        response = read_line("Allow this change? [y/s/N]: ").strip().lower()
     except EOFError:
-        return False
+        return "deny"
     except KeyboardInterrupt:
         print()
         raise
     finally:
         question_gate.close_question()
-    return response in {"y", "yes"}
+    if response in {"y", "yes"}:
+        return "once"
+    if response in {"s", "session"}:
+        return "session"
+    return "deny"
+
+
+def console_tier_2_callback(name: str, args: object) -> bool:
+    """The tier-2 question with no session to remember an answer in: True to allow."""
+    return console_tier_2_choice(name, args) in {"once", "session"}
 
 
 def console_proposed_reviewer(path: str, before: bytes | None, after: bytes | None):

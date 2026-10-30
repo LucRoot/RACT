@@ -1058,6 +1058,10 @@ class ReplSession:
         s = self.state
         s.session_id = row.session_id
         s.session_started = True
+        # Session approvals are never restored by /resume (ADR-0047 D6).
+        from ract import tier2_approvals
+
+        tier2_approvals.forget(row.session_id)
         self._console.success(
             f"resumed {escape(row.session_id)}, last request: {escape(row.request)}"
         )
