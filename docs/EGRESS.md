@@ -53,8 +53,9 @@ request is not stopped.
 ## The offline switch
 
 `--no-network` (on `ract run`, a bare `ract "<intent>"`, `ract -p` and the
-interactive session) and `RACT_NO_NETWORK=1` (also `true` or `yes`) refuse
-every request to a host that is not this machine. Loopback means `localhost`,
+interactive session) and `RACT_NO_NETWORK` refuse every request to a host
+that is not this machine. Any non-empty value of the variable turns it on,
+except `0`, `false`, `no` or `off`. Loopback means `localhost`,
 127.0.0.0/8 and `::1` only; a model server on the local network is refused,
 because the switch is an offline guarantee. The exempt sites below are refused
 too.
@@ -65,6 +66,9 @@ recorded in the ledger with status `refused_no_network`, and the run exits 3.
 The switch only tightens: no flag and no `ract.yaml` key turns it off.
 `ract doctor --egress` shows `network: allowed` or `network: loopback only`
 with what turned it on.
+
+The switch governs the requests RACT makes. A process RACT starts (a stdio
+MCP server, a hook) is not confined by it: declared, not enforced.
 
 ## Every outbound site
 

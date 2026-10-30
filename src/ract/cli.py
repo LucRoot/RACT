@@ -1536,6 +1536,10 @@ def _doctor_egress(*, json_output: bool) -> int:
     # V7-06 (D-115): the offline switch, and what turned it on.
     source = egress_ledger.network_off()
     network = "allowed" if source is None else f"loopback only ({source})"
+    if source == egress_ledger.NO_NETWORK_ENV:
+        # G-198: which value turned it on (the variable is not secret).
+        value = os.environ.get(egress_ledger.NO_NETWORK_ENV, "").strip()
+        network = f"loopback only ({source}={safe_text(value)[:40]})"
     if json_output:
         print(
             json.dumps(
@@ -5302,7 +5306,10 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
                 flush=True,
             )
-        return 1
+        from ract import egress_ledger
+
+        # V7-06 (G-198): the offline switch's refusal is a policy refusal, exit 3.
+        return 3 if egress_ledger.is_network_refusal(result.error) else 1
 
     value = result.unwrap()
 

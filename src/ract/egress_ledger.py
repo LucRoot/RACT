@@ -49,7 +49,24 @@ GROUP_KEYS = ("purpose", "step", "role")
 # this process, RACT_NO_NETWORK turns it on from the environment, and nothing
 # (no flag, no ract.yaml key) turns either off.
 NO_NETWORK_ENV = "RACT_NO_NETWORK"
+# G-198: the variable can only tighten, so it fails tight: any non-empty value
+# turns the switch on except one of these words (case-insensitive).
+NO_NETWORK_OFF_WORDS = frozenset({"0", "false", "no", "off"})
 _no_network = False
+
+
+# The words every offline-switch refusal carries, wherever its text is wrapped.
+NETWORK_REFUSED_MARK = "is on and"
+
+
+def is_network_refusal(error: str | None) -> bool:
+    """True when *error* is (or wraps) an offline-switch refusal."""
+    text = error or ""
+    return (
+        "refused: " in text
+        and NETWORK_REFUSED_MARK in text
+        and " would connect to " in text
+    )
 
 
 class NetworkRefused(Exception):
@@ -60,7 +77,7 @@ class NetworkRefused(Exception):
         self.host = host
         self.source = source
         super().__init__(
-            f"refused: {source} is on and {purpose} would connect to {host}. "
+            f"refused: {source} {NETWORK_REFUSED_MARK} {purpose} would connect to {host}. "
             "hint: use a model server on this machine, or run without --no-network"
         )
 
@@ -75,7 +92,8 @@ def network_off() -> str | None:
     """What turned the offline switch on (``--no-network`` or ``RACT_NO_NETWORK``), or None."""
     if _no_network:
         return "--no-network"
-    if os.environ.get(NO_NETWORK_ENV, "").strip().lower() in {"1", "true", "yes"}:
+    value = os.environ.get(NO_NETWORK_ENV, "").strip().lower()
+    if value and value not in NO_NETWORK_OFF_WORDS:
         return NO_NETWORK_ENV
     return None
 
