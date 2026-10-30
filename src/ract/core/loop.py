@@ -83,6 +83,27 @@ class TerminationCause(Enum):
     PROMPT_DIGEST_MISSING = 9  # T9: strict mode + suite.prompt_digest is None.
 
 
+# D-122 (B-122): the outcome word and the process exit code of each cause, the
+# same words and codes the turn path uses (docs/EVENTS.md, "Halt causes and
+# exit codes", reads this table). A new member without a row fails its test.
+OUTCOMES: dict[TerminationCause, tuple[str, int]] = {
+    TerminationCause.COMPLETE: ("done", 0),
+    TerminationCause.REGRESSED: ("failed", 1),
+    TerminationCause.PROVENANCE_FAILURE: ("refused", 3),
+    TerminationCause.ASSUMPTION_BURST: ("failed", 1),
+    TerminationCause.BUDGET_EXHAUSTED: ("budget", 4),
+    TerminationCause.HANDSHAKE_BLOCKED: ("refused", 3),
+    TerminationCause.PROVIDER_TIMEOUT: ("failed", 6),
+    TerminationCause.PROMPT_DRIFT: ("refused", 3),
+    TerminationCause.PROMPT_DIGEST_MISSING: ("refused", 3),
+}
+
+
+def outcome_for(cause: TerminationCause) -> tuple[str, int]:
+    """``(outcome word, exit code)`` for *cause*, as D-122 assigns them."""
+    return OUTCOMES[cause]
+
+
 @dataclass
 class Budget:
     """Bounds on loop execution."""

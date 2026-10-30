@@ -5367,7 +5367,17 @@ def main(argv: list[str] | None = None) -> int:
         console.info(loop_result.summary)
         report_path = controller.write_report(loop_result)
         console.info(f"loop report written to {report_path}")
-        return 0 if loop_result.final_decision != "regression" else 1
+        if loop_result.cause is None:
+            return 0 if loop_result.final_decision != "regression" else 1
+        # B-122 (D-122): the exit code is the termination cause's.
+        from ract.core.loop import outcome_for
+
+        word, code = outcome_for(loop_result.cause)
+        console.info(
+            f"halt: T{loop_result.cause.value} {loop_result.cause.name}: "
+            f"outcome {word}, exit {code}"
+        )
+        return code
 
     def _stream_callback(delta: str) -> None:
         print(delta, end="", flush=True)

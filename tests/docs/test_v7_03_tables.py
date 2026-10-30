@@ -49,8 +49,19 @@ def test_every_kind_in_the_stage_map_is_registered():
 def test_every_t_cause_in_the_halt_table_exists():
     table = _section("Halt causes and exit codes")
     named = set(re.findall(r"Loop termination (T\d)", table))
-    # TerminationCause values 1 to 8 are T1 to T8; the table must name each one.
-    assert named == {f"T{m.value}" for m in TerminationCause if m.value <= 8}, named
+    # Every TerminationCause is T<value>; the table must name each one.
+    assert named == {f"T{m.value}" for m in TerminationCause}, named
+
+
+def test_the_halt_table_says_what_outcome_for_returns():
+    """B-122: the docs and the code cannot disagree on a cause's word or code."""
+    from ract.core.loop import outcome_for
+
+    table = _section("Halt causes and exit codes")
+    rows = re.findall(r"\| Loop termination T(\d)[^|]*\| `(\w+)` \| (\d) \|", table)
+    assert {int(t): (word, int(code)) for t, word, code in rows} == {
+        cause.value: outcome_for(cause) for cause in TerminationCause
+    }
 
 
 def test_every_exit_code_in_the_halt_table_is_one_the_turn_path_returns():

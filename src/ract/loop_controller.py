@@ -21,6 +21,7 @@ from typing import Any
 
 from ract.core.loop import (
     LoopState,
+    TerminationCause,
     WorkspaceSnapshot,
     build_loop_state,
     check_t1,
@@ -77,6 +78,9 @@ class LoopResult:
     final_decision: str
     summary: str
     handshake_milestones: list[str]
+    # B-122 (D-122): why the loop stopped; ``outcome_for`` gives its word and
+    # exit code. None only for a result built outside the controller.
+    cause: TerminationCause | None = None
 
 
 class LoopController:
@@ -921,6 +925,7 @@ class LoopController:
                 return LoopResult(
                     iterations=iterations,
                     final_decision="done",
+                    cause=TerminationCause.COMPLETE,
                     summary="All milestones completed.",
                     handshake_milestones=list(self.handshake_milestones),
                 )
@@ -975,6 +980,11 @@ class LoopController:
                 return LoopResult(
                     iterations=iterations,
                     final_decision="regression",
+                    cause=(
+                        TerminationCause.PROMPT_DIGEST_MISSING
+                        if drift_result.metrics.get("t9_prompt_digest_missing")
+                        else TerminationCause.PROMPT_DRIFT
+                    ),
                     summary=(
                         "T8 PROMPT_DRIFT: current intent hash does not match "
                         "suite.prompt_digest. Loop halted; workspace rolled "
@@ -1042,6 +1052,7 @@ class LoopController:
                 return LoopResult(
                     iterations=iterations,
                     final_decision="regression",
+                    cause=TerminationCause.REGRESSED,
                     summary=self._format_preflight_issues(preflight_issues),
                     handshake_milestones=list(self.handshake_milestones),
                 )
@@ -1130,6 +1141,7 @@ class LoopController:
                 return LoopResult(
                     iterations=iterations,
                     final_decision=decision,
+                    cause=self._cause_of(decision, iteration),
                     summary=self._summarize(iterations),
                     handshake_milestones=list(self.handshake_milestones),
                 )
@@ -1140,6 +1152,7 @@ class LoopController:
                     return LoopResult(
                         iterations=iterations,
                         final_decision="stop",
+                        cause=TerminationCause.BUDGET_EXHAUSTED,
                         summary=(
                             f"Stopped after {index} iterations; no meaningful "
                             f"progress for {self.stagnation_limit} iterations."
@@ -1163,6 +1176,7 @@ class LoopController:
                         return LoopResult(
                             iterations=iterations,
                             final_decision="regression",
+                            cause=TerminationCause.REGRESSED,
                             summary=f"Milestone oracle failed: {oracle_result.error}",
                             handshake_milestones=list(self.handshake_milestones),
                         )
@@ -1171,6 +1185,7 @@ class LoopController:
                         return LoopResult(
                             iterations=iterations,
                             final_decision="regression",
+                            cause=TerminationCause.PROVENANCE_FAILURE,
                             summary="Milestone verdict missing canonical milestone sentinel.",
                             handshake_milestones=list(self.handshake_milestones),
                         )
@@ -1194,6 +1209,7 @@ class LoopController:
                         return LoopResult(
                             iterations=iterations,
                             final_decision="stop",
+                            cause=TerminationCause.REGRESSED,
                             summary=f"Milestone oracle stopped the loop: {verdict.reason}",
                             handshake_milestones=list(self.handshake_milestones),
                         )
@@ -1216,6 +1232,7 @@ class LoopController:
         return LoopResult(
             iterations=iterations,
             final_decision="stop",
+            cause=TerminationCause.BUDGET_EXHAUSTED,
             summary=f"Reached max iterations ({self.max_iterations}).",
             handshake_milestones=list(self.handshake_milestones),
         )
@@ -2467,6 +2484,27 @@ class LoopController:
             if artifact:
                 pairs.append((artifact, step_result.content))
         return tuple(sorted(pairs))
+
+    def _cause_of(self, decision: str, iteration: LoopIteration) -> TerminationCause:
+        """The termination cause of a stop that ``_decide`` chose (B-122).
+
+        ``done`` is T1. ``regression`` is T7 when the iteration produced no
+        report because the provider call timed out, else T2. ``stop`` is the
+        iteration budget (T5), or T2 when the refactor ledger refused the
+        completion (the run did not reach a result it may keep).
+        """
+        if decision == "done":
+            return TerminationCause.COMPLETE
+        if decision == "regression":
+            error = (iteration.error or "").lower()
+            if iteration.report is None and (
+                "timed out" in error or "timeout" in error
+            ):
+                return TerminationCause.PROVIDER_TIMEOUT
+            return TerminationCause.REGRESSED
+        if self._ledger_breach_message():
+            return TerminationCause.REGRESSED
+        return TerminationCause.BUDGET_EXHAUSTED
 
     def _decide(
         self,

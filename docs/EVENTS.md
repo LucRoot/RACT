@@ -1106,18 +1106,19 @@ A turn ends with one outcome word on `turn.finished` and one process exit code. 
 | Token budget used up (B-065) | `budget` | 4 | `Stopped: the run used its token budget.` |
 | Provider unavailable: connection refused, timeout, HTTP 5xx or 429 | `failed` | 6 | start the model server, or fix the provider url |
 | Interrupted by the operator (Ctrl-C during a turn) | `interrupted` | 5 | none |
-| Loop termination T1 (complete) | gap | gap | gap |
-| Loop termination T2 (regressed twice) | gap | gap | gap |
-| Loop termination T3 (provenance failure) | gap | gap | gap |
-| Loop termination T4 (assumption burst) | gap | gap | gap |
-| Loop termination T5 (iteration or wall-time budget exhausted) | gap | gap | gap |
-| Loop termination T6 (unresolved blocking handshake) | gap | gap | gap |
-| Loop termination T7 (provider timeout twice) | gap | gap | gap |
-| Loop termination T8 (`T8_PROMPT_DRIFT`: the intent text changed mid-run) | gap | gap | gap |
+| Loop termination T1 (complete) | `done` | 0 | `halt: T1 COMPLETE` |
+| Loop termination T2 (regressed twice) | `failed` | 1 | `halt: T2 REGRESSED` |
+| Loop termination T3 (provenance failure) | `refused` | 3 | `halt: T3 PROVENANCE_FAILURE` |
+| Loop termination T4 (assumption burst) | `failed` | 1 | `halt: T4 ASSUMPTION_BURST` |
+| Loop termination T5 (iteration or wall-time budget exhausted) | `budget` | 4 | `halt: T5 BUDGET_EXHAUSTED` |
+| Loop termination T6 (unresolved blocking handshake) | `refused` | 3 | `halt: T6 HANDSHAKE_BLOCKED` |
+| Loop termination T7 (provider timeout twice) | `failed` | 6 | `halt: T7 PROVIDER_TIMEOUT` |
+| Loop termination T8 (`T8_PROMPT_DRIFT`: the intent text changed mid-run) | `refused` | 3 | `halt: T8 PROMPT_DRIFT` |
+| Loop termination T9 (`T9_PROMPT_DIGEST_MISSING`: strict mode and no prompt digest) | `refused` | 3 | `halt: T9 PROMPT_DIGEST_MISSING` |
 
 Reading the table:
 
-- The T1 to T8 rows are the loop's `TerminationCause` values (`src/ract/core/loop.py`). The loop records them in the run report and in `run.completed`; no outcome word and no exit code for them exists in `session_turn.py`, `headless.py` or the CLI today. They are marked `gap` here and reported to the BUILDER as an escalation. This draft does not invent a mapping.
+- The T1 to T9 rows are the loop's `TerminationCause` values (`src/ract/core/loop.py`), with the outcome word and exit code D-122 assigns, from `OUTCOMES` and `outcome_for` in the same file (a test reads this table against it). `ract run --loop --yolo` exits with the code and prints the `halt:` line; the T8 and T9 reasons also go to `run.completed`. The legacy `--loop` controller stops with T1 (done), T2 (a regression, a preflight it cannot repair, a refactor-ledger refusal, an oracle failure or stop), T3 (a milestone verdict without its sentinel), T5 (the iteration limit or stagnation), T7 (an iteration whose provider call timed out), T8 and T9; T4 and T6 come from the substrate loop.
 - Exit 4 is the budget stop of the turn path, not of the loop's T5.
 - Exit 5 is the interrupted outcome, which the turn returns as the process exit code.
 - A row with outcome `none` writes no `turn.finished`; the only record is the error line on stderr.

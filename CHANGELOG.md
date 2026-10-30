@@ -203,6 +203,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `ract run --loop --yolo` exits with the code of the cause that stopped the loop and
+  prints it (`halt: T5 BUDGET_EXHAUSTED: outcome budget, exit 4`): T1 0, T2 and T4 1,
+  T3, T6, T8 and T9 3, T5 4, T7 6 (D-122). It used to exit 0 for every stop but a
+  regression. docs/EVENTS.md lists the table, and a test keeps it equal to the code (B-122).
 - `ract handshakes approve` signs the approval with the operator key, asked at a terminal;
   an approval without that signature is listed as unsigned, unlocks nothing and still blocks
   the step's commit (ADR-0048 R2). The intent-recompile key and the per-run sandbox and ALM
