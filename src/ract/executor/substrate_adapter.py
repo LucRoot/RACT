@@ -411,7 +411,7 @@ def _run_via_substrate_steps(
     # turns leave one) keeps isolation instead of forcing the in-place path.
     # H6 (package 5): a repository check or snapshot that fails (a locked file, for one) is a
     # failed result with its sentence, not an exception that escapes the substrate.
-    if harness.executor.step_tools is not None:
+    if getattr(harness.executor, "step_tools", None) is not None:
         # B-110 D6: the first visible line of a step that changes files, before
         # the snapshot and the worktree (whose own progress line follows after
         # two seconds).
