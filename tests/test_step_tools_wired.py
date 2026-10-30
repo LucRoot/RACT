@@ -214,3 +214,36 @@ def test_the_step_loop_stops_get_their_own_hints() -> None:
     assert "agent.max_tokens_per_step" in hint_for(
         "Step 1: The step used 1200 tokens, more than its 1000. Nothing was applied."
     )
+
+
+def test_the_workspace_line_is_shown_before_any_tool_runs(
+    tmp_path: Path, fake_model_server: Any, monkeypatch
+) -> None:
+    # The 300 ms target is measured in the slice walkthrough; this pins the order.
+    import builtins
+
+    ws = _workspace(
+        tmp_path,
+        fake_model_server,
+        lambda digest: _calls(("edit_file", {**FIX_ARGS, "expected_digest": digest})),
+    )
+    order: list[str] = []
+    real_print = builtins.print
+
+    def noting(*args: Any, **kwargs: Any) -> None:
+        if args and args[0] == "preparing a workspace for the changes":
+            order.append("line")
+        real_print(*args, **kwargs)
+
+    monkeypatch.setattr(builtins, "print", noting)
+    stream = EventStream(session="s-b110")
+    stream.subscribe(
+        lambda e: order.append("tool") if e.kind == "tool.call.started" else None
+    )
+    request = TurnRequest(
+        config=ws / "ract.yaml", intent="fix add", session_id="s-b110", resume=False
+    )
+    code = run_turn(stream, request, turn=1, cancel=threading.Event())
+
+    assert code == 0
+    assert order[:2] == ["line", "tool"]
