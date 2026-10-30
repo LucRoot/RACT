@@ -131,6 +131,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- When the model answers a request in prose instead of a plan, or with a plan that has no
+  steps, RACT asks once more and shows the plan's shape; if the second answer has no steps
+  either, it says so in one sentence and suggests a larger model or `/model`.
 - A Python file a step writes is checked for names it imports from the project that do not
   exist there (`from src import NOTE` when `NOTE` is in `src/notes.py`); such a write is
   refused with the line and the name, and nothing is written. Only source is read.

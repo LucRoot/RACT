@@ -71,8 +71,12 @@ def test_plan_uses_temperature_router_for_intent():
             "choices": [
                 {
                     "message": {
+                        # B-086: an empty plan is asked again, so the plan
+                        # here has a step; the test is about the temperature.
                         "content": (
-                            '{"assumption": "ok", "confidence": 0.9, "steps": []}'
+                            '{"assumption": "ok", "confidence": 0.9, "steps": '
+                            '[{"action": "list ideas", "provider_hint": "x", '
+                            '"expected_artifact": ""}]}'
                         )
                     }
                 }
@@ -113,7 +117,9 @@ def test_plan_fails_when_json_missing():
     manager = Manager(provider, "You are the manager.")
     plan_rooted = manager.plan("write tests")
     assert not plan_rooted.is_ok()
-    assert "JSON" in (plan_rooted.error or "")
+    # B-086: a reply with no plan is asked for once more, then one plain sentence.
+    assert "did not return a plan" in (plan_rooted.error or "")
+    assert provider.complete.call_count == 2
 
 
 def test_manager_from_path_returns_rooted_error_for_missing_file(tmp_path):

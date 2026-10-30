@@ -59,6 +59,23 @@ class Plan:
     steps: list[Step]
 
 
+# B-086: the second request after a reply with no plan steps, and the
+# sentence the user sees when the second reply has none either.
+NO_STEPS_HINT = "no_plan_steps"
+_REPLY_ECHO_CHARS = 4000
+PLAN_SHAPE_REQUEST = (
+    "That reply has no plan steps. Reply with only one JSON object of this shape, "
+    "and nothing else: "
+    '{"assumption": "<what you assume>", "confidence": <0 to 1>, "steps": '
+    '[{"action": "<what this step does>", "provider_hint": "<a provider name>", '
+    '"expected_artifact": "<the file it writes, or empty for an answer>"}]}'
+)
+NO_PLAN_SENTENCE = (
+    "The model did not return a plan, also when asked again; try a larger model "
+    "or /model."
+)
+
+
 def _extract_json(text: str) -> dict[str, Any] | None:
     """Extract the first JSON object from a model response.
 
@@ -164,11 +181,41 @@ class Manager:
         )
 
     def plan(self, intent: str) -> Rooted[Plan]:
-        """Ask the management LM to produce a Rooted plan for the intent."""
+        """Ask the management LM to produce a Rooted plan for the intent.
+
+        LR:: A weak model often answers the intent in prose, and the user saw
+        "Plan contains no steps." (B-086, J9). A reply with no plan steps gets
+        one more request that quotes the JSON shape; a second reply with none
+        ends with one plain sentence. Prose never runs as a plan.
+        """
         messages = [
             {"role": "system", "content": self._full_system_prompt()},
             {"role": "user", "content": f"Intent: {intent}\nEmit the JSON plan now."},
         ]
+        first = self._plan_once(intent, messages)
+        if first.is_ok() or first.hint != NO_STEPS_HINT:
+            return first
+        reply = self._last_reply[:_REPLY_ECHO_CHARS]
+        retry = [
+            *messages,
+            {"role": "assistant", "content": reply},
+            {"role": "user", "content": PLAN_SHAPE_REQUEST},
+        ]
+        second = self._plan_once(intent, retry)
+        if second.is_ok() or second.hint != NO_STEPS_HINT:
+            return second
+        return Rooted(
+            value=None,
+            assumption="The management LM returns a JSON plan with steps.",
+            confidence=0.0,
+            provenance=["manager.plan"],
+            error=NO_PLAN_SENTENCE,
+            hint=NO_STEPS_HINT,
+        )
+
+    def _plan_once(self, intent: str, messages: list[dict[str, str]]) -> Rooted[Plan]:
+        """One planning request; the reply's text is kept in ``_last_reply`` for a retry."""
+        self._last_reply = ""
         temperature = self.temperature_router.for_plan(intent)
         with egress_ledger.purpose("plan"):
             response_rooted = self.provider.complete(
@@ -186,10 +233,12 @@ class Manager:
         raw = response_rooted.unwrap()
         message = raw.get("choices", [{}])[0].get("message", {})
         content = message.get("content") or ""
+        self._last_reply = content
         # Inline <think> blocks can contain JSON-looking fragments; parse only
         # what the model presented as its answer.
         parsed = _extract_json(strip_reasoning(content))
         if parsed is None:
+            # Prose: the caller asks once more (B-086).
             return Rooted(
                 value=None,
                 assumption="The management LM returns a JSON plan matching the expected schema.",
@@ -199,6 +248,7 @@ class Manager:
                     "Could not parse JSON plan from model response. "
                     + describe_output_problem(raw, wanted="JSON plan")
                 ),
+                hint=NO_STEPS_HINT,
             )
 
         steps = []
@@ -238,6 +288,16 @@ class Manager:
                 confidence=confidence,
                 provenance=["manager.plan"],
                 error=f"Plan confidence {confidence} is below the floor.",
+            )
+        if not steps:
+            # A plan with no steps: the caller asks once more too (B-086).
+            return Rooted(
+                value=None,
+                assumption="The management LM returns a plan with at least one step.",
+                confidence=0.0,
+                provenance=["manager.plan"],
+                error="Plan contains no steps.",
+                hint=NO_STEPS_HINT,
             )
 
         return Rooted(

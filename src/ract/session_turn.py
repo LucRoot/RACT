@@ -226,7 +226,7 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         # The model answered with no steps (D3). The provider is reachable, so the
         # provider check does not apply; the next action is a rephrase or a model.
-        re.compile(r"Plan contains no steps", re.I),
+        re.compile(r"Plan contains no steps|did not return a plan", re.I),
         "the model returned no steps for this intent; rephrase it with the file and "
         "the change you want, or pick another model with /model",
     ),
