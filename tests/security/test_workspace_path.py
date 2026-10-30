@@ -119,11 +119,18 @@ def test_root_itself_is_refused(project: Path) -> None:
         ("src/app.py.", "trailing_dot_or_space"),
         ("src/app.py ", "trailing_dot_or_space"),
         ("GIT~1/config", "short_name"),
-        ("src/PROGRA~1.TXT", "short_name"),
     ],
 )
 def test_windows_rules_refuse(project: Path, raw: str, code: str) -> None:
     assert _code(project, raw, windows=True) == code
+
+
+@pytest.mark.skipif(
+    os.name == "nt", reason="on Windows the volume is asked (tests/security/test_s020_paths.py)"
+)
+def test_windows_rules_elsewhere_refuse_the_short_name_shape(project: Path) -> None:
+    # No Windows volume to ask whether the name is an alias: the shape is refused.
+    assert _code(project, "src/PROGRA~1.TXT", windows=True) == "short_name"
 
 
 def test_windows_names_are_ordinary_files_on_posix_rules(project: Path) -> None:

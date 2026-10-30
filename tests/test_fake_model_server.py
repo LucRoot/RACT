@@ -682,3 +682,38 @@ def test_provider_reports_missing_choices_today(fake_model_server: Any) -> None:
         provider.close()
     assert not result.is_ok()
     assert result.error == "Response missing choices array."
+
+
+# --- S-020 (AUD-018): turns are taken under the lock, from the server's own copy
+
+
+def test_a_scenario_used_by_two_servers_starts_fresh_in_each() -> None:
+    scenario = _scenario({"kind": "text", "content": "only once"})
+    with FakeModelServer(scenario) as first:
+        assert _post(first).json()["choices"][0]["message"]["content"] == "only once"
+    with FakeModelServer(scenario) as second:
+        assert _post(second).json()["choices"][0]["message"]["content"] == "only once"
+
+
+def test_overlapping_requests_never_take_the_same_turn() -> None:
+    import threading
+
+    count = 24
+    scenario = _scenario(
+        *({"kind": "text", "content": f"turn {n}"} for n in range(count))
+    )
+    contents: list[str] = []
+    lock = threading.Lock()
+    with FakeModelServer(scenario) as server:
+
+        def ask() -> None:
+            content = _post(server).json()["choices"][0]["message"]["content"]
+            with lock:
+                contents.append(content)
+
+        threads = [threading.Thread(target=ask) for _ in range(count)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=60)
+    assert sorted(contents) == sorted(f"turn {n}" for n in range(count))

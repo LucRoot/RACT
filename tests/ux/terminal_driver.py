@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -137,6 +138,15 @@ class _Session:
         self._lock = threading.Lock()
         self._buffer = ""
         self._closed = threading.Event()
+        self._finished = False
+
+    # S-020 (AUD-017): `with spawn(...) as session:` closes the session (and
+    # ends its process tree) even when an assertion fails in between.
+    def __enter__(self) -> "_Session":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close(timeout=5.0)
 
     def now(self) -> float:
         return time.perf_counter() - self._t0
@@ -260,6 +270,74 @@ if sys.platform == "win32":
             ("dwProcessId", wintypes.DWORD),
             ("dwThreadId", wintypes.DWORD),
         ]
+
+    class _JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", ctypes.c_int64),
+            ("PerJobUserTimeLimit", ctypes.c_int64),
+            ("LimitFlags", wintypes.DWORD),
+            ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t),
+            ("ActiveProcessLimit", wintypes.DWORD),
+            ("Affinity", ctypes.c_size_t),
+            ("PriorityClass", wintypes.DWORD),
+            ("SchedulingClass", wintypes.DWORD),
+        ]
+
+    class _IO_COUNTERS(ctypes.Structure):
+        _fields_ = [
+            (name, ctypes.c_ulonglong)
+            for name in (
+                "ReadOperationCount",
+                "WriteOperationCount",
+                "OtherOperationCount",
+                "ReadTransferCount",
+                "WriteTransferCount",
+                "OtherTransferCount",
+            )
+        ]
+
+    class _JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
+        _fields_ = [
+            ("BasicLimitInformation", _JOBOBJECT_BASIC_LIMIT_INFORMATION),
+            ("IoInfo", _IO_COUNTERS),
+            ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t),
+            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t),
+        ]
+
+    _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION_CLASS = 9
+    _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+    _CREATE_SUSPENDED = 0x00000004
+    _k32.CreateJobObjectW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR]
+    _k32.CreateJobObjectW.restype = wintypes.HANDLE
+    _k32.SetInformationJobObject.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+    ]
+    _k32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    _k32.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    _k32.ResumeThread.argtypes = [wintypes.HANDLE]
+
+    def _kill_on_close_job() -> object | None:
+        """A job object whose processes end when its handle closes, or None."""
+        job = _k32.CreateJobObjectW(None, None)
+        if not job:
+            return None
+        info = _JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+        info.BasicLimitInformation.LimitFlags = _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        if not _k32.SetInformationJobObject(
+            job,
+            _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION_CLASS,
+            ctypes.byref(info),
+            ctypes.sizeof(info),
+        ):
+            _k32.CloseHandle(job)
+            return None
+        return job
 
     _PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = 0x00020016
     _EXTENDED_STARTUPINFO_PRESENT = 0x00080000
@@ -412,7 +490,9 @@ if sys.platform == "win32":
                     None,
                     None,
                     False,
-                    _EXTENDED_STARTUPINFO_PRESENT | _CREATE_UNICODE_ENVIRONMENT,
+                    _EXTENDED_STARTUPINFO_PRESENT
+                    | _CREATE_UNICODE_ENVIRONMENT
+                    | _CREATE_SUSPENDED,
                     env_block,
                     cwd,
                     ctypes.byref(si),
@@ -421,6 +501,16 @@ if sys.platform == "win32":
                 "CreateProcessW",
             )
             self._hprocess, self._hthread = pi.hProcess, pi.hThread
+            # S-020 (AUD-017): the child and everything it starts are in one job,
+            # so a timeout (or this session closing) ends the whole tree. The
+            # child starts suspended so it cannot start anything outside the job.
+            self._job = _kill_on_close_job()
+            if self._job is not None and not _k32.AssignProcessToJobObject(
+                self._job, self._hprocess
+            ):
+                _k32.CloseHandle(self._job)
+                self._job = None
+            _k32.ResumeThread(self._hthread)
             self._reader = threading.Thread(target=self._read_loop, daemon=True)
             self._reader.start()
 
@@ -453,8 +543,14 @@ if sys.platform == "win32":
             return code.value == _STILL_ACTIVE
 
         def close(self, timeout: float = 5.0) -> Recording:
+            if self._finished:
+                return self.recording
+            self._finished = True
             if _k32.WaitForSingleObject(self._hprocess, int(timeout * 1000)) != 0:
-                _k32.TerminateProcess(self._hprocess, 1)
+                if self._job is not None:
+                    _k32.TerminateJobObject(self._job, 1)
+                else:
+                    _k32.TerminateProcess(self._hprocess, 1)
                 _k32.WaitForSingleObject(self._hprocess, 2000)
             code = wintypes.DWORD()
             _k32.GetExitCodeProcess(self._hprocess, ctypes.byref(code))
@@ -464,6 +560,10 @@ if sys.platform == "win32":
             self._reader.join(timeout=5)
             for h in (self._in_write, self._out_read, self._hprocess, self._hthread):
                 _k32.CloseHandle(h)
+            if self._job is not None:
+                _k32.CloseHandle(
+                    self._job
+                )  # kill-on-close: no child outlives the session
             return self.recording
 
 
@@ -525,10 +625,17 @@ else:
             return self._proc.poll() is None
 
         def close(self, timeout: float = 5.0) -> Recording:
+            if self._finished:
+                return self.recording
+            self._finished = True
             try:
                 self._proc.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                self._proc.kill()
+                # S-020 (AUD-017): start_new_session made a process group; end all of it.
+                try:
+                    os.killpg(self._proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass  # already gone
                 self._proc.wait(timeout=5)
             self.recording.exit_code = self._proc.returncode
             self._reader.join(timeout=5)

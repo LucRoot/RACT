@@ -116,32 +116,36 @@ def _interactive(
     env = {**_env(), **(extra_env or {})}
     # S6-8: RACT_UX_COLS sets the terminal width (80 by default; the sprint 6 journeys also run at 60).
     cols = int(os.environ.get("RACT_UX_COLS", "80"))
-    session = spawn([str(RACT)], cwd=str(ws), env=env, cols=cols, rows=40)
-    sends: list[tuple[str, float]] = []
-    seen = session.expect(startup_pattern, 30)
-    journey.metrics["startup_to_prompt_s"] = round(session.now(), 3) if seen else None
-    for kind, arg in steps:
-        if kind == "line":
-            sends.append((arg, session.send_line(arg)))
-        elif kind == "raw":
-            sends.append((arg, session.raw(arg)))
-        elif kind == "ctrl_c":
-            t = session.ctrl_c()
-            sends.append(("^C", t))
-            back = session.expect(startup_pattern, 10)
-            journey.metrics["ctrl_c_to_prompt_s"] = (
-                round(session.now() - t, 3) if back else None
-            )
-        elif kind == "quiet":
-            session.wait_quiet(arg, timeout=120)
-        elif kind == "sleep":
-            time.sleep(arg)
-        elif kind == "expect":
-            ok = session.expect(arg, 120)
-            journey.note(f"expect {arg!r}: {'seen' if ok else 'NOT SEEN within 120 s'}")
-    if session.alive():
-        session.send_line("/exit")
-    rec = session.close(timeout=10)
+    with spawn([str(RACT)], cwd=str(ws), env=env, cols=cols, rows=40) as session:
+        sends: list[tuple[str, float]] = []
+        seen = session.expect(startup_pattern, 30)
+        journey.metrics["startup_to_prompt_s"] = (
+            round(session.now(), 3) if seen else None
+        )
+        for kind, arg in steps:
+            if kind == "line":
+                sends.append((arg, session.send_line(arg)))
+            elif kind == "raw":
+                sends.append((arg, session.raw(arg)))
+            elif kind == "ctrl_c":
+                t = session.ctrl_c()
+                sends.append(("^C", t))
+                back = session.expect(startup_pattern, 10)
+                journey.metrics["ctrl_c_to_prompt_s"] = (
+                    round(session.now() - t, 3) if back else None
+                )
+            elif kind == "quiet":
+                session.wait_quiet(arg, timeout=120)
+            elif kind == "sleep":
+                time.sleep(arg)
+            elif kind == "expect":
+                ok = session.expect(arg, 120)
+                journey.note(
+                    f"expect {arg!r}: {'seen' if ok else 'NOT SEEN within 120 s'}"
+                )
+        if session.alive():
+            session.send_line("/exit")
+        rec = session.close(timeout=10)
     per_input = []
     for label, t in sends:
         # The next input of any kind, from the recording: the closing /exit

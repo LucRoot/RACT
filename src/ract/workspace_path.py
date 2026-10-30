@@ -44,6 +44,7 @@ from __future__ import annotations
 import fnmatch
 import os
 import re
+import stat
 import sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -95,10 +96,12 @@ def is_never_sent(relative_path: str) -> bool:
     return parts[-1].casefold() in NEVER_SENT_NAMES or is_secret_shaped(parts[-1])
 
 
+# S-020 (AUD-014): Microsoft's list also has COM0, LPT0 and the superscript
+# digits, and CONIN$, CONOUT$ and CLOCK$ open devices too.
 _WINDOWS_RESERVED = frozenset(
-    {"con", "prn", "aux", "nul"}
-    | {f"com{i}" for i in range(1, 10)}
-    | {f"lpt{i}" for i in range(1, 10)}
+    {"con", "prn", "aux", "nul", "conin$", "conout$", "clock$"}
+    | {f"com{i}" for i in [*"0123456789", "\u00b9", "\u00b2", "\u00b3"]}
+    | {f"lpt{i}" for i in [*"0123456789", "\u00b9", "\u00b2", "\u00b3"]}
 )
 _SHORT_NAME_RE = re.compile(r"^[^~]{1,6}~\d+(\.[^.]{0,3})?$")
 _PROC_RE = re.compile(r"^/proc/[^/]+/(root|cwd)(/|$)")
@@ -200,13 +203,27 @@ def _string_checks(raw: str, *, windows: bool) -> Refusal | None:
                 f"the path component {seg!r} is a Windows device name",
                 "Choose a different file name.",
             )
-        if _SHORT_NAME_RE.match(seg):
+        if _SHORT_NAME_RE.match(seg) and os.name != "nt":
+            # Windows rules checked on another system: no volume to ask whether
+            # the name is an alias, so the shape is refused. On Windows the
+            # location check asks the volume (S-020, AUD-014).
             return _refuse(
                 "short_name",
                 f"the path component {seg!r} looks like an 8.3 short name",
                 "Use the full file or directory name.",
             )
     return None
+
+
+def _long_name(path: Path) -> str | None:
+    """The last part of *path*'s long name on this Windows volume, or None."""
+    import ctypes
+
+    buffer = ctypes.create_unicode_buffer(32768)
+    get_long = ctypes.windll.kernel32.GetLongPathNameW  # type: ignore[attr-defined]
+    if not get_long(str(path), buffer, len(buffer)):
+        return None
+    return Path(buffer.value).name
 
 
 def _is_link_or_junction(path: Path) -> bool:
@@ -268,7 +285,7 @@ def resolve_workspace_path(
             rel_parts = tuple(p for p in re.split(r"[\\/]", raw) if p and p != ".")
         if refusal is None:
             refusal = _location_checks(
-                Path(root_real), rel_parts, purpose=purpose, fold=fold
+                Path(root_real), rel_parts, purpose=purpose, fold=fold, windows=win
             )
             full = Path(root_real).joinpath(*rel_parts)
             # Windows measures the whole path, the project folder included.
@@ -293,7 +310,12 @@ def resolve_workspace_path(
 
 
 def _location_checks(
-    root_real: Path, rel_parts: tuple[str, ...], *, purpose: Purpose, fold: bool
+    root_real: Path,
+    rel_parts: tuple[str, ...],
+    *,
+    purpose: Purpose,
+    fold: bool,
+    windows: bool = False,
 ) -> Refusal | None:
     if not rel_parts:
         return _refuse(
@@ -340,6 +362,16 @@ def _location_checks(
         current = current / part
         if not os.path.lexists(current):
             break
+        if windows and os.name == "nt" and _SHORT_NAME_RE.match(part):
+            # S-020 (AUD-014): an existing name of 8.3 shape is refused only when
+            # it is another name's alias; "a~1.txt" as itself is a file like any.
+            long_name = _long_name(current)
+            if long_name is not None and long_name.casefold() != part.casefold():
+                return _refuse(
+                    "short_name",
+                    f"the path component {part!r} is the 8.3 short name of {long_name!r}",
+                    "Use the full file or directory name.",
+                )
         if purpose == "write" and _is_link_or_junction(current):
             return _refuse(
                 "symlink_in_path",
@@ -353,7 +385,24 @@ def _location_checks(
                 f"{'/'.join(rel_parts[: i + 1])!r} resolves outside the project",
                 "The path leads out of the project through a link. Use a path inside it.",
             )
+    if purpose == "write" and _is_hard_linked(root_real.joinpath(*rel_parts)):
+        # S-020 (AUD-015): a write goes through the shared file, which may be
+        # outside the project.
+        return _refuse(
+            "hard_link",
+            f"{'/'.join(rel_parts)!r} is a hard link (the same file has another name)",
+            "RACT does not write through hard links. Copy the file to a new name first.",
+        )
     return None
+
+
+def _is_hard_linked(path: Path) -> bool:
+    """True for an existing regular file with more than one name."""
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return False
+    return stat.S_ISREG(info.st_mode) and info.st_nlink > 1
 
 
 def require_workspace_path(

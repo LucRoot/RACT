@@ -31,6 +31,7 @@ Nothing under ``src/`` may import this module.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import re
 import socket
@@ -459,8 +460,7 @@ class _Handler(BaseHTTPRequestHandler):
             )
             return
         owner = self.server.owner
-        chat_ordinal = owner._next_chat_ordinal()
-        turn = owner.scenario.select(chat_ordinal, _last_message_text(body))
+        chat_ordinal, turn = owner._next_chat_turn(_last_message_text(body))
         if turn is None:
             self._send_json(
                 500,
@@ -648,8 +648,12 @@ class FakeModelServer:
     def __init__(
         self, scenario: Scenario | str | Path, *, verbose: bool = False
     ) -> None:
+        # S-020 (AUD-018): each server plays its own copy, so a Scenario passed to
+        # two servers does not start the second with turns already used.
         self.scenario = (
-            scenario if isinstance(scenario, Scenario) else Scenario.load(scenario)
+            copy.deepcopy(scenario)
+            if isinstance(scenario, Scenario)
+            else Scenario.load(scenario)
         )
         self.verbose = verbose
         self._lock = threading.Lock()
@@ -728,10 +732,17 @@ class FakeModelServer:
             )
             return ordinal
 
-    def _next_chat_ordinal(self) -> int:
+    def _next_chat_turn(self, last_text: str) -> tuple[int, Turn | None]:
+        """The next request's ordinal and its turn, taken together under the lock.
+
+        S-020 (AUD-018): ``Scenario.select`` marks a turn used; two overlapping
+        requests outside the lock could both take the same non-repeating turn.
+        """
         with self._lock:
             self._chat_ordinal += 1
-            return self._chat_ordinal
+            return self._chat_ordinal, self.scenario.select(
+                self._chat_ordinal, last_text
+            )
 
     def _log_turn(self, request_ordinal: int, turn_index: int) -> None:
         with self._lock:

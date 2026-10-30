@@ -142,6 +142,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A step no longer writes through a hard link (a file with a second name, which may be
+  outside the project): the write is refused and names the file. On Windows, the device names
+  `COM0`, `LPT0`, `CONIN$`, `CONOUT$`, `CLOCK$` and the superscript forms of `COM` and `LPT` are
+  refused like `CON`, and a name such as `a~1.txt` is an ordinary file unless it is the short
+  name of another file.
 - `ract --version` and `ract --help` start about 0.15 to 0.2 seconds sooner again: the HTTP
   library loads when the first request is made, not at every start.
 - `ract` starts about 0.2 seconds sooner (`ract --version` included): the provider checks,
