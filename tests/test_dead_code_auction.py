@@ -167,6 +167,9 @@ def test_ract_auction_reports_zero_dead_modules():
     # package fills from read.READ_TOOLS; the symbol graph does not follow a
     # package-level registration, so the module looks unreferenced.
     allowlist.add("read.py")
+    # B-111 (MASON, PREPARED): the guided grant and /permissions screens are pure text, not wired
+    # until the BUILDER's guided flow calls them. Remove this entry when wired; the BUILDER reviews it.
+    allowlist.add("grant_screens.py")
     allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped
