@@ -88,4 +88,5 @@ def test_doctor_states_that_runs_do_not_sign(tmp_path: Path) -> None:
 
     result = _ract(ws, "doctor", "--config", "ract.yaml")
 
-    assert "not signed with a Rootknot" in " ".join(result.stdout.split())
+    # B-083 (cold reader row 6): the doctor says it in plain words.
+    assert "files ract writes are not signed yet" in " ".join(result.stdout.split())
