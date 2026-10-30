@@ -1,0 +1,17 @@
+   0.066s out 
+   0.913s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   1.123s out RACT session fake-coder via local | master | default | T3 off\n
+   1.136s out ract> 
+   1.152s  in 'tests/test_calc.py::test_add fails, fix it\r'
+   1.153s out tests/test_calc.py::test_add fails, fix it\n
+   1.522s out Plan: 1 step, confidence 0.85\n
+   1.543s out   assumes: The failing test is caused by add() subtracting.\n  1. Fix add() in src/calc.py so it adds -> src/calc.py\n
+   2.281s out [step 1] Fix add() in src/calc.py so it adds -> src/calc.py\n
+   2.290s out Approve step: [local] Fix add() in src/calc.py so it adds -> src/calc.py?\n[y/N]: 
+   8.321s  in '/report --last\r'
+   8.321s  in '/exit\r'
+   8.321s out /report --last\n
+   8.334s out [step 1] failed (6.0s)\n
+   8.523s out error: Approval denied for step 1: Fix add() in src/calc.py so it adds ->\n
+   8.538s out   src/calc.py\nhint: you did not approve that step, so nothing after it ran; run the intent\n  again and approve it, or change the request\nno files were changed\n  The turn failed.\n  changed: nothin
+   8.608s out 

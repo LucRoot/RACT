@@ -1,0 +1,30 @@
+# J6: Interrupt during a slow turn
+# build: "[S7] Rebased onto the landed feature tip 542b782: format the sprint 7 files; digest relocked"  terminal: 80x40 pseudo-terminal  run: 2026-10-29 20:41
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-slow via local | master | default | T3 off
+ract> explain this project
+  ... waiting on model (2 s)
+stopping...
+  the model call is still finishing and will write nothing
+  Stopped. Nothing more was written after the interrupt.
+  changed: not tracked here (not a git repository)
+  verified: RACT ran no tests this turn
+  3.1 s
+ract> /settings
+                     Settings                      
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ setting                  ┃ value                ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ config                   │ ract.yaml            │
+│ dry-run                  │ off                  │
+│ stream                   │ off                  │
+│ auto (approve each step) │ on                   │
+│ mode                     │ default              │
+│ iterations (for /loop)   │ 10                   │
+│ session                  │ repl-20261029-204124 │
+│ turns this session       │ 1                    │
+│ reasoning effort         │ off                  │
+└──────────────────────────┴──────────────────────┘
+ract> /exit

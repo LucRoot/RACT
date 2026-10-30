@@ -1,0 +1,28 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or
+]0;<repo>\.venv\Scripts\ract.exe[?25h[m       /help for commands
+RACT session fake-slow via local | master | default | T3 off
+ract> explain this project
+  ... waiting on model (2 s)
+stopping...
+  the model call is still finishing and will write nothing
+  Stopped. Nothing more was written after the interrupt.
+  changed: not tracked here (not a git repository)
+  verified: RACT ran no tests this turn
+  3.1 s
+ract> /settings
+[38;2;212;175;55m[1m                     Settings                      [m
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃[1m setting                  [22m┃[1m value                [22m┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ config                   │ ract.yaml            │
+│ dry-run                  │ off                  │
+│ stream                   │ off                  │
+│ auto (approve each step) │ on                   │
+│ mode                     │ default              │
+│ iterations (for /loop)   │ 10                   │
+│ session                  │ repl-20261029-204124 │
+│ turns this session       │ 1                    │
+│ reasoning effort         │ off                  │
+└──────────────────────────┴──────────────────────┘
+ract> /exit
+[?9001l[?1004l

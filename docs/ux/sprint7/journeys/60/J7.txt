@@ -1,0 +1,28 @@
+# J7: Resume an earlier session
+# build: "[S7] Rebased onto the landed feature tip 542b782: format the sprint 7 files; digest relocked"  terminal: 80x40 pseudo-terminal  run: 2026-10-29 20:41
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+last session repl-20261029-204130 (2026-10-29 20:41): where
+  is the config loader and who calls it?. /resume to
+  continue it.
+RACT session fake-coder via local | master | default | T3
+  off
+ract> /session
+ session repl-20261029-204136 (not started)
+ract> /resume
+✗  usage: /resume <id|latest>. /sessions lists the saved 
+ids.
+ract> /sessions
+                          Sessions                          
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━┓
+┃              ┃              ┃       ┃      ┃ Last        ┃
+┃ Id           ┃ Updated      ┃ Turns ┃ Cost ┃ request     ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━┩
+│ repl-2026102 │ 2026-10-29   │ -     │ -    │ where is    │
+│ 9-204130     │ 20:41        │       │      │ the config  │
+│              │              │       │      │ loader and  │
+│              │              │       │      │ who calls   │
+│              │              │       │      │ it?         │
+└──────────────┴──────────────┴───────┴──────┴─────────────┘
+ract> /exit

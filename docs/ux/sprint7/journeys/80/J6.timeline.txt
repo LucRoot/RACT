@@ -1,0 +1,18 @@
+   0.029s out 
+   0.938s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   0.951s out 
+   1.190s out RACT session fake-slow via local | master | default | T3 off\n
+   1.201s out ract> 
+   1.217s  in 'explain this project\r'
+   1.217s out explain this project\n
+   3.235s out   ... waiting on model (2 s)\n
+   4.217s  in '\x03'
+   4.277s out stopping...\n
+   4.292s out   the model call is still finishing and will write nothing\n
+   4.389s out   Stopped. Nothing more was written after the interrupt.\n
+   4.401s out   changed: not tracked here (not a git repository)\n  verified: RACT ran no tests this turn\n  3.2 s\nract> 
+   5.411s  in '/settings\r'
+   5.411s  in '/exit\r'
+   5.411s out /settings\n
+   5.428s out                      Settings                      \n┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓\n┃ setting                  ┃ value                ┃\n┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━
+   5.497s out 

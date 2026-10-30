@@ -1,0 +1,18 @@
+# J10: Provider is down
+# build: "[S7] Rebased onto the landed feature tip 542b782: format the sprint 7 files; digest relocked"  terminal: 80x40 pseudo-terminal  run: 2026-10-29 20:39
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session nothing-listening via local | master | default | T3 off
+ract> summarize the README
+  trying once more in 0.2 s: nothing is answering at http://127.0.0.1:9/v1
+    (connection refused)
+error: Planning failed: Provider call failed: Request failed: nothing is
+  answering at http://127.0.0.1:9/v1 (connection refused).
+hint: start your model server, or fix the provider url in ract.yaml; `ract
+  doctor --check-providers` checks it
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  2 model requests, 1.7 s, tokens not reported by the provider
+ract> /exit

@@ -1,0 +1,26 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or
+]0;<repo>\.venv\Scripts\ract.exe[?25h[m       /help for commands
+last session repl-20261029-204130 (2026-10-29 20:41): where
+  is the config loader and who calls it?. /resume to
+  continue it.
+RACT session fake-coder via local | master | default | T3
+  off
+ract> /session
+[38;2;30;144;255m[1m session repl-20261029-204136 (not started)[m
+ract> /resume
+[38;2;255;76;76m[1m✗[m [38;2;30;144;255m[1m usage: /resume <id|latest>. /sessions lists the saved 
+ids.[m
+ract> /sessions[38;2;212;175;55m[1m
+                          Sessions                          [m
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━┓
+┃[1m              [22m┃[1m              [22m┃[1m       [22m┃[1m      [22m┃[1m Last        [22m┃
+┃[1m Id           [22m┃[1m Updated      [22m┃[1m Turns [22m┃[1m Cost [22m┃[1m request     [22m┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━┩
+│ repl-2026102 │ 2026-10-29   │ -     │ -    │ where is    │
+│ 9-204130     │ 20:41        │       │      │ the config  │
+│              │              │       │      │ loader and  │
+│              │              │       │      │ who calls   │
+│              │              │       │      │ it?         │
+└──────────────┴──────────────┴───────┴──────┴─────────────┘
+ract> /exit
+[?9001l[?1004l

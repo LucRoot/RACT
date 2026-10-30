@@ -1,0 +1,19 @@
+   0.036s out 
+   0.854s out  RACT 0.5.2  config: ract.yaml  type an intent, or\n
+   0.865s out        /help for commands\n
+   1.066s out RACT session fake-weak via local | master | default | T3 off\n
+   1.084s out ract> 
+   1.102s  in 'summarize the README\r'
+   1.102s out summarize the README\n
+   1.569s out error: Planning failed: Could not parse JSON plan from model\n
+   1.583s out   response. The model hit its output limit\n  (finish_reason=length) before finishing the JSON plan. It\n  had already produced 780 characters of reasoning. Remove\n  or raise 'max_tokens' on this pro
+   6.600s  in 'summarize the README\r'
+   6.600s  in '/exit\r'
+   6.600s out summarize the README\n
+   6.689s out Plan: 1 step, confidence 0.85\n
+   6.702s out   assumes: README summary\n  1. Summarize README.md\n
+   6.779s out [step 1] Summarize README.md\n
+   6.794s out [step 1] failed (0.0s)\n  hint: ask again, or use a model that follows the tool\n    format\n
+   6.870s out error: The model returned 23 characters of reasoning and no\n
+   6.888s out   answer, so there was no tool call or answer to use. Raise\n  or remove 'max_tokens' on this provider, or use a\n  non-reasoning model for this role.\nhint: run `ract doctor --check-providers` to che
+   6.943s out 

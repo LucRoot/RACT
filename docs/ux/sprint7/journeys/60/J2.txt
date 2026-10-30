@@ -1,0 +1,34 @@
+# J2: Daily start in a configured repo
+# build: "[S7] Rebased onto the landed feature tip 542b782: format the sprint 7 files; digest relocked"  terminal: 80x40 pseudo-terminal  run: 2026-10-29 20:41
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+ract> /settings
+                     Settings                      
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ setting                  ┃ value                ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ config                   │ ract.yaml            │
+│ dry-run                  │ off                  │
+│ stream                   │ off                  │
+│ auto (approve each step) │ on                   │
+│ mode                     │ default              │
+│ iterations (for /loop)   │ 10                   │
+│ session                  │ repl-20261029-204103 │
+│ turns this session       │ 0                    │
+│ reasoning effort         │ off                  │
+└──────────────────────────┴──────────────────────┘
+ract> /providers
+                         Providers                          
+┏━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ name  ┃ role    ┃ adapter    ┃ model      ┃ url          ┃
+┡━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ local │ manager │ local_http │ fake-coder │ http://127.0 │
+│       │         │            │            │ .0.1:65311/v │
+│       │         │            │            │ 1            │
+└───────┴─────────┴────────────┴────────────┴──────────────┘
+ract> /session
+ session repl-20261029-204103 (not started)
+ract> /exit

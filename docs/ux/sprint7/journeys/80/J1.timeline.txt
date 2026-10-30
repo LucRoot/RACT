@@ -1,0 +1,13 @@
+   0.033s out 
+   0.980s out No ract.yaml in this directory, so RACT does not know which model to use.\n
+   1.002s out Set one up now? [Y/n] (n opens the session without one) 
+  30.024s  in 'explain what this folder contains\r'
+  30.024s  in '/help\r'
+  30.024s  in '/exit\r'
+  30.024s out explain what this folder contains\n
+  30.040s out Machine:\n
+  30.165s out   Python 3.11.15 on Windows AMD64\n
+  30.181s out   git 2.53.0\n  memory: 63.5 GB total, 12.2 GB available\n  CPU cores: 12\n  free disk here: 89.8 GB\n  GPU: none detected\n  network: not tested; setup contacts only the default model-server addresse
+  30.789s out   nothing answered\n
+  30.805s out No server chosen. Use a local model or a cloud provider? [L/c] /help\n  this machine has 63 GB, 12.2 GB free right now\nHow many GB of memory should the model use? [38.1] /exit\nSuggested model: Qwen2
+  40.043s out 

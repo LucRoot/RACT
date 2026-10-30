@@ -1,0 +1,35 @@
+# J8: Headless use
+# build: "[S7] Rebased onto the landed feature tip 542b782: format the sprint 7 files; digest relocked"  terminal: 80x40 pseudo-terminal  run: 2026-10-29 20:39
+$ ract -p where is the config loader?
+The config loader is `load_config` in src/app/config.py. It reads app.yaml and is called from src/app/main.py at startup.
+RACT session fake-coder via local | default | T3 off
+Plan: 1 step, confidence 0.85
+  assumes: The config loader lives in src/app/config.py.
+  1. Explain where the config loader is defined and who calls it
+[step 1] Explain where the config loader is defined and who calls it
+[step 1] done (0.0s)
+  Done: 1 step ran; no tests were run.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  2 model requests, 0.7 s, 1228 tokens in / 85 out
+[exit 0, 1.58s]
+
+$ ract where is the config loader? --json
+{"schema": "ract.result/1", "outcome": "failed", "exit_code": 1, "session": "h-8d00235de159", "turns": 1, "verdict": "The turn failed.", "final_text": "", "changed": [], "verification": {"status": "not-run", "runs": [], "claims": []}, "provenance": {"signed": false, "unsigned_files": []}, "cost": {"tokens_in": 1957, "tokens_out": 60, "by_purpose": {"plan": 2017}, "total_usd": null, "requests": 2, "unreported": 0, "bytes_out": 7943, "bytes_in": 756}, "denials": [], "notices": [], "events_path": null, "plan": []}
+RACT session fake-coder via local | auto-accept | T3 off
+error: Planning failed: The model did not return a plan, also when asked again; try a larger model or /model.
+hint: the model returned no steps for this intent; rephrase it with the file and the change you want, or pick another model with /model
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  2 model requests, 0.5 s, 1957 tokens in / 60 out
+[exit 1, 1.43s]
+
+$ ract  < stdin
+hint: use ract -p "your request" for a one-off run, or pipe text into ract -p; ract setup creates a config.
+ract: intent is required unless --self-test or --review-diff is used
+Try: ract --help
+[exit 2, 0.85s]
+
+

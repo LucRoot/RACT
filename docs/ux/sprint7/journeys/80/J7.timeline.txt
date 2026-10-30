@@ -1,0 +1,14 @@
+   0.034s out 
+   0.861s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   0.883s out last session repl-20261029-203908 (2026-10-29 20:39): where is the config loader\n  and who calls it?. /resume to continue it.\n
+   1.078s out RACT session fake-coder via local | master | default | T3 off\n
+   1.100s out ract> 
+   1.119s  in '/session\r'
+   1.120s out /session\n
+   1.130s out  session repl-20261029-203915 (not started)\nract> 
+   2.132s  in '/resume\r'
+   2.132s  in '/sessions\r'
+   2.132s  in '/exit\r'
+   2.132s out /resume\n
+   2.147s out ✗  usage: /resume <id|latest>. /sessions lists the saved ids.\nract> /sessions\n                                    Sessions                                    \n┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━
+   2.192s out 

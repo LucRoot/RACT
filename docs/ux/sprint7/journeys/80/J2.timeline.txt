@@ -1,0 +1,15 @@
+   0.031s out 
+   0.942s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   0.966s out 
+   1.195s out RACT session fake-coder via local | master | default | T3 off\n
+   1.215s out ract> 
+   1.223s  in '/settings\r'
+   1.231s out /settings\n                     Settings                      \n┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓\n┃ setting                  ┃ value                ┃\n┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━
+   2.735s  in '/providers\r'
+   2.736s out /providers\n
+   2.759s out                                 Providers                                \n┏━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n┃ name  ┃ role    ┃ adapter    ┃ model      ┃ url 
+   4.804s  in '/session\r'
+   4.805s  in '/exit\r'
+   4.805s out /session\n
+   4.825s out  session repl-20261029-203841 (not started)\nract> /exit\n
+   4.863s out 

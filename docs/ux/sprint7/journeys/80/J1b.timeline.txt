@@ -1,0 +1,14 @@
+   0.029s out 
+   0.843s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   0.859s out 
+   1.060s out RACT session local-model via local | default | T3 off\n
+   1.076s out ract> 
+   1.091s  in 'explain what this folder contains\r'
+   1.092s out explain what this folder contains\n
+   1.936s out   trying once more in 0.2 s: nothing is answering at http://127.0.0.1:11434/v1\n
+   1.948s out     (connection refused)\n
+   2.749s out error: Planning failed: Provider call failed: Request failed: nothing is\n
+   2.761s out   answering at http://127.0.0.1:11434/v1 (connection refused).\nhint: start your model server, or fix the provider url in ract.yaml; `ract\n  doctor --check-providers` checks it\nfile changes are not 
+  27.764s  in '/exit\r'
+  27.764s out /exit\n
+  27.833s out 

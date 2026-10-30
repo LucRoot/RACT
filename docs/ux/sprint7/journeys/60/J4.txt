@@ -1,0 +1,30 @@
+# J4: Fix the failing test
+# build: "[S7] Rebased onto the landed feature tip 542b782: format the sprint 7 files; digest relocked"  terminal: 80x40 pseudo-terminal  run: 2026-10-29 20:41
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-coder via local | master | default | T3
+  off
+ract> tests/test_calc.py::test_add fails, fix it
+Plan: 1 step, confidence 0.85
+  assumes: The failing test is caused by add() subtracting.
+  1. Fix add() in src/calc.py so it adds -> src/calc.py
+[step 1] Fix add() in src/calc.py so it adds -> src/calc.py
+Approve step: [local] Fix add() in src/calc.py so it adds
+-> src/calc.py? [y/N]: /report --last
+[step 1] failed (6.0s)
+error: Approval denied for step 1: Fix add() in src/calc.py
+  so it adds -> src/calc.py
+hint: you did not approve that step, so nothing after it
+  ran; run the intent again and approve it, or change the
+  request
+no files were changed
+  The turn failed.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  1 model request, 7.3 s, 939 tokens in / 52 out
+ract> /exit
+
+## harness notes
+- git diff --stat after the turn: (no change)
+- src/calc.py after: def add(a, b):\n    return a - b\n\n\ndef sub(a, b):\n    return a - b\n
