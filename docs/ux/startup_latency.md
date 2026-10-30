@@ -38,3 +38,25 @@ above are the handoffs.
   where the conformance check needs it. Saving up to about 500 ms together.
 - Core (senior-only): `ract.core.keys` at import time (161 ms).
 - Harness (senior-only): `ract.harness` at import time (145 ms).
+
+## After B-087 (2026-10-29)
+
+Ten runs of `python -m ract.cli --version` each, same machine, same day, before and after.
+
+| Measure | Before (`de3fb1c`) | After |
+|---|---|---|
+| `ract --version`, median | 1.155 s | 0.975 s |
+| `ract --version`, fastest and slowest | 1.131 s, 1.369 s | 0.930 s, 1.007 s |
+| `import ract.cli` (`-X importtime`, cumulative) | 1.004 s | 0.724 s |
+
+What loads on first use now: the provider conformance suite and the structured-output schema
+(`ract.providers.conformance`, `ract.providers.schema`), the response validator
+(`ract.providers.validator`, which pulled in `ract.core.actions`), and the loop controller and
+loop planner in `ract.cli`. Names importable from `ract.providers` are unchanged (PEP 562).
+
+Not done, and why: `httpx` (about 170 ms) is imported at module level by `ract.egress_ledger`,
+whose transport classes subclass `httpx` types, and by four other modules; making it load on first
+use is a change to the egress ledger and is left as its own card. The `ract` package's
+re-exports (about 200 ms) are kept: the package lists them so the dead-code auction sees those
+modules as used, and loading them on first use would hide them from it. The median is below
+1.0 s, so the card's second part (`ract.core.keys`, `ract.harness`) was not started.

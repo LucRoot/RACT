@@ -92,7 +92,7 @@ def test_loop_excludes_ract_before_the_loop_starts(
         raise Stop
 
     monkeypatch.setattr("ract.executor.worktree.ensure_ract_dir_excluded", excluded)
-    monkeypatch.setattr(cli, "LoopController", loop_controller)
+    monkeypatch.setattr("ract.loop_controller.LoopController", loop_controller)
     monkeypatch.chdir(ws)
 
     with pytest.raises(Stop):

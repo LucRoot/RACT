@@ -137,6 +137,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract` starts about 0.2 seconds sooner (`ract --version` included): the provider checks,
+  the structured-output schema and the loop controller load when a command first needs them.
 - Clearer messages: a mistyped option prints one line and `Try: ract --help` instead of the
   usage block; a missing `ract.yaml` names `ract setup`; `ract fence inspect` says when the file
   does not exist; `ract doctor` says in plain words that files are not signed yet; a used-up

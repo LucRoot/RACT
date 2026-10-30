@@ -25,13 +25,10 @@ from ract.doc_generator import DocGenerator
 from ract.diff_applier import DiffApplier
 from ract.github_release import GitHubReleaseClient, GitHubReleaseError
 from ract.handshake_registry import HandshakeRegistry
-from ract.harness import _build_retrieval_adapter
 from ract.legacy_whisperer import LegacyWhisperer
 from ract.session_events import safe_text
 from ract.tui import console
 from ract.load_bearing_guard import LoadBearingGuard
-from ract.loop_controller import LoopController
-from ract.loop_planner import LoopPlanner
 from ract.mcp_adapter import McpToolRegistry
 from ract.mutation_merge_gate import MergePolicy, MutationMergeGateEngine
 from ract.mutation_runner import run_mutation_tests
@@ -658,6 +655,8 @@ def _retrieval_command(args: list[str]) -> int:
         return 1
 
     project_dir = parsed.config.parent.resolve()
+    from ract.harness import _build_retrieval_adapter  # B-087: on first use
+
     adapter = _build_retrieval_adapter(config, project_dir)
     if adapter is None:
         if not parsed.json_output:
@@ -5166,6 +5165,9 @@ def main(argv: list[str] | None = None) -> int:
         from ract.executor import worktree as _worktree
 
         _worktree.ensure_ract_dir_excluded(args.config.resolve().parent)
+        from ract.loop_controller import LoopController  # B-087: on first use
+        from ract.loop_planner import LoopPlanner
+
         controller = LoopController(
             args.config,
             max_iterations=args.max_iterations,

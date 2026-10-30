@@ -36,7 +36,7 @@ def test_retrieval_search_with_results(tmp_path: Path, capsys):
     mock_rooted.value = [mock_result]
     mock_adapter.search.return_value = mock_rooted
 
-    with patch("ract.cli._build_retrieval_adapter", return_value=mock_adapter):
+    with patch("ract.harness._build_retrieval_adapter", return_value=mock_adapter):
         exit_code = _retrieval_command(["search", "foo", "--config", str(config_path)])
 
     assert exit_code == 0
@@ -58,7 +58,7 @@ def test_retrieval_search_empty_results(tmp_path: Path, capsys):
     mock_rooted.value = []
     mock_adapter.search.return_value = mock_rooted
 
-    with patch("ract.cli._build_retrieval_adapter", return_value=mock_adapter):
+    with patch("ract.harness._build_retrieval_adapter", return_value=mock_adapter):
         exit_code = _retrieval_command(["search", "bar", "--config", str(config_path)])
 
     assert exit_code == 0
@@ -78,7 +78,7 @@ def test_retrieval_search_top_k_passed(tmp_path: Path):
     mock_rooted.value = []
     mock_adapter.search.return_value = mock_rooted
 
-    with patch("ract.cli._build_retrieval_adapter", return_value=mock_adapter):
+    with patch("ract.harness._build_retrieval_adapter", return_value=mock_adapter):
         _retrieval_command(
             ["search", "baz", "--top-k", "3", "--config", str(config_path)]
         )
@@ -97,7 +97,7 @@ def test_retrieval_search_error(tmp_path: Path, capsys):
     mock_rooted.error = "network failure"
     mock_adapter.search.return_value = mock_rooted
 
-    with patch("ract.cli._build_retrieval_adapter", return_value=mock_adapter):
+    with patch("ract.harness._build_retrieval_adapter", return_value=mock_adapter):
         exit_code = _retrieval_command(["search", "qux", "--config", str(config_path)])
 
     assert exit_code == 1
