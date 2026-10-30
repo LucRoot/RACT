@@ -142,6 +142,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract --version` and `ract --help` start about 0.15 to 0.2 seconds sooner again: the HTTP
+  library loads when the first request is made, not at every start.
 - `ract` starts about 0.2 seconds sooner (`ract --version` included): the provider checks,
   the structured-output schema and the loop controller load when a command first needs them.
 - Clearer messages: a mistyped option prints one line and `Try: ract --help` instead of the

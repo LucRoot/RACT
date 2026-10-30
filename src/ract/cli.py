@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn
 
-import httpx
 import yaml
 
 from ract.builtin_skill_library import BuiltinSkillLibrary
@@ -1068,6 +1067,8 @@ def _skills_marketplace_command(args: list[str]) -> int:
             )
             return 1
         registry = SkillRegistry(parsed.project_dir)
+        import httpx  # B-087b: only this command needs it; not at start
+
         try:
             path = marketplace.install(skill_name, registry)
         except (KeyError, ValueError, httpx.HTTPError, OSError) as exc:

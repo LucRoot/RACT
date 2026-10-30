@@ -15,7 +15,14 @@ import time
 from collections.abc import Iterator
 from typing import Any
 
-import httpx
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import httpx
+else:
+    from ract.lazy_import import lazy_module
+
+    httpx = lazy_module("httpx")  # B-087b: imported at first use, not at start
 
 from ract.providers.base import ProviderAdapter
 from ract.providers import reasoning

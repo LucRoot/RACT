@@ -26,9 +26,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import httpx
+if TYPE_CHECKING:
+    import httpx
 
 ROTATE_BYTES = 10 * 1024 * 1024
 # Response bodies up to this size are kept until close to read `usage`;
@@ -187,115 +188,144 @@ def read(path: Path | None = None) -> list[dict[str, Any]]:
     return records
 
 
-class _CountingStream(httpx.SyncByteStream):
-    """Counts the response bytes and records the request when closed."""
-
-    def __init__(self, inner: httpx.SyncByteStream, finish: Any) -> None:
-        self._inner = inner
-        self._finish = finish
-        self._count = 0
-        self._body = bytearray()
-        self._done = False
-
-    def __iter__(self) -> Iterator[bytes]:
-        for chunk in self._inner:
-            self._count += len(chunk)
-            self._body += chunk
-            if len(self._body) > _BODY_LIMIT:
-                del self._body[:-_TAIL]
-            yield chunk
-
-    def close(self) -> None:
-        try:
-            self._inner.close()
-        finally:
-            if not self._done:
-                self._done = True
-                self._finish(self._count, bytes(self._body))
+# B-087b: httpx took about a quarter of a second at every start (``ract
+# --version`` included) because these classes subclass its types at import.
+# They are built when the first client is made; nothing they record changes.
+_built: dict[str, Any] = {}
 
 
-class LedgerTransport(httpx.BaseTransport):
-    """An httpx transport that records each request in the egress ledger."""
+def _transport_class() -> Any:
+    """The ledger's httpx transport class, built on first use."""
+    with _lock:
+        if "LedgerTransport" in _built:
+            return _built["LedgerTransport"]
+        import httpx
 
-    def __init__(self, kind: str, inner: httpx.BaseTransport | None = None) -> None:
-        self.kind = kind
-        self._inner = inner or httpx.HTTPTransport()
+        class _CountingStream(httpx.SyncByteStream):
+            """Counts the response bytes and records the request when closed."""
 
-    def handle_request(self, request: httpx.Request) -> httpx.Response:
-        started = time.monotonic()
-        try:
-            bytes_out: int | None = len(request.content)
-        except httpx.RequestNotRead:
-            bytes_out = None
-        base = {
-            "t": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
-            "pid": os.getpid(),
-            "purpose": _purpose.get() or self.kind,
-            "kind": self.kind,
-            "host": request.url.host,
-            # The port tells two local servers apart; it is not secret (G-052).
-            "port": request.url.port,
-            "bytes_out": bytes_out,
-        }
-        state = _connections.get()
-        if state is not None:
-            port = f":{request.url.port}" if request.url.port else ""
-            address = f"{request.url.scheme}://{request.url.host}{port}"
+            def __init__(self, inner: httpx.SyncByteStream, finish: Any) -> None:
+                self._inner = inner
+                self._finish = finish
+                self._count = 0
+                self._body = bytearray()
+                self._done = False
 
-            def trace(name: str, info: dict[str, Any]) -> None:  # noqa: ARG001
-                if name == "connection.connect_tcp.started":
-                    state["connecting"] = address
-                elif name.startswith("connection.connect_tcp."):
-                    state["connecting"] = None
+            def __iter__(self) -> Iterator[bytes]:
+                for chunk in self._inner:
+                    self._count += len(chunk)
+                    self._body += chunk
+                    if len(self._body) > _BODY_LIMIT:
+                        del self._body[:-_TAIL]
+                    yield chunk
 
-            request.extensions["trace"] = trace
-        try:
-            response = self._inner.handle_request(request)
-        except Exception as exc:
-            if state is not None:
-                state["connecting"] = None
-            _record(
-                {
-                    **base,
-                    "status": type(exc).__name__,
-                    "ms": int((time.monotonic() - started) * 1000),
-                    "bytes_in": 0,
-                    "tokens_in": None,
-                    "tokens_out": None,
+            def close(self) -> None:
+                try:
+                    self._inner.close()
+                finally:
+                    if not self._done:
+                        self._done = True
+                        self._finish(self._count, bytes(self._body))
+
+        class LedgerTransport(httpx.BaseTransport):
+            """An httpx transport that records each request in the egress ledger."""
+
+            def __init__(
+                self, kind: str, inner: httpx.BaseTransport | None = None
+            ) -> None:
+                self.kind = kind
+                self._inner = inner or httpx.HTTPTransport()
+
+            def handle_request(self, request: httpx.Request) -> httpx.Response:
+                started = time.monotonic()
+                try:
+                    bytes_out: int | None = len(request.content)
+                except httpx.RequestNotRead:
+                    bytes_out = None
+                base = {
+                    "t": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+                    "pid": os.getpid(),
+                    "purpose": _purpose.get() or self.kind,
+                    "kind": self.kind,
+                    "host": request.url.host,
+                    # The port tells two local servers apart; it is not secret (G-052).
+                    "port": request.url.port,
+                    "bytes_out": bytes_out,
                 }
-            )
-            raise
-        content_type = response.headers.get("content-type", "")
+                state = _connections.get()
+                if state is not None:
+                    port = f":{request.url.port}" if request.url.port else ""
+                    address = f"{request.url.scheme}://{request.url.host}{port}"
 
-        def finish(count: int, body: bytes) -> None:
-            tokens_in, tokens_out = _tokens(_usage_from_body(content_type, body))
-            _record(
-                {
-                    **base,
-                    "status": response.status_code,
-                    "ms": int((time.monotonic() - started) * 1000),
-                    "bytes_in": count,
-                    "tokens_in": tokens_in,
-                    "tokens_out": tokens_out,
-                }
-            )
+                    def trace(name: str, info: dict[str, Any]) -> None:  # noqa: ARG001
+                        if name == "connection.connect_tcp.started":
+                            state["connecting"] = address
+                        elif name.startswith("connection.connect_tcp."):
+                            state["connecting"] = None
 
-        assert isinstance(response.stream, httpx.SyncByteStream)
-        return httpx.Response(
-            status_code=response.status_code,
-            headers=response.headers,
-            stream=_CountingStream(response.stream, finish),
-            extensions=response.extensions,
-        )
+                    request.extensions["trace"] = trace
+                try:
+                    response = self._inner.handle_request(request)
+                except Exception as exc:
+                    if state is not None:
+                        state["connecting"] = None
+                    _record(
+                        {
+                            **base,
+                            "status": type(exc).__name__,
+                            "ms": int((time.monotonic() - started) * 1000),
+                            "bytes_in": 0,
+                            "tokens_in": None,
+                            "tokens_out": None,
+                        }
+                    )
+                    raise
+                content_type = response.headers.get("content-type", "")
 
-    def close(self) -> None:
-        self._inner.close()
+                def finish(count: int, body: bytes) -> None:
+                    tokens_in, tokens_out = _tokens(
+                        _usage_from_body(content_type, body)
+                    )
+                    _record(
+                        {
+                            **base,
+                            "status": response.status_code,
+                            "ms": int((time.monotonic() - started) * 1000),
+                            "bytes_in": count,
+                            "tokens_in": tokens_in,
+                            "tokens_out": tokens_out,
+                        }
+                    )
+
+                assert isinstance(response.stream, httpx.SyncByteStream)
+                return httpx.Response(
+                    status_code=response.status_code,
+                    headers=response.headers,
+                    stream=_CountingStream(response.stream, finish),
+                    extensions=response.extensions,
+                )
+
+            def close(self) -> None:
+                self._inner.close()
+
+        _built["_CountingStream"] = _CountingStream
+        _built["LedgerTransport"] = LedgerTransport
+        return LedgerTransport
+
+
+def __getattr__(name: str) -> Any:
+    if name in {"LedgerTransport", "_CountingStream"}:
+        _transport_class()
+        return _built[name]
+    raise AttributeError(f"module 'ract.egress_ledger' has no attribute {name!r}")
 
 
 def client(kind: str, **kwargs: Any) -> httpx.Client:
     """An httpx.Client whose every request is recorded in the ledger."""
+    import httpx
+
     inner = kwargs.pop("transport", None)
-    return httpx.Client(transport=LedgerTransport(kind, inner), **kwargs)
+    return httpx.Client(transport=_transport_class()(kind, inner), **kwargs)
 
 
 def summary(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -429,7 +459,7 @@ def describe(records: list[dict[str, Any]]) -> list[str]:
 
 __all__ = [
     "EXEMPT",
-    "LedgerTransport",
+    "LedgerTransport",  # noqa: F822 -- built on first use, served by __getattr__
     "collecting",
     "watching_connections",
     "cost",

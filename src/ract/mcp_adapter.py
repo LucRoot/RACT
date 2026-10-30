@@ -15,7 +15,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import httpx
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import httpx
+else:
+    from ract.lazy_import import lazy_module
+
+    httpx = lazy_module("httpx")  # B-087b: imported at first use, not at start
 
 from ract import egress_ledger, egress_scan
 from ract.rooted import Rooted

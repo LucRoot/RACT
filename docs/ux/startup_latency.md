@@ -60,3 +60,25 @@ use is a change to the egress ledger and is left as its own card. The `ract` pac
 re-exports (about 200 ms) are kept: the package lists them so the dead-code auction sees those
 modules as used, and loading them on first use would hide them from it. The median is below
 1.0 s, so the card's second part (`ract.core.keys`, `ract.harness`) was not started.
+
+## After B-087b (2026-10-30)
+
+Ten runs each of `python -m ract.cli --version` and `--help`, same machine, same hour, before
+(the feature tip with B-087) and after.
+
+| Measure | Before (B-087) | After |
+|---|---|---|
+| `ract --version`, median | 1.107 s | 0.970 s |
+| `ract --version`, fastest and slowest | 1.071 s, 1.143 s | 0.927 s, 1.024 s |
+| `ract --help`, median | 1.146 s | 0.940 s |
+| `import ract.cli` (`-X importtime`, cumulative) | 0.943 s | 0.809 s |
+
+`httpx` is no longer imported at start. The egress ledger builds its transport classes when the
+first client is made (`egress_ledger.client`); `ract.cli` imports `httpx` only in the one command
+that catches its error; the OpenAI-compatible provider, the MCP adapter and the capability probe
+take it through `ract.lazy_import.lazy_module`, which imports it at the first attribute read. What
+a request sends or records is unchanged; the egress tests pass as they were.
+
+Against the first measurement (1.33 s), `ract --version` is now about 0.36 s faster, short of the
+0.4 s the card names. The largest parts left are the `ract` package's re-exports (kept for the
+dead-code auction, see above) and `ract.core.keys`.
