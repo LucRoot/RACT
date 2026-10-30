@@ -54,12 +54,21 @@ def is_entry_point(path: str) -> bool:
 
 
 def entry_point_digests(project: Path | str) -> dict[str, str]:
-    """The SHA-256 of every tracked entry point in *project*."""
+    """The SHA-256 of every entry point in *project*, tracked, new or ignored (B-027:
+    a planted conftest.py counts even when the repository's .gitignore hides it)."""
     project = Path(project)
     try:
         done = subprocess.run(
             # core.fsmonitor=false: a repository's config cannot start a program.
-            ["git", "-c", "core.fsmonitor=false", "ls-files", "-z"],
+            [
+                "git",
+                "-c",
+                "core.fsmonitor=false",
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+            ],
             cwd=project,
             capture_output=True,
             timeout=30,
