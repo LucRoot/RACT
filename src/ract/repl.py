@@ -92,6 +92,11 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/redo [--force]", "Reverse the last /undo."),
     ("/checkpoint", "List the checkpoints, numbered, newest first."),
     (
+        "/rewind",
+        "Pick an earlier turn by its request and go back to it (Esc Esc where "
+        "the prompt has readline).",
+    ),
+    (
         "/restore N [--force]",
         "Go back to checkpoint N: reverse every later turn, newest first.",
     ),
@@ -243,6 +248,7 @@ class ReplSession:
             "redo": self._cmd_redo,
             "checkpoint": self._cmd_checkpoint,
             "restore": self._cmd_restore,
+            "rewind": self._cmd_rewind,
             "clear": self._cmd_clear,
         }
         self._events: Any = None
@@ -573,6 +579,34 @@ class ReplSession:
             "/restore N goes back to checkpoint N; /undo reverses the newest"
         )
         return True
+
+    def _cmd_rewind(self, args: list[str]) -> bool:
+        """``/rewind``: the turns by their requests; the one picked is restored (J7)."""
+        rows = self._turn_checkpoints()
+        live = [row for row in rows if not row["done"]]
+        if len(live) < 2:
+            self._print_wrapped(
+                "nothing to rewind to: it takes two turns that changed files"
+            )
+            return True
+        for n, row in enumerate(rows, start=1):
+            if row["done"]:
+                continue
+            asked = safe_text(row.get("request") or "") or "(request not recorded)"
+            self._print_wrapped(f"{n}. {row['time']}: {asked}")
+        width = self._render_width()
+        question = "rewind to which turn? (a number; Enter keeps everything)"
+        lines = wrap_cells(question, max(width - 3, 20)) or [""]
+        for line in lines[:-1]:
+            self._console.print(escape(line))
+        try:
+            answer = self._read_line(lines[-1] + " ").strip()
+        except EOFError:
+            answer = ""
+        if not answer:
+            self._print_wrapped("nothing rewound")
+            return True
+        return self._cmd_restore([answer])
 
     def _cmd_restore(self, args: list[str]) -> bool:
         """``/restore N``: reverse every turn after checkpoint N (B-110 D6)."""
@@ -1465,6 +1499,13 @@ class ReplSession:
 
         readline.set_completer(complete)
         readline.set_completer_delims(" \t\n")
+        # J7: Esc Esc at the prompt runs /rewind. Only where the prompt is
+        # readline's; the Windows console's own line editor clears the line
+        # on Esc and passes no key to RACT.
+        try:
+            readline.parse_and_bind(r'"\e\e": "\C-a\C-k/rewind\C-m"')
+        except Exception as exc:  # noqa: BLE001
+            print(f"[repl] Esc Esc not bound: {exc}", flush=True)
         readline.parse_and_bind("tab: complete")
         if self._history_path is not None:
             try:

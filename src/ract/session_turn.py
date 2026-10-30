@@ -399,7 +399,7 @@ def run_turn(
     backup_box: list[undo_backup.TurnBackup] = []
     try:
         with (
-            undo_backup.turn(project) as backup,
+            undo_backup.turn(project, request=request.intent) as backup,
             egress_ledger.collecting(),
             egress_ledger.watching_connections() as connections,
             Heartbeat(

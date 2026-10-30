@@ -142,8 +142,10 @@ def _sha256(path: Path) -> str | None:
 class TurnBackup:
     """The previous versions saved, and the files created, during one turn."""
 
-    def __init__(self, root: Path, kind: str = "turn") -> None:
+    def __init__(self, root: Path, kind: str = "turn", request: str = "") -> None:
         self.root = Path(os.path.realpath(root))
+        # The request that made the turn, cut and masked, for /rewind (J7).
+        self.request = request
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         self.turn_id = f"{stamp}-{uuid.uuid4().hex[:6]}"
         self.kind = kind
@@ -208,6 +210,7 @@ class TurnBackup:
             "created": self.created,
             "after": {p: _sha256(self.root / p) for p in [*self.saved, *self.created]},
             "bases": self.bases,
+            "request": self.request,
             "done": False,
         }
         (self.folder / MANIFEST).write_text(
@@ -265,12 +268,21 @@ def prune(root: Path | str, keep: int = KEEP_TURNS) -> None:
         shutil.rmtree(old, ignore_errors=True)
 
 
+def _request_label(request: str) -> str:
+    """The request as one masked line of at most 80 characters."""
+    from ract.redaction import redact
+
+    line = " ".join(redact(request).split())
+    return line if len(line) <= 80 else line[:77] + "..."
+
+
 @contextmanager
 def turn(
     root: Path | str,
     *,
     announce: Callable[[str], object] | None = None,
     kind: str = "turn",
+    request: str = "",
 ) -> Iterator[TurnBackup]:
     """Bind a TurnBackup for the turn; a nested call shares the outer one.
 
@@ -282,7 +294,7 @@ def turn(
     if outer is not None:
         yield outer
         return
-    backup = TurnBackup(Path(root), kind)
+    backup = TurnBackup(Path(root), kind, _request_label(request))
     token = _current.set(backup)
     try:
         yield backup
@@ -419,6 +431,9 @@ def checkpoints(root: Path | str) -> list[dict[str, Any]]:
             "kind": str(data.get("kind") or "turn"),
             "saved": _names(data.get("saved")),
             "created": _names(data.get("created")),
+            "request": data.get("request")
+            if isinstance(data.get("request"), str)
+            else "",
             "done": bool(data.get("done")),
         }
         for folder, data in _manifests(base)

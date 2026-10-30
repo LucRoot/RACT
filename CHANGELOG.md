@@ -152,6 +152,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   brings back the last turn reversed. Every apply also keeps the snapshot it started from under
   `refs/ract/checkpoints/<checkpoint>/<n>`, so `git gc` does not remove it; the refs go when the
   checkpoint's saved copies are pruned.
+- `/rewind` lists the turns that changed files by what you asked (a key in a request is
+  masked), numbered; a number goes back to that turn as `/restore` does, and Enter keeps
+  everything. Esc Esc at the prompt runs it where the prompt uses readline; the Windows console
+  clears the line on Esc, so there it is `/rewind`.
 - `--no-network` and `RACT_NO_NETWORK=1`: every request to a host that is not this machine is
   refused before it connects, named by purpose and host, recorded in the egress ledger, and the
   run exits 3. A model server on `localhost` still works. Nothing in `ract.yaml` turns it off;

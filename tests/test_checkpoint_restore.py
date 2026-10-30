@@ -151,6 +151,7 @@ def test_an_apply_keeps_its_base_snapshot_under_a_checkpoint_ref(
     ).stdout.split("\n")
     refs = [line.split() for line in refs if line]
     turn = undo_backup.checkpoints(ws)[0]["turn"]
+    assert undo_backup.checkpoints(ws)[0]["request"] == "fix add"  # for /rewind
     assert [ref for ref, _sha in refs] == [f"refs/ract/checkpoints/{turn}/1"]
     base = subprocess.run(
         ["git", "show", f"{refs[0][1]}:src/calc.py"],
@@ -170,3 +171,44 @@ def test_an_apply_keeps_its_base_snapshot_under_a_checkpoint_ref(
         check=True,
     ).stdout
     assert left == ""
+
+
+def _rewind(tmp_path: Path, answer: str) -> str:
+    from tests.test_repl import _session
+
+    session, _, console = _session(config=tmp_path / "ract.yaml")
+    session._read_line = lambda _prompt: answer
+    session.handle("/rewind")
+    return console.text
+
+
+def _turns_with_requests(root: Path) -> None:
+    (root / "a.txt").write_text("one\n", encoding="utf-8")
+    for request, text in (
+        ("make a say two", "two\n"),
+        (f"key sk-{'a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6'} three", "three\n"),
+    ):
+        with undo_backup.turn(root, request=request):
+            undo_backup.save_before_replace(root, ["a.txt"])
+            (root / "a.txt").write_text(text, encoding="utf-8")
+
+
+def test_rewind_names_each_turn_by_its_request_and_goes_back(tmp_path: Path) -> None:
+    _turns_with_requests(tmp_path)
+    text = _rewind(tmp_path, "2")
+    assert "1. " in text and "2. " in text and "make a say two" in text
+    assert "a1B2c3D4e5F6" not in text  # a key in a request is masked
+    assert "back at checkpoint 2" in text
+    assert _read(tmp_path, "a.txt") == "two\n"
+
+
+def test_rewind_with_enter_keeps_everything(tmp_path: Path) -> None:
+    _turns_with_requests(tmp_path)
+    assert "nothing rewound" in _rewind(tmp_path, "")
+    assert _read(tmp_path, "a.txt") == "three\n"
+
+
+def test_rewind_needs_two_turns(tmp_path: Path) -> None:
+    (tmp_path / "a.txt").write_text("one\n", encoding="utf-8")
+    _turn(tmp_path, {"a.txt": "two\n"})
+    assert "nothing to rewind to" in _rewind(tmp_path, "1")
