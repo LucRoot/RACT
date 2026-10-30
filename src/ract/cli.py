@@ -1499,6 +1499,29 @@ def _plan_command(args: list[str]) -> int:
     return 0 if report.success else 1
 
 
+def _doctor_env(*, json_output: bool) -> int:
+    """`ract doctor --env`: the RACT_* variables in effect, names and state only (V7-02).
+
+    A value is never printed, for any class. Set or not set is the whole answer.
+    """
+    import os
+
+    from ract import env_registry
+
+    rows = [
+        {"name": var.name, "class": var.cls, "set": bool(os.environ.get(var.name))}
+        for var in env_registry.ENV_VARS
+    ]
+    if json_output:
+        print(json.dumps({"variables": rows}, indent=2))
+        return 0
+    print(f"{'name':28} {'class':12} state")
+    for row in rows:
+        state = "set" if row["set"] else "not set"
+        print(f"{row['name']:28} {row['class']:12} {state}")
+    return 0
+
+
 def _doctor_egress(*, json_output: bool) -> int:
     """`ract doctor --egress`: the last 7 days of the egress ledger (B-044)."""
     from datetime import datetime, timedelta, timezone
@@ -1601,9 +1624,17 @@ def _doctor_command(args: list[str]) -> int:
         help="Show what left this machine in the last 7 days (the egress ledger) "
         "and the sites exempt from the secret scan.",
     )
+    parser.add_argument(
+        "--env",
+        action="store_true",
+        help="List the RACT_* environment variables: names, classes and whether "
+        "each is set. Values are never shown.",
+    )
     parsed = parser.parse_args(args)
     if parsed.egress:
         return _doctor_egress(json_output=parsed.json_output)
+    if parsed.env:
+        return _doctor_env(json_output=parsed.json_output)
 
     from ract.executor.worktree import list_step_branches, prune_step_branches
 
