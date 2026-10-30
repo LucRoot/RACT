@@ -78,6 +78,17 @@ def provenance_notice(unsigned: list[str]) -> str:
 # next action or the exact command.
 _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
+        # B-110 D5: the step agent loop ended without writing the step's file.
+        re.compile(r"ended without changing", re.I),
+        "the model ended the step without writing its file; ask again naming the "
+        "file and the change, or set agent.step_tools to false in ract.yaml",
+    ),
+    (
+        # B-110 D5: the step agent loop used its token budget.
+        re.compile(r"tokens, more than its \d+", re.I),
+        "raise agent.max_tokens_per_step in ract.yaml, or split the step",
+    ),
+    (
         # Package 4 (H1): Windows refuses a path of 260 characters or more.
         re.compile(r"Windows refuses paths of \d+ characters or more", re.I),
         "use a shorter folder or file name, then run the intent again",

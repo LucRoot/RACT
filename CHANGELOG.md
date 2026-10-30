@@ -135,6 +135,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The egress ledger records which run, plan step and role (`manager`, `executor`, `reviewer`)
   each request belongs to, ids only; `/cost --by step` and `/cost --by role` group the model
   requests that way (`--by purpose` is the default). Older records read as before.
+- Write tools and the step agent loop (ADR-0047, B-110), off until you turn them on with
+  `agent.step_tools: true` in `ract.yaml`. A step that writes a file then works with
+  `write_file`, `edit_file`, `delete_file`, `move_file`, `apply_patch` and `repo_map` in its own
+  worktree: a change to an existing file needs the digest the model read, the step's file still
+  passes every check before it is written, and other files the step changed reach yours only
+  through the apply, which skips a file you changed meanwhile. A control or
+  executable-configuration file (`AGENTS.md`, `.github/workflows/`, `.envrc`) is tier 2: in a
+  session RACT shows the change and asks; with nobody to answer, or with `--yolo`, it is
+  refused, and nothing a model writes approves it. The loop stops at `agent.max_turns`,
+  `agent.max_tool_calls`, `agent.max_wall_seconds` and `agent.max_tokens_per_step`; when a call
+  fails, the calls after it in the same reply do not run.
 - `--no-network` and `RACT_NO_NETWORK=1`: every request to a host that is not this machine is
   refused before it connects, named by purpose and host, recorded in the egress ledger, and the
   run exits 3. A model server on `localhost` still works. Nothing in `ract.yaml` turns it off;

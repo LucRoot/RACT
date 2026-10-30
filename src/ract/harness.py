@@ -393,6 +393,7 @@ class Harness:
         # B-011a (decision C, D-050): answer steps may read the project with
         # the tier-0 tools, within the budgets in ract.yaml (``agent``).
         self.executor.read_tools = _read_tools_budgets(self.config)
+        self.executor.step_tools = _step_tools_budgets(self.config)
         # B-061c (ADR-0049 D14): the per-step review; off unless ract.yaml says.
         self.executor.review_mode = _review_mode(self.config)
         # v0.5.1 wiring module_03 (Lens C C-01) production wire-in.
@@ -1168,6 +1169,22 @@ def _read_tools_budgets(config: dict[str, Any]) -> Any:
         max_tool_calls=int(number("max_tool_calls", defaults.max_tool_calls)),
         max_wall_seconds=float(number("max_wall_seconds", defaults.max_wall_seconds)),
         max_tokens_per_step=int(number("max_tokens_per_step", 0)) or None,
+    )
+
+
+def _step_tools_budgets(config: dict[str, Any]) -> Any:
+    """The step agent loop's budgets when ``agent.step_tools`` is true, else None (B-110 D5).
+
+    Off by default until the slice's walkthroughs are done: a write step keeps
+    the single completion. The budgets are the read loop's keys in ``agent``.
+    """
+    agent = config.get("agent") if isinstance(config.get("agent"), dict) else {}
+    if agent.get("step_tools") is not True:
+        return None
+    from ract.tools.loop import LoopBudgets
+
+    return (
+        _read_tools_budgets({"agent": {**agent, "read_tools": True}}) or LoopBudgets()
     )
 
 

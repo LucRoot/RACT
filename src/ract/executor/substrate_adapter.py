@@ -118,13 +118,17 @@ def _rebind_project_dir(executor: Executor, new_dir: Path) -> Iterator[None]:
         if original is None:
             continue
         originals.append((helper, original))
+    original_in_worktree = executor.in_step_worktree
     try:
         executor.project_dir = new_path
+        # The step agent loop writes only here (B-110 D5).
+        executor.in_step_worktree = True
         for helper, _original in originals:
             helper.project_dir = new_path
         yield
     finally:
         executor.project_dir = original_project_dir
+        executor.in_step_worktree = original_in_worktree
         for helper, original in originals:
             helper.project_dir = original
 

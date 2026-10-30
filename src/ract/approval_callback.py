@@ -64,6 +64,55 @@ def console_approval_callback(step: Step) -> bool:
     return response in {"y", "yes"}
 
 
+def _tier_2_change(name: str, args: object) -> list[str]:
+    """The exact change a tier-2 call asks for, as lines (ADR-0047 D6)."""
+    from ract.redaction import redact
+
+    fields = getattr(args, "model_dump", lambda: {})()
+    lines = [f"{name} {fields.get('path') or ''}".rstrip()]
+    if fields.get("destination"):
+        lines.append(f"  to {fields['destination']}")
+    for key, mark in (("content", "+"), ("old", "-"), ("new", "+"), ("patch", "")):
+        text = fields.get(key)
+        if isinstance(text, str):
+            body = redact(text).splitlines()
+            lines += [f"  {mark}{line}" for line in body[:40]]
+            if len(body) > 40:
+                lines.append(f"  ... {len(body) - 40} more lines")
+    return lines
+
+
+def console_tier_2_callback(name: str, args: object) -> bool:
+    """Ask the operator before a tier-2 tool call (ADR-0047 D6, ADR-0048 D6).
+
+    LR:: The call touches a control or executable-configuration file. The
+    change is shown as it would be written, with control characters made
+    visible, and only "y" or "yes" typed at the terminal runs it. A model's
+    words never reach this answer: the question is read from the console.
+    """
+    from ract.session_events import safe_text
+
+    width = max(_terminal_width() - 3, 20)
+    _print_wrapped(
+        "Tier 2: this change touches a control or executable-configuration "
+        "file. The change:"
+    )
+    for line in _tier_2_change(name, args):
+        for part in wrap_cells(safe_text(line), width):
+            print(part)
+    question_gate.open_question()
+    try:
+        response = read_line("Allow this change once? [y/N]: ").strip().lower()
+    except EOFError:
+        return False
+    except KeyboardInterrupt:
+        print()
+        raise
+    finally:
+        question_gate.close_question()
+    return response in {"y", "yes"}
+
+
 def _plan_steps(plan: Plan) -> list:
     """The plan as the approval checklist numbers it (ADR-0049 D12)."""
     from ract.ui.plan_approval_view import Step as PlanStep

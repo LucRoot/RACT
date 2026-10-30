@@ -163,6 +163,16 @@ class Executor:
     # B-011a: the budgets of the read-only tools loop for answer steps, set by
     # the harness from ract.yaml (``agent``); None keeps the single completion.
     read_tools: Any = None
+    # B-110 D5: the budgets of the step agent loop for steps that write a file,
+    # set by the harness when ``agent.step_tools`` is on; None keeps the single
+    # completion. The loop runs only while the substrate has pointed
+    # project_dir at the step's worktree (``in_step_worktree``), never in the
+    # operator's tree.
+    step_tools: Any = None
+    in_step_worktree: bool = False
+    # The operator's answer to a tier-2 tool call (ADR-0047 D6, ADR-0048 D6),
+    # set by the runner when someone can answer; None refuses every tier-2 call.
+    tier_2_approver: Any = None
     # B-061c: ``review`` from ract.yaml (off, advisory, retry); off reviews nothing.
     review_mode: str = "off"
     # Retries the current step used (B-095's cut-off retry, B-061d's review retry).
@@ -1138,6 +1148,16 @@ class Executor:
             return self._answer_with_read_tools(
                 candidates, user_content, index, temperature, stream_callback
             )
+        if (
+            self.step_tools is not None
+            and self.in_step_worktree
+            and self.project_dir is not None
+            and step.expected_artifact
+            and step.tool_call is None
+        ):
+            return self._work_with_step_tools(
+                candidates, step, user_content, index, temperature
+            )
         for adapter in candidates:
             if turn_context.cancelled():
                 break  # an interrupted turn tries no further provider
@@ -1715,6 +1735,165 @@ class Executor:
             return None
         assumptions.append(f"Step {n} was revised once after the review.")
         return written
+
+    def _work_with_step_tools(
+        self,
+        candidates: list[ProviderAdapter],
+        step: Step,
+        instruction: str,
+        index: int,
+        temperature: float,
+    ) -> Rooted[tuple[dict[str, Any], str, dict[str, Any]]]:
+        """A write step through the step agent loop, in the step's worktree (B-110 D5).
+
+        LR:: The model reads and changes files with the tools; every call
+        passes the tier gate, and a tier-2 call runs only on the operator's
+        answer. The step's own file then goes through the same checks as a
+        single completion: its new text is taken from the worktree, the file
+        is put back as it was, and the text is returned to
+        ``_check_and_write``, which writes it with every gate. Other files the
+        loop changed stay in the worktree and reach the operator's files only
+        through the substrate's apply, with its digest check. A provider
+        failure before any change moves to the next provider; after a change
+        it ends the step, so no second model works on a half-changed tree.
+        """
+        from ract.tools.loop import StepWork, work_with_tools
+
+        assert self.project_dir is not None and step.expected_artifact
+        target = self.project_dir / step.expected_artifact
+        before = target.read_bytes() if target.is_file() else None
+        errors: list[str] = []
+        hints: list[str] = []
+        for adapter in candidates:
+            if turn_context.cancelled():
+                break
+
+            def complete(messages, _adapter=adapter):
+                return _adapter.complete(
+                    messages, max_tokens=1024, temperature=temperature
+                )
+
+            work = StepWork()
+            try:
+                done = work_with_tools(
+                    complete,
+                    instruction,
+                    self.project_dir,
+                    budgets=self.step_tools,
+                    max_tokens=1024,
+                    approve_tier_2=self.tier_2_approver,
+                    work=work,
+                )
+            except Exception as exc:  # noqa: BLE001
+                info = classify_error(exc)
+                errors.append(f"{adapter.name}: {info.category} {info.message}")
+                hints.append(info.category)
+                if work.changes:
+                    break
+                continue
+            if not done.is_ok():
+                if (
+                    done.hint in {"provider", "connection", "timeout", "rate_limit"}
+                    and not work.changes
+                ):
+                    errors.append(f"{adapter.name}: {done.error}")
+                    hints.append(done.hint or "provider")
+                    continue
+                return Rooted(
+                    value=None,
+                    assumption=f"Step {self._shown(index)} finishes within its budgets.",
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}", "step_agent"],
+                    error=(
+                        f"Step {self._shown(index)}: {done.error} Nothing was applied "
+                        "to your files."
+                    ),
+                    hint=done.hint,
+                )
+            after = target.read_bytes() if target.is_file() else None
+            if after is None or after == before:
+                return Rooted(
+                    value=None,
+                    assumption=f"Step {self._shown(index)} writes {step.expected_artifact}.",
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}", "step_agent"],
+                    error=(
+                        f"Step {self._shown(index)} ended without changing "
+                        f"{step.expected_artifact}. Nothing was applied to your files."
+                    ),
+                    hint="ask again, or set agent.step_tools to false in ract.yaml",
+                )
+            try:
+                # LF text, as a model's reply is: the write path gives the file
+                # its line endings (a worktree checkout can hold CRLF).
+                content = after.decode("utf-8").replace("\r\n", "\n")
+            except UnicodeDecodeError:
+                return Rooted(
+                    value=None,
+                    assumption=f"{step.expected_artifact} is UTF-8 text.",
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}", "step_agent"],
+                    error=(
+                        f"Step {self._shown(index)} left {step.expected_artifact} as "
+                        "bytes that are not UTF-8 text. Nothing was applied."
+                    ),
+                    hint="ask again",
+                )
+            # Put the file back; _check_and_write writes the text with its gates.
+            if before is None:
+                target.unlink()
+            else:
+                target.write_bytes(before)
+            raw = {
+                "choices": [{"message": {"content": content}, "finish_reason": "stop"}],
+                "usage": {"total_tokens": work.tokens},
+            }
+            metrics = self._extract_step_metrics(adapter, raw)
+            others = sorted(
+                {
+                    str(path)
+                    for change in work.changes
+                    for path in (
+                        [change.get("path"), change.get("destination")]
+                        + [f.get("path") for f in change.get("files") or []]
+                    )
+                    if path and path != step.expected_artifact
+                }
+            )
+            if others and turn_context.has_reporter():
+                turn_context.report(
+                    "notice",
+                    {
+                        "level": "info",
+                        "text": f"step {self._shown(index)} also changed "
+                        + ", ".join(others)
+                        + " in its workspace",
+                    },
+                )
+            return Rooted(
+                value=(raw, content, metrics),
+                assumption=(
+                    f"Provider '{adapter.name}' worked step {index} with the tools; "
+                    "the step's checks judge the result."
+                ),
+                confidence=1.0,
+                provenance=[
+                    f"executor.step:{index}",
+                    f"provider:{adapter.name}",
+                    "step_agent",
+                ],
+            )
+        final_hint = (
+            hints[0] if hints and all(h == hints[0] for h in hints) else "provider"
+        )
+        return Rooted(
+            value=None,
+            assumption=f"At least one provider works step {index}.",
+            confidence=0.0,
+            provenance=[f"executor.step:{index}"],
+            error="; ".join(errors) if errors else "All providers failed.",
+            hint=final_hint,
+        )
 
     def _answer_with_read_tools(
         self,
