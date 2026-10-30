@@ -154,6 +154,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- At 60 and 40 columns the session's status line folds between its items, so `T3 off` stays
+  on one line, and `/review` lists its choices folded at the commas and asks `answer:`, so no
+  choice is split.
 - A web-search key and a GitHub release token are masked wherever RACT shows text, like a
   provider key. `/help` no longer splits a word at 40 columns: `/cost [--by KEY]`, `/mode [MODE]`
   and `/doctor [OPTIONS]` name their options in the description.

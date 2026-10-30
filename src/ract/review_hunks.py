@@ -30,10 +30,15 @@ Answer = bool | list[str]
 Ask = Callable[[str], "str | None"]
 Show = Callable[[str], None]
 
-CHOICES = (
-    "a accept, r reject, e edit, s skip, A accept the rest of the file, "
-    "R reject the rest of the file"
+CHOICE_ITEMS = (
+    "a accept",
+    "r reject",
+    "e edit",
+    "s skip",
+    "A accept the rest of the file",
+    "R reject the rest of the file",
 )
+CHOICES = ", ".join(CHOICE_ITEMS)
 _BOM = "﻿"
 
 
@@ -171,6 +176,22 @@ def _typed_lines(ask: Ask, show: Show) -> list[str]:
         typed.append(line)
 
 
+def choice_lines(width: int) -> list[str]:
+    """The choices folded at the commas, so no choice is split (J5, B-117)."""
+    out: list[str] = []
+    current = ""
+    for i, item in enumerate(CHOICE_ITEMS):
+        piece = item + ("," if i < len(CHOICE_ITEMS) - 1 else "")
+        candidate = f"{current} {piece}" if current else piece
+        if current and len(candidate) > width:
+            out.append(current)
+            current = piece
+        else:
+            current = candidate
+    out.append(current)
+    return out
+
+
 def _answer_hunks(
     path: str,
     old: str,
@@ -192,8 +213,10 @@ def _answer_hunks(
             path, old_lines, new_lines, list(hunk.group), width=width
         ):
             show(line)
+        for line in choice_lines(max(width - 3, 20)):
+            show(line)
         while True:
-            answer = _ask(ask, f"{CHOICES}: ")
+            answer = _ask(ask, "answer: ")
             if answer in {"A", "R"}:
                 rest = answer == "A"
                 answers[hunk.n] = rest
@@ -208,7 +231,9 @@ def _answer_hunks(
             if choice == "e":
                 answers[hunk.n] = _typed_lines(ask, show)
                 break
-            show(f"Answer with one of: {CHOICES}.")
+            show("Answer with one of:")
+            for line in choice_lines(max(width - 3, 20)):
+                show(line)
     return answers
 
 

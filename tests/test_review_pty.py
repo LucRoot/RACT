@@ -33,7 +33,8 @@ def test_review_rejects_the_fix_and_undo_stays_true(
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
     session = spawn([_ract_exe()], cwd=str(ws), env=env, cols=cols, rows=40)
     try:
-        assert session.expect(r"\| default \|", 30)
+        # The status line folds between its items at 60 and 40 columns (J5 fix).
+        assert session.expect(r"\| default", 30)
         session.send_line("fix add")
         assert session.expect(r"\[y/N\]", 60)
         session.send_line("y")
@@ -41,7 +42,7 @@ def test_review_rejects_the_fix_and_undo_stays_true(
         assert (ws / "src" / "calc.py").read_text(encoding="utf-8") != before
         session.send_line("/review")
         assert session.expect(r"Hunk 1 of 1 in src/calc\.py:", 30)
-        assert session.expect(r"reject\s+the\s+rest\s+of\s+the\s+file:", 30)
+        assert session.expect(r"answer:", 30)
         session.send_line("r")
         # The confirmation line wraps at 40 columns, and ConPTY's repaint can
         # repeat a character at the wrap in the rebuilt text; the prompt coming

@@ -307,7 +307,7 @@ def j5(tmp: Path, j: Journey) -> Recording:
                 ("line", "y"),
                 ("quiet", 6.0),
                 ("line", "/review"),
-                ("expect", r"reject\s+the\s+rest\s+of\s+the\s+file:"),
+                ("expect", r"answer:"),
                 ("line", "r"),
                 ("quiet", 2.0),
                 ("line", "/diff"),

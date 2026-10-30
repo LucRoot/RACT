@@ -116,6 +116,22 @@ class PlainRenderer:
         for piece in self._fit(text) if self._wrap else [text]:
             self._write(piece + "\n")
 
+    def _line_items(self, items: list[str]) -> None:
+        """Items joined by " | ", folded only between items (J5: "T3 off" stays whole)."""
+        text = " | ".join(items)
+        if not self._wrap or cell_len(safe_text(text)) <= self._width:
+            self._line(text)
+            return
+        current = ""
+        for item in items:
+            candidate = f"{current} | {item}" if current else item
+            if current and cell_len(safe_text(candidate)) > self._width:
+                self._line(current)
+                current = f"  | {item}"
+            else:
+                current = candidate
+        self._line(current)
+
     def _fit(self, text: str) -> list[str]:
         """The text as lines no wider than the renderer's width (B-041c).
 
@@ -154,10 +170,11 @@ class PlainRenderer:
         # None is the event's value for a model or provider no config named (D11).
         model = d.get("model") or "no model"
         provider = d.get("provider") or "no provider"
-        branch = f" | {d['branch']}" if d.get("branch") else ""
-        self._line(
-            f"RACT session {model} via {provider}{branch} | {d.get('mode', 'default')} | T3 {d.get('tier3', 'off')}"
-        )
+        items = [f"RACT session {model} via {provider}"]
+        if d.get("branch"):
+            items.append(str(d["branch"]))
+        items += [str(d.get("mode", "default")), f"T3 {d.get('tier3', 'off')}"]
+        self._line_items(items)
 
     def _on_session_resumed(self, d: dict[str, Any]) -> None:
         self._line(
