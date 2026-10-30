@@ -138,6 +138,12 @@ def _parser() -> argparse.ArgumentParser:
         "stream-json: every session event as a JSON line",
     )
     parser.add_argument("--config", type=Path, default=Path("ract.yaml"))
+    # V7-06: handled in ract.cli.main() before this parser runs; listed for --help.
+    parser.add_argument(
+        "--no-network",
+        action="store_true",
+        help="refuse every request to a host that is not this machine; a model server on localhost still works. A refused request names its purpose and host and is recorded in the egress ledger. RACT_NO_NETWORK=1 does the same; ract.yaml cannot turn either off.",
+    )
     parser.add_argument(
         "--no-stdin",
         dest="no_stdin",

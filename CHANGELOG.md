@@ -135,6 +135,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The egress ledger records which run, plan step and role (`manager`, `executor`, `reviewer`)
   each request belongs to, ids only; `/cost --by step` and `/cost --by role` group the model
   requests that way (`--by purpose` is the default). Older records read as before.
+- `--no-network` and `RACT_NO_NETWORK=1`: every request to a host that is not this machine is
+  refused before it connects, named by purpose and host, recorded in the egress ledger, and the
+  run exits 3. A model server on `localhost` still works. Nothing in `ract.yaml` turns it off;
+  `ract doctor --egress` shows whether it is on.
 
 ### Changed
 

@@ -44,6 +44,57 @@ _step: ContextVar[str] = ContextVar("ract_egress_step", default="")
 _role: ContextVar[str] = ContextVar("ract_egress_role", default="")
 # The keys /cost --by can group model requests by.
 GROUP_KEYS = ("purpose", "step", "role")
+
+# V7-06 (D-115): the offline switch. Tighten only: --no-network turns it on for
+# this process, RACT_NO_NETWORK turns it on from the environment, and nothing
+# (no flag, no ract.yaml key) turns either off.
+NO_NETWORK_ENV = "RACT_NO_NETWORK"
+_no_network = False
+
+
+class NetworkRefused(Exception):
+    """A request to a host that is not this machine, refused by the offline switch."""
+
+    def __init__(self, purpose: str, host: str, source: str) -> None:
+        self.purpose = purpose
+        self.host = host
+        self.source = source
+        super().__init__(
+            f"refused: {source} is on and {purpose} would connect to {host}. "
+            "hint: use a model server on this machine, or run without --no-network"
+        )
+
+
+def set_no_network() -> None:
+    """Turn the offline switch on for this process (``--no-network``). It cannot be turned off."""
+    global _no_network
+    _no_network = True
+
+
+def network_off() -> str | None:
+    """What turned the offline switch on (``--no-network`` or ``RACT_NO_NETWORK``), or None."""
+    if _no_network:
+        return "--no-network"
+    if os.environ.get(NO_NETWORK_ENV, "").strip().lower() in {"1", "true", "yes"}:
+        return NO_NETWORK_ENV
+    return None
+
+
+def is_loopback(host: str | None) -> bool:
+    """True for localhost, 127.0.0.0/8 and ::1 only; a LAN address is not loopback (D-115)."""
+    import ipaddress
+
+    if not host:
+        return False
+    name = host.strip("[]").lower()
+    if name == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(name).is_loopback
+    except ValueError:
+        return False
+
+
 # The records of the current turn, when a session collects them (cost.updated).
 _turn: ContextVar[list[dict[str, Any]] | None] = ContextVar(
     "ract_egress_turn", default=None
@@ -286,6 +337,20 @@ def _transport_class() -> Any:
                     "port": request.url.port,
                     "bytes_out": bytes_out,
                 }
+                source = network_off()
+                if source is not None and not is_loopback(request.url.host):
+                    # V7-06: refused before any connection; the ledger says so.
+                    _record(
+                        {
+                            **base,
+                            "status": "refused_no_network",
+                            "ms": 0,
+                            "bytes_in": 0,
+                            "tokens_in": None,
+                            "tokens_out": None,
+                        }
+                    )
+                    raise NetworkRefused(base["purpose"], request.url.host, source)
                 state = _connections.get()
                 if state is not None:
                     port = f":{request.url.port}" if request.url.port else ""

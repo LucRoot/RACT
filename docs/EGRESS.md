@@ -50,6 +50,22 @@ Read it with:
 If the ledger cannot be written, RACT prints one note and carries on; the
 request is not stopped.
 
+## The offline switch
+
+`--no-network` (on `ract run`, a bare `ract "<intent>"`, `ract -p` and the
+interactive session) and `RACT_NO_NETWORK=1` (also `true` or `yes`) refuse
+every request to a host that is not this machine. Loopback means `localhost`,
+127.0.0.0/8 and `::1` only; a model server on the local network is refused,
+because the switch is an offline guarantee. The exempt sites below are refused
+too.
+
+A refused request never connects. It names its purpose and host
+(`refused: --no-network is on and plan would connect to api.example.com`), is
+recorded in the ledger with status `refused_no_network`, and the run exits 3.
+The switch only tightens: no flag and no `ract.yaml` key turns it off.
+`ract doctor --egress` shows `network: allowed` or `network: loopback only`
+with what turned it on.
+
 ## Every outbound site
 
 All network requests go through one httpx client factory

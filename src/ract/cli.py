@@ -1533,11 +1533,15 @@ def _doctor_egress(*, json_output: bool) -> int:
     )
     records = egress_ledger.since(egress_ledger.read(), start)
     path = egress_ledger.ledger_path()
+    # V7-06 (D-115): the offline switch, and what turned it on.
+    source = egress_ledger.network_off()
+    network = "allowed" if source is None else f"loopback only ({source})"
     if json_output:
         print(
             json.dumps(
                 {
                     "ledger": str(path),
+                    "network": network,
                     "since": start,
                     "summary": egress_ledger.summary(records),
                     "exempt": [
@@ -1550,6 +1554,7 @@ def _doctor_egress(*, json_output: bool) -> int:
         )
         return 0
     console.rule("Egress: the last 7 days")
+    console.print(f"network: {network}")
     for line in egress_ledger.describe(records):
         console.print(line)
     console.print(f"ledger: {path}")
@@ -4603,6 +4608,14 @@ def main(argv: list[str] | None = None) -> int:
         from ract.tui import console as branded_console
 
         branded_console.disable_color()
+    if "--no-network" in argv:
+        # V7-06 (D-115): the offline switch, for every entry point (run, a bare
+        # intent, -p, the session). Stripped here; `ract run --help` and
+        # `ract -p --help` list it. It only turns the switch on.
+        argv = [arg for arg in argv if arg != "--no-network"]
+        from ract import egress_ledger
+
+        egress_ledger.set_no_network()
     if "--plain" in argv:
         # Global flag too (B-041b): labels, no color, no boxes, no redraws.
         argv = [arg for arg in argv if arg != "--plain"]
@@ -4900,6 +4913,12 @@ def main(argv: list[str] | None = None) -> int:
     # v0.5.1 wiring module_10 (Lens A N2): --yolo and --auto share a
     # single mutually-exclusive group so argparse rejects the combination
     # at parse time. Prior behavior silently let --auto win over --yolo.
+    # V7-06: handled in main() before this parser runs; listed here for --help.
+    parser.add_argument(
+        "--no-network",
+        action="store_true",
+        help="refuse every request to a host that is not this machine; a model server on localhost still works. A refused request names its purpose and host and is recorded in the egress ledger. RACT_NO_NETWORK=1 does the same; ract.yaml cannot turn either off.",
+    )
     approval_group = parser.add_mutually_exclusive_group()
     approval_group.add_argument(
         "--yolo",

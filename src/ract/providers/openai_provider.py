@@ -481,6 +481,15 @@ class OpenAICompatibleProvider(ProviderAdapter):
             budget.add_usage(data.get("usage"), self.name)
 
         if last_error is not None:
+            if isinstance(last_error, egress_ledger.NetworkRefused):
+                # V7-06: the offline switch refused it before any connection.
+                return Rooted(
+                    value=None,
+                    assumption="The run may reach the provider's host.",
+                    confidence=0.0,
+                    provenance=["openai.complete"],
+                    error=str(last_error),
+                )
             if isinstance(last_error, httpx.HTTPStatusError):
                 status = last_error.response.status_code
                 where = f" from {self.url}" if status == 429 else ""
@@ -646,6 +655,16 @@ class OpenAICompatibleProvider(ProviderAdapter):
                                 provenance=["openai.complete_stream"],
                                 error=f"Unexpected SSE line: {line[:200]}",
                             )
+                return
+            except egress_ledger.NetworkRefused as refused:
+                # V7-06: refused before any connection; no retry.
+                yield Rooted(
+                    value=None,
+                    assumption="The run may reach the provider's host.",
+                    confidence=0.0,
+                    provenance=["openai.complete_stream"],
+                    error=str(refused),
+                )
                 return
             except (httpx.HTTPStatusError, httpx.RequestError) as exc:
                 wait = None

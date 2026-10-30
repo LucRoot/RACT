@@ -83,6 +83,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--new` | `ract refactor` | New symbol name. |
 | `--no-anonymize` | `ract receipt-export` | Include identifying fields in the export. |
 | `--no-color` | `ract (any command)` | no colour |
+| `--no-network` | `ract run` | refuse every request to a host that is not this machine; a model server on localhost still works. A refused request names its purpose and host and is recorded in the egress |
 | `--no-stdin` | `ract -p` | Do not read stdin (for a parent that leaves it open). |
 | `--old` | `ract refactor` | Current symbol name. |
 | `--out` | `ract trace to-test` | - |
