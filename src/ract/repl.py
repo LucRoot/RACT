@@ -90,6 +90,11 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
         "list shows each checkpoint.",
     ),
     ("/redo [--force]", "Reverse the last /undo."),
+    ("/checkpoint", "List the checkpoints, numbered, newest first."),
+    (
+        "/restore N [--force]",
+        "Go back to checkpoint N: reverse every later turn, newest first.",
+    ),
     (
         "/doctor [OPTIONS]",
         "Run setup diagnostics against the active config; --check-providers also "
@@ -236,6 +241,8 @@ class ReplSession:
             "diff": self._cmd_diff,
             "review": self._cmd_review,
             "redo": self._cmd_redo,
+            "checkpoint": self._cmd_checkpoint,
+            "restore": self._cmd_restore,
             "clear": self._cmd_clear,
         }
         self._events: Any = None
@@ -537,6 +544,78 @@ class ReplSession:
                 )
             else:
                 self._print_wrapped(line)
+
+    def _turn_checkpoints(self) -> list[dict[str, Any]]:
+        """The checkpoints /restore can go back to: turns and redos, newest first."""
+        from ract import undo_backup
+
+        rows = undo_backup.checkpoints(self.state.config.resolve().parent)
+        return [row for row in rows if row["kind"] in {"turn", "redo"}]
+
+    def _cmd_checkpoint(self, args: list[str]) -> bool:
+        """``/checkpoint``: each checkpoint numbered, newest first (B-110 D6)."""
+        rows = self._turn_checkpoints()
+        if not rows:
+            self._print_wrapped(
+                "no checkpoints yet: a turn that changes a file makes one"
+            )
+            return True
+        for n, row in enumerate(rows, start=1):
+            files = [*row["saved"], *row["created"]]
+            shown = ", ".join(safe_text(f) for f in files[:3])
+            more = f" and {len(files) - 3} more" if len(files) > 3 else ""
+            state = " (undone)" if row["done"] else ""
+            self._print_wrapped(
+                f"{n}. {row['time']}{state}: {len(files)} "
+                f"file{'s' if len(files) != 1 else ''}: {shown}{more}"
+            )
+        self._print_wrapped(
+            "/restore N goes back to checkpoint N; /undo reverses the newest"
+        )
+        return True
+
+    def _cmd_restore(self, args: list[str]) -> bool:
+        """``/restore N``: reverse every turn after checkpoint N (B-110 D6)."""
+        from ract import undo_backup
+
+        numbers = [a for a in args if a != "--force"]
+        rows = self._turn_checkpoints()
+        if (
+            len(numbers) != 1
+            or not numbers[0].isdigit()
+            or not (1 <= int(numbers[0]) <= len(rows))
+        ):
+            self._print_wrapped(
+                f"usage: /restore N, where N is a checkpoint from /checkpoint (1 to {len(rows)})"
+                if rows
+                else "no checkpoints yet: a turn that changes a file makes one"
+            )
+            return True
+        n = int(numbers[0])
+        if n == 1:
+            self._print_wrapped(
+                "checkpoint 1 is the newest: the files are already as it left them"
+            )
+            return True
+        try:
+            results = undo_backup.restore(
+                self.state.config.resolve().parent,
+                rows[n - 1]["turn"],
+                force="--force" in args,
+            )
+        except ValueError as exc:
+            self._print_wrapped(f"restore refused: {exc}")
+            return True
+        for result in results:
+            for line in result.lines("restore"):
+                self._print_wrapped(line)
+        stopped = results and (results[-1].skipped or results[-1].refused)
+        self._print_wrapped(
+            f"stopped before checkpoint {n}: a later turn kept a file you changed"
+            if stopped
+            else f"back at checkpoint {n}; /redo brings back the last turn reversed"
+        )
+        return True
 
     # B-034: the session's permission mode, made of the two switches it
     # already had (dry-run, auto) and shown in the status line.

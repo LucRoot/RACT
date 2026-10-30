@@ -149,6 +149,9 @@ class TurnBackup:
         self.kind = kind
         self.saved: list[str] = []
         self.created: list[str] = []
+        # The base snapshot commit of each step applied in this turn, kept
+        # under refs/ract/checkpoints/<turn_id>/<n> (B-110 D6).
+        self.bases: list[str] = []
 
     @property
     def folder(self) -> Path:
@@ -204,6 +207,7 @@ class TurnBackup:
             "saved": self.saved,
             "created": self.created,
             "after": {p: _sha256(self.root / p) for p in [*self.saved, *self.created]},
+            "bases": self.bases,
             "done": False,
         }
         (self.folder / MANIFEST).write_text(
@@ -218,6 +222,20 @@ def current_backup_id() -> str | None:
     """The id of the turn backup bound now, or None outside a turn."""
     backup = _current.get()
     return backup.turn_id if backup is not None else None
+
+
+def keep_base(root: Path | str, commit: str) -> None:
+    """Keep a step's base snapshot as this turn's checkpoint (B-110 D6).
+
+    Outside a turn nothing is kept, as for the saved copies.
+    """
+    backup = _current.get()
+    if backup is None or not commit:
+        return
+    from ract.executor.worktree import keep_checkpoint_ref
+
+    if keep_checkpoint_ref(Path(root), backup.turn_id, len(backup.bases) + 1, commit):
+        backup.bases.append(commit)
 
 
 def save_before_replace(root: Path | str, paths: Iterable[Path | str]) -> None:
@@ -236,6 +254,14 @@ def prune(root: Path | str, keep: int = KEEP_TURNS) -> None:
         return
     folders = sorted(p for p in undo.iterdir() if p.is_dir() and not p.is_symlink())
     for old in folders[: max(0, len(folders) - keep)]:
+        try:
+            data = json.loads((old / MANIFEST).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = {}
+        if isinstance(data, dict) and data.get("bases"):
+            from ract.executor.worktree import drop_checkpoint_refs
+
+            drop_checkpoint_refs(Path(root), old.name)
         shutil.rmtree(old, ignore_errors=True)
 
 
@@ -533,10 +559,46 @@ def redo(root: Path | str, *, force: bool = False) -> UndoResult:
     return _reverse(Path(root), {"undo"}, "redo", force)
 
 
+def restore(
+    root: Path | str, turn_id: object, *, force: bool = False
+) -> list[UndoResult]:
+    """Go back to checkpoint *turn_id*: reverse every later turn, newest first (B-110 D6).
+
+    LR:: ``/restore`` is ``/undo`` repeated with the same rule for each turn:
+    a file is put back only while it still has the digest RACT left, and one
+    the operator changed since is skipped and named. The walk stops at the
+    first turn that keeps a skipped or refused file, so an older turn is never
+    reversed under a newer one that is still in place; ``--force`` reaches a
+    skipped file as ``/undo --force`` does. The checkpoint itself is kept:
+    its files stay as that turn left them. Each reversal is an undo, so
+    ``/redo`` brings the latest one back. An id that names no checkpoint of
+    this repository is refused.
+    """
+    base = Path(os.path.realpath(root))
+    target = require_name(turn_id, "checkpoint")
+    known = {folder.name for folder, _data in _manifests(base)}
+    if target not in known:
+        raise ValueError(f"no checkpoint {target!r} is recorded for this repository")
+    results: list[UndoResult] = []
+    while True:
+        pending = [
+            folder.name
+            for folder, data in _manifests(base)
+            if data.get("kind") in {"turn", "redo"} and not data.get("done")
+        ]
+        if not pending or pending[-1] <= target:
+            return results
+        result = _reverse(base, {"turn", "redo"}, "undo", force)
+        results.append(result)
+        if result.skipped or result.refused:
+            return results
+
+
 __all__ = [
     "KEEP_TURNS",
     "check_entry",
     "current_backup_id",
+    "keep_base",
     "require_name",
     "repository_key",
     "turns_dir",
@@ -544,6 +606,7 @@ __all__ = [
     "UndoResult",
     "prune",
     "redo",
+    "restore",
     "save_before_replace",
     "turn",
     "undo",

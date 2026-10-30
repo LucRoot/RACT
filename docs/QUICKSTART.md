@@ -73,6 +73,7 @@ ract> /exit
 | `/cost [--by purpose\|step\|role]` | Requests, tokens and bytes this session sent off the machine; `--by` groups the model requests by purpose, plan step or role. |
 | `/mode plan\|default\|auto-accept` | `plan` proposes and writes nothing; `default` (the starting mode) asks before each change; `auto-accept` applies changes without asking. The mode is in the status line. |
 | `/undo`, `/redo` | Reverse the last turn's file changes, or the last undo. |
+| `/checkpoint`, `/restore N` | List the checkpoints, numbered, newest first; go back to checkpoint N by reversing every later turn, newest first. A file you changed since is skipped and named, and the walk stops there. |
 | `/review` | Go through the last turn's changes hunk by hunk: `a` accept, `r` reject (the turn's saved copy of that hunk comes back), `e` edit, `s` skip, `A` or `R` for the rest of the file. `/undo` still reverses the whole turn afterwards. |
 | `/loop <intent>` | Run the quality-anchored loop. |
 | `/set dry-run\|stream\|auto on\|off` | Change how turns run. `/set mode` and `/set iterations` also work. |

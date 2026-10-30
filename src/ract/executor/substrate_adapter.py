@@ -48,7 +48,7 @@ from ract.core.module_identity import _module_knot, register_module_knot
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
 
-from ract import plan_gate, run_checkpoint, turn_context
+from ract import plan_gate, run_checkpoint, turn_context, undo_backup
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.predicate import PredicateResult
 from ract.core.transaction import ResourceBudget, TransactionOutcome
@@ -515,6 +515,9 @@ def _run_via_substrate_steps(
             )
         created_by_run.update(outcome.added)
         applied_so_far.extend(outcome.applied)
+        if outcome.applied:
+            # The step's base snapshot, kept as this turn's checkpoint (B-110 D6).
+            undo_backup.keep_base(harness.project_dir, record.parent_snapshot_before)
         turn_context.record_written(harness.project_dir, outcome.applied)
         if outcome.skipped:
             left = "; ".join(f"{p} ({why})" for p, why in outcome.skipped.items())

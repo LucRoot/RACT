@@ -146,6 +146,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   refused, and nothing a model writes approves it. The loop stops at `agent.max_turns`,
   `agent.max_tool_calls`, `agent.max_wall_seconds` and `agent.max_tokens_per_step`; when a call
   fails, the calls after it in the same reply do not run.
+- `/checkpoint` lists the checkpoints, numbered, newest first, and `/restore N` goes back to
+  checkpoint N by reversing every later turn, newest first, with the rule `/undo` uses: a file
+  you changed since RACT wrote it is skipped and named, and the walk stops there. `/redo`
+  brings back the last turn reversed. Every apply also keeps the snapshot it started from under
+  `refs/ract/checkpoints/<checkpoint>/<n>`, so `git gc` does not remove it; the refs go when the
+  checkpoint's saved copies are pruned.
 - `--no-network` and `RACT_NO_NETWORK=1`: every request to a host that is not this machine is
   refused before it connects, named by purpose and host, recorded in the egress ledger, and the
   run exits 3. A model server on `localhost` still works. Nothing in `ract.yaml` turns it off;

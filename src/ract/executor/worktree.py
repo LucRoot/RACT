@@ -1040,6 +1040,47 @@ def apply_commit_to_working_tree(
 STEP_BRANCH_PREFIX = "rootact/step/"
 
 
+CHECKPOINT_REFS = "refs/ract/checkpoints"
+
+
+def keep_checkpoint_ref(repo: Path, turn_id: str, n: int, commit: str) -> str | None:
+    """Keep *commit* under ``refs/ract/checkpoints/<turn_id>/<n>``; the ref, or None.
+
+    LR:: ADR-0047 D6: every apply records its base snapshot so ``git gc``
+    keeps it; the snapshot is a commit nothing else points at. The turn id is
+    the checkpoint ``/checkpoint`` and ``/restore`` name. No hook of the
+    operator's runs (reference-transaction hooks included). A failure is
+    printed and the apply stands: the files' own checkpoint is the turn's
+    saved copies.
+    """
+    ref = f"{CHECKPOINT_REFS}/{turn_id}/{n}"
+    done = _git_in(repo, *_no_hooks(), "update-ref", ref, commit)
+    if done.returncode != 0:
+        print(
+            f"[worktree] checkpoint ref {ref} not kept: {done.stderr.strip()}",
+            flush=True,
+        )
+        return None
+    return ref
+
+
+def drop_checkpoint_refs(repo: Path, turn_id: str) -> None:
+    """Remove the refs of checkpoint *turn_id* (its turn folder was pruned)."""
+    listing = _git_in(
+        repo, "for-each-ref", "--format=%(refname)", f"{CHECKPOINT_REFS}/{turn_id}/"
+    )
+    if listing.returncode != 0:
+        print(
+            f"[worktree] checkpoint refs of {turn_id} not listed: {listing.stderr.strip()}",
+            flush=True,
+        )
+        return
+    for ref in listing.stdout.split():
+        gone = _git_in(repo, *_no_hooks(), "update-ref", "-d", ref)
+        if gone.returncode != 0:
+            print(f"[worktree] {ref} not removed: {gone.stderr.strip()}", flush=True)
+
+
 def ensure_ract_dir_excluded(repo: Path) -> bool:
     """Add ``.ract/`` to the repository's local exclude file, once.
 
