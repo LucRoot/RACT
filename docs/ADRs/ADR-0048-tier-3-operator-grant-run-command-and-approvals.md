@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed (v0.6, section 2 of the agentic brief). Awaiting operator review
-before any code lands. Amends ADR-0012 on one point (D1). Companion to
+Accepted 2026-10-30 (07:47 PT) by the owner: decisions 1 to 4, 6 to 9 and 11
+as recommended, with two amendments (R4 and the unlock window in D2, marked
+below). Decision 10 (a patch release) is not decided here. Proposed for v0.6,
+section 2 of the agentic brief. Amends ADR-0012 on one point (D1). Companion to
 ADR-0047 (tool layer, agent loop, review and undo), which this ADR does not
 repeat.
 
@@ -96,6 +98,10 @@ performs. This ADR is written against the code at the end of Phase 0:
   `ract run`. Alternative: leave the legacy path alone and enforce only in
   the new agent loop; rejected because two paths with different guarantees
   is how the current gap arose.
+  **Amended on acceptance (2026-10-30):** the legacy plan-and-verify path is
+  staged: first observe-only (it records what the manifest would refuse and
+  refuses nothing), then enforcing one release later. The new tool layer
+  enforces the manifest from its first run.
 
 ## Decision
 
@@ -156,9 +162,12 @@ Tier map for the section 2 tools (section 1 tools are in ADR-0047 D1):
   the old key stop verifying and the session says which grant needs
   re-signing.
 - Unlock window. After the operator enters the passphrase, the decrypted
-  signing key stays in process memory for 10 minutes by default
-  (configurable in user config, 0 disables), is never written to disk, and
-  is cleared on exit or `/permissions lock`. Without it, every "allow
+  signing key stays in process memory for 10 minutes by default where
+  commands are confined, and **not at all by default where a grant says
+  `sandbox: best_effort`** (Windows without WSL2 or a container), so there
+  every signature asks for the passphrase (amended on acceptance,
+  2026-10-30). It is configurable in user config (0 disables), never written
+  to disk, and cleared on exit or `/permissions lock`. Without it, every "allow
   always" costs a passphrase prompt, and operators drift to `unrestricted`
   to avoid prompts, which is worse. The window covers signing only; it never
   answers an approval.

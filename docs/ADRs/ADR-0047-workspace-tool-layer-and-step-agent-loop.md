@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed (v0.6, section 1 of the agentic brief). Awaiting operator review
-before any code lands. Companion to ADR-0048, which covers tier 2 and tier 3
+Accepted 2026-10-30 (07:47 PT) by the owner, as written, with the docs
+amendment already folded in (resume, latency targets, the synthetic base
+snapshot, the S-011 stopgap). Proposed for v0.6, section 1 of the agentic
+brief. Companion to ADR-0048, which covers tier 2 and tier 3
 actions, approvals, keys and the trust model. Where the two overlap this ADR
 points to ADR-0048 and does not repeat it.
 
