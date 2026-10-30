@@ -131,6 +131,12 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "or name the module and the name in the intent",
     ),
     (
+        # B-083 (cold reader row 7): the novelty budget, not the provider.
+        re.compile(r"Novelty budget exhausted", re.I),
+        "this run's budget for new files is used up: pass --allow-novelty-overrun, "
+        "raise novelty_budget in ract.yaml, or ask for a smaller change",
+    ),
+    (
         re.compile(r"refused to replace", re.I),
         "use /ask (or `ract -p --ask`) for an answer that writes no file, or say "
         "in the intent which change you want",

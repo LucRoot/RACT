@@ -259,7 +259,8 @@ class LspClient:
                     rel_posix, symbol.start_line, 0
                 )
         except Exception as exc:
-            _LOGGER.warning(
+            # B-083 (cold reader row 5): internal detail goes to the log only.
+            _LOGGER.debug(
                 "LspClient.references_of: LSP call failed for %s (%s): %s",
                 symbol.name,
                 symbol.file_path,

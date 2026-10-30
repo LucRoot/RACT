@@ -8,7 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import httpx
 import yaml
@@ -522,7 +522,7 @@ def _mcp_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     if not parsed.config.is_file():
-        print(f"[ract] config not found: {parsed.config}", file=sys.stderr)
+        _config_not_found(parsed.config)
         return 1
 
     import yaml
@@ -646,7 +646,7 @@ def _retrieval_command(args: list[str]) -> int:
         parser.error("query is required for search")
 
     if not parsed.config.is_file():
-        print(f"[ract] config not found: {parsed.config}", file=sys.stderr)
+        _config_not_found(parsed.config)
         return 1
 
     import yaml
@@ -1692,8 +1692,8 @@ def _doctor_command(args: list[str]) -> int:
             "ract doctor --check-providers"
         )
     console.print(
-        "Provenance: files written by ract runs are not signed with a Rootknot "
-        "in this release. See docs/PROVENANCE.md."
+        "Provenance: files ract writes are not signed yet in this release, so "
+        "nothing proves which run wrote them. See docs/PROVENANCE.md."
     )
     found = (
         f"{sandbox.backend} found on PATH"
@@ -1929,7 +1929,7 @@ def _load_bearing_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     if not parsed.config.is_file():
-        print(f"[ract] config not found: {parsed.config}", file=sys.stderr)
+        _config_not_found(parsed.config)
         return 1
 
     guard = LoadBearingGuard(parsed.config.parent)
@@ -2411,7 +2411,7 @@ def _whisper_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     if not parsed.config.is_file():
-        print(f"[ract] config not found: {parsed.config}", file=sys.stderr)
+        _config_not_found(parsed.config)
         return 1
 
     import yaml
@@ -2504,7 +2504,7 @@ def _auction_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     if not parsed.config.is_file():
-        print(f"[ract] config not found: {parsed.config}", file=sys.stderr)
+        _config_not_found(parsed.config)
         return 1
 
     import yaml
@@ -2622,7 +2622,7 @@ def _fence_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     if not parsed.config.is_file():
-        print(f"[ract] config not found: {parsed.config}", file=sys.stderr)
+        _config_not_found(parsed.config)
         return 1
 
     import yaml
@@ -2633,6 +2633,15 @@ def _fence_command(args: list[str]) -> int:
         print(f"[ract] failed to parse config: {exc}", file=sys.stderr)
         return 1
 
+    if (
+        not (parsed.config.parent / parsed.file).is_file()
+        and not Path(parsed.file).is_file()
+    ):
+        # B-083 (cold reader row 3): an empty brief read as "nothing to protect".
+        print(
+            f"no file named {safe_text(Path(parsed.file).as_posix())} in this project; check the path",
+            file=sys.stderr,
+        )
     if parsed.json_output or parsed.csv_output or parsed.markdown_output:
         guard = LoadBearingGuard(parsed.config.parent.resolve())
         regions = guard.scan_file(parsed.file)
@@ -2987,7 +2996,7 @@ def _release_command(args: list[str]) -> int:
         return 1
 
     if not parsed.config.is_file():
-        print(f"[ract] config not found: {parsed.config}", file=sys.stderr)
+        _config_not_found(parsed.config)
         return 1
 
     import yaml
@@ -3622,7 +3631,7 @@ def _provider_command(args: list[str]) -> int:
 
     if parsed.action == "health":
         if not parsed.config.is_file():
-            print(f"[ract] config not found: {parsed.config}", file=sys.stderr)
+            _config_not_found(parsed.config)
             return 1
         cfg = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
         providers = cfg.get("providers")
@@ -3741,7 +3750,7 @@ def _router_command(args: list[str]) -> int:
     parsed = parser.parse_args(args)
 
     if not parsed.config.is_file():
-        print(f"[ract] config not found: {parsed.config}", file=sys.stderr)
+        _config_not_found(parsed.config)
         return 1
     cfg = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
     providers = cfg.get("providers")
@@ -4031,6 +4040,27 @@ def _default_mode_asks(args: argparse.Namespace) -> bool:
     from ract.tui import stdin_is_terminal
 
     return stdin_is_terminal()
+
+
+class _OneLineErrorParser(argparse.ArgumentParser):
+    """A usage error is one line and the next action (B-083, error sweep rows 2 and 4).
+
+    LR:: A mistyped option printed the 17-line usage block with the cause last.
+    The cause comes first now, then where to look; ``--help`` still prints
+    the whole usage. The exit code stays 2.
+    """
+
+    def error(self, message: str) -> NoReturn:
+        self.exit(2, f"{self.prog}: {safe_text(message)}\nTry: {self.prog} --help\n")
+
+
+def _config_not_found(path: Path) -> None:
+    """The missing-config line, with the next action (B-083, error sweep rows 9 and 10)."""
+    print(
+        f"[ract] config not found: {safe_text(str(path))}. "
+        "hint: run `ract setup` here to create one",
+        file=sys.stderr,
+    )
 
 
 def _session_command(args: list[str]) -> int:
@@ -4730,7 +4760,7 @@ def main(argv: list[str] | None = None) -> int:
     # PROMPT_DRIFT check accepts the new intent text.
     if argv and argv[0] == "intent":
         return _intent_command(argv[1:])
-    parser = argparse.ArgumentParser(
+    parser = _OneLineErrorParser(
         prog="ract",
         description=(
             "RACT - an Agentic Coding Tool by Dr. Lucas Root, Ph.D. "

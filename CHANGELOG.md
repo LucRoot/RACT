@@ -131,6 +131,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Clearer messages: a mistyped option prints one line and `Try: ract --help` instead of the
+  usage block; a missing `ract.yaml` names `ract setup`; `ract fence inspect` says when the file
+  does not exist; `ract doctor` says in plain words that files are not signed yet; a used-up
+  novelty budget names `--allow-novelty-overrun`; `ract memory init` no longer prints an
+  internal LSP line.
 - The step lines and the unsigned-files list name a file as the disk spells it (`Readme.md`
   when the plan said `README.md` on Windows), as the changed-files line already did.
 - When the model answers a request in prose instead of a plan, or with a plan that has no

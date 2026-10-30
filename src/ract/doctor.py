@@ -120,7 +120,10 @@ class RactDoctor:
         return CheckResult(
             name="config_exists",
             passed=False,
-            message=f"Configuration file not found: {self.config_path}",
+            message=(
+                f"Configuration file not found: {self.config_path}. "
+                "Run `ract setup` here to create one."
+            ),
         )
 
     def _check_project_name(self, config: dict[str, Any]) -> CheckResult:
