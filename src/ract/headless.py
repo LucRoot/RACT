@@ -35,13 +35,80 @@ from typing import Any, TextIO
 
 from ract import egress_ledger
 from ract.plan_state import plan_items
-from ract.session_events import EventStream, JsonlSink, SessionEvent
+from ract.session_events import EventStream, JsonlSink, SessionEvent, safe_text
 from ract.session_render import PlainRenderer
 
 RESULT_SCHEMA = "ract.result/1"
 EXIT_INTERRUPTED = 5
 EXIT_TERMINATED = 143
 _INTERRUPT_GRACE_SECONDS = 0.3
+
+# B-083b: the `error` object of a failed run. `kind` is one of these; the exit
+# code says which, except for the three exit-2 errors found before the turn.
+ERROR_KINDS = (
+    "usage",
+    "config",
+    "provider",
+    "refused",
+    "cancelled",
+    "budget",
+    "stdin_stall",
+    "internal",
+)
+_KIND_BY_EXIT = {
+    2: "config",
+    3: "refused",
+    4: "budget",
+    EXIT_INTERRUPTED: "cancelled",
+    6: "provider",
+    EXIT_TERMINATED: "cancelled",
+}
+_ERROR_TEXT_LIMIT = 300
+
+
+def _cut(text: str) -> str:
+    """*text* made inert and cut to the error object's limit."""
+    clean = safe_text(text)
+    if len(clean) <= _ERROR_TEXT_LIMIT:
+        return clean
+    return clean[: _ERROR_TEXT_LIMIT - 3] + "..."
+
+
+def error_object(
+    exit_code: int, *, kind: str | None = None, message: str = "", hint: str = ""
+) -> dict[str, Any] | None:
+    """The result's `error`: None for exit 0, otherwise kind, message, hint, exit code.
+
+    An exit code with no kind of its own (1, the task failed for a reason RACT
+    does not classify) is `internal`.
+    """
+    if exit_code == 0:
+        return None
+    chosen = kind or _KIND_BY_EXIT.get(exit_code, "internal")
+    assert chosen in ERROR_KINDS, chosen
+    return {
+        "kind": chosen,
+        "message": _cut(message),
+        "hint": _cut(hint),
+        "exit_code": exit_code,
+    }
+
+
+def _error_from_events(
+    events: list[SessionEvent], exit_code: int
+) -> dict[str, Any] | None:
+    """The error object of a run, from its last `error.surfaced` or its verdict."""
+    surfaced = next(
+        (e.data for e in reversed(events) if e.kind == "error.surfaced"), None
+    )
+    finished = next((e.data for e in reversed(events) if e.kind == "turn.finished"), {})
+    if surfaced is not None:
+        message = str(surfaced.get("message", ""))
+        hint = str(surfaced.get("hint", ""))
+    else:
+        message = str(finished.get("verdict", ""))
+        hint = ""
+    return error_object(exit_code, message=message, hint=hint)
 
 
 def wants_headless(argv: list[str]) -> bool:
@@ -312,6 +379,16 @@ def _read_stdin(
     return b"".join(chunks).decode(encoding, errors="replace")
 
 
+def _asks_for_json(argv: list[str]) -> bool:
+    """True when *argv* asks for `--output-format json`, read before argparse can fail."""
+    for i, arg in enumerate(argv):
+        if arg == "--output-format" and i + 1 < len(argv) and argv[i + 1] == "json":
+            return True
+        if arg == "--output-format=json":
+            return True
+    return False
+
+
 def build_prompt(argument: str | None, piped: str) -> str:
     """The turn's prompt from the argument and piped stdin.
 
@@ -331,8 +408,13 @@ def result_object(
     session: str,
     exit_code: int,
     cost: dict[str, Any] | None = None,
+    error: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """The `ract.result/1` object, assembled from the session's events."""
+    """The `ract.result/1` object, assembled from the session's events.
+
+    *error* overrides the error object read from the events (B-083b): the
+    errors found before a turn starts have no events to read it from.
+    """
     finished = next((e.data for e in reversed(events) if e.kind == "turn.finished"), {})
     answer = "".join(
         str(e.data.get("text", ""))
@@ -344,6 +426,8 @@ def result_object(
         "schema": RESULT_SCHEMA,
         "outcome": finished.get("outcome", "failed"),
         "exit_code": exit_code,
+        # B-083b: null on success; otherwise kind, message, hint, exit_code.
+        "error": error if error is not None else _error_from_events(events, exit_code),
         "session": session,
         "turns": turns,
         "verdict": finished.get("verdict", ""),
@@ -377,14 +461,37 @@ def run_headless(
     """Handle `ract -p ...`. Returns the process exit code."""
     out = stdout or sys.stdout
     err = stderr or sys.stderr
+    as_json = _asks_for_json(argv)
+
+    def early(
+        code: int, kind: str, message: str, hint: str, *, printed: bool = False
+    ) -> int:
+        """The error line on stderr; with --output-format json also the result (B-083b)."""
+        if not printed:
+            print(f"error: {message}. hint: {hint}", file=err)
+        if as_json:
+            error = error_object(code, kind=kind, message=message, hint=hint)
+            obj = result_object([], session="", exit_code=code, error=error)
+            out.write(json.dumps(obj, ensure_ascii=False) + "\n")
+            out.flush()
+        return code
+
     try:
         args = _parser().parse_args(argv)
     except SystemExit as exc:  # argparse already printed the usage error
-        return int(exc.code or 0) if exc.code not in (None, 0) else 0
+        code = int(exc.code or 0) if exc.code not in (None, 0) else 0
+        if code == 0:
+            return 0
+        return early(
+            code,
+            "usage",
+            "the arguments could not be read (the line above on stderr says which)",
+            "ract -p --help",
+            printed=True,
+        )
     problem = _unsupported(args)
     if problem:
-        print(f"error: {problem}. hint: run without it", file=err)
-        return 2
+        return early(2, "usage", problem, "run without it")
     words = " ".join(part for part in (args.prompt, *args.rest) if part)
     try:
         piped = (
@@ -395,28 +502,28 @@ def run_headless(
             )
         )
     except StdinStalled as stalled:
-        print(
-            f"error: nothing arrived on stdin for {stalled.seconds:g} s and it is still "
-            "open. hint: pass --no-stdin when nothing is piped, or close stdin "
+        return early(
+            2,
+            "stdin_stall",
+            f"nothing arrived on stdin for {stalled.seconds:g} s and it is still open",
+            "pass --no-stdin when nothing is piped, or close stdin "
             f"(the wait is {IDLE_TIMEOUT_ENV} seconds)",
-            file=err,
         )
-        return 2
     prompt = build_prompt(words or None, piped)
     if not prompt:
-        print(
-            'error: no prompt. hint: ract -p "what to do", or pipe it: '
-            'echo "what to do" | ract -p',
-            file=err,
+        return early(
+            2,
+            "usage",
+            "no prompt",
+            'ract -p "what to do", or pipe it: echo "what to do" | ract -p',
         )
-        return 2
     if not Path(args.config).is_file():
-        print(
-            f"error: configuration file not found: {args.config}. hint: run "
-            "`ract setup --answers FILE` here (template: ract setup --print-defaults)",
-            file=err,
+        return early(
+            2,
+            "config",
+            f"configuration file not found: {args.config}",
+            "run `ract setup --answers FILE` here (template: ract setup --print-defaults)",
         )
-        return 2
 
     session = f"h-{uuid.uuid4().hex[:12]}"
     stream = EventStream(session=session)

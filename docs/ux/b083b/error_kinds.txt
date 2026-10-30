@@ -1,0 +1,24 @@
+usage (no prompt):
+{"exit_code": 2, "error": {"kind": "usage", "message": "no prompt", "hint": "ract -p \"what to do\", or pipe it: echo \"what to do\" | ract -p", "exit_code": 2}}
+
+config (no ract.yaml):
+{"exit_code": 2, "error": {"kind": "config", "message": "configuration file not found: ract.yaml", "hint": "run `ract setup --answers FILE` here (template: ract setup --print-defaults)", "exit_code": 2}}
+
+provider:
+{"exit_code": 6, "error": {"kind": "provider", "message": "Planning failed: Provider call failed: Request failed: nothing is answering at http://127.0.0.1:9/v1 (connection refused).", "hint": "start your model server, or fix the provider url in ract.yaml; `ract doctor --check-providers` checks it", "exit_code": 6}}
+
+refused (default mode, nobody to ask):
+{"exit_code": 3, "error": {"kind": "refused", "message": "refused: `default` mode asks before changing a file, and this run has no terminal to ask (Approval denied for step 1: Fix add() in src/calc.py so it adds -> src/calc.py)", "hint": "pass --accept-edits to let this run change files, or --ask for an answer that writes nothing", "exit_code": 3}}
+
+budget:
+{"exit_code": 4, "error": {"kind": "budget", "message": "local_http: stopped: this run used 984 tokens; token_budget is 10. Raise token_budget in ract.yaml, or split the task.", "hint": "run `ract doctor --check-providers` to check the setup, then try again", "exit_code": 4}}
+
+stdin_stall:
+{"exit_code": 2, "error": {"kind": "stdin_stall", "message": "nothing arrived on stdin for 2 s and it is still open", "hint": "pass --no-stdin when nothing is piped, or close stdin (the wait is RACT_STDIN_IDLE_TIMEOUT seconds)", "exit_code": 2}}
+
+internal:
+{"exit_code": 1, "error": {"kind": "internal", "message": "Planning failed: The model did not return a plan, also when asked again; try a larger model or /model.", "hint": "the model returned no steps for this intent; rephrase it with the file and the change you want, or pick another model with /model", "exit_code": 1}}
+
+success:
+{"exit_code": 0, "error": null}
+

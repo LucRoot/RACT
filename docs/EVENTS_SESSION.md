@@ -273,6 +273,7 @@ sequences, so `ract -p "..." > out.txt` gives a clean file.
 | `schema` | string | Always `"ract.result/1"`. A breaking change gets a new name. |
 | `outcome` | string | The last turn's `outcome`. |
 | `exit_code` | integer | The process exit code, from the table above. |
+| `error` | object or null | Null when the exit code is 0. Otherwise exactly four keys: `kind` (below), `message` (text, at most 300 characters, control characters and direction marks shown as escapes), `hint` (the next action, at most 300 characters, empty when there is none) and `exit_code` (equal to the top-level `exit_code`). |
 | `session` | string | Session id. |
 | `turns` | integer | Turns run. |
 | `verdict` | string | The last turn's verdict sentence. |
@@ -286,6 +287,25 @@ sequences, so `ract -p "..." > out.txt` gives a clean file.
 | `plan` | list of objects | The steps of the run, in order. Each object has `step` (integer, one-based), `title` (text), `state` (pending, running, done, failed, refused or skipped), `file` (text or null) and `verdict` (passed, failed, refused or skipped; null before the harness has spoken). An ask-mode run has an empty list. |
 | `events_path` | string or null | Path of the full event stream, when it was written to a file. |
 | `structured_output` | any | Present only when `--json-schema` was given and the reply validates. An invalid reply leaves the field out and the exit code is 1. |
+
+`error.kind` and the exit code it comes with:
+
+| `kind` | Exit code | When |
+|---|---|---|
+| `usage` | 2 | The arguments could not be read, a flag is not supported, or there is no prompt. |
+| `config` | 2 | `ract.yaml` is missing or cannot be used (for example a key the provider rejects). |
+| `stdin_stall` | 2 | Piped stdin stayed open and sent nothing (`RACT_STDIN_IDLE_TIMEOUT`). |
+| `refused` | 3 | Refused by policy or tier, including a change the `default` mode had nobody to approve. |
+| `budget` | 4 | A budget was exhausted. |
+| `cancelled` | 5 or 143 | Interrupted (Ctrl-C) or terminated (SIGTERM, Ctrl-Break). |
+| `provider` | 6 | The provider was unavailable. |
+| `internal` | 1 | The task failed for a reason RACT does not classify. |
+
+The errors found before the turn starts (`usage`, `config` with no file,
+`stdin_stall`) print the same one line on stderr as before, and with
+`--output-format json` also a result: `outcome` `failed`, `turns` 0 and
+`session` empty. `error` was added within `ract.result/1` under the
+additive rule above: a reader that ignores unknown keys is unchanged.
 
 The result carries no secrets and no tracebacks, under the same rules as
 events.
