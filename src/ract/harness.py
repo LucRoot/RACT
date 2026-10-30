@@ -1167,6 +1167,7 @@ def _read_tools_budgets(config: dict[str, Any]) -> Any:
         max_turns=int(number("max_turns", defaults.max_turns)),
         max_tool_calls=int(number("max_tool_calls", defaults.max_tool_calls)),
         max_wall_seconds=float(number("max_wall_seconds", defaults.max_wall_seconds)),
+        max_tokens_per_step=int(number("max_tokens_per_step", 0)) or None,
     )
 
 
