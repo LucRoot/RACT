@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -42,9 +43,15 @@ def test_review_rejects_the_fix_and_undo_stays_true(
         assert session.expect(r"Hunk 1 of 1 in src/calc\.py:", 30)
         assert session.expect(r"reject\s+the\s+rest\s+of\s+the\s+file:", 30)
         session.send_line("r")
-        assert session.expect(
-            r"src/calc\.py:\s+the\s+turn's\s+saved\s+copy\s+is\s+back", 30
-        ), session.recording.plain[-3000:]
+        # The confirmation line wraps at 40 columns, and ConPTY's repaint can
+        # repeat a character at the wrap in the rebuilt text; the prompt coming
+        # back and the file's bytes are the facts this test checks.
+        assert session.expect(r"ract>", 30), session.recording.plain[-3000:]
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if (ws / "src" / "calc.py").read_text(encoding="utf-8") == before:
+                break
+            time.sleep(0.1)
     finally:
         if session.alive():
             session.send_line("/exit")
