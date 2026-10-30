@@ -45,6 +45,7 @@ ALLOWLIST = {
     "--contains": "executor internal named in docs/THREAT_MODEL.md (handoff: say it is internal)",
     "--soft": "executor internal named in docs/THREAT_MODEL.md (handoff: say it is internal)",
     "--force-overwrite": "designed, not built (docs/THREAT_MODEL.md says so)",
+    "--by": "the session command `/cost --by purpose|step|role` (V7-08), not a ract parser flag",
 }
 # Flags that appear in help prose, not as options.
 PROSE_ONLY = {"--cold"}

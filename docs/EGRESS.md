@@ -25,7 +25,12 @@ A record holds the time, the process id, the purpose (`plan`, `step 2`,
 (`model`, `mcp`, `web_search`, `github`, `marketplace`), the destination
 host and port (never a user name or password from the URL), the HTTP status
 or the error class, the time taken, the bytes sent and received, and the
-input and output tokens when the provider reported them. It never holds content: no URL path or query, no header, no request
+input and output tokens when the provider reported them, and which run,
+plan step and role the request belongs to (`run`: the session and turn,
+`s-0192:3`, or the `--loop` run id; `step`: the plan step number; `role`:
+`manager` for the plan, `executor` for a step, `reviewer` for a review;
+each empty when it does not apply, and in records written before these
+fields existed). It never holds content: no URL path or query, no header, no request
 or response body.
 
 Tokens are `null` when the provider did not report them. Some servers send
@@ -35,7 +40,8 @@ reported", never estimated.
 Read it with:
 
 - `/cost` in the interactive session: this session's requests, tokens and
-  bytes, by host.
+  bytes, by host, and the model requests by purpose. `/cost --by step` or
+  `/cost --by role` groups the model requests by plan step or by role.
 - `ract doctor --egress`: the last 7 days by kind and host, the ledger's
   path, and the exempt sites below.
 - `ract -p ... --output-format json`: the `cost` field of `ract.result/1`

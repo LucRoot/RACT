@@ -32,6 +32,10 @@ FIELDS = {
     "bytes_in",
     "tokens_in",
     "tokens_out",
+    # V7-08: which run, step and role; ids only, never content.
+    "run",
+    "step",
+    "role",
 }
 
 

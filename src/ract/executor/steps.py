@@ -1678,7 +1678,7 @@ class Executor:
             f"{UNTRUSTED_LABEL}\n<review>\n{listed}\n</review>"
         )
         retry_context = f"{context}\n\n{feedback}" if context else feedback
-        with egress_ledger.purpose(f"step {n}"):
+        with egress_ledger.purpose(f"step {n}", step=n, role="executor"):
             result = self._execute_provider_step_with_fallback(
                 step, retry_context, index, False, None
             )
@@ -2158,7 +2158,11 @@ class Executor:
                     }
                     content = json.dumps(result_value.content, indent=2)
             else:
-                with egress_ledger.purpose(f"step {index + self.step_number_offset}"):
+                with egress_ledger.purpose(
+                    f"step {index + self.step_number_offset}",
+                    step=index + self.step_number_offset,
+                    role="executor",
+                ):
                     step_result = self._execute_provider_step_with_fallback(
                         step, context, index, stream, stream_callback
                     )

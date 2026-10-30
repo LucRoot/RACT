@@ -70,7 +70,7 @@ ract> /exit
 | `<text>` or `/run <intent>` | Plan and execute the intent. |
 | `/plan <intent>` | Plan only. Nothing is written. |
 | `/ask <question>` | Answer a question. No plan, and nothing is written. |
-| `/cost` | Requests, tokens and bytes this session sent off the machine. |
+| `/cost [--by purpose\|step\|role]` | Requests, tokens and bytes this session sent off the machine; `--by` groups the model requests by purpose, plan step or role. |
 | `/mode plan\|default\|auto-accept` | `plan` proposes and writes nothing; `default` (the starting mode) asks before each change; `auto-accept` applies changes without asking. The mode is in the status line. |
 | `/undo`, `/redo` | Reverse the last turn's file changes, or the last undo. |
 | `/review` | Go through the last turn's changes hunk by hunk: `a` accept, `r` reject (the turn's saved copy of that hunk comes back), `e` edit, `s` skip, `A` or `R` for the rest of the file. `/undo` still reverses the whole turn afterwards. |

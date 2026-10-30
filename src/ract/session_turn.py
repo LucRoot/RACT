@@ -369,6 +369,8 @@ def run_turn(
         write_lock=request.write_lock,
         queued=request.queued,
     )
+    # V7-08: the egress ledger attributes this turn's requests to it.
+    egress_ledger.set_run(f"{stream.session}:{turn}")
     started = time.monotonic()
     project = Path(request.config).resolve().parent
     stream.emit("turn.started", {"input": request.intent, "queued": queued}, turn=turn)

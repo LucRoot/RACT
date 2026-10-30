@@ -217,7 +217,7 @@ class Manager:
         """One planning request; the reply's text is kept in ``_last_reply`` for a retry."""
         self._last_reply = ""
         temperature = self.temperature_router.for_plan(intent)
-        with egress_ledger.purpose("plan"):
+        with egress_ledger.purpose("plan", role="manager"):
             response_rooted = self.provider.complete(
                 messages, max_tokens=1024, temperature=temperature
             )

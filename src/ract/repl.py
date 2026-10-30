@@ -70,7 +70,10 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/config", "Validate the active config (same as ract config validate)."),
     ("/providers", "List configured providers and the manager provider."),
     ("/permissions", "What RACT may change or send, in one screen."),
-    ("/cost", "Requests, tokens and bytes sent off this machine in this session."),
+    (
+        "/cost [--by purpose|step|role]",
+        "Requests, tokens and bytes sent off this machine in this session.",
+    ),
     (
         "/mode [plan|default|auto-accept]",
         "plan: propose only; default: ask before each change; auto-accept: apply changes.",
@@ -611,10 +614,19 @@ class ReplSession:
     def _cmd_cost(self, args: list[str]) -> bool:
         from ract import egress_ledger
 
+        by = "purpose"
+        if args:
+            # V7-08: /cost --by purpose|step|role (also --by=step).
+            flag, _, value = args[0].partition("=")
+            value = value or (args[1] if len(args) > 1 else "")
+            if flag != "--by" or value not in egress_ledger.GROUP_KEYS:
+                self._print_wrapped("usage: /cost [--by purpose|step|role]")
+                return True
+            by = value
         records = egress_ledger.since(
             egress_ledger.read(), self.state.started_at, this_process=True
         )
-        for line in egress_ledger.describe(records):
+        for line in egress_ledger.describe(records, by=by):
             self._print_wrapped(line)
         self._print_wrapped(
             f"ledger: {egress_ledger.ledger_path()} (ract doctor --egress for history)"

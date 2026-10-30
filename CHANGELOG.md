@@ -132,6 +132,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   accept (`A`) or reject (`R`) the rest of the file. A file the turn created is removed when
   rejected, a file it deleted can be restored, and `/undo` still reverses the whole turn
   afterwards. The turn summary's way-back line names it.
+- The egress ledger records which run, plan step and role (`manager`, `executor`, `reviewer`)
+  each request belongs to, ids only; `/cost --by step` and `/cost --by role` group the model
+  requests that way (`--by purpose` is the default). Older records read as before.
 
 ### Changed
 

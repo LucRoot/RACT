@@ -38,6 +38,12 @@ _BODY_LIMIT = 2 * 1024 * 1024
 _TAIL = 16 * 1024
 
 _purpose: ContextVar[str] = ContextVar("ract_egress_purpose", default="")
+# V7-08: which run, plan step and role a request belongs to. Ids only.
+_run: ContextVar[str] = ContextVar("ract_egress_run", default="")
+_step: ContextVar[str] = ContextVar("ract_egress_step", default="")
+_role: ContextVar[str] = ContextVar("ract_egress_role", default="")
+# The keys /cost --by can group model requests by.
+GROUP_KEYS = ("purpose", "step", "role")
 # The records of the current turn, when a session collects them (cost.updated).
 _turn: ContextVar[list[dict[str, Any]] | None] = ContextVar(
     "ract_egress_turn", default=None
@@ -60,13 +66,40 @@ def ledger_path() -> Path:
 
 
 @contextmanager
-def purpose(name: str) -> Iterator[None]:
-    """Name what the requests inside this block are for ("plan", "step 2")."""
-    token = _purpose.set(name)
+def purpose(
+    name: str, *, step: object = None, role: str | None = None
+) -> Iterator[None]:
+    """Name what the requests inside this block are for ("plan", "step 2").
+
+    *step* (the plan step number) and *role* (manager, executor, reviewer) are
+    recorded with each request (V7-08); left out, they are the enclosing
+    block's.
+    """
+    tokens: list[tuple[ContextVar[str], Any]] = [(_purpose, _purpose.set(name))]
+    if step is not None:
+        tokens.append((_step, _step.set(str(step))))
+    if role is not None:
+        tokens.append((_role, _role.set(role)))
     try:
         yield
     finally:
-        _purpose.reset(token)
+        for var, token in reversed(tokens):
+            var.reset(token)
+
+
+def set_run(run_id: str) -> None:
+    """The run the requests of this context belong to (a session turn: ``session:turn``)."""
+    _run.set(run_id)
+
+
+def _attribution() -> dict[str, str]:
+    """run, step and role for a record; each may be empty (V7-08)."""
+    run = _run.get()
+    if not run:
+        from ract.runtime import get_current_run_id  # the --loop run id, when bound
+
+        run = get_current_run_id() or ""
+    return {"run": run, "step": _step.get(), "role": _role.get()}
 
 
 def _tokens(usage: Any) -> tuple[int | None, int | None]:
@@ -246,6 +279,7 @@ def _transport_class() -> Any:
                     "t": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                     "pid": os.getpid(),
                     "purpose": _purpose.get() or self.kind,
+                    **_attribution(),
                     "kind": self.kind,
                     "host": request.url.host,
                     # The port tells two local servers apart; it is not secret (G-052).
@@ -421,8 +455,12 @@ def cost(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def describe(records: list[dict[str, Any]]) -> list[str]:
-    """Plain lines for /cost and `ract doctor --egress`."""
+def describe(records: list[dict[str, Any]], by: str = "purpose") -> list[str]:
+    """Plain lines for /cost and `ract doctor --egress`.
+
+    The model requests are grouped by *by*: purpose (the default), step or role
+    (V7-08). A record written before those keys existed groups as "(none)".
+    """
     if not records:
         return ["no requests left this machine"]
     totals = summary(records)
@@ -446,14 +484,15 @@ def describe(records: list[dict[str, Any]]) -> list[str]:
     lines = [line("total", totals)]
     for host, s in sorted(totals["by_host"].items()):
         lines.append("  " + line(host, s))
-    # INTENT invariant 9: every model call by purpose (G-053).
+    # INTENT invariant 9: every model call by purpose (G-053), or by step or role.
+    key = by if by in GROUP_KEYS else "purpose"
     model = [r for r in records if r.get("kind") == "model"]
-    purposes = sorted({str(r.get("purpose")) for r in model})
-    if purposes:
-        lines.append("model requests by purpose:")
-        for name in purposes:
-            subset = [r for r in model if str(r.get("purpose")) == name]
-            lines.append("  " + line(name, summary(subset)))
+    names = sorted({str(r.get(key) or "") for r in model})
+    if names:
+        lines.append(f"model requests by {key}:")
+        for name in names:
+            subset = [r for r in model if str(r.get(key) or "") == name]
+            lines.append("  " + line(name or "(none)", summary(subset)))
     return lines
 
 

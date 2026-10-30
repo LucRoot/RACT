@@ -70,7 +70,7 @@ def review_step(
     complete: Complete, request: ReviewRequest, root: Path | str
 ) -> Rooted[ReviewFindings]:
     """Run one review; the findings are not validated here (``validate`` is)."""
-    with egress_ledger.purpose(LEDGER_PURPOSE):
+    with egress_ledger.purpose(LEDGER_PURPOSE, role="reviewer"):
         answered = answer_with_tools(
             complete,
             question(request),
