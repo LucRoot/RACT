@@ -1,0 +1,6 @@
+# task d (default mode, no flag, pseudo-terminal)
+# tip 451f11c
+---
+ intent: Make add() in src/calc.py return a + b.
+▸ default mode: RACT asks before it changes a file (--yolo skips)
+Run it? [a]pprove [s]kip <n> [e]dit <n> [c]ancel 

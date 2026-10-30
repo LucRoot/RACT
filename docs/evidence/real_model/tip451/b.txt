@@ -1,0 +1,36 @@
+# task b: three-step change
+# tip 451f11c; 2026-10-30 10:36 Pacific Daylight Time
+# args: -p --accept-edits Make add() in src/calc.py return a + b. Add src/notes.py with the constant NOTE = "two". Add tests/test_notes.py with a test that checks NOTE equals "two".
+---
+Done: 3 steps ran; no tests were run.
+
+--- stderr ---
+RACT session [large hosted model, structurer role] via hosted | auto-accept | T3 off
+  ... waiting on model (2 s)
+Plan (3 steps):
+  assumes: The user wants to fix the add function to correctly add numbers, add a new notes module with a constant, and add a test for that constant.
+[ ] 1. Fix add() in src/calc.py to return a + b instead of a - b -> src/calc.py
+[ ] 2. Create src/notes.py with constant NOTE = "two" -> src/notes.py
+[ ] 3. Create tests/test_notes.py with a test that ass... -> tests/test_notes.py
+[>] 1. Fix add() in src/calc.py to return a + b instead of a - b -> src/calc.py
+[x] 1. Fix add() in src/calc.py to return a + b ... -> src/calc.py (2.1s) passed
+[>] 2. Create src/notes.py with constant NOTE = "two" -> src/notes.py
+  ... waiting on model (14 s)
+[x] 2. Create src/notes.py with constant NOTE ... -> src/notes.py (10.0s) passed
+[>] 3. Create tests/test_notes.py with a test that ass... -> tests/test_notes.py
+  ... waiting on model (24 s)
+[x] 3. Create tests/test_notes.py with a... -> tests/test_notes.py (6.6s) passed
+warning: provenance: 3 file(s) have no signature yet (src/calc.py, src/notes.py, tests/test_notes.py). See docs/PROVENANCE.md.
+Plan (3 steps), final:
+[x] 1. Fix add() in src/calc.py to return a + b ... -> src/calc.py (2.1s) passed
+[x] 2. Create src/notes.py with constant NOTE ... -> src/notes.py (10.0s) passed
+[x] 3. Create tests/test_notes.py with a... -> tests/test_notes.py (6.6s) passed
+  Done: 3 steps ran; no tests were run.
+  changed: src/calc.py (+1 -1), src/notes.py (new, 1 line), tests/test_notes.py (new, 5 lines); unstaged, review with git diff
+  way back: /undo, or /review per hunk
+  verified: RACT ran no tests this turn
+  assumed: The user wants to fix the add function to correctly add numbers, add a new notes module with a constant, and add a test for that constant. (planner confidence 0.95, not checked)
+  unsigned: 3 files
+  4 model requests, 28.7 s, 937 tokens in / 296 out
+
+# exit code: 0, wall seconds: 29

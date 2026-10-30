@@ -1,0 +1,11 @@
+# task notty: no terminal, no --yolo: must exit 3
+# tip 451f11c; 2026-10-30 10:39 Pacific Daylight Time
+# args: run Make add() in src/calc.py return a + b. --config ract.yaml
+---
+ intent: Make add() in src/calc.py return a + b.
+
+--- stderr ---
+✗  refused: ract run has no terminal to ask before it changes a file. Pass 
+--yolo to let it change files without asking, or use ract -p --accept-edits
+
+# exit code: 3, wall seconds: 12

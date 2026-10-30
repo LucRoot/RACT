@@ -1,0 +1,25 @@
+# task nofile: test file imports a name that does not exist
+# tip 451f11c; 2026-10-30 10:38 Pacific Daylight Time
+# args: -p --accept-edits Add tests/test_missing.py with one test that imports NOTEX from src.notes and asserts it equals "two".
+---
+Done: 1 step ran; no tests were run.
+
+--- stderr ---
+RACT session [large hosted model, structurer role] via hosted | auto-accept | T3 off
+  ... waiting on model (2 s)
+Plan: 1 step, confidence 0.90
+  assumes: The user wants to create a new test file tests/test_missing.py that imports NOTEX from src.notes and asserts it equals 'two'. The src/notes.py module may need to exist or be created separately.
+  1. Create tests/test_missing.py with a test that imports NOTEX from src.notes and asserts it equals 'two' -> tests/test_missing.py
+[step 1] Create tests/test_missing.py with a test that imports NOTEX from src.notes and asserts it equals 'two' -> tests/test_missing.py
+  ... waiting on model (12 s)
+[step 1] done tests/test_missing.py (5.7s)
+warning: provenance: 1 file(s) have no signature yet (tests/test_missing.py). See docs/PROVENANCE.md.
+  Done: 1 step ran; no tests were run.
+  changed: tests/test_missing.py (new, 5 lines); unstaged, review with git diff
+  way back: /undo, or /review per hunk
+  verified: RACT ran no tests this turn
+  assumed: The user wants to create a new test file tests/test_missing.py that imports NOTEX from src.notes and asserts it equals 'two'. The src/notes.py module may need to exist or be created separately. (planner confidence 0.90, not checked)
+  unsigned: 1 file
+  2 model requests, 15.3 s, 919 tokens in / 421 out
+
+# exit code: 0, wall seconds: 16
