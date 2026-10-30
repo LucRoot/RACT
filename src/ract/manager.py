@@ -238,7 +238,13 @@ class Manager:
         # what the model presented as its answer.
         parsed = _extract_json(strip_reasoning(content))
         if parsed is None:
-            # Prose: the caller asks once more (B-086).
+            # Prose that holds no plan: the caller asks once more (B-086). An
+            # empty reply or one cut off at the limit keeps its own diagnosis.
+            finish = str(raw.get("choices", [{}])[0].get("finish_reason") or "")
+            prose = bool(strip_reasoning(content).strip()) and finish not in {
+                "length",
+                "max_tokens",
+            }
             return Rooted(
                 value=None,
                 assumption="The management LM returns a JSON plan matching the expected schema.",
@@ -248,7 +254,7 @@ class Manager:
                     "Could not parse JSON plan from model response. "
                     + describe_output_problem(raw, wanted="JSON plan")
                 ),
-                hint=NO_STEPS_HINT,
+                hint=NO_STEPS_HINT if prose else None,
             )
 
         steps = []

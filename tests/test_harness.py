@@ -225,7 +225,8 @@ def test_harness_rejects_plan_with_empty_steps(tmp_project):
     assert not report_rooted.is_ok()
     # The planner already guards empty step lists; the harness surfaces it as a
     # planning failure before plan_validator is reached.
-    assert "Plan contains no steps" in (report_rooted.error or "")
+    # B-086: an empty plan is asked for once more, then one plain sentence.
+    assert "did not return a plan" in (report_rooted.error or "")
 
 
 def test_harness_rejects_plan_with_dependency_cycle(tmp_project):
