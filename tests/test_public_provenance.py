@@ -55,6 +55,8 @@ ALLOWED_IMPORT_ROOTS = {
     "dataclasses",
     "pathlib",
     "json",
+    # stdlib: the operator key reads its passphrase without echo (B-111)
+    "getpass",
     "re",
     "subprocess",
     "sys",
