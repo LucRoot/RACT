@@ -649,6 +649,20 @@ def _run_ract(
         executor.grant_pin = grant_pin
         executor.tier3_mode = tier3_mode
         executor.tier3_session_approvals = tier3_session_approvals
+        if not dry_run and not ask:
+            # S-015b: the harness signs what it writes (v4 knots only); when
+            # signing cannot be built the files stay honestly unsigned.
+            import uuid
+
+            from ract import provenance_wiring
+            from ract.runtime import get_current_run_id
+
+            provenance_wiring.install(
+                executor,
+                config_path.parent,
+                intent,
+                run_id=run_id or get_current_run_id() or uuid.uuid4().hex,
+            )
     if plan_approval is console_plan_approval:
         plan_approval = _remembering_approval(plan_approval, config_path, session_id)
 

@@ -330,9 +330,13 @@ def _workspace_line(changed: list[str] | None) -> str:
     )
 
 
-def _provenance(unsigned: list[str]) -> dict[str, Any]:
-    # Signing is not wired into this release (S-015b), so no turn is signed.
-    return {"signed": False, "unsigned_files": list(unsigned)}
+def _provenance(unsigned: list[str], changed: list[str] | None) -> dict[str, Any]:
+    # S-015b: the harness signs what it writes; a turn is signed when it
+    # changed files and none of them is without a Rootknot.
+    return {
+        "signed": bool(changed) and not unsigned,
+        "unsigned_files": list(unsigned),
+    }
 
 
 class _TurnReporter:
@@ -576,7 +580,7 @@ def run_turn(
                 "verification": verification,
                 # B-090 (H5): the unsigned list names files as the disk spells them.
                 "provenance": _provenance(
-                    [_on_disk_name(project, name) for name in unsigned]
+                    [_on_disk_name(project, name) for name in unsigned], changed
                 ),
                 "citations": None if answer is None else _citations(project, answer),
                 "review": list(reporter.reviews) or None,
