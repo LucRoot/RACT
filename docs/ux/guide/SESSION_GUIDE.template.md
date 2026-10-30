@@ -75,6 +75,8 @@ The `read_file` line shows the read. The answer names the file and the line it r
 `/mode` shows how RACT applies changes. `/cost` shows the requests this session
 sent off the machine. `/undo` reverses the last turn's file changes, and says so
 when there is none.
+`/review` goes through the last turn's changes hunk by hunk: accept, reject
+(the turn's saved copy of that hunk comes back), edit or skip each one.
 
 {{sample ask_cost_undo.txt 8 14}}
 
