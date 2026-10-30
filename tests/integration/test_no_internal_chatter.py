@@ -47,6 +47,7 @@ def test_run_does_not_print_sandbox_scrub_summary(
             "ract.cli",
             "--config",
             "ract.yaml",
+            "--yolo",
             "tests/test_calc.py::test_add fails, fix it",
         ],
         cwd=ws,

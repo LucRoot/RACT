@@ -37,7 +37,7 @@ def test_a_real_fix_turn_is_undone_byte_for_byte(
     ws = _repo(tmp_path, server.base_url)
     before = (ws / "src" / "calc.py").read_bytes()
 
-    run = _ract(ws, "run", "--config", "ract.yaml", "--", "fix add")
+    run = _ract(ws, "run", "--config", "ract.yaml", "--yolo", "--", "fix add")
     assert run.returncode == 0, run.stdout + run.stderr
     assert (ws / "src" / "calc.py").read_bytes() != before
 

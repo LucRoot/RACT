@@ -79,7 +79,7 @@ def _env(home: Path) -> dict[str, str]:
 
 
 def _cmd(*args: str) -> list[str]:
-    return [sys.executable, "-m", "ract.cli", "--config", "ract.yaml", *args]
+    return [sys.executable, "-m", "ract.cli", "--config", "ract.yaml", "--yolo", *args]
 
 
 def _checkpoints(ws: Path) -> list[Path]:
@@ -303,7 +303,7 @@ def test_kill_during_a_file_write_leaves_no_truncated_file(
     wrapper.write_text(WRAPPER.format(target="notes.py"), encoding="utf-8")
 
     killed = subprocess.run(
-        [sys.executable, str(wrapper), "--config", "ract.yaml", "fix add"],
+        [sys.executable, str(wrapper), "--config", "ract.yaml", "--yolo", "fix add"],
         cwd=ws,
         capture_output=True,
         text=True,
@@ -380,7 +380,7 @@ def test_two_kills_in_a_row_then_a_clean_resume_finishes(
 
     def through_wrapper(*args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, str(wrapper), "--config", "ract.yaml", *args],
+            [sys.executable, str(wrapper), "--config", "ract.yaml", "--yolo", *args],
             cwd=ws,
             capture_output=True,
             text=True,

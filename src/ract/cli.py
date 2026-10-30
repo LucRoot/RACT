@@ -4025,6 +4025,38 @@ def _session_store_dir(store: Path | None) -> Path:
     return DEFAULT_DIR
 
 
+NO_TERMINAL_REFUSAL = (
+    "refused: ract run has no terminal to ask before it changes a file. "
+    "Pass --yolo to let it change files without asking, or use "
+    "ract -p --accept-edits"
+)
+LOOP_NEEDS_YOLO = (
+    "refused: --loop changes files without asking, and nothing can ask it yet. "
+    "Pass --yolo to run the loop"
+)
+
+
+def _refuses_changes(args: argparse.Namespace) -> bool:
+    """True when ``ract run`` has nobody to ask and no --yolo (B-104, D-104).
+
+    LR:: A script or CI job ran ``ract run`` with no terminal, and the run
+    changed files with no question and no flag that said it may. It is
+    ``default`` mode with nobody to ask, as ``ract -p`` without
+    ``--accept-edits`` is: answers run, a change is refused (exit 3).
+    """
+    if args.yolo or args.auto or args.dry_run or getattr(args, "ask", False):
+        return False
+    from ract.tui import stdin_is_terminal
+
+    return not stdin_is_terminal()
+
+
+def _refused_by_mode(error: str | None) -> bool:
+    """True for the refusal of a change that nobody could approve."""
+    text = error or ""
+    return text.startswith("Approval denied for step") or text.startswith("refused:")
+
+
 def _default_mode_asks(args: argparse.Namespace) -> bool:
     """True when a run takes the default mode's questions (B-101).
 
@@ -5069,6 +5101,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.yolo:
         console.direct("yolo mode: executing without approval")
     default_asks = _default_mode_asks(args)
+    # B-104 (D-104): with no terminal and no --yolo, a change is refused.
+    refuse_changes = _refuses_changes(args)
     if default_asks:
         # B-101 (D-026, decision O, D-103): with no approval flag, a run in a
         # terminal is in `default` mode and asks: the plan question for a plan
@@ -5111,6 +5145,10 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--loop and --dry-run are mutually exclusive")
         if args.ask:
             parser.error("--loop and --ask are mutually exclusive")
+        if not args.yolo:
+            # B-104 (D-104): the loop has no question before a change yet.
+            console.error(LOOP_NEEDS_YOLO)
+            return 3
 
     if args.loop:
         from ract import trust as _trust
@@ -5160,6 +5198,7 @@ def main(argv: list[str] | None = None) -> int:
     result = run_ract(
         args.config,
         args.intent,
+        refuse_changes=refuse_changes,
         token_budget=args.token_budget,
         dry_run=args.dry_run,
         mode=args.mode,
@@ -5185,6 +5224,11 @@ def main(argv: list[str] | None = None) -> int:
         # what they chose. Exit 0, as a session turn does (ADR-0049 D12).
         console.direct(result.error or plan_gate.CANCELLED)
         return 0
+    if not result.is_ok() and refuse_changes and _refused_by_mode(result.error):
+        # B-104 (D-104): the run's own words name --accept-edits, which is
+        # ract -p's flag; ract run's is --yolo.
+        console.error(NO_TERMINAL_REFUSAL)
+        return 3
     if not result.is_ok():
         console.error(f"failed: {result.error}")
         # One hint table for the session, headless and one-shot runs (B-073).

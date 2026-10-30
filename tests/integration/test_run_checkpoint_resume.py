@@ -45,7 +45,7 @@ def _env(home: Path) -> dict[str, str]:
 
 
 def _cmd(*args: str) -> list[str]:
-    return [sys.executable, "-m", "ract.cli", "--config", "ract.yaml", *args]
+    return [sys.executable, "-m", "ract.cli", "--config", "ract.yaml", "--yolo", *args]
 
 
 def _ract(ws: Path, home: Path, *args: str) -> subprocess.CompletedProcess[str]:

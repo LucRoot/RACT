@@ -72,7 +72,15 @@ def _isolated_env(tmp_path: Path, global_config: str | None) -> dict[str, str]:
 
 def _run(ws: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-m", "ract.cli", "--config", "ract.yaml", "fix add"],
+        [
+            sys.executable,
+            "-m",
+            "ract.cli",
+            "--config",
+            "ract.yaml",
+            "--yolo",
+            "fix add",
+        ],
         cwd=ws,
         capture_output=True,
         text=True,

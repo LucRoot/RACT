@@ -125,6 +125,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- `ract run "<intent>"` with no terminal (a script or a CI job) no longer changes files without
+  a flag: it stops with exit 3 and says to pass `--yolo`, or to use `ract -p --accept-edits`.
+  Questions that write nothing still run. `ract run --loop` needs `--yolo` until the loop can
+  ask. Scripts that ran `ract run` to change files add `--yolo` (docs/UPGRADING.md).
 - `ract session list|export|import|backup|restore` keep their store in `.ract/sessions`, the
   folder the interactive session and `ract plan export` already use, instead of
   `.ract_sessions/`. The first time one of them runs with the default store, sessions saved in

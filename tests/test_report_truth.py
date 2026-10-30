@@ -22,7 +22,9 @@ def test_the_report_shows_the_plan_that_ran(
     server = fake_model_server("baseline_j4_today")
     ws = _repo(tmp_path, server.base_url)
 
-    run = _ract(ws, "run", "--config", "ract.yaml", "--session", "s1", "--", "fix add")
+    run = _ract(
+        ws, "run", "--config", "ract.yaml", "--yolo", "--session", "s1", "--", "fix add"
+    )
     report = _ract(ws, "report", "--last", "--config", "ract.yaml")
 
     assert run.returncode == 0, run.stdout + run.stderr
@@ -38,7 +40,9 @@ def test_the_report_shows_the_plan_that_ran(
 def test_a_turn_without_a_plan_says_so(tmp_path: Path) -> None:
     ws = _repo(tmp_path, "http://127.0.0.1:9/v1")  # nothing answers
 
-    _ract(ws, "run", "--config", "ract.yaml", "--session", "s2", "--", "fix add")
+    _ract(
+        ws, "run", "--config", "ract.yaml", "--yolo", "--session", "s2", "--", "fix add"
+    )
     report = _ract(ws, "report", "--last", "--config", "ract.yaml")
 
     text = report.stdout + report.stderr

@@ -85,7 +85,7 @@ it" has the earlier work as context.
 Known limits in this release: Ctrl-C at the prompt clears the line, but Ctrl-C during a
 running turn takes effect only when the turn ends. Line history and tab completion work on
 Linux and macOS, where Python has `readline`; on Windows the session has neither yet.
-Ctrl-D or `/exit` leaves. Scripts and CI keep using `ract run '<intent>'`.
+Ctrl-D or `/exit` leaves. Scripts and CI use `ract -p '<intent>' --accept-edits`, or `ract run '<intent>' --yolo`: with no terminal to ask, a run without one of those flags does not change files.
 
 ## Set up a project
 

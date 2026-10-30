@@ -23,6 +23,12 @@ git tag, with the fake model server; nothing is installed.
   <milestone-id>`. An approval now counts only when this machine recorded it,
   in the user state directory, so a `.ract/handshakes.json` that a repository
   ships cannot approve anything (S-035).
+- `ract run "<intent>"` asks before it changes a file. In a terminal it asks
+  the plan question and the step question. With no terminal (a script or a CI
+  job) it does not change files: it stops with exit 3 and says so; questions
+  that write nothing still run. A script that ran `ract run` to change files
+  adds `--yolo`, or moves to `ract -p "<intent>" --accept-edits`. `ract run
+  --loop` needs `--yolo` until the loop can ask (D-104).
 - A step no longer commits onto your branch. v0.5.2 committed each step
   (`rootact step 1: ...`) onto the branch you had checked out. This branch
   leaves the change unstaged. `tests/integration/test_run_never_moves_user_branch.py`

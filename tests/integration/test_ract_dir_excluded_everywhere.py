@@ -96,6 +96,6 @@ def test_loop_excludes_ract_before_the_loop_starts(
     monkeypatch.chdir(ws)
 
     with pytest.raises(Stop):
-        cli.main(["run", "--config", "ract.yaml", "--loop", "--", "fix it"])
+        cli.main(["run", "--config", "ract.yaml", "--loop", "--yolo", "--", "fix it"])
 
     assert calls == ["exclude", "loop"]

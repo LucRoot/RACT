@@ -34,7 +34,16 @@ def _git(ws: Path, *args: str) -> str:
 def _run(ws: Path, intent: str, *extra: str) -> subprocess.CompletedProcess[str]:
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
     return subprocess.run(
-        [sys.executable, "-m", "ract.cli", "--config", "ract.yaml", *extra, intent],
+        [
+            sys.executable,
+            "-m",
+            "ract.cli",
+            "--config",
+            "ract.yaml",
+            "--yolo",
+            *extra,
+            intent,
+        ],
         cwd=ws,
         capture_output=True,
         text=True,

@@ -61,7 +61,11 @@ def test_run_that_writes_a_file_names_it_as_unsigned(
             subprocess.run(["git", *args], cwd=ws, check=True, capture_output=True)
 
     result = _ract(
-        ws, "--config", "ract.yaml", "tests/test_calc.py::test_add fails, fix it"
+        ws,
+        "--config",
+        "ract.yaml",
+        "--yolo",
+        "tests/test_calc.py::test_add fails, fix it",
     )
 
     assert result.returncode == 0, result.stdout + result.stderr

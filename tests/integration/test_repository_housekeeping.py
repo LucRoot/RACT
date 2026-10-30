@@ -143,7 +143,10 @@ def test_run_adds_the_exclude_and_doctor_lists_step_branches(
 
     assert (
         ract(
-            "--config", "ract.yaml", "tests/test_calc.py::test_add fails, fix it"
+            "--config",
+            "ract.yaml",
+            "--yolo",
+            "tests/test_calc.py::test_add fails, fix it",
         ).returncode
         == 0
     )

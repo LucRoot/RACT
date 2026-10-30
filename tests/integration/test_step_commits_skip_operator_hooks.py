@@ -56,7 +56,15 @@ def test_operator_hooks_do_not_run_on_step_commits(
     empty_global.write_text("", encoding="utf-8")
     env["GIT_CONFIG_GLOBAL"] = str(empty_global)
     result = subprocess.run(
-        [sys.executable, "-m", "ract.cli", "--config", "ract.yaml", "fix add"],
+        [
+            sys.executable,
+            "-m",
+            "ract.cli",
+            "--config",
+            "ract.yaml",
+            "--yolo",
+            "fix add",
+        ],
         cwd=ws,
         capture_output=True,
         text=True,

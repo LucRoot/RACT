@@ -157,7 +157,7 @@ def test_ract_run_names_the_backup_folder(
     server = fake_model_server(_one_step("Fix add", "src/calc.py", FIXED))
     ws = _repo(tmp_path, server.base_url)
 
-    result = _ract(ws, "run", "--config", "ract.yaml", "--", "fix add")
+    result = _ract(ws, "run", "--config", "ract.yaml", "--yolo", "--", "fix add")
 
     assert result.returncode == 0, result.stderr
     assert (
