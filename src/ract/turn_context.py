@@ -40,6 +40,8 @@ _report_error: ContextVar[str | None] = ContextVar(
     "ract_turn_report_error", default=None
 )
 _written: ContextVar[list[str] | None] = ContextVar("ract_turn_written", default=None)
+# B-023: the commands the harness ran in this turn, as (kind, CommandResult).
+_runs: ContextVar[list[Any] | None] = ContextVar("ract_turn_runs", default=None)
 _extensions_off: ContextVar[bool] = ContextVar(
     "ract_repository_extensions_off", default=False
 )
@@ -94,6 +96,7 @@ def bind(
     reporter: Reporter | None = None,
     *,
     written: list[str] | None = None,
+    runs: list[Any] | None = None,
     write_lock: Any = None,
     queued: Callable[[], list[str]] | None = None,
 ) -> None:
@@ -108,6 +111,7 @@ def bind(
     _cancel.set(event)
     _reporter.set(reporter)
     _written.set(written)
+    _runs.set(runs)
     _write_lock.set(write_lock)
     _queued.set(queued)
 
@@ -210,6 +214,13 @@ def record_written(root: Path | str, paths: Iterable[Path | str]) -> None:
 
 
 @contextmanager
+def record_run(kind: str, result: Any) -> None:
+    """Keep a command the harness ran, for the turn's verifier (B-023)."""
+    runs = _runs.get()
+    if runs is not None:
+        runs.append((kind, result))
+
+
 def recording_suspended() -> Iterator[None]:
     """Do not record writes inside this block (a step's own worktree)."""
     token = _written.set(None)

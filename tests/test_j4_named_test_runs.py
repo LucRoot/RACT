@@ -135,9 +135,13 @@ def test_the_named_test_runs_after_the_fix_and_verifies_the_turn(
 def test_a_failing_run_says_failed(ws: Path, monkeypatch) -> None:
     _grant(ws)
     code, events, _text, _asked = _turn(ws, monkeypatch, StandIn(1), "y")
-    assert code == 0
+    # B-023 (ADR-0049 D4): a failed real run keeps the turn from done.
+    assert code == 1 and events[-1].data["outcome"] == "failed"
     assert events[-1].data["verification"]["status"] == "failed"
-    assert events[-1].data["verdict"].endswith("the named test failed.")
+    assert events[-1].data["verdict"] == (
+        "Not done: 1 step ran; the tests run "
+        "`python -m pytest -- tests/test_calc.py::test_add` failed (exit 1)."
+    )
 
 
 def test_a_no_runs_nothing_and_says_why(ws: Path, monkeypatch) -> None:

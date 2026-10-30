@@ -399,10 +399,13 @@ def run_turn(
 
     reporter = _TurnReporter(stream, turn, cancel)
     written: list[str] = []
+    # B-023: every command the harness runs in this turn, for the verifier.
+    step_runs: list[Any] = []
     turn_context.bind(
         cancel,
         reporter,
         written=written,
+        runs=step_runs,
         write_lock=request.write_lock,
         queued=request.queued,
     )
@@ -600,6 +603,7 @@ def run_turn(
     value = result.unwrap()
     unsigned: list[str] = []
     runs: list[Any] = []
+    failed: list[Any] = []
     not_run_reason = ""
     if request.dry_run or not hasattr(value, "step_results"):
         if not reporter.plan_reported:
@@ -640,6 +644,22 @@ def run_turn(
                     f"Done: {n} step{'s' if n != 1 else ''} ran; the named test "
                     + ("passed." if passed else "failed.")
                 )
+        # B-023 (ADR-0049 D4): what the steps ran counts too; a failed real
+        # run keeps the turn from done, and the verdict names it.
+        kinds = [*step_runs, *(("tests", r) for r in runs)]
+        runs = [result for _kind, result in kinds]
+        failed = [
+            (kind, result)
+            for kind, result in kinds
+            if result.runner != "fake" and not result.passed
+        ]
+        if failed:
+            kind, first = failed[0]
+            others = f" and {len(failed) - 1} more" if len(failed) > 1 else ""
+            verdict = (
+                f"Not done: {n} step{'s' if n != 1 else ''} ran; the {kind} run "
+                f"`{' '.join(first.argv)}` failed (exit {first.exit_code}){others}."
+            )
     if unsigned:
         stream.emit(
             "notice",
@@ -653,7 +673,7 @@ def run_turn(
         if not sr.step.expected_artifact and sr.step.tool_call is None
     )
     finished(
-        "done",
+        "failed" if failed else "done",
         verdict,
         unsigned,
         turn_summary.unverified_claims(answer),
@@ -661,7 +681,7 @@ def run_turn(
         runs=runs,
         not_run_reason=not_run_reason,
     )
-    return 0
+    return 1 if failed else 0
 
 
 # At most this many citation items travel in one event; the counts cover all.

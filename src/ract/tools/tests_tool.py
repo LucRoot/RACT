@@ -15,6 +15,7 @@ why. Network is off unless the rule says otherwise (D11).
 from __future__ import annotations
 
 import uuid
+from typing import Any
 from pathlib import Path, PurePosixPath
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -93,10 +94,9 @@ def _project_code_notes(written: set[str]) -> list[str]:
     return [note]
 
 
-def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
+def tier3_context() -> Any:
+    """The step's tier-3 context with a grant that holds, or the refusal that says why."""
     from ract.policy import tier3
-    from ract.policy.matcher import classify
-    from ract.tools.command import run_command
 
     ctx = tier3.current()
     if ctx is None:
@@ -110,6 +110,11 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
             if ctx.grant.status == "suspended"
             else tier3.NO_GRANT_HINT,
         )
+    return ctx
+
+
+def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
+    ctx = tier3_context()
     policy = ctx.grant.policy
     rule = _test_rule(policy)
     if rule is None:
@@ -126,6 +131,42 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
         *(["--"] if is_pytest and args.selectors else []),
         *args.selectors,
     ]
+    return run_under_rule(
+        root,
+        ctx,
+        rule,
+        argv,
+        args.reason,
+        kind="tests",
+        refused_hint="name tests inside the project",
+        notes=_project_code_notes(ctx.model_written),
+    )
+
+
+def run_under_rule(
+    root: Path,
+    ctx: Any,
+    rule: Any,
+    argv: list[str],
+    reason: str,
+    *,
+    kind: str,
+    refused_hint: str,
+    notes: list[str],
+) -> ToolResult:
+    """Classify, ask and run *argv* under *rule*: the one path every tier-3 tool takes.
+
+    The result is structured (B-023): the kind, the command id, the exit
+    code, the time, the output digest and the capped output. The run is kept
+    on the step's context and on the turn, where the verifier counts it.
+    """
+    from ract import turn_context
+    from ract.policy import tier3
+    from ract.policy.matcher import classify
+    from ract.tools.command import run_command
+
+    policy = ctx.grant.policy
+
     match = classify(
         argv,
         policy,
@@ -134,7 +175,7 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
         also_outside=(ctx.project,),
     )
     if match.outcome == "refused":
-        raise ToolRefused(f"refused: {match.reason}", "name tests inside the project")
+        raise ToolRefused(f"refused: {match.reason}", refused_hint)
     if ctx.approve is None:
         raise ToolRefused(
             "tier 3 asks you before a command runs, and nobody can answer here",
@@ -149,8 +190,8 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
         "rule": rule.id,
         "timeout_s": rule.timeout_s,
         "why": match.reason,
-        "reason": args.reason,
-        "notes": [*match.notes, *_project_code_notes(ctx.model_written)],
+        "reason": reason,
+        "notes": [*match.notes, *notes],
     }
     if not ctx.approve(facts):
         raise ToolRefused(
@@ -162,12 +203,13 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
         raise ToolRefused(
             f"tier 3 is off: {ctx.grant.reason}; nothing ran", tier3.RESUME_HINT
         )
+    command_id = f"a-{uuid.uuid4().hex[:12]}"
     rooted = run_command(
         match,
         worktree=root,
         rule=rule,
         grant_digest=ctx.grant.digest,
-        approval_id=f"a-{uuid.uuid4().hex[:12]}",
+        approval_id=command_id,
         approver="operator-tty",
         runner=ctx.runner,
         network=bool(rule.network),
@@ -177,6 +219,7 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
         raise ToolRefused(rooted.error or "the command did not run", rooted.hint or "")
     result = rooted.unwrap()
     ctx.runs.append(result)
+    turn_context.record_run(kind, result)
     outcome = (
         "passed"
         if result.passed
@@ -192,7 +235,11 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
     return ToolResult(
         text=text,
         facts={
+            "kind": kind,
+            "command_id": command_id,
             "exit_code": result.exit_code,
+            "duration_ms": result.duration_ms,
+            "output_sha256": result.stdout_sha256,
             "passed": result.passed,
             "killed_by": result.killed_by,
             "runner": result.runner,
@@ -211,4 +258,4 @@ RUN_TESTS = ToolSpec(
     run=run_tests,
 )
 
-__all__ = ["RUN_TESTS", "RunTestsArgs", "run_tests"]
+__all__ = ["RUN_TESTS", "RunTestsArgs", "run_tests", "run_under_rule", "tier3_context"]
