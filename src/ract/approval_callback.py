@@ -162,22 +162,35 @@ def console_tier_3_prompt(facts: dict) -> bool:
     model's. Only "y" or "yes" typed at the console runs it, once.
     """
     from ract.session_events import safe_text
+    from ract.ui.command_screens import CommandRequest, approval_prompt_lines
 
-    argv = " ".join(safe_text(str(a)) for a in facts.get("argv", []))
-    _print_wrapped(f"Tier 3: run a command? {argv}")
-    _print_wrapped(
-        f"  executable: {safe_text(str(facts.get('executable') or 'not resolved'))}"
+    # MASON's view (B-112): argv escaped, executable, cwd, network, sandbox,
+    # limits, the model's reason as model text. The choice is once or no
+    # until slice (d) brings session and always.
+    request = CommandRequest(
+        argv=tuple(str(a) for a in facts.get("argv", [])),
+        executable=str(facts.get("executable") or "not resolved"),
+        cwd=str(facts.get("cwd", "")),
+        network=str(facts.get("network", "off")).startswith("on"),
+        sandbox_enforced=False,
+        limits=(
+            f"wall {facts['timeout_s']} s; processes, memory and CPU not enforced "
+            "on this machine"
+            if facts.get("timeout_s")
+            else ""
+        ),
+        reason=str(facts.get("reason") or ""),
     )
-    _print_wrapped(f"  in: {safe_text(str(facts.get('cwd', '')))}")
-    _print_wrapped(f"  network: {safe_text(str(facts.get('network', 'off')))}")
-    _print_wrapped(f"  sandbox: {safe_text(str(facts.get('sandbox', '')))}")
+    for line in approval_prompt_lines(
+        request, max(_terminal_width() - 3, 20), choices="y runs it once, N refuses"
+    ):
+        print(line)
     _print_wrapped(
-        f"  rule: {safe_text(str(facts.get('rule') or 'none'))} ({safe_text(str(facts.get('why', '')))})"
+        f"  rule: {safe_text(str(facts.get('rule') or 'none'))} "
+        f"({safe_text(str(facts.get('why', '')))})"
     )
     for note in facts.get("notes") or []:
         _print_wrapped(f"  note: {safe_text(str(note))}")
-    if facts.get("reason"):
-        _print_wrapped(f"  the model's reason: {safe_text(str(facts['reason']))}")
     question_gate.open_question()
     try:
         response = read_line("Run it once? [y/N]: ").strip().lower()
@@ -193,20 +206,19 @@ def console_tier_3_prompt(facts: dict) -> bool:
 
 def console_git_init_offer(command: str, count: int, left_out: list[str]) -> bool:
     """Offer ``git init`` at the console, as a tier-2 action (B-110 D6). True on yes."""
-    from ract.session_events import safe_text
+    from ract.ui.workspace_screens import not_git_offer_lines
 
+    # MASON's view (B-110): the exact command as a tier-2 action, the
+    # sensitive names left out, then the choice; the file count first.
     _print_wrapped(
-        "Tier 2: this folder is not a git repository. RACT makes changes in a "
-        "worktree, which needs one. It would run: " + command + "."
+        f"Tier 2: {count} file{'s' if count != 1 else ''} would be committed."
     )
-    _print_wrapped(f"{count} file{'s' if count != 1 else ''} would be committed.")
-    if left_out:
-        shown = ", ".join(safe_text(n) for n in left_out[:5])
-        more = f" and {len(left_out) - 5} more" if len(left_out) > 5 else ""
-        _print_wrapped(f"Left out as sensitive: {shown}{more}.")
+    lines = not_git_offer_lines(command, left_out, max(_terminal_width() - 3, 20))
+    for line in lines[:-1]:
+        print(line)
     question_gate.open_question()
     try:
-        response = read_line("Make it a git repository? [y/N]: ").strip().lower()
+        response = read_line(lines[-1] + " ").strip().lower()
     except EOFError:
         return False
     except KeyboardInterrupt:

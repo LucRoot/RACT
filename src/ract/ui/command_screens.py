@@ -66,7 +66,7 @@ class CommandRequest:
 
 
 def approval_prompt_lines(
-    request: CommandRequest, width: int, *, rich: bool = False
+    request: CommandRequest, width: int, *, rich: bool = False, choices: str = CHOICES
 ) -> list[str]:
     """The tier-3 prompt: full argv escaped, executable, cwd, network, sandbox, and the choices."""
     argv = " ".join(escape_controls(arg) for arg in request.argv)
@@ -93,7 +93,7 @@ def approval_prompt_lines(
             f"the model says (model text, not checked): {safe_text(request.reason)}",
             width,
         )
-    out += _fold(_bold(CHOICES, rich), width, indent="  ")
+    out += _fold(_bold(choices, rich), width, indent="  ")
     return out
 
 

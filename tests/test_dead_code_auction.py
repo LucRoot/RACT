@@ -167,10 +167,6 @@ def test_ract_auction_reports_zero_dead_modules():
     # package fills from read.READ_TOOLS; the symbol graph does not follow a
     # package-level registration, so the module looks unreferenced.
     allowlist.add("read.py")
-    # B-110 and B-112 (MASON, PREPARED): pure screens, not wired until slices (a) and (c) land.
-    # Remove each entry when the screen is wired; the BUILDER reviews these (D-081 pattern).
-    allowlist.add("workspace_screens.py")
-    allowlist.add("command_screens.py")
     allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped

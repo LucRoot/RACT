@@ -93,6 +93,7 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
         "network": "on" if rule.network else "off (not enforced on this machine)",
         "sandbox": "best effort: not enforced on this machine",
         "rule": rule.id,
+        "timeout_s": rule.timeout_s,
         "why": match.reason,
         "reason": args.reason,
         "notes": list(match.notes),

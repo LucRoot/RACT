@@ -97,7 +97,7 @@ def test_yes_makes_a_repository_without_the_sensitive_file(
     code, events = _turn(ws, auto=True)
 
     assert code == 0, [e.data for e in events if e.kind == "error.surfaced"]
-    assert prompts[0] == "Make it a git repository? [y/N]: "
+    assert prompts[0].startswith("Run it? [y]es, approve")  # MASON's offer view
     assert "return a + b" in _text_of(ws / "src" / "calc.py")
     tracked = subprocess.run(
         ["git", "ls-files"], cwd=ws, capture_output=True, text=True, check=True
