@@ -344,7 +344,7 @@ def test_the_same_hook_runs_on_the_interactive_run_path(
         )
 
     assert run("trust").returncode == 0
-    result = run("--config", "ract.yaml", "fix add")
+    result = run("--config", "ract.yaml", "--yolo", "fix add")
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert marker.exists()

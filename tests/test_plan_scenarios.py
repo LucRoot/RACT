@@ -38,7 +38,7 @@ def _run(
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
     try:
         proc = subprocess.run(
-            [sys.executable, "-m", "ract.cli", "fix add"],
+            [sys.executable, "-m", "ract.cli", "--yolo", "fix add"],
             cwd=ws,
             env=env,
             capture_output=True,

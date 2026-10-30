@@ -66,7 +66,7 @@ def test_an_untrusted_hook_is_skipped_and_runs_after_trust(
     marker = tmp_path / "hook.ran"
     _plant_hook(ws, marker)
 
-    first = _ract(ws, state, "fix add")
+    first = _ract(ws, state, "--yolo", "fix add")
     assert first.returncode == 0, first.stdout + first.stderr
     assert not marker.exists()
     assert "this repository is not trusted" in first.stderr
@@ -87,7 +87,7 @@ def test_an_untrusted_hook_is_skipped_and_runs_after_trust(
         encoding="utf-8",
     )
     # ract.yaml changed, but nothing in it is a trust item, so trust holds.
-    second = _ract(ws, state, "fix add")
+    second = _ract(ws, state, "--yolo", "fix add")
     assert second.returncode == 0, second.stdout + second.stderr
     assert marker.exists()
 
