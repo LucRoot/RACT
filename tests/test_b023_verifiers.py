@@ -164,11 +164,11 @@ class StandIn:
         return RawRun(self.exit_code, b"out", b"", 7)
 
 
-def _turn_with_a_lint_run(ws: Path, monkeypatch, exit_code: int):
+def _turn_with_a_lint_run(root: Path, monkeypatch, exit_code: int):
     """A turn whose step ran the lint tool once (the step's tool call, simulated)."""
     from ract import turn_context
 
-    _grant(ws)
+    _grant(root)
     original = turn_context.bind
 
     def bind(*a, **kw):
@@ -176,10 +176,10 @@ def _turn_with_a_lint_run(ws: Path, monkeypatch, exit_code: int):
         runs = kw.get("runs")
         if runs is not None:
             ctx = tier3.for_project(
-                ws, approve=lambda facts: True, runner=StandIn(exit_code)
+                root, approve=lambda facts: True, runner=StandIn(exit_code)
             )
             with tier3.bound(ctx):
-                run_tool(ws, "run_lint", {"reason": "check the change"})
+                run_tool(root, "run_lint", {"reason": "check the change"})
 
     monkeypatch.setattr("ract.session_turn.turn_context.bind", bind)
     monkeypatch.setattr("ract.approval_callback.read_line", lambda _p: "y")
@@ -187,7 +187,7 @@ def _turn_with_a_lint_run(ws: Path, monkeypatch, exit_code: int):
     stream = EventStream(session="s-b023")
     stream.subscribe(events.append)
     request = TurnRequest(
-        config=ws / "ract.yaml",
+        config=root / "ract.yaml",
         intent="tidy src/calc.py",
         session_id="s-b023",
         resume=False,
