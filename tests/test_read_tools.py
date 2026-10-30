@@ -38,9 +38,18 @@ def _ok(result):
 # ------------------------------------------------------------------ the specs
 
 
-def test_the_four_tools_are_registered_at_tier_0_and_never_mutate() -> None:
-    assert sorted(REGISTRY) == ["glob", "grep", "list_dir", "read_file"]
-    for spec in REGISTRY.values():
+def test_the_read_tools_are_registered_at_tier_0_and_never_mutate() -> None:
+    # B-110 adds repo_map (tier 0) and the write tools, which read_only_tools() leaves out.
+    from ract.tools import read_only_tools
+
+    assert sorted(read_only_tools()) == [
+        "glob",
+        "grep",
+        "list_dir",
+        "read_file",
+        "repo_map",
+    ]
+    for spec in read_only_tools().values():
         assert spec.tier is CapabilityTier.TIER_0_READ
         assert spec.mutates is False
         assert spec.result_cap_bytes > 0
@@ -66,7 +75,7 @@ def test_an_extra_argument_is_refused(ws: Path) -> None:
 
 
 def test_an_unknown_tool_is_refused_with_the_list(ws: Path) -> None:
-    result = run_tool(ws, "write_file", {"path": "a"})
+    result = run_tool(ws, "frobnicate", {"path": "a"})
     assert not result.is_ok()
     assert "read_file" in result.error
 

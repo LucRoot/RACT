@@ -8,8 +8,12 @@ validates the arguments, runs the tool, passes the text through the
 outbound scan (S-022), caps it, and labels it as untrusted repository
 content before anything could reach a model.
 
-This package holds the read-only slice (B-010a): ``read_file``,
-``list_dir``, ``glob`` and ``grep``, all tier 0. Nothing here writes.
+The read-only slice (B-010a): ``read_file``, ``list_dir``, ``glob``,
+``grep`` and ``repo_map``, all tier 0. The write tools (B-110 D1,
+``ract.tools.write``): ``write_file``, ``edit_file``, ``delete_file``,
+``move_file`` and ``apply_patch``, tier 1, raised to tier 2 by a control or
+executable-configuration path. ``read_only_tools`` is what the read-only
+answer loop may offer; a write tool is never in it.
 """
 
 from __future__ import annotations
@@ -74,6 +78,18 @@ class ToolSpec:
 REGISTRY: dict[str, ToolSpec] = {}
 
 
+def _call_tier(spec: ToolSpec, args: Any, root: Path) -> CapabilityTier:
+    """The call's tier: the declared tier, raised by the paths a write touches (D3)."""
+    from ract.tools.write import call_tier
+
+    return call_tier(spec, args, root)
+
+
+def read_only_tools() -> dict[str, ToolSpec]:
+    """The registered tools that change nothing: all the read-only answer loop offers."""
+    return {name: spec for name, spec in REGISTRY.items() if not spec.mutates}
+
+
 def register(spec: ToolSpec) -> ToolSpec:
     if spec.name in REGISTRY:
         raise ValueError(f"tool {spec.name!r} is registered twice")
@@ -90,8 +106,19 @@ def _cap(text: str, cap_bytes: int) -> tuple[str, bool]:
     return keep.decode("utf-8", errors="ignore") + marker, True
 
 
-def run_tool(root: Path | str, name: str, arguments: Any) -> Rooted[ToolResult]:
-    """Run tool *name* with *arguments* inside *root*. Never raises."""
+def run_tool(
+    root: Path | str,
+    name: str,
+    arguments: Any,
+    *,
+    approve_tier_2: Callable[[str, Any], bool] | None = None,
+) -> Rooted[ToolResult]:
+    """Run tool *name* with *arguments* inside *root*. Never raises.
+
+    The tier gate (ADR-0047 D1, D3): a call's tier is the tool's tier raised by
+    the paths it touches. A tier-2 call runs only when *approve_tier_2* (the
+    operator's answer, never a model's) says yes; a tier-3 call never runs here.
+    """
     spec = REGISTRY.get(name)
     if spec is None:
         return Rooted(
@@ -118,7 +145,26 @@ def run_tool(root: Path | str, name: str, arguments: Any) -> Rooted[ToolResult]:
             hint=f"use only the arguments {name} declares",
         )
     try:
+        tier = _call_tier(spec, args, Path(root))
+        if tier is CapabilityTier.TIER_3_EXTERNAL:
+            raise ToolRefused(
+                f"{name} would act at tier 3", "tier 3 needs a signed grant"
+            )
+        if tier is CapabilityTier.TIER_2_ENV and not (
+            approve_tier_2 is not None and approve_tier_2(name, args)
+        ):
+            raise ToolRefused(
+                f"{name} touches a control or executable-configuration file (tier 2), "
+                "which needs the operator's approval",
+                "a tier-2 write asks the operator first; change a project file instead",
+            )
         result = spec.run(Path(root), args)
+        if spec.mutates:
+            result = ToolResult(
+                text=result.text,
+                facts={**result.facts, "tier": tier.value},
+                truncated=result.truncated,
+            )
     except ToolRefused as exc:
         return Rooted(
             value=None,
@@ -138,15 +184,20 @@ def run_tool(root: Path | str, name: str, arguments: Any) -> Rooted[ToolResult]:
     facts["redacted"] = egress_scan.describe(counts) if counts else ""
     return Rooted(
         value=ToolResult(text=text, facts=facts, truncated=result.truncated or cut),
-        assumption=f"{name} read the project inside its root.",
+        assumption=(
+            f"{name} changed the project inside its root, only what it was given the digest of."
+            if spec.mutates
+            else f"{name} read the project inside its root."
+        ),
         confidence=1.0,
         provenance=["tools.run_tool", name],
     )
 
 
 from ract.tools.read import READ_TOOLS  # noqa: E402  (needs the names above)
+from ract.tools.write import WRITE_TOOLS  # noqa: E402
 
-for _spec in READ_TOOLS:
+for _spec in (*READ_TOOLS, *WRITE_TOOLS):
     register(_spec)
 
 __all__ = [
@@ -155,6 +206,7 @@ __all__ = [
     "ToolRefused",
     "ToolResult",
     "ToolSpec",
+    "read_only_tools",
     "register",
     "run_tool",
 ]

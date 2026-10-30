@@ -47,7 +47,7 @@ from ract.tool_calls import (
     extract,
     next_action,
 )
-from ract.tools import REGISTRY, ToolResult, run_tool
+from ract.tools import ToolResult, read_only_tools, run_tool
 
 Complete = Callable[[list[dict[str, Any]]], Rooted[dict[str, Any]]]
 
@@ -73,7 +73,7 @@ class LoopBudgets:
 def tool_lines() -> str:
     """One ``- name(args)`` line per registered tool, for a system prompt."""
     tools = []
-    for spec in REGISTRY.values():
+    for spec in read_only_tools().values():
         fields = ", ".join(
             f"{name}{'' if field.is_required() else '?'}"
             for name, field in spec.args_model.model_fields.items()
@@ -100,7 +100,7 @@ def _system_prompt() -> str:
 def _signatures() -> list[ToolSignature]:
     return [
         ToolSignature(spec.name, frozenset(spec.args_model.model_fields))
-        for spec in REGISTRY.values()
+        for spec in read_only_tools().values()
     ]
 
 
@@ -126,7 +126,7 @@ def _gate_schema(spec: Any) -> ToolArgSchema:
 def _gate(root: Path, budgets: LoopBudgets) -> ToolInvocationGate:
     """A gate over the read-only tools, for one step (ADR-0047 D1)."""
     registry = ToolRegistry()
-    for name, spec in REGISTRY.items():
+    for name, spec in read_only_tools().items():
         registry.register(
             ToolDefinition(
                 tool_id=name,
@@ -137,7 +137,7 @@ def _gate(root: Path, budgets: LoopBudgets) -> ToolInvocationGate:
     registry.freeze()
     return ToolInvocationGate(
         registry=registry,
-        declared_tool_ids=frozenset(REGISTRY),
+        declared_tool_ids=frozenset(read_only_tools()),
         budget=ToolBudget(max_invocations=budgets.max_tool_calls),
     )
 
@@ -172,7 +172,7 @@ def _run_call(
     """Run one call through the gate; report it; return (ok, text, hint)."""
     call_id = f"t{next(ids)}"
     summary = _summary(call)
-    spec = REGISTRY.get(call.name)
+    spec = read_only_tools().get(call.name)
     turn_context.report(
         "tool.call.started",
         {
