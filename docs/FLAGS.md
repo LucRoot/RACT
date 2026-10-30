@@ -38,6 +38,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--draft` | `ract release create` | Create as draft |
 | `--dry-run` | `ract consolidate scan` | Show proposals without enqueueing them. |
 | `--egress` | `ract doctor` | Show what left this machine in the last 7 days (the egress ledger) and the sites exempt from the secret scan. |
+| `--env` | `ract doctor` | List the RACT_* environment variables: names, classes and whether each is set. Values are never shown. |
 | `--evidence` | `ract policy-gate` | Evidence JSON file. |
 | `--fail-on-denial` | `ract -p` | exit 3 at the first denied action (nothing asks for approval yet) |
 | `--fast` | `ract novelty` | Run a faster dictionary-only novelty scan. |
