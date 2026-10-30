@@ -21,7 +21,8 @@ from pathlib import Path
 from ract import env_registry
 from ract.cli import main as cli_main
 
-SRC = Path(__file__).resolve().parent.parent / "src" / "ract"
+REPO = Path(__file__).resolve().parent.parent
+SRC = REPO / "src" / "ract"
 
 # Dynamic read sites, by file. Each reason says what the name is.
 DYNAMIC_READS: dict[str, str] = {
@@ -158,6 +159,32 @@ def test_registry_rows_are_complete() -> None:
         assert var.documented.strip(), var.name
     names = [v.name for v in env_registry.ENV_VARS]
     assert len(names) == len(set(names))
+
+
+USER_DOCS = [REPO / "README.md", *sorted((REPO / "docs").glob("*.md"))]
+
+
+def test_a_documented_path_exists_and_names_the_variable() -> None:
+    for var in env_registry.ENV_VARS:
+        if "/" not in var.documented and not var.documented.endswith(".md"):
+            continue
+        path = REPO / var.documented
+        assert path.is_file(), (var.name, var.documented)
+        assert var.name in path.read_text(encoding="utf-8"), (var.name, var.documented)
+
+
+def test_a_variable_no_user_doc_names_is_not_marked_as_documented() -> None:
+    """Both directions: a name in a user doc is not 'none', and 'none' is not a lie."""
+    for var in env_registry.ENV_VARS:
+        is_path = var.documented.endswith(".md")
+        if is_path:
+            continue
+        named = [
+            p.relative_to(REPO).as_posix()
+            for p in USER_DOCS
+            if var.name in p.read_text(encoding="utf-8")
+        ]
+        assert not named, (var.name, var.documented, named)
 
 
 def test_doctor_env_lists_names_and_never_a_value(monkeypatch) -> None:
