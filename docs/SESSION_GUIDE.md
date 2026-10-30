@@ -129,13 +129,12 @@ turns: not stored in the session file
 
 ## A question that completes
 
-This capture uses the fake server's `ask_calc_answer` scenario (`docs/ux/guide/ask_calc_answer.txt`).
-The answer in the JSON envelope is the scenario's scripted text: the fake server wrote it, and no
-model answered the question.
+This capture uses the fake server's `ask_read_calc` scenario (`docs/ux/guide/ask_read_calc.txt`).
+The model reads `src/calc.py` through the read-only loop before it answers. The answer is the
+scenario's scripted text: the fake server wrote it, and no model answered the question.
 
-The run completes, and it shows what a user would notice: `/ask` still prints a plan first,
-and it prints the reply as raw JSON. That is a known defect for the read-only slice (B-010a and
-B-011a), not something this capture hides.
+The `read_file` line shows the read. The answer names the file and the line it read, and the
+`citations` line shows that RACT checked that reference against the file.
 
 ```text
 ract> /ask what does add() do in src/calc.py?
@@ -144,12 +143,15 @@ Plan: 1 step, confidence 1.00
     written.
   1. what does add() do in src/calc.py?
 [step 1] what does add() do in src/calc.py?
-{"final":"add(a, b) in src/calc.py returns a - b, but it should return a + b."}
-[step 1] done (0.1s)
+  > read_file(limit=20, offset=1, path='src/calc.py')  [T0]
+    ok 0.0s  read_file(limit=20, offset=1, path='src/calc.py')
+add() in src/calc.py:2 returns a - b, so it subtracts instead of adding.
+[step 1] done (0.2s)
   Done: 1 step ran; no tests were run.
   changed: nothing
   verified: RACT ran no tests this turn
-  1 model request, 0.9 s, 167 tokens in / 20 out
+  citations: 1 verified, 0 unverified
+  2 model requests, 1.2 s, 783 tokens in / 54 out
 ract> /exit
 ```
 
@@ -197,8 +199,8 @@ no files were changed
 - The checklist, the approval prompts, `/help`, `/cost`, `/mode`, `/settings` and
   `/model` fold to the terminal width, down to 40 columns. The 40 and 60 column
   checks are in `docs/ux/ux_bar_check.md`.
-- `/ask` prints a plan and runs a step. `/help` says `/ask` makes no plan, so
-  one of the two is wrong. Reported as a FOUND for the BUILDER.
+- The `/ask` reply prints a `Plan: 1 step` line before the answer, and `/help` says
+  `/ask` makes no plan, so one of the two is wrong. Reported as a FOUND for the BUILDER.
 - The `/ask` error says "returned an empty answer instead of a answer". The
   article is wrong. Reported as a FOUND.
 - Whether the empty reply is a scenario mismatch or a defect is not checked.

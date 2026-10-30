@@ -1,0 +1,22 @@
+# Captured: /ask in a session; fake server, scenario ask_read_calc (the model reads src/calc.py through the read-only loop, then the answer is scripted text), 80 columns.
+# Driver: tests/ux/terminal_driver.py (ConPTY). Escape sequences removed by the driver.
+# Stripped: trailing spaces only. The answer shown is the scenario's scripted text, not an answer to the question.
+
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> /ask what does add() do in src/calc.py?
+Plan: 1 step, confidence 1.00
+  assumes: The user asked a question; the answer is shown and no file is
+    written.
+  1. what does add() do in src/calc.py?
+[step 1] what does add() do in src/calc.py?
+  > read_file(limit=20, offset=1, path='src/calc.py')  [T0]
+    ok 0.0s  read_file(limit=20, offset=1, path='src/calc.py')
+add() in src/calc.py:2 returns a - b, so it subtracts instead of adding.
+[step 1] done (0.2s)
+  Done: 1 step ran; no tests were run.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  citations: 1 verified, 0 unverified
+  2 model requests, 1.2 s, 783 tokens in / 54 out
+ract> /exit
