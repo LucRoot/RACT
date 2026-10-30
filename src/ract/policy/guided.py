@@ -89,7 +89,8 @@ def proposed_policy(project: Path, runner: Runner, key_id: str, now: datetime) -
     lines = [
         "version: 1",
         "binding:",
-        f"  project_root: '{os.path.realpath(project)}'",
+        # G-217 G2: a single-quoted YAML scalar writes ' as ''.
+        "  project_root: '" + os.path.realpath(project).replace("'", "''") + "'",
     ]
     if root_commit:
         lines.append(f"  repo_root_commit: {root_commit}")
@@ -115,24 +116,32 @@ def proposed_policy(project: Path, runner: Runner, key_id: str, now: datetime) -
 
 def explanations(runner: Runner) -> list[str]:
     """One line per field the operator is asked to sign (D13)."""
+    confined = sandbox_confines_commands()
+    # G-217 G1: without a sandbox these are what the rule declares, not facts.
     lines = [
         f"argv [{', '.join(runner.argv)}]: only this command, with any arguments after it, may run",
-        "network: false: it runs with the network off",
+        "network: false: it runs with the network off"
+        if confined
+        else "network: false: declared off; this machine does not enforce it",
         "timeout_s: 900: it is stopped after 15 minutes",
-        "cwd: step_worktree: it runs in the step's worktree, never in your files",
+        "cwd: step_worktree: it runs in the step's worktree, never in your files"
+        if confined
+        else "cwd: step_worktree: it starts in the step's worktree; nothing stops it "
+        "reaching your other files",
         "home: isolated: it gets an empty home folder, not yours",
         "max_mode: ask: every command still asks you before it runs",
         "deny [git, push]: never runs, whatever else allows it",
         f"expires in {DEFAULT_DAYS} days; `ract policy sign` renews it",
     ]
-    if sandbox_confines_commands():
+    if confined:
         lines.append(
             "sandbox: enforced: the command is confined to what the rule allows"
         )
     else:
         lines.append(
             "sandbox: best_effort: this machine cannot confine commands, so the "
-            "network and file limits are not enforced here; the grant says so"
+            "network and file limits are not enforced here; the grant says so, and "
+            "the command runs with your user's rights"
         )
     return lines
 
@@ -163,6 +172,9 @@ def guided_init(
         key, has_key = None, False
     key_id = key.key_id if key is not None else "ed25519:0000000000000000"
     text = proposed_policy(project, runner, key_id, now)
+    # G-217 G2: a policy that cannot hold fails here, before the question and
+    # before any key is made.
+    parse_policy(text)
     show("The narrowest rule for it:")
     for line in explanations(runner):
         show(f"  {line}")
@@ -204,7 +216,14 @@ def guided_init(
     assert key is not None
     parse_policy(text)  # never write a policy that would not hold
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    # Written whole: a temporary file beside it, then one replace.
+    temp = path.with_name(f".{POLICY_FILE}.{os.getpid()}.tmp")
+    try:
+        temp.write_text(text, encoding="utf-8")
+        os.replace(temp, path)
+    finally:
+        if temp.exists():
+            temp.unlink()
     digest = sign(project, private, key)
     show(
         f"Signed .ract/{POLICY_FILE} with {key.key_id} (sha256 {digest[:12]}). Tier 3: T3 ask."

@@ -117,24 +117,26 @@ class SandboxKey:
         back to the pubkey embedded in the v2 sidecar (SUBSTRATE §7.2 +
         module_06 lateral chain branch C).
         """
-        from ract.key_paths import legacy_read, repo_key_dir
+        from ract.key_paths import legacy_key, repo_key_dir
         from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
 
         archive = (
             repo_key_dir(workspace_root, "sandbox") / "archive" / f"{run_id.hex()}.key"
         )
         if not archive.exists():
-            # The old place inside the project, read for this release (R3).
-            archive = (
+            # The old place inside the project, read for this release (R3) and
+            # only when the repository did not ship it (G-216 W3).
+            old = legacy_key(
                 Path(workspace_root)
                 / WORKSPACE_STATE_DIR_NAME
                 / "sandbox"
                 / "archive"
-                / f"{run_id.hex()}.key"
+                / f"{run_id.hex()}.key",
+                workspace_root,
             )
-            if not archive.exists():
+            if old is None:
                 return None
-            legacy_read(archive)
+            archive = old
         priv = serialization.load_pem_private_key(archive.read_bytes(), password=None)
         if not isinstance(priv, Ed25519PrivateKey):
             return None

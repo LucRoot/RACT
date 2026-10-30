@@ -447,6 +447,11 @@ def _handshakes_command(args: list[str]) -> int:
             columns=["ID", "Status", "Description"],
             rows=[[item.id, shown(item), item.description] for item in items],
         )
+        # G-216 W5: an unsigned approval says what to do.
+        for item in items:
+            reason = registry.unsigned_reason(item.id)
+            if reason and registry.current(item.id) == item:
+                console.info(reason)
         return 0
 
     if parsed.action == "review":

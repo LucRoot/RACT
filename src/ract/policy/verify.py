@@ -30,6 +30,7 @@ def run_named_tests(
     intent: str,
     approve: Callable[[dict[str, Any]], bool] | None,
     runner: Any = None,
+    expected_pin: str | None = None,
 ) -> tuple[list[Any], str]:
     """Run the tests *intent* names; the results, and why nothing ran when nothing did."""
     from ract.policy import tier3
@@ -37,7 +38,7 @@ def run_named_tests(
     from ract.tools.tests_tool import RUN_TESTS
 
     project = Path(project)
-    ctx = tier3.for_project(project, approve, runner)
+    ctx = tier3.for_project(project, approve, runner, expected_pin=expected_pin)
     if not ctx.grant.holds:
         return [], f"tier 3 is off: {ctx.grant.reason}"
     if approve is None:

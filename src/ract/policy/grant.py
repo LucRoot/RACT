@@ -434,7 +434,9 @@ def _pin_of(policy: bytes, signature: bytes) -> str:
     return hashlib.sha256(policy + b"\0" + signature).hexdigest()
 
 
-Status = Literal["none", "unsigned", "invalid", "not-yet", "expired", "revoked", "ok"]
+Status = Literal[
+    "none", "unsigned", "invalid", "not-yet", "expired", "revoked", "suspended", "ok"
+]
 
 
 @dataclass(frozen=True)

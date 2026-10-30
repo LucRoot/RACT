@@ -38,7 +38,16 @@ def typed(monkeypatch) -> list[str]:
         return PASS
 
     monkeypatch.setattr(policy_cli, "read_passphrase", read_passphrase)
+    # G-217 S1: sign shows the policy and asks; these tests answer yes.
+    monkeypatch.setattr(policy_cli, "_confirm", lambda _question: True)
     return prompts
+
+
+def _body(out: str) -> str:
+    """The output after its first line, which names the project (G-217 S2)."""
+    first, _, rest = out.partition("\n")
+    assert first.startswith("project: "), first
+    return rest
 
 
 def _policy(project: Path, key_id: str, sandbox: str = "best_effort") -> str:
@@ -66,11 +75,12 @@ def test_keygen_sign_status_revoke(
     assert (user_config / "operator" / "operator.key.json").is_file()
     project = tmp_path / "project"
     (project / ".ract").mkdir(parents=True)
+    (project / "ract.yaml").write_text("providers: {}\n", encoding="utf-8")
     monkeypatch.chdir(project)
     capsys.readouterr()
 
     assert policy_cli.policy_command(["status"]) == 0
-    assert capsys.readouterr().out.startswith("T3 off (no grant): no grant")
+    assert _body(capsys.readouterr().out).startswith("T3 off (no grant): no grant")
 
     (project / ".ract" / "policy.yaml").write_text(
         _policy(project, key.key_id), encoding="utf-8"
@@ -84,7 +94,7 @@ def test_keygen_sign_status_revoke(
     assert "tier 3: T3 ask" in out
 
     assert policy_cli.policy_command(["status"]) == 0
-    out = capsys.readouterr().out
+    out = _body(capsys.readouterr().out)
     assert out.startswith("T3 ask")
     assert "sandbox: best_effort (commands are not confined on this machine)" in out
     assert "allow tests: python -m pytest (network off, 900 s)" in out
@@ -92,7 +102,7 @@ def test_keygen_sign_status_revoke(
     assert policy_cli.policy_command(["revoke"]) == 0
     assert "stays refused" in capsys.readouterr().out
     policy_cli.policy_command(["status"])
-    assert capsys.readouterr().out.startswith(
+    assert _body(capsys.readouterr().out).startswith(
         "T3 off (no grant): this grant was revoked"
     )
 
@@ -104,6 +114,7 @@ def test_sign_names_each_policy_problem(
     key = load_public()
     project = tmp_path / "project"
     (project / ".ract").mkdir(parents=True)
+    (project / "ract.yaml").write_text("providers: {}\n", encoding="utf-8")
     monkeypatch.chdir(project)
     text = _policy(project, key.key_id).replace("[python, -m, pytest]", "[python]")
     (project / ".ract" / "policy.yaml").write_text(text, encoding="utf-8")
@@ -122,6 +133,7 @@ def test_a_grant_that_claims_enforcement_holds_nothing(
     key = load_public()
     project = tmp_path / "project"
     (project / ".ract").mkdir(parents=True)
+    (project / "ract.yaml").write_text("providers: {}\n", encoding="utf-8")
     monkeypatch.chdir(project)
     (project / ".ract" / "policy.yaml").write_text(
         _policy(project, key.key_id, sandbox="enforced"), encoding="utf-8"
@@ -129,7 +141,7 @@ def test_a_grant_that_claims_enforcement_holds_nothing(
     policy_cli.policy_command(["sign"])
     capsys.readouterr()
     policy_cli.policy_command(["status"])
-    out = capsys.readouterr().out
+    out = _body(capsys.readouterr().out)
     assert out.startswith("T3 off (no grant)")
     assert "must say sandbox: best_effort" in out
 

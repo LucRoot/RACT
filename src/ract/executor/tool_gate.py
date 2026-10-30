@@ -677,6 +677,12 @@ _EXEMPT_SITES: dict[str, str] = {
         "data fields. Calls to the tools go through SubstrateLoop.invoke_tool "
         "(B-011a), the way the MCP transport sits beneath its gated path."
     ),
+    "key_paths.py": (
+        "operator-invoked-diagnostic: one fixed git ls-files --error-unmatch "
+        "with core.fsmonitor off and a timeout, asking whether the repository "
+        "tracks a key at its old place inside the project before RACT reads it "
+        "(G-216 W3). No model input reaches the argv; not a model tool_use."
+    ),
     "mcp_adapter.py": (
         "provider-transport: StdioMcpClient subprocess is the MCP "
         "transport under Executor's MCP tool_call path. That path "

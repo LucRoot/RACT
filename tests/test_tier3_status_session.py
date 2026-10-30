@@ -104,7 +104,8 @@ def test_a_policy_change_during_the_session_suspends_tier_3(
     tmp_path: Path, user_config: Path
 ) -> None:
     _grant(tmp_path, user_config)
-    session, _, console = _session(config=tmp_path / "ract.yaml")
+    # G-216 W6: resume shows the change and pins only on y.
+    session, _, console = _session(["y"], config=tmp_path / "ract.yaml")
     assert session._tier3_facts()["tier3"] == "ask"
     session._check_grant_pin()
     assert session._tier3 == "ask"  # nothing changed: nothing happens

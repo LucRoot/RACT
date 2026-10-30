@@ -186,7 +186,9 @@ def test_worktree_names_are_discoverable(repo: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_handshake_blocks_dependent_commit(repo: Path, tmp_path: Path) -> None:
+def test_handshake_blocks_dependent_commit(
+    repo: Path, tmp_path: Path, operator_signer
+) -> None:
     """A step with ``handshake_ids`` referencing a pending handshake returns
     ``BLOCKED_ON_HANDSHAKE`` and does not advance the parent snapshot; a step
     with no such gate proceeds."""
@@ -223,9 +225,22 @@ def test_handshake_blocks_dependent_commit(repo: Path, tmp_path: Path) -> None:
     assert record2.outcome is TransactionOutcome.COMMITTED
     assert loop.parent_snapshot != parent
 
-    # Once the operator resolves the handshake, a fresh attempt at the same
-    # gate commits.
+    # An approval without the operator's signature blocks as a pending one
+    # does, and the record says what to do (B-111 R2, G-216 W5).
     handshakes.update_status("gate-001", "approved")
+    unsigned_spec = SubstrateStepSpec(
+        step_id=new_step_id(),
+        predicates=(_always_ok_predicate(),),
+        handshake_ids=("gate-001",),
+    )
+    unsigned = loop.run_step(
+        unsigned_spec, _writer_runner("unsigned.txt", "u", _ok_snapshot())
+    )
+    assert unsigned.outcome is TransactionOutcome.BLOCKED_ON_HANDSHAKE
+    assert "approved without a signature that holds" in unsigned.reason
+
+    # Once the operator approves with the key, a fresh attempt commits.
+    handshakes.update_status("gate-001", "approved", signer=operator_signer)
     followup_spec = SubstrateStepSpec(
         step_id=new_step_id(),
         predicates=(_always_ok_predicate(),),

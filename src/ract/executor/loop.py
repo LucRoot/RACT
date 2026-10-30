@@ -934,9 +934,17 @@ class SubstrateLoop:
         # handshake is unresolved we hold the worktree open for operator
         # inspection and refuse to advance the parent snapshot.
         if spec.handshake_ids and self.handshakes is not None:
-            pending_ids = {item.id for item in self.handshakes.pending()}
-            unresolved = [hid for hid in spec.handshake_ids if hid in pending_ids]
+            # B-111 R2 (G-216 W5): an approval without the operator's signature
+            # blocks as a pending one does; blocks_commit says which do.
+            blocking = getattr(self.handshakes, "blocks_commit", None)
+            if blocking is not None:
+                unresolved = list(blocking(spec.handshake_ids))
+            else:
+                pending_ids = {item.id for item in self.handshakes.pending()}
+                unresolved = [hid for hid in spec.handshake_ids if hid in pending_ids]
             if unresolved:
+                explain = getattr(self.handshakes, "unsigned_reason", None)
+                why = [r for r in (explain(h) for h in unresolved) if r] if explain else []
                 record = StepRecord(
                     step_id=txn.step_id,
                     outcome=TransactionOutcome.BLOCKED_ON_HANDSHAKE,
@@ -946,6 +954,7 @@ class SubstrateLoop:
                     reason=(
                         "post-conditions ok; commit blocked on handshake "
                         f"{unresolved!r}"
+                        + "".join(f"; {line}" for line in why)
                     ),
                 )
                 self.records.append(record)

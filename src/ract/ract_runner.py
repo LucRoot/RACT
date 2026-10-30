@@ -349,6 +349,8 @@ def _run_ract(
     allow_novelty_overrun: bool = False,
     ask: bool = False,
     run_id: str | None = None,
+    grant_pin: str | None = None,
+    terminal: bool = False,
 ) -> Rooted[ExecutionReport | Plan]:
     """
     Run a complete RACT cycle for *intent* using the configuration at *config_path*.
@@ -635,6 +637,14 @@ def _run_ract(
             approval_callback = review_replaces_step_question(approval_callback)
     elif yolo:
         approval_callback = yolo_approval_callback
+    executor = getattr(harness, "executor", None)
+    if executor is not None:
+        if terminal and not yolo and executor.tier_3_approver is None:
+            # G-216 W4: auto-accept in a session at a terminal accepts file
+            # edits without asking; a tier-3 command still asks the operator.
+            executor.tier_3_approver = console_tier_3_prompt
+        # G-216 W1: the session's pin; every step's tier-3 context compares with it.
+        executor.grant_pin = grant_pin
     if plan_approval is console_plan_approval:
         plan_approval = _remembering_approval(plan_approval, config_path, session_id)
 

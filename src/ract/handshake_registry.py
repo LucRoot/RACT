@@ -150,6 +150,24 @@ class HandshakeRegistry:
             item.id, self._read_signed_mark(item.id), _approval_digest(item)
         )
 
+    def unsigned_reason(self, milestone_id: str) -> str | None:
+        """Why an approved item still blocks, and what to do; None when it does not (W5)."""
+        from ract.policy.operator_key import pinned
+
+        item = self.current(milestone_id)
+        if item is None or item.status != "approved" or self._approved_here(item):
+            return None
+        if pinned() is None:
+            return (
+                f"{milestone_id} was approved without the operator's signature; "
+                "`ract policy init --guided` creates the key, then approve again"
+            )
+        return (
+            f"{milestone_id} was approved without a signature that holds now (another "
+            "key, expired, or the item changed); approve it again: "
+            f"`ract handshakes approve {milestone_id}`"
+        )
+
     def approval_state(self, item: HandshakeItem) -> str:
         """``signed``, ``unsigned`` (shown, unlocks nothing) or ``none`` (B-111, R2)."""
         if self._approved_here(item):

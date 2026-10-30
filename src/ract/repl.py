@@ -262,6 +262,7 @@ class ReplSession:
         self._tier3_notes: list[str] = []
         # The grant as the session found it, and tier 3's state (ADR-0048 D3).
         self._grant_pin: str | None = None
+        self._grant_state: Any = None
         self._tier3 = "off"
 
     # ------------------------------------------------------------------ loop
@@ -715,9 +716,31 @@ class ReplSession:
         from ract.policy.unlock import SESSION_WINDOW
 
         if args[:1] == ["resume"]:
-            # The operator confirms at the terminal: the grant is read again
-            # and pinned as it is now.
-            facts = self._tier3_facts()
+            # The operator confirms at the terminal (D3, G-216 W6): what changed
+            # is shown, and only a y pins the grant as it is now.
+            from ract.policy.cli import grant_changes
+            from ract.policy.grant import load_grant
+
+            project = self.state.config.resolve().parent
+            try:
+                grant = load_grant(project)
+            except Exception as exc:  # noqa: BLE001 - a grant that cannot be read opens nothing
+                print(f"[repl] the tier-3 grant was not read: {exc}", flush=True)
+                self._print_wrapped("The grant cannot be read; nothing changed.")
+                return True
+            self._print_wrapped("Since this session pinned the grant:")
+            for line in grant_changes(self._grant_state, grant):
+                self._print_wrapped(f"  {line}")
+            try:
+                answer = self._read_line("Pin this grant for the session? [y/N]: ")
+            except EOFError:
+                answer = ""
+            if answer.strip().lower() not in {"y", "yes"}:
+                self._print_wrapped(
+                    "Nothing changed: tier 3 stays as it was until you confirm."
+                )
+                return True
+            facts = self._tier3_facts(grant)
             for line in self._tier3_notes:
                 self._print_wrapped(line)
             self._print_wrapped(f"Tier 3 now: {facts['tier3_status']}")
@@ -1176,7 +1199,7 @@ class ReplSession:
 
         trust.decide(self.state.config.resolve().parent, interactive=True)
 
-    def _tier3_facts(self) -> dict[str, str]:
+    def _tier3_facts(self, preloaded: Any = None) -> dict[str, str]:
         """``tier3`` and its status-line words from the project's grant (B-111, ADR-0048 D3).
 
         Read once at session start. Why tier 3 is off when a grant exists
@@ -1193,8 +1216,9 @@ class ReplSession:
         project = self.state.config.resolve().parent
         try:
             # G-213 G3: the pin is of the bytes this decision verified.
-            grant = load_grant(project)
+            grant = load_grant(project) if preloaded is None else preloaded
             self._grant_pin = grant.pin
+            self._grant_state = grant
             state, why = tier_state_of(grant)
         except Exception as exc:  # noqa: BLE001 - a grant that cannot be read opens nothing
             print(f"[repl] the tier-3 grant was not read: {exc}", flush=True)
@@ -1292,6 +1316,9 @@ class ReplSession:
             ask=ask and not dry,
             write_lock=self._write_lock,
             queued=self._drain_queued,
+            # G-216 W1: the pin goes to every step and to the J4 run.
+            grant_pin=self._grant_pin,
+            terminal=sys.stdin.isatty(),
         )
         turn_no = s.turns + 1
         cancel = CancelSignal()

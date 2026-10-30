@@ -101,8 +101,15 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
     ctx = tier3.current()
     if ctx is None:
         raise ToolRefused("tier 3 is off for this step", tier3.NO_GRANT_HINT)
+    # G-216 W1: the pin is checked at each command, not only at the step's start.
+    ctx.check_pin()
     if not ctx.grant.holds or ctx.grant.policy is None:
-        raise ToolRefused(f"tier 3 is off: {ctx.grant.reason}", tier3.NO_GRANT_HINT)
+        raise ToolRefused(
+            f"tier 3 is off: {ctx.grant.reason}",
+            tier3.RESUME_HINT
+            if ctx.grant.status == "suspended"
+            else tier3.NO_GRANT_HINT,
+        )
     policy = ctx.grant.policy
     rule = _test_rule(policy)
     if rule is None:
@@ -148,6 +155,12 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
     if not ctx.approve(facts):
         raise ToolRefused(
             "you declined the command; nothing ran", "the model can ask again or stop"
+        )
+    # The question can be open for minutes: the grant is checked again before the run.
+    ctx.check_pin()
+    if ctx.grant.status == "suspended":
+        raise ToolRefused(
+            f"tier 3 is off: {ctx.grant.reason}; nothing ran", tier3.RESUME_HINT
         )
     rooted = run_command(
         match,

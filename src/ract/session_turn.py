@@ -53,6 +53,11 @@ class TurnRequest:
     token_budget: int | None = None
     # Package 3 (B-033s): returns the operator lines typed during the turn that are not yet sent.
     queued: Any = None
+    # G-216 W1: the session's grant pin (ADR-0048 D3); None pins at the first load.
+    grant_pin: str | None = None
+    # G-216 W4: the operator is at a terminal (a session, not --yolo or headless),
+    # so a tier-3 command can ask even when file edits are auto-accepted.
+    terminal: bool = False
 
 
 def _on_disk_name(root: Path, name: str) -> str:
@@ -445,6 +450,8 @@ def run_turn(
                 ask=request.ask,
                 stream=True,
                 stream_callback=reporter.delta,
+                grant_pin=request.grant_pin,
+                terminal=request.terminal,
             )
     except Exception as exc:  # noqa: BLE001 -- the session must survive; detail goes to the hint
         result = None
@@ -617,8 +624,14 @@ def run_turn(
             from ract.approval_callback import console_tier_3_prompt
             from ract.policy.verify import run_named_tests
 
+            # G-216 W4: whoever answers the turn's steps, or the operator at
+            # the terminal in auto-accept; --yolo and headless have no one.
+            asks = request.auto or request.terminal
             runs, not_run_reason = run_named_tests(
-                project, request.intent, console_tier_3_prompt if request.auto else None
+                project,
+                request.intent,
+                console_tier_3_prompt if asks else None,
+                expected_pin=request.grant_pin,
             )
             real = [r for r in runs if r.runner != "fake"]
             if real:

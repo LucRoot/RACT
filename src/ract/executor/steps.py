@@ -179,6 +179,9 @@ class Executor:
     # The operator's project, whose .ract/policy.yaml is the grant; the step
     # worktree never carries it (.ract/ stays out of the snapshot).
     grant_root: Path | None = None
+    # G-216 W1 (ADR-0048 D3): the grant's pin, the session's when it has one;
+    # None means the first step's load pins it for the rest of the run.
+    grant_pin: str | None = None
     # B-110 D6: asks the operator about each hunk a step proposes, before the
     # substrate applies it; set by the runner in the asking mode with
     # step_tools on. None applies the step as it is (auto-accept, --yolo).
@@ -1800,8 +1803,12 @@ class Executor:
             from ract.policy import tier3
 
             context = tier3.for_project(
-                self.grant_root or self.project_dir, self.tier_3_approver
+                self.grant_root or self.project_dir,
+                self.tier_3_approver,
+                expected_pin=self.grant_pin,
             )
+            if self.grant_pin is None:
+                self.grant_pin = context.expected_pin
             try:
                 with tier3.bound(context):
                     done = work_with_tools(

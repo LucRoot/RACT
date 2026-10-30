@@ -56,8 +56,96 @@ def tier_state_of(state: Any) -> tuple[TierState, str]:
     return TierState("off", expires), state.reason
 
 
-def _project(config: str | None) -> Path:
-    return Path(config).resolve().parent if config else Path.cwd()
+def grant_changes(old: Any, new: Any) -> list[str]:
+    """What changed between two loaded grants, in plain words (G-216 W6)."""
+    lines: list[str] = []
+    before, after = getattr(old, "policy", None), getattr(new, "policy", None)
+    if not new.holds:
+        lines.append(f"the grant does not hold now: {new.reason}")
+    if after is None:
+        return lines or ["there is no grant now"]
+    if before is None:
+        lines.append("there was no grant at session start")
+    for kind in ("allow", "deny"):
+        was = {
+            tuple(rule.argv): rule
+            for rule in (getattr(before.commands, kind) if before else [])
+        }
+        now = {tuple(rule.argv): rule for rule in getattr(after.commands, kind)}
+        for argv in sorted(now.keys() - was.keys()):
+            lines.append(f"{kind} rule added: {' '.join(argv)}")
+        for argv in sorted(was.keys() - now.keys()):
+            lines.append(f"{kind} rule removed: {' '.join(argv)}")
+        for argv in sorted(now.keys() & was.keys()):
+            if now[argv].model_dump() != was[argv].model_dump():
+                lines.append(f"{kind} rule changed: {' '.join(argv)}")
+    if before is not None:
+        if before.expires_at != after.expires_at:
+            lines.append(
+                f"expiry: {before.expires_at:%Y-%m-%d} is now {after.expires_at:%Y-%m-%d}"
+            )
+        if before.max_mode != after.max_mode:
+            lines.append(f"mode: {before.max_mode} is now {after.max_mode}")
+        if not lines:
+            lines.append(
+                "the files changed; the allowed commands, the expiry and the mode "
+                "are the same"
+            )
+    return lines
+
+
+def find_project(start: Path) -> Path | None:
+    """The project a run in *start* reads: the folder of ``ract.yaml`` above it (S2).
+
+    The nearest folder holding ``ract.yaml``; without one, the git root;
+    without either, None.
+    """
+    start = start.resolve()
+    for folder in (start, *start.parents):
+        if (folder / "ract.yaml").is_file():
+            return folder
+    for folder in (start, *start.parents):
+        if (folder / ".git").exists():
+            return folder
+    return None
+
+
+def _project(config: str | None) -> Path | None:
+    return Path(config).resolve().parent if config else find_project(Path.cwd())
+
+
+def _confirm(question: str) -> bool:
+    """A y at the terminal; anything else, or the end of input, is a no."""
+    from ract.console_interrupt import read_line
+
+    try:
+        answer = read_line(question)
+    except EOFError:
+        return False
+    return answer.strip().lower() in {"y", "yes"}
+
+
+def policy_summary(policy: Any) -> list[str]:
+    """What a policy allows, rule by rule, before it is signed (G-217 S1)."""
+    lines = [
+        f"max mode {policy.max_mode}; expires {policy.expires_at.date().isoformat()}; "
+        f"signed for key {policy.key_id}"
+    ]
+    for rule in policy.commands.allow:
+        net = "network on" if rule.network else "network off"
+        lines.append(
+            f"  allow {rule.id}: {' '.join(rule.argv)} ({net}, {rule.timeout_s} s, "
+            f"cwd {rule.cwd}, home {rule.home})"
+        )
+    for rule in policy.commands.deny:
+        lines.append(f"  deny: {' '.join(rule.argv)}")
+    lines.append(
+        "Sandbox: best_effort: not enforced on this machine; commands are not confined "
+        "and run with your user's rights."
+        if not sandbox_confines_commands()
+        else "Sandbox: enforced: commands are confined to what their rule allows."
+    )
+    return lines
 
 
 def _fail(exc: OperatorKeyError | PolicyInvalid) -> int:
@@ -102,7 +190,15 @@ def _sign(project: Path) -> int:
     try:
         key = load_public()
         text = (project / ".ract" / "policy.yaml").read_text(encoding="utf-8")
-        sandbox = parse_policy(text).sandbox
+        policy = parse_policy(text)
+        sandbox = policy.sandbox
+        # S1: what is signed is shown first, and only a y reaches the passphrase.
+        print("This policy allows:")
+        for line in policy_summary(policy):
+            print(line)
+        if not _confirm("Sign this policy? [y/N] "):
+            print("Nothing was signed.")
+            return 1
         private = SESSION_WINDOW.signing_key(
             read_passphrase, minutes=window_minutes(sandbox)
         )
@@ -281,13 +377,19 @@ def policy_command(argv: list[str]) -> int:
         print("error: --guided belongs to `ract policy init`")
         print(USAGE)
         return 2
+    if args.action == "keygen":
+        return _keygen(args.rotate)
     project = _project(args.config)
+    if project is None:
+        print("error: no project here: no ract.yaml in this folder or above it")
+        print("hint: run it in your project, or pass --config path/to/ract.yaml")
+        return 2
+    # S2: the first line says which project's .ract/policy.yaml this acts on.
+    print(f"project: {project}")
     if args.action == "init":
         return _init(project, args.guided)
     if args.action == "migrate-keys":
         return _migrate_keys(project)
-    if args.action == "keygen":
-        return _keygen(args.rotate)
     if args.action == "sign":
         return _sign(project)
     if args.action == "status":
@@ -295,4 +397,10 @@ def policy_command(argv: list[str]) -> int:
     return _revoke(project)
 
 
-__all__ = ["permission_lines", "policy_command", "tier_state"]
+__all__ = [
+    "find_project",
+    "permission_lines",
+    "policy_command",
+    "policy_summary",
+    "tier_state",
+]

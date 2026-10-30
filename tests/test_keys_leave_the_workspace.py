@@ -110,6 +110,7 @@ def test_the_cli_says_when_there_is_nothing_to_move(
 ) -> None:
     from ract.policy.cli import policy_command
 
+    (tmp_path / "ract.yaml").write_text("providers: {}\n", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     assert policy_command(["migrate-keys"]) == 0
     assert "nothing to move" in capsys.readouterr().out

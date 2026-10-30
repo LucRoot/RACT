@@ -129,6 +129,8 @@ def test_an_npm_test_script_is_detected(tmp_path: Path) -> None:
 
 
 def test_the_guided_flow_refuses_a_pipe(project: Path, tmp_path: Path) -> None:
+    # G-217 S2: the command acts on the project the run reads (its ract.yaml).
+    (project / "ract.yaml").write_text("providers: {}\n", encoding="utf-8")
     env = {
         **os.environ,
         "APPDATA": str(tmp_path / "cfg"),
