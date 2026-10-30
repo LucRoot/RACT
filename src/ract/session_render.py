@@ -540,7 +540,15 @@ class PlainRenderer:
         if d.get("checkpoint"):
             self._line(f"  checkpoint {d['checkpoint']}, /undo to revert")
         verification = d.get("verification") or {}
-        if verification.get("status") in (None, "not-run"):
+        # B-121: the request named a test and none ran; RACT cannot run tests
+        # yet (slice c), so this turn is not verified.
+        test_named = verification.get("status") in (
+            None,
+            "not-run",
+        ) and verification.get("test_named")
+        if test_named:
+            self._line("  verified: no")
+        elif verification.get("status") in (None, "not-run"):
             self._line("  verified: RACT ran no tests this turn")
         else:
             self._line(f"  verified: {verification.get('status')}")
@@ -561,6 +569,8 @@ class PlainRenderer:
                 f"  unsigned: {len(unsigned)} file{'s' if len(unsigned) != 1 else ''}"
             )
         self._line("  " + self._cost_line(seconds))
+        if test_named:
+            self._line("  not verified: RACT cannot run tests yet (slice c)")
 
     def _turn_diff(self, d: dict[str, Any]) -> list[str]:
         """The turn's diff lines, drawn from its backup and the project (B-014b).

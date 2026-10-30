@@ -190,6 +190,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A request that names a test or says one fails (`tests/test_calc.py::test_add fails, fix
+  it`) no longer ends on a plain "Done" while RACT runs no tests: the summary says `verified:
+  no` and its last line is "not verified: RACT cannot run tests yet (slice c)". The
+  `verification` object of `turn.finished` carries `test_named`.
 - A Python file a step writes is refused when it imports a project module that does not exist
   (`from src.notes import NOTEX` with no `src/notes.py`): "it imports src.notes, which does not
   exist (line 1)", and nothing is written. A module counts as the project's when its first part

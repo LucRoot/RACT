@@ -49,6 +49,25 @@ _NOT_A_CLAIM = re.compile(
 )
 
 
+# A request that names a test (a test file, a test function, a node id) or
+# says a test fails (B-121, hosted FOUND 3).
+_NAMES_A_TEST = re.compile(
+    r"(?:\btests?/[\w./-]*\.py\b|::test_\w+|\btest_\w+"
+    r"|\b(?:failing|broken|red)\s+tests?\b"
+    r"|\btests?\s+(?:is\s+|are\s+)?(?:fail\w*|broken|red)\b)",
+    re.I,
+)
+
+
+def names_a_test(intent: str) -> bool:
+    """True when *intent* names a test or says one fails (B-121).
+
+    Until RACT can run tests (slice c), such a turn is not verified, and the
+    summary says so instead of ending on "done".
+    """
+    return bool(_NAMES_A_TEST.search(intent or ""))
+
+
 def unverified_claims(text: str) -> list[str]:
     """Distinct claims in ``text`` that a verifier run would have to back."""
     found: list[str] = []
