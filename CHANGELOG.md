@@ -160,6 +160,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   refused before it connects, named by purpose and host, recorded in the egress ledger, and the
   run exits 3. A model server on `localhost` still works. Nothing in `ract.yaml` turns it off;
   `ract doctor --egress` shows whether it is on.
+- With `agent.step_tools: true` in the asking mode, a step's changes are proposed before they
+  reach your files: each file is shown hunk by hunk (`diff.proposed`) and you accept, reject,
+  edit or skip each one (`diff.reviewed`); only what you kept is applied, with the digest check
+  (`change.applied`). A rejected hunk is never written to your files. A review that ends
+  without an answer applies nothing and names the branch the proposal is on. The review
+  replaces the per-step question for a step that writes a file; a tool call still asks first.
+  `--yolo`, auto-accept and runs with nobody to ask apply the step as proposed.
 
 ### Changed
 

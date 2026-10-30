@@ -113,6 +113,48 @@ def console_tier_2_callback(name: str, args: object) -> bool:
     return response in {"y", "yes"}
 
 
+def console_proposed_reviewer(path: str, before: bytes | None, after: bytes | None):
+    """Ask about each hunk a step proposes for *path*, at the console (B-110 D6).
+
+    The answers are read from the console only; a model's text never answers.
+    End of input raises ``ReviewStopped`` and nothing from the step is applied.
+    """
+    from ract.review_hunks import review_proposed_file
+
+    width = _terminal_width()
+
+    def ask(question: str) -> str | None:
+        lines = wrap_cells(question, max(width - 3, 20)) or [""]
+        for line in lines[:-1]:
+            print(line)
+        question_gate.open_question()
+        try:
+            return read_line(f"{lines[-1]} ")
+        except EOFError:
+            return None
+        finally:
+            question_gate.close_question()
+
+    return review_proposed_file(path, before, after, ask, print, width)
+
+
+def review_replaces_step_question(
+    base: ConsoleApprovalCallback,
+) -> ConsoleApprovalCallback:
+    """The per-step question, skipped for a step that writes a file (B-110 D6).
+
+    With proposed changes reviewed hunk by hunk before they are applied, the
+    review is the question for a file step; a tool call still asks first.
+    """
+
+    def callback(step: Step) -> bool:
+        if step.expected_artifact and step.tool_call is None:
+            return True
+        return base(step)
+
+    return callback
+
+
 def _plan_steps(plan: Plan) -> list:
     """The plan as the approval checklist numbers it (ADR-0049 D12)."""
     from ract.ui.plan_approval_view import Step as PlanStep

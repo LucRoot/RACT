@@ -1040,6 +1040,108 @@ def apply_commit_to_working_tree(
 STEP_BRANCH_PREFIX = "rootact/step/"
 
 
+def proposed_changes(
+    repo: Path, before: str, after: str
+) -> list[tuple[str, bytes | None, bytes | None]]:
+    """Each path a step commit changes, with its blob bytes at *before* and *after*.
+
+    The blobs are git's stored bytes (no smudge filter): what a review compares,
+    and what ``reviewed_commit`` hashes back. ``.ract/`` is never listed.
+    """
+    listing = _git_in(
+        repo,
+        "diff",
+        "--name-status",
+        "--no-renames",
+        "-z",
+        before,
+        after,
+        "--",
+        ".",
+        ":(exclude).ract",
+    )
+    if listing.returncode != 0:
+        raise WorktreeError(
+            f"git could not list the step's changes: {listing.stderr.strip()}"
+        )
+    fields = [f for f in listing.stdout.split("\0") if f]
+    out: list[tuple[str, bytes | None, bytes | None]] = []
+    for status, path in zip(fields[0::2], fields[1::2]):
+
+        def blob(commit: str, _path: str = path) -> bytes | None:
+            shown = _git_bytes(repo, "cat-file", "blob", f"{commit}:{_path}")
+            return shown.stdout if shown.returncode == 0 else None
+
+        out.append(
+            (
+                path,
+                None if status == "A" else blob(before),
+                None if status == "D" else blob(after),
+            )
+        )
+    return out
+
+
+def reviewed_commit(repo: Path, after: str, kept: dict[str, bytes | None]) -> str:
+    """A commit on top of *after* whose files are as the review kept them (D6).
+
+    Built in a temporary index, so the operator's index is never touched. A
+    path whose kept content is None is removed. Returns *after* itself when
+    nothing differs.
+    """
+    import tempfile
+
+    changed = {
+        path: data
+        for path, data in kept.items()
+        if data != _git_bytes(repo, "cat-file", "blob", f"{after}:{path}").stdout
+        or (data is None and _blob_in(repo, after, path) is not None)
+    }
+    if not changed:
+        return after
+    handle, index = tempfile.mkstemp(prefix="ract-review-index-")
+    os.close(handle)
+    env = ract_commit_env()
+    env["GIT_INDEX_FILE"] = index
+    try:
+
+        def git(*args: str, data: bytes | None = None) -> str:
+            done = subprocess.run(
+                ["git", "-C", str(repo), *args],
+                input=data,
+                capture_output=True,
+                env=env,
+                check=False,
+            )
+            if done.returncode != 0:
+                raise WorktreeError(
+                    f"git {args[0]} failed while recording the review: "
+                    f"{done.stderr.decode('utf-8', 'replace').strip()}"
+                )
+            return done.stdout.decode("utf-8", "replace").strip()
+
+        git("read-tree", after)
+        for path, data in changed.items():
+            if data is None:
+                git("update-index", "--force-remove", "--", path)
+                continue
+            sha = git("hash-object", "-w", "--no-filters", "--stdin", data=data)
+            mode = "100644"
+            listed = _git_in(repo, "ls-tree", after, "--", path).stdout.split()
+            if listed:
+                mode = listed[0]
+            git("update-index", "--add", "--cacheinfo", f"{mode},{sha},{path}")
+        tree = git("write-tree")
+        return git(
+            *_NO_SIGNING, "commit-tree", tree, "-p", after, "-m", "rootact reviewed"
+        )
+    finally:
+        try:
+            os.unlink(index)
+        except OSError as exc:
+            print(f"[worktree] temporary index not removed: {exc}", flush=True)
+
+
 CHECKPOINT_REFS = "refs/ract/checkpoints"
 
 

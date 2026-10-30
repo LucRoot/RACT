@@ -133,6 +133,82 @@ def _rebind_project_dir(executor: Executor, new_dir: Path) -> Iterator[None]:
             helper.project_dir = original
 
 
+def _review_proposed(
+    harness: Any, reviewer: Any, record: Any, index: int
+) -> Rooted[str]:
+    """Proposed -> reviewed (ADR-0047 D6): the commit to apply, as the operator kept it.
+
+    LR:: The step's changes are in its commit, not yet in the operator's
+    files. Each changed file is shown as ``diff.proposed`` and the reviewer
+    answers per hunk; the kept contents become a commit on top of the step's
+    (``reviewed_commit``), and the usual apply, with its digest check, takes
+    that one. A rejected hunk never reaches the live tree. A review that ends
+    without an answer applies nothing and names the branch the proposal is on.
+    """
+    from ract.executor.worktree import proposed_changes, reviewed_commit
+    from ract.review_hunks import ReviewStopped, proposed_hunks
+
+    repo = harness.project_dir
+    try:
+        changes = proposed_changes(
+            repo, record.parent_snapshot_before, record.parent_snapshot_after
+        )
+    except WorktreeError as exc:
+        return Rooted(
+            value=None,
+            assumption=f"Step {index + 1}'s proposal can be listed.",
+            confidence=0.0,
+            provenance=["harness.substrate_adapter", f"step:{index + 1}", "review"],
+            error=f"Step {index + 1}'s changes were not applied: {exc}",
+            hint=f"see the step's commit on branch {record.branch}",
+        )
+    kept: dict[str, bytes | None] = {}
+    try:
+        for path, before, after in changes:
+            turn_context.report(
+                "diff.proposed",
+                {
+                    "path": path,
+                    "hunks": proposed_hunks(path, before, after),
+                    "tier": "T1",
+                },
+            )
+            decision = reviewer(path, before, after)
+            for hunk_id, answer in sorted(decision.answers.items()):
+                turn_context.report(
+                    "diff.reviewed", {"path": path, "hunk": hunk_id, "decision": answer}
+                )
+            kept[path] = decision.content
+    except ReviewStopped:
+        return Rooted(
+            value=None,
+            assumption=f"Step {index + 1}'s proposal is reviewed.",
+            confidence=0.0,
+            provenance=["harness.substrate_adapter", f"step:{index + 1}", "review"],
+            error=(
+                f"The review of step {index + 1} ended without an answer; nothing "
+                f"from it was applied (the proposal is on branch {record.branch})."
+            ),
+            hint="run the intent again to review it, or see that branch",
+        )
+    try:
+        return Rooted(
+            value=reviewed_commit(repo, record.parent_snapshot_after, kept),
+            assumption="The commit holds what the operator kept.",
+            confidence=1.0,
+            provenance=["harness.substrate_adapter", f"step:{index + 1}", "review"],
+        )
+    except WorktreeError as exc:
+        return Rooted(
+            value=None,
+            assumption=f"Step {index + 1}'s review can be recorded.",
+            confidence=0.0,
+            provenance=["harness.substrate_adapter", f"step:{index + 1}", "review"],
+            error=f"Step {index + 1}'s changes were not applied: {exc}",
+            hint=f"see the step's commit on branch {record.branch}",
+        )
+
+
 @dataclass(frozen=True)
 class _ExecutorSucceeded:
     """Post-condition: the step's executor call returned a result.
@@ -490,12 +566,19 @@ def _run_via_substrate_steps(
                 ),
             )
 
+        apply_to = record.parent_snapshot_after
+        reviewer = getattr(harness.executor, "proposed_reviewer", None)
+        if reviewer is not None and apply_to != record.parent_snapshot_before:
+            reviewed = _review_proposed(harness, reviewer, record, index)
+            if not reviewed.is_ok():
+                return reviewed
+            apply_to = reviewed.unwrap()
         with turn_context.persisting() as allowed:
             if allowed:
                 outcome = apply_commit_to_working_tree(
                     harness.project_dir,
                     record.parent_snapshot_before,
-                    record.parent_snapshot_after,
+                    apply_to,
                     created_by_run=frozenset(created_by_run),
                     left_out=frozenset(snapshot.left_out),
                 )
@@ -518,6 +601,17 @@ def _run_via_substrate_steps(
         if outcome.applied:
             # The step's base snapshot, kept as this turn's checkpoint (B-110 D6).
             undo_backup.keep_base(harness.project_dir, record.parent_snapshot_before)
+        if reviewer is not None:
+            turn_context.report(
+                "change.applied",
+                {
+                    "paths": list(outcome.applied),
+                    "checkpoint": undo_backup.current_backup_id() or "",
+                    "skipped": [
+                        {"path": p, "reason": why} for p, why in outcome.skipped.items()
+                    ],
+                },
+            )
         turn_context.record_written(harness.project_dir, outcome.applied)
         if outcome.skipped:
             left = "; ".join(f"{p} ({why})" for p, why in outcome.skipped.items())

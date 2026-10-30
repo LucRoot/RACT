@@ -173,6 +173,10 @@ class Executor:
     # The operator's answer to a tier-2 tool call (ADR-0047 D6, ADR-0048 D6),
     # set by the runner when someone can answer; None refuses every tier-2 call.
     tier_2_approver: Any = None
+    # B-110 D6: asks the operator about each hunk a step proposes, before the
+    # substrate applies it; set by the runner in the asking mode with
+    # step_tools on. None applies the step as it is (auto-accept, --yolo).
+    proposed_reviewer: Any = None
     # B-061c: ``review`` from ract.yaml (off, advisory, retry); off reviews nothing.
     review_mode: str = "off"
     # Retries the current step used (B-095's cut-off retry, B-061d's review retry).

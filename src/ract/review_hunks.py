@@ -328,6 +328,147 @@ def review_file(
     return _recorded(root, turn, result)
 
 
+def proposed_hunks(key: str, before: bytes | None, after: bytes | None) -> list[dict]:
+    """The ``diff.proposed`` hunks of one file: id, header, added, removed, text.
+
+    A file that is not UTF-8 text, or too large to split, is one hunk with no
+    text. Every line passes ``safe_text``.
+    """
+    old = "" if before is None else _text(before)
+    new = "" if after is None else _text(after)
+    found = hunks(old, new) if old is not None and new is not None else None
+    if not found:
+        return [
+            {
+                "id": 1,
+                "header": f"{safe_text(key)} (whole file)",
+                "added": 0,
+                "removed": 0,
+                "text": "",
+            }
+        ]
+    assert old is not None and new is not None
+    old_lines, new_lines = lines(old), lines(new)
+    out = []
+    for hunk in found:
+        added = sum(
+            op[4] - op[3] for op in hunk.group if op[0] in {"insert", "replace"}
+        )
+        removed = sum(
+            op[2] - op[1] for op in hunk.group if op[0] in {"delete", "replace"}
+        )
+        drawn = diff_render.draw_hunk(
+            key, old_lines, new_lines, list(hunk.group), width=200
+        )
+        out.append(
+            {
+                "id": hunk.n,
+                "header": f"@@ -{hunk.old_start + 1} +{hunk.new_start + 1} @@",
+                "added": added,
+                "removed": removed,
+                "text": "\n".join(safe_text(line) for line in drawn),
+            }
+        )
+    return out
+
+
+@dataclass
+class ProposedDecision:
+    """What the operator kept of one proposed file, before anything is applied."""
+
+    path: str
+    content: bytes | None
+    hunks: int = 0
+    rejected: int = 0
+    edited: int = 0
+    # Hunk id to "accepted", "rejected" or "edited" (diff.reviewed).
+    answers: dict[int, str] = field(default_factory=dict)
+
+    @property
+    def changed_by_review(self) -> bool:
+        return bool(self.rejected or self.edited)
+
+
+def review_proposed_file(
+    key: str,
+    before: bytes | None,
+    after: bytes | None,
+    ask: Ask,
+    show: Show,
+    width: int = 80,
+) -> ProposedDecision:
+    """Ask about each hunk a step proposes for *key*; return the content to apply.
+
+    LR:: ADR-0047 D6: proposed -> reviewed -> applied. Nothing is written
+    here: the answer is the file as the operator kept it (``content`` None
+    for a file that should not exist), built from the step's text with each
+    rejected hunk taken from the base and each edited one from what was
+    typed. The apply that follows checks the live file's digest as before.
+    End of input raises ``ReviewStopped``; the caller applies nothing.
+    """
+    if after is None:
+        show(f"{safe_text(key)}: the step removes this file.")
+        keep = _whole_file(f"Remove {safe_text(key)}?", ask)
+        return ProposedDecision(
+            key,
+            None if keep else before,
+            1,
+            0 if keep else 1,
+            answers={1: "accepted" if keep else "rejected"},
+        )
+    old_text = "" if before is None else _text(before)
+    new_text = _text(after)
+    found = None
+    if old_text is not None and new_text is not None:
+        found = hunks(old_text, new_text)
+    if not found:
+        for line in diff_render.render_hunks(
+            key,
+            None if before is None else (old_text or ""),
+            new_text or "",
+            width=width,
+            max_lines=40,
+        ):
+            show(line)
+        keep = _whole_file(f"Keep the step's change to {safe_text(key)}?", ask)
+        return ProposedDecision(
+            key,
+            after if keep else before,
+            1,
+            0 if keep else 1,
+            answers={1: "accepted" if keep else "rejected"},
+        )
+    assert old_text is not None and new_text is not None
+    answers = _answer_hunks(key, old_text, new_text, found, ask, show, width)
+    decision = ProposedDecision(
+        key,
+        after,
+        hunks=len(found),
+        rejected=sum(1 for a in answers.values() if a is False),
+        edited=sum(1 for a in answers.values() if isinstance(a, list)),
+        answers={
+            hunk.n: (
+                "edited"
+                if isinstance(answers.get(hunk.n, True), list)
+                else "accepted"
+                if answers.get(hunk.n, True) is True
+                else "rejected"
+            )
+            for hunk in found
+        },
+    )
+    if not decision.changed_by_review:
+        return decision
+    if decision.rejected == len(found):
+        decision.content = before
+        return decision
+    ending = "\r\n" if "\r\n" in new_text else "\n"
+    text = combine(old_text, new_text, found, answers, ending)
+    bom = _BOM if after.startswith(_BOM.encode("utf-8")) else ""
+    decision.content = (bom + text).encode("utf-8")
+    return decision
+
+
 def _recorded(root: Path, turn: str, result: FileReview) -> FileReview:
     """Record the file as the review left it, so ``/undo`` still restores it."""
     if result.rewritten or result.removed or result.restored:
