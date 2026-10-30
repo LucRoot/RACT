@@ -170,6 +170,11 @@ def test_ract_auction_reports_zero_dead_modules():
     # B-112: tools/tests_tool.py holds run_tests, registered the same way (the
     # package fills REGISTRY with RUN_TESTS), so it looks unreferenced too.
     allowlist.add("tests_tool.py")
+    # B-023, B-115, B-116: the verifier, git and web tools are registered the same
+    # way (the package fills REGISTRY with their specs), so they look unreferenced.
+    allowlist.add("verifier_tools.py")
+    allowlist.add("git_tools.py")
+    allowlist.add("web_tools.py")
     allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped
