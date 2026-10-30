@@ -370,3 +370,24 @@ def require_workspace_path(
         message = (result.error or "").removeprefix("path refused: ")
         raise WorkspacePathRefused(Refusal(code, message, result.hint or ""))
     return result.value
+
+
+def on_disk_name(root: Path | str, name: str) -> str:
+    """``name`` as the file system spells it (H5): the on-disk case when the file exists.
+
+    On Windows "Readme.md" and "README.md" are one file; a report must name the
+    file the disk holds. A name that does not exist, or a folder that cannot be
+    listed, is returned as given.
+    """
+    target = Path(root) / name
+    try:
+        entries = list(os.scandir(target.parent))
+    except OSError:
+        return name  # nothing to compare with: the plan's spelling stands
+    names = [entry.name for entry in entries]
+    if target.name in names:
+        return name  # the exact spelling exists (a case-sensitive file system)
+    for found in names:
+        if found.casefold() == target.name.casefold():
+            return Path(name).with_name(found).as_posix()
+    return name

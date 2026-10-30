@@ -17,7 +17,6 @@ worker thread so Ctrl-C stays responsive (see ``ract.turn_context``).
 
 from __future__ import annotations
 
-import os
 import re
 import threading
 import time
@@ -55,19 +54,10 @@ class TurnRequest:
 
 
 def _on_disk_name(root: Path, name: str) -> str:
-    """``name`` as the file system spells it (H5): the on-disk case when the file exists.
+    """``name`` as the file system spells it (H5); see ``workspace_path.on_disk_name``."""
+    from ract.workspace_path import on_disk_name
 
-    On Windows "Readme.md" and "README.md" are one file; the changed-files line must name the
-    file the disk holds. A name that does not exist is returned as given.
-    """
-    target = root / name
-    try:
-        for entry in os.scandir(target.parent):
-            if entry.name.casefold() == target.name.casefold():
-                return Path(name).with_name(entry.name).as_posix()
-    except OSError:
-        pass
-    return name
+    return on_disk_name(root, name)
 
 
 def provenance_notice(unsigned: list[str]) -> str:
@@ -495,7 +485,10 @@ def run_turn(
                 "backup_id": backup_id,
                 "checkpoint": None,
                 "verification": verification,
-                "provenance": _provenance(unsigned),
+                # B-090 (H5): the unsigned list names files as the disk spells them.
+                "provenance": _provenance(
+                    [_on_disk_name(project, name) for name in unsigned]
+                ),
                 "citations": None if answer is None else _citations(project, answer),
                 "review": list(reporter.reviews) or None,
             },

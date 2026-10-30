@@ -1875,7 +1875,7 @@ class Executor:
             {
                 "n": n,
                 "outcome": "done",
-                "artifact": step.expected_artifact or None,
+                "artifact": self._disk_spelling(step.expected_artifact),
                 "confidence": confidence,
                 "duration_ms": int((time.monotonic() - started) * 1000),
                 "hint": None,
@@ -1901,12 +1901,22 @@ class Executor:
             {
                 "n": n,
                 "outcome": outcome,
-                "artifact": step.expected_artifact or None,
+                "artifact": self._disk_spelling(step.expected_artifact),
                 "confidence": confidence,
                 "duration_ms": int((time.monotonic() - started) * 1000),
                 "hint": None if outcome == "done" else error,
             },
         )
+
+    def _disk_spelling(self, expected_artifact: str | None) -> str | None:
+        """The step's file as the disk spells it, for the step line (B-090, H5)."""
+        if not expected_artifact:
+            return None
+        if self.project_dir is None:
+            return expected_artifact
+        from ract.workspace_path import on_disk_name
+
+        return on_disk_name(self.project_dir, expected_artifact)
 
     def _execute_steps(
         self,
