@@ -43,6 +43,9 @@ def _forget_known_values() -> object:
     from ract import redaction
 
     redaction.clear_known()
+
+
+@pytest.fixture(autouse=True)
 def _forget_ledger_run() -> object:
     """V7-08: a turn run in the test's own thread does not attribute the next test's requests."""
     yield
