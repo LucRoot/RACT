@@ -50,5 +50,10 @@ def test_review_rejects_the_fix_and_undo_stays_true(
             session.send_line("/exit")
         rec = session.close(timeout=15)
     assert (ws / "src" / "calc.py").read_text(encoding="utf-8") == before
-    for line in rec.plain.splitlines():
+    # The card's width rule is for /review's own output: from the command to its
+    # last line. The banner is not B-014c's, and ConPTY can repaint it later.
+    hunk = rec.plain.index("Hunk 1 of 1")
+    start = rec.plain.rindex("/review", 0, hunk)
+    end = rec.plain.index("saved", hunk)
+    for line in rec.plain[start:end].splitlines()[1:]:
         assert len(line) <= cols, line
