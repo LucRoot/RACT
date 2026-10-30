@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -47,15 +46,32 @@ _NEVER = {
     "pkexec": "changes privilege",
 }
 _SHELLS = {"sh", "bash", "zsh", "fish", "dash", "ksh", "cmd", "powershell", "pwsh"}
-_INLINE = {
-    "python": {"-c"},
-    "python3": {"-c"},
-    "py": {"-c"},
-    "node": {"-e", "--eval", "-p", "--print"},
-    "perl": {"-e", "-E"},
-    "ruby": {"-e"},
-    "deno": {"eval"},
+# G-214 M1: how each interpreter takes code on its command line. A token
+# among the interpreter's own options (before -m, --, or the script) that
+# matches the pattern is inline code; clustered and attached forms included.
+_EVAL = {
+    "python": re.compile(r"^(-[A-Za-z]*c|--command)"),
+    "pypy": re.compile(r"^(-[A-Za-z]*c|--command)"),
+    "py": re.compile(r"^(-[A-Za-z]*c|--command)"),
+    "node": re.compile(r"^(-[A-Za-z]*[eEp]|--eval|--print)"),
+    "bun": re.compile(r"^(-[A-Za-z]*[ep]|--eval|--print)"),
+    "perl": re.compile(r"^-[A-Za-z]*[eE]"),
+    "ruby": re.compile(r"^-[A-Za-z]*e"),
+    "php": re.compile(r"^-[A-Za-z]*r"),
+    "lua": re.compile(r"^-[A-Za-z]*e"),
+    "rscript": re.compile(r"^-[A-Za-z]*e"),
+    "osascript": re.compile(r"^-[A-Za-z]*e"),
 }
+# Options that take the next token as their value (``python -X utf8 -c``).
+_VALUE_OPTIONS = {
+    "python": {"-X", "-W", "-Q"},
+    "pypy": {"-X", "-W", "-Q"},
+    "py": {"-X", "-W", "-Q"},
+    "node": {"-r", "--require", "--import", "--loader"},
+    "bun": {"-r", "--preload"},
+}
+# Programs whose argument is itself code, whatever its options.
+_ALWAYS_CODE = {"awk", "gawk", "mawk", "nawk", "sed"}
 _GOVERNANCE = {"policy", "handshakes", "intent", "operator-queue", "config", "provider"}
 _PUBLISH = [
     ("twine", "upload"),
@@ -104,12 +120,96 @@ class Match:
 
 
 def _name(arg: str) -> str:
-    """The command name as matched: the base name, lower case, without ``.exe``."""
+    """The command name as matched: the base name, lower case, without ``.exe``.
+
+    A versioned or windowed interpreter is its family (``python3.12``,
+    ``pythonw``, ``pypy3`` are ``python`` and ``pypy``; G-214 M1).
+    """
     base = Path(arg.replace("\\", "/")).name.lower()
     for suffix in (".exe", ".cmd", ".bat", ".com"):
         if base.endswith(suffix):
-            return base[: -len(suffix)]
-    return base
+            base = base[: -len(suffix)]
+            break
+    return re.sub(r"^(python|pypy)[0-9.]*w?$", r"\1", base)
+
+
+def inline_code(name: str, args: list[str]) -> bool:
+    """True when *args* give interpreter *name* code to run on the command line (M1)."""
+    if name in _ALWAYS_CODE:
+        return True
+    if name == "deno":
+        return next((a for a in args if not a.startswith("-")), "") == "eval"
+    pattern = _EVAL.get(name)
+    if pattern is None:
+        return False
+    skip = False
+    for token in args:
+        if skip:
+            skip = False
+            continue
+        if token in ("-m", "--") or not token.startswith("-"):
+            return False  # the module, the end of options, or the script
+        if pattern.match(token):
+            return True
+        if token in _VALUE_OPTIONS.get(name, set()):
+            skip = True
+    return False
+
+
+def wrapped_code(args: list[str]) -> str | None:
+    """A shell or inline interpreter anywhere after ``argv[0]`` (M2); its name, or None."""
+    for i, token in enumerate(args):
+        if token.startswith("-"):
+            continue
+        name = _name(token)
+        if name in _SHELLS:
+            return name
+        if name in _EVAL or name in {"deno"} | _ALWAYS_CODE:
+            if inline_code(name, args[i + 1 :]):
+                return name
+    return None
+
+
+def _inside(path: Path, roots: list[Path]) -> bool:
+    real = Path(os.path.realpath(path))
+    for root in roots:
+        try:
+            real.relative_to(Path(os.path.realpath(root)))
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def resolve_executable(name: str, path_env: str, outside: list[Path]) -> str | None:
+    """*name* on *path_env*, as an absolute path outside every folder in *outside* (M3).
+
+    Walks the PATH itself with PATHEXT on Windows: ``shutil.which`` looks in
+    the current folder first there, so a ``pytest.cmd`` the model wrote into
+    the step worktree would be chosen. The current folder is never searched,
+    and a result inside the project or the worktree (through a link too) is
+    never returned.
+    """
+    if os.name == "nt":
+        exts = [
+            e for e in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";") if e
+        ]
+        names = [name] if Path(name).suffix else [name + e for e in exts]
+    else:
+        names = [name]
+    for entry in path_env.split(os.pathsep):
+        if not entry or not os.path.isabs(entry):
+            continue  # a relative PATH entry means the current folder: never
+        for candidate in names:
+            full = Path(entry) / candidate
+            if not full.is_file():
+                continue
+            if os.name != "nt" and not os.access(full, os.X_OK):
+                continue
+            if _inside(full, outside):
+                continue
+            return str(full.absolute())
+    return None
 
 
 def _strip_wrappers(argv: list[str]) -> tuple[list[str], list[str], str | None]:
@@ -183,6 +283,7 @@ def classify(
     *,
     model_written: frozenset[str] = frozenset(),
     path_env: str | None = None,
+    also_outside: tuple[Path, ...] = (),
 ) -> Match:
     """Refuse, ask or match *argv* under *policy* for the project at *project* (D4)."""
     project = Path(project)
@@ -212,28 +313,27 @@ def classify(
         return Match(
             "refused", f"{name} is a shell: shells run only in shell mode", original
         )
-    if name in _INLINE:
-        # Only the interpreter's own options count: those before -m or the
-        # script (``python -m pytest -c conf.ini`` is pytest's -c).
-        own: list[str] = []
-        for a in args:
-            if a == "-m" or not a.startswith("-"):
-                if name == "deno":
-                    own.append(a)  # deno's subcommand: ``deno eval``
-                break
-            own.append(a)
-        if any(a in _INLINE[name] for a in own):
-            return Match(
-                "refused", f"{name} with inline code runs only in shell mode", original
-            )
+    if inline_code(name, args):
+        # Only the interpreter's own options count, up to -m or the script:
+        # ``python -m pytest -c conf.ini`` is pytest's -c.
+        return Match(
+            "refused", f"{name} with inline code runs only in shell mode", original
+        )
+    wrapped = wrapped_code(args)
+    if wrapped:
+        return Match(
+            "refused",
+            f"a wrapped {wrapped} with inline code or a shell runs only in shell mode",
+            original,
+        )
     if name == "find" and _FIND_EXEC & set(args):
         return Match(
             "refused", "find with -exec, -ok or -delete never matches", original
         )
     is_ract = (
         name == "ract"
-        or (name in {"python", "python3", "py"} and args[:2] == ["-m", "ract"])
-        or (name in {"python", "python3", "py"} and args[:2] == ["-m", "ract.cli"])
+        or (name in {"python", "py"} and args[:2] == ["-m", "ract"])
+        or (name in {"python", "py"} and args[:2] == ["-m", "ract.cli"])
     )
     ract_args = args[2:] if name != "ract" else args
     if is_ract and ract_args and ract_args[0] in _GOVERNANCE:
@@ -258,7 +358,9 @@ def classify(
             )
         executable = str(candidate)
     else:
-        found = shutil.which(inner[0], path=_scrubbed_path(project, path_env))
+        found = resolve_executable(
+            inner[0], _scrubbed_path(project, path_env), [project, *also_outside]
+        )
         if found is None:
             return Match(
                 "refused",

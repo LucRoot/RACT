@@ -119,6 +119,7 @@ def test_the_named_test_runs_after_the_fix_and_verifies_the_turn(
     assert runner.calls and runner.calls[0][1:] == [
         "-m",
         "pytest",
+        "--",
         "tests/test_calc.py::test_add",
     ]
     assert "Run it once? [y/N]: " in asked

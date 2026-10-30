@@ -61,6 +61,9 @@ MIN_SCRYPT_N = 2**15
 MAX_SCRYPT_N = 2**20
 MAX_SCRYPT_R = 16
 MAX_SCRYPT_P = 4
+# scrypt needs about 128 * n * r bytes; a stored file may ask for at most this
+# (G-213 K3), so a planted file cannot make an unlock take gigabytes.
+MAX_SCRYPT_MEMORY = 512 * 1024 * 1024
 MAX_KEY_FILE_BYTES = 4096
 MIN_PASSPHRASE = 8
 WARN_PASSPHRASE = 12
@@ -151,9 +154,12 @@ def _derive(
     r: int = SCRYPT_R,
     p: int = SCRYPT_P,
 ) -> bytes:
-    return Scrypt(salt=salt, length=32, n=n, r=r, p=p).derive(
-        passphrase.encode("utf-8")
-    )
+    import unicodedata
+
+    # G-213 K4: the same typed passphrase is the same bytes on every system
+    # (composed and decomposed characters alike).
+    typed = unicodedata.normalize("NFKC", passphrase)
+    return Scrypt(salt=salt, length=32, n=n, r=r, p=p).derive(typed.encode("utf-8"))
 
 
 def passphrase_warning(passphrase: str) -> str | None:
@@ -167,9 +173,10 @@ def passphrase_warning(passphrase: str) -> str | None:
 
 
 def _aad(header: dict[str, Any]) -> bytes:
+    """The whole header as associated data: every field but the ciphertext (G-213 K2)."""
     from ract.canonical import dumps_jcs
 
-    return dumps_jcs({k: header[k] for k in ("format", "key_id", "public_key")})
+    return dumps_jcs({k: v for k, v in header.items() if k != "ciphertext"})
 
 
 def _write_private(path: Path, data: dict[str, Any]) -> None:
@@ -177,9 +184,14 @@ def _write_private(path: Path, data: dict[str, Any]) -> None:
     if os.name != "nt":
         path.parent.chmod(0o700)
     temp = path.with_name(path.name + ".tmp")
-    temp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    if os.name != "nt":
-        temp.chmod(0o600)
+    if temp.exists():
+        temp.unlink()
+    # G-213 K1: created owner-only before any byte is written, never another file.
+    fd = os.open(
+        temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600
+    )
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(json.dumps(data, indent=2).encode("utf-8"))
     os.replace(temp, path)
     if os.name == "nt":
         _restrict_windows_acl(path)
@@ -284,26 +296,24 @@ def generate(
     )
     salt = os.urandom(16)
     nonce = os.urandom(12)
-    header = {"format": FORMAT, "key_id": key_id(public), "public_key": _b64(public)}
+    header = {
+        "format": FORMAT,
+        "key_id": key_id(public),
+        "public_key": _b64(public),
+        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "kdf": {
+            "name": "scrypt",
+            "n": SCRYPT_N,
+            "r": SCRYPT_R,
+            "p": SCRYPT_P,
+            "salt": _b64(salt),
+        },
+        "cipher": {"name": "aes-256-gcm", "nonce": _b64(nonce)},
+    }
     sealed = AESGCM(_derive(passphrase, salt, SCRYPT_N, SCRYPT_R, SCRYPT_P)).encrypt(
         nonce, raw, _aad(header)
     )
-    _write_private(
-        path,
-        {
-            **header,
-            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "kdf": {
-                "name": "scrypt",
-                "n": SCRYPT_N,
-                "r": SCRYPT_R,
-                "p": SCRYPT_P,
-                "salt": _b64(salt),
-            },
-            "cipher": {"name": "aes-256-gcm", "nonce": _b64(nonce)},
-            "ciphertext": _b64(sealed),
-        },
-    )
+    _write_private(path, {**header, "ciphertext": _b64(sealed)})
     pinned = PublicKey(key_id(public), public)
     pin(pinned, config=config)
     return pinned
@@ -378,6 +388,7 @@ def unlock(passphrase: str, config: Path | None = None) -> Ed25519PrivateKey:
         or n & (n - 1)
         or not (1 <= r <= MAX_SCRYPT_R)
         or not (1 <= p <= MAX_SCRYPT_P)
+        or 128 * n * r > MAX_SCRYPT_MEMORY
     ):
         raise OperatorKeyError(
             "the operator key file names a KDF or cipher this RACT does not accept "

@@ -60,6 +60,39 @@ def _test_rule(policy: object) -> object | None:
     return next((r for r in rules if list(r.argv)[: len(r.argv)] in runners), None)
 
 
+# Files a test runner executes or reads as configuration (G-214 T2).
+_RUNNER_FILES = {
+    "conftest.py",
+    "pytest.ini",
+    "pyproject.toml",
+    "tox.ini",
+    "setup.cfg",
+    "package.json",
+    "jest.config.js",
+    "vitest.config.ts",
+}
+
+
+def _project_code_notes(written: set[str]) -> list[str]:
+    """What the prompt says about the project code the command runs (G-214 T2)."""
+    from ract.import_check import is_test_file
+
+    mine = sorted(
+        path
+        for path in written
+        if Path(path).name in _RUNNER_FILES or is_test_file(path)
+    )
+    note = (
+        "this runs project code: the tests, conftest.py and the runner's configuration"
+    )
+    if mine:
+        shown = ", ".join(mine[:6]) + (
+            f" and {len(mine) - 6} more" if len(mine) > 6 else ""
+        )
+        note += f"; written in this session: {shown}"
+    return [note]
+
+
 def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
     from ract.policy import tier3
     from ract.policy.matcher import classify
@@ -77,8 +110,22 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
             "the grant has no test rule",
             "`ract policy init --guided` proposes one for this project's test runner",
         )
-    argv = [*rule.argv, *args.selectors]
-    match = classify(argv, policy, root, model_written=frozenset(ctx.model_written))
+    # G-214 T1: a selector is never read as an option of the runner.
+    is_pytest = "pytest" in [
+        Path(a).name.lower().removesuffix(".exe") for a in rule.argv
+    ]
+    argv = [
+        *rule.argv,
+        *(["--"] if is_pytest and args.selectors else []),
+        *args.selectors,
+    ]
+    match = classify(
+        argv,
+        policy,
+        root,
+        model_written=frozenset(ctx.model_written),
+        also_outside=(ctx.project,),
+    )
     if match.outcome == "refused":
         raise ToolRefused(f"refused: {match.reason}", "name tests inside the project")
     if ctx.approve is None:
@@ -96,7 +143,7 @@ def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
         "timeout_s": rule.timeout_s,
         "why": match.reason,
         "reason": args.reason,
-        "notes": list(match.notes),
+        "notes": [*match.notes, *_project_code_notes(ctx.model_written)],
     }
     if not ctx.approve(facts):
         raise ToolRefused(

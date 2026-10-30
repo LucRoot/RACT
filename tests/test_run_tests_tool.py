@@ -133,12 +133,13 @@ def test_a_yes_runs_the_rule_with_the_selectors(project: Path) -> None:
     )
     assert rooted.is_ok(), rooted.error
     facts = asked[0]
-    assert facts["argv"] == ["python", "-m", "pytest", "tests/test_calc.py::test_add"]
+    assert facts["argv"] == ["python", "-m", "pytest", "--", "tests/test_calc.py::test_add"]
     assert facts["network"].startswith("off") and "not enforced" in facts["sandbox"]
     assert facts["reason"] == "check the fix"
     assert runner.calls[0]["argv"][1:] == [
         "-m",
         "pytest",
+        "--",
         "tests/test_calc.py::test_add",
     ]
     result = rooted.unwrap()

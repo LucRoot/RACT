@@ -1184,16 +1184,18 @@ class ReplSession:
         """
         from datetime import date
 
-        from ract.policy.cli import tier_state
+        from ract.policy.cli import tier_state_of
         from ract.ui.tier_status_view import expiry_notice, status_line
 
-        from ract.policy.grant import pin_digest
+        from ract.policy.grant import load_grant
 
         self._tier3_notes = []
         project = self.state.config.resolve().parent
         try:
-            self._grant_pin = pin_digest(project)
-            state, why = tier_state(project)
+            # G-213 G3: the pin is of the bytes this decision verified.
+            grant = load_grant(project)
+            self._grant_pin = grant.pin
+            state, why = tier_state_of(grant)
         except Exception as exc:  # noqa: BLE001 - a grant that cannot be read opens nothing
             print(f"[repl] the tier-3 grant was not read: {exc}", flush=True)
             return {"tier3": "off", "tier3_status": "T3 off (no grant)"}

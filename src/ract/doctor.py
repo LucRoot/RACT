@@ -305,9 +305,13 @@ class RactDoctor:
     def _check_operator_key(self) -> CheckResult:
         """How the operator key is kept on this machine (B-111, D-123), said honestly."""
         from ract.policy.operator_key import protection
+        from ract.policy.unlock import window_note
 
+        note = window_note()
         return CheckResult(
-            name="operator_key", passed=True, message=f"Operator key: {protection()}."
+            name="operator_key",
+            passed=True,
+            message=f"Operator key: {protection()}." + (f" {note}." if note else ""),
         )
 
     def _check_skills(self, config: dict[str, Any]) -> CheckResult:

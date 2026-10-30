@@ -156,7 +156,10 @@ Tier map for the section 2 tools (section 1 tools are in ADR-0047 D1):
   "scrypt through `BestAvailableEncryption`" does not exist, since that
   encryption is PBKDF2): JSON holding the key id, the public key, scrypt
   parameters (n = 2^17, r = 8, p = 1, a 16-byte salt) and AES-256-GCM over
-  the 32 private bytes, with the header as associated data. The loader
+  the 32 private bytes, with the whole header (every field but the
+  ciphertext) as associated data. The passphrase is NFKC-normalized before
+  the KDF, so the same typed text opens the file on every system, and scrypt
+  may ask for at most 512 MiB. The loader
   treats the file as untrusted data (at most 4 KiB, a closed schema, no
   link), uses the parameters it stores and refuses n below 2^15. A
   passphrase under 8 characters is refused and one under 12 warns; every

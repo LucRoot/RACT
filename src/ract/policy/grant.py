@@ -67,6 +67,27 @@ _TOO_BROAD = {
 }
 
 
+# Wrappers that the matcher does not strip: they run a command given after
+# them, so a rule may not start with one (G-213 G2, G-214 M2).
+_RUNTIME_RUNNERS = {
+    "command",
+    "exec",
+    "flock",
+    "setsid",
+    "taskset",
+    "strace",
+    "chroot",
+    "unshare",
+    "xvfb-run",
+    "fakeroot",
+    "npx",
+    "uvx",
+    "pipx",
+}
+# Modules that install or run arbitrary code (``python -m pip install x``).
+_CODE_MODULES = {"pip", "ensurepip", "runpy", "code", "idlelib"}
+
+
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -96,6 +117,42 @@ class AllowRule(_Strict):
             raise ValueError(
                 f"{argv} is too broad: an interpreter alone runs any code. hint: name "
                 "the module or script, for example [python, -m, pytest]"
+            )
+        from ract.policy import matcher
+
+        name = matcher._name(argv[0])
+        # G-213 G2: rules the matcher's floor would never let match, refused at
+        # load so the operator is not misled into thinking they allow something.
+        if (
+            name in matcher._SHELLS
+            or matcher.inline_code(name, argv[1:])
+            or matcher.wrapped_code(argv[1:])
+        ):
+            raise ValueError(
+                f"{argv} runs code given on the command line (a shell or inline code); "
+                "hint: name the module or script, for example [python, -m, pytest]"
+            )
+        if (
+            name in matcher._WRAPPERS
+            or name in matcher._NEVER
+            or name in _RUNTIME_RUNNERS
+        ):
+            raise ValueError(
+                f"{argv} starts with {name}, which runs a command chosen elsewhere; "
+                "hint: name the command itself"
+            )
+        if argv[:2] == ["uv", "run"]:
+            raise ValueError(
+                f"{argv}: uv run runs whatever follows; hint: name the command itself"
+            )
+        if (
+            name in {"python", "pypy", "py"}
+            and argv[1:2] == ["-m"]
+            and (argv[2:3] and argv[2] in _CODE_MODULES)
+        ):
+            raise ValueError(
+                f"{argv}: python -m {argv[2]} installs or runs arbitrary code; "
+                "hint: name the test module, for example [python, -m, pytest]"
             )
         return argv
 
@@ -311,17 +368,26 @@ def _revoked_file(config: Path | None) -> Path:
     return (config or config_dir()) / "revoked_grants.json"
 
 
+class RevocationListUnreadable(Exception):
+    """The revocation list exists and cannot be read: no grant holds (G-213 G1)."""
+
+
 def revoked(config: Path | None = None) -> set[str]:
+    """The revoked grant digests. A missing list is empty; an unreadable one raises.
+
+    A list that exists and cannot be read must not let a revoked grant back
+    in, so it refuses every grant until it is fixed (G-213 G1).
+    """
     path = _revoked_file(config)
-    if not path.is_file():
+    if not path.exists():
         return set()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        # A list that cannot be read revokes nothing new, but says so.
-        print(f"[grant] the revocation list cannot be read: {exc}", flush=True)
-        return set()
-    return {d for d in data if isinstance(d, str)} if isinstance(data, list) else set()
+        raise RevocationListUnreadable(str(exc)) from exc
+    if not isinstance(data, list):
+        raise RevocationListUnreadable("it is not a list of digests")
+    return {d for d in data if isinstance(d, str)}
 
 
 def revoke(project: Path | str, *, config: Path | None = None) -> str | None:
@@ -338,7 +404,9 @@ def revoke(project: Path | str, *, config: Path | None = None) -> str | None:
         listed = revoked(config) | {digest}
         out = _revoked_file(config)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(sorted(listed)), encoding="utf-8")
+        temp = out.with_name(out.name + ".tmp")
+        temp.write_text(json.dumps(sorted(listed)), encoding="utf-8")
+        os.replace(temp, out)  # never a half-written list (G-213 G1)
     if sig_path.exists():
         sig_path.unlink()
     return digest
@@ -359,7 +427,11 @@ def pin_digest(project: Path | str) -> str:
     for name in (POLICY_FILE, SIGNATURE_FILE):
         path = project / ".ract" / name
         parts.append(path.read_bytes() if path.is_file() else b"")
-    return hashlib.sha256(b"\0".join(parts)).hexdigest()
+    return _pin_of(*parts)
+
+
+def _pin_of(policy: bytes, signature: bytes) -> str:
+    return hashlib.sha256(policy + b"\0" + signature).hexdigest()
 
 
 Status = Literal["none", "unsigned", "invalid", "not-yet", "expired", "revoked", "ok"]
@@ -374,6 +446,9 @@ class GrantState:
     policy: Policy | None = None
     digest: str | None = None
     problems: list[str] = field(default_factory=list)
+    # The digest of the bytes this decision read (policy and signature), the
+    # session's pin (G-213 G3); pin_digest of the same bytes gives the same.
+    pin: str | None = None
 
     @property
     def holds(self) -> bool:
@@ -386,79 +461,74 @@ def load_grant(
     config: Path | None = None,
     now: datetime | None = None,
 ) -> GrantState:
-    """Decide whether the project's tier-3 grant holds (ADR-0048 D3)."""
+    """Decide whether the project's tier-3 grant holds (ADR-0048 D3).
+
+    Each file is read once; the decision and its ``pin`` are of those bytes.
+    """
     project = Path(project)
     now = now or datetime.now(timezone.utc)
     policy_path = project / ".ract" / POLICY_FILE
     sig_path = project / ".ract" / SIGNATURE_FILE
-    if not policy_path.is_file():
-        return GrantState("none", "no grant")
-    data = policy_path.read_bytes()
-    digest = hashlib.sha256(data).hexdigest()
-    if digest in revoked(config):
-        return GrantState("revoked", "this grant was revoked", digest=digest)
-    if not sig_path.is_file():
-        return GrantState("unsigned", "the policy is not signed", digest=digest)
+    data = policy_path.read_bytes() if policy_path.is_file() else None
+    sig_bytes = sig_path.read_bytes() if sig_path.is_file() else None
+    pin = _pin_of(data or b"", sig_bytes or b"")
+    digest = hashlib.sha256(data).hexdigest() if data is not None else None
+
+    def state(
+        status: Status, reason: str, policy: Policy | None = None, problems=None
+    ) -> GrantState:
+        return GrantState(status, reason, policy, digest, list(problems or []), pin)
+
+    if data is None:
+        return state("none", "no grant")
+    try:
+        if digest in revoked(config):
+            return state("revoked", "this grant was revoked")
+    except RevocationListUnreadable as exc:
+        return state("invalid", f"the revocation list cannot be read ({exc})")
+    if sig_bytes is None:
+        return state("unsigned", "the policy is not signed")
     key = pinned(config)
     if key is None:
-        return GrantState(
-            "unsigned", "no operator key is pinned on this machine", digest=digest
-        )
+        return state("unsigned", "no operator key is pinned on this machine")
     try:
-        sig = json.loads(sig_path.read_text(encoding="utf-8"))
+        sig = json.loads(sig_bytes.decode("utf-8"))
         signature = base64.b64decode(sig["signature"], validate=True)
         ok_format = sig.get("format") == SIG_FORMAT
-    except (OSError, ValueError, KeyError, TypeError) as exc:
-        return GrantState(
-            "invalid", f"the signature file cannot be read ({exc})", digest=digest
-        )
+    except (ValueError, KeyError, TypeError) as exc:
+        return state("invalid", f"the signature file cannot be read ({exc})")
     if not ok_format or sig.get("key_id") != key.key_id:
-        return GrantState(
-            "invalid", "the grant is not signed by your operator key", digest=digest
-        )
+        return state("invalid", "the grant is not signed by your operator key")
     if sig.get("sha256") != digest or not key.verify(signature, _message(data)):
-        return GrantState(
-            "invalid", "the signature does not match policy.yaml", digest=digest
-        )
+        return state("invalid", "the signature does not match policy.yaml")
     try:
         policy = parse_policy(data.decode("utf-8"))
     except (PolicyInvalid, UnicodeDecodeError) as exc:
         problems = exc.problems if isinstance(exc, PolicyInvalid) else [str(exc)]
-        return GrantState(
-            "invalid", "policy.yaml does not validate", digest=digest, problems=problems
-        )
+        return state("invalid", "policy.yaml does not validate", problems=problems)
     if policy.key_id != key.key_id:
-        return GrantState("invalid", "the grant names another key", digest=digest)
+        return state("invalid", "the grant names another key")
     if not _same_folder(policy.binding.project_root, project):
-        return GrantState(
-            "invalid", "the grant is bound to another folder", digest=digest
-        )
+        return state("invalid", "the grant is bound to another folder")
     if policy.binding.repo_root_commit is not None and (
         _repo_root_commit(project) != policy.binding.repo_root_commit
     ):
-        return GrantState(
-            "invalid", "the grant is bound to another repository", digest=digest
-        )
+        return state("invalid", "the grant is bound to another repository")
     if policy.sandbox == "enforced" and not sandbox_confines_commands():
-        # A grant says what this machine does: on Windows without WSL2 or a
-        # container, commands are not confined (ADR-0048 D7).
-        return GrantState(
+        # A grant says what this machine does: no backend confines commands.
+        return state(
             "invalid",
             "the grant says sandbox: enforced, and this machine cannot confine "
             "commands; it must say sandbox: best_effort",
             policy,
-            digest,
         )
     if now < policy.issued_at - timedelta(minutes=5):
-        return GrantState("not-yet", "the grant is not valid yet", policy, digest)
+        return state("not-yet", "the grant is not valid yet", policy)
     if now >= policy.expires_at:
-        return GrantState(
-            "expired",
-            f"grant expired {policy.expires_at.date().isoformat()}",
-            policy,
-            digest,
+        return state(
+            "expired", f"grant expired {policy.expires_at.date().isoformat()}", policy
         )
-    return GrantState("ok", "", policy, digest)
+    return state("ok", "", policy)
 
 
 __all__ = [

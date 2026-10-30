@@ -19,6 +19,8 @@ from typing import Any
 from ract.policy.operator_key import unlock
 
 DEFAULT_CONFINED_MINUTES = 10
+# The longest window a user config may ask for (G-213 U1).
+MAX_MINUTES = 60
 
 
 def window_minutes(sandbox: str, config: Any = None) -> float:
@@ -41,7 +43,7 @@ def window_minutes(sandbox: str, config: Any = None) -> float:
             and not isinstance(value, bool)
             and value >= 0
         ):
-            configured = float(value)
+            configured = min(float(value), float(MAX_MINUTES))
     if configured is not None:
         return configured
     return 0.0 if sandbox == "best_effort" else float(DEFAULT_CONFINED_MINUTES)
@@ -92,3 +94,27 @@ __all__ = [
     "UnlockWindow",
     "window_minutes",
 ]
+
+
+def window_note(config: Any = None) -> str | None:
+    """What ``ract doctor`` says when the configured window is over the cap (U1)."""
+    from ract.policy.operator_key import _config_file
+
+    path = _config_file(config)
+    if not path.is_file():
+        return None
+    import yaml
+
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        print(f"[unlock] the user config cannot be read: {exc}", flush=True)
+        return None
+    value = data.get("unlock_window_minutes") if isinstance(data, dict) else None
+    if (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and value > MAX_MINUTES
+    ):
+        return f"unlock_window_minutes {value:g} is read as {MAX_MINUTES}, the most it may be"
+    return None

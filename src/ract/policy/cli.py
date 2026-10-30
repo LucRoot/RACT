@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 from ract.policy import config_dir
 from ract.policy.grant import (
@@ -39,7 +40,11 @@ USAGE = (
 
 def tier_state(project: Path) -> tuple[TierState, str]:
     """The status-line state of *project*'s grant, and why tier 3 is off when it is."""
-    state = load_grant(project)
+    return tier_state_of(load_grant(project))
+
+
+def tier_state_of(state: Any) -> tuple[TierState, str]:
+    """The status-line state of a grant already loaded (``load_grant``)."""
     if state.holds and state.policy is not None:
         # A grant opens "ask"; the session raises it up to max_mode on request.
         return TierState("ask", state.policy.expires_at.date()), ""
