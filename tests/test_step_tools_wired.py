@@ -247,3 +247,26 @@ def test_the_workspace_line_is_shown_before_any_tool_runs(
 
     assert code == 0
     assert order[:2] == ["line", "tool"]
+
+
+def test_a_control_file_call_shows_tier_2_on_its_card(
+    tmp_path: Path, fake_model_server: Any
+) -> None:
+    ws = _workspace(
+        tmp_path,
+        fake_model_server,
+        lambda _d: _calls(
+            ("write_file", {"path": "AGENTS.md", "content": "x\n", "create": True})
+        ),
+        lambda digest: _calls(("edit_file", {**FIX_ARGS, "expected_digest": digest})),
+    )
+
+    code, events = _turn(ws)
+
+    assert code == 0, _errors(events)
+    tiers = [
+        (e.data["tool"], e.data["tier"])
+        for e in events
+        if e.kind == "tool.call.started"
+    ]
+    assert tiers == [("write_file", "T2"), ("edit_file", "T1")]

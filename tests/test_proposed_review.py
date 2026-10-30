@@ -246,3 +246,49 @@ def test_a_whole_file_question_says_apply_and_leave_out() -> None:
         "Apply the step's change to logo.bin? [a apply, r leave it out]: ",
     ]
     assert not any("restore" in q for q in questions)  # nothing was saved yet
+
+
+def test_the_proposed_event_renders_one_line(tmp_path: Path) -> None:
+    from ract.session_render import PlainRenderer
+
+    out: list[str] = []
+    stream = EventStream(session="s")
+    stream.subscribe(PlainRenderer(out.append))
+    stream.emit(
+        "diff.proposed",
+        {
+            "path": "src/\x1b[31mcalc.py",
+            "hunks": proposed_hunks("x.py", OLD, NEW),
+            "tier": "T1",
+        },
+        turn=1,
+    )
+    text = "".join(out)
+    lines = text.strip().splitlines()
+    assert len(lines) == 1 and lines[0].endswith("calc.py (proposed, T1): 2 hunks")
+    assert "\x1b" not in text  # the path's escape sequence never reaches the screen
+
+
+def test_a_proposed_control_file_is_shown_as_tier_2(
+    tmp_path: Path, fake_model_server: Any, monkeypatch
+) -> None:
+    from ract import tier2_approvals
+
+    ws = _workspace(
+        tmp_path,
+        fake_model_server,
+        lambda digest: _calls(
+            ("edit_file", {**FIX_ARGS, "expected_digest": digest}),
+            ("write_file", {"path": "AGENTS.md", "content": "x\n", "create": True}),
+        ),
+    )
+    tier2_approvals._LIVE.clear()
+    _console(monkeypatch, ws, ["y", "a", "a"])  # the tier-2 question, then two hunks
+
+    code, events = _turn(ws)
+
+    assert code == 0, [e.data for e in events if e.kind == "error.surfaced"]
+    tiers = {
+        e.data["path"]: e.data["tier"] for e in events if e.kind == "diff.proposed"
+    }
+    assert tiers == {"AGENTS.md": "T2", "src/calc.py": "T1"}

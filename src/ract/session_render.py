@@ -411,11 +411,13 @@ class PlainRenderer:
             self._line(f"    hint: {d['hint']}")
 
     def _on_diff_proposed(self, d: dict[str, Any]) -> None:
-        self._line(f"--- {d.get('path')} (proposed, {d.get('tier', 'T1')})")
-        for hunk in d.get("hunks", []):
-            self._line(f"[{hunk.get('id')}] {hunk.get('header', '')}")
-            for row in str(hunk.get("text", "")).splitlines():
-                self._line(row)
+        # One line: the review question that follows draws each hunk (B-110),
+        # so drawing them here showed every hunk twice.
+        n = len(d.get("hunks", []))
+        self._line(
+            f"--- {safe_text(str(d.get('path')))} (proposed, {d.get('tier', 'T1')}): "
+            f"{n} hunk{'s' if n != 1 else ''}"
+        )
 
     def _on_diff_reviewed(self, d: dict[str, Any]) -> None:
         self._line(f"    {d.get('path')} hunk {d.get('hunk')}: {d.get('decision')}")

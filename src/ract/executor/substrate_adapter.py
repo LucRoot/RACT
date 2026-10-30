@@ -133,6 +133,17 @@ def _rebind_project_dir(executor: Executor, new_dir: Path) -> Iterator[None]:
             helper.project_dir = original
 
 
+def _path_tier(repo: Path, path: str) -> str:
+    """``T2`` for a control or executable-configuration file, else ``T1``."""
+    from ract.tools import ToolRefused
+    from ract.tools.write import path_tier
+
+    try:
+        return path_tier(repo, path).value
+    except ToolRefused:
+        return "T2"  # a protected path is never below tier 2 on screen
+
+
 def _review_proposed(
     harness: Any, reviewer: Any, record: Any, index: int
 ) -> Rooted[str]:
@@ -170,7 +181,8 @@ def _review_proposed(
                 {
                     "path": path,
                     "hunks": proposed_hunks(path, before, after),
-                    "tier": "T1",
+                    # A control or executable-configuration file is tier 2 (D3).
+                    "tier": _path_tier(repo, path),
                 },
             )
             decision = reviewer(path, before, after)

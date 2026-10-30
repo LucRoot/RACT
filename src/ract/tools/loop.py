@@ -217,6 +217,7 @@ def _run_call(
     ids: Any,
     tools: dict[str, Any] | None = None,
     facts_out: list[dict[str, Any]] | None = None,
+    root: Path | None = None,
 ) -> tuple[bool, str, str | None]:
     """Run one call through the gate; report it; return (ok, text, hint).
 
@@ -230,7 +231,7 @@ def _run_call(
         {
             "id": call_id,
             "tool": call.name,
-            "tier": spec.tier.value if spec is not None else "T0",
+            "tier": _shown_tier(spec, call, root),
             "summary": summary,
             "repairs": [str(r) for r in call.repairs],
             "rung": call.rung,
@@ -266,6 +267,27 @@ def _run_call(
         },
     )
     return ok, text, hint
+
+
+def _shown_tier(spec: Any, call: ToolCall, root: Path | None) -> str:
+    """The tier the card shows: the call's own, raised by the paths it writes (D3).
+
+    A write to a control file is tier 2 whatever the tool declares; the card
+    says so before the question. Arguments that do not validate show the
+    declared tier (the gate refuses the call anyway).
+    """
+    if spec is None:
+        return "T0"
+    if not spec.mutates or root is None:
+        return spec.tier.value
+    from ract.tools import ToolRefused
+    from ract.tools.write import call_tier
+
+    try:
+        args = spec.args_model.model_validate(call.arguments)
+        return call_tier(spec, args, root).value
+    except (ValueError, ToolRefused):
+        return spec.tier.value
 
 
 def _stopped(why: str, hint: str) -> Rooted[str]:
@@ -490,7 +512,7 @@ def _drive(
                     summarize = True
                     break
                 before = len(facts_out) if facts_out is not None else 0
-                ok, text, _hint = _run_call(gate, call, ids, tools, facts_out)
+                ok, text, _hint = _run_call(gate, call, ids, tools, facts_out, root)
                 if work is not None:
                     work.tool_calls += 1
                     work.changes += [
