@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from ract.canonical import dumps_jcs
+from ract.console_interrupt import read_line
 from ract.session_events import visible_text
 
 STORE_NAME = "trusted_repositories.json"
@@ -280,7 +281,7 @@ def has_trust_record(root: Path | str) -> bool:
     return _read_store().get(repository_key(root)) == digest(root)
 
 
-def confirm_loop(root: Path | str, *, interactive: bool, ask: Any = input) -> bool:
+def confirm_loop(root: Path | str, *, interactive: bool, ask: Any = read_line) -> bool:
     """Whether `--loop` may run this project's tests here.
 
     LR:: `--loop` runs the project's test suite every iteration, and pytest
@@ -335,7 +336,7 @@ def trusted_repositories() -> list[str]:
     return sorted(_read_store())
 
 
-def decide(root: Path | str, *, interactive: bool, ask: Any = input) -> bool:
+def decide(root: Path | str, *, interactive: bool, ask: Any = read_line) -> bool:
     """Whether this run may use the repository's items. Asks only on a terminal.
 
     Returns True to run them, False to skip them. Without a terminal, an

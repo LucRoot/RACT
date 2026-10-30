@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from ract import question_gate
 from ract.cell_wrap import wrap_cells
+from ract.console_interrupt import read_line
 from ract.manager import Plan, Step
 
 
@@ -46,7 +47,7 @@ def console_approval_callback(step: Step) -> bool:
         print(line)
     question_gate.open_question()
     try:
-        response = input(f"{lines[-1]} ").strip().lower()
+        response = read_line(f"{lines[-1]} ").strip().lower()
     except EOFError:
         # A Ctrl-C ends this read with EOF just before the turn is cancelled;
         # let the cancel arrive, so the step ends skipped rather than failed.
@@ -88,7 +89,7 @@ def _edit_step(steps: list, n: int, plan_gate):
     # The question gate silences the heartbeat while the operator answers (BUILDER's package 2 handoff).
     question_gate.open_question()
     try:
-        text = input(f"new text for step {n}: ")
+        text = read_line(f"new text for step {n}: ")
     except EOFError:
         return steps, "no new text was given; the step is unchanged"
     finally:
@@ -144,7 +145,7 @@ def console_plan_approval(plan: Plan):
     while True:
         question_gate.open_question()
         try:
-            line = input(f"{lines[-1]} ")
+            line = read_line(f"{lines[-1]} ")
         except EOFError:
             # Nobody can answer, or a Ctrl-C ended the read: nothing runs.
             turn_context.cancelled_within(_CTRL_C_GRACE_SECONDS)

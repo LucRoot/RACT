@@ -142,6 +142,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- On Windows, a Ctrl-C pressed just as a question or the prompt appears interrupts at once; it
+  was held until the next Enter when it landed before the console read started.
 - A step no longer writes through a hard link (a file with a second name, which may be
   outside the project): the write is refused and names the file. On Windows, the device names
   `COM0`, `LPT0`, `CONIN$`, `CONOUT$`, `CLOCK$` and the superscript forms of `COM` and `LPT` are

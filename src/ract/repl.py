@@ -37,6 +37,7 @@ from rich.markup import escape
 from ract.providers import reasoning
 from ract.session_events import safe_text
 from ract.cell_wrap import wrap_cells
+from ract.console_interrupt import read_line as console_read_line
 from ract.tui import terminal_width
 
 # Verbs that accept ``--config`` and should follow the session's config path
@@ -195,7 +196,8 @@ class ReplSession:
 
         set_session_manager(None)
         self._dispatch = dispatch
-        self._read_line = read_line or input
+        # S-027: a Ctrl-C just before the read starts is raised, not held until Enter.
+        self._read_line = read_line or console_read_line
         self._console = console
         self._verbs = tuple(verbs)
         self._history_path = history_path

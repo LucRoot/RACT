@@ -17,6 +17,7 @@ from ract.chestertons_fence import ChestertonsFence
 from ract.code_review_mode import CodeReviewMode
 from ract.compression_novelty_detector import CompressionNoveltyDetector
 from ract.config_check import find_config_problems, resolve_manager_provider
+from ract.console_interrupt import read_line
 from ract.consolidate import ConsolidationScanner, MergeProposal
 from ract.dead_code_auction import DeadCodeAuction
 from ract.skill_marketplace import SkillMarketplace
@@ -279,7 +280,7 @@ def _undo_command(verb: str, args: list[str]) -> int:
     return 1 if result.skipped else 0
 
 
-def _offer_setup(ask: Any = input) -> bool:
+def _offer_setup(ask: Any = read_line) -> bool:
     """Bare `ract` in a directory without ract.yaml: offer setup first (D-021).
 
     Returns whether to open the session afterwards. A session cannot run

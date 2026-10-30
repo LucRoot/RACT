@@ -28,6 +28,7 @@ from typing import Any
 import yaml
 
 from ract import egress_scan
+from ract.console_interrupt import read_line
 from ract.provider_presets import get_preset, list_presets
 from ract.setup import host_probe, local_probe, tiers
 
@@ -243,7 +244,7 @@ def _is_git_repository(directory: Path) -> bool:
 class Io:
     """How setup talks to the user; replaced in tests."""
 
-    ask: Callable[[str], str] = input
+    ask: Callable[[str], str] = read_line
     say: Callable[[str], object] = print
     detect: Callable[[tuple[str, ...]], list[local_probe.Server]] = local_probe.detect
     probe: Callable[[], host_probe.HostProfile] = host_probe.probe_host
