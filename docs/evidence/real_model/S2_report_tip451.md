@@ -19,7 +19,7 @@ Verdict is the harness's (what RACT printed and its exit code). "Wall" is the ru
 | (b) three-step change | run | three files written; tests/test_notes.py does not import src.notes | done | 29 s | FOUND 2, see below |
 | (c) failing test made to pass | run | src/calc.py fixed | done | 9 s | FOUND 3, the test was never run |
 | (d) default mode, no flag, pseudo-terminal | partly run | "Run it? [a]pprove [s]kip <n> [e]dit <n> [c]ancel" shown before any write; the answer was not sent | (waiting for approval) | ~60 s | B-101 holds on the hosted run; approve, skip, edit and cancel not run |
-| (d) --auto approvals | not run | | | | |
+| (d) --auto, pseudo-terminal, plan approved once | run | the plan was shown and approved with a; src/calc.py fixed; step 2 was prose ("tell the user to run pytest") and no test was run | done | ~60 s | the approval is per plan, not per step (D4 still holds); no test run, so the harness shows no verification |
 | test file imports a name that does not exist | run | tests/test_missing.py written; the import is not refused | done | 16 s | FOUND 1 |
 | no terminal, no --yolo | run | refused, exit 3, names --yolo; no file changed | refused | 12 s | B-104 holds on the hosted run |
 | (e) long reply | not run | | | | |
