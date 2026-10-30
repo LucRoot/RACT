@@ -1,0 +1,64 @@
+# SA2: A control file asks at tier 2; allowed for the session
+# build: "B-110: the runner test's mock gets its executor; a proposal's whole-file question says apply" +src-changes  terminal: 80x40 pseudo-terminal  run: 2026-10-30 11:11
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> say in AGENTS.md how to run one test
+Plan: 1 step, confidence 0.90
+  assumes: Note in AGENTS.md how to run one test
+  1. Note in AGENTS.md how to run one test -> AGENTS.md
+preparing a workspace for the changes
+[step 1] Note in AGENTS.md how to run one test -> AGENTS.md
+  > edit_file(path='AGENTS.md', old='Run the tests with pytest.', new='Run the
+    tests with pytest; one test with pytest -k NAME.',
+    expected_digest='361c8f214c2ee89b180a6771ac7afb0e19ebb2a7c801c1c975ddf38fd
+    [T2]
+Tier 2: this change touches a control or executable-configuration file. The
+change:
+edit_file AGENTS.md
+-Run the tests with pytest.
++Run the tests with pytest; one test with pytest -k NAME.
+y allows it once, s for this session, N refuses
+Allow this change? [y/s/N]: s
+    ok 0.0s edit_file(path='AGENTS.md', old='Run the tests with pytest.',
+      new='Run the tests with pytest; one test with pytest -k NAME.',
+      expected_digest='361c8f214c2ee89b180a6771ac7afb0e19ebb2a7c801c1c975ddf38fd
+--- AGENTS.md (proposed, T2): 1 hunk
+Hunk 1 of 1 in AGENTS.md:
+AGENTS.md: lines 1-3 -> 1-3, +1 -1
+1   # Agents
+2   
+3 - Run the tests with pytest.
+3 + Run the tests with pytest; one test with pytest -k NAME.
+a accept, r reject, e edit, s skip, A accept the rest of the file,
+R reject the rest of the file
+answer: a
+    AGENTS.md hunk 1: accepted
+  applied: AGENTS.md  (checkpoint 20261030T181121436308Z-af65a8)
+[step 1] done AGENTS.md (1.5s)
+--- AGENTS.md ---
+# Agents
+
+Run the tests with pytest; one test with pytest -k NAME.
+warning: provenance: 1 file(s) have no signature yet (AGENTS.md). See
+  docs/PROVENANCE.md.
+  Done: 1 step ran; no tests were run.
+  changed: AGENTS.md (+1 -1); unstaged, review with git diff
+  AGENTS.md: lines 1-3 -> 1-3, +1 -1
+  1   # Agents
+  2
+  3 - Run the tests with pytest.
+  3 + Run the tests with pytest; one test with pytest -k NAME.
+  1 file, +1 -1
+  way back: /undo, or /review per hunk
+  verified: RACT ran no tests this turn
+  assumed: Note in AGENTS.md how to run one test (planner confidence 0.90, not  
+    checked)
+  unsigned: 1 file
+  3 model requests, 3.8 s, 1988 tokens in / 123 out
+ract>/exit
+
+## harness notes
+- expect '\\[y/s/N\\]': seen
+- expect 'answer:|leave it': seen
+- AGENTS.md after: # Agents\n\nRun the tests with pytest; one test with pytest -k NAME.\n

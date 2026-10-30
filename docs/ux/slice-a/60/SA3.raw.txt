@@ -1,0 +1,124 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml  type an intent, or
+]0;<repo>\.venv\Scripts\python.exe[?25h[m       /help for commands
+RACT session fake-coder via local | master | default
+  | T3 off
+ract> fix add
+Plan: 1 step, confidence 0.90
+  assumes: Fix add() in src/calc.py so it adds
+  1. Fix add() in src/calc.py so it adds -> src/calc.py
+preparing a workspace for the changes
+[step 1] Fix add() in src/calc.py so it adds -> src/calc.py
+  > edit_file(path='src/calc.py', old=' return a -
+    b\n\n\ndef sub', new=' return a + b\n\n\ndef sub',
+    expected_digest='3f7e5b9b86d939e4ed943d043d5816728e4577b
+    683b02a5f416b0eaeffac7186') [T1]
+    ok 0.0s edit_file(path='src/calc.py', old=' return a -
+      b\n\n\ndef sub', new=' return a + b\n\n\ndef sub',
+      expected_digest='3f7e5b9b86d939e4ed943d043d5816728e457
+      7b683b02a5f416b0eaeffac7186')
+--- src/calc.py (proposed, T1): 1 hunk
+Hunk 1 of 1 in src/calc.py:
+src/calc.py: lines 1-5 -> 1-5, +1 -1
+1   def add(a, b):
+2 -     return a - b
+2 +     return a + b
+3   
+4   
+5   def sub(a, b):
+a accept, r reject, e edit, s skip,
+A accept the rest of the file,
+R reject the rest of the file
+answer: a
+    src/calc.py hunk 1: accepted
+  applied: src/calc.py (checkpoint
+    20261030T181221545170Z-e96ed8)
+[step 1] done src/calc.py (1.6s)
+--- src/calc.py ---
+[?25ldef add(a, b):
+    return a + b[40;1H[?25h
+def sub(a, b):
+    return a - b
+warning: provenance: 1 file(s) have no signature yet        
+  (src/calc.py). See docs/PROVENANCE.md.
+  Done: 1 step ran; no tests were run.
+  changed: src/calc.py (+1 -1); unstaged, review with git   
+    diff
+  src/calc.py: lines 1-5 -> 1-5, +1 -1
+  1   def add(a, b):
+  2 -     return a - b
+  2 +     return a + b
+  3
+  4
+  5   def sub(a, b):
+  1 file, +1 -1
+  way back: /undo, or /review per hunk
+  verified: RACT ran no tests this turn
+  assumed: Fix add() in src/calc.py so it adds (planner     
+    confidence 0.90, not checked)
+  unsigned: 1 file
+  3 model requests, 3.7 s, 1932 tokens in / 112 out
+ract>[1Cmake sub return b - a
+Plan: 1 step, confidence 0.90
+  assumes: Make sub() subtract the other way in src/calc.py[40;1H
+  1. Make sub() subtract the other way in src/calc.py ->    
+    src/calc.py
+preparing a workspace for the changes
+[step 1] Make sub() subtract the other way in src/calc.py ->[40;1H
+  src/calc.py
+  > edit_file(path='src/calc.py', old='def sub(a, b):\n
+    return a - b', new='def sub(a, b):\n return b - a',     
+    expected_digest='79705c5546cf5ab2ec0abc8fc4c4f0321a9a767[40;1H
+    da44d77346e4da166f054024c') [T1]
+    ok 0.0s edit_file(path='src/calc.py', old='def sub(a,   
+      b):\n return a - b', new='def sub(a, b):\n return b - [40;1H
+      a',
+      expected_digest='79705c5546cf5ab2ec0abc8fc4c4f0321a9a7[40;1H
+      67da44d77346e4da166f054024c')
+--- src/calc.py (proposed, T1): 1 hunk
+Hunk 1 of 1 in src/calc.py:
+src/calc.py: lines 3-6 -> 3-6, +1 -1
+3
+4
+5   def sub(a, b):
+6 -     return a - b
+6 +     return b - a
+a accept, r reject, e edit, s skip,
+A accept the rest of the file,
+R reject the rest of the file
+answer:[1Ca
+    src/calc.py hunk 1: accepted
+  applied: src/calc.py (checkpoint
+    20261030T181229302246Z-684749)
+[step 1] done src/calc.py (1.4s)
+--- src/calc.py ---
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return b - a
+  Done: 1 step ran; no tests were run.
+  changed: src/calc.py (+1 -1); unstaged, review with git   
+    diff
+  src/calc.py: lines 3-6 -> 3-6, +1 -1
+  3
+  4
+  5   def sub(a, b):
+  6 -     return a - b
+  6 +     return b - a
+  1 file, +1 -1
+  way back: /undo, or /review per hunk
+  verified: RACT ran no tests this turn
+  assumed: Make sub() subtract the other way in src/calc.py [40;1H
+    (planner confidence 0.90, not checked)
+  unsigned: 1 file
+  3 model requests, 3.0 s, 2034 tokens in / 121 out
+ract>[1C/rewind
+1. 2026-10-30 11:12: make sub return b - a
+2. 2026-10-30 11:12: fix add[?25l
+rewind to which turn? (a number; Enter keeps everything)    [40;58H[?25h2
+restored src/calc.py
+back at checkpoint 2; /redo brings back the last turn
+  reversed
+ract>[1C/exit
+[?9001l[?1004l

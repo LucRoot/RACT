@@ -1,0 +1,46 @@
+# SA4: J3: a question needs no workspace and no answer
+# build: "B-110: the runner test's mock gets its executor; a proposal's whole-file question says apply" +src-changes  terminal: 40x40 pseudo-terminal  run: 2026-10-30 11:13
+## interactive session
+ RACT 0.5.2  config: ract.yaml
+       type an intent, or /help for
+       commands
+RACT session fake-coder via local
+  | master | default | T3 off
+ract> /ask what does add() return?
+Plan: 1 step, confidence 1.00
+  assumes: The user asked a question;
+    the answer is shown and no file is
+    written.
+  1. what does add() return?
+[step 1] what does add() return?
+  > grep(path='src', pattern='def
+    load_config') [T0]
+    ok 0.0s grep(path='src',
+      pattern='def load_config')
+  > read_file(limit=60, offset=1,
+    path='src/app/config.py') [T0]
+    ok 0.0s read_file(limit=60,
+      offset=1,
+      path='src/app/config.py')
+  > read_file(limit=40, offset=1,
+    path='src/app/main.py') [T0]
+    ok 0.0s read_file(limit=40,
+      offset=1, path='src/app/main.py')
+The config loader is `load_config` in src/app/config.py:12. It reads `app.yaml`, expands environment variables, and is called once from src/app/main.py:8 at startup.
+[step 1] done (0.3s)
+  Done: 1 step ran; no tests were run.
+  changed: nothing
+  verified: RACT ran no tests this turn
+  citations: 0 verified, 2 unverified
+    src/app/config.py:12:
+      src/app/config.py has 5 lines;
+      line 12 does not exist
+    src/app/main.py:8: src/app/main.py
+      has 3 lines; line 8 does not exist
+
+
+
+
+  3 model requests, 1.1 s, 1327 tokens  
+    in / 149 out
+ract>/exit

@@ -1,0 +1,73 @@
+   0.051s out 
+   1.260s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   1.270s out 
+   1.638s out RACT session fake-coder via local | master | default | T3 off\n
+   1.659s out ract> 
+   1.669s  in 'tests/test_calc.py::test_add fails, fix it\r'
+   1.674s out tests/test_calc.py::test_add fails, fix it\n
+   2.495s out Plan: 1 step, confidence 0.90\n
+   2.515s out   assumes: Fix add() in src/calc.py so it adds\n  1. Fix add() in src/calc.py so it adds -> src/calc.py\n
+   2.712s out preparing a workspace for the changes\n
+   3.665s out [step 1] Fix add() in src/calc.py so it adds -> src/calc.py\n
+   3.680s out   > read_file(path='src/calc.py')  [T0]\n
+   3.695s out     ok 0.0s  read_file(path='src/calc.py')\n  > edit_file(path='src/calc.py', old=' return a - b\n\n\ndef sub', new=' return\n    a + b\n\n\ndef sub',\n    expected_digest='3f7e5b9b86d939e4ed943d043d5
+   3.711s out     ok 0.0s edit_file(path='src/calc.py', old=' return a - b\n\n\ndef sub',\n      new=' return a + b\n\n\ndef sub',\n      expected_digest='3f7e5b9b86d939e4ed943d043d5816728e4577b683b02a5f416b0eaef\n
+   3.727s out note: step 1 also changed notes/fix.md in its workspace\n
+   4.603s out --- notes/fix.md (proposed, T1): 1 hunk\n
+   4.613s out Hunk 1 of 1 in notes/fix.md:\nnotes/fix.md: lines 1-0 -> 1-1, +1 -0\n1 + add() returned a - b.\na accept, r reject, e edit, s skip, A accept the rest of the file,\nR reject the rest of the file\nanswe
+   4.631s  in 'r\r'
+   4.631s out r\n
+   4.635s out     notes/fix.md hunk 1: rejected\n--- src/calc.py (proposed, T1): 1 hunk\nHunk 1 of 1 in src/calc.py:\nsrc/calc.py: lines 1-5 -> 1-5, +1 -1\n1   def add(a, b):\n2 -     return a - b\n2 +     return a
+   4.635s out \na accept, r reject, e edit, s skip, A accept the rest of the file,\n
+   4.635s out \nR reject the rest of the file\n
+   4.645s out \nanswer:
+   4.652s  in 'a\r'
+   4.652s out a\n
+   4.653s out \n    src/calc.py hunk 1: accepted\n
+   4.660s out \n
+   5.744s out   applied: src/calc.py  (checkpoint 20261030T181110531118Z-09899e)\n
+   5.744s out \n
+   5.745s out [step 1] done src/calc.py (2.1s)\n
+   5.766s out \n
+   5.971s out --- src/calc.py ---\n
+   5.971s out \n
+   5.971s out def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n
+   5.972s out \nwarning: provenance: 1 file(s) have no signature yet (src/calc.py). See\n
+   5.972s out \n  docs/PROVENANCE.md.\n
+   5.973s out \n  Done: 1 step ran; no tests were run.\n
+   5.973s out \n  changed: src/calc.py (+1 -1); unstaged, review with git diff\n
+   5.982s out \n
+   5.984s out   src/calc.py: lines 1-5 -> 1-5, +1 -1\n
+   5.984s out \n  1   def add(a, b):\n
+   5.984s out \n  2 -     return a - b\n
+   5.984s out \n  2 +     return a + b\n
+   5.984s out \n  3\n
+   5.984s out \n  4\n
+   5.984s out \n  5   def sub(a, b):\n
+   5.984s out \n  1 file, +1 -1\n
+   5.984s out \n  way back: /undo, or /review per hunk\n
+   5.984s out \n  verified: RACT ran no tests this turn\n
+   5.984s out \n  assumed: Fix add() in src/calc.py so it adds (planner confidence 0.90, not    \n
+   5.984s out \n    checked)\n
+   5.984s out \n  unsigned: 1 file\n
+   5.984s out \n  4 model requests, 4.3 s, 2729 tokens in / 156 out\n
+   5.998s out \nract>
+  10.017s  in '/diff\r'
+  10.017s  in '/checkpoint\r'
+  10.017s  in '/exit\r'
+  10.017s out /diff\n
+  10.017s out \n
+  10.031s out src/calc.py: lines 1-5 -> 1-5, +1 -1\n
+  10.032s out \n1   def add(a, b):\n
+  10.032s out \n2 -     return a - b\n
+  10.032s out \n2 +     return a + b\n
+  10.033s out \n3\n
+  10.033s out \n4\n
+  10.034s out \n5   def sub(a, b):\n
+  10.034s out \n1 file, +1 -1\n
+  10.034s out \nract> /checkpoint\n
+  10.039s out \n1. 2026-10-30 11:11: 1 file: src/calc.py\n
+  10.040s out \n/restore N goes back to checkpoint N; /undo reverses the newest\n
+  10.040s out \nract> /exit\n
+  10.045s out \n
+  10.167s out 

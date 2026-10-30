@@ -1,0 +1,57 @@
+{
+  "SA1": {
+    "answers": 2,
+    "startup_to_prompt_s": 1.606,
+    "request_to_workspace_line_s": [
+      0.939
+    ],
+    "exit_code": 0,
+    "wall_s": 10.47,
+    "notes": [
+      "expect 'answer:': seen",
+      "expect 'answer:': seen",
+      "src/calc.py after: def add(a, b):\\n    return a + b\\n\\n\\ndef sub(a, b):\\n    return a - b\\n",
+      "notes/fix.md exists after: False"
+    ]
+  },
+  "SA2": {
+    "answers": 2,
+    "startup_to_prompt_s": 1.682,
+    "request_to_workspace_line_s": [
+      0.936
+    ],
+    "exit_code": 0,
+    "wall_s": 9.93,
+    "notes": [
+      "expect '\\\\[y/s/N\\\\]': seen",
+      "expect 'answer:|leave it': seen",
+      "AGENTS.md after: # Agents\\n\\nRun the tests with pytest; one test with pytest -k NAME.\\n"
+    ]
+  },
+  "SA3": {
+    "answers": 3,
+    "startup_to_prompt_s": 1.598,
+    "request_to_workspace_line_s": [
+      0.977,
+      0.415
+    ],
+    "exit_code": 0,
+    "wall_s": 20.17,
+    "notes": [
+      "expect 'answer:': seen",
+      "expect 'answer:': seen",
+      "expect 'rewind to which turn': seen",
+      "src/calc.py after /rewind: def add(a, b):\\n    return a + b\\n\\n\\ndef sub(a, b):\\n    return a - b\\n"
+    ]
+  },
+  "SA4": {
+    "answers": 0,
+    "startup_to_prompt_s": 1.684,
+    "request_to_workspace_line_s": [
+      null
+    ],
+    "exit_code": 0,
+    "wall_s": 8.61,
+    "notes": []
+  }
+}

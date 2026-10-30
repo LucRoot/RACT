@@ -1,0 +1,112 @@
+   0.043s out 
+   1.344s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   1.773s out RACT session fake-coder via local | master | default | T3 off\n
+   1.793s out ract> 
+   1.794s  in 'fix add\r'
+   1.808s out fix add\n
+   2.633s out Plan: 1 step, confidence 0.90\n
+   2.648s out   assumes: Fix add() in src/calc.py so it adds\n  1. Fix add() in src/calc.py so it adds -> src/calc.py\n
+   2.812s out preparing a workspace for the changes\n
+   3.850s out [step 1] Fix add() in src/calc.py so it adds -> src/calc.py\n
+   3.872s out   > edit_file(path='src/calc.py', old=' return a - b\n\n\ndef sub', new=' return\n
+   3.893s out     a + b\n\n\ndef sub',\n    expected_digest='3f7e5b9b86d939e4ed943d043d5816728e4577b683b02a5f416b0eaeffa\n    c7186') [T1]\n    ok 0.0s edit_file(path='src/calc.py', old=' return a - b\n\n\ndef sub'
+   4.721s out --- src/calc.py (proposed, T1): 1 hunk\n
+   4.733s out Hunk 1 of 1 in src/calc.py:\nsrc/calc.py: lines 1-5 -> 1-5, +1 -1\n1   def add(a, b):\n2 -     return a - b\n2 +     return a + b\n3   \n4   \n5   def sub(a, b):\na accept, r reject, e edit, s skip, A
+   4.749s  in 'a\r'
+   4.750s out a\n
+   4.763s out     src/calc.py hunk 1: accepted\n
+   5.440s out   applied: src/calc.py  (checkpoint 20261030T181131877410Z-9d121c)\n
+   5.460s out [step 1] done src/calc.py (1.6s)\n
+   5.619s out --- src/calc.py ---\n
+   5.619s out def add(a, b):\n    return a + b\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\ndef sub(a, b):\n    return a - b\nwarning: provenance: 1 file(s) have no signature yet (src/calc.p
+   5.621s out \n  Done: 1 step ran; no tests were run.\n
+   5.621s out \n  changed: src/calc.py (+1 -1); unstaged, review with git diff\n
+   5.631s out \n
+   5.633s out   src/calc.py: lines 1-5 -> 1-5, +1 -1\n
+   5.633s out \n  1   def add(a, b):\n
+   5.633s out \n  2 -     return a - b\n
+   5.633s out \n  2 +     return a + b\n
+   5.633s out \n  3\n
+   5.633s out \n  4\n
+   5.633s out \n  5   def sub(a, b):\n
+   5.633s out \n  1 file, +1 -1\n
+   5.634s out \n  way back: /undo, or /review per hunk\n
+   5.634s out \n  verified: RACT ran no tests this turn\n
+   5.634s out \n  assumed: Fix add() in src/calc.py so it adds (planner confidence 0.90, not    \n
+   5.634s out \n    checked)\n
+   5.634s out \n  unsigned: 1 file\n
+   5.634s out \n  3 model requests, 3.8 s, 1932 tokens in / 112 out\n
+   5.646s out \nract>
+   9.659s  in 'make sub return b - a\r'
+   9.659s out make sub return b - a\n
+   9.659s out \n
+   9.905s out Plan: 1 step, confidence 0.90\n
+   9.905s out \n  assumes: Make sub() subtract the other way in src/calc.py\n
+   9.905s out \n  1. Make sub() subtract the other way in src/calc.py -> src/calc.py\n
+   9.920s out \n
+  10.071s out preparing a workspace for the changes\n
+  10.072s out \n
+  11.099s out [step 1] Make sub() subtract the other way in src/calc.py -> src/calc.py\n
+  11.099s out \n
+  11.113s out   > edit_file(path='src/calc.py', old='def sub(a, b):\n return a - b', new='def\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+  11.113s out \n    sub(a, b):\n return b - a',\n    expected_digest='79705c5546cf5ab2ec0abc8fc4c4f0321a9a767da44d77346e4da166f05\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n    4024c
+  11.117s out \n
+  11.120s out     ok 0.0s edit_file(path='src/calc.py', old='def sub(a, b):\n return a - b',\n
+  11.120s out \n      new='def sub(a, b):\n return b - a',\n
+  11.120s out \n      expected_digest='79705c5546cf5ab2ec0abc8fc4c4f0321a9a767da44d77346e4da166f\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+  11.120s out \n      054024c')\n
+  11.133s out \n
+  11.899s out --- src/calc.py (proposed, T1): 1 hunk\n
+  11.899s out \n
+  11.900s out Hunk 1 of 1 in src/calc.py:\n
+  11.900s out \nsrc/calc.py: lines 3-6 -> 3-6, +1 -1\n
+  11.900s out \n3\n
+  11.900s out \n4\n
+  11.900s out \n5   def sub(a, b):\n
+  11.900s out \n6 -     return a - b\n
+  11.900s out \n6 +     return b - a\n
+  11.900s out \na accept, r reject, e edit, s skip, A accept the rest of the file,\n
+  11.900s out \nR reject the rest of the file\n
+  11.909s out \nanswer:
+  11.919s  in 'a\r'
+  11.919s out a\n
+  11.920s out \n    src/calc.py hunk 1: accepted\n
+  11.925s out \n
+  12.547s out   applied: src/calc.py  (checkpoint 20261030T181139727012Z-62982a)\n
+  12.547s out \n
+  12.548s out [step 1] done src/calc.py (1.5s)\n
+  12.564s out \n
+  12.768s out --- src/calc.py ---\n
+  12.768s out \ndef add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return b - a\n
+  12.769s out \n  Done: 1 step ran; no tests were run.\n
+  12.769s out \n  changed: src/calc.py (+1 -1); unstaged, review with git diff\n
+  12.781s out \n  src/calc.py: lines 3-6 -> 3-6, +1 -1\n
+  12.781s out \n  3\n  4\n  5   def sub(a, b):\n
+  12.781s out \n  6 -     return a - b\n
+  12.781s out \n  6 +     return b - a\n
+  12.781s out \n  1 file, +1 -1\n
+  12.781s out \n  way back: /undo, or /review per hunk\n
+  12.781s out \n  verified: RACT ran no tests this turn\n
+  12.781s out \n  assumed: Make sub() subtract the other way in src/calc.py (planner confidence \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+  12.782s out \n    0.90, not checked)\n
+  12.782s out \n
+  12.782s out   unsigned: 1 file\n
+  12.782s out \n  3 model requests, 3.1 s, 2034 tokens in / 121 out\n
+  12.797s out \nract>
+  16.815s  in '/rewind\r'
+  16.815s out /rewind\n
+  16.815s out \n
+  16.825s out 1. 2026-10-30 11:11: make sub return b - a\n
+  16.826s out \n2. 2026-10-30 11:11: fix add\n
+  16.832s out \nrewind to which turn? (a number; Enter keeps everything)
+  16.836s  in '2\r'
+  16.836s out 2\n
+  16.847s out \n
+  16.871s out restored src/calc.py\n
+  16.871s out \n
+  16.871s out back at checkpoint 2; /redo brings back the last turn reversed\n
+  16.894s out \nract>
+  19.917s  in '/exit\r'
+  19.918s out /exit\n
+  19.918s out \n
+  20.032s out 

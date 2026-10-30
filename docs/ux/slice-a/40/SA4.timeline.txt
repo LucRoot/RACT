@@ -1,0 +1,23 @@
+   0.056s out 
+   1.249s out  RACT 0.5.2  config: ract.yaml\n
+   1.258s out        type an intent, or /help for\n       commands\n
+   1.610s out RACT session fake-coder via local\n
+   1.632s out   | master | default | T3 off\nract> 
+   1.648s  in '/ask what does add() return?\r'
+   1.648s out /ask what does add() return?\n
+   2.129s out Plan: 1 step, confidence 1.00\n
+   2.146s out   assumes: The user asked a question;\n    the answer is shown and no file is\n    written.\n  1. what does add() return?\n
+   2.300s out [step 1] what does add() return?\n
+   2.552s out   > grep(path='src', pattern='def\n
+   2.566s out     load_config') [T0]\n
+   2.607s out     ok 0.0s grep(path='src',\n
+   2.629s out       pattern='def load_config')\n  > read_file(limit=60, offset=1,\n    path='src/app/config.py') [T0]\n    ok 0.0s read_file(limit=60,\n      offset=1,\n      path='src/app/config.py')\n  > read_fil
+   2.796s out   Done: 1 step ran; no tests were run.\n
+   2.796s out   changed: nothing\n  verified: RACT ran no tests this turn\n  citations: 0 verified, 2 unverified\n    src/app/config.py:12:\n      src/app/config.py has 5 lines;\n      line 12 does not exist\n    s
+   2.797s out \n  3 model requests, 1.1 s, 1327 tokens  \n
+   2.797s out \n    in / 149 out\n
+   2.819s out \nract>
+   7.838s  in '/exit\r'
+   7.838s out /exit\n
+   7.838s out \n
+   8.000s out 

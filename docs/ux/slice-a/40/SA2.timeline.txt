@@ -1,0 +1,62 @@
+   0.047s out 
+   1.212s out  RACT 0.5.2  config: ract.yaml\n
+   1.231s out        type an intent, or /help for\n       commands\n
+   1.592s out RACT session fake-coder via local\n
+   1.605s out   | master | default | T3 off\nract> 
+   1.622s  in 'say in AGENTS.md how to run one test\r'
+   1.622s out say in AGENTS.md how to run one test\n
+   2.443s out Plan: 1 step, confidence 0.90\n
+   2.459s out   assumes: Note in AGENTS.md how to run\n    one test\n  1. Note in AGENTS.md how to run one\n    test -> AGENTS.md\n
+   2.630s out preparing a workspace for the changes\n
+   3.662s out [step 1] Note in AGENTS.md how to run\n
+   3.684s out   one test -> AGENTS.md\n  > edit_file(path='AGENTS.md', old='Run\n    the tests with pytest.', new='Run\n    the tests with pytest; one test with\n    pytest -k NAME.',\n    expected_digest='361c8f21
+   3.699s out Allow this change? [y/s/N]: 
+   3.715s  in 's\r'
+   3.715s out s\n
+   3.731s out     ok 0.0s edit_file(path='AGENTS.md',\n      old='Run the tests with pytest.',\n      new='Run the tests with pytest;\n      one test with pytest -k NAME.',\n      expected_digest='361c8f214c2ee89b1
+   4.520s out --- AGENTS.md (proposed, T2): 1 hunk\n
+   4.520s out \n
+   4.521s out Hunk 1 of 1 in AGENTS.md:\n
+   4.521s out \nAGENTS.md: lines 1-3 -> 1-3, +1 -1      \n
+   4.521s out \n1   # Agents\n
+   4.521s out \n2\n
+   4.521s out \n3 - Run the tests with pytest.\n
+   4.522s out \n3 + Run the tests with pytest; one te...\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   4.522s out \na accept, r reject, e edit, s skip,     \n
+   4.522s out \nA accept the rest of the file,\n
+   4.522s out \nR reject the rest of the file\n
+   4.536s out \nanswer:
+   4.544s  in 'a\r'
+   4.544s out a\n
+   4.545s out \n    AGENTS.md hunk 1: accepted\n
+   4.551s out \n
+   5.185s out   applied: AGENTS.md (checkpoint\n
+   5.185s out \n    20261030T181301250929Z-7df869)\n
+   5.186s out \n[step 1] done AGENTS.md (1.5s)\n
+   5.194s out \n
+   5.378s out --- AGENTS.md ---\n
+   5.378s out \n# Agents\n\nRun the tests with pytest; one test with\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nh pytest -k NAME.\n
+   5.378s out \nwarning: provenance: 1 file(s) have no  \n
+   5.378s out \n  signature yet (AGENTS.md). See        \n
+   5.378s out \n  docs/PROVENANCE.md.\n
+   5.381s out \n  Done: 1 step ran; no tests were run.  \n
+   5.381s out \n  changed: AGENTS.md (+1 -1); unstaged, \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   5.381s out \n    review with git diff\n
+   5.394s out \n  AGENTS.md: lines 1-3 -> 1-3, +1 -1    \n
+   5.394s out \n  1   # Agents\n
+   5.394s out \n  2\n
+   5.394s out \n  3 - Run the tests with pytest.        \n
+   5.394s out \n  3 + Run the tests with pytest; one    \n
+   5.394s out \n    te...\n  1 file, +1 -1\n
+   5.395s out \n  way back: /undo, or /review per hunk  \n  verified: RACT ran no tests this turn \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   5.395s out \n  assumed: Note in AGENTS.md how to run \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   5.395s out \n    one test (planner confidence 0.90,  \n    not checked)\n
+   5.395s out \n  unsigned: 1 file\n
+   5.395s out \n  3 model requests, 3.8 s, 1988 tokens  \n
+   5.395s out \n    in / 123 out\n
+   5.395s out \n
+   5.411s out ract> 
+   9.455s  in '/exit\r'
+   9.455s out /exit\n
+   9.455s out \n
+   9.559s out 

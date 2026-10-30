@@ -1,0 +1,19 @@
+   0.044s out 
+   1.335s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   1.353s out 
+   1.718s out RACT session fake-coder via local | master | default | T3 off\n
+   1.739s out ract> 
+   1.747s  in '/ask what does add() return?\r'
+   1.754s out /ask what does add() return?\n
+   2.254s out Plan: 1 step, confidence 1.00\n
+   2.266s out   assumes: The user asked a question; the answer is shown and no file is\n    written.\n  1. what does add() return?\n
+   2.421s out [step 1] what does add() return?\n
+   2.689s out   > grep(path='src', pattern='def load_config')  [T0]\n
+   2.776s out     ok 0.1s  grep(path='src', pattern='def load_config')\n
+   2.796s out   > read_file(limit=60, offset=1, path='src/app/config.py')  [T0]\n    ok 0.0s  read_file(limit=60, offset=1, path='src/app/config.py')\n  > read_file(limit=40, offset=1, path='src/app/main.py')  [T0]
+   2.811s out The config loader is `load_config` in src/app/config.py:12. It reads `app.yaml`, expands environment variables, and is called once from src/app/main.py:8 at startup.\n[step 1] done (0.4s)\n
+   2.972s out   Done: 1 step ran; no tests were run.\n
+   2.983s out   changed: nothing\n  verified: RACT ran no tests this turn\n  citations: 0 verified, 2 unverified\n    src/app/config.py:12: src/app/config.py has 5 lines; line 12 does not exist\n    src/app/main.py
+   8.015s  in '/exit\r'
+   8.015s out /exit\n
+   8.123s out 
