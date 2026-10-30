@@ -264,6 +264,12 @@ class ReplSession:
         self._grant_pin: str | None = None
         self._grant_state: Any = None
         self._tier3 = "off"
+        # B-113: the tier-3 mode the operator asked for (capped by the grant's
+        # max_mode) and the "for this session" approvals, in memory only.
+        from ract.policy.allowlist import SessionApprovals
+
+        self._tier3_mode = "ask"
+        self._tier3_session = SessionApprovals()
 
     # ------------------------------------------------------------------ loop
 
@@ -754,6 +760,8 @@ class ReplSession:
                     },
                 )
             return True
+        if args[:1] in (["allowlist"], ["ask"]):
+            return self._set_tier3_mode(args[0])
         if args[:1] == ["lock"]:
             SESSION_WINDOW.lock()
             self._print_wrapped(
@@ -767,9 +775,39 @@ class ReplSession:
         )
         for line in permission_lines(self.state.config.resolve().parent):
             self._print_wrapped(line)
+        from ract.ui.allow_screens import SessionApproval, session_approvals_lines
+
+        self._print_wrapped(f"Tier-3 mode this session: {self._tier3_mode}")
+        for line in session_approvals_lines(
+            [SessionApproval(prefix) for prefix in self._tier3_session.listed()],
+            self._render_width(),
+        ):
+            self._print_wrapped(line)
         self._print_wrapped(
             "Repository commands (hooks, test gates) run only after you trust this "
             "repository: ract trust."
+        )
+        return True
+
+    def _set_tier3_mode(self, wanted: str) -> bool:
+        """``/permissions allowlist`` or ``ask`` (B-113, D6): only up to the grant's max_mode."""
+        grant = self._grant_state
+        policy = getattr(grant, "policy", None)
+        if wanted == "allowlist" and (
+            policy is None or not grant.holds or policy.max_mode != "allowlist"
+        ):
+            self._print_wrapped(
+                "allowlist mode needs a grant that holds with max_mode: allowlist; "
+                "tier 3 stays in ask mode"
+            )
+            return True
+        self._tier3_mode = wanted
+        self._print_wrapped(
+            "Tier 3: allowlist: a command that matches an allow rule runs without "
+            "asking; tier 2, the always-ask list and a changed test or runner file "
+            "still ask"
+            if wanted == "allowlist"
+            else "Tier 3: ask: every command asks before it runs"
         )
         return True
 
@@ -1319,6 +1357,8 @@ class ReplSession:
             # G-216 W1: the pin goes to every step and to the J4 run.
             grant_pin=self._grant_pin,
             terminal=sys.stdin.isatty(),
+            tier3_mode=self._tier3_mode,
+            tier3_session_approvals=self._tier3_session,
         )
         turn_no = s.turns + 1
         cancel = CancelSignal()

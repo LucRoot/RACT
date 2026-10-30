@@ -58,6 +58,9 @@ class TurnRequest:
     # G-216 W4: the operator is at a terminal (a session, not --yolo or headless),
     # so a tier-3 command can ask even when file edits are auto-accepted.
     terminal: bool = False
+    # B-113: the session's tier-3 mode and its session approvals.
+    tier3_mode: str = "ask"
+    tier3_session_approvals: Any = None
 
 
 def _on_disk_name(root: Path, name: str) -> str:
@@ -455,6 +458,8 @@ def run_turn(
                 stream_callback=reporter.delta,
                 grant_pin=request.grant_pin,
                 terminal=request.terminal,
+                tier3_mode=request.tier3_mode,
+                tier3_session_approvals=request.tier3_session_approvals,
             )
     except Exception as exc:  # noqa: BLE001 -- the session must survive; detail goes to the hint
         result = None
@@ -636,6 +641,8 @@ def run_turn(
                 request.intent,
                 console_tier_3_prompt if asks else None,
                 expected_pin=request.grant_pin,
+                mode=request.tier3_mode,
+                session_approvals=request.tier3_session_approvals,
             )
             real = [r for r in runs if r.runner != "fake"]
             if real:

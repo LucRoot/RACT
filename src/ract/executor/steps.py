@@ -182,6 +182,10 @@ class Executor:
     # G-216 W1 (ADR-0048 D3): the grant's pin, the session's when it has one;
     # None means the first step's load pins it for the rest of the run.
     grant_pin: str | None = None
+    # B-113: the session's tier-3 mode (capped by the grant's max_mode) and
+    # its "for this session" approvals.
+    tier3_mode: str = "ask"
+    tier3_session_approvals: Any = None
     # B-110 D6: asks the operator about each hunk a step proposes, before the
     # substrate applies it; set by the runner in the asking mode with
     # step_tools on. None applies the step as it is (auto-accept, --yolo).
@@ -1806,6 +1810,8 @@ class Executor:
                 self.grant_root or self.project_dir,
                 self.tier_3_approver,
                 expected_pin=self.grant_pin,
+                mode=self.tier3_mode,
+                session_approvals=self.tier3_session_approvals,
             )
             if self.grant_pin is None:
                 self.grant_pin = context.expected_pin

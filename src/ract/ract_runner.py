@@ -351,6 +351,8 @@ def _run_ract(
     run_id: str | None = None,
     grant_pin: str | None = None,
     terminal: bool = False,
+    tier3_mode: str = "ask",
+    tier3_session_approvals: Any = None,
 ) -> Rooted[ExecutionReport | Plan]:
     """
     Run a complete RACT cycle for *intent* using the configuration at *config_path*.
@@ -645,6 +647,8 @@ def _run_ract(
             executor.tier_3_approver = console_tier_3_prompt
         # G-216 W1: the session's pin; every step's tier-3 context compares with it.
         executor.grant_pin = grant_pin
+        executor.tier3_mode = tier3_mode
+        executor.tier3_session_approvals = tier3_session_approvals
     if plan_approval is console_plan_approval:
         plan_approval = _remembering_approval(plan_approval, config_path, session_id)
 

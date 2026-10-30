@@ -55,6 +55,8 @@ class Tier3Context:
     runs: list[Any] = field(default_factory=list)
     # The pin every check compares with: the session's, else the first load's.
     expected_pin: str | None = None
+    # B-113: the session's "for this session" answers (allowlist.SessionApprovals).
+    session_approvals: Any = None
 
     def check_pin(self) -> None:
         """Suspend this context when the grant's files changed since the pin (W1)."""
@@ -93,6 +95,9 @@ def for_project(
     approve: Callable[[dict[str, Any]], bool] | None,
     runner: Any = None,
     expected_pin: str | None = None,
+    *,
+    mode: str = "ask",
+    session_approvals: Any = None,
 ) -> Tier3Context:
     """The context for a step in *project*, with its grant read now.
 
@@ -105,12 +110,16 @@ def for_project(
     grant = load_grant(project)
     if expected_pin is not None and grant.pin != expected_pin:
         grant = suspend(grant)
+    # B-113: the session asks for a mode; the grant's max_mode caps it.
+    allowed = getattr(getattr(grant, "policy", None), "max_mode", "ask")
     return Tier3Context(
         project=project,
         grant=grant,
         approve=approve,
         runner=runner,
+        mode="allowlist" if mode == "allowlist" and allowed == "allowlist" else "ask",
         expected_pin=expected_pin if expected_pin is not None else grant.pin,
+        session_approvals=session_approvals,
     )
 
 

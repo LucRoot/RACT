@@ -194,6 +194,17 @@ class Limits(_Strict):
 
 
 class Policy(_Strict):
+    @field_validator("max_mode")
+    @classmethod
+    def _no_unrestricted(cls, value: str) -> str:
+        # D4: unrestricted needs a backend that confines commands; none exists yet.
+        if value == "unrestricted":
+            raise ValueError(
+                "max_mode: unrestricted is refused: no sandbox confines commands on "
+                "this machine; use ask or allowlist"
+            )
+        return value
+
     version: Literal[1]
     binding: Binding
     issued_at: datetime
@@ -358,6 +369,11 @@ def sign(project: Path | str, private_key: Any, key: PublicKey) -> str:
     temp = out.with_name(out.name + ".tmp")
     temp.write_text(json.dumps(sig, indent=2), encoding="utf-8")
     os.replace(temp, out)
+    # B-113 (G-214): what the entry points were at signing, kept outside the
+    # project, so a later change to one puts its command back to the question.
+    from ract.policy import allowlist
+
+    allowlist.record_signed(project, digest)
     return digest
 
 

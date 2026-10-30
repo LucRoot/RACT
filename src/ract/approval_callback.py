@@ -153,8 +153,12 @@ def console_proposed_reviewer(path: str, before: bytes | None, after: bytes | No
     return review_proposed_file(path, before, after, ask, print, width)
 
 
-def console_tier_3_prompt(facts: dict) -> bool:
+def console_tier_3_prompt(facts: dict) -> bool | str:
     """Ask the operator before a tier-3 command runs (ADR-0048 D6). True on yes.
+
+    B-113: where a session answer is offered (``session_choice``), ``s``
+    returns ``"session"``; a changed entry point is shown first with MASON's
+    screen, and then only once or no is offered.
 
     LR:: The prompt shows the full argv with control characters made
     visible, the resolved executable, the folder, network on or off and
@@ -181,8 +185,23 @@ def console_tier_3_prompt(facts: dict) -> bool:
         ),
         reason=str(facts.get("reason") or ""),
     )
+    width = max(_terminal_width() - 3, 20)
+    session = bool(facts.get("session_choice"))
+    from ract.ui.allow_screens import EntryPointChange, entry_point_question_lines
+
+    for path, why in facts.get("entry_points") or []:
+        for line in entry_point_question_lines(
+            EntryPointChange(str(path), str(why)), width
+        )[:-1]:
+            print(line)
     for line in approval_prompt_lines(
-        request, max(_terminal_width() - 3, 20), choices="y runs it once, N refuses"
+        request,
+        width,
+        choices=(
+            "y runs it once, s for this session, N refuses"
+            if session
+            else "y runs it once, N refuses"
+        ),
     ):
         print(line)
     _print_wrapped(
@@ -193,7 +212,15 @@ def console_tier_3_prompt(facts: dict) -> bool:
         _print_wrapped(f"  note: {safe_text(str(note))}")
     question_gate.open_question()
     try:
-        response = read_line("Run it once? [y/N]: ").strip().lower()
+        response = (
+            (
+                read_line("Run it? [y once, s session, N]: ")
+                if session
+                else read_line("Run it once? [y/N]: ")
+            )
+            .strip()
+            .lower()
+        )
     except EOFError:
         return False
     except KeyboardInterrupt:
@@ -201,6 +228,8 @@ def console_tier_3_prompt(facts: dict) -> bool:
         raise
     finally:
         question_gate.close_question()
+    if session and response in {"s", "session"}:
+        return "session"
     return response in {"y", "yes"}
 
 

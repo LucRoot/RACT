@@ -193,10 +193,36 @@ def run_under_rule(
         "reason": reason,
         "notes": [*match.notes, *notes],
     }
-    if not ctx.approve(facts):
-        raise ToolRefused(
-            "you declined the command; nothing ran", "the model can ask again or stop"
+    # B-113 (D4, D6, G-214): what may run without the question.
+    from ract.policy import allowlist
+
+    changes = allowlist.changed_entry_points(
+        ctx.project, ctx.grant.digest, ctx.model_written
+    )
+    sessions = ctx.session_approvals
+    approved_by = ""
+    if match.outcome == "matches" and not changes:
+        if ctx.mode == "allowlist":
+            approved_by = "allow-rule"
+        elif sessions is not None and sessions.covers(match.argv):
+            approved_by = "session"
+    if not approved_by:
+        facts["entry_points"] = [(c.path, c.reason) for c in changes]
+        # A session answer is offered only where an allow rule could answer.
+        facts["session_choice"] = (
+            sessions is not None and match.outcome == "matches" and not changes
         )
+        answer = ctx.approve(facts)
+        if not answer:
+            raise ToolRefused(
+                "you declined the command; nothing ran",
+                "the model can ask again or stop",
+            )
+        if answer == "session" and facts["session_choice"]:
+            sessions.add(match.argv)
+            approved_by = "operator-tty, for this session"
+        else:
+            approved_by = "operator-tty"
     # The question can be open for minutes: the grant is checked again before the run.
     ctx.check_pin()
     if ctx.grant.status == "suspended":
@@ -210,7 +236,7 @@ def run_under_rule(
         rule=rule,
         grant_digest=ctx.grant.digest,
         approval_id=command_id,
-        approver="operator-tty",
+        approver=approved_by,
         runner=ctx.runner,
         network=bool(rule.network),
         project=ctx.project,
@@ -237,6 +263,7 @@ def run_under_rule(
         facts={
             "kind": kind,
             "command_id": command_id,
+            "approved_by": approved_by,
             "exit_code": result.exit_code,
             "duration_ms": result.duration_ms,
             "output_sha256": result.stdout_sha256,
