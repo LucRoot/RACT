@@ -1,0 +1,40 @@
+{
+  "SB1": {
+    "answers": 3,
+    "exit_code": 0,
+    "to_signed_s": 4.63,
+    "to_signed_in_terminal_s": 4.52,
+    "wall_s": 5.53,
+    "notes": [
+      "expect '\\\\[y/N\\\\]': seen",
+      "expect 'New passphrase': seen",
+      "expect 'Again': seen",
+      "expect 'Tier 3: T3 ask': seen",
+      "policy.yaml.sig exists: True"
+    ]
+  },
+  "SB2": {
+    "answers": 0,
+    "exit_code": 0,
+    "wall_s": 7.6,
+    "notes": [
+      "expect 'ract> ': seen"
+    ]
+  },
+  "SB3": {
+    "answers": 0,
+    "exit_code": 0,
+    "wall_s": 8.99,
+    "notes": [
+      "expect 'ract> ': seen"
+    ]
+  },
+  "SB4": {
+    "answers": 0,
+    "exit_code": 0,
+    "wall_s": 6.77,
+    "notes": [
+      "expect 'ract> ': seen"
+    ]
+  }
+}

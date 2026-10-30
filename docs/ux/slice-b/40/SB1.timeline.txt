@@ -1,0 +1,27 @@
+   0.057s out 
+   2.004s out Test runner: python -m pytest (found:\n
+   2.019s out tests/test_*.py)\n
+   2.155s out The narrowest rule for it:\n
+   2.160s out argv [python, -m, pytest]: only this\ncommand, with any arguments after it,\nmay run\nnetwork: false: it runs with the network\noff\ntimeout_s: 900: it is stopped after 15\nminutes\ncwd: step_worktree
+   2.160s out \n16 + timeout_s: 900\n17 + home: isolated\n18 + deny:\n
+   2.160s out \n19 + - argv: [git, push]\n
+   2.160s out \nThere is no operator key on this        \n
+   2.160s out \nmachine: one is created first, outside  \n
+   2.161s out \nthis project.\n
+   2.175s out \nWrite this policy and sign it? [y/N]    \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   2.193s  in 'y\r'
+   2.203s out y\n
+   2.203s out \n
+   2.220s out New passphrase (12 characters or more): 
+   2.234s  in '<typed passphrase>\r'
+   2.250s out \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n
+   2.267s out \nAgain:
+   2.276s  in '<typed passphrase>\r'
+   2.288s out \n
+   2.298s out \n
+   4.524s out Signed .ract/policy.yaml with\n
+   4.524s out \n
+   4.524s out ed25519:3a0f667a6bfa965f (sha256\n
+   4.525s out \n79563717c58c). Tier 3: T3 ask.\n
+   4.534s out \n
+   4.627s out 

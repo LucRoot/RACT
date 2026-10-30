@@ -585,6 +585,12 @@ def _default_event_sink(kind: str, payload: dict[str, Any]) -> None:
 #   per-verb gate wrapper.
 
 _EXEMPT_SITES: dict[str, str] = {
+    "policy/operator_key.py": (
+        "operator key file protection (B-111, D-123): icacls limits the key "
+        "file's ACL to the current user on Windows and reports it for ract "
+        "doctor. The argv is the key file's path and the user name; no model "
+        "or repository input reaches it."
+    ),
     # ---- substrate-internal (mechanism itself) -----------------------
     "executor/loop.py": (
         "substrate-internal: SubstrateLoop's own git ops "

@@ -1,0 +1,9 @@
+   0.096s out 
+   1.951s out  RACT 0.5.2  config: ract.yaml  type an intent, or\n
+   1.959s out        /help for commands\n
+   2.582s out RACT session fake-coder via local | master | default\n
+   2.595s out   | T3 off (grant expired 2026-10-20)\nnote: tier 3 is off: grant expired 2026-10-20\n
+   2.610s out ract> 
+   3.632s  in '/exit\r'
+   3.633s out /exit\n
+   3.742s out 

@@ -145,7 +145,31 @@ class HandshakeRegistry:
         return self._read_mark(item.id, kind) == _approval_digest(item)
 
     def _approved_here(self, item: HandshakeItem) -> bool:
-        return self._marked(item, "approved")
+        """True only for this machine's mark signed by the pinned operator key (R2)."""
+        return signed_approval_holds(
+            item.id, self._read_signed_mark(item.id), _approval_digest(item)
+        )
+
+    def approval_state(self, item: HandshakeItem) -> str:
+        """``signed``, ``unsigned`` (shown, unlocks nothing) or ``none`` (B-111, R2)."""
+        if self._approved_here(item):
+            return "signed"
+        if self._marked(item, "approved") or self._read_signed_mark(item.id):
+            return "unsigned"
+        return "none"
+
+    def _read_signed_mark(self, milestone_id: str) -> dict[str, Any] | None:
+        mark = self._mark(milestone_id, "approved.sig")
+        if mark.is_symlink() or not mark.is_file():
+            return None
+        try:
+            if mark.stat().st_size > 4096:
+                return None
+            data = json.loads(mark.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            print(f"[handshakes] the signed approval cannot be read: {exc}", flush=True)
+            return None
+        return data if isinstance(data, dict) else None
 
     def _current_index(
         self, items: list[HandshakeItem], milestone_id: str
@@ -272,7 +296,14 @@ class HandshakeRegistry:
         blocked = []
         for hid in handshake_ids:
             index = self._current_index(items, hid)
-            if index is not None and items[index].status == "pending":
+            if index is None:
+                continue
+            item = items[index]
+            # B-111 (R2): an approval without the operator's signature was not
+            # given with authority, so it blocks as a pending one does.
+            if item.status == "pending" or (
+                item.status == "approved" and not self._approved_here(item)
+            ):
                 blocked.append(hid)
         return blocked
 
@@ -324,8 +355,16 @@ class HandshakeRegistry:
         )
         return widened
 
-    def update_status(self, milestone_id: str, status: str) -> HandshakeItem:
-        """Approve, reject, or defer a handshake by milestone id."""
+    def update_status(
+        self, milestone_id: str, status: str, *, signer: Any = None
+    ) -> HandshakeItem:
+        """Approve, reject, or defer a handshake by milestone id.
+
+        B-111 (ADR-0048 R2): an approval unlocks only with *signer*, the
+        unlocked operator key, which signs the id, the approved digest and an
+        expiry. Without it the approval is recorded and shown, and unlocks
+        nothing.
+        """
         if status not in {"approved", "rejected", "deferred"}:
             raise ValueError(f"Invalid status transition: {status}")
         items = self.entries()
@@ -343,17 +382,99 @@ class HandshakeRegistry:
             depends_on=item.depends_on,
         )
         self._save(items)
-        _record_approval_mark(self, items[i])
+        _record_approval_mark(self, items[i], signer)
         # module_05: emit at the resolve site so the log carries
         # every terminal transition.
         _emit_handshake_event("handshake.resolved", items[i], reason="")
         return items[i]
 
 
-def _record_approval_mark(registry: HandshakeRegistry, item: HandshakeItem) -> None:
-    """Record on this machine that the operator approved *item*, or clear it."""
+def _record_approval_mark(
+    registry: HandshakeRegistry, item: HandshakeItem, signer: Any = None
+) -> None:
+    """Record on this machine that the operator approved *item*, or clear it.
+
+    With *signer*, the mark also holds the operator's signature (R2),
+    written atomically; a decision other than approve removes it.
+    """
+    import os
+
     digest = _approval_digest(item) if item.status == "approved" else None
     registry._write_mark(item.id, "approved", digest)
+    signed = registry._mark(item.id, "approved.sig")
+    if digest is None or signer is None:
+        signed.unlink(missing_ok=True)
+        return
+    record = sign_approval(item.id, digest, signer)
+    signed.parent.mkdir(parents=True, exist_ok=True)
+    temp = signed.with_name(signed.name + ".tmp")
+    temp.write_text(json.dumps(record), encoding="utf-8")
+    os.replace(temp, signed)
+
+
+APPROVAL_DAYS = 30
+_APPROVAL_DOMAIN = b"ract-handshake-approval/1\n"
+
+
+def _approval_message(milestone_id: str, digest: str, expires: str) -> bytes:
+    from ract.canonical import dumps_jcs
+
+    return _APPROVAL_DOMAIN + dumps_jcs(
+        {"id": milestone_id, "digest": digest, "expires": expires}
+    )
+
+
+def sign_approval(milestone_id: str, digest: str, signer: Any) -> dict[str, Any]:
+    """The signed approval record: id, digest, expiry, key id, signature (R2).
+
+    *signer* is ``(key_id, private_key)``, the operator key unlocked at the
+    terminal.
+    """
+    import base64
+    from datetime import timedelta
+
+    key_id, private_key = signer
+    expires = (datetime.now(timezone.utc) + timedelta(days=APPROVAL_DAYS)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    signature = private_key.sign(_approval_message(milestone_id, digest, expires))
+    return {
+        "format": "ract-handshake-approval/1",
+        "id": milestone_id,
+        "digest": digest,
+        "expires": expires,
+        "key_id": key_id,
+        "signature": base64.b64encode(signature).decode("ascii"),
+    }
+
+
+def signed_approval_holds(
+    milestone_id: str, record: dict[str, Any] | None, digest: str
+) -> bool:
+    """True when *record* is this approval, unexpired, signed by the pinned key."""
+    import base64
+
+    from ract.policy.operator_key import pinned
+
+    if not record or record.get("format") != "ract-handshake-approval/1":
+        return False
+    if record.get("id") != milestone_id or record.get("digest") != digest:
+        return False
+    key = pinned()
+    if key is None or record.get("key_id") != key.key_id:
+        return False
+    try:
+        expires = datetime.strptime(
+            str(record["expires"]), "%Y-%m-%dT%H:%M:%SZ"
+        ).replace(tzinfo=timezone.utc)
+        signature = base64.b64decode(str(record["signature"]), validate=True)
+    except (KeyError, ValueError):
+        return False
+    if datetime.now(timezone.utc) >= expires:
+        return False
+    return key.verify(
+        signature, _approval_message(milestone_id, digest, str(record["expires"]))
+    )
 
 
 def _emit_handshake_event(kind: str, item: HandshakeItem, *, reason: str) -> None:

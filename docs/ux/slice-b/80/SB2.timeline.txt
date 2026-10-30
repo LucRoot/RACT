@@ -1,0 +1,13 @@
+   0.084s out 
+   1.962s out  RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands\n
+   1.971s out 
+   2.670s out RACT session fake-coder via local | master | default | T3 ask\n
+   2.684s out ract> 
+   2.690s  in '/permissions\r'
+   2.700s out /permissions\n
+   2.715s out Mode: default: RACT asks before each step that changes a file\nNetwork: requests go only to the providers named in ract.yaml; /cost lists what\n  was sent.\n
+   2.730s out Tier 3: T3 ask\nGrant signed by ed25519:0355e9154bd1ee18, max mode ask, expires 2027-01-28.\nallow tests: python -m pytest (network off, 900 s)\nSandbox: best_effort: not enforced on this machine; com
+   2.746s out   repository: ract trust.\nract> 
+   4.777s  in '/exit\r'
+   4.777s out /exit\n
+   4.905s out 

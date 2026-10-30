@@ -167,10 +167,6 @@ def test_ract_auction_reports_zero_dead_modules():
     # package fills from read.READ_TOOLS; the symbol graph does not follow a
     # package-level registration, so the module looks unreferenced.
     allowlist.add("read.py")
-    # B-111 (MASON, PREPARED): the tier-3 status line and expiry notice are text only, and no
-    # command imports them until the policy loader (slice b) fills the state. Remove this entry
-    # when the status line is wired; the BUILDER reviews the entry (D-081 pattern).
-    allowlist.add("tier_status_view.py")
     allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped

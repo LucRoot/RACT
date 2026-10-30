@@ -42,11 +42,19 @@ class AlmVerifierKey:
     swaps the signer.
     """
 
-    __slots__ = ("_private_key", "_key_path")
+    __slots__ = ("_private_key", "_key_path", "_workspace")
 
-    def __init__(self, private_key: Ed25519PrivateKey, key_path: Path) -> None:
+    def __init__(
+        self,
+        private_key: Ed25519PrivateKey,
+        key_path: Path,
+        workspace_root: Path | None = None,
+    ) -> None:
         self._private_key = private_key
         self._key_path = key_path
+        # B-111 (R3): the project the key belongs to; its files live in the
+        # user state directory, so the path no longer leads back to it.
+        self._workspace = workspace_root
 
     # ------------------------------------------------------------------
     # Generate / load
@@ -68,9 +76,10 @@ class AlmVerifierKey:
             raise ValueError("run_id must be a 16-byte UUID")
         if workspace_root is None:
             workspace_root = Path.cwd()
-        from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
+        from ract.key_paths import repo_key_dir
 
-        alm_dir = Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "alm"
+        # B-111 (R3): outside the project, in the user state directory.
+        alm_dir = repo_key_dir(workspace_root, "alm")
         alm_dir.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             alm_dir.chmod(0o700)
@@ -82,7 +91,7 @@ class AlmVerifierKey:
                 raise ValueError(
                     "Stored ALM verifier key is not an Ed25519 private key"
                 )
-            return cls(priv, key_path)
+            return cls(priv, key_path, Path(workspace_root))
         priv = Ed25519PrivateKey.generate()
         pem = priv.private_bytes(
             encoding=serialization.Encoding.PEM,
@@ -92,7 +101,7 @@ class AlmVerifierKey:
         key_path.write_bytes(pem)
         if os.name != "nt":
             key_path.chmod(0o600)
-        return cls(priv, key_path)
+        return cls(priv, key_path, Path(workspace_root))
 
     @classmethod
     def load_archived(
@@ -106,21 +115,28 @@ class AlmVerifierKey:
         the module_05 ``## Second Pass results`` section for the
         chain-of-custody design).
         """
+        from ract.key_paths import legacy_read, repo_key_dir
         from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
 
         archive = (
-            Path(workspace_root)
-            / WORKSPACE_STATE_DIR_NAME
-            / "alm"
-            / "archive"
-            / f"{run_id.hex()}.key"
+            repo_key_dir(workspace_root, "alm") / "archive" / f"{run_id.hex()}.key"
         )
         if not archive.exists():
-            return None
+            # The old place inside the project, read for this release (R3).
+            archive = (
+                Path(workspace_root)
+                / WORKSPACE_STATE_DIR_NAME
+                / "alm"
+                / "archive"
+                / f"{run_id.hex()}.key"
+            )
+            if not archive.exists():
+                return None
+            legacy_read(archive)
         priv = serialization.load_pem_private_key(archive.read_bytes(), password=None)
         if not isinstance(priv, Ed25519PrivateKey):
             return None
-        return cls(priv, archive)
+        return cls(priv, archive, Path(workspace_root))
 
     # ------------------------------------------------------------------
     # Archive on run completion
@@ -134,12 +150,12 @@ class AlmVerifierKey:
         pubkey remains resolvable by ``key_id`` for future verification.
         """
         if workspace_root is None:
-            workspace_root = self._key_path.parent.parent.parent
-        from ract.workspace_state import WORKSPACE_STATE_DIR_NAME
+            workspace_root = self._workspace
+        if workspace_root is None:
+            raise ValueError("the key's project is unknown; pass workspace_root")
+        from ract.key_paths import repo_key_dir
 
-        archive_dir = (
-            Path(workspace_root) / WORKSPACE_STATE_DIR_NAME / "alm" / "archive"
-        )
+        archive_dir = repo_key_dir(workspace_root, "alm") / "archive"
         archive_dir.mkdir(parents=True, exist_ok=True)
         if os.name != "nt":
             archive_dir.chmod(0o700)

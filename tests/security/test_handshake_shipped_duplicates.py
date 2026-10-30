@@ -50,12 +50,14 @@ def _ship(project: Path, status: str, item_id: str = "m1") -> None:
     )
 
 
-def test_the_approval_reaches_the_item_this_machine_created(tmp_path: Path) -> None:
+def test_the_approval_reaches_the_item_this_machine_created(
+    tmp_path: Path, operator_signer
+) -> None:
     _ship(tmp_path, "pending")
     registry = HandshakeRegistry(tmp_path)
     registry.add("m1", "risky write", "operator approves")
 
-    registry.update_status("m1", "approved")
+    registry.update_status("m1", "approved", signer=operator_signer)
 
     assert registry.blocks_commit(["m1"]) == []
     widened = registry.widen_manifest_for(_manifest(), "m1")
@@ -74,11 +76,12 @@ def test_a_shipped_approved_copy_does_not_unblock_the_real_pending_item(
 
 
 def test_a_shipped_pending_copy_does_not_keep_an_approved_step_blocked(
-    tmp_path: Path,
+    tmp_path: Path, operator_signer
 ) -> None:
     registry = HandshakeRegistry(tmp_path)
     registry.add("m1", "risky write", "operator approves")
-    registry.update_status("m1", "approved")
+    # B-111 (R2): the approval that unblocks is the signed one.
+    registry.update_status("m1", "approved", signer=operator_signer)
     # A later checkout puts a shipped pending copy ahead of it.
     path = tmp_path / ".ract" / "handshakes.json"
     items = json.loads(path.read_text(encoding="utf-8"))
@@ -105,10 +108,12 @@ def test_a_shipped_approved_group_does_not_approve_compiled_predicates(
     )
 
 
-def test_a_group_the_operator_approved_here_is_approved(tmp_path: Path) -> None:
+def test_a_group_the_operator_approved_here_is_approved(
+    tmp_path: Path, operator_signer
+) -> None:
     group = IntentCompiler._group_id("invariant")
     registry = HandshakeRegistry(tmp_path)
     registry.add(group, "new invariants", "operator approves")
-    registry.update_status(group, "approved")
+    registry.update_status(group, "approved", signer=operator_signer)
 
     assert IntentCompiler._group_is_approved(registry, "invariant")

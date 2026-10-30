@@ -1,0 +1,14 @@
+   0.063s out 
+   1.972s out  RACT 0.5.2  config: ract.yaml\n
+   1.988s out        type an intent, or /help for\n       commands\n
+   2.704s out RACT session fake-coder via local\n
+   2.715s out   | master | default | T3 off (no grant)\nnote: tier 3 is off: the grant is not\n  signed by your operator key\n
+   2.731s out ract> 
+   2.744s  in '/permissions\r'
+   2.746s out /permissions\n
+   2.762s out Mode: default: RACT asks before each\n  step that changes a file\n
+   2.778s out Network: requests go only to the\n  providers named in ract.yaml; /cost\n  lists what was sent.\nTier 3: off: the grant is not signed by\n  your operator key\n`ract policy init --guided` proposes and\
+   2.793s out Sandbox: best_effort: not enforced on\n  this machine; commands are not\n  confined.\nSigning key: locked; signing asks for\n  the passphrase.\nRepository commands (hooks, test gates)\n  run only afte
+   4.828s  in '/exit\r'
+   4.828s out /exit\n
+   5.030s out 

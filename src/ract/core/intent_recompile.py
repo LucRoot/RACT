@@ -109,8 +109,16 @@ def _load_operator_key(ract_dir: Path) -> bytes:
     symlink-following happens at OS filesystem level and is bounded
     by the resolved parent directory.
     """
+    from ract.key_paths import legacy_read, recompile_key_path
+
     ract_dir = ract_dir.resolve(strict=False)
-    key_path = ract_dir / OPERATOR_KEY_FILENAME
+    # B-111 (R3): the key lives in the user config directory now; the old
+    # place inside the project is read for this release, with a warning.
+    key_path = recompile_key_path()
+    if not key_path.exists():
+        key_path = ract_dir / OPERATOR_KEY_FILENAME
+        if key_path.exists():
+            legacy_read(key_path)
     if key_path.exists():
         try:
             key_bytes = key_path.read_bytes()

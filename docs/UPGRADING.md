@@ -37,6 +37,18 @@ git tag, with the fake model server; nothing is installed.
   is tracked, so `git status` shows it as deleted once RACT ignores it.
 - A run on this branch does not show `.ract/` as untracked. The v0.5.2 run did, so
   step 3 below is still the way to stop tracking an old commit's copy.
+- `ract handshakes approve <id>` signs the approval with your operator key, so
+  it asks for the passphrase at a terminal; create the key once with `ract
+  policy keygen`. An approval without that signature (one recorded by an
+  earlier version, or by `ract consolidate apply`) is listed as "approved
+  (unsigned: unlocks nothing)": it widens no manifest and still blocks the
+  step's commit. Approve it again to sign it (ADR-0048 R2).
+- Keys leave the project. The intent-recompile key moves from
+  `.ract/operator.key` to the user config folder, and the per-run sandbox and
+  ALM keys move from `.ract/sandbox/` and `.ract/alm/` to the user state
+  folder. The old places are still read in this release, with a warning on
+  stderr; `ract policy migrate-keys` moves them and overwrites nothing
+  (ADR-0048 R3).
 
 ### Not yet checked
 
@@ -57,6 +69,8 @@ do not rely on them until they are:
 3. Stop tracking the RACT state folder if an old commit added it:
    `git rm --cached -r .ract` then commit. Add `.ract/` to `.gitignore` so it
    stays out of `git status`.
+4. Move any keys out of the project: `ract policy migrate-keys` in each project
+   that has a `.ract/operator.key`, `.ract/sandbox/` or `.ract/alm/`.
 
 ## v0.5.1 → v0.5.2 (Deep-Audit Hardening)
 

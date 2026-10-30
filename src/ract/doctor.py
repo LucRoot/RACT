@@ -81,6 +81,7 @@ class RactDoctor:
             results.extend(self._check_provider_capabilities(self.probes))
         results.append(self._check_prompt_file(config))
         results.append(self._check_skills(config))
+        results.append(self._check_operator_key())
         self.advice = advise(config, _memory(), self.probes, _key_facts(config))
         return results
 
@@ -299,6 +300,14 @@ class RactDoctor:
             name="prompt_file",
             passed=False,
             message="Manager prompt not found and no bundled default is available.",
+        )
+
+    def _check_operator_key(self) -> CheckResult:
+        """How the operator key is kept on this machine (B-111, D-123), said honestly."""
+        from ract.policy.operator_key import protection
+
+        return CheckResult(
+            name="operator_key", passed=True, message=f"Operator key: {protection()}."
         )
 
     def _check_skills(self, config: dict[str, Any]) -> CheckResult:

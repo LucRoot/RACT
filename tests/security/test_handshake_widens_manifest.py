@@ -38,10 +38,10 @@ def test_unapproved_handshake_does_not_widen(tmp_path: Path):
     assert widened == base
 
 
-def test_approved_handshake_widens_within_bounds(tmp_path: Path):
+def test_approved_handshake_widens_within_bounds(tmp_path: Path, operator_signer):
     registry = HandshakeRegistry(tmp_path)
     registry.add("m1", "risky write", "operator approves")
-    registry.update_status("m1", "approved")
+    registry.update_status("m1", "approved", signer=operator_signer)
     base = _make_manifest()
     widened = registry.widen_manifest_for(base, "m1")
     assert "/tmp/build/*" in widened.filesystem.write

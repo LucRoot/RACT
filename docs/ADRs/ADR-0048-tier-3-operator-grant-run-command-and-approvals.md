@@ -151,9 +151,19 @@ Tier map for the section 2 tools (section 1 tools are in ADR-0047 D1):
 - `ract policy keygen` creates an Ed25519 key pair in the user config
   directory (`%APPDATA%\ract\operator\`, `~/.config/ract/operator/`),
   outside every workspace, and pins the public key in user config.
-- The private key is always encrypted with a passphrase (scrypt through
-  `BestAvailableEncryption`). On Windows any process running as the user
-  can read the file, so the passphrase is the control that matters there.
+- The private key is always encrypted with a passphrase, in the key file
+  format `ract-operator-key/1` (amended 2026-10-30, D-123: the earlier
+  "scrypt through `BestAvailableEncryption`" does not exist, since that
+  encryption is PBKDF2): JSON holding the key id, the public key, scrypt
+  parameters (n = 2^17, r = 8, p = 1, a 16-byte salt) and AES-256-GCM over
+  the 32 private bytes, with the header as associated data. The loader
+  treats the file as untrusted data (at most 4 KiB, a closed schema, no
+  link), uses the parameters it stores and refuses n below 2^15. A
+  passphrase under 8 characters is refused and one under 12 warns; every
+  failure to open the file gives one message. The file is 0600 on POSIX and
+  limited to the user by its ACL on Windows, and `ract doctor` says which.
+  On Windows any process running as the user can read the file, so the
+  passphrase is the control that matters there.
 - Signing asks for the passphrase on the terminal and refuses when stdin is
   not a TTY. No environment variable supplies the passphrase.
 - CI never needs the private key: a grant signed on the operator's machine

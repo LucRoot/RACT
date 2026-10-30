@@ -173,7 +173,9 @@ class PlainRenderer:
         items = [f"RACT session {model} via {provider}"]
         if d.get("branch"):
             items.append(str(d["branch"]))
-        items += [str(d.get("mode", "default")), f"T3 {d.get('tier3', 'off')}"]
+        # B-111: the grant's own words (ADR-0048 D3) when the session sends them.
+        tier = d.get("tier3_status") or f"T3 {d.get('tier3', 'off')}"
+        items += [str(d.get("mode", "default")), str(tier)]
         self._line_items(items)
 
     def _on_session_resumed(self, d: dict[str, Any]) -> None:

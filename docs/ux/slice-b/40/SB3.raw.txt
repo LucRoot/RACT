@@ -1,0 +1,27 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml
+]0;<repo>\.venv\Scripts\python.exe[?25h[m       type an intent, or /help for
+       commands
+RACT session fake-coder via local
+  | master | default | T3 off (no grant)
+note: tier 3 is off: the grant is not
+  signed by your operator key
+ract> /permissions
+Mode: default: RACT asks before each
+  step that changes a file
+Network: requests go only to the
+  providers named in ract.yaml; /cost
+  lists what was sent.
+Tier 3: off: the grant is not signed by
+  your operator key
+`ract policy init --guided` proposes and
+  signs a first grant.
+Sandbox: best_effort: not enforced on
+  this machine; commands are not
+  confined.
+Signing key: locked; signing asks for
+  the passphrase.
+Repository commands (hooks, test gates)
+  run only after you trust this
+  repository: ract trust.
+ract> /exit
+[?9001l[?1004l

@@ -86,6 +86,8 @@ CLI_VERBS: tuple[str, ...] = (
     "undo",
     "redo",
     "trust",
+    # B-111 (ADR-0048 D2, D3): the operator key and the signed tier-3 grant.
+    "policy",
     "skills",
     "mcp",
     "retrieval",
@@ -433,10 +435,17 @@ def _handshakes_command(args: list[str]) -> int:
             console.info("No handshake items recorded.")
             return 0
         console.rule("Operator Handshakes")
+
+        def shown(item: Any) -> str:
+            # R2: an approval without the operator's signature unlocks nothing.
+            if item.status == "approved" and registry.approval_state(item) != "signed":
+                return "approved (unsigned: unlocks nothing)"
+            return item.status
+
         console.table(
             title="",
             columns=["ID", "Status", "Description"],
-            rows=[[item.id, item.status, item.description] for item in items],
+            rows=[[item.id, shown(item), item.description] for item in items],
         )
         return 0
 
@@ -472,8 +481,15 @@ def _handshakes_command(args: list[str]) -> int:
         parser.error("milestone_id is required for approve/reject/defer")
     status_map = {"approve": "approved", "reject": "rejected", "defer": "deferred"}
     status = status_map[parsed.action]
+    signer = None
+    if status == "approved":
+        # B-111 (ADR-0048 R2): an approval written outside a live session is
+        # signed with the operator key, unlocked at the terminal.
+        signer = _operator_signer()
+        if signer is None:
+            return 3
     try:
-        item = registry.update_status(parsed.milestone_id, status)
+        item = registry.update_status(parsed.milestone_id, status, signer=signer)
     except KeyError as exc:
         print(f"[ract] {exc}", file=sys.stderr)
         return 1
@@ -482,6 +498,27 @@ def _handshakes_command(args: list[str]) -> int:
         return 0
     print(f"[ract] handshake '{parsed.milestone_id}' marked {status}")
     return 0
+
+
+def _operator_signer() -> tuple[str, Any] | None:
+    """``(key_id, private_key)`` from the operator key, unlocked at the terminal; None refused.
+
+    Prints the reason and the hint when it cannot: no key, no terminal, or a
+    passphrase that does not open the key.
+    """
+    from ract.policy.operator_key import OperatorKeyError, load_public, read_passphrase
+    from ract.policy.unlock import SESSION_WINDOW, window_minutes
+
+    try:
+        key = load_public()
+        private = SESSION_WINDOW.signing_key(
+            read_passphrase, minutes=window_minutes("best_effort")
+        )
+    except OperatorKeyError as exc:
+        print(f"[ract] {exc}", file=sys.stderr)
+        print(f"hint: {exc.hint}", file=sys.stderr)
+        return None
+    return key.key_id, private
 
 
 def _mcp_command(args: list[str]) -> int:
@@ -2928,6 +2965,8 @@ def _consolidate_apply(parsed: argparse.Namespace) -> int:
 
     registry = HandshakeRegistry(parsed.project_dir)
     try:
+        # Applying is the operator's act here; the approval it records is
+        # unsigned and unlocks nothing else (R2).
         item = registry.update_status(parsed.id, "approved")
     except KeyError:
         print(f"[ract] proposal not found: {parsed.id}", file=sys.stderr)
@@ -4702,6 +4741,10 @@ def main(argv: list[str] | None = None) -> int:
         return wizard.main(argv[1:])
     if argv and argv[0] == "trust":
         return _trust_command(argv[1:])
+    if argv and argv[0] == "policy":
+        from ract.policy.cli import policy_command
+
+        return policy_command(argv[1:])
     if argv and argv[0] == "skills":
         return _skills_command(argv[1:])
     if argv and argv[0] == "mcp":

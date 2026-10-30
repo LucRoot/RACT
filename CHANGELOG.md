@@ -175,9 +175,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with the count and the sensitive names it leaves out (`.env` and other secret-shaped names
   are never committed). On no, or with nobody to ask, nothing is changed and RACT says how to
   enable edits later; questions about the code work without it.
+- The operator key and the signed tier-3 grant (ADR-0048 D2, D3, D13). `ract policy keygen`
+  makes an Ed25519 key in the user config folder, encrypted with a passphrase typed at a
+  terminal (`ract-operator-key/1`: scrypt and AES-256-GCM; never from a pipe or an environment
+  variable), and pins its public key. `ract policy init --guided` finds the test runner,
+  proposes the narrowest rule (`[python, -m, pytest]`, network off, 15 minutes), explains each
+  field, shows `.ract/policy.yaml` as a diff and signs it on one yes; `ract policy sign`,
+  `status` and `revoke` do the rest. A grant holds only when your pinned key signed it for this
+  folder and it has not expired or been revoked, so a cloned repository's grant grants nothing.
+  The session's status line says `T3 off (no grant)`, `T3 off (grant expired <date>)` or `T3
+  ask`, a notice says why a grant does not hold or that it expires within seven days, a change
+  to the grant during a session suspends tier 3 until `/permissions resume`, and `/permissions`
+  shows the grant. No platform confines commands yet, so every grant says `sandbox:
+  best_effort` and RACT says so; the signing key stays unlocked in memory only where commands
+  are confined (`unlock_window_minutes`), and `/permissions lock` closes it.
 
 ### Changed
 
+- `ract handshakes approve` signs the approval with the operator key, asked at a terminal;
+  an approval without that signature is listed as unsigned, unlocks nothing and still blocks
+  the step's commit (ADR-0048 R2). The intent-recompile key and the per-run sandbox and ALM
+  keys live outside the project now; the old places are read once more with a warning, and
+  `ract policy migrate-keys` moves them (R3). See docs/UPGRADING.md.
 - `ract run "<intent>"` with no terminal (a script or a CI job) no longer changes files without
   a flag: it stops with exit 3 and says to pass `--yolo`, or to use `ract -p --accept-edits`.
   Questions that write nothing still run. `ract run --loop` needs `--yolo` until the loop can

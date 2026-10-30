@@ -1,0 +1,12 @@
+# SB4: An expired grant
+# build: "WIP B-111: unlock window, /permissions shows the grant and locks; the sandbox is best_effort everywhere until slice e" +src-changes  terminal: 60x40 pseudo-terminal  run: 2026-10-30 12:01
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or
+       /help for commands
+RACT session fake-coder via local | master | default
+  | T3 off (grant expired 2026-10-20)
+note: tier 3 is off: grant expired 2026-10-20
+ract> /exit
+
+## harness notes
+- expect 'ract> ': seen

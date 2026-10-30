@@ -249,7 +249,7 @@ def test_worked_example_model_votes_done_environment_refuses(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_new_test_predicates_require_handshake(tmp_path):
+def test_new_test_predicates_require_handshake(tmp_path, operator_signer):
     """A proposed new test blocks on ``HandshakeRegistry`` until approved.
 
     The compiler groups proposals by kind (lateral chain branch A) so the
@@ -291,7 +291,7 @@ def test_new_test_predicates_require_handshake(tmp_path):
     assert "+ tests/test_new.py::test_new_case" in test_handshake.acceptance
 
     # Once the operator approves the group, a re-compile lands the predicate.
-    approvals.update_status("acceptance.compiler.group.test", "approved")
+    approvals.update_status("acceptance.compiler.group.test", "approved", signer=operator_signer)
     suite2 = compiler.compile(
         intent_text="add a new feature", ws=ws, approvals=approvals, inputs=inputs
     )

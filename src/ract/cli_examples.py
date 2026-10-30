@@ -65,6 +65,7 @@ VERB_EXAMPLES: dict[str, str] = {
     "status": "ract status",
     "trace": "ract trace verify <events.jsonl>",
     "trust": "ract trust --list",
+    "policy": "ract policy status",
     "undo": "ract undo",
     "whisper": 'ract whisper "prefer small functions"',
 }

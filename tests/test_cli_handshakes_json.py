@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 
 def test_cli_handshakes_list_json_shows_added_item(tmp_path):
@@ -84,10 +85,39 @@ def test_cli_handshakes_approve_json_reports_status(tmp_path):
         text=True,
         check=False,
     )
-    assert result.returncode == 0, result.stderr
-    data = json.loads(result.stdout)
-    assert data["id"] == "m1"
+    # B-111 (R2): approving outside a session needs the operator key unlocked
+    # at a terminal; with no terminal (and no key) nothing is approved.
+    assert result.returncode == 3, result.stderr
+    assert "operator key" in result.stderr
+    stored = json.loads(
+        registry_dir.joinpath("handshakes.json").read_text(encoding="utf-8")
+    )
+    assert stored[0]["status"] == "pending"
+
+
+def test_cli_handshakes_approve_signs_with_the_operator_key(
+    tmp_path: Path, operator_signer, monkeypatch, capsys
+) -> None:
+    from ract import cli
+    from ract.handshake_registry import HandshakeRegistry
+
+    config = tmp_path / "ract.yaml"
+    config.write_text("project:\n  name: x\n", encoding="utf-8")
+    registry = HandshakeRegistry(tmp_path)
+    registry.add("m1", "deploy", "ok")
+    monkeypatch.setattr(
+        "ract.policy.operator_key.read_passphrase",
+        lambda prompt="", **_k: "throwaway passphrase for a test",
+    )
+    from ract.policy.unlock import SESSION_WINDOW
+
+    SESSION_WINDOW.lock()
+    code = cli.main(["handshakes", "approve", "m1", "--json", "--config", str(config)])
+    assert code == 0
+    data = json.loads(capsys.readouterr().out)
     assert data["status"] == "approved"
+    assert registry.approval_state(registry.current("m1")) == "signed"
+    assert registry.is_approved("m1")
 
 
 # RACT 0.1.2 - Trust and tooling

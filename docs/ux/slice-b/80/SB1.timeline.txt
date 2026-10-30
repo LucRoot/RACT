@@ -1,0 +1,16 @@
+   0.105s out 
+   3.172s out Test runner: python -m pytest (found: tests/test_*.py)\n
+   3.300s out The narrowest rule for it:\n
+   3.320s out argv [python, -m, pytest]: only this command, with any arguments after it, may\nrun\nnetwork: false: it runs with the network off\ntimeout_s: 900: it is stopped after 15 minutes\ncwd: step_worktree: i
+   3.339s  in 'y\r'
+   3.340s out y\n
+   3.351s out New passphrase (12 characters or more): 
+   3.360s  in '<typed passphrase>\r'
+   3.367s out \nAgain: 
+   3.382s  in '<typed passphrase>\r'
+   3.386s out \n
+   3.398s out \n
+   5.835s out Signed .ract/policy.yaml with ed25519:56e6985334732121 (sha256 2bbb957bf057).\n
+   5.835s out Tier 3: T3 ask.\n
+   5.845s out \n
+   5.937s out 

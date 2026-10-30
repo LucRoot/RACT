@@ -1,0 +1,10 @@
+[?9001h[?1004h[?25l[2J[m[38;2;30;144;255m[1m[H RACT 0.5.2  config: ract.yaml
+]0;<repo>\.venv\Scripts\python.exe[?25h[m       type an intent, or /help for
+       commands
+RACT session fake-coder via local
+  | master | default
+  | T3 off (grant expired 2026-10-20)
+note: tier 3 is off: grant expired
+  2026-10-20
+ract> /exit
+[?9001l[?1004l

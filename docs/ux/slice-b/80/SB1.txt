@@ -1,0 +1,51 @@
+# SB1: A new user's first grant with ract policy init --guided
+# build: "WIP B-111: unlock window, /permissions shows the grant and locks; the sandbox is best_effort everywhere until slice e" +src-changes  terminal: 80x40 pseudo-terminal  run: 2026-10-30 12:00
+## interactive session
+Test runner: python -m pytest (found: tests/test_*.py)
+The narrowest rule for it:
+argv [python, -m, pytest]: only this command, with any arguments after it, may
+run
+network: false: it runs with the network off
+timeout_s: 900: it is stopped after 15 minutes
+cwd: step_worktree: it runs in the step's worktree, never in your files
+home: isolated: it gets an empty home folder, not yours
+max_mode: ask: every command still asks you before it runs
+deny [git, push]: never runs, whatever else allows it
+expires in 90 days; `ract policy sign` renews it
+sandbox: best_effort: this machine cannot confine commands, so the network and
+file limits are not enforced here; the grant says so
+.ract/policy.yaml: new file, 19 lines
+1 + version: 1
+2 + binding:
+3 + project_root: '<tmp>...
+4 + repo_root_commit: bec170b8d4302934e5126553c5d5fc6507e03d57
+5 + issued_at: 2026-10-30T19:00:45Z
+6 + expires_at: 2027-01-28T19:00:45Z
+7 + key_id: (your new key, made when you answer yes)
+8 + max_mode: ask
+9 + sandbox: best_effort
+10 + commands:
+11 + allow:
+12 + - id: tests
+13 + argv: [python, -m, pytest]
+14 + network: false
+15 + cwd: step_worktree
+16 + timeout_s: 900
+17 + home: isolated
+18 + deny:
+19 + - argv: [git, push]
+There is no operator key on this machine: one is created first, outside this
+project.
+Write this policy and sign it? [y/N] y
+New passphrase (12 characters or more): 
+Again: 
+
+Signed .ract/policy.yaml with ed25519:56e6985334732121 (sha256 2bbb957bf057).
+Tier 3: T3 ask.
+
+## harness notes
+- expect '\\[y/N\\]': seen
+- expect 'New passphrase': seen
+- expect 'Again': seen
+- expect 'Tier 3: T3 ask': seen
+- policy.yaml.sig exists: True

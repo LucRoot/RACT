@@ -48,6 +48,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--fingerprint-file` | `ract manifest` | Path to a JSON receipt from which to extract the run fingerprint. |
 | `--force` | `ract redo` | also overwrite files that changed after RACT wrote them |
 | `--format` | `ract report` | Output format (default: text). |
+| `--guided` | `ract policy` | propose, explain and sign a first grant |
 | `--help` | `ract` | show this help message and exit |
 | `--history` | `ract rot baseline` | History JSONL path. |
 | `--html` | `ract config diff` | - |
@@ -119,6 +120,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--resume` | `ract run` | Resume a previously saved session or an interrupted run (requires --session); finished steps are not run again. |
 | `--review-diff` | `ract run` | Path to a unified-diff file to review (instead of running a plan). |
 | `--rollback` | `ract run` | Restore the pre-execution snapshot for a session (requires --session). |
+| `--rotate` | `ract policy` | replace the operator key |
 | `--run` | `ract coverage` | Run pytest and compute the delta directly (delta action only). |
 | `--runs-dir` | `ract plan analyze` | Directory containing the session subdirectories. |
 | `--runs-root` | `ract intent recompile` | Root directory of run dirs (default .ract/runs). |

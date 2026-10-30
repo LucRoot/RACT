@@ -1,0 +1,20 @@
+# SB2: The status line and /permissions with a signed grant
+# build: "WIP B-111: unlock window, /permissions shows the grant and locks; the sandbox is best_effort everywhere until slice e" +src-changes  terminal: 80x40 pseudo-terminal  run: 2026-10-30 12:00
+## interactive session
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 ask
+ract> /permissions
+Mode: default: RACT asks before each step that changes a file
+Network: requests go only to the providers named in ract.yaml; /cost lists what
+  was sent.
+Tier 3: T3 ask
+Grant signed by ed25519:0355e9154bd1ee18, max mode ask, expires 2027-01-28.
+allow tests: python -m pytest (network off, 900 s)
+Sandbox: best_effort: not enforced on this machine; commands are not confined.
+Signing key: locked; signing asks for the passphrase.
+Repository commands (hooks, test gates) run only after you trust this
+  repository: ract trust.
+ract> /exit
+
+## harness notes
+- expect 'ract> ': seen

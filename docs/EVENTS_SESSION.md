@@ -103,11 +103,11 @@ Every event is one JSON object:
 
 | Kind | `data` fields |
 |---|---|
-| `session.started` | `workspace` (string, display name only), `model` (string, or null when no config names one), `provider` (string or null, the same), `branch` (string or null), `mode` (`default`, `plan`, `auto-accept`, `unrestricted`), `tier3` (`off`, `ask`, `allowlist`, `unrestricted`, `suspended`), `context_limit` (integer or null), `provider_reachable` (boolean or null when not checked), `tool_calling` (`native`, `fallback`, `none`, `unknown`), `extensions` (object: `loaded`, a list of `{kind, name}`, and `skipped`, a list of `{kind, name, reason}`; `kind` is `hook`, `mcp`, `skill`, `policy` or `guidance`) |
+| `session.started` | `workspace` (string, display name only), `model` (string, or null when no config names one), `provider` (string or null, the same), `branch` (string or null), `mode` (`default`, `plan`, `auto-accept`, `unrestricted`), `tier3` (`off`, `ask`, `allowlist`, `unrestricted`, `suspended`), `tier3_status` (string, the status line's words for it from the project's grant: `T3 off (no grant)`, `T3 off (grant expired <date>)`, `T3 ask`, `T3 allowlist`, `UNRESTRICTED (signed grant)`, `T3 suspended: policy changed`), `context_limit` (integer or null), `provider_reachable` (boolean or null when not checked), `tool_calling` (`native`, `fallback`, `none`, `unknown`), `extensions` (object: `loaded`, a list of `{kind, name}`, and `skipped`, a list of `{kind, name, reason}`; `kind` is `hook`, `mcp`, `skill`, `policy` or `guidance`) |
 | `session.resumed` | the same fields as `session.started`, plus `resumed_from` (session id) and `turns` (integer, turns already in the session) |
 | `session.ended` | `reason` (`exit`, `eof`, `interrupted`, `terminated`, `error`), `turns` (integer), `duration_ms` (integer), `cleanup` (object, present only when an interrupted turn was still cleaning up at exit: `waited_ms` (integer), `finished` (boolean)) |
 | `session.rewound` | `to_turn` (integer), `scope` (`conversation`, `code`, `both`, `summary`), `restored` (integer), `skipped` (list of `{path, reason}`) |
-| `mode.changed` | `mode`, `tier3`, `by` (`operator`) |
+| `mode.changed` | `mode`, `tier3`, `by` (`operator`, or `policy` when tier 3 is suspended because `.ract/policy.yaml` or its signature changed during the session) |
 
 `session.started` is always the first event and `session.ended` the last.
 In a headless run the first event is how a script learns whether the

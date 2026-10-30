@@ -258,6 +258,11 @@ class ReplSession:
         self._write_lock = threading.RLock()
         # Done events of interrupted turns' workers, waited for at exit only.
         self._interrupted: list[threading.Event] = []
+        # Notices about the tier-3 grant for session start (B-111).
+        self._tier3_notes: list[str] = []
+        # The grant as the session found it, and tier 3's state (ADR-0048 D3).
+        self._grant_pin: str | None = None
+        self._tier3 = "off"
 
     # ------------------------------------------------------------------ loop
 
@@ -702,18 +707,43 @@ class ReplSession:
         return True
 
     def _cmd_permissions(self, args: list[str]) -> bool:
-        """What RACT may change or send, in one screen (standard 13)."""
+        """What RACT may change or send, in one screen (standard 13).
+
+        ``/permissions lock`` closes the unlock window (ADR-0048 D2).
+        """
+        from ract.policy.cli import permission_lines
+        from ract.policy.unlock import SESSION_WINDOW
+
+        if args[:1] == ["resume"]:
+            # The operator confirms at the terminal: the grant is read again
+            # and pinned as it is now.
+            facts = self._tier3_facts()
+            for line in self._tier3_notes:
+                self._print_wrapped(line)
+            self._print_wrapped(f"Tier 3 now: {facts['tier3_status']}")
+            if self._events is not None:
+                self._events.emit(
+                    "mode.changed",
+                    {
+                        "mode": self.permission_mode(),
+                        "tier3": facts["tier3"],
+                        "by": "operator",
+                    },
+                )
+            return True
+        if args[:1] == ["lock"]:
+            SESSION_WINDOW.lock()
+            self._print_wrapped(
+                "Signing key locked: the next signature asks for the passphrase."
+            )
+            return True
         self._print_wrapped(f"Mode: {self._MODE_TEXT[self.permission_mode()]}")
         self._print_wrapped(
             "Network: requests go only to the providers named in ract.yaml; "
             "/cost lists what was sent."
         )
-        self._print_wrapped(
-            "Tier 3 (unrestricted): off. This release has no tier-3 policy."
-        )
-        self._print_wrapped(
-            "Sandbox: not enforced in this build; ract doctor shows what is checked."
-        )
+        for line in permission_lines(self.state.config.resolve().parent):
+            self._print_wrapped(line)
         self._print_wrapped(
             "Repository commands (hooks, test gates) run only after you trust this "
             "repository: ract trust."
@@ -1136,12 +1166,72 @@ class ReplSession:
             wrap=True,
         )
         self._events.subscribe(self._renderer)
-        self._events.emit("session.started", self._session_facts())
+        facts = self._session_facts()
+        self._events.emit("session.started", facts)
+        for line in self._tier3_notes:
+            self._events.emit("notice", {"level": "info", "text": line})
         # Ask about the repository's own commands now, on the main thread,
         # before any turn; the answer holds for the session (S-025).
         from ract import trust
 
         trust.decide(self.state.config.resolve().parent, interactive=True)
+
+    def _tier3_facts(self) -> dict[str, str]:
+        """``tier3`` and its status-line words from the project's grant (B-111, ADR-0048 D3).
+
+        Read once at session start. Why tier 3 is off when a grant exists
+        but does not hold, and an expiry within seven days, become notices.
+        """
+        from datetime import date
+
+        from ract.policy.cli import tier_state
+        from ract.ui.tier_status_view import expiry_notice, status_line
+
+        from ract.policy.grant import pin_digest
+
+        self._tier3_notes = []
+        project = self.state.config.resolve().parent
+        try:
+            self._grant_pin = pin_digest(project)
+            state, why = tier_state(project)
+        except Exception as exc:  # noqa: BLE001 - a grant that cannot be read opens nothing
+            print(f"[repl] the tier-3 grant was not read: {exc}", flush=True)
+            return {"tier3": "off", "tier3_status": "T3 off (no grant)"}
+        if why and why != "no grant":
+            self._tier3_notes.append(f"tier 3 is off: {why}")
+        notice = expiry_notice(state, date.today())
+        if notice:
+            self._tier3_notes.append(notice)
+        self._tier3 = state.mode
+        return {"tier3": state.mode, "tier3_status": status_line(state, date.today())}
+
+    def _check_grant_pin(self) -> None:
+        """Suspend tier 3 when the grant's files changed since session start (ADR-0048 D3)."""
+        from ract.policy.grant import pin_digest
+
+        if self._grant_pin is None or self._tier3 == "suspended":
+            return
+        try:
+            now = pin_digest(self.state.config.resolve().parent)
+        except OSError as exc:
+            print(f"[repl] the grant was not re-read: {exc}", flush=True)
+            now = ""
+        if now == self._grant_pin:
+            return
+        self._tier3 = "suspended"
+        text = (
+            "T3 suspended: policy changed. .ract/policy.yaml or its signature changed "
+            "during this session; tier 3 stays off until you confirm with "
+            "/permissions resume"
+        )
+        if self._events is not None:
+            self._events.emit("notice", {"level": "warning", "text": text})
+            self._events.emit(
+                "mode.changed",
+                {"mode": self.permission_mode(), "tier3": "suspended", "by": "policy"},
+            )
+        else:
+            self._print_wrapped(text)
 
     def _session_facts(self) -> dict[str, Any]:
         from ract.executor.worktree import current_branch
@@ -1167,7 +1257,7 @@ class ReplSession:
             "provider": provider,
             "branch": current_branch(self.state.config.resolve().parent),
             "mode": self.permission_mode(),
-            "tier3": "off",
+            **self._tier3_facts(),
             "context_limit": None,
             # Not probed at session start yet (the first turn finds out);
             # the schema allows null and "unknown" for exactly this.
@@ -1182,6 +1272,7 @@ class ReplSession:
         from ract.turn_context import CancelSignal
 
         s = self.state
+        self._check_grant_pin()
         # LR:: The next turn used to wait here for an interrupted turn's
         # worker, up to the provider's 60 s read timeout (G-029). It no longer
         # has to: Ctrl-C closes the worker's HTTP request (CancelSignal), and

@@ -1270,6 +1270,19 @@ def drop_checkpoint_refs(repo: Path, turn_id: str) -> None:
             print(f"[worktree] {ref} not removed: {gone.stderr.strip()}", flush=True)
 
 
+def repo_root_commit(repo: Path) -> str | None:
+    """The first commit of the repository at *repo* (the lowest when several), or None.
+
+    A tier-3 grant may bind to it (ADR-0048 D3), so a policy copied into
+    another repository does not hold there.
+    """
+    done = _git_in(repo, "rev-list", "--max-parents=0", "HEAD")
+    if done.returncode != 0:
+        return None
+    roots = sorted(done.stdout.split())
+    return roots[0] if roots else None
+
+
 def ensure_ract_dir_excluded(repo: Path) -> bool:
     """Add ``.ract/`` to the repository's local exclude file, once.
 

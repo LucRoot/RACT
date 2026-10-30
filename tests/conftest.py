@@ -34,6 +34,30 @@ def pytest_configure(config: pytest.Config) -> None:
     state = tempfile.mkdtemp(prefix="ract-test-state-")
     os.environ["LOCALAPPDATA"] = state
     os.environ["XDG_STATE_HOME"] = state
+    # B-111: the user config directory holds the operator key and its pin
+    # (ADR-0048 D2). No test may reach the operator's real key.
+    user_config = tempfile.mkdtemp(prefix="ract-test-config-")
+    os.environ["APPDATA"] = user_config
+    os.environ["XDG_CONFIG_HOME"] = user_config
+
+
+@pytest.fixture
+def operator_signer(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+):
+    """A throwaway operator key, pinned in a temporary user config (B-111, R2).
+
+    Returns ``(key_id, private_key)``, what ``update_status(..., signer=)``
+    takes. Never the operator's real key: the config folder is the test's.
+    """
+    from ract.policy.operator_key import generate, unlock
+
+    folder = tmp_path_factory.mktemp("operator-config")
+    monkeypatch.setenv("APPDATA", str(folder))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(folder))
+    passphrase = "throwaway passphrase for a test"
+    key = generate(passphrase)
+    return key.key_id, unlock(passphrase)
 
 
 @pytest.fixture(autouse=True)
