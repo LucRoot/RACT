@@ -4,6 +4,8 @@
 
 RACT is a model-agnostic, local-first agentic coding tool. It turns operator intent into structured plans, executes those plans through configurable providers, and writes verified artifacts to disk.
 
+An agent is a model plus its environment: the tools it may call, the state it can read and write, and the record of what it did and where each input came from. RACT is that environment and that record. It is not the model, and no part of its guarantees depends on the model being right.
+
 ## System diagram
 
 ```
@@ -32,6 +34,15 @@ The planner emits a versioned plan. The manager recurses through steps. The exec
 3. **Assumption contract.** Every step declares the assumptions it depends on. The `AssumptionRegistry` tracks the lifecycle (`proposed`, `active`, `discharged`, `violated`) and propagates violations through the dependency graph.
 4. **Threat-model contract.** Every workspace-mutating action passes through `authorize_action` in `src/ract/core/threat_model.py`. Tier-3 actions are refused by default; tier-2 actions require an operator handshake.
 5. **Termination contract.** The recursion loop halts on one of T1–T7, each with a distinct `TerminationCause`: success, regression, provenance violation, assumption cascade, budget exhaustion, handshake block, or provider fault.
+
+### No third-party code in the RACT process
+
+RACT does not run third-party code inside its own process. Extensions are one of two things:
+
+1. a subprocess that speaks a closed JSON line protocol over its standard streams, with the messages defined by RACT and nothing else accepted; or
+2. a data file (a playbook, a role, an adapter definition), read as data and kept under the trust store (`src/ract/trust.py`), so a file a repository ships is untrusted until the user trusts it.
+
+`register_adapter` remains a library call for a developer who embeds RACT in their own program. It is the developer's code in the developer's process, and the CLI never calls it with code from a repository.
 
 ## Failure modes and concurrency
 

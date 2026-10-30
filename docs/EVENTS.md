@@ -1063,3 +1063,61 @@ non-T1 exit: `applied` when the reset ran, `refused` otherwise. Fields:
 
 <!-- schema_version: 10 — v0.5.2 CI-fix closure (added 10 kinds already emitted in src/) -->
 
+## Stage to event kind
+
+Each stage of a turn emits the kinds in its row. The session kinds are the closed set in `src/ract/session_events.py` (`KINDS`), documented in `docs/EVENTS_SESSION.md`. The trace kinds are the closed `EventKind` vocabulary in this file, emitted by the run path (`ract run`, `ract trace`).
+
+| Stage | Session kinds | Trace kinds |
+|-------|---------------|-------------|
+| Session | `session.started`, `session.resumed`, `session.ended`, `session.rewound`, `mode.changed`, `turn.started`, `turn.interrupting` | `run.started`, `run.completed`, `run.aborted` |
+| Input | `input.queued`, `input.withdrawn` | none |
+| Plan | `plan.proposed` | `predicate.evaluated` |
+| Approval | `plan.approval_requested`, `plan.approval_answered`, `approval.requested`, `approval.resolved` | `handshake.requested`, `handshake.resolved` |
+| Model | `agent.text.delta`, `agent.reasoning.delta`, `agent.heartbeat`, `agent.retry` | `prompt.sent`, `response.received`, `response.validated`, `response.rejected` |
+| Tool | `tool.call.started`, `tool.call.finished` | `tool.called`, `tool.result`, `tool.refused` |
+| Sandbox | none | `sandbox.granted`, `sandbox.denied`, `sandbox.unenforced`, `sandbox.env_scrubbed`, `process.reaped` |
+| Step | `step.started`, `step.finished` | `step.started`, `step.committed`, `step.rolled_back` |
+| Write | `diff.proposed`, `diff.reviewed`, `change.applied` | `rootknot.created`, `rootknot.verified` |
+| Verify | `review.started`, `review.finished` | none emitted; `verification.started` and `verification.finished` are reserved, not emitted |
+| Assumptions | none | `assumption.proposed`, `assumption.discharged`, `assumption.violated` |
+| Summary | `turn.finished`, `cost.updated`, `error.surfaced`, `notice` | `auction.proposal` |
+| Trace | none | the trace file itself; `ract trace replay` reads it |
+| Ledger | none | none: the egress ledger is a file, not an event kind |
+
+Notes:
+
+- The session envelope is frozen. New kinds carry `actor` and `stage` in their payload; kinds that already exist do not change.
+- `RESERVED_KINDS` (session) and the reserved names in `docs/EVENTS_SESSION.md` are not emitted and `emit` refuses them.
+- A kind that appears in this table is checked against the code by `tests/docs/test_v7_03_tables.py`.
+
+## Halt causes and exit codes
+
+A turn ends with one outcome word on `turn.finished` and one process exit code. The exit code comes from `exit_code_for` in `src/ract/session_turn.py` (checked in order) and from the cancel and budget branches of the same function. The hint is the first matching line of `_HINTS` in that file, or the default.
+
+| Halt cause | Outcome word | Exit code | Hint line (or where it comes from) |
+|------------|--------------|-----------|-----------------------------------|
+| Done: every step ran and the verdict was produced | `done` | 0 | none |
+| Plan cancelled by the operator (ADR-0049 D12) | `refused` | 0 | the turn says nothing was run; no hint |
+| Unclassified failure | `failed` | 1 | the default hint: `ract doctor --check-providers` |
+| Configuration: no config file, HTTP 401 or 403, an api key problem | `failed` | 2 | the hint for the matched configuration line |
+| Stdin stall: piped stdin open and silent past the idle timeout (B-093, D-102) | `failed` (no `turn.finished` is emitted today: a gap for the BUILDER) | 2 | `pass --no-stdin when nothing is piped, or close stdin` |
+| Refused by policy: a path refused, a preflight refusal, an approval the run cannot ask for | `failed` | 3 | names `--accept-edits` in `ract -p`, `--yolo` in `ract run` |
+| `ract run` with no terminal and no `--yolo` (B-104, D-104) | none (no turn started) | 3 | names `--yolo` |
+| Token budget used up (B-065) | `budget` | 4 | `Stopped: the run used its token budget.` |
+| Provider unavailable: connection refused, timeout, HTTP 5xx or 429 | `failed` | 6 | start the model server, or fix the provider url |
+| Interrupted by the operator (Ctrl-C during a turn) | `interrupted` | 5 | none |
+| Loop termination T1 (complete) | gap | gap | gap |
+| Loop termination T2 (regressed twice) | gap | gap | gap |
+| Loop termination T3 (provenance failure) | gap | gap | gap |
+| Loop termination T4 (assumption burst) | gap | gap | gap |
+| Loop termination T5 (iteration or wall-time budget exhausted) | gap | gap | gap |
+| Loop termination T6 (unresolved blocking handshake) | gap | gap | gap |
+| Loop termination T7 (provider timeout twice) | gap | gap | gap |
+| Loop termination T8 (`T8_PROMPT_DRIFT`: the intent text changed mid-run) | gap | gap | gap |
+
+Reading the table:
+
+- The T1 to T8 rows are the loop's `TerminationCause` values (`src/ract/core/loop.py`). The loop records them in the run report and in `run.completed`; no outcome word and no exit code for them exists in `session_turn.py`, `headless.py` or the CLI today. They are marked `gap` here and reported to the BUILDER as an escalation. This draft does not invent a mapping.
+- Exit 4 is the budget stop of the turn path, not of the loop's T5.
+- Exit 5 is the interrupted outcome, which the turn returns as the process exit code.
+- A row with outcome `none` writes no `turn.finished`; the only record is the error line on stderr.
