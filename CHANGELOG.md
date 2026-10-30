@@ -147,6 +147,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A provider key is masked wherever RACT shows text, also when it has no recognizable shape:
+  when the key is resolved, its exact value and its URL-encoded and base64 forms are kept in
+  memory and replaced with `[redacted]` in events, errors and streamed text (for example a
+  gateway that echoes the rejected key in its error). The key is never written to disk.
 - On Windows, a Ctrl-C pressed just as a question or the prompt appears interrupts at once; it
   was held until the next Enter when it landed before the console read started.
 - A step no longer writes through a hard link (a file with a second name, which may be

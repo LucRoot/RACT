@@ -27,7 +27,7 @@ else:
 from ract.providers.base import ProviderAdapter
 from ract.providers import reasoning
 from ract.providers.rate_limit import TokenBucket
-from ract import egress_ledger, egress_scan, turn_context
+from ract import egress_ledger, egress_scan, redaction, turn_context
 from ract import run_token_budget as token_budget
 from ract.retry_policy import (
     MAX_RETRY_AFTER_S,
@@ -181,6 +181,9 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 self.api_key = "no-key"
                 self._env_key_withheld = bool(value)
         self._withheld_notice_sent = False
+        if self.api_key != "no-key":
+            # V7-05: the resolved key is masked wherever text is redacted (memory only).
+            redaction.register_known(self.api_key)
         self.model = config.get("model", "gpt-4o-mini")
         self.timeout = float(config.get("timeout", 60.0))
         self.max_retries = int(config.get("max_retries", 3))

@@ -61,6 +61,8 @@ FAULTS = frozenset(
         "non_json",
         "missing_choices",
         "empty_message",
+        # V7-05: a gateway that echoes the key it rejected in its error body.
+        "http_401_echo",
     }
 )
 DEFAULT_CREATED = 1700000000
@@ -500,7 +502,13 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _fault(self, reply: dict[str, Any], body: Any, ordinal: int) -> None:
         fault = reply["fault"]
-        if fault == "http_429":
+        if fault == "http_401_echo":
+            key = (self.headers.get("Authorization") or "").removeprefix("Bearer ")
+            self._send_json(
+                401,
+                {"error": {"message": f"invalid key {key}", "type": "auth"}},
+            )
+        elif fault == "http_429":
             extra = {}
             if "retry_after" in reply:
                 extra["Retry-After"] = str(reply["retry_after"])

@@ -10,11 +10,20 @@ until the next one arrives or the message ends.
 
 The pattern list is deliberately small and specific, so ordinary code and
 prose pass unchanged. The request-body scanner (S-022) will extend it.
+
+Known values (V7-05): a pattern cannot know a key that has no telltale
+shape. When a provider key is resolved, ``register_known`` keeps its exact
+value and its URL-encoded and base64 forms in this process's memory, and
+``redact`` and ``StreamingRedactor`` mask them like a pattern match. They are
+never written anywhere; a value shorter than 8 characters is not kept.
 """
 
 from __future__ import annotations
 
+import base64
 import re
+import threading
+from urllib.parse import quote
 
 REPLACEMENT = "[redacted]"
 
@@ -145,6 +154,67 @@ _HOLD_WITH_NEXT = re.compile(
 )
 
 
+KNOWN_MIN_LENGTH = 8
+_known_lock = threading.Lock()
+# The registered values and their encoded forms, longest first. Memory only.
+_known: tuple[str, ...] = ()
+
+
+def register_known(value: object) -> bool:
+    """Mask *value* wherever text is redacted in this process (V7-05).
+
+    Its URL-encoded form and its base64 forms (standard and URL-safe, with and
+    without padding) are masked too. A value under 8 characters is not kept:
+    masking it would hide ordinary words. True when the value was kept.
+    """
+    global _known
+    if not isinstance(value, str) or len(value) < KNOWN_MIN_LENGTH:
+        return False
+    data = value.encode("utf-8")
+    forms = {value, quote(value, safe="")}
+    for encoded in (base64.b64encode(data), base64.urlsafe_b64encode(data)):
+        text = encoded.decode("ascii")
+        forms.update({text, text.rstrip("=")})
+    with _known_lock:
+        merged = set(_known) | {f for f in forms if len(f) >= KNOWN_MIN_LENGTH}
+        _known = tuple(sorted(merged, key=len, reverse=True))
+    return True
+
+
+def clear_known() -> None:
+    """Forget every registered value (tests, and a process that switches providers)."""
+    global _known
+    with _known_lock:
+        _known = ()
+
+
+def _mask_known(text: str) -> tuple[str, int]:
+    count = 0
+    for value in _known:
+        if value in text:
+            count += text.count(value)
+            text = text.replace(value, REPLACEMENT)
+    return text, count
+
+
+def _hold_known(text: str, cut: int) -> int:
+    """Move *cut* so no registered value is split and no released text ends with one's start."""
+    moved = True
+    while moved:
+        moved = False
+        for value in _known:
+            start = text.find(value)
+            while start != -1:
+                if start < cut < start + len(value):
+                    cut, moved = start, True
+                start = text.find(value, start + 1)
+            for size in range(min(len(value) - 1, cut), 0, -1):
+                if text[cut - size : cut] == value[:size]:
+                    cut, moved = cut - size, True
+                    break
+    return cut
+
+
 def redact(text: str) -> str:
     """Return ``text`` with every secret-shaped value replaced."""
     return redact_report(text)[0]
@@ -153,6 +223,10 @@ def redact(text: str) -> str:
 def redact_report(text: str) -> tuple[str, dict[str, int]]:
     """Redact ``text`` and count the matches by pattern name."""
     counts: dict[str, int] = {}
+    if _known:
+        text, n = _mask_known(text)
+        if n:
+            counts["known_value"] = n
     for name, pattern in NAMED_PATTERNS:
         text, n = pattern.subn(_replace, text)
         if n:
@@ -230,6 +304,10 @@ class StreamingRedactor:
             for match in pattern.finditer(text):
                 if match.start() < cut < match.end():
                     cut = match.start()
+        # Nor part of a registered value (V7-05): a key split across deltas
+        # is held until it can be masked whole.
+        if _known:
+            cut = _hold_known(text, cut)
         self._buffer = text[cut:]
         return redact(text[:cut])
 

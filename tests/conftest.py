@@ -37,6 +37,15 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _forget_known_values() -> object:
+    """V7-05: a key one test's provider registered is not masked in the next test."""
+    yield
+    from ract import redaction
+
+    redaction.clear_known()
+
+
+@pytest.fixture(autouse=True)
 def _reset_ambient_run_id_and_env() -> object:
     """Clear the ambient ``RACT_RUN_ID`` ContextVar and env keys.
 
