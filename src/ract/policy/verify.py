@@ -34,6 +34,7 @@ def run_named_tests(
     """Run the tests *intent* names; the results, and why nothing ran when nothing did."""
     from ract.policy import tier3
     from ract.tools import run_tool
+    from ract.tools.tests_tool import RUN_TESTS
 
     project = Path(project)
     ctx = tier3.for_project(project, approve, runner)
@@ -44,7 +45,7 @@ def run_named_tests(
     with tier3.bound(ctx):
         rooted = run_tool(
             project,
-            "run_tests",
+            RUN_TESTS.name,
             {
                 "selectors": named_selectors(intent),
                 "reason": "the request names this test; RACT runs it to check the turn",

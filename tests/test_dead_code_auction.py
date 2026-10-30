@@ -167,6 +167,9 @@ def test_ract_auction_reports_zero_dead_modules():
     # package fills from read.READ_TOOLS; the symbol graph does not follow a
     # package-level registration, so the module looks unreferenced.
     allowlist.add("read.py")
+    # B-112: tools/tests_tool.py holds run_tests, registered the same way (the
+    # package fills REGISTRY with RUN_TESTS), so it looks unreferenced too.
+    allowlist.add("tests_tool.py")
     allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped
