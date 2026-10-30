@@ -389,6 +389,16 @@ class ProposedDecision:
         return bool(self.rejected or self.edited)
 
 
+def _apply_whole(question: str, ask: Ask) -> bool:
+    """True to apply a proposed change that is not split into hunks (nothing is saved yet)."""
+    while True:
+        answer = _ask(ask, f"{question} [a apply, r leave it out]: ").lower()
+        if answer in {"a", "y", "yes", "apply", "k", "keep"}:
+            return True
+        if answer in {"r", "n", "no"}:
+            return False
+
+
 def review_proposed_file(
     key: str,
     before: bytes | None,
@@ -408,7 +418,7 @@ def review_proposed_file(
     """
     if after is None:
         show(f"{safe_text(key)}: the step removes this file.")
-        keep = _whole_file(f"Remove {safe_text(key)}?", ask)
+        keep = _apply_whole(f"Remove {safe_text(key)}?", ask)
         return ProposedDecision(
             key,
             None if keep else before,
@@ -430,7 +440,11 @@ def review_proposed_file(
             max_lines=40,
         ):
             show(line)
-        keep = _whole_file(f"Keep the step's change to {safe_text(key)}?", ask)
+        keep = _apply_whole(
+            f"Apply the step's {'new file' if before is None else 'change to'} "
+            f"{safe_text(key)}?",
+            ask,
+        )
         return ProposedDecision(
             key,
             after if keep else before,

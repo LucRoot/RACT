@@ -455,6 +455,9 @@ def test_run_ract_auto_passes_console_callback(tmp_path: Path) -> None:
     mock_harness.run.return_value = Rooted(
         value=report, assumption="executed", confidence=0.9
     )
+    # A Harness always has an executor (an instance attribute, so the spec
+    # does not carry it); the asking mode sets the tier-2 question on it.
+    mock_harness.executor = MagicMock(step_tools=None, tier_2_approver=None)
 
     with patch(
         "ract.ract_runner.Harness.from_config_path",
@@ -470,6 +473,41 @@ def test_run_ract_auto_passes_console_callback(tmp_path: Path) -> None:
     callback = mock_enrich.call_args.kwargs.get("approval_callback")
     assert callback is not None
     assert callback.__name__ == "console_approval_callback"
+    # B-110: someone is at the terminal, so a tier-2 call asks them.
+    assert mock_harness.executor.tier_2_approver is not None
+
+
+def test_run_ract_yolo_never_sets_a_tier_2_answer(tmp_path: Path) -> None:
+    config_path = _write_config(tmp_path)
+    report = ExecutionReport(
+        intent="test",
+        step_results=[
+            StepResult(step=Step("a", "b", "c"), raw_response={}, content="x")
+        ],
+        assumptions=["a"],
+        provenance={},
+        artifacts={},
+    )
+    mock_harness = MagicMock(spec=Harness)
+    mock_harness.run.return_value = Rooted(
+        value=report, assumption="executed", confidence=0.9
+    )
+    mock_harness.executor = MagicMock(step_tools=object(), tier_2_approver=None)
+    mock_harness.git_init_offer = None
+
+    with patch(
+        "ract.ract_runner.Harness.from_config_path",
+        return_value=Rooted(value=mock_harness, assumption="loaded", confidence=1.0),
+    ):
+        with patch(
+            "ract.ract_runner.enrich_harness_run",
+            return_value=Rooted(value=report, assumption="enriched", confidence=0.9),
+        ):
+            assert run_ract(config_path, "intent", yolo=True).is_ok()
+
+    # --yolo never answers a tier-2 question, a review or the git init offer.
+    assert mock_harness.executor.tier_2_approver is None
+    assert mock_harness.git_init_offer is None
 
 
 def test_run_ract_saves_memory_arena_for_session(tmp_path: Path) -> None:

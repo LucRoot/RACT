@@ -227,3 +227,22 @@ def test_the_scenario_reply_is_json() -> None:
     # Guard for the helpers this file borrows: a reply is one JSON value.
     reply = _calls(("read_file", {"path": "a"}))["reply"]["content"]
     assert json.loads(reply)["tool"] == "read_file"
+
+
+def test_a_whole_file_question_says_apply_and_leave_out() -> None:
+    questions: list[str] = []
+
+    def ask(question: str) -> str:
+        questions.append(question)
+        return "r"
+
+    # A file that is not UTF-8 text is one question, not hunks.
+    decision = review_proposed_file("logo.bin", None, b"\xff\xfe\x00x", ask, print, 80)
+    assert decision.content is None
+    changed = review_proposed_file("logo.bin", b"\xff", b"\xfe", ask, print, 80)
+    assert changed.content == b"\xff"
+    assert questions == [
+        "Apply the step's new file logo.bin? [a apply, r leave it out]: ",
+        "Apply the step's change to logo.bin? [a apply, r leave it out]: ",
+    ]
+    assert not any("restore" in q for q in questions)  # nothing was saved yet
