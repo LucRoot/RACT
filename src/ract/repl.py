@@ -507,8 +507,7 @@ class ReplSession:
         result = undo_backup.undo(
             self.state.config.resolve().parent, force="--force" in args
         )
-        for line in result.lines("undo"):
-            self._console.print(line)
+        self._print_reversal(result, "undo")
         return True
 
     def _cmd_redo(self, args: list[str]) -> bool:
@@ -517,9 +516,27 @@ class ReplSession:
         result = undo_backup.redo(
             self.state.config.resolve().parent, force="--force" in args
         )
-        for line in result.lines("redo"):
-            self._console.print(line)
+        self._print_reversal(result, "redo")
         return True
+
+    def _print_reversal(self, result: Any, verb: str) -> None:
+        """Print an undo or redo result. B-105: each verb says what it did to a file.
+
+        ``undo`` puts a file back to the version before the turn; ``redo`` applies
+        the turn's change again. Both words come from the verb here, not from the
+        shared result text, which says "restored" for both.
+        """
+        for line in result.lines(verb):
+            if verb == "redo" and line.startswith("restored "):
+                path = line[len("restored ") :]
+                self._print_wrapped(f"re-applied {safe_text(path)}")
+            elif verb == "undo" and line.startswith("restored "):
+                path = line[len("restored ") :]
+                self._print_wrapped(
+                    f"restored {safe_text(path)} to the version before the turn"
+                )
+            else:
+                self._print_wrapped(line)
 
     # B-034: the session's permission mode, made of the two switches it
     # already had (dry-run, auto) and shown in the status line.
