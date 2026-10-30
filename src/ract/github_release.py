@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-from ract import egress_ledger, egress_scan
+from ract import egress_ledger, egress_scan, redaction
 
 
 class GitHubReleaseError(Exception):
@@ -30,6 +30,8 @@ class GitHubReleaseClient:
         base_url: str = "https://api.github.com",
     ) -> None:
         self.token = token
+        # V7-05 (G-196): the token is masked wherever text is redacted (memory only).
+        redaction.register_known(token)
         self.owner = owner
         self.repo = repo
         self.base_url = base_url.rstrip("/")

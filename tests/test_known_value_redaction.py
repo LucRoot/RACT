@@ -163,3 +163,22 @@ def test_the_provider_registers_its_resolved_key() -> None:
         {"url": "http://127.0.0.1:9/v1", "model": "m", "api_key": "no-key"}
     )
     assert redaction.redact("no-key") == "no-key"
+
+
+def test_the_web_search_key_and_the_github_token_are_registered() -> None:
+    # G-196: every adapter that resolves a credential registers it.
+    from ract.github_release import GitHubReleaseClient
+    from ract.retrieval_adapter import WebSearchAdapter
+
+    WebSearchAdapter(api_key="srch4KeyQ9wE7rT1")
+    GitHubReleaseClient(token="ghtok8Zx2Lm5Np0", owner="o", repo="r")
+    assert (
+        redaction.redact("srch4KeyQ9wE7rT1 ghtok8Zx2Lm5Np0") == "[redacted] [redacted]"
+    )
+
+
+def test_a_variable_reference_is_not_registered() -> None:
+    from ract.retrieval_adapter import WebSearchAdapter
+
+    WebSearchAdapter(api_key="$SERPER_KEY")
+    assert redaction.redact("$SERPER_KEY") == "$SERPER_KEY"

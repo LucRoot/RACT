@@ -299,7 +299,7 @@ sequences, so `ract -p "..." > out.txt` gives a clean file.
 | `budget` | 4 | A budget was exhausted. |
 | `cancelled` | 5 or 143 | Interrupted (Ctrl-C) or terminated (SIGTERM, Ctrl-Break). |
 | `provider` | 6 | The provider was unavailable. |
-| `internal` | 1 | The task failed for a reason RACT does not classify. |
+| `internal` | 1 | The task failed for a reason RACT does not classify. When the run surfaced no error, `message` is the turn's verdict and `hint` is empty. |
 
 The errors found before the turn starts (`usage`, `config` with no file,
 `stdin_stall`) print the same one line on stderr as before, and with

@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ract import egress_ledger, egress_scan
+from ract import egress_ledger, egress_scan, redaction
 from ract.rooted import Rooted
 from ract.workspace_path import is_never_sent
 
@@ -223,6 +223,10 @@ class WebSearchAdapter(RetrievalAdapter):
         timeout: float = 30.0,
     ) -> None:
         self.api_key = api_key
+        if api_key and not api_key.startswith("$"):
+            # V7-05 (G-196): a resolved search key is masked like a provider key;
+            # "$NAME" is a reference to a variable, not a key.
+            redaction.register_known(api_key)
         self.endpoint = endpoint or "https://google.serper.dev/search"
         self.query_param = query_param
         self.method = method.lower()

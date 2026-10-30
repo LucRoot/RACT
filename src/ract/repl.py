@@ -71,11 +71,12 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/providers", "List configured providers and the manager provider."),
     ("/permissions", "What RACT may change or send, in one screen."),
     (
-        "/cost [--by purpose|step|role]",
-        "Requests, tokens and bytes sent off this machine in this session.",
+        "/cost [--by KEY]",
+        "Requests, tokens and bytes sent off this machine in this session; "
+        "--by purpose, step or role groups the model requests.",
     ),
     (
-        "/mode [plan|default|auto-accept]",
+        "/mode [MODE]",
         "plan: propose only; default: ask before each change; auto-accept: apply changes.",
     ),
     ("/diff", "Show the last turn's changes, from the copies it saved."),
@@ -89,7 +90,11 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
         "list shows each checkpoint.",
     ),
     ("/redo [--force]", "Reverse the last /undo."),
-    ("/doctor [--check-providers]", "Run setup diagnostics against the active config."),
+    (
+        "/doctor [OPTIONS]",
+        "Run setup diagnostics against the active config; --check-providers also "
+        "asks each provider.",
+    ),
     ("/report [--last]", "Show what the last run changed and why."),
     (
         "/<verb> ...",

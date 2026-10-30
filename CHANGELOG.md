@@ -150,6 +150,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A web-search key and a GitHub release token are masked wherever RACT shows text, like a
+  provider key. `/help` no longer splits a word at 40 columns: `/cost [--by KEY]`, `/mode [MODE]`
+  and `/doctor [OPTIONS]` name their options in the description.
 - A provider key is masked wherever RACT shows text, also when it has no recognizable shape:
   when the key is resolved, its exact value and its URL-encoded and base64 forms are kept in
   memory and replaced with `[redacted]` in events, errors and streamed text (for example a
