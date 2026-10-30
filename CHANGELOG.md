@@ -190,6 +190,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A Python file a step writes is refused when it imports a project module that does not exist
+  (`from src.notes import NOTEX` with no `src/notes.py`): "it imports src.notes, which does not
+  exist (line 1)", and nothing is written. A module counts as the project's when its first part
+  is a package or folder of the project (in the root or in `src/`), or the import is relative.
+  A file another step of the same plan writes counts as existing. The standard library and
+  installed packages are still not checked.
 - At 60 and 40 columns the session's status line folds between its items, so `T3 off` stays
   on one line, and `/review` lists its choices folded at the commas and asks `answer:`, so no
   choice is split.

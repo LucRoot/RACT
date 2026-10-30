@@ -985,6 +985,9 @@ class Harness:
         run_checkpoint.plan_ready(plan)
         if pre_execute_callback is not None:
             pre_execute_callback(plan)
+        self.executor.planned_artifacts = frozenset(
+            step.expected_artifact for step in plan.steps if step.expected_artifact
+        )
 
         # module_08 (SUBSTRATE §3, Path (d)): route per-plan-step execution
         # through the worktree-per-step SubstrateLoop when the workspace

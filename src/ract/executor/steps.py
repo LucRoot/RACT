@@ -177,6 +177,10 @@ class Executor:
     # substrate applies it; set by the runner in the asking mode with
     # step_tools on. None applies the step as it is (auto-accept, --yolo).
     proposed_reviewer: Any = None
+    # B-119: the files the whole plan writes, set by the harness before the
+    # steps run (the substrate gives the executor one step at a time), so an
+    # import of a module a later step creates is not refused.
+    planned_artifacts: frozenset[str] = frozenset()
     # B-061c: ``review`` from ract.yaml (off, advisory, retry); off reviews nothing.
     review_mode: str = "off"
     # Retries the current step used (B-095's cut-off retry, B-061d's review retry).
@@ -687,15 +691,24 @@ class Executor:
             # B-102: a name imported from a project module must exist there.
             from ract.import_check import missing_names
 
-            missing = missing_names(self.project_dir, expected_artifact, cleaned)
+            missing = missing_names(
+                self.project_dir,
+                expected_artifact,
+                cleaned,
+                planned=self.planned_artifacts,
+            )
             if missing:
-                raise write_gate.ReplacementRefused(
-                    expected_artifact,
-                    "it imports a name that does not exist ("
+                modules = [m for m in missing if not m.name]
+                reason = (
+                    # B-119: the module itself does not exist.
+                    "; ".join(m.describe() for m in modules[:3])
+                    if modules
+                    else "it imports a name that does not exist ("
                     + "; ".join(m.describe() for m in missing[:3])
-                    + ")",
-                    "imports",
-                    created=old is None,
+                    + ")"
+                )
+                raise write_gate.ReplacementRefused(
+                    expected_artifact, reason, "imports", created=old is None
                 )
         # Keep the previous bytes for the turn, or record that the turn
         # creates the file: /undo removes it and a resumed run (D13) resets it.

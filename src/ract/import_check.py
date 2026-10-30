@@ -10,11 +10,19 @@ it. A module that is not in the project (the standard library, a
 dependency) is not checked. A module the check cannot read with certainty
 (a star import, a module ``__getattr__``, a namespace package) is "not
 checked", never "ok".
+
+B-119 (hosted FOUND 1): ``from src.notes import NOTEX`` with no
+``src/notes.py`` was taken for a module outside the project. A module whose
+first segment is a package or directory of the project (in the root or in
+``src/``), or any relative import, must resolve to a file or package; one
+that does not is missing. A file another step of the same plan writes
+counts as existing (*planned*).
 """
 
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
@@ -26,10 +34,13 @@ _MAX_BYTES = 2 * 1024 * 1024
 @dataclass(frozen=True)
 class Missing:
     line: int
+    # The name the module lacks; "" when the module itself does not exist.
     name: str
     module: str
 
     def describe(self) -> str:
+        if not self.name:
+            return f"it imports {self.module}, which does not exist (line {self.line})"
         return (
             f"line {self.line}: imports {self.name} from {self.module}, "
             f"which does not define it"
@@ -59,6 +70,50 @@ def _module_file(
     if parts and as_file.is_file():
         return as_file, None
     return None, None
+
+
+def _planned_module(root: Path, base: Path, dotted: str, planned: set[str]) -> bool:
+    """True when a file of the plan makes *dotted* exist under *base*."""
+    if not planned:
+        return False
+    try:
+        rel = base.resolve().relative_to(root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return False
+    parts = [p for p in dotted.split(".") if p]
+    stem = "/".join(([rel] if rel not in {"", "."} else []) + parts)
+    return any(
+        p == f"{stem}.py"
+        or p.startswith(f"{stem}/")
+        or (not stem and p.endswith(".py"))
+        for p in planned
+    )
+
+
+def _is_project_path(root: Path, base: Path, first: str, planned: set[str]) -> bool:
+    """True when *first* is a package, module or directory of the project under *base*."""
+    if not first:
+        return False
+    if (base / first).is_dir() or (base / f"{first}.py").is_file():
+        return _inside(root, base / first)
+    return _planned_module(root, base, first, planned)
+
+
+def _missing_module(
+    root: Path, bases: list[Path], dotted: str, relative: bool, planned: set[str]
+) -> bool:
+    """True when *dotted* is a project module (B-119) and resolves nowhere."""
+    first = dotted.split(".")[0]
+    owned = relative or any(_is_project_path(root, b, first, planned) for b in bases)
+    if not owned:
+        return False  # the standard library or a dependency: not checked
+    for base in bases:
+        module_file, package = _module_file(root, base, dotted)
+        if module_file is not None or package is not None:
+            return False
+        if _planned_module(root, base, dotted, planned):
+            return False
+    return True
 
 
 def _nested_statements(node: ast.stmt) -> list[ast.stmt]:
@@ -112,16 +167,30 @@ def _names_of(path: Path) -> set[str] | None:
         return None
 
 
-def missing_names(root: Path | str, path: str, text: str) -> list[Missing]:
-    """Each ``from X import Y`` in *text* whose Y the project module X does not define."""
+def missing_names(
+    root: Path | str, path: str, text: str, planned: Iterable[str] = ()
+) -> list[Missing]:
+    """Each project import in *text* that does not resolve (B-102, B-119).
+
+    ``from X import Y`` whose Y the project module X does not define, and an
+    import of a project module X that does not exist. *planned* are the
+    files the plan's steps write (relative paths), which count as existing.
+    """
     root = Path(root)
+    planned_set = {p.replace("\\", "/").removeprefix("./") for p in planned if p}
     try:
         tree = ast.parse(text.lstrip("﻿"))
     except (SyntaxError, ValueError):
         return []  # a file that does not parse is the write gate's (B-095)
     here = (root / PurePosixPath(path.replace("\\", "/"))).parent
     found: list[Missing] = []
+    roots = [root / sub if sub else root for sub in _SOURCE_ROOTS]
     for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if _missing_module(root, roots, alias.name, False, planned_set):
+                    found.append(Missing(node.lineno, "", alias.name))
+            continue
         if not isinstance(node, ast.ImportFrom):
             continue
         dotted = node.module or ""
@@ -131,7 +200,10 @@ def missing_names(root: Path | str, path: str, text: str) -> list[Missing]:
                 base = base.parent
             bases = [base]
         else:
-            bases = [root / sub if sub else root for sub in _SOURCE_ROOTS]
+            bases = roots
+        if _missing_module(root, bases, dotted, bool(node.level), planned_set):
+            found.append(Missing(node.lineno, "", "." * node.level + dotted))
+            continue
         for base in bases:
             module_file, package = _module_file(root, base, dotted)
             if module_file is None and package is None:
