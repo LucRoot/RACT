@@ -677,6 +677,18 @@ _EXEMPT_SITES: dict[str, str] = {
         "data fields. Calls to the tools go through SubstrateLoop.invoke_tool "
         "(B-011a), the way the MCP transport sits beneath its gated path."
     ),
+    "policy/allowlist.py": (
+        "operator-invoked-diagnostic: one fixed git ls-files (core.fsmonitor off, "
+        "a timeout) listing the entry points whose digests B-113 compares with the "
+        "ones recorded at signing. No model input reaches the argv."
+    ),
+    "tools/git_tools.py": (
+        "tool implementation: the git tools' own subprocesses (B-115, ADR-0048 D8), "
+        "each a fixed git argv with fsmonitor off, an empty hooks folder, no pager, "
+        "no external diff or textconv, a scrubbed environment and a timeout; the "
+        "model fills only validated paths and names. Calls to the tools go through "
+        "SubstrateLoop.invoke_tool; git_push runs through run_command under the grant."
+    ),
     "key_paths.py": (
         "operator-invoked-diagnostic: one fixed git ls-files --error-unmatch "
         "with core.fsmonitor off and a timeout, asking whether the repository "
