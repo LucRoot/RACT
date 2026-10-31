@@ -147,3 +147,46 @@ def test_doctor_says_how_tier3_commands_run() -> None:
     from ract.doctor import sandbox_status
 
     assert "not confined" in sandbox_status("Windows").properties["tier-3 commands"]
+
+
+def test_the_render_has_its_own_pid_namespace_and_dies_with_bwrap(
+    tmp_path: Path,
+) -> None:
+    """Review findings 4 and 5."""
+    from ract.security.sandbox_linux import LinuxSandbox
+
+    backend = LinuxSandbox.__new__(LinuxSandbox)
+    backend.bwrap_path = "/usr/bin/bwrap"
+    manifest = command_sandbox.manifest_for("r", network=False, executable=None)
+    argv = backend.render(manifest, tmp_path, ("/bin/true",)).argv
+    for flag in ("--unshare-pid", "--die-with-parent", "--unshare-net"):
+        assert flag in argv
+    assert argv.index("--unshare-pid") < argv.index("--proc")
+
+
+def test_a_sub_folder_cwd_stays_in_the_mounted_worktree(tmp_path: Path) -> None:
+    """Review finding 6."""
+    fake = FakeBackend("ok")
+    runner = command_sandbox.SandboxedRunner(fake, network=False, run_id="r")
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "scripts").mkdir()
+    tool = tmp_path / "scripts" / "check"
+    tool.write_text("", encoding="utf-8")
+    runner.worktree = tmp_path
+    runner.run([str(tool), "-q"], cwd=tmp_path / "pkg", env={}, timeout_s=5)
+    _manifest, worktree, argv = fake.rendered[0]
+    assert worktree == tmp_path
+    assert (
+        list(argv)[-4:]
+        == ["--chdir", "/workspace/pkg", "/workspace/scripts/check", "-q"][-4:]
+    )
+
+
+def test_only_the_prefix_bin_and_lib_are_bound(tmp_path: Path) -> None:
+    prefix = tmp_path / "home" / ".local"
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "lib").mkdir()
+    (prefix / "share").mkdir()
+    binds = command_sandbox._prefix_binds(str(prefix / "bin" / "pytest"))
+    assert str(prefix / "bin") in binds and str(prefix / "lib") in binds
+    assert not [b for b in binds if b.endswith("share")] and str(prefix) not in binds

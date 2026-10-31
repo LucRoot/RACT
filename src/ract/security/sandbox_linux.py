@@ -190,6 +190,15 @@ class LinuxSandbox:
             # No inherited environment, no host / proc / dev / tmp
             # by default — an allowlist, not a denylist.
             "--clearenv",
+            # B-114 review: new pid, ipc and uts namespaces, so the /proc
+            # mounted below is this sandbox's own (an unprivileged bwrap cannot
+            # mount procfs without one, and a setuid one would show the host's
+            # processes); and the command dies with bwrap, so a timeout that
+            # kills bwrap kills what runs inside it.
+            "--unshare-pid",
+            "--unshare-ipc",
+            "--unshare-uts",
+            "--die-with-parent",
             # Fresh proc and dev at fixed paths so common tooling works;
             # the mount is read-only so the sandboxed process cannot
             # add new device nodes.

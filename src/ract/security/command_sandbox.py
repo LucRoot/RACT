@@ -35,17 +35,30 @@ SELF_TEST = (
     "touch /usr/ract-probe 2>/dev/null && echo WROTE; "
     '[ -e "$1" ] && echo SEEN; '
     '[ "$(grep -c : /proc/net/dev)" -le 1 ] || echo NET; '
+    # In its own pid namespace the probe sees a handful of processes at most.
+    '[ "$(ls /proc | grep -c "^[0-9]")" -le 8 ] || echo PROC; '
     "echo DONE"
 )
 _checked: dict[str, Any] = {}
 
 
-def _prefix(executable: str) -> str | None:
-    """The install prefix of *executable* (``/opt/x`` for ``/opt/x/bin/tool``)."""
-    path = Path(os.path.realpath(executable))
-    if path.parent.name == "bin" and str(path.parent.parent) not in ("/", "/usr"):
-        return str(path.parent.parent)
-    return None
+def _prefix_binds(executable: str) -> list[str]:
+    """What of *executable*'s install prefix is bound read-only.
+
+    The path as given, not its link target: a venv's python links into /usr,
+    while its packages sit under the venv. Only the prefix's bin and lib
+    folders and a venv's ``pyvenv.cfg`` are bound, never the whole prefix
+    (``~/.local`` would expose ``~/.local/share``).
+    """
+    path = Path(os.path.abspath(executable))
+    if path.parent.name != "bin" or str(path.parent.parent) in ("/", "/usr"):
+        return []
+    prefix = path.parent.parent
+    return [
+        str(prefix / name)
+        for name in ("bin", "lib", "lib64", "pyvenv.cfg")
+        if (prefix / name).exists()
+    ]
 
 
 def manifest_for(run_id: str, *, network: bool, executable: str | None) -> Any:
@@ -53,9 +66,9 @@ def manifest_for(run_id: str, *, network: bool, executable: str | None) -> Any:
     from ract.security.manifest import CapabilityManifest
 
     read = list(SYSTEM_READ)
-    prefix = _prefix(executable) if executable else None
-    if prefix and prefix not in read:
-        read.append(prefix)
+    for path in _prefix_binds(executable) if executable else []:
+        if path not in read:
+            read.append(path)
     return CapabilityManifest.model_validate(
         {
             "run_id": run_id,
@@ -99,6 +112,8 @@ def _self_test(backend: Any) -> str | None:
         return "a file outside the workspace was visible inside"
     if "NET" in out:
         return "the network namespace has more than the loopback interface"
+    if "PROC" in out:
+        return "the host's processes were visible inside"
     return None
 
 
@@ -139,6 +154,9 @@ class SandboxedRunner:
         self.network = network
         self.run_id = run_id
         self.sandbox = getattr(backend, "name", "sandbox")
+        # The step worktree, set by run_command: mounted at /workspace, so a
+        # rule's sub-folder cwd stays inside it.
+        self.worktree: Path | None = None
 
     def run(
         self,
@@ -158,10 +176,25 @@ class SandboxedRunner:
         setenv: list[str] = []
         for name, value in sorted(inside.items()):
             setenv += ["--setenv", name, value]
+        worktree = Path(self.worktree or cwd)
+        inner_cwd = "/workspace"
+        try:
+            rel = Path(cwd).resolve().relative_to(worktree.resolve())
+            if rel.parts:
+                inner_cwd = "/workspace/" + rel.as_posix()
+        except ValueError:
+            inner_cwd = "/workspace"  # a cwd outside the worktree starts at its top
+        program = argv[0]
+        try:
+            # An executable inside the project is reached through the mount.
+            inside_rel = Path(program).resolve().relative_to(worktree.resolve())
+            program = "/workspace/" + inside_rel.as_posix()
+        except (ValueError, OSError):
+            program = argv[0]  # a system executable keeps its own path
         rendered = self.backend.render(
             manifest_for(self.run_id, network=self.network, executable=argv[0]),
-            Path(cwd),
-            (*setenv, "--chdir", "/workspace", *argv),
+            worktree,
+            (*setenv, "--chdir", inner_cwd, program, *argv[1:]),
         )
         return ProcessRunner().run(
             list(rendered.argv),

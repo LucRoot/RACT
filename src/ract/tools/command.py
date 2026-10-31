@@ -530,6 +530,9 @@ def run_command(
                 hint=f"{match.executable} was replaced or rewritten; ask again",
             )
         else:
+            if hasattr(runner, "worktree"):
+                # The sandbox mounts the step worktree, not the rule's sub-folder.
+                runner.worktree = worktree
             extra = {"keep_bytes": cap} if getattr(runner, "streams", False) else {}
             raw = runner.run(argv, cwd=cwd, env=env, timeout_s=wall, **extra)
     finally:
