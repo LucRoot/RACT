@@ -606,7 +606,15 @@ class OpenAICompatibleProvider(ProviderAdapter):
         if turn_context.has_reporter():
             turn_context.report("notice", {"level": "warning", "text": text})
         else:
-            print(f"note: {text}", file=sys.stderr, flush=True)
+            # B-164: wrapped to the terminal (outside a session, for example the
+            # setup health check); a session's renderer wraps the notice itself.
+            from ract.cell_wrap import wrap_cells
+            from ract.tui import terminal_width
+
+            lines = wrap_cells(
+                f"note: {text}", terminal_width(), subsequent_indent="  "
+            )
+            print("\n".join(lines), file=sys.stderr, flush=True)
 
     def _stream_headers(self) -> dict[str, str]:
         """Return headers used for streaming chat-completions requests.
