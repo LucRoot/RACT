@@ -144,6 +144,9 @@ class SymbolIndexWatcher:
         self._stop_event: threading.Event = threading.Event()
         self._index_lock: threading.Lock = threading.Lock()
         self._pending_lock: threading.Lock = threading.Lock()
+        # Held while a batch is taken from _pending and indexed, so flush()
+        # cannot return while the watcher's own thread is mid-batch.
+        self._flush_lock: threading.Lock = threading.Lock()
         self._pending: dict[Path, float] = {}
         self._pending_deleted: dict[Path, bool] = {}
         self._debounce_thread: threading.Thread | None = None
@@ -231,6 +234,18 @@ class SymbolIndexWatcher:
             self._flush_pending()
 
     def _flush_pending(self) -> None:
+        """Index every due event; one batch at a time across threads.
+
+        LR:: The watcher's thread took due paths off ``_pending`` and indexed
+        them outside the lock; a ``flush()`` in that window found nothing
+        pending and returned before the rows existed (a gate failure of
+        test_normal_delete_still_removes_row under load). The flush lock makes
+        a second caller wait for the batch in progress.
+        """
+        with self._flush_lock:
+            self._flush_due()
+
+    def _flush_due(self) -> None:
         now = time.monotonic()
         to_process: list[tuple[Path, bool]] = []
         with self._pending_lock:
