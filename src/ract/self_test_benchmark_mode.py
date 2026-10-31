@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 
 import statistics
 import subprocess
@@ -78,7 +79,7 @@ class SelfTestBenchmarkMode:
     def run_tests(
         self,
         test_paths: list[str | Path] | None = None,
-        python_executable: str = "python",
+        python_executable: str | None = None,
     ) -> PytestRunResult:
         """
         Run pytest against the supplied paths and capture the result.
@@ -86,7 +87,8 @@ class SelfTestBenchmarkMode:
         If ``test_paths`` is empty or None, pytest is invoked with no positional
         arguments and will discover tests in the current directory.
         """
-        command = [python_executable, "-m", "pytest", "-q"]
+        # B-136: the interpreter running RACT when none is named.
+        command = [python_executable or sys.executable, "-m", "pytest", "-q"]
         if test_paths:
             command.extend(str(p) for p in test_paths)
 

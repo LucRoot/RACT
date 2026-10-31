@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 
 """RACT self-recursing build loop.
 
@@ -138,7 +139,9 @@ class LoopController:
         self.tunneling_limit = max(tunneling_limit, 1)
         self.strategic_clear_threshold = max(strategic_clear_threshold, 1)
         self.quality_floor = quality_floor
-        self.python_executable = python_executable or "python"
+        # B-136 (Linux, B-046): the interpreter running RACT; a bare "python"
+        # is not there on many Linux systems (python3 is).
+        self.python_executable = python_executable or sys.executable
         if test_command is None:
             self.test_command: list[str] = ["-m", "pytest", "-q", "--tb=no"]
         elif isinstance(test_command, str):

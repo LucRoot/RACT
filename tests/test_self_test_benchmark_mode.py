@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 
 from ract.self_test_benchmark_mode import (
     BenchmarkResult,
@@ -80,7 +81,7 @@ def test_run_tests_with_specific_path() -> None:
     mode = SelfTestBenchmarkMode()
     result = mode.run_tests(
         test_paths=["tests/test_example.py"],
-        python_executable="python",
+        python_executable=sys.executable,
     )
     # The command targets a non-existent file, so pytest will fail to collect.
     assert result.returncode != 0
