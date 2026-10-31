@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `ract doctor --tier3` reports the tier-3 state in one place (B-147): the grant (status,
+  key, expiry, digest, largest mode), why tier 3 is off, the operator key and how it is
+  protected, the unlock window, the sandbox as this machine runs it, the entry-point
+  record, the session mode, which tier-3 tools the grant makes available, and the command
+  that fixes each problem. `--json` carries the same fields.
 - `ract policy init --guided` also finds the linter, type checker, formatter and build
   (ruff or flake8, mypy or pyright, ruff format or black, a Python build backend, and the
   npm scripts) and proposes the narrowest rule for each, network off and 15 minutes, in
