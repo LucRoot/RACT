@@ -178,14 +178,16 @@ def _turn_with_a_lint_run(root: Path, monkeypatch, exit_code: int):
     original = turn_context.bind
 
     def bind(*a, **kw):
-        original(*a, **kw)
-        runs = kw.get("runs")
-        if runs is not None:
+        if a and a[0] is None and kw.get("runs") is None:
+            # B-192: the step's lint run follows its write, so it runs at the
+            # end of the turn, while the turn's context is still bound; run at
+            # the start it would be stale.
             ctx = tier3.for_project(
                 root, approve=lambda facts: True, runner=StandIn(exit_code)
             )
             with tier3.bound(ctx):
                 run_tool(root, "run_lint", {"reason": "check the change"})
+        original(*a, **kw)
 
     monkeypatch.setattr("ract.session_turn.turn_context.bind", bind)
     monkeypatch.setattr("ract.approval_callback.read_line", lambda _p: "y")
