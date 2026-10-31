@@ -1467,13 +1467,11 @@ def _remove_worktree_only(repo_root: Path, worktree_path: Path) -> None:
         check=False,
     )
     if done.returncode != 0 and not Path(worktree_path).exists():
-        # B-146: a registration whose folder is gone stays listed until pruned.
-        subprocess.run(
-            [programs.git(), "-C", str(repo_root), "worktree", "prune"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        # B-146: a registration whose folder is gone stays listed until it is
+        # dropped; B-230: only RACT's own dead ones, never a bare prune.
+        from ract.executor.worktree import prune_dead_own
+
+        prune_dead_own(Path(repo_root))
 
 
 # RACT 0.4.0
