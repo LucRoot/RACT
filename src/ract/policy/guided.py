@@ -14,7 +14,7 @@ command here; nothing is written before the yes.
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -22,6 +22,7 @@ from pathlib import Path
 from ract.policy.grant import (
     DEFAULT_DAYS,
     POLICY_FILE,
+    load_grant,
     parse_policy,
     sandbox_confines_commands,
     sign,
@@ -59,20 +60,137 @@ def detect_runner(project: Path) -> Runner | None:
         markers.append("tests/test_*.py")
     if markers:
         return Runner("tests", ("python", "-m", "pytest"), ", ".join(markers))
-    package = project / "package.json"
-    if package.is_file():
-        import json
-
-        try:
-            scripts = (
-                json.loads(package.read_text(encoding="utf-8")).get("scripts") or {}
-            )
-        except (OSError, ValueError, AttributeError) as exc:
-            print(f"[guided] package.json not read: {exc}", flush=True)
-            scripts = {}
-        if isinstance(scripts, dict) and scripts.get("test"):
-            return Runner("tests", ("npm", "test"), "package.json scripts.test")
+    if _npm_scripts(project).get("test"):
+        return Runner("tests", ("npm", "test"), "package.json scripts.test")
     return None
+
+
+def _npm_scripts(project: Path) -> dict:
+    package = project / "package.json"
+    if not package.is_file():
+        return {}
+    import json
+
+    try:
+        scripts = json.loads(package.read_text(encoding="utf-8")).get("scripts") or {}
+    except (OSError, ValueError, AttributeError) as exc:
+        print(f"[guided] package.json not read: {exc}", flush=True)
+        return {}
+    return scripts if isinstance(scripts, dict) else {}
+
+
+def _text(path: Path) -> str:
+    try:
+        return (
+            path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+        )
+    except OSError as exc:
+        print(f"[guided] {path.name} not read: {exc}", flush=True)
+        return ""
+
+
+# B-142: what the screens call each kind; the ids are the ones the verifier
+# tools look for first (ract.tools.verifier_tools.rule_for).
+KIND_NAMES = {
+    "tests": "test runner",
+    "lint": "linter",
+    "typecheck": "type checker",
+    "format": "formatter",
+    "build": "build",
+}
+
+
+def detect_verifiers(project: Path) -> list[Runner]:
+    """The project's linter, type checker, formatter and build, from its files (B-142).
+
+    One rule per kind, the narrowest known command for what the files show;
+    a kind the files do not show is left out. The commands are the ones
+    ``ract.tools.verifier_tools.KNOWN`` matches.
+    """
+    pyproject = _text(project / "pyproject.toml")
+    setup_cfg = _text(project / "setup.cfg")
+    tox_ini = _text(project / "tox.ini")
+    scripts = _npm_scripts(project)
+
+    def has(*names: str) -> str | None:
+        return next((n for n in names if (project / n).is_file()), None)
+
+    found: list[Runner] = []
+    ruff = has("ruff.toml", ".ruff.toml") or (
+        "pyproject.toml [tool.ruff]" if "[tool.ruff" in pyproject else None
+    )
+    flake8 = has(".flake8") or next(
+        (
+            f"{n} [flake8]"
+            for n, t in (("setup.cfg", setup_cfg), ("tox.ini", tox_ini))
+            if "[flake8]" in t
+        ),
+        None,
+    )
+    if ruff:
+        found.append(Runner("lint", ("python", "-m", "ruff", "check"), ruff))
+    elif flake8:
+        found.append(Runner("lint", ("python", "-m", "flake8"), flake8))
+    elif scripts.get("lint"):
+        found.append(
+            Runner("lint", ("npm", "run", "lint"), "package.json scripts.lint")
+        )
+
+    mypy = has("mypy.ini", ".mypy.ini") or (
+        "pyproject.toml [tool.mypy]"
+        if "[tool.mypy" in pyproject
+        else ("setup.cfg [mypy]" if "[mypy]" in setup_cfg else None)
+    )
+    pyright = has("pyrightconfig.json") or (
+        "pyproject.toml [tool.pyright]" if "[tool.pyright" in pyproject else None
+    )
+    if mypy:
+        found.append(Runner("typecheck", ("python", "-m", "mypy"), mypy))
+    elif pyright:
+        found.append(Runner("typecheck", ("pyright",), pyright))
+    elif scripts.get("typecheck"):
+        found.append(
+            Runner(
+                "typecheck",
+                ("npm", "run", "typecheck"),
+                "package.json scripts.typecheck",
+            )
+        )
+
+    if "[tool.ruff.format" in pyproject:
+        found.append(
+            Runner(
+                "format",
+                ("python", "-m", "ruff", "format", "--check"),
+                "pyproject.toml [tool.ruff.format]",
+            )
+        )
+    elif "[tool.black" in pyproject:
+        found.append(
+            Runner(
+                "format",
+                ("python", "-m", "black", "--check"),
+                "pyproject.toml [tool.black]",
+            )
+        )
+    elif scripts.get("format:check"):
+        found.append(
+            Runner(
+                "format",
+                ("npm", "run", "format:check"),
+                "package.json scripts.format:check",
+            )
+        )
+
+    if "[build-system]" in pyproject:
+        found.append(
+            Runner("build", ("python", "-m", "build"), "pyproject.toml [build-system]")
+        )
+    elif scripts.get("build"):
+        found.append(
+            Runner("build", ("npm", "run", "build"), "package.json scripts.build")
+        )
+    return found
 
 
 def _repo_root(project: Path) -> str | None:
@@ -81,11 +199,28 @@ def _repo_root(project: Path) -> str | None:
     return repo_root_commit(project)
 
 
-def proposed_policy(project: Path, runner: Runner, key_id: str, now: datetime) -> str:
-    """The narrowest grant for *runner*, as the YAML the operator will sign."""
+def _rule_lines(runner: Runner) -> list[str]:
+    """One allow rule, the narrowest (D13): network off, 15 minutes, its own home."""
+    return [
+        f"    - id: {runner.rule_id}",
+        f"      argv: [{', '.join(runner.argv)}]",
+        "      network: false",
+        "      cwd: step_worktree",
+        "      timeout_s: 900",
+        "      home: isolated",
+    ]
+
+
+def proposed_policy(
+    project: Path,
+    runner: Runner | Sequence[Runner],
+    key_id: str,
+    now: datetime,
+) -> str:
+    """The narrowest grant for *runner* (or several, B-142), as the YAML the operator will sign."""
+    runners = [runner] if isinstance(runner, Runner) else list(runner)
     sandbox = "enforced" if sandbox_confines_commands() else "best_effort"
     root_commit = _repo_root(project)
-    argv = ", ".join(runner.argv)
     lines = [
         "version: 1",
         "binding:",
@@ -102,12 +237,10 @@ def proposed_policy(project: Path, runner: Runner, key_id: str, now: datetime) -
         f"sandbox: {sandbox}",
         "commands:",
         "  allow:",
-        f"    - id: {runner.rule_id}",
-        f"      argv: [{argv}]",
-        "      network: false",
-        "      cwd: step_worktree",
-        "      timeout_s: 900",
-        "      home: isolated",
+    ]
+    for each in runners:
+        lines += _rule_lines(each)
+    lines += [
         "  deny:",
         "    - argv: [git, push]",
     ]
@@ -160,7 +293,6 @@ def guided_init(
 
     from ract.ui.grant_screens import (
         DetectedRunner,
-        ProposedRule,
         detected_runner_lines,
         policy_diff_lines,
         proposed_rule_lines,
@@ -169,41 +301,38 @@ def guided_init(
 
     now = now or datetime.now(timezone.utc)
     runner = detect_runner(project)
-    if runner is None:
+    # B-142: the linter, type checker, formatter and build too, one signature.
+    runners = ([runner] if runner is not None else []) + detect_verifiers(project)
+    if not runners:
         # MASON's view (B-111), then where to go from here.
         for line in detected_runner_lines(None, width):
             show(line)
         show("hint: write .ract/policy.yaml by hand, then run `ract policy sign`")
         return 2
-    for line in detected_runner_lines(
-        DetectedRunner(" ".join(runner.argv), runner.argv, runner.found_by), width
-    ):
-        show(line)
+    for each in runners:
+        for line in detected_runner_lines(
+            DetectedRunner(
+                " ".join(each.argv), each.argv, each.found_by, KIND_NAMES[each.rule_id]
+            ),
+            width,
+        ):
+            show(line)
     try:
         key = load_public()
         has_key = True
     except NoOperatorKey:
         key, has_key = None, False
     key_id = key.key_id if key is not None else "ed25519:0000000000000000"
-    text = proposed_policy(project, runner, key_id, now)
+    text = proposed_policy(project, runners, key_id, now)
     # G-217 G2: a policy that cannot hold fails here, before the question and
     # before any key is made.
     parse_policy(text)
-    # MASON's rule view, then the grant-wide fields D13 also asks to explain.
-    for line in proposed_rule_lines(
-        ProposedRule(
-            rule_id=runner.rule_id,
-            argv=runner.argv,
-            network=False,
-            timeout_minutes=15,
-            cwd="step_worktree",
-            home="isolated",
-            sandbox_enforced=sandbox_confines_commands(),
-        ),
-        width,
-    ):
-        show(line)
-    for line in explanations(runner):
+    # MASON's rule view for each rule, then the grant-wide fields D13 also
+    # asks to explain.
+    for each in runners:
+        for line in proposed_rule_lines(_proposed(each), width):
+            show(line)
+    for line in explanations(runners[0]):
         if line.startswith(("max_mode", "deny", "expires", "sandbox")):
             show(f"  {line}")
     path = project / ".ract" / POLICY_FILE
@@ -241,12 +370,37 @@ def guided_init(
         warning = passphrase_warning(passphrase)
         if warning:
             show(warning)
-        text = proposed_policy(project, runner, key.key_id, now)
+        text = proposed_policy(project, runners, key.key_id, now)
         private = unlock(passphrase)
     assert key is not None
     parse_policy(text)  # never write a policy that would not hold
+    _write_whole(path, text)
+    digest = sign(project, private, key)
+    expires = (now + timedelta(days=DEFAULT_DAYS)).date().isoformat()
+    ids = ", ".join(each.rule_id for each in runners)
+    for line in signed_result_lines(ids, expires, "T3 ask", width):
+        show(line)
+    show(f"  .ract/{POLICY_FILE} signed with {key.key_id} (sha256 {digest[:12]})")
+    return 0
+
+
+def _proposed(runner: Runner) -> object:
+    from ract.ui.grant_screens import ProposedRule
+
+    return ProposedRule(
+        rule_id=runner.rule_id,
+        argv=runner.argv,
+        network=False,
+        timeout_minutes=15,
+        cwd="step_worktree",
+        home="isolated",
+        sandbox_enforced=sandbox_confines_commands(),
+    )
+
+
+def _write_whole(path: Path, text: str) -> None:
+    """Written whole: a temporary file beside it, then one replace."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Written whole: a temporary file beside it, then one replace.
     temp = path.with_name(f".{POLICY_FILE}.{os.getpid()}.tmp")
     try:
         temp.write_text(text, encoding="utf-8")
@@ -254,12 +408,78 @@ def guided_init(
     finally:
         if temp.exists():
             temp.unlink()
-    digest = sign(project, private, key)
-    expires = (now + timedelta(days=DEFAULT_DAYS)).date().isoformat()
-    for line in signed_result_lines(runner.rule_id, expires, "T3 ask", width):
+
+
+def add_rule(
+    project: Path,
+    rule_id: str,
+    argv: Sequence[str],
+    *,
+    ask: Ask,
+    show: Show,
+    read_passphrase: ReadPassphrase,
+    width: int = 80,
+) -> int:
+    """``ract policy add-rule ID -- ARGV...``: one rule more, shown as a diff, signed again (B-142).
+
+    Only a grant that holds is changed: a policy edited since its signature,
+    expired or signed by another key is refused, so the diff shown is against
+    what the operator signed. The rule is the narrowest (network off, 15
+    minutes, its own home); the exit code is 0 signed, 1 declined, 2 refused.
+    """
+    from ract.diff_render import render_hunks
+    from ract.ui.grant_screens import policy_diff_lines, proposed_rule_lines
+
+    state = load_grant(project)
+    if not state.holds or state.policy is None:
+        show(f"error: the grant does not hold ({state.reason}); nothing was changed")
+        show(
+            "hint: review .ract/policy.yaml and run `ract policy sign`, "
+            "or start again with `ract policy init --guided`"
+        )
+        return 2
+    if any(rule.id == rule_id for rule in state.policy.commands.allow):
+        show(f"error: the grant already has a rule {rule_id!r}; nothing was changed")
+        return 2
+    path = project / ".ract" / POLICY_FILE
+    old = path.read_text(encoding="utf-8")
+    runner = Runner(rule_id, tuple(argv), "add-rule")
+    marker = "\n  deny:\n"
+    if marker not in old:
+        show(
+            "error: the grant has no `deny:` list to add the rule above; nothing was changed"
+        )
+        show("hint: add the rule by hand, then run `ract policy sign`")
+        return 2
+    new = old.replace(marker, "\n" + "\n".join(_rule_lines(runner)) + marker, 1)
+    parse_policy(new)  # a rule that would not hold fails here, before the question
+    for line in proposed_rule_lines(_proposed(runner), width):
         show(line)
+    for line in policy_diff_lines(
+        render_hunks(f".ract/{POLICY_FILE}", old, new, width=width), width
+    ):
+        show(line)
+    answer = (
+        (ask("Add this rule and sign the grant again? [y/N] ") or "").strip().lower()
+    )
+    if answer not in {"y", "yes"}:
+        show("Nothing was written.")
+        return 1
+    key = load_public()
+    private = unlock(read_passphrase("Passphrase: "))
+    _write_whole(path, new)
+    digest = sign(project, private, key)
     show(f"  .ract/{POLICY_FILE} signed with {key.key_id} (sha256 {digest[:12]})")
     return 0
 
 
-__all__ = ["Runner", "detect_runner", "explanations", "guided_init", "proposed_policy"]
+__all__ = [
+    "KIND_NAMES",
+    "Runner",
+    "add_rule",
+    "detect_runner",
+    "detect_verifiers",
+    "explanations",
+    "guided_init",
+    "proposed_policy",
+]
