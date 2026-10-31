@@ -10,6 +10,10 @@ replaces the directory entry and does not write through a link at the target.
 ``mkstemp`` creates the file with mode 0600, so on POSIX the written file
 takes the mode the target had (a script keeps its executable bit), or for a
 new file the mode a plain create would give under the process umask (G-289).
+
+B-207: the bytes are flushed and synced to the disk before the rename, so a
+crash leaves the old file or the new one whole, never an empty file under
+the target's name (the signed grant and the handshake registry use this).
 """
 
 from __future__ import annotations
@@ -61,6 +65,8 @@ def write_atomic(path: Path | str, data: bytes) -> None:
             if os.name != "nt":
                 os.fchmod(out.fileno(), _mode_for(target))
             out.write(data)
+            out.flush()
+            os.fsync(out.fileno())
         os.replace(temp, target)
     except BaseException:
         try:

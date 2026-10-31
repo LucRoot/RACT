@@ -399,10 +399,11 @@ def sign(project: Path | str, private_key: Any, key: PublicKey) -> str:
         "sha256": digest,
         "signature": base64.b64encode(signature).decode("ascii"),
     }
-    out = project / ".ract" / SIGNATURE_FILE
-    temp = out.with_name(out.name + ".tmp")
-    temp.write_text(json.dumps(sig, indent=2), encoding="utf-8")
-    os.replace(temp, out)
+    from ract.atomic_write import write_atomic
+
+    # B-207: a fresh temporary name (no collision between two writers) and a
+    # sync before the rename (a crash never leaves an empty signature).
+    write_atomic(project / ".ract" / SIGNATURE_FILE, json.dumps(sig, indent=2).encode("utf-8"))
     # B-113 (G-214): what the entry points were at signing, kept outside the
     # project, so a later change to one puts its command back to the question.
     from ract.policy import allowlist

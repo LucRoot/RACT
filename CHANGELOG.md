@@ -287,6 +287,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - A path sent to a model is checked by what it resolves to (B-211): a junction or symlink
   such as `lnk -> .ract` no longer lets `lnk/sessions/x.json` reach a never-sent file.
+- Two `--loop` runs that start at once no longer both write the run id (B-207): the run-marker
+  lock reports a lock it cannot take instead of going on without it.
+- The grant's signature and the handshake registry are written to a fresh temporary file,
+  synced to disk, then renamed into place (B-207): a crash no longer leaves an empty or half
+  written file, and two writers no longer share one fixed temporary name.
 - A file write goes through a fresh temporary file with a random name (B-212): a hard link
   planted at the old fixed name `.NAME.ract-tmp` no longer sends the write outside the workspace.
 - One address check covers every way an address reaches RACT (B-200): setup's question,
