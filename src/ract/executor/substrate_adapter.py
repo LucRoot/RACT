@@ -144,6 +144,18 @@ def _path_tier(repo: Path, path: str) -> str:
         return "T2"  # a protected path is never below tier 2 on screen
 
 
+def _is_sidecar(path: str) -> bool:
+    name = path.rpartition("/")[2]
+    return name.startswith(".") and name.endswith(".rootknot.json")
+
+
+def _artifact_of_sidecar(path: str) -> str:
+    """``src/.calc.py.rootknot.json`` -> ``src/calc.py``."""
+    head, _, name = path.rpartition("/")
+    artifact = name[1 : -len(".rootknot.json")]
+    return f"{head}/{artifact}" if head else artifact
+
+
 def _review_proposed(
     harness: Any, reviewer: Any, record: Any, index: int
 ) -> Rooted[str]:
@@ -173,6 +185,10 @@ def _review_proposed(
             error=f"Step {index + 1}'s changes were not applied: {exc}",
             hint=f"see the step's commit on branch {record.branch}",
         )
+    # S-015b: a Rootknot sidecar is RACT's record of its file, not a change
+    # for the operator to review; it follows its file below.
+    sidecars = [change for change in changes if _is_sidecar(change[0])]
+    changes = [change for change in changes if not _is_sidecar(change[0])]
     kept: dict[str, bytes | None] = {}
     try:
         for path, before, after in changes:
@@ -191,6 +207,13 @@ def _review_proposed(
                     "diff.reviewed", {"path": path, "hunk": hunk_id, "decision": answer}
                 )
             kept[path] = decision.content
+        step_after = {path: after for path, _before, after in changes}
+        for path, before, after in sidecars:
+            artifact = _artifact_of_sidecar(path)
+            # The step's knot attests the file as the step wrote it: kept only
+            # when the operator kept that file exactly, else left as it was.
+            as_written = artifact in kept and kept[artifact] == step_after[artifact]
+            kept[path] = after if as_written else before
     except ReviewStopped:
         return Rooted(
             value=None,

@@ -97,8 +97,9 @@ def test_write_artifact_records_rootknot_in_index(tmp_path: Path) -> None:
     knot = index.load(artifact)
     assert knot is not None, "executor write must index a Rootknot"
     assert knot.verify(key.public_key_bytes()), "indexed rootknot must verify"
-    # The recorded digest matches the artifact content.
-    assert knot.artifact_digest == digest_bytes(b"print('hi')\n")
+    # The recorded digest matches the bytes on disk, which `ract provenance
+    # verify` reads (S-015b: write_text turns the newline into CRLF on Windows).
+    assert knot.artifact_digest == digest_bytes(artifact.read_bytes())
     # v0.5.1 wiring module_02: every executor-written Rootknot is v4.
     assert knot.schema_version == 4, (
         f"expected v4 knot; got schema_version={knot.schema_version}"
