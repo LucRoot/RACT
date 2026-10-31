@@ -72,6 +72,8 @@ class ProposedRule:
     env_names: tuple[str, ...] = ()
     home: str = "isolated"
     sandbox_enforced: bool = False
+    # Every runner rule runs the project's own code (tests, a build backend, a package script).
+    runs_project_code: bool = True
 
 
 def detected_runner_lines(runner: DetectedRunner | None, width: int) -> list[str]:
@@ -113,6 +115,11 @@ def field_explanation_lines(rule: ProposedRule, width: int) -> list[str]:
         if rule.home == "isolated"
         else f"home: {escape_controls(rule.home)}: the command sees this home folder"
     )
+    if rule.runs_project_code:
+        lines.append(
+            "it runs the project's own code (tests, a build backend or a package script)"
+            " with your user's rights"
+        )
     if not rule.sandbox_enforced:
         lines.append("it runs with your user's rights on this machine")
     out: list[str] = []

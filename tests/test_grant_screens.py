@@ -78,7 +78,16 @@ def test_the_network_line_does_not_claim_an_unenforced_sandbox() -> None:
     enforced = ProposedRule(rule_id="R-2", argv=("python",), sandbox_enforced=True)
     text_enforced = _flat(field_explanation_lines(enforced, 80))
     assert "network: off: the command runs without the network" in text_enforced
-    assert "your user's rights" not in text_enforced
+    assert "it runs with your user's rights on this machine" not in text_enforced
+
+
+def test_every_runner_rule_says_it_runs_the_project_code() -> None:
+    line = "it runs the project's own code (tests, a build backend or a package script)"
+    assert line in _flat(field_explanation_lines(RULE, 80))
+    no_code = ProposedRule(
+        rule_id="R-9", argv=("python", "-V"), runs_project_code=False
+    )
+    assert line not in _flat(field_explanation_lines(no_code, 80))
 
 
 def test_network_on_is_said_plainly() -> None:
