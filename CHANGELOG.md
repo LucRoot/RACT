@@ -285,6 +285,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A user name or password written in a provider url before the host is no longer printed in
+  notices, refusals or the doctor's advice (B-199). Such a url is refused when ract.yaml is
+  loaded, by a sentence that names the provider and not the url, and the probe does not contact it.
 - `ract doctor --check-providers` no longer prints the start of a key that a server echoes in
   a long error body (B-198): the body is masked whole, then cut. Every cut of a server reply or
   of an error's text is masked the same way, and a test keeps it so.

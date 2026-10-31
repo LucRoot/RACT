@@ -31,7 +31,12 @@ else:
     httpx = lazy_module("httpx")  # B-087b: imported at first use, not at start
 
 from ract import egress_ledger, egress_scan, redaction
-from ract.providers.openai_provider import OpenAICompatibleProvider
+from ract.providers.openai_provider import (
+    USERINFO_REFUSED,
+    OpenAICompatibleProvider,
+    has_userinfo,
+    shown_url,
+)
 from ract.providers.router import ProviderRouter
 from ract.retry_policy import RetryConfig, RetryPolicy
 from ract.trust import repository_named_host
@@ -389,8 +394,13 @@ def probe_configured(providers: dict[str, Any]) -> list[ProviderProbe]:
     router = ProviderRouter({n: providers[n] for n in names})
     for name in names:
         settings = providers[name]
-        url = str(settings.get("url") or settings.get("base_url") or "")
+        raw_url = str(settings.get("url") or settings.get("base_url") or "")
+        url = shown_url(raw_url)
         model = str(settings.get("model", ""))
+        if has_userinfo(raw_url):
+            # B-199: not contacted, and the report shows the url without it.
+            probes.append(not_tried(name, url, model, USERINFO_REFUSED, probed=False))
+            continue
         missing = _missing_key_variable(settings)
         if missing:
             probes.append(

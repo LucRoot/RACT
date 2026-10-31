@@ -121,10 +121,47 @@ def _is_loopback(url: str) -> bool:
 
 
 def _host(url: str) -> str:
-    """Lowercased host and port of ``url`` (the part a key is paired with)."""
+    """Lowercased host and port of ``url`` (the part a key is paired with).
+
+    B-199: the whole netloc was returned, so a user name and password written
+    before the host (``https://svc:pw@host``) were printed in notices and
+    refusals. Only the host name and the port are returned now.
+    """
     from urllib.parse import urlsplit
 
-    return urlsplit(url).netloc.lower()
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if ":" in host:
+        host = f"[{host}]"  # an IPv6 address keeps its brackets
+    try:
+        port = parts.port
+    except ValueError:
+        port = None  # not a number: the host alone is the pairing key
+    return f"{host}:{port}" if port is not None else host
+
+
+def has_userinfo(url: str) -> bool:
+    """True when ``url`` carries a user name or password before the host (B-199)."""
+    from urllib.parse import urlsplit
+
+    return "@" in urlsplit(url).netloc
+
+
+def shown_url(url: str) -> str:
+    """``url`` with any user name or password before the host removed (B-199)."""
+    from urllib.parse import urlsplit, urlunsplit
+
+    parts = urlsplit(url)
+    if "@" not in parts.netloc:
+        return url
+    return urlunsplit(parts._replace(netloc=parts.netloc.rsplit("@", 1)[1]))
+
+
+USERINFO_REFUSED = (
+    "its url carries a user name or password before the host, and RACT does not "
+    "use an address with credentials in it. Put the key in api_key (as ${VAR}) and "
+    "remove it from url. The value is not shown."
+)
 
 
 _body = redaction.body  # B-165: one helper for every printer of a response body

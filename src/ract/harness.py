@@ -107,6 +107,19 @@ def _load_config(path: Path) -> Rooted[dict[str, Any]]:
             provenance=["harness.load_config"],
             error=f"Failed to parse config: {exc}",
         )
+    from ract.config_check import url_credential_problems
+
+    refused = url_credential_problems(raw) if isinstance(raw, dict) else []
+    if refused:
+        # B-199: an address with a password in it is refused before any
+        # provider is built, and the sentence never repeats the address.
+        return Rooted(
+            value=None,
+            assumption="No provider url carries credentials.",
+            confidence=0.0,
+            provenance=["harness.load_config"],
+            error=refused[0],
+        )
     return Rooted(
         value=raw,
         assumption="Configuration file parsed successfully.",
