@@ -89,17 +89,18 @@ SECRET_NAME_GLOBS = (
     *sorted(SSH_KEY_NAMES),
 )
 
-# Committed placeholder files (D-014): an env file whose last suffix is one of
-# these, in any case (.env.example, .env.local.example, .env.DIST). Blocking
-# them stops a normal task (update the example file); a real key pasted into
-# one is the request-body scanner's job (S-022).
+# Committed placeholder files (D-014): an env file named ``.env.`` and ending
+# in one of these suffixes, exactly as written here (.env.example,
+# .env.local.example). Another case (.ENV.EXAMPLE, .env.DIST) is not the
+# placeholder convention and stays secret: the safe reading. Blocking a real
+# placeholder stops a normal task; a real key pasted into one is the
+# request-body scanner's job (S-022).
 ENV_TEMPLATE_SUFFIXES = ("example", "sample", "template", "dist")
 
 
 def is_env_template(name: str) -> bool:
-    """True for a placeholder env file: ``.env.<...>.<template suffix>``, any case."""
-    folded = name.casefold()
-    return folded.startswith(".env.") and folded.rsplit(".", 1)[-1] in ENV_TEMPLATE_SUFFIXES
+    """True for a placeholder env file: ``.env.<...>.<template suffix>``, case as written."""
+    return name.startswith(".env.") and name.rsplit(".", 1)[-1] in ENV_TEMPLATE_SUFFIXES
 
 
 def is_secret_shaped(path: str) -> bool:

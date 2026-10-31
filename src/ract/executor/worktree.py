@@ -572,8 +572,8 @@ def _literal(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 _SNAPSHOT_EXCLUDES = (
     ".ract",
     *(f":(glob,icase)**/{pattern}" for pattern in SECRET_NAME_GLOBS),
-    # D-014: committed placeholders stay in the snapshot, any case.
-    *(f":(exclude,glob,icase)**/.env*.{suffix}" for suffix in ENV_TEMPLATE_SUFFIXES),
+    # D-014: committed placeholders stay in the snapshot (case as written).
+    *(f":(exclude,glob)**/.env.*{suffix}" for suffix in ENV_TEMPLATE_SUFFIXES),
 )
 
 

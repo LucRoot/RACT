@@ -5,9 +5,10 @@ The lists disagreed (reader run): ``.env.dist`` was exempt in
 ``.env.local.example`` were secret to ``workspace_path`` and staged by
 git_tools; ``id_ecdsa`` and ``id_dsa`` were blocked by git_tools and shown to
 the model and copied into step snapshots. The rule now, written once: an env
-file is secret unless its last suffix is example, sample, template or dist
-(any case); every OpenSSH private key name, key stores and token files are
-secret. The table runs both directions against every consumer.
+file is secret unless it is named .env. and ends in example, sample, template
+or dist as written (another case stays secret); every OpenSSH private key
+name, key stores and token files are secret. The table runs both directions
+against every consumer.
 """
 
 from __future__ import annotations
@@ -49,15 +50,15 @@ SECRET = [
     ".netrc",
     ".pypirc",
     ".git-credentials",
+    ".env.EXAMPLE",
+    ".env.DIST",
 ]
 NOT_SECRET = [
     ".env.example",
-    ".env.EXAMPLE",
     ".env.local.example",
     ".env.sample",
     ".env.template",
     ".env.dist",
-    ".env.DIST",
     "id_rsa.pub",
     "id_utils.py",
     "env.py",
