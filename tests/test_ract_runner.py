@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+
+import pytest
 from unittest.mock import ANY, MagicMock, patch
 
 import yaml
@@ -830,3 +832,46 @@ def test_run_ract_project_doc_updates_after_execution(tmp_path: Path) -> None:
 
 
 # RACT 0.1.1 - Trust and tooling
+
+
+@pytest.mark.parametrize(
+    ("terminal", "asks"),
+    [(True, True), (False, False)],
+    ids=["auto-accept-at-a-terminal", "headless-accept-edits"],
+)
+def test_d145_tier_2_asks_at_a_terminal_in_every_mode(
+    tmp_path: Path, terminal: bool, asks: bool
+) -> None:
+    """D-145: auto-accept accepts file edits, not commits or branches; with
+    nobody at a terminal (headless) a tier-2 call stays refused."""
+    config_path = _write_config(tmp_path)
+    report = ExecutionReport(
+        intent="test",
+        step_results=[
+            StepResult(step=Step("a", "b", "c"), raw_response={}, content="x")
+        ],
+        assumptions=["a"],
+        provenance={},
+        artifacts={},
+    )
+    mock_harness = MagicMock(spec=Harness)
+    mock_harness.run.return_value = Rooted(
+        value=report, assumption="executed", confidence=0.9
+    )
+    mock_harness.executor = MagicMock(
+        step_tools=None, tier_2_approver=None, tier_3_approver=None
+    )
+    mock_harness.git_init_offer = None
+    with patch(
+        "ract.ract_runner.Harness.from_config_path",
+        return_value=Rooted(value=mock_harness, assumption="loaded", confidence=1.0),
+    ):
+        with patch(
+            "ract.ract_runner.enrich_harness_run",
+            return_value=Rooted(value=report, assumption="enriched", confidence=0.9),
+        ):
+            assert run_ract(
+                config_path, "intent", auto=False, terminal=terminal
+            ).is_ok()
+    assert (mock_harness.executor.tier_2_approver is not None) is asks
+    assert (mock_harness.executor.tier_3_approver is not None) is asks

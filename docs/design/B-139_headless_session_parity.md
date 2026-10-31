@@ -28,7 +28,7 @@ Status: first pass, 2026-10-30, BUILDER. Each row is read from the code at the B
 | Step approval | asked (`console_approval_callback`) | none | answers only (`refuse_changes_callback`) | none | deliberate; **defect fixed below** |
 | Per-hunk review (step loop on) | asked (`console_proposed_reviewer`) | none | n/a (changes refused) | none | deliberate |
 | Tier 1 writes | after the step's yes or the review | applied | refused | applied | deliberate |
-| Tier 2 calls | asked (`SessionApprovals`) | **refused** (no approver) | refused | refused | **difference inside the session**: see Open below |
+| Tier 2 calls | asked (`SessionApprovals`) | asked at the terminal (D-145) | refused | refused | deliberate (D-145): tier 2 asks whenever someone is at a terminal; headless and `--yolo` refuse it |
 | Tier 3 commands | asked at the terminal | asked at the terminal (G-216 W4) | refused (no approver, no terminal) | refused | deliberate: tier 3 needs the operator (ADR-0048 D6) |
 | `git init` offer (no repository) | asked | none | none | none | deliberate: an offer needs someone to answer |
 | Signing (S-015b) | `provenance_wiring.install` | same | same | same | same code |
@@ -41,9 +41,9 @@ Status: first pass, 2026-10-30, BUILDER. Each row is read from the code at the B
 
 1. **`refuse_changes_callback` approved an agent step.** It lets a step run when the step writes no artifact and names no tool call. A B-137 agent step has neither, and it may write any file through the step loop. `ract -p` refuses an agent plan first, at plan approval, but the harness skips plan approval for a replayed plan (`plan_override`). After that, only this callback stands between the agent step and the files. Headless never replays a plan today, so this was not reachable. The callback now refuses an agent step itself; tested in `tests/test_b139_parity.py`.
 
-## Open (a ruling, not a defect by the card's rule)
+## Ruled
 
-- **Tier 2 in a session's `auto-accept` mode is refused, where tier 3 asks.** G-216 W4 gave `auto-accept` at a terminal a tier-3 question, but the tier-2 approver is set only in `default`. So a control-file write or a local git write is refused in `auto-accept`, though someone is at the terminal. That path does less, not more, so it is not a permission hole. Either ask there too (the same `SessionApprovals`), or keep it refused and say so in `/permissions`. This is a MANAGER call.
+- **Tier 2 in a session's `auto-accept` mode** used to be refused while tier 3 asked. D-145: tier 2 asks at a terminal in every session mode (the operator chose to accept file edits, not commits or branches); headless and `--yolo` refuse tier 2 and tier 3 alike. `ract_runner.run_ract` sets the tier-2 approver whenever there is a terminal; `tests/test_ract_runner.py::test_d145_tier_2_asks_at_a_terminal_in_every_mode`.
 
 ## Tests
 

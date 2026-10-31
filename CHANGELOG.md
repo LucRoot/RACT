@@ -280,6 +280,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
+  at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
+  Headless runs and `--yolo` still refuse tier 2 and tier 3.
+- `git_commit` scans the commit message for secrets as it scans the staged files, and refuses
+  before the question when it finds one (D-145).
 - The tier-3 entry-point record is bounded at run entry (B-148): at most 5000 entry points,
   64 MiB and 10 s. Past a bound the record is unknown, so every tier-3 command asks, and the
   turn says which bound was hit. A very large repository no longer makes this read slow or

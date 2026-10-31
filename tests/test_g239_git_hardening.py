@@ -488,3 +488,37 @@ def test_d8_the_add_question_lists_what_it_stages(repo: Path) -> None:
 def test_d12_remote_plumbing_always_asks(repo: Path, argv: list[str]) -> None:
     result = classify(argv, None, repo)
     assert result.outcome == "asks" and "remote git" in result.reason, result
+
+
+# ---------------------------------------------------------------- D-145
+
+
+def test_d145_a_secret_in_the_commit_message_refuses_before_the_question(
+    repo: Path,
+) -> None:
+    (repo / "b.txt").write_text("two\n", encoding="utf-8")
+    _git(repo, "add", "b.txt")
+    asked: list[str] = []
+
+    def approve(name, args):  # type: ignore[no-untyped-def]
+        asked.append(name)
+        return True
+
+    rooted = run_tool(
+        repo,
+        "git_commit",
+        {"message": "fix: key AKIAIOSFODNN7EXAMPLE rotated"},
+        approve_tier_2=approve,
+    )
+    assert not rooted.is_ok()
+    assert "the commit message holds a secret" in rooted.error
+    assert asked == []  # refused before the operator was asked
+    assert _head_subject(repo) == "first"
+
+
+def test_d145_a_plain_commit_message_still_commits(repo: Path) -> None:
+    (repo / "b.txt").write_text("two\n", encoding="utf-8")
+    _git(repo, "add", "b.txt")
+    rooted = run_tool(repo, "git_commit", {"message": "add b"}, approve_tier_2=_yes)
+    assert rooted.is_ok(), rooted.error
+    assert _head_subject(repo) == "add b"

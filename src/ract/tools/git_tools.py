@@ -984,11 +984,24 @@ def _clean_view(root: Path) -> _Staged:
 
 def _prepare_commit(root: Path, args: CommitArgs) -> None:
     _checked(root)
+    _message_secrets(args.message)  # before the question, as the files are
     args._staged = _clean_view(root)
+
+
+def _message_secrets(message: str) -> None:
+    """D-145: the commit message is scanned like a staged file; a hit refuses."""
+    hits = _scan_blob("the commit message", message.encode("utf-8"))
+    if hits:
+        where = "; ".join(f"line {n} ({kind})" for _f, n, kind in hits[:10])
+        raise ToolRefused(
+            f"the commit message holds a secret: {where}; nothing was committed",
+            "write the message without the value",
+        )
 
 
 def git_commit(root: Path, args: CommitArgs) -> ToolResult:
     _checked(root)
+    _message_secrets(args.message)
     view = _clean_view(root)
     if args._staged is not None and args._staged.digest != view.digest:
         raise ToolRefused(

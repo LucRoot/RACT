@@ -667,6 +667,15 @@ def _run_ract(
             # G-216 W4: auto-accept in a session at a terminal accepts file
             # edits without asking; a tier-3 command still asks the operator.
             executor.tier_3_approver = console_tier_3_prompt
+        if terminal and not yolo and executor.tier_2_approver is None:
+            # D-145: so does a tier-2 call (a commit, a branch, a control
+            # file): the operator chose to accept file edits, not those.
+            # Headless and --yolo leave it unset, so tier 2 is refused there.
+            from ract.tier2_approvals import SessionApprovals
+
+            executor.tier_2_approver = SessionApprovals(
+                config_path.parent, session_id, console_tier_2_choice
+            )
         # G-216 W1: the session's pin; every step's tier-3 context compares with it.
         executor.grant_pin = grant_pin
         executor.tier3_mode = tier3_mode
