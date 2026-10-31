@@ -451,13 +451,60 @@ def available_languages(
     marking unsupported languages for fallback in one pass.
     """
     langs = tuple(languages) if languages is not None else tuple(LSP_ADAPTERS)
-    return {lang: bounded_probe(lang, repo_root) for lang in langs}
+    return bounded_probes(langs, repo_root)
 
 
 # B-134 (WRIGHT's FOUND of 18:15): a language server that starts and never
 # answers held the caller, and a whole test run, without end. A probe gets
 # this long; past it the language is reported unavailable.
-PROBE_BUDGET_SECONDS = 45.0
+# One budget for all the languages together: the probes run side by side
+# (B-136: four probes one after another overran `ract memory init`).
+PROBE_BUDGET_SECONDS = 20.0
+
+
+def bounded_probes(
+    languages: Iterable[str],
+    repo_root: Path | str | None = None,
+    *,
+    budget_s: float | None = None,
+) -> dict[str, LspProbeResult]:
+    """Every language's probe at once, under one wall-clock budget (B-136)."""
+    import threading
+    import time as _time
+
+    budget = PROBE_BUDGET_SECONDS if budget_s is None else budget_s
+    results: dict[str, LspProbeResult] = {}
+    workers: dict[str, threading.Thread] = {}
+    for lang in languages:
+
+        def run(lang: str = lang) -> None:
+            results[lang] = probe_lsp(lang, repo_root)
+
+        worker = threading.Thread(
+            target=run, name=f"ract-lsp-probe-{lang}", daemon=True
+        )
+        workers[lang] = worker
+        worker.start()
+    deadline = _time.monotonic() + budget
+    for worker in workers.values():
+        worker.join(max(deadline - _time.monotonic(), 0))
+    out: dict[str, LspProbeResult] = {}
+    for lang in workers:
+        out[lang] = results.get(lang) or _unanswered(lang, budget)
+    return out
+
+
+def _unanswered(language: str, budget: float) -> LspProbeResult:
+    _LOGGER.warning("probe_lsp: %s did not answer in %.0f s", language, budget)
+    return LspProbeResult(
+        language=language,
+        available=False,
+        latency_ms=int(budget * 1000),
+        error_message=(
+            f"probe_lsp: the {language} language server did not answer in "
+            f"{budget:.0f} s"
+        ),
+    )
 
 
 def bounded_probe(

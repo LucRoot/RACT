@@ -140,3 +140,30 @@ def test_probe_reports_a_missing_multilspy_in_plain_words(
     assert r.available is False
     assert "multilspy" in (r.error_message or "")
     assert "Traceback" not in (r.error_message or "")
+
+
+def test_the_probes_share_one_budget(tmp_path: Path, monkeypatch):
+    """B-136: four languages that never answer take one budget, not four."""
+    import threading
+    import time
+
+    import ract.memory.lsp as lsp
+
+    stop = threading.Event()
+
+    def hangs(language, repo_root=None):
+        stop.wait(30)
+        raise AssertionError("not reached in the budget")
+
+    monkeypatch.setattr(lsp, "probe_lsp", hangs)
+    started = time.monotonic()
+    results = lsp.bounded_probes(
+        ("python", "typescript", "rust", "go"), tmp_path, budget_s=0.5
+    )
+    elapsed = time.monotonic() - started
+    stop.set()
+    assert elapsed < 2.0
+    assert all(
+        not r.available and "did not answer" in r.error_message
+        for r in results.values()
+    )
