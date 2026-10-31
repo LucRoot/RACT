@@ -53,7 +53,7 @@ class RunTestsArgs(BaseModel):
         return selectors
 
 
-def _test_rule(policy: object) -> object | None:
+def _test_rule(policy: object) -> Any | None:
     rules = list(getattr(getattr(policy, "commands", None), "allow", []) or [])
     for rule in rules:
         if rule.id == "tests":

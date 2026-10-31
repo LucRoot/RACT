@@ -39,7 +39,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ract import undo_backup
 from ract.canonical import dumps_jcs
@@ -633,7 +633,7 @@ def reset_in_progress(root: Path | str, state: dict[str, Any]) -> ResetResult:
         source = copies / key if copies is not None else None
         if (
             source is None
-            or undo_backup.check_entry(base, copies, key) is not None
+            or undo_backup.check_entry(base, cast(Path, copies), key) is not None
             or source.is_symlink()
             or not source.is_file()
             or _sha256(source) != entry["before"]
@@ -653,7 +653,9 @@ def resume_notices(state: dict[str, Any], reset: ResetResult) -> list[str]:
     progress = state["in_progress"]
     interrupted = progress["n"] if progress is not None else None
     ended = progress.get("ended") if progress is not None else None
-    how = {"refused": "was refused", "failed": "failed"}.get(ended, "was interrupted")
+    how = {"refused": "was refused", "failed": "failed"}.get(
+        cast(str, ended), "was interrupted"
+    )
     lines = []
     for n in range(1, len(state["plan"]["steps"]) + 1):
         if n in state["finished"]:

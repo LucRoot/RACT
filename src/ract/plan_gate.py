@@ -12,6 +12,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
+from typing import cast
 
 from ract.ui.plan_approval_view import Step, parse_answer, plan_hash
 
@@ -155,13 +156,16 @@ def resolve_answer(steps: list[Step], line: str) -> Resolution:
     if answer.kind == "cancel":
         return Resolution("refused")
     if answer.kind == "skip":
-        dropped = {answer.n}
-        target = next(step.target for step in steps if step.n == answer.n)
+        skip_n = cast(int, answer.n)  # a skip answer always names its step
+        dropped = {skip_n}
+        target = next(step.target for step in steps if step.n == skip_n)
         for step in steps:
-            if step.n <= answer.n:
+            if step.n <= skip_n:
                 continue
             same_file = bool(target) and step.target == target
-            names_target = bool(target) and target in step.action
+            names_target = (
+                isinstance(target, str) and bool(target) and target in step.action
+            )
             if same_file or names_target:
                 dropped.add(step.n)
         kept = [step for step in steps if step.n not in dropped]

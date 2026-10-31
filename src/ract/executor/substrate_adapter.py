@@ -41,7 +41,7 @@ from dataclasses import dataclass
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ract.core.module_identity import _module_knot, register_module_knot
 
@@ -627,7 +627,7 @@ def _run_via_substrate_steps(
         if reviewer is not None and apply_to != record.parent_snapshot_before:
             reviewed = _review_proposed(harness, reviewer, record, index)
             if not reviewed.is_ok():
-                return reviewed
+                return cast("Rooted[ExecutionReport]", reviewed)
             apply_to = reviewed.unwrap()
         with turn_context.persisting() as allowed:
             if allowed:

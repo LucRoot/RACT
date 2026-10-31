@@ -451,18 +451,18 @@ def classify(
         asks_because = f"it names a file written in this session ({written[0]})"
 
     if policy is not None and asks_because is None:
-        for rule in policy.commands.allow:
-            if not _prefix(rule.argv, inner):
+        for allow in policy.commands.allow:
+            if not _prefix(allow.argv, inner):
                 continue
-            if any(n not in rule.env_extra for n in env_names):
+            if any(n not in allow.env_extra for n in env_names):
                 asks_because = "it sets an environment variable the rule does not name"
                 break
             return Match(
                 "matches",
-                f"the rule {rule.id}",
+                f"the rule {allow.id}",
                 original,
                 executable,
-                rule.id,
+                allow.id,
                 in_repo,
                 tuple(notes),
                 file_digest(executable),

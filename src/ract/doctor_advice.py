@@ -148,10 +148,10 @@ def advise(
                 "RACT_KEY_HOSTS (VAR=host) or point url at the host the key belongs to."
             )
         else:
-            probe = by_name.get(key.provider)
+            found = by_name.get(key.provider)
             chat = (
-                next((f for f in probe.findings if f.label == "chat"), None)
-                if probe
+                next((f for f in found.findings if f.label == "chat"), None)
+                if found
                 else None
             )
             if chat is None:

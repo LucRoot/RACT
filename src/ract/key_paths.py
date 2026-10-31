@@ -114,7 +114,7 @@ def legacy_key(path: Path, workspace_root: Path | str) -> Path | None:
         why = "it is a link"
     elif not path.is_file():
         why = "it is not a regular file"
-    elif os.name != "nt" and path.stat().st_uid != os.getuid():
+    elif sys.platform != "win32" and path.stat().st_uid != os.getuid():
         why = "another user owns it"
     elif _tracked(path, root):
         why = "the repository tracks it"

@@ -36,7 +36,7 @@ import socket
 import threading
 import time
 from html.parser import HTMLParser
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urljoin, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -66,7 +66,7 @@ _clock = time.monotonic
 
 def _resolve(host: str) -> list[str]:
     infos = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
-    return sorted({info[4][0] for info in infos})
+    return sorted({str(info[4][0]) for info in infos})
 
 
 def _open_tcp(inner: Any, address: str, port: int, **kwargs: Any) -> Any:
@@ -299,7 +299,9 @@ def _pinned_transport(pins: dict[str, str], deadline: float) -> Any:
     # LR:: httpx takes no network backend argument; its pool keeps the
     # backend it hands to each new connection, so the pinned one goes there.
     pool = transport._pool
-    pool._network_backend = _PinnedBackend(pool._network_backend, pins, deadline)
+    pool._network_backend = cast(
+        Any, _PinnedBackend(pool._network_backend, pins, deadline)
+    )
     return transport
 
 
@@ -494,7 +496,7 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
     # answer for a command never covers a fetch, nor the other way round.
     asked_for = ("\x00web_fetch", args.url)
     if sessions is None or not sessions.covers(asked_for):
-        facts = {
+        facts: dict[str, Any] = {
             "argv": ["web_fetch", args.url],
             "executable": "RACT (the egress ledger's client)",
             "cwd": "none",

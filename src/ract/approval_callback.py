@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import shutil
 from collections.abc import Callable
+from typing import Any, cast
 
 from ract import question_gate
 from ract.cell_wrap import wrap_cells
@@ -68,7 +69,7 @@ def _tier_2_change(name: str, args: object) -> list[str]:
     """The exact change a tier-2 call asks for, as lines (ADR-0047 D6)."""
     from ract.redaction import redact
 
-    fields = getattr(args, "model_dump", lambda: {})()
+    fields: dict[str, Any] = getattr(args, "model_dump", lambda: {})()
     lines = [f"{name} {fields.get('path') or ''}".rstrip()]
     if fields.get("destination"):
         lines.append(f"  to {fields['destination']}")
@@ -393,7 +394,7 @@ def console_plan_approval(plan: Plan):
         outcome = plan_gate.resolve_answer(steps, line)
         if outcome.kind == "edit":
             # D12: the new text is one line, checked for new paths; the plan is shown again.
-            steps, error = _edit_step(steps, outcome.n, plan_gate)
+            steps, error = _edit_step(steps, cast(int, outcome.n), plan_gate)
             if error is None:
                 edited_n = outcome.n
                 # L-196 point 5: the edited plan is announced again, with its new hash.
@@ -412,7 +413,7 @@ def console_plan_approval(plan: Plan):
             continue
         if outcome.kind != "ask_again":
             break
-        _print_wrapped(outcome.error)
+        _print_wrapped(cast(str, outcome.error))
     # L-196 point 1: the whole plan as approved, edits included, is what the run takes.
     outcome = replace(outcome, shown=list(steps))
     if outcome.kind == "refused":

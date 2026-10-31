@@ -38,7 +38,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 KEEP_TURNS = 20
 MANIFEST = "manifest.json"
@@ -612,7 +612,9 @@ def restore_preview(
         paths = [
             p
             for key in ("saved", "created")
-            for p in (data.get(key) if isinstance(data.get(key), list) else [])
+            for p in cast(
+                list, data.get(key) if isinstance(data.get(key), list) else []
+            )
             if isinstance(p, str)
         ]
         stopped = False

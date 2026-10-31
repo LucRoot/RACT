@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from rich.cells import cell_len
 
@@ -269,7 +269,7 @@ class PlainRenderer:
 
     def _checklist_line(self, n: Any) -> str:
         """One step as ``[mark] n. action -> file (seconds) verdict``, within the width."""
-        step = self._checklist[n]
+        step = cast("dict[Any, dict[str, Any]]", self._checklist)[n]
         state = step["state"]
         mark = _MARKS.get(state, "[?]")
         where = safe_text(str(step["file"] or "answer"))
@@ -624,8 +624,8 @@ class PlainRenderer:
         sidecars = (d.get("provenance") or {}).get("sidecars") or []
         if sidecars:
             # D-143: the record of each signed file; it travels when committed.
-            shown = ", ".join(safe_text(str(s)) for s in sidecars)
-            self._line(f"  signed: commit each record with its file: {shown}")
+            records = ", ".join(safe_text(str(s)) for s in sidecars)
+            self._line(f"  signed: commit each record with its file: {records}")
         self._line("  " + self._cost_line(seconds))
         if test_named:
             why = verification.get("not_run_reason") or "no test ran"

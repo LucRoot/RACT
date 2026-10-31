@@ -26,7 +26,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     import httpx
@@ -368,7 +368,9 @@ def _transport_class() -> Any:
                             "tokens_out": None,
                         }
                     )
-                    raise NetworkRefused(base["purpose"], request.url.host, source)
+                    raise NetworkRefused(
+                        cast(str, base["purpose"]), request.url.host, source
+                    )
                 state = _connections.get()
                 if state is not None:
                     port = f":{request.url.port}" if request.url.port else ""

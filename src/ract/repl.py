@@ -30,7 +30,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from rich.markup import escape
 
@@ -946,7 +946,9 @@ class ReplSession:
             for name, slot in providers.items()
             if isinstance(slot, dict)
             and isinstance(slot.get("url") or slot.get("base_url"), str)
-            and trust.repository_named_host(slot.get("url") or slot.get("base_url"))
+            and trust.repository_named_host(
+                cast(str, slot.get("url") or slot.get("base_url"))
+            )
         }
         width = terminal_width()
         for line in model_blocks(providers, manager or "", named, width):
@@ -1747,23 +1749,24 @@ class ReplSession:
             matches = [w for w in words if w.startswith(text)]
             return matches[index] if index < len(matches) else None
 
-        readline.set_completer(complete)
-        readline.set_completer_delims(" \t\n")
+        rl: Any = readline
+        rl.set_completer(complete)
+        rl.set_completer_delims(" \t\n")
         # J7: Esc Esc at the prompt runs /rewind. Only where the prompt is
         # readline's; the Windows console's own line editor clears the line
         # on Esc and passes no key to RACT.
         try:
-            readline.parse_and_bind(r'"\e\e": "\C-a\C-k/rewind\C-m"')
+            rl.parse_and_bind(r'"\e\e": "\C-a\C-k/rewind\C-m"')
         except Exception as exc:  # noqa: BLE001
             print(f"[repl] Esc Esc not bound: {exc}", flush=True)
-        readline.parse_and_bind("tab: complete")
+        rl.parse_and_bind("tab: complete")
         if self._history_path is not None:
             try:
                 self._history_path.parent.mkdir(parents=True, exist_ok=True)
-                readline.read_history_file(str(self._history_path))
+                rl.read_history_file(str(self._history_path))
             except (OSError, ValueError):
                 pass
-            readline.set_history_length(1000)
+            rl.set_history_length(1000)
 
     def _save_history(self) -> None:
         if self._history_path is None:
@@ -1772,7 +1775,8 @@ class ReplSession:
             import readline
 
             self._history_path.parent.mkdir(parents=True, exist_ok=True)
-            readline.write_history_file(str(self._history_path))
+            rl_save: Any = readline
+            rl_save.write_history_file(str(self._history_path))
         except (ImportError, OSError):
             pass
 
