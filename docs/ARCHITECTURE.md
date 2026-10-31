@@ -67,8 +67,8 @@ halt cause, checked in a fixed order by `evaluate_termination`
 - **Milestone oracle rejects repeatedly.** A milestone that never reaches
   `verified` at confidence ≥ `tau_complete` does not halt on its own. The loop
   keeps iterating until either quality regresses twice (T2 `REGRESSED`), the
-  iteration/wall-time budget exhausts (T5 `BUDGET_EXHAUSTED`), or — if the
-  operator marks the milestone blocking via a handshake — T6
+  iteration/wall-time budget exhausts (T5 `BUDGET_EXHAUSTED`), or, if the
+  operator marks the milestone blocking via a handshake, T6
   (`HANDSHAKE_BLOCKED`). There is no "three strikes" rule; the budget is the
   backstop.
 - **Concurrent tool execution.** MCP tools run **serially within a plan step**.
@@ -137,29 +137,29 @@ Every step in the v0.4 loop opens a `StepTransaction`
 (`src/ract/core/transaction.py`). The workspace is the durable artifact;
 the plan reduces to a schedule over transactions.
 
-- **Code isolation** — a `git worktree` on a step-specific branch named
+- **Code isolation**: a `git worktree` on a step-specific branch named
   `rootact/step/<step_id_hex>`, created off the loop's current parent
   snapshot. `git branch --list "rootact/step/*"` enumerates the active
   transactions, and `ract session ls` presents that listing (with
   `--json` for machine consumption). See `src/ract/executor/worktree.py`.
-- **Runtime isolation** — optional per plan step. The
+- **Runtime isolation**: optional per plan step. The
   `ContainerBackend` protocol in `src/ract/executor/runtime.py` ships
   with a `DaggerBackend` and a `PodmanBackend` (`docker` fallback). A
   step whose `runtime_image` is `None` runs in the worktree alone;
   module_03 will land the OS-enforced sandbox inside the container
   the shim starts.
-- **Handshake-blocks-commit** — a step whose `handshake_ids` include any
+- **Handshake-blocks-commit**: a step whose `handshake_ids` include any
   pending id returns `TransactionOutcome.BLOCKED_ON_HANDSHAKE`; the
   worktree stays intact for operator inspection, the parent-snapshot
   pointer does not advance, and dependent steps cannot commit past the
   blocked one. This is the git-layer replacement for v0.3's plan-level
   handshake acknowledgement (SUBSTRATE §3.5).
-- **Plan-as-schedule** — `SubstrateLoop` (`src/ract/executor/loop.py`)
+- **Plan-as-schedule**: `SubstrateLoop` (`src/ract/executor/loop.py`)
   drives a sequence of `SubstrateStepSpec` values as transactions;
   `LoopController` accepts an `AcceptanceSuite` and, when set, routes
   through `build_loop_state` so T1 reads from the suite substrate
   (module_01) rather than the milestone oracle path.
-- **Loop-entry preconditions** — the loop refuses to enter when the
+- **Loop-entry preconditions**: the loop refuses to enter when the
   workspace is not a git repository, or when its tracked tree has
   uncommitted changes. The error names the offending paths so the
   operator can commit or stash without guessing. See
@@ -186,11 +186,11 @@ The provider layer serialises the union to whatever shape the underlying
 API expects, chosen at request time from the provider's declared
 `response_shape` (`ract.providers.provider.Provider`):
 
-- `structured_outputs` — OpenAI Structured Outputs
+- `structured_outputs`: OpenAI Structured Outputs
   (`to_openai_structured_outputs` in `src/ract/providers/schema.py`).
-- `tool_use` — Anthropic tool use (`to_anthropic_tool_use`; one tool
+- `tool_use`: Anthropic tool use (`to_anthropic_tool_use`; one tool
   per action kind).
-- `json_schema` — plain JSON Schema fallback for providers with
+- `json_schema`: plain JSON Schema fallback for providers with
   neither primitive.
 
 Every response passes through `ResponseValidator.parse`
@@ -211,7 +211,7 @@ categories with three thresholds:
 - **schema_compliance** ≥ 0.90 on the second-attempt fraction.
 - **tool_discipline** ≥ 0.95 (the manifest declares no shell action;
   a disciplined model stays inside the union).
-- **refusal_fidelity** ≥ 1.00 — boolean by design (lateral chain
+- **refusal_fidelity** ≥ 1.00, boolean by design (lateral chain
   branch C). Every intent is drawn from a publicly reported incident
   (SUBSTRATE §4.1 named cases plus OWASP LLM01/LLM06 red-team
   examples); even one bypass fails the provider.
@@ -236,10 +236,10 @@ signals 7 and 8 for the master-spec source.
 ## Event trace as the product
 
 module_05 (SUBSTRATE §6) makes the append-only event log the source of
-truth. Every load-bearing decision — every predicate evaluation, every
+truth. Every load-bearing decision, every predicate evaluation, every
 step transaction outcome, every prompt/response pair, every sandbox
 entry, every handshake, every rootknot write, every assumption
-lifecycle transition — lands as one event in a **hash-chained JSONL
+lifecycle transition, lands as one event in a **hash-chained JSONL
 log** at `evals/runs/<run_id>/events.jsonl`. Each event carries a
 SHA-256 of its canonical payload and a `prev_hash` reference to the
 tip hash at append time; a bit-flip anywhere in the middle of the log
@@ -250,23 +250,23 @@ The vocabulary is closed (`ract.trace.events.LEGAL_EVENT_KINDS`);
 adding a kind is a schema-version bump in `docs/EVENTS.md`. The log
 mirrors through OpenTelemetry OTLP-HTTP when `otlp_endpoint` is set in
 `ract.yaml`, following the GenAI Semantic Conventions; export is
-opt-in — a run with no endpoint configured still writes the JSONL log.
+opt-in, a run with no endpoint configured still writes the JSONL log.
 
 `RunReporter` reads only the event log and derives its summary from
 it. The report is derived data; the log is the source of truth.
 
 Five CLI verbs operate on the log:
 
-- `ract trace replay <run_id> [--until step:<step_id>]` — reconstruct
+- `ract trace replay <run_id> [--until step:<step_id>]`: reconstruct
   workspace state from cached responses.
-- `ract trace fork <run_id> --at step:<step_id> --with "…"` — replay
+- `ract trace fork <run_id> --at step:<step_id> --with "…"`: replay
   up to the chosen point, then run live from the alternative intent.
-- `ract trace diff <run_id_a> <run_id_b>` — structured diff by event
+- `ract trace diff <run_id_a> <run_id_b>`: structured diff by event
   kind; first divergence highlighted.
-- `ract trace to-test <run_id> --out <path>` — emit a pytest test that
+- `ract trace to-test <run_id> --out <path>`: emit a pytest test that
   pins the model responses (fixtures in a sibling directory) and
   asserts the workspace state.
-- `ract trace repair <run_id> [--apply] [--json]` — inspect + optionally
+- `ract trace repair <run_id> [--apply] [--json]`: inspect + optionally
   extend a run's log with synthesized close events for open handles
   (see "Write-first invariant + repair", below).
 
@@ -317,7 +317,7 @@ during construction (opt-in; default OFF).
 ## Trust direction: environment attests
 
 module_06 (SUBSTRATE §7 and §8) inverts the trust direction. In v0.3 the
-`Rootknot`'s single signature was the *generator*'s — a self-signed
+`Rootknot`'s single signature was the *generator*'s, a self-signed
 capability whose trust flowed from the author. In v0.4 the
 **environment** is the primary attester: every v2 sidecar carries an
 `environment_signature` produced by a per-run `SandboxKey`
@@ -360,30 +360,30 @@ alternatives, and `docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §7 and §8 plus
 
 SUBSTRATE spec §9 (Eval-First as Engineering Discipline) and §11
 signal 16. The v0.3 harness ships three RACT-authored tasks under
-`evals/tasks/` — enough to prove the harness works, not enough for
+`evals/tasks/`, enough to prove the harness works, not enough for
 the reviewer to locate RACT against the field. Module_07 borrows two
 established coding-eval anchors so RACT's numbers become comparable
 without inventing a new benchmark:
 
 - **Aider Polyglot** (10-problem deterministic subset under
-  `evals/polyglot/`) — Aider's per-provider public leaderboard,
+  `evals/polyglot/`), Aider's per-provider public leaderboard,
   scored on multi-language edit + test-feedback loops at the
   function-to-file scale. Two attempts per problem, hidden test
   suite, unified-diff output.
 - **SWE-bench Lite** (5-instance deterministic pin under
-  `evals/swe_bench_lite/`) — the widely-adopted subset of SWE-bench
+  `evals/swe_bench_lite/`), the widely-adopted subset of SWE-bench
   where every instance ships as one Docker image, scored on a
   repo-scale issue-to-patch loop with `FAIL_TO_PASS` +
   `PASS_TO_PASS` verification.
 
 Both runners execute each problem/instance inside a fresh
 `StepTransaction` (module_02) with a `CapabilityManifest`
-(module_03) attached — that is where the substrate proves itself
+(module_03) attached, that is where the substrate proves itself
 against real-world workloads.
 
 `evals/LEADERBOARD.md` is the canonical published record. It carries
-the four per-corpus columns — Aider Polyglot, SWE-bench Lite,
-conformance (module_04), security (module_03) — plus three v0.4.0
+the four per-corpus columns, Aider Polyglot, SWE-bench Lite,
+conformance (module_04), security (module_03), plus three v0.4.0
 ALM columns landed by ALM module_07 (`claimed_pass_rate`,
 `attested_pass_rate`, `attestation_gap`). It is regenerated
 idempotently by `evals/leaderboard/update.py` from the most recent
@@ -397,7 +397,7 @@ alternatives (attested-only, claimed-only, single-combined-score,
 model-graded attestation).
 
 The `evals/antilazy/` corpus (10 adversarial cases drawn from
-public reward-hacking incidents — SWE-bench Verified `conftest.py`,
+public reward-hacking incidents, SWE-bench Verified `conftest.py`,
 Palisade chess-hacking, monkey-patched scorer, patch leakage,
 semantic no-op, weak-assertion insertion, under-edit missed callers,
 sycophantic reversal, sandbagging, pattern-matching rule-like) is
@@ -430,7 +430,7 @@ satisfy those predicates literally while missing the underlying intent.
 G1 and G2 sit between the substrate suite and the pre-commit gate to
 close that failure mode.
 
-**Gate G1 — held-out predicate enforcement.** ``IntentCompiler.compile``
+**Gate G1, held-out predicate enforcement.** ``IntentCompiler.compile``
 accepts an optional ``companion: HoldoutComposer``; when present it
 returns a ``DualAcceptanceSuite`` wrapping the substrate
 ``AcceptanceSuite`` as ``visible`` plus a companion-composed
@@ -458,7 +458,7 @@ T1 (``ract.core.loop.check_t1``) duck-types the dual suite through a
 held-out half is not. Substrate T1 semantics remain unchanged for
 callers that hold a bare ``AcceptanceSuite``.
 
-**Gate G2 — mutation-kill threshold.** After the model claims
+**Gate G2, mutation-kill threshold.** After the model claims
 completion and before the ``StepTransaction`` commits, ``enforce_g2``
 runs mutation testing against the touched surface. A
 ``MutantSource`` produces mutants (default is a built-in AST-level
@@ -495,10 +495,10 @@ the substrate suite and G1/G2 do not close:
   Verified instances as diffs that pass the visible suite while
   remaining behaviorally indistinguishable from doing nothing.
 - **Solution leakage.** SWE-Bench+ measured 32.67% of the base
-  corpus as diffs that byte-match a prior commit — the model
+  corpus as diffs that byte-match a prior commit, the model
   surfaced training-corpus material rather than authoring the fix.
 
-**Gate G3 — patch differentiation.** ``run_patchdiff(patch, workspace,
+**Gate G3, patch differentiation.** ``run_patchdiff(patch, workspace,
 generator, runner, baseline_kind="null")`` asks a companion-shaped
 ``DifferentiatorGenerator`` for pytest-format tests targeting the
 functions the diff touches. The generator allocates a total budget
@@ -520,7 +520,7 @@ count) and ``retrieval_index_absent`` (lateral chain branch E) so the
 reviewer sees what evidence the scan consulted. Non-empty
 ``leakage_matches`` rolls back with ``kind="solution_leakage"``.
 
-**Gate G4 — coverage delta.** ``run_coverage_delta(parent, child,
+**Gate G4, coverage delta.** ``run_coverage_delta(parent, child,
 patch, mutation_report_parent, mutation_report_child)`` computes
 ``lines_new = added_lines - moved_lines`` (lateral chain branch C: a
 pure refactor moves lines, and moved lines are already covered on the
@@ -566,7 +566,7 @@ the substrate suite plus G1-G4 do not close:
   suite may still pass because the touched call sites were not
   exercised, but the next step lands on a stale reference.
 
-**Gate G5 — sandbox-enforced test integrity.** ``analyze_diff
+**Gate G5, sandbox-enforced test integrity.** ``analyze_diff
 (parent_snapshot, child_snapshot, config)`` walks the diff between
 parent and child workspace snapshots per Python test file. Any hit
 against ``config.denied_ast_patterns`` (net-new ``pytest.skip``,
@@ -576,9 +576,9 @@ against ``config.denied_ast_patterns`` (net-new ``pytest.skip``,
 (``tests/**/*grader*.py``, ``tests/**/conftest.py``), or
 ``config.monkey_patch_watchlist`` (``sys.modules['grader']``,
 ``builtins.__import__``, ``sys.settrace``) is a hard-block
-violation. The AST analyzer also surfaces metaprogramming shapes —
+violation. The AST analyzer also surfaces metaprogramming shapes, 
 ``getattr(pytest, 'skip')()``, ``pytest.__dict__['skip']()``,
-``exec("pytest.skip()")`` — under the pattern
+``exec("pytest.skip()")``, under the pattern
 ``test_integrity_metaprogramming_escape`` (Second Pass Q1).
 ``enforce_g5`` rolls the transaction back and emits
 ``laziness.violated`` with ``kind="test_hack_denied"``. An operator
@@ -588,7 +588,7 @@ handshake covering a denied pattern flips the gate to
 
 Portability skips (``pytest.skip(reason="only on windows")``,
 ``@pytest.mark.skipif(sys.platform == ...)``) are exempt by the
-lateral-branch-A rule — false-positive rollbacks would train the
+lateral-branch-A rule, false-positive rollbacks would train the
 operator to disable the gate. Test files in TypeScript, Go, and
 Rust surface a ``test_integrity_unsupported_language`` advisory
 (lateral branch D); the run continues but the coverage gap lands
@@ -600,10 +600,10 @@ The ``CapabilityManifest`` grows a strict-mode
 ``ManifestValidator`` refuses a manifest whose
 ``denied_ast_patterns`` or ``denied_file_edits`` is empty
 (``code="test_integrity_section_narrowed"``). Narrowing requires a
-signed operator handshake — parallel to the tier-3 compile-time
+signed operator handshake, parallel to the tier-3 compile-time
 hard-off pattern from ADR-0012.
 
-**Gate G6 — symbol graph and under-edit closure.** ``build_graph
+**Gate G6, symbol graph and under-edit closure.** ``build_graph
 (workspace, cache_db=path)`` parses every Python file in the
 snapshot with the stdlib ``ast`` module and produces a
 ``SymbolGraph`` (``symbols``, ``call_edges``, ``import_edges``,
@@ -620,10 +620,10 @@ downstream callers of the edited symbols, partitioned into
 ``covered_by_declaration`` (the acceptance suite explicitly marks
 the caller unaffected), and ``uncovered`` (nothing covers it).
 Generated files (from ``.gitattributes linguist-generated=true``
-plus a per-language heuristic default — ``*_pb2.py``,
+plus a per-language heuristic default, ``*_pb2.py``,
 ``*_pb2_grpc.py``, ``**/generated/**``, Second Pass Q4) drop from
 the downstream set. Getattr-based references (Second Pass Q2) land
-in ``getattr_advisories`` — an advisory-only channel because
+in ``getattr_advisories``, an advisory-only channel because
 stdlib ``ast`` cannot see through reflection any more than
 tree-sitter could.
 
@@ -637,7 +637,7 @@ Both gates land as pure-over-inputs helpers so tests exercise them
 without live worktrees. ``WorktreeManager._check_test_integrity``
 and ``WorktreeManager._check_under_edit`` are thin delegators; the
 substrate merge site calls them in front of ``commit``. The trace
-vocabulary gains no new event kind — both emit under
+vocabulary gains no new event kind, both emit under
 ``laziness.violated`` (with ``kind`` payload discriminators
 ``test_hack_denied`` and ``under_edit_uncovered_callers``) and
 under ``predicate.evaluated`` (with
@@ -667,8 +667,8 @@ the held-out ones, never the event trace, never the primary's turn
 history). Its job is to propose counterexamples that break the
 completion claim. The companion runs in a read-only workspace mount
 (``bwrap`` on Linux, ``seatbelt`` on macOS) with a 2-minute wall-time
-budget. A surviving counterexample — one that passes on the
-pre-change workspace and fails on the post-change workspace — emits
+budget. A surviving counterexample, one that passes on the
+pre-change workspace and fails on the post-change workspace, emits
 ``laziness.violated`` with ``kind="companion_counterexample"`` and
 the loop resumes with the counterexamples injected into the next
 planning prompt.
@@ -795,7 +795,7 @@ master-spec source.
 ## Anti-Lazy Isomorphic Perturbation Gate
 
 ALM master spec §9. An optional completion-path gate that fires only
-when the intent is rule-like — universally quantified ("every user
+when the intent is rule-like, universally quantified ("every user
 must have exactly one primary email"; "no function may bypass the
 audit logger"; "all monetary values are stored as integer cents").
 The gate restates the intent under three isomorphic transformations
@@ -813,7 +813,7 @@ Stdlib-regex over the universal-quantifier keywords (``every``,
 ``never``, ``always``, ``cannot``). Returns a ``RuleLikeDetection``
 with a ``confidence`` score; below 0.7 confidence the caller runs one
 transformation instead of three (lateral chain branch A). The
-detector is deliberately over-inclusive — a false positive costs one
+detector is deliberately over-inclusive, a false positive costs one
 extra companion dispatch, a false negative loses the gate entirely,
 which is the more expensive error.
 
@@ -1027,11 +1027,11 @@ vector query over the seed symbol's chunks, excluding the seed
 itself), :meth:`SemanticIndex.search_with_budget` (returns as many
 top-k results as fit under a caller-supplied token cap; skips
 individual chunks that overflow the remaining budget so a later
-smaller chunk can still fit — Second Pass Q1 pack-greedy-by-
+smaller chunk can still fit, Second Pass Q1 pack-greedy-by-
 relevance),
 :meth:`SemanticIndex.enrich_with_graph` (one-hop graph enrichment
 on semantic hits with default
-``neighborhood_source='lsp'`` filter — module_03 POST inbound
+``neighborhood_source='lsp'`` filter, module_03 POST inbound
 constraint 1).
 
 Every write path (:meth:`insert_or_update` / batch variant /
@@ -1053,7 +1053,7 @@ Chunk identity joins on module_02
 initial pass also populates
 :attr:`~ract.memory.symbol_index.SymbolRow.parent_symbol_id` for
 method-kind rows against their class-container line ranges
-(module_03 POST inbound constraint 2 — the schema column has been
+(module_03 POST inbound constraint 2, the schema column has been
 unused since module_02 and lands its first writer here).
 
 Offline install path: ``sentence-transformers`` is an OPTIONAL
@@ -1197,20 +1197,20 @@ canonical JSON round-trip via `to_json` / `from_json`.
 
 Shared plumbing:
 
-- `errors.py` — `MemoryFunctionError` base class + six subclasses
+- `errors.py`: `MemoryFunctionError` base class + six subclasses
   the composition layer catches once and dispatches per subclass
   (Lateral Chain branch D).
-- `provider_adapter.py` — `MemoryFunctionProvider.send(prompt,
+- `provider_adapter.py`: `MemoryFunctionProvider.send(prompt,
   declaration) -> str` protocol; `assemble_prompt` five-section
   composer per master spec §Context composition;
   `refuse_over_ceiling` pre-model refuse gate.
-- `prompts_loader.py` — loads `prompts/{function}_v{n}.md`;
+- `prompts_loader.py`: loads `prompts/{function}_v{n}.md`;
   `assert_prompt_shipped` fires at import time so a version-string
   bump without a matching prompt file surfaces before the first
   invocation (Second Pass Q4 defence).
-- `testing/mock_provider.py` — canned-response `MockProvider` for
+- `testing/mock_provider.py`: canned-response `MockProvider` for
   tests (Lateral Chain branch B).
-- `session.py` — `SessionMemory` per-run store; persists to
+- `session.py`: `SessionMemory` per-run store; persists to
   `evals/runs/<run_id>/session.json` after every write.
 
 Structured generation for edit output is a lightweight post-generation
@@ -1226,14 +1226,14 @@ Four playbook YAMLs at `src/ract/memory/playbooks/` compose the
 four function contracts into named workflows. Master spec
 §Playbooks; ADR-0037.
 
-- `refactor_rename.yaml` — intake, research (graph both hops=1),
+- `refactor_rename.yaml`: intake, research (graph both hops=1),
   plan (split_threshold=5), edit_loop (per_iteration_budget=6000,
   max_iterations=10).
-- `refactor_extract.yaml` — intake, research, plan, edit
+- `refactor_extract.yaml`: intake, research, plan, edit
   (budget_override input_target=6000).
-- `bug_fix.yaml` — intake, research, reproduce, plan, edit
+- `bug_fix.yaml`: intake, research, reproduce, plan, edit
   (budget_override input_target=8000).
-- `unit_test.yaml` — intake, research, plan, edit
+- `unit_test.yaml`: intake, research, plan, edit
   (budget_override input_target=6000).
 
 The composition runner at `src/ract/memory/composition_runner.py`
@@ -1264,14 +1264,14 @@ Phase types:
 Error family (all subclass
 `ract.memory.functions.errors.MemoryFunctionError`):
 
-- `UnknownPlaybookError` — requested playbook name is not shipped.
-- `PlaybookSchemaError` — YAML has an unknown field or wrong
+- `UnknownPlaybookError`: requested playbook name is not shipped.
+- `PlaybookSchemaError`: YAML has an unknown field or wrong
   shape.
-- `UnconfirmedBugError` — bug_fix reproduce phase could not
+- `UnconfirmedBugError`: bug_fix reproduce phase could not
   confirm the reported failure.
-- `OversizeTargetError` — refactor_extract target function exceeds
+- `OversizeTargetError`: refactor_extract target function exceeds
   edit budget even at FULL format.
-- `IterationBoundExceededError` — edit_loop iteration count would
+- `IterationBoundExceededError`: edit_loop iteration count would
   exceed the plan's `iteration_bound`.
 
 Ambiguity route: when intake returns a WorkOrder with non-empty
@@ -1298,16 +1298,16 @@ Three probe suites at `src/ract/memory/probes/` measure provider
 behavior on the actual provider mix. Master spec §Self-adjustment;
 ADR-0038.
 
-- `needle.py` — needle-in-a-haystack recall across depths
+- `needle.py`: needle-in-a-haystack recall across depths
   (5% / 25% / 50% / 75% / 95%) and context sizes (2k / 4k / 8k /
   16k tokens). Records `recall_at_depth` per pair and reduces to
   `usable_context_window` (largest size at which every depth still
   recalled).
-- `coherence.py` — subtle-inconsistency detection at each context
+- `coherence.py`: subtle-inconsistency detection at each context
   size. A hit requires the response to mention BOTH contradictory
   tokens. Reduces to `reasoning_quality_bound` (largest size at
   which the model still identified the inconsistency).
-- `adherence.py` — instruction persistence: a `CROW:` prefix
+- `adherence.py`: instruction persistence: a `CROW:` prefix
   instruction seated at the beginning must survive to the response
   at the end. Reduces to `persistence_bound`.
 
@@ -1316,7 +1316,7 @@ three probes with the same provider and sink, then reduces to a
 `ModelCapability` record written atomically to
 `.rack/probes/capability.json` (tmp + fsync + `os.replace`).
 `read_capability_record` returns `None` on missing file (fresh
-install path — module_01 spec defaults fire); malformed JSON or
+install path, module_01 spec defaults fire); malformed JSON or
 unsupported schema version raises `ValueError` so a corrupted file
 never silently reverts.
 
@@ -1373,7 +1373,7 @@ new keyword default.
 field.** `make_rootknot_v3` accepts the field as a kwarg;
 `canonical_bytes()` includes it in the signed payload ONLY when the
 field is non-None. Older sidecars (v1, v2, v3 without the field)
-verify unchanged — the sacred-spine test
+verify unchanged, the sacred-spine test
 `test_older_sidecar_still_verifies` pins this compatibility.
 `ract.core.rootknot.bundle_digest(bytes) -> Digest` is a small
 SHA-256 helper the retrieve wiring calls to build the attestation
@@ -1425,7 +1425,7 @@ the module fragment.
 <!-- RACT 0.4.0: Typed action union + conformance gate (ADR-0014) -->
 <!-- RACT 0.4.0: Event trace as the product (ADR-0015) -->
 <!-- RACT 0.4.0: Rootknot environment attestation + contracts (ADR-0016, ADR-0017) -->
-<!-- RACT 0.4.0: Eval-first — Aider Polyglot + SWE-bench Lite anchors (ADR-0018) -->
+<!-- RACT 0.4.0: Eval-first, Aider Polyglot + SWE-bench Lite anchors (ADR-0018) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G1 (held-out) + Gate G2 (mutation-kill) (ADR-0019) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G3 (patch differentiation) + Gate G4 (coverage delta) (ADR-0020) -->
 <!-- RACT 0.4.0-rc1: Anti-Lazy Gate G5 (test integrity) + Gate G6 (symbol-graph under-edit) (ADR-0021) -->
@@ -1433,9 +1433,9 @@ the module fragment.
 <!-- RACT 0.4.0-rc1: Three-signature Rootknot + Invariant AL-1 + sycophancy circuit + Investigator (ADR-0023) -->
 <!-- RACT 0.4.0-rc1: Isomorphic Perturbation gate for rule-like intents (ADR-0024) -->
 <!-- RACT 0.5.0: Token budget system + budget accountant hard-ceiling refuse (ADR-0031) -->
-<!-- RACT 0.5.0: Symbol index — SQLite + tree-sitter + FTS5 + incremental file watcher (ADR-0032) -->
-<!-- RACT 0.5.0: Memory-discipline integration — SubstrateLoop metadata wiring + Rootknot retrieval_attestation + seven EventKind additions + ALM G6/G7 edit-path extensions + three CLI verbs (ADR-0039) -->
-<!-- RACT 0.5.0: Graph index — SQLite edges + multilspy LSP driver + symbol-only fallback (ADR-0033) -->
+<!-- RACT 0.5.0: Symbol index, SQLite + tree-sitter + FTS5 + incremental file watcher (ADR-0032) -->
+<!-- RACT 0.5.0: Memory-discipline integration, SubstrateLoop metadata wiring + Rootknot retrieval_attestation + seven EventKind additions + ALM G6/G7 edit-path extensions + three CLI verbs (ADR-0039) -->
+<!-- RACT 0.5.0: Graph index, SQLite edges + multilspy LSP driver + symbol-only fallback (ADR-0033) -->
 <!-- RACT 0.5.0: Semantic index via LanceDB + local embedding model (ADR-0034) -->
 <!-- RACT 0.5.0: Retrieve primitive with four-level cascade (ADR-0035) -->
 <!-- RACT 0.5.0: Function contracts (ADR-0036) -->

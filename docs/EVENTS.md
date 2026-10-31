@@ -23,30 +23,30 @@ Reference sources:
 
 - SUBSTRATE §6, §11.
 - OpenTelemetry GenAI Semantic Conventions SIG:
-  `https://github.com/open-telemetry/semantic-conventions` — the kinds
+  `https://github.com/open-telemetry/semantic-conventions`, the kinds
   mirror the conventions' multi-agent vocabulary (tasks, actions,
   memory, agent teams, artifact tracking).
 - Temporal durable-execution model:
-  `https://docs.temporal.io/` — the workflow-history-as-source-of-truth
+  `https://docs.temporal.io/`, the workflow-history-as-source-of-truth
   pattern that motivates the projection-based reporter.
-- JSON Schema Draft 2020-12: `https://json-schema.org/` — canonical
+- JSON Schema Draft 2020-12: `https://json-schema.org/`, canonical
   payload form.
-- ADR-0015 — the OpenTelemetry runtime dep + this schema.
+- ADR-0015, the OpenTelemetry runtime dep + this schema.
 
 ## Common event envelope
 
 Every event carries the following fields regardless of kind:
 
-- `id` — 16-byte UUID, hex-encoded.
-- `run_id` — 16-byte UUID identifying the run.
-- `step_id` — 16-byte UUID or `null`; set for step-scoped events.
-- `parent_id` — 16-byte UUID or `null`; set for causality chains.
-- `timestamp_ns` — integer nanoseconds since the Unix epoch.
-- `kind` — one of the closed `EventKind` literals below.
-- `payload` — kind-specific structured dict (schemas below).
-- `hash` — SHA-256 of the canonical serialisation of every field
+- `id`: 16-byte UUID, hex-encoded.
+- `run_id`: 16-byte UUID identifying the run.
+- `step_id`: 16-byte UUID or `null`; set for step-scoped events.
+- `parent_id`: 16-byte UUID or `null`; set for causality chains.
+- `timestamp_ns`: integer nanoseconds since the Unix epoch.
+- `kind`: one of the closed `EventKind` literals below.
+- `payload`: kind-specific structured dict (schemas below).
+- `hash`: SHA-256 of the canonical serialisation of every field
   above plus `prev_hash` (32 bytes, hex-encoded).
-- `prev_hash` — SHA-256 of the previous event's `hash` (32 bytes,
+- `prev_hash`: SHA-256 of the previous event's `hash` (32 bytes,
   hex-encoded). The chain's genesis is 32 zero bytes.
 
 `EventReader.load(path)` reads the log line-by-line and re-hashes each
@@ -77,8 +77,8 @@ is built.
 
 Fields:
 
-- `intent_id` (string, hex UUID) — the suite's intent id.
-- `suite_digest` (string) — deterministic digest of the compiled suite.
+- `intent_id` (string, hex UUID), the suite's intent id.
+- `suite_digest` (string), deterministic digest of the compiled suite.
 - `compiler_version` (string).
 - `predicate_count` (int).
 - `required_count` (int).
@@ -210,7 +210,7 @@ Fields: `manifest_digest` (string), `reason` (string), `details` (dict).
 
 #### `sandbox.unenforced`
 
-Emitted by `UnenforcedSandbox` on each `enter` — loud in the log by
+Emitted by `UnenforcedSandbox` on each `enter`, loud in the log by
 design (see ADR-0012).
 
 Fields: `manifest_digest` (string), `reason` (string), `details` (dict).
@@ -219,27 +219,27 @@ Fields: `manifest_digest` (string), `reason` (string), `details` (dict).
 
 **Added in v0.5.1 wiring module_04 (Lens C C-02 + C-10 closure).**
 
-Emitted by every sandbox backend — `LinuxSandbox`, `MacosSandbox`, and
-the Windows `UnenforcedSandbox` stub — on every `enter`. Payload
+Emitted by every sandbox backend, `LinuxSandbox`, `MacosSandbox`, and
+the Windows `UnenforcedSandbox` stub, on every `enter`. Payload
 carries the environment-allowlist audit for the invocation:
 
 - `backend` (string; one of `"linux-bwrap"`, `"macos-sandbox-exec"`,
-  `"stub"`) — which backend rendered the env scrub.
+  `"stub"`), which backend rendered the env scrub.
 - `allowlist_source` (string; one of `"manifest"`, `"file"`,
-  `"default"`) — which source contributed the largest set of surviving
+  `"default"`), which source contributed the largest set of surviving
   names.
-- `scrubbed_count` (int) — count of environment variables present on
+- `scrubbed_count` (int), count of environment variables present on
   the harness process that were NOT allowlisted and therefore never
   reached the sandboxed child. Count-only; the substrate never logs the
   scrubbed names or values.
-- `never_passthrough_denied` (int) — count of allowlist entries that
+- `never_passthrough_denied` (int), count of allowlist entries that
   WERE declared (in `manifest.env.passthrough` or the
   `.ract/sandbox_env.allowlist` file) but were refused by the
   `NEVER_PASSTHROUGH` deny surface. **A non-zero value on a production
-  run means the manifest declared a credential-shaped name** — the
+  run means the manifest declared a credential-shaped name**, the
   operator should audit the manifest and remove the entry (the child
   env will not carry it either way; the counter is the audit signal).
-- `credential_shaped_unblocked_count` (int) — SP Q6 amendment: count
+- `credential_shaped_unblocked_count` (int), SP Q6 amendment: count
   of allowlist entries whose SHAPE looks like a credential (suffix
   match on `_TOKEN` / `_KEY` / `_SECRET` / `_PASSWORD` / `_API` /
   `_AUTH` / etc.) but that the deny surface did NOT catch. These
@@ -270,29 +270,29 @@ which descendant trees each rollback path terminated.
 
 Payload:
 
-- `pid` (int) — the parent PID of the reaped tree (as returned by
+- `pid` (int), the parent PID of the reaped tree (as returned by
   `subprocess.Popen.pid`). `-1` when the handle's `pid` attribute was
   unreadable (defensive; should never fire in production).
-- `argv0` (string) — the command name (`argv[0]`) as spawned. NOT the whole
+- `argv0` (string), the command name (`argv[0]`) as spawned. NOT the whole
   argv (log-line width discipline). Empty string when the handle carries no
   argv (defensive).
-- `argv_len` (int) — number of tokens in the spawn argv, so an auditor can
+- `argv_len` (int), number of tokens in the spawn argv, so an auditor can
   correlate against known command shapes without the full argv leaking
   into the log.
-- `reason` (string) — the rollback path that fired the reap. One of
+- `reason` (string), the rollback path that fired the reap. One of
   `"postcondition_failed"` (a required predicate returned `ok=False`),
   `"commit_failed"` (`WorktreeManager.commit` raised), `"run_step_exception"`
   (an uncaught exception unwound `run_step`), `"dispose_unsuccessful"`
   (`SubstrateLoop.dispose(success=False)` fired), or a caller-supplied
   string when the reaper is invoked from a test / custom path.
-- `reap_latency_ms` (int) — monotonic delta from `ProcessGroupHandle.spawned_at`
+- `reap_latency_ms` (int), monotonic delta from `ProcessGroupHandle.spawned_at`
   to reap in milliseconds. `0` when the spawn timestamp was unreadable.
 
 **Audit interpretation.** A `reason="dispose_unsuccessful"` event with
 `reap_latency_ms > 0` and `argv0` matching a background test process is
 the fingerprint of a step_runner that spawned a long-running child and
 failed to await it before the rollback. A cluster of `process.reaped`
-events in a single run is not a red flag on its own — the substrate reaps
+events in a single run is not a red flag on its own, the substrate reaps
 every registered handle on rollback; the operational signal is whether the
 argv0 pattern points at a step_runner bug (spawn-and-forget) or a normal
 rollback of a long-running test suite.
@@ -371,7 +371,7 @@ originating assumption id).
 
 #### `auction.proposal`
 
-Emitted by `AuctionSweep.run` — one event per staged
+Emitted by `AuctionSweep.run`, one event per staged
 `DeletionProposal`. The Auction is a scheduled between-iteration
 sweep (SUBSTRATE §8); nothing is deleted without operator sign-off.
 
@@ -397,7 +397,7 @@ trace:
     replacement: "[REDACTED]"
 ```
 
-The profile is intentionally shallow — a first line of defence for
+The profile is intentionally shallow, a first line of defence for
 shared logs, not a data-loss-prevention layer. Deeper redaction is v0.5
 hardening (per ADR-0015).
 
@@ -461,19 +461,19 @@ completion. Fields: `probe` (needle | coherence | adherence),
 The seven kinds below extend the closed vocabulary under
 schema_version 4. Producers:
 
-- `assumption.accepted` — `ract.core.assumptions.AssumptionRegistry.accept`
+- `assumption.accepted`: `ract.core.assumptions.AssumptionRegistry.accept`
   (module_01 -- WAL crash-consistency layer).
-- `tool.invocation.pre|post|refused` —
+- `tool.invocation.pre|post|refused`, 
   `ract.executor.tool_gate.ToolInvocationGate._emit` /
   `_refuse` (module_05 -- SubstrateLoop shim closure). The three
   strings are emitted directly by the gate; the
   `src/ract/trace/events.py::EventKind` Literal folds them into
   the closed vocabulary at the write-time gate.
-- `manifest.ledger.appended|refused` —
+- `manifest.ledger.appended|refused`, 
   `ract.security.manifest_ledger.ManifestLedger.append` /
   observer refusal path (module_07 -- Historical Manifest
   Ledger).
-- `whisperer.contract_violation` —
+- `whisperer.contract_violation`, 
   `ract.antilazy.sycophancy_v2.SycophancyClassification.emit_event`
   (module_09 -- Sycophancy classifier upgrade).
 
@@ -585,14 +585,14 @@ See `docs/ADRs/ADR-0042-sycophancy-v2-tuning-band.md` for the
 tuning-band provenance behind the `floor` and `null_op_threshold`
 defaults.
 
-<!-- schema_version: 4 — v0.5.1 External Review Response (added assumption.accepted, tool.invocation.pre|post|refused, manifest.ledger.appended|refused, whisperer.contract_violation) -->
+<!-- schema_version: 4, v0.5.1 External Review Response (added assumption.accepted, tool.invocation.pre|post|refused, manifest.ledger.appended|refused, whisperer.contract_violation) -->
 
 ## v0.5.1 spec-completeness module_02 (schema_version 6)
 
 The kind below extends the closed vocabulary under schema_version 6.
 Producer:
 
-- `state.budget_capped` — `ract.memory.functions.provider_adapter.seat_state_section`
+- `state.budget_capped`: `ract.memory.functions.provider_adapter.seat_state_section`
   (module_02 -- 15%-of-input_target sub-budget cap on the state
   section, closes Lens 1A CRITICAL A-2).
 
@@ -617,7 +617,7 @@ Fields:
 - `function` (string; `intake` / `research` / `plan` / `edit`).
 - `cap_tokens` (int; `floor(0.15 * input_target)`).
 - `requested_tokens` (int; pre-truncate seated size).
-- `seated_tokens` (int; post-truncate seated size — always `<=
+- `seated_tokens` (int; post-truncate seated size, always `<=
   cap_tokens`).
 - `dropped_entry_count` (int; lines dropped by the truncation walk
   under strategy `truncate_tail`).
@@ -639,7 +639,7 @@ Example payload:
 }
 ```
 
-<!-- schema_version: 6 — v0.5.1 spec-completeness module_02 (added state.budget_capped) -->
+<!-- schema_version: 6, v0.5.1 spec-completeness module_02 (added state.budget_capped) -->
 
 ## v0.5.1 spec-completeness module_03 -- repair-synthesized close events (schema_version 6, no new kind)
 
@@ -662,10 +662,10 @@ Additional per-close-kind fields:
 
 - `run.aborted` (synth): base payload keys only.
 - `step.rolled_back` (synth): base payload keys only.
-- `tool.result` (synth): adds `status: "unknown"` — signals to
+- `tool.result` (synth): adds `status: "unknown"`, signals to
   downstream consumers that the tool's outcome cannot be
   reconstructed from the log.
-- `response.received` (synth): adds `status: "timed_out"` — signals
+- `response.received` (synth): adds `status: "timed_out"`, signals
   that the LLM request never received a response before the log
   was truncated.
 - `handshake.resolved` (synth): adds `resolution: "interrupted"`.
@@ -703,7 +703,7 @@ assembly time. The retrieve primitive emits one
 against a primary symbol seated at the cascade's final level.
 Producers:
 
-- `retrieval.grouping.applied` — `ract.memory.retrieve._extend_with_grouping`
+- `retrieval.grouping.applied`: `ract.memory.retrieve._extend_with_grouping`
   (called from `_build_and_emit` after the four-level cascade
   packs its primaries).
 
@@ -721,19 +721,19 @@ starved every companion".
 
 Fields:
 
-- `call_id` (string; hex) — parity with the other `retrieval.*`
+- `call_id` (string; hex), parity with the other `retrieval.*`
   kinds; identifies the retrieve call the grouping ran under.
-- `primary_symbol_id` (int) — id of the primary symbol; `-1` when
+- `primary_symbol_id` (int), id of the primary symbol; `-1` when
   the primary had no id (test fixtures).
-- `companion_count` (int) — number of companions seated into the
+- `companion_count` (int), number of companions seated into the
   bundle at this format cascade level.
-- `rule_fired` (string) — one of `dataclass_methods` /
+- `rule_fired` (string), one of `dataclass_methods` /
   `trait_impls` / `test_subject` / `function_type_aliases`
   (see :data:`ract.memory.grouping.LEGAL_RULES`).
-- `companion_format` (string) — the `ChunkFormat` value the
+- `companion_format` (string), the `ChunkFormat` value the
   companions were rendered under (`full` / `body` / `sig` /
   `summary`). Empty string when `companion_count == 0`.
-- `dropped_companion_count` (int) — companions the rule identified
+- `dropped_companion_count` (int), companions the rule identified
   but the budget floor dropped (even at SIGNATURE).
 
 Example payload:
@@ -762,7 +762,7 @@ defaults to `True`; a caller who sets it to `False` gets today's
 pre-module_04 behavior (no grouping, no events). The event kind
 extends the closed vocabulary under schema_version 7.
 
-<!-- schema_version: 7 — v0.5.1 spec-completeness module_04 (added retrieval.grouping.applied) -->
+<!-- schema_version: 7, v0.5.1 spec-completeness module_04 (added retrieval.grouping.applied) -->
 
 ## v0.5.1 spec-completeness module_07 -- subagent cascade (schema_version 8)
 
@@ -796,7 +796,7 @@ Payload:
 
 Fields:
 
-- `kind` — short role string. Not a closed enum: the concrete
+- `kind`: short role string. Not a closed enum: the concrete
   ship classes default to `"subprocess"` (`SubprocessSubagentHandle`)
   and `"inline"` (`InlineSubagentHandle`), and any caller-supplied
   handle implementation MAY set an arbitrary string on its
@@ -804,15 +804,15 @@ Fields:
   `"whisperer_provider_session"`). Consumers writing dashboards
   or greps should treat `kind` as an open vocabulary keyed by the
   handle's registered `descriptor.role` for canonical grouping.
-- `descriptor` — free-form dict the caller attached at registration.
+- `descriptor`: free-form dict the caller attached at registration.
   Typically names the specific subagent role + a per-instance
   label so the audit trail can distinguish two Whisperers running
   in parallel.
-- `reason` — the cascade cause. Common values: `"dispose_unsuccessful"`
+- `reason`: the cascade cause. Common values: `"dispose_unsuccessful"`
   (from `SubstrateLoop.dispose(success=False)`),
   `"run_step_exception"` (from the ``run_step`` exception unwind),
   or a caller-supplied string.
-- `ok` — `true` on successful dispose (either an idempotent
+- `ok`: `true` on successful dispose (either an idempotent
   no-op on an already-disposed handle or the handle's `dispose`
   returned `True`), `false` when the handle's `dispose` returned
   `False` or raised.
@@ -821,7 +821,7 @@ Backward compatibility: the event kind is additive. The prior
 schema_version 7 stays valid for readers that need not surface
 subagent cascades; readers at schema_version 8 gain the new kind.
 
-<!-- schema_version: 8 — v0.5.1 spec-completeness module_07 (added subagent.disposed) -->
+<!-- schema_version: 8, v0.5.1 spec-completeness module_07 (added subagent.disposed) -->
 
 ## v0.5.2 hardening pipeline -- ten additive kinds (schema_version 9)
 
@@ -939,7 +939,7 @@ Emitted when the header `run_id` differs from the verifier's
 
 Payload: `path`, `header_run_id`, `expected_run_id`.
 
-<!-- schema_version: 9 — v0.5.2 hardening pipeline modules 03/04/06 (added 10 kinds) -->
+<!-- schema_version: 9, v0.5.2 hardening pipeline modules 03/04/06 (added 10 kinds) -->
 
 ### `budget.clamp_refused`
 
@@ -1061,7 +1061,7 @@ non-T1 exit: `applied` when the reset ran, `refused` otherwise. Fields:
  "drain_reason": "T3_REGRESSION"}
 ```
 
-<!-- schema_version: 10 — v0.5.2 CI-fix closure (added 10 kinds already emitted in src/) -->
+<!-- schema_version: 10, v0.5.2 CI-fix closure (added 10 kinds already emitted in src/) -->
 
 ## Stage to event kind
 

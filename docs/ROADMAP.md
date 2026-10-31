@@ -17,7 +17,7 @@ substrate module gaps below.
 
 - module_01: live evaluators are stubs; pytest/mypy/hypothesis read metadata, don't execute
 - module_01: coverage gate stored but not enforced (no CoverageInvocation kind)
-- module_01: IntentCompiler scaffold — no test proposal, no ADR walking, no diff traversal
+- module_01: IntentCompiler scaffold, no test proposal, no ADR walking, no diff traversal
 - module_01: LoopController still runs v0.3 milestone-oracle path, not wired to build_loop_state
 - module_01: RunReporter.render_last_loop doesn't include the suite
 - module_01: assertion callable_refs not sandboxed (importlib, no allowlist)
@@ -39,7 +39,7 @@ substrate module gaps below.
 - module_03: sandbox key material manifest-referenced; storage layer is module_06 work (closed in module_06)
 - module_03: Landlock version drift is runtime probe, not compile-time guarantee
 - module_03: pre-flight `would_refuse_*` uses fnmatch, not real path resolution
-- module_03: `RACT_TIER_3_ENABLED` constant in source — no signed build attestation
+- module_03: `RACT_TIER_3_ENABLED` constant in source, no signed build attestation
 - module_03: no `ract run --manifest` CLI flag yet
 - module_04: corpus is 68/75 (schema_compliance short of 40)
 - module_04: refusal-fidelity 15-item boolean at 1.00 too unforgiving; needs weighted-severity
@@ -101,13 +101,13 @@ through `module_07.md`.
 - module_05: `LoopController` wiring for Investigator + reversal-scan + gate_results embedding
 - module_05: operator's dispatcher-scoping documentation three-family review example not landed (see operator-side gaps below)
 - module_05: Investigator per-file probe requires a real `CompanionAdapter` (stub in tests today)
-- module_05: silent `except Exception` in trace-emit blocks — add debug-log of suppressed exception
+- module_05: silent `except Exception` in trace-emit blocks, add debug-log of suppressed exception
 - module_06: cost cap on primary-provider dispatch per rule-like completion (belongs in `ract.yaml`)
 - module_06: cross-language iso-perturb solution comparison (Python-only today)
 - module_06: `compile_and_detect_rule_like` doesn't persist `rule_like` flag into `suite.json`
 - module_07: dedicated G4/G7 fixtures (currently piggy-backing on `weak_assertion_insertion` + `pattern_matching_rule_like`)
 - module_07: live-provider reruns across ≥3 provider families (via nightly `evals-full.yml`)
-- module_07: antilazy corpus growth cadence — documented process for new reward-hacking incidents
+- module_07: antilazy corpus growth cadence, documented process for new reward-hacking incidents
 - module_07: `sandbagging_under_effort` needs runner-applies-diff glue for real G8 exercise
 - module_07: `sycophantic_reversal_no_evidence` `trace.jsonl` needs exact `response.received` payload
 - module_07: PR-tier smoke workflow leaderboard idempotence drift on fresh base reports
@@ -121,7 +121,7 @@ identities reflect the ACTUAL dispatcher used (see the operator-side
 dispatcher-gaps section for the four plan-vs-actual drift events).
 
 - module_01 (external reviewer via operator dispatcher): ACH 0.79 precision inflates `kill_rate` denominator; ~21% missed equivalents
-- module_01 (external reviewer via operator dispatcher): trivial-holdout ceiling insufficient — add compose-time signal + consecutive-similar refusal
+- module_01 (external reviewer via operator dispatcher): trivial-holdout ceiling insufficient, add compose-time signal + consecutive-similar refusal
 - module_02 (cross-family reviewer via operator dispatcher): `_classify_triviality` gameable by mixed-diff (formatter + substantive)
 - module_02 (cross-family reviewer via operator dispatcher): 3-run flakiness filter 52% pass at 20% flake; need adaptive N + Wilson interval
 - module_03 (external reviewer via operator dispatcher): data-flow escape via `s = pytest.skip; s()` bound-method assignment
@@ -182,7 +182,7 @@ following items feed the v0.5 backlog as deeper improvements:
 - **Endpoints-SKILL scoping table drift.** D12 (Google reasoning-reviewer
   meta-review of the Second Pass discipline) surfaced that the
   plan-named reviewer pair for modules 02 and 06 was a DeepSeek-family
-  OpenRouter reviewer against an NVIDIA DeepSeek-family reviewer — both
+  OpenRouter reviewer against an NVIDIA DeepSeek-family reviewer, both
   same family. That is same-family, not cross-family, contrary to the
   discipline's stated blind-spot-diversity goal. The fallback reviewer
   actually used was MORE cross-family than the plan named. Revise the
@@ -262,7 +262,7 @@ audit and Lens 3's cross-family first-user simulation.
 
 - `intent-fidelity module_02`: `verify_workspace` not wired into the
   loop entry (`check_t3(state.provenance_ok)` reads a boolean no code
-  path sets; substrate-era design decision pending — wire per-step
+  path sets; substrate-era design decision pending, wire per-step
   provenance evaluation, or remove the dead path). Cross-references
   `intent-fidelity module_04` gap 5.
 - `intent-fidelity module_02`: provider router selection does not
@@ -270,7 +270,7 @@ audit and Lens 3's cross-family first-user simulation.
   under conformance report, or explicitly retire the v0.2 aspiration).
   Cross-references `intent-fidelity module_04` scope.
 - `intent-fidelity module_02`: RK-3-extended-field property-test corpus
-  for RK-1/RK-2 coverage — v2/v3 parametrizations that construct
+  for RK-1/RK-2 coverage, v2/v3 parametrizations that construct
   extended knots with corrupted RK-1 fields and assert those specific
   violations fire.
 
@@ -305,7 +305,7 @@ ALM PARTIAL signals share this root. Cross-references
 - `intent-fidelity module_04` gap 3: signal 10 OTLP smoke test with a
   local collector fixture.
 - `intent-fidelity module_04` gap 5: SUBSTRATE-era `check_t3`
-  dead-code path — design decision pending between wiring per-step
+  dead-code path, design decision pending between wiring per-step
   provenance evaluation (T3 reachable) and removing `check_t3` +
   `provenance_ok` from the enum. Cross-references
   `intent-fidelity module_02` gap 1.
@@ -317,7 +317,7 @@ ALM PARTIAL signals share this root. Cross-references
 ## v0.5 hardening (from intent-fidelity module_05)
 
 - `intent-fidelity module_05` gap 1: ALM signals 1-10 + 16 shim wiring
-  — folds under `intent-fidelity module_04` gap 1-3; when the shim
+folds under `intent-fidelity module_04` gap 1-3; when the shim
   upgrade lands, call `write_mutation_report` / `write_coverage_report`
   / `run_completion_gates` from the runtime path.
 - `intent-fidelity module_05` gap 2: sycophancy circuit not wired to
@@ -334,10 +334,10 @@ ALM PARTIAL signals share this root. Cross-references
   references `docs/ROADMAP.md:132`.
 - `intent-fidelity module_05` gap 5: module_05 spec text drift (three
   vs four AL-1 sub-clauses; matrix enforcement locus; signal-5
-  "sandbox layer" naming) — either update spec text to name shipped
+  "sandbox layer" naming), either update spec text to name shipped
   surfaces exactly or land an ADR-note that spec text is aspirational.
 - `intent-fidelity module_05` gap 6: AL-1 fourth all-vary property
-  test (Second Pass Q5) — non-blocking; ordering guarantee is a
+  test (Second Pass Q5), non-blocking; ordering guarantee is a
   design property beyond sub-clause-independence invariant.
 
 ## v0.5 hardening (from intent-fidelity module_06)
@@ -346,12 +346,12 @@ Gaps 1-4 forwarded from `intent-fidelity module_05` unchanged (this
 module is v0.4.0-rc1 audits era, not the code-wiring era).
 
 - `intent-fidelity module_06` gap 7: wordlist-growth review cadence
-  (Second Pass Q1) — extend `_CLOSED_IP_TERMS` on operator confirmation
+  (Second Pass Q1), extend `_CLOSED_IP_TERMS` on operator confirmation
   of a growth manifest; add a standing pre-release-tag review that
   greps operator-side private-name registries against the wordlist for
   candidate additions.
 - `intent-fidelity module_06` gap 8: helper-enumeration introspection
-  (Second Pass Q2) — replace hand-maintained `_HELPER_ATTRS` with a
+  (Second Pass Q2), replace hand-maintained `_HELPER_ATTRS` with a
   marker Protocol (`ProjectAnchoredHelper`) helpers explicitly
   implement; auto-detect on init.
 
@@ -362,7 +362,7 @@ Gaps 1-8 forwarded from `intent-fidelity modules 05 and 06` unchanged
 era). Native gaps:
 
 - `intent-fidelity module_07` gap 9: `MISSING` sentinel consumer
-  migration — primitive holds and is production-ready, but no consumer
+  migration, primitive holds and is production-ready, but no consumer
   site in `src/ract/` currently has the None-vs-unpassed ambiguity the
   sentinel is designed to disambiguate. Adoption triggered by new-
   surface need, not by mass-migration of existing callsites.
@@ -395,7 +395,7 @@ Flagged gaps from token-budget system landing. Compiled from
 Flagged gaps from symbol-index landing. Compiled from
 `_BUILD/ract_v0.5.0_memory_discipline/module_02.md`.
 
-- module_02: full parse-error recovery per language — mid-file syntax
+- module_02: full parse-error recovery per language, mid-file syntax
   errors are caught as `ParseError` and the offending region is not
   recovered (rest of file goes un-indexed). Ship path: partial-parse
   fallback per language, or `tree_sitter.Tree.walk()` incremental
@@ -404,7 +404,7 @@ Flagged gaps from symbol-index landing. Compiled from
   consolidation (Lateral Chain branch D deferred). Symbol index stays
   lean; semantic index (module_04) owns vectors via FK. Consolidation
   discussion when the FK cost is known.
-- module_02: Rust / Go `type X = ...` parity with the Q1 Python fix —
+- module_02: Rust / Go `type X = ...` parity with the Q1 Python fix, 
   a cross-language parity test comparable to Q1 is v0.6 hardening.
 - module_02: BPE tokenizer bias carries into `SymbolRow.token_count`
   since the same whitespace-split proxy is used. Downstream consumers
@@ -415,15 +415,15 @@ Flagged gaps from symbol-index landing. Compiled from
 Flagged gaps from graph-index landing. Compiled from
 `_BUILD/ract_v0.5.0_memory_discipline/module_03.md`.
 
-- module_03: per-symbol transaction atomicity for the LSP populator —
+- module_03: per-symbol transaction atomicity for the LSP populator, 
   a mid-file crash loses that file's collected edges. Ship path:
   one insert_edges call per symbol, or a checkpoint-and-resume path
   with a `graph_build_progress` table.
-- module_03: per-request LSP timeout — `request_references` has no
+- module_03: per-request LSP timeout, `request_references` has no
   per-call wall-clock guard. Wrap in `concurrent.futures.Future` with
   timeout, or migrate to multilspy's async API with
   `asyncio.wait_for`.
-- module_03: probe fixture races the module_02 watcher — write+delete
+- module_03: probe fixture races the module_02 watcher, write+delete
   spurious create/delete events at `SymbolIndexWatcher`. Ship path:
   exclude `___ract_lsp_probe___.*` glob, or run against scratch-root.
 - module_03: cross-language edges out of scope (Python service calling
@@ -438,24 +438,24 @@ Flagged gaps from graph-index landing. Compiled from
 Flagged gaps from semantic-index landing. Compiled from
 `_BUILD/ract_v0.5.0_memory_discipline/module_04.md`.
 
-- module_04: knapsack-optimal packing for `search_with_budget` —
+- module_04: knapsack-optimal packing for `search_with_budget`, 
   today walks LanceDB top-k pool in relevance order and skips
   overflow, which beats first-fit-then-stop but is not knapsack-
   optimal. Deferred to module_05 authorship (cascade owns per-level
   packing decision) then carried forward through module_06 / 07.
-- module_04: recursive-until-cap sub-chunker — a pathological
+- module_04: recursive-until-cap sub-chunker, a pathological
   single-line 4000-token expression survives both `chunk_symbol`
   levels intact and emits oversize marker. Deferred to module_06
   where the caller sits closer to the "what to do with oversize"
   decision.
 - module_04: embedding model download UX (~130 MB `bge-small-en-v1.5`
-  weights) — `ract memory init` should land the download itself.
+  weights), `ract memory init` should land the download itself.
   Message today names both fallbacks but does not offer to fetch.
-- module_04: LanceDB GPU probe honesty — `probe_lancedb()` reports
+- module_04: LanceDB GPU probe honesty, `probe_lancedb()` reports
   `backend='cpu'` unless `RACT_LANCEDB_BACKEND=gpu` is set (LanceDB
   wheels do not expose a runtime GPU probe today). Ask the wheel
   when the API lands.
-- module_04: metadata reciprocal case — `metadata deleted, table
+- module_04: metadata reciprocal case, `metadata deleted, table
   intact` raises `SemanticStoreCorruptError`; reciprocal `metadata
   intact, table deleted` correctly falls through to
   `_create_empty_table` (documented in ADR-0034). Worth an explicit
@@ -466,23 +466,23 @@ Flagged gaps from semantic-index landing. Compiled from
 Flagged gaps from retrieve-primitive landing. Compiled from
 `_BUILD/ract_v0.5.0_memory_discipline/module_05.md`.
 
-- module_05: knapsack packing per cascade level — greedy relevance-
+- module_05: knapsack packing per cascade level, greedy relevance-
   order today (parity with module_04's `search_with_budget`). 0/1
   knapsack DP at O(n*B) or k-approximation would pack tighter.
-- module_05: provider-backed SUMMARY chunk format — today returns
+- module_05: provider-backed SUMMARY chunk format, today returns
   placeholder `"summary unavailable"` and `summary_pending=True`.
   Real summarization needs a provider adapter with `summarize(chunk)`.
-- module_05: edge-only cache invalidation — a fully orthogonal edge
+- module_05: edge-only cache invalidation, a fully orthogonal edge
   change (edge inserted/deleted between two symbols whose
   content_hash both stay unchanged) does not fire invalidation.
   Ship path: edge fingerprint column + `invalidate_by_edge` helper.
-- module_05: wall-clock guard on interactive `update_file` —
+- module_05: wall-clock guard on interactive `update_file`, 
   Retrieve does not call `GraphIndex.update_file`; module_09's
   interactive replan flow may. Carried forward from module_03 POST.
-- module_05: `RetrievalStrategy`-aware dropped-count — `CORE_FIRST`
+- module_05: `RetrievalStrategy`-aware dropped-count, `CORE_FIRST`
   dedup by `symbol_id` collapses sub-chunks silently; a
   `dropped_by_strategy_count` subfield would surface the compression.
-- module_05: traversal-id set unbounded on wide graph fan-out —
+- module_05: traversal-id set unbounded on wide graph fan-out, 
   `bundle.traversal_symbol_ids` grows with `graph_hops *
   average_fanout`. Wiring layer decides cap vs refuse-cache.
 
@@ -491,11 +491,11 @@ Flagged gaps from retrieve-primitive landing. Compiled from
 Flagged gaps from function-contracts landing. Compiled from
 `_BUILD/ract_v0.5.0_memory_discipline/module_06.md`.
 
-- module_06: `IntakeContext.selected_code` shape drift — field
+- module_06: `IntakeContext.selected_code` shape drift, field
   documented as "kept out of the assembled prompt" but still a
   dataclass field. Either drop it or seat its bytes on a separate
   accountant section so the "kept out" note is enforceable.
-- module_06: `plan.mid_invocation_queries` composition wiring —
+- module_06: `plan.mid_invocation_queries` composition wiring, 
   `plan()` accepts up to `MAX_MID_INVOCATION_RETRIEVES=3` queries
   at 500-token sub-budgets each, but nothing supplies them until
   module_07's playbook YAML is wired for it.
@@ -503,21 +503,21 @@ Flagged gaps from function-contracts landing. Compiled from
   token list beyond `TODO`/ellipsis/leave-unchanged prose to include
   `FIXME`, `XXX`, `pass  # implement`, `raise NotImplementedError`.
   Defensible hardening; spec should be updated to name the full list.
-- module_06: Outlines grammar-constrained generation for edit —
+- module_06: Outlines grammar-constrained generation for edit, 
   v0.5.0 ships the lightweight post-generation validator; grammar-
   constrained generation via Outlines defers to v0.6.
 - module_06: `priority_markers` / `verification_criteria.payload`
-  as tuple-of-tuple instead of dict — a contract-builder helper
+  as tuple-of-tuple instead of dict, a contract-builder helper
   module (v0.6) would smooth the caller surface.
-- module_06: ambiguity-flag route lands as trace-only signal today —
+- module_06: ambiguity-flag route lands as trace-only signal today, 
   Q2 fix emits `ambiguity_flags` on `budget.declared` but the reader
   composition layer is module_07's playbook runner.
-- module_06: `verify_prompt_coverage` is opt-in — the reverse-drift
+- module_06: `verify_prompt_coverage` is opt-in, the reverse-drift
   check is callable but nothing invokes it at startup. Module_09's
   SubstrateLoop startup or `ract memory init` is the natural home.
-- module_06: knapsack packing across function call sites — carried
+- module_06: knapsack packing across function call sites, carried
   from module_04 POST + module_05 POST.
-- module_06: SUMMARY provider adapter — carried from module_05 gap 2.
+- module_06: SUMMARY provider adapter, carried from module_05 gap 2.
   `MemoryFunctionProvider` protocol shape fits a wrapping summariser;
   module_09's provider registry is the natural home.
 
@@ -526,34 +526,34 @@ Flagged gaps from function-contracts landing. Compiled from
 Flagged gaps from playbook-composition landing. Compiled from
 `_BUILD/ract_v0.5.0_memory_discipline/module_07.md`.
 
-- module_07: LSP language dispatch delegated to module_09 — the
+- module_07: LSP language dispatch delegated to module_09, the
   runner groups `load_manifest` entries by `file_path` only; each
   file group receives an identical `edit_fn` call. Language-aware
   LSP dispatch (pylsp / tsserver / rust-analyzer / gopls per file
   suffix) lives with the SubstrateLoop wiring.
-- module_07: `edit_loop` trigger uses two conventions — either
+- module_07: `edit_loop` trigger uses two conventions, either
   `phase.name == "edit_loop"` OR `per_iteration_budget` set. A
   future maintainer could tighten to a single dedicated flag
   (`phase.kind: "loop"`).
-- module_07: `_apply_phase_budget_override` return discarded — the
+- module_07: `_apply_phase_budget_override` return discarded, the
   narrowed declaration is not passed to the function surface because
   module_06's four verbs read their own budget inside their call.
   Module_09's provider adapter is the natural home.
-- module_07: `plan.mid_invocation_queries` playbook wiring — YAML
+- module_07: `plan.mid_invocation_queries` playbook wiring, YAML
   `retrieval_overrides` on the plan phase is parsed but not forwarded
   as `RetrievalQuery` values to `plan_fn(mid_invocation_queries=...)`.
 - module_07: reproduce phase runs `subprocess.run(..., shell=True)`
-  — every source (explicit arg, YAML, success-criteria pytest
+every source (explicit arg, YAML, success-criteria pytest
   command) is operator-contributed today. v0.6 could parse via
   `shlex.split` and refuse shell metacharacters unless opt-in.
-- module_07: session-memory single-writer per path — two concurrent
+- module_07: session-memory single-writer per path, two concurrent
   playbook runs against the same `session_path` race; master spec
   §Function contracts pins a unique `evals/runs/<run_id>/session.json`
   per run so out of scope today. Module_09 enforces the unique-path
   invariant in the shipped CLI.
-- module_07: knapsack packing across function call sites — carried
+- module_07: knapsack packing across function call sites, carried
   from module_04 POST + module_05 POST + module_06 gap 8.
-- module_07: SUMMARY provider adapter — carried from module_05 gap 2
+- module_07: SUMMARY provider adapter, carried from module_05 gap 2
   + module_06 gap 9.
 
 ## v0.6 hardening (from memory-discipline module_08)
@@ -561,31 +561,31 @@ Flagged gaps from playbook-composition landing. Compiled from
 Flagged gaps from self-adjustment-probes landing. Compiled from
 `_BUILD/ract_v0.5.0_memory_discipline/module_08.md`.
 
-- module_08: needle-probe reducer over-narrows on transient noise —
+- module_08: needle-probe reducer over-narrows on transient noise, 
   `_reduce_usable_context_window` collapses to 0 on any depth miss
   at the smallest size. v0.6: noise-tolerant reducer behind a config
   flag (require k-of-n depths per size, or 2 consecutive clean sizes
   before accepting a new floor).
-- module_08: capability-record tmp file leaks on SIGKILL — cleans on
+- module_08: capability-record tmp file leaks on SIGKILL, cleans on
   Python exceptions but SIGKILL / power-loss between `mkstemp` and
   `try` leaves the tmp file orphaned. Target file safe via atomic-
   replace. v0.6: register an `atexit` handler or sweep orphans at
   next `write_capability_record` invocation.
-- module_08: aggregator fallback reference inflates upward — when
+- module_08: aggregator fallback reference inflates upward, when
   `current_budgets` is `None` the fallback uses max failure-time
   `input_token_count`, larger than the declared budget that refused.
   v0.6: make `current_budgets` non-optional or store the DECLARED
   budget inside `FailureRecord` at emission time (schema bump).
-- module_08: PhaseRecord bridge discards token counts —
+- module_08: PhaseRecord bridge discards token counts, 
   `failure_from_phase_record` defaults token counts to 0 because
   `PhaseRecord` does not carry them today. Module_09's provider
   adapter has the accountant in scope.
 - module_08: coherence probe uses a two-statement contradiction
-  rather than a semantic-diff check — some models "correct" the
+  rather than a semantic-diff check, some models "correct" the
   contradiction silently. v0.6: require the model to name the
   contradiction category (day / date / room) not just repeat both
   tokens.
-- module_08: adherence probe places instruction at start only —
+- module_08: adherence probe places instruction at start only, 
   mid-context and end-context persistence are not tested. v0.6:
   parametrize instruction placement (start / middle / end) and
   report per-placement persistence.
@@ -595,7 +595,7 @@ Flagged gaps from self-adjustment-probes landing. Compiled from
   invocation to a small helper the caller injects when purity is
   required.
 - module_08: Second-Pass prompts must inline source under review
-  (POST-A convention) — first-dispatch response with description-
+  (POST-A convention), first-dispatch response with description-
   only prompt returned four entirely hallucinated verdicts;
   re-dispatch with source bundle inline returned four accurate
   verdicts. Every subsequent module MUST inline the actual source.
@@ -607,28 +607,28 @@ Flagged gaps from integration landing. Compiled from
 `_BUILD/ract_v0.5.0_memory_discipline/module_09.md`. Module_09
 shipped the integration SHAPE; v0.6 ships the polish.
 
-- module_09: Rootknot canonical-bytes ordering audit — reviewer said
+- module_09: Rootknot canonical-bytes ordering audit, reviewer said
   no fix needed (`sort_keys=True` deterministic across Python
   versions for ASCII keys). A paranoid v0.6 sweep could add a
   golden-canonical-bytes fixture pinning a v3-with-attestation
   knot's bytes across Python 3.11 / 3.12 / 3.13.
-- module_09: broader path-normalization sweep — Q3 fold added
+- module_09: broader path-normalization sweep, Q3 fold added
   `_normalize_file_path` at `enforce_g6_edit`. The same class applies
   to `symgraph.py` edited_symbols and `patchdiff.py` leakage-match
   path comparisons. v0.6 audit each site.
-- module_09: atomic init for `ract memory init` semantic stage —
+- module_09: atomic init for `ract memory init` semantic stage, 
   a mid-build semantic failure today leaves an empty `semantic_dir/`.
   v0.6: build in a temp dir and move on success, or add `--rebuild`
   that clears the target dir before starting.
-- module_09: three-index wiring for `ract retrieval query` — verb
+- module_09: three-index wiring for `ract retrieval query`, verb
   returns only a canonical projection today. Full wiring against a
   live `retrieve()` pipeline (three indexes + cache + query-trace)
   needs the composition_runner surface to accept a bare query.
 - module_09: provider bridge `MemoryFunctionProvider` →
-  `ProviderAdapter.complete` — thin adapter around the two Protocol
+  `ProviderAdapter.complete`, thin adapter around the two Protocol
   surfaces; not shipped because the CLI paths do not invoke a live
   model call today.
-- module_09: SUMMARY provider adapter — carried from module_05 POST +
+- module_09: SUMMARY provider adapter, carried from module_05 POST +
   module_06 POST + module_07 POST inbound constraints.
 - module_09: 19+ additional integration-polish items surfaced by
   the operator's inbound-constraint list across modules 01-08 POSTs:
@@ -644,16 +644,16 @@ shipped the integration SHAPE; v0.6 ships the polish.
   allowlist, `accountant.record_narrowing` before
   `emit_budget_declared`, tmp-file cleanup on SIGKILL.
 
-## Previously logged (pre-v0.4) — carried forward
+## Previously logged (pre-v0.4), carried forward
 
 Items from the pre-v0.4 roadmap that remain open:
 
-- **Public leaderboard backend** — accept and compare signed receipts from users who opt in.
-- **VS Code extension** — surface loop status, handshakes, and receipts inside the editor.
-- **Benchmark results** — compare RACT against Cursor/Claude Code on code-quality metrics.
-- **Community channel** — Discord or Slack for early adopters.
-- **Animated asciicast/GIF** — blocked until a terminal recorder supports Windows ARM64.
-- **CLA assistant** — blocked at the OAuth handshake step; the setup URL is open.
+- **Public leaderboard backend**: accept and compare signed receipts from users who opt in.
+- **VS Code extension**: surface loop status, handshakes, and receipts inside the editor.
+- **Benchmark results**: compare RACT against Cursor/Claude Code on code-quality metrics.
+- **Community channel**: Discord or Slack for early adopters.
+- **Animated asciicast/GIF**: blocked until a terminal recorder supports Windows ARM64.
+- **CLA assistant**: blocked at the OAuth handshake step; the setup URL is open.
 
 ## Shipped in v0.5.1 (External Review Response, 2026-08-20)
 
@@ -824,7 +824,7 @@ ADR pins.
   computation, baseline data collection, SPC statistics harness,
   sliding-window comparator, drift-alert event kind, and operator-
   review ceremony. Multi-week v0.6 scope.
-- **Additional language chunkers** (Java, Kotlin, C#, C, C++) —
+- **Additional language chunkers** (Java, Kotlin, C#, C, C++), 
   spec §AST Chunking Rules lists 10 languages; v0.5.1 ships 4
   (Python, TypeScript, Rust, Go). Deferred to v0.6.
 - **Failure-learning nightly job + human-review queue + retrieval-

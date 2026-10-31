@@ -2,7 +2,7 @@
 
 RACT is not just another CLI wrapper around a language model. It is a deliberate answer to a question I've been asking for years:
 
-> How do we build agentic software that stays accountable, auditable, and genuinely useful — without pretending the human is optional?
+> How do we build agentic software that stays accountable, auditable, and genuinely useful, without pretending the human is optional?
 
 ## Every plan is Rooted
 
@@ -20,7 +20,7 @@ Current state: the signing library and verifier exist and are tested, but a norm
 
 ## Model-agnostic by design
 
-RACT does not lock you to one provider. You can run it against a local `llama-server`, a cheap frontier endpoint, or a cloud API. The goal is to give you ownership of your pipeline — your data, your models, your costs.
+RACT does not lock you to one provider. You can run it against a local `llama-server`, a cheap frontier endpoint, or a cloud API. The goal is to give you ownership of your pipeline, your data, your models, your costs.
 
 This matters because the real lock-in risk in AI tooling is not the code; it is the habit. Once you delegate thinking to a single vendor's interface, you stop noticing how much you have outsourced. RACT keeps the interface yours.
 
@@ -48,7 +48,7 @@ environment. Two combined pipelines land in this tag:
   provider boundary. Every run emits a hash-chained event log the
   environment (not the model) reads to decide T1 completion: *every
   required predicate evaluates true against the final snapshot*.
-  `Rootknot` gains an `environment_signature` (Invariant RK-3) — the
+  `Rootknot` gains an `environment_signature` (Invariant RK-3), the
   origin the sidecar attests shifts from author to environment.
 
 - **Anti-Lazy Module (ALM).** Eight gates run at the pre-commit boundary:
@@ -63,7 +63,7 @@ environment. Two combined pipelines land in this tag:
   (or its handshake was approved) AND the run's `reversal_taint` is
   clean.
 
-The naming convention matters. The tag is `v0.4.0-rc1` — the `rc1`
+The naming convention matters. The tag is `v0.4.0-rc1`, the `rc1`
 suffix is honest about the fact that the ALM code is new and the
 combined shape warrants a release-candidate cycle before a `v0.4.0`
 final tag. Substrate alone would have shipped as `v0.4.0`; substrate
@@ -78,6 +78,6 @@ If this line of thinking interests you, I explore it in much more depth in my [A
 
 No pressure. Use RACT however it helps you build better software. The philosophy is there if you want it.
 
-— Dr. Lucas Root, Ph.D.
+,  Dr. Lucas Root, Ph.D.
 
 <!-- RACT 0.4.0-rc1 -->

@@ -97,7 +97,7 @@ No wire-format break: v0.5.1 payloads, sidecars, and trace logs
 remain readable. A short list of operator-visible changes and the
 few migration steps follows.
 
-**tl;dr — most operators do nothing.** Upgrade the package,
+**tl;dr, most operators do nothing.** Upgrade the package,
 optionally re-run `ract memory verify-consistency` to see the new
 verb work, and read the CHANGELOG entry for the finding-level
 summary. WARN lines may appear on first ambient run against a
@@ -116,18 +116,18 @@ in `pyproject.toml`, and the CLI banner all now equal `0.5.2`.
 
 ### Payload / sidecar / trace compatibility
 
-- **Rootknot sidecars** — v1, v2, v3, and v4 payloads continue to
+- **Rootknot sidecars**: v1, v2, v3, and v4 payloads continue to
   load unchanged. The `min_acceptable_schema_version` policy
   defaults to `3` (module_01), matching v0.5.1 behavior.
   Operators who want strict v4-only should pass
   `--min-schema=4` (new CLI flag in v0.5.2). A `sidecar/v9` or
   other unknown `schema` literal now REFUSES rather than
   silently downgrades to v1 (module_06 fold of module_01 Q3).
-- **Trace event logs** — v0.5.1 files continue to read. On first
+- **Trace event logs**: v0.5.1 files continue to read. On first
   `ract trace verify` a fresh `<run_id>.verify.json` sidecar
   auto-generates so subsequent verifies take the warm-path
   (incremental) short-circuit.
-- **Trace log torn tails** — files with an aborted final write
+- **Trace log torn tails**: files with an aborted final write
   now surface as `status: TORN_TAIL` (exit code 0, chain is
   resumable) rather than raising `UnicodeDecodeError`. Callers
   that grep exit codes see 0 remain 0 for the healthy + torn
@@ -135,18 +135,18 @@ in `pyproject.toml`, and the CLI banner all now equal `0.5.2`.
 
 ### New CLI verbs / flags
 
-- `ract trace verify <run_id>` — verify the on-disk event chain.
+- `ract trace verify <run_id>`: verify the on-disk event chain.
   Warm sidecar by default; `--cold` re-verifies from GENESIS.
   Exit codes: 0 = VALID or TORN_TAIL; 1 = INVALID; 2 = TAMPERED;
   3 = no event log at path. `--json` emits the full
   `TraceVerifyResult` payload.
-- `ract memory verify-consistency [repo_path]` — cross-index
+- `ract memory verify-consistency [repo_path]`: cross-index
   consistency check (module_06 addition). Exit codes: 0 =
   CONSISTENT; 1 = INCONSISTENT; 2 = UNAVAILABLE. `--no-disk-check`
   skips the missing-file probe; `--json` emits the full report.
   Requires a populated `.ract/memory/symbols.db` (run `ract memory
   init` first).
-- `ract provenance verify --min-schema=N` — reject any sidecar
+- `ract provenance verify --min-schema=N`: reject any sidecar
   whose `schema_version` is below N. Default off; passing
   `--min-schema=4` enables strict v4-only deployment.
 
@@ -173,11 +173,11 @@ frozenset admits every v0.5.1 kind plus the new set.
 
 Direct API consumers may catch:
 
-- `ract.core.rootknot.RootknotSchemaViolation` — v4-label without
+- `ract.core.rootknot.RootknotSchemaViolation`: v4-label without
   v4-fields (module_01).
-- `ract.core.provenance.RootknotUnknownSidecarFormat` — unknown
+- `ract.core.provenance.RootknotUnknownSidecarFormat`: unknown
   named sidecar `schema` (module_06 fold of module_01 Q3).
-- `ract.runtime.RunIdFormatError` — supplied run_id failed the
+- `ract.runtime.RunIdFormatError`: supplied run_id failed the
   `^[A-Za-z0-9_-]{1,240}$` boundary regex. Note: the
   runtime's own `bootstrap_ambient_from_env` catches this and
   falls through to orphan-generate; the exception is exported for
@@ -185,12 +185,12 @@ Direct API consumers may catch:
 
 ### New result types
 
-- `ract.trace.verify.TraceVerifyResult` — the ONE frozen
+- `ract.trace.verify.TraceVerifyResult`: the ONE frozen
   dataclass returned by every trace-log verify entry point.
   Closed `status: Literal["VALID","INVALID","TORN_TAIL",
   "TAMPERED"]`. `.is_valid` = chain is resumable (VALID or
   TORN_TAIL); `.is_healthy` = pristine (VALID only).
-- `ract.memory.verify_consistency.IndexConsistencyReport` — frozen
+- `ract.memory.verify_consistency.IndexConsistencyReport`: frozen
   dataclass mirroring the TraceVerifyResult protocol shape.
   Closed `status: Literal["CONSISTENT","INCONSISTENT",
   "UNAVAILABLE"]`. Carries `inconsistencies: tuple[
@@ -207,7 +207,7 @@ Direct API consumers may catch:
    `ract memory verify-consistency`. A `CONSISTENT` result means
    the memory tri-store agrees with itself.
 5. (Optional) Sanity-check any long-running trace logs:
-   `ract trace verify <run_id>` — warms the incremental sidecar
+   `ract trace verify <run_id>`, warms the incremental sidecar
    and returns `VALID` for a clean chain.
 
 No configuration changes are required. Existing sandbox env

@@ -229,21 +229,21 @@ ract run "commit the greeting tool" --config ract.yaml --mode git
 
 ## Other useful commands
 
-- `ract --welcome` — show the branded Root-Knot welcome screen.
-- `ract report --last` / `--session ID` — view a structured run summary.
-- `ract handshakes list/approve/reject/defer` — review high-risk milestones the loop deferred.
-- `ract mcp list` — inspect tools exposed by configured MCP servers.
-- `ract retrieval search <query>` — preview what context RACT retrieves before planning.
-- `ract diff apply --patch <path> [--dry-run]` — apply a unified-diff patch surgically.
-- `ract novelty scan [--json]` — preview compression-based novelty scores (local, no model call).
-- `ract whisper --intent "..."` — get a Legacy Whisperer dialect/history brief.
-- `ract auction list [--min-age-days N]` — review old, unreferenced modules.
-- `ract fence inspect --file <path>` — ask Chesterton's Fence why legacy code exists.
-- `ract load-bearing list` — list annotated load-bearing regions.
-- `ract refactor --old <name> --new <name> [--dry-run]` — AST-guided symbol rename.
-- `ract openapi generate-client|generate-server --spec <path> --output <path>` — OpenAPI generators.
-- `ract plan export --session <id> --output <path>` / `replay --plan <path>` — deterministic plan replay.
-- `ract doctor [--check-providers]` — run config and project diagnostics.
+- `ract --welcome`: show the branded Root-Knot welcome screen.
+- `ract report --last` / `--session ID`, view a structured run summary.
+- `ract handshakes list/approve/reject/defer`: review high-risk milestones the loop deferred.
+- `ract mcp list`: inspect tools exposed by configured MCP servers.
+- `ract retrieval search <query>`: preview what context RACT retrieves before planning.
+- `ract diff apply --patch <path> [--dry-run]`: apply a unified-diff patch surgically.
+- `ract novelty scan [--json]`: preview compression-based novelty scores (local, no model call).
+- `ract whisper --intent "..."`: get a Legacy Whisperer dialect/history brief.
+- `ract auction list [--min-age-days N]`: review old, unreferenced modules.
+- `ract fence inspect --file <path>`: ask Chesterton's Fence why legacy code exists.
+- `ract load-bearing list`: list annotated load-bearing regions.
+- `ract refactor --old <name> --new <name> [--dry-run]`: AST-guided symbol rename.
+- `ract openapi generate-client|generate-server --spec <path> --output <path>`: OpenAPI generators.
+- `ract plan export --session <id> --output <path>` / `replay --plan <path>`, deterministic plan replay.
+- `ract doctor [--check-providers]`: run config and project diagnostics.
 
 ## Run the self-recursing loop
 

@@ -1,7 +1,7 @@
-# RACT v0.3.1 — Hardening Master Spec
+# RACT v0.3.1, Hardening Master Spec
 
 **Author:** Dr. Lucas Root
-**Predecessor:** v0.3.0 (2026-07-25) — Auditability and Depth
+**Predecessor:** v0.3.0 (2026-07-25), Auditability and Depth
 **Input:** the flagged-gaps log carried forward from `_BUILD/ract_v0.3_rebuild/module_02..07`
 **Version target:** 0.3.1
 **Tag target:** `v0.3.1`
@@ -52,7 +52,7 @@ binding, complete CLI surface) or hardens the ground it stands on
 Eight modules. Each header includes the flagged-gap origin and the specific
 bar raise beyond the v0.3 module's "queue a hardening module for X" note.
 
-### module_01 — Config schema versioning (ADR-0008 realized)
+### module_01, Config schema versioning (ADR-0008 realized)
 
 **Origin.** v0.3 module_03 gap 1, module_07 gap 1.
 
@@ -76,12 +76,12 @@ in CI.
 - `ract.yaml.example` carries `schema_version: "1"`.
 - Loading a versionless or unknown-version config raises `ConfigVersionError`
   with the exact filename and supported version list. Test: `pytest -q
-  tests/test_config_schema_version.py` — 5 tests green.
+  tests/test_config_schema_version.py`, 5 tests green.
 - `ract config migrate <path>` rewrites v0 → v1 and writes `<path>.bak`.
 - `ract config lint` exits non-zero on a bad file, zero on a good one.
 - Full suite green.
 
-### module_02 — Self-contained sidecars + offline `provenance verify`
+### module_02, Self-contained sidecars + offline `provenance verify`
 
 **Origin.** v0.3 module_05 gap 1, module_07 gap 2.
 
@@ -91,7 +91,7 @@ in CI.
    ed25519 pubkey, base64-encoded). `public_key_id` stays (backwards-compat
    read).
 2. `ract provenance verify <path>` works on a machine with **no `.ract/`
-   directory, no `keys/` directory, and no RACT install state** — only the
+   directory, no `keys/` directory, and no RACT install state**, only the
    sidecar + the `cryptography` stdlib-safe stub.
 3. Verifier reads v1 sidecars (key-id + local resolve) OR v2 sidecars
    (embedded pubkey, offline).
@@ -108,12 +108,12 @@ the full audit artifact and CI can enforce it.
 - A test that runs verify inside a `tmp_path` with `HOME` and `RACT_HOME`
   pointed away from any keys still passes on a v0.3.1-produced sidecar
   and fails on a v0.2 sidecar under `--strict`. Test:
-  `pytest -q tests/test_provenance_offline_verify.py` — 6 tests green.
+  `pytest -q tests/test_provenance_offline_verify.py`, 6 tests green.
 - Verify batch on a directory of 3 sidecars (2 valid, 1 tampered) prints
   `2 valid, 1 invalid` and exits non-zero.
 - Full suite green.
 
-### module_03 — Loop → executor: real assumption binding + RK-1.5
+### module_03, Loop → executor: real assumption binding + RK-1.5
 
 **Origin.** v0.3 module_05 gap 2, module_07 gap 4, and (bar raise) module_07
 gap 7.
@@ -138,7 +138,7 @@ gate so the binding is enforced across the loop, not just recorded.
 
 - Property test (Hypothesis): for any generated loop run, every emitted
   artifact has a rootknot whose assumption_id is present in the assumption
-  registry. Test: `pytest -q tests/property/test_rk_1_5.py` — Hypothesis
+  registry. Test: `pytest -q tests/property/test_rk_1_5.py`, Hypothesis
   passes with `max_examples=200`.
 - `verify_workspace` raises `T3_PROVENANCE_FAILURE` when an unregistered
   assumption is injected.
@@ -146,34 +146,34 @@ gate so the binding is enforced across the loop, not just recorded.
   run that signs by default.
 - Full suite green.
 
-### module_04 — Provenance CLI complete + audit-bundle format
+### module_04, Provenance CLI complete + audit-bundle format
 
 **Origin.** v0.3 module_05 gap 4, module_07 gap 6.
 
 **Scope.**
 
-1. `ract provenance list [--json]` — lists all indexed artifacts (SQLite).
-2. `ract provenance inspect <path> [--json]` — full sidecar + registry
+1. `ract provenance list [--json]`: lists all indexed artifacts (SQLite).
+2. `ract provenance inspect <path> [--json]`: full sidecar + registry
    snapshot dump.
-3. `ract provenance export <path> [--out <file>]` — writes a single JSON
+3. `ract provenance export <path> [--out <file>]`: writes a single JSON
    *audit bundle*: sidecar + parent-chain sidecars + assumption-registry
    snapshot + independence-lint result at export time.
 4. Every provenance verb supports `--json`.
 
 **Bar raise past flagged.** Flagged only asked for list/inspect; this module
-also defines the audit-bundle export format — a third party can verify an
+also defines the audit-bundle export format, a third party can verify an
 entire chain end-to-end from one file.
 
 **Definition of Done.**
 
-- `pytest -q tests/test_provenance_cli.py` — 12 tests green (each verb, each
+- `pytest -q tests/test_provenance_cli.py`: 12 tests green (each verb, each
   `--json`, empty state, tampered sidecar).
 - An exported bundle for a 3-parent chain verifies fully offline (chained
   into the module_02 offline verifier test).
 - `docs/PROVENANCE.md` updated with the bundle schema.
 - Full suite green.
 
-### module_05 — Benchmark: multi-task honest sweep
+### module_05, Benchmark: multi-task honest sweep
 
 **Origin.** v0.3 module_04 gaps 1, 2, 3, module_07 gap 3.
 
@@ -182,11 +182,11 @@ entire chain end-to-end from one file.
 1. Extend `evals/benchmarks/refactor-token-usage/` (rename to
    `evals/benchmarks/loop-termination/`) with **≥5 tasks**:
    - `refactor` (existing, passes iter 1).
-   - `converge-2` (passes on iter 2 — mocked convergence).
-   - `converge-4` (passes on iter 4 — worst case just under budget=5).
-   - `budget-exhaust` (never converges — both contender and naive hit budget).
+   - `converge-2` (passes on iter 2, mocked convergence).
+   - `converge-4` (passes on iter 4, worst case just under budget=5).
+   - `budget-exhaust` (never converges, both contender and naive hit budget).
    - `adversarial-false-negative` (a valid solution the milestone detector
-     wrongly rejects — naive wins because contender false-negatives). This
+     wrongly rejects, naive wins because contender false-negatives). This
      task **must exist** and its "contender loses" result must be reported
      honestly.
 2. Report includes an aggregate table (mean tokens, wins, ties, losses per
@@ -209,7 +209,7 @@ the contender must lose, and demands the honest section include the loss.
 - CI `benchmark` job runs the sweep (workflow updated).
 - Full suite green.
 
-### module_06 — Independence auto-derived + pre-commit hook
+### module_06, Independence auto-derived + pre-commit hook
 
 **Origin.** v0.3 module_02 gap 2, module_06 gaps 2 and 4.
 
@@ -243,7 +243,7 @@ this module additionally makes CI run the same hooks and closes the
   `.gitignore` documented.
 - Full suite green.
 
-### module_07 — Executor concurrency: real serialization proof
+### module_07, Executor concurrency: real serialization proof
 
 **Origin.** v0.3 module_03 gap 4.
 
@@ -252,7 +252,7 @@ this module additionally makes CI run the same hooks and closes the
 1. Add threaded test: two threads race to write the same output_path via
    `Executor.write_artifact`. Assert exactly one succeeds, one raises a
    distinguishable `ExecutorContention` (or existing equivalent).
-2. Add threaded test: 10 threads write to 10 distinct paths — all succeed,
+2. Add threaded test: 10 threads write to 10 distinct paths, all succeed,
    all sidecars valid.
 3. If the executor does NOT currently serialize same-path writes,
    implement it (SQLite `BEGIN IMMEDIATE` on the provenance index, or a
@@ -266,13 +266,13 @@ module also implements the primitive if missing and documents it exactly.
 
 **Definition of Done.**
 
-- `pytest -q tests/test_executor_concurrency.py` — 4 tests green
+- `pytest -q tests/test_executor_concurrency.py`: 4 tests green
   (same-path race, distinct-path parallelism, 10-thread stress, contention
   error is distinguishable).
 - ARCHITECTURE.md concurrency section names the exact primitive.
 - Full suite green.
 
-### module_08 — v0.3.1 close
+### module_08, v0.3.1 close
 
 **Scope.**
 
@@ -284,7 +284,7 @@ module also implements the primitive if missing and documents it exactly.
 5. `docs/ROADMAP.md` updated: mark hardened items done; carry a fresh
    distance-to-excellent list.
 6. Tag `v0.3.1` on the final commit.
-7. Final honest-gap log — what is still shallow after this pipeline.
+7. Final honest-gap log, what is still shallow after this pipeline.
 
 **Definition of Done.**
 

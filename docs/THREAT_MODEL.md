@@ -19,7 +19,7 @@ serializer with RFC 8785 JCS via ``ract.canonical.dumps_jcs`` --
 byte output is deterministic across Python minor versions, PyPy,
 and Windows/POSIX line endings; NFC-normalised codepoint-sorted
 keys with strict-JSON floats. Module_06's extended ``Rootknot``
-stamps the digest as ``manifest_digest`` — the manifest is the
+stamps the digest as ``manifest_digest``, the manifest is the
 substrate the environment signature attests.
 
 ## Default manifest
@@ -36,7 +36,7 @@ would silently grant more than the default.
 | T2   | Environment      | ``pip install``, ``npm install``, ``git commit``, allowlisted egress    | Require handshake      |
 | T3   | External         | shell outside sandbox, package publish, ``rm -rf`` on untracked paths   | **Denied at compile time until ADR flips the flag** |
 
-Classification is deterministic — it comes from the step's schema
+Classification is deterministic, it comes from the step's schema
 fields (``action``, ``expected_artifact``, ``tool_call.name``), not
 from parsing free text.
 
@@ -46,7 +46,7 @@ from parsing free text.
 ``True``, the validator refuses unless the module-level constant
 ``RACT_TIER_3_ENABLED`` in ``ract.security.manifest`` is ``True``.
 That constant ships ``False``. An operator who later needs tier 3 must
-submit an ADR that flips the constant — the manifest cannot lift its
+submit an ADR that flips the constant, the manifest cannot lift its
 own tier-3 ban.
 
 See ADR-0012 "Rejected alternatives" for why a purely runtime flag
@@ -76,7 +76,7 @@ below.
 The sandbox derives its policy from the manifest: filesystem
 allowlist, network allowlist, seccomp profile, env scrub. Runtime
 refusals surface as process exit codes / SIGSYS, not as harness-level
-exceptions — the enforcement is a fact about the environment.
+exceptions, the enforcement is a fact about the environment.
 
 ## ``--yolo`` narrowed
 
@@ -93,7 +93,7 @@ enforcement layer still fires; every widen is logged as a
 handshake's widen to the manifest. The widen is bounded by
 ``yolo_widen``; a handshake cannot grant a resource the manifest did
 not pre-declare could be widened. An unresolved handshake blocks the
-step's *commit* at the git layer (see ADR-0011 and module_02) —
+step's *commit* at the git layer (see ADR-0011 and module_02), 
 handshakes are enforcement, not opinion.
 
 ## Refuse-list (default manifest instantiation)

@@ -1,7 +1,7 @@
 # RACT v0.5.x Wheel Build + GH Release Asset Upload Spec
 
 **Ships as:** post-push follow-on for whatever v0.5.x tag is at HEAD after Pipelines A' + B land.
-**Pattern reference:** `_BUILD/ract_v0.4.1_intent_fidelity/HANDSHAKE_PUSH_COMMANDS.md` — v0.4.1's successful pattern.
+**Pattern reference:** `_BUILD/ract_v0.4.1_intent_fidelity/HANDSHAKE_PUSH_COMMANDS.md`, v0.4.1's successful pattern.
 **Owner:** Release pipeline author
 **Authored:** 2026-08-20
 
@@ -22,7 +22,7 @@ Two modules only. Small pipeline.
 
 ## 4. Module map
 
-### module_01 — Wheel build + provenance verify
+### module_01, Wheel build + provenance verify
 Checkout the tag commit (detached HEAD). `python -m build --wheel --outdir dist/`. Verify:
 - `dist/ract-<version>-py3-none-any.whl` exists
 - `pip install dist/ract-*.whl` in a fresh venv succeeds
@@ -33,7 +33,7 @@ Checkout the tag commit (detached HEAD). `python -m build --wheel --outdir dist/
 
 Return to `main` after.
 
-### module_02 — GH Release create + asset upload + verify
+### module_02, GH Release create + asset upload + verify
 - `gh release create <tag> --title "RACT <version>" --notes-file docs/RELEASE_NOTES_<version>.md` if release does not exist; else `gh release edit`
 - `gh release upload <tag> dist/ract-<version>-py3-none-any.whl`
 - Verify: `gh release view <tag>` shows the asset; `curl -sfIL https://github.com/LucRoot/RACT/releases/download/<tag>/ract-<version>-py3-none-any.whl` returns `HTTP/... 200`

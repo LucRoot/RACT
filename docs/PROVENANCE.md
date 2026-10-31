@@ -15,7 +15,7 @@ wires signing (ADR-0048 R3 and R4).
 
 ## What a Rootknot attests
 
-Every file the recursion loop writes carries a **Rootknot** — a signed
+Every file the recursion loop writes carries a **Rootknot**, a signed
 provenance capability (`src/ract/core/rootknot.py`, `Rootknot`). A Rootknot
 binds an artifact to six things:
 
@@ -61,9 +61,9 @@ Each indexed artifact is stored two ways: a SQLite index at
 `.<artifact>.rootknot.json` beside the artifact.
 
 To verify by hand: read the sidecar, recompute the canonical bytes as
-`Rootknot.canonical_bytes()` does — v0.5.1 module_03 uses
+`Rootknot.canonical_bytes()` does, v0.5.1 module_03 uses
 `ract.canonical.dumps_jcs()` (RFC 8785 JCS, NFC-normalised,
-codepoint-sorted keys, no whitespace) — and check the ed25519
+codepoint-sorted keys, no whitespace), and check the ed25519
 signature against the generator's public key. The CLI verb
 
 ```
@@ -80,17 +80,17 @@ with exit code 0 / 1. Session public keys live in `<state_dir>/ract/keys/*.pem`.
 Before every recursion step, `verify_workspace(...)` checks three invariants
 across every indexed artifact (`src/ract/core/provenance.py`):
 
-- **RK-1** — the artifact exists, its digest matches, the generator signature
+- **RK-1**: the artifact exists, its digest matches, the generator signature
   verifies, the plan and step are active, the assumption is registered, and
   every parent digest resolves recursively (RK-1.1 through RK-1.6).
-- **RK-2** — the assumption behind every rootknot is active or discharged; a
+- **RK-2**: the assumption behind every rootknot is active or discharged; a
   violated assumption marks dependent rootknots stale.
-- **RK-3 (Environmental Attestation, v0.4)** — for every v2 sidecar: the
+- **RK-3 (Environmental Attestation, v0.4)**: for every v2 sidecar: the
   environment signature verifies under the run's sandbox pubkey (RK-3.1);
   the `acceptance_suite_digest` is a currently registered suite (RK-3.2);
   the `predicate_results` tuple is non-empty (RK-3.3); the `manifest_digest`
   is a currently registered manifest (RK-3.4).
-- **AL-1 (Anti-Lazy Attestation, v0.4-ALM)** — for every v3 sidecar: the
+- **AL-1 (Anti-Lazy Attestation, v0.4-ALM)**: for every v3 sidecar: the
   anti-lazy signature verifies under the ALM verifier pubkey the
   resolver returns (AL-1.1); every `GateResult` in `gate_results` has
   `passed=True` OR carries a `handshake_id` that appears in the
@@ -107,17 +107,17 @@ not silently repair.
 
 Reader dispatches on the top-level `schema` field.
 
-- **`sidecar/v1`** (v0.3) — no `schema` field. Carries `signature`.
+- **`sidecar/v1`** (v0.3), no `schema` field. Carries `signature`.
   RK-3 skipped with `DeprecationWarning`; `--strict` refuses.
-- **`sidecar/v2`** (v0.4 substrate) — `schema: sidecar/v2`. Adds
+- **`sidecar/v2`** (v0.4 substrate), `schema: sidecar/v2`. Adds
   `generator_signature`, `environment_signature`,
   `acceptance_suite_digest`, `predicate_results`, `manifest_digest`.
-- **`sidecar/v3`** (v0.4 ALM) — `schema: sidecar/v3`. Adds
+- **`sidecar/v3`** (v0.4 ALM), `schema: sidecar/v3`. Adds
   `antilazy_signature`, `gate_results` (tuple of eight per-gate
   records), `reversal_taint` (`"clean"` or `"partial"`), and the
   base64 raw ALM verifier pubkey (`alm_pubkey_b64`) so AL-1 can be
   verified from the sidecar plus an out-of-sidecar registry check.
-- **`sidecar/v4`** (v0.5.1) — `schema: sidecar/v4`. Adds three
+- **`sidecar/v4`** (v0.5.1), `schema: sidecar/v4`. Adds three
   OPT-IN fields: `workspace_digest`, `prompt_digest`, `run_id`
   (see `ract.core.workspace_digest`, `IntentCompiler.compile`,
   `ract.runtime.get_current_run_id`). Canonical bytes are RFC

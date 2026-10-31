@@ -1,4 +1,4 @@
-# Assumption-Bound Values — `Assumed[T]`
+# Assumption-Bound Values, `Assumed[T]`
 
 Every non-trivial computation in RACT returns an `Assumed[T]` value: the result, the load-bearing assumption that justifies it, a confidence score, and a provenance chain.
 
@@ -19,7 +19,7 @@ See `src/ract/rooted.py`.
 
 ---
 
-# Provenance Capability — The Rootknot
+# Provenance Capability, The Rootknot
 
 The second unmistakable RACT signature is the **Rootknot**: a signed provenance capability meant for every artifact the loop writes. In this release normal `ract` runs do not sign yet; see `docs/PROVENANCE.md`.
 

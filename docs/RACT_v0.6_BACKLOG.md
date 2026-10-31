@@ -8,13 +8,13 @@ Anchor links inside the table point to the notes.
 
 Each row names:
 
-- **Item ID** — a stable slug (m0N-CX or DA-X F-Y for finding rows).
-- **Discovered by** — the module (or audit lens) that surfaced it.
-- **Severity** — HIGH / MED / LOW / INFO / PROCESS.
-- **One-liner** — the shortest useful description.
-- **Proposed owner** — the v0.6 module (or category) that should
+- **Item ID**: a stable slug (m0N-CX or DA-X F-Y for finding rows).
+- **Discovered by**: the module (or audit lens) that surfaced it.
+- **Severity**: HIGH / MED / LOW / INFO / PROCESS.
+- **One-liner**: the shortest useful description.
+- **Proposed owner**: the v0.6 module (or category) that should
   ship it.
-- **Status** — reserved column, updated as items move through v0.6.
+- **Status**: reserved column, updated as items move through v0.6.
 
 Add a **Status** column value once the item enters an active v0.6
 module; do not mutate the discovered-by/severity columns retroactively.
@@ -53,7 +53,7 @@ module; do not mutate the discovered-by/severity columns retroactively.
 
 <a id="m02-m3"></a>
 
-### m02-M3 — sandbox_env allowlist trust-tier redesign
+### m02-M3, sandbox_env allowlist trust-tier redesign
 
 Repo-committed `.ract/sandbox_env.allowlist` is trusted by default in
 v0.5.2. Ox Alpha M-3: a compromised model that landed a PR extending
@@ -72,7 +72,7 @@ a `--dangerously-trust-allowlist-file` opt-in flag.
 
 <a id="m04-c4"></a>
 
-### m04-C4 — `--strict-sidecar-headers` CLI flag
+### m04-C4, `--strict-sidecar-headers` CLI flag
 
 Additive operator UX for reviewers who want the strict header
 demand made visible. v0.5.2 asserts header presence in unit tests
@@ -81,7 +81,7 @@ candidate for v0.6 if the C-1 universal sweep lands early.
 
 <a id="m05-c10"></a>
 
-### m05-C10 — machine-identity HMAC in verify sidecar
+### m05-C10, machine-identity HMAC in verify sidecar
 
 Fork 1 (a) rejected during module_05 co-build in favor of a
 walker-level run_id check. The HMAC would additionally close the
@@ -91,7 +91,7 @@ the walker still gets a bare-run_id match). Pair with C11.
 
 <a id="m05-c12"></a>
 
-### m05-C12 — external anchor for mid-file tamper
+### m05-C12, external anchor for mid-file tamper
 
 The single biggest unclosed gap from module_05: the current verify
 sidecar sits on the same filesystem as the trace log, so an
