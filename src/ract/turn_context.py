@@ -21,6 +21,7 @@ reporter, the same way it sees the ambient run id.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 import threading
@@ -42,9 +43,14 @@ _report_error: ContextVar[str | None] = ContextVar(
 _written: ContextVar[list[str] | None] = ContextVar("ract_turn_written", default=None)
 # B-023: the commands the harness ran in this turn, as (kind, CommandResult).
 _runs: ContextVar[list[Any] | None] = ContextVar("ract_turn_runs", default=None)
-# B-192: how many writes the turn has made so far, every write counted (a second
-# write to one file counts again), so a run knows which changes it saw.
+# B-192: how many changes the turn has made so far, so a run knows which it saw.
+# A write is a change when it gives a path content the turn has not recorded
+# for it last: a second edit of one file counts again, and the same content
+# arriving in another tree (a step's worktree, then the apply) does not.
 _changes: ContextVar[list[int] | None] = ContextVar("ract_turn_changes", default=None)
+_contents: ContextVar[dict[str, str | None] | None] = ContextVar(
+    "ract_turn_contents", default=None
+)
 _extensions_off: ContextVar[bool] = ContextVar(
     "ract_repository_extensions_off", default=False
 )
@@ -119,6 +125,7 @@ def bind(
     _written.set(written)
     _runs.set(runs)
     _changes.set([0])
+    _contents.set({})
     _write_lock.set(write_lock)
     _queued.set(queued)
     _external.set([])
@@ -232,21 +239,47 @@ def record_written(root: Path | str, paths: Iterable[Path | str]) -> None:
     (G-026), not from comparing the tree before and after: a comparison
     misses an edit that keeps size and mtime and counts files someone else
     touched during the turn. Paths are stored relative to ``root`` with
-    forward slashes.
+    forward slashes. Each path is also offered to the verifier as a change
+    (``note_changed``), with the content it holds now.
     """
-    paths = list(paths)
-    counter = _changes.get()
-    if counter is not None:
-        counter[0] += len(paths)
     written = _written.get()
-    if written is None:
-        return
     base = os.path.realpath(os.fspath(root))
     for path in paths:
         full = os.path.realpath(os.path.join(base, os.fspath(path)))
         rel = os.path.relpath(full, base).replace(os.sep, "/")
-        if rel not in written:
+        try:
+            data = Path(full).read_bytes() if os.path.isfile(full) else None
+        except OSError as exc:
+            print(f"[turn_context] {rel} could not be read back: {exc}", flush=True)
+            data = b""  # unreadable is counted as a change
+        note_changed(rel, data)
+        if written is not None and rel not in written:
             written.append(rel)
+
+
+def note_changed(rel: str, data: bytes | None) -> None:
+    """Count a write for the verifier when it changes what *rel* holds (B-192).
+
+    *rel* is the path inside the tree that was written (the operator's, or a
+    step's worktree), and *data* its content now (None: the file is gone).
+    Line endings are not a change.
+    """
+    counter = _changes.get()
+    if counter is None:
+        return
+    key = rel.replace(os.sep, "/")
+    name = key.rsplit("/", 1)[-1]
+    if name.startswith(".") and name.endswith(".rootknot.json"):
+        return  # S-015b: RACT's signed record of a file, not a change to it
+    digest = (
+        None if data is None else hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+    )
+    contents = _contents.get()
+    if contents is not None:
+        if key in contents and contents[key] == digest:
+            return
+        contents[key] = digest
+    counter[0] += 1
 
 
 def changes_made() -> int:

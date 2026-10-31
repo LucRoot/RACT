@@ -312,8 +312,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   body whole before it shortens it, in every error text it makes, and setup redacts what
   it prints. `ract.yaml` never held the key.
 - A turn whose tests passed and that then changed a file again now reports `stale`, not
-  `verified` (B-192): the turn counts every write, and each test run keeps how many writes
-  came before it.
+  `verified` (B-192): the turn counts every write that changes a file's content, the step
+  tools' writes included, and each test run keeps how many came before it. A test run that
+  collects no tests reports `no-tests`. The headless `ract.result/1` carries the same status.
 - `RACT_PRESET_BASE_URL=preset=url` points a preset at another address in what `ract setup`
   writes, for tests and walks against a fake server (B-160d). It is a security-class
   variable that `ract doctor --env` shows, and it never pairs a key with a host: only

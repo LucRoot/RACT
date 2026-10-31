@@ -30,11 +30,16 @@ def _bind() -> tuple[list[str], list[object]]:
     return written, runs
 
 
+def _write(root: Path, name: str, text: str) -> None:
+    (root / name).write_text(text, encoding="utf-8")
+    turn_context.record_written(root, [name])
+
+
 def test_a_write_after_a_passing_run_makes_the_turn_stale(tmp_path: Path) -> None:
     _, runs = _bind()
-    turn_context.record_written(tmp_path, ["a.py"])
+    _write(tmp_path, "a.py", "x = 1\n")
     turn_context.record_run("tests", _Run())
-    turn_context.record_written(tmp_path, ["a.py"])  # changed again after the run
+    _write(tmp_path, "a.py", "x = 2\n")  # changed again after the run
     seen = [changes for _kind, _result, changes in runs]  # type: ignore[misc]
     results = [result for _kind, result, _changes in runs]  # type: ignore[misc]
     record = verification_record(results, seen, turn_context.changes_made())
@@ -43,7 +48,8 @@ def test_a_write_after_a_passing_run_makes_the_turn_stale(tmp_path: Path) -> Non
 
 def test_a_passing_run_after_the_last_write_is_verified(tmp_path: Path) -> None:
     _, runs = _bind()
-    turn_context.record_written(tmp_path, ["a.py", "b.py"])
+    _write(tmp_path, "a.py", "x = 1\n")
+    _write(tmp_path, "b.py", "y = 1\n")
     turn_context.record_run("tests", _Run())
     seen = [changes for _kind, _result, changes in runs]  # type: ignore[misc]
     results = [result for _kind, result, _changes in runs]  # type: ignore[misc]
@@ -53,10 +59,38 @@ def test_a_passing_run_after_the_last_write_is_verified(tmp_path: Path) -> None:
 
 def test_a_second_write_to_the_same_file_counts_again(tmp_path: Path) -> None:
     written, _ = _bind()
-    turn_context.record_written(tmp_path, ["a.py"])
-    turn_context.record_written(tmp_path, ["a.py"])
+    _write(tmp_path, "a.py", "x = 1\n")
+    _write(tmp_path, "a.py", "x = 2\n")
     assert written == ["a.py"]  # the changed list names the file once
     assert turn_context.changes_made() == 2  # but both writes count
+
+
+def test_the_same_content_in_another_tree_is_no_new_change(tmp_path: Path) -> None:
+    # A step's worktree writes the file, then the apply brings the same bytes
+    # (with other line endings) to the operator's tree: one change, not two.
+    _bind()
+    work, project = tmp_path / "work", tmp_path / "project"
+    work.mkdir()
+    project.mkdir()
+    (work / "a.py").write_bytes(b"x = 2\n")
+    turn_context.record_written(work, ["a.py"])
+    (project / "a.py").write_bytes(b"x = 2\r\n")
+    turn_context.record_written(project, ["a.py"])
+    assert turn_context.changes_made() == 1
+
+
+def test_a_provenance_sidecar_is_no_change(tmp_path: Path) -> None:
+    _bind()
+    _write(tmp_path, ".a.py.rootknot.json", "{}")
+    assert turn_context.changes_made() == 0
+
+
+def test_a_move_and_a_delete_are_changes() -> None:
+    _bind()
+    turn_context.note_changed("a.py", b"x\n")
+    turn_context.note_changed("a.py", None)
+    turn_context.note_changed("b.py", b"x\n")
+    assert turn_context.changes_made() == 3
 
 
 def test_a_failing_run_after_the_last_write_is_failed(tmp_path: Path) -> None:
