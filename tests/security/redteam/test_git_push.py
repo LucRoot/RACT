@@ -91,3 +91,13 @@ def test_with_everything_it_asks_then_runs_once(world) -> None:
     assert rooted.is_ok(), rooted.error
     assert len(asked) == 1
     assert runner.calls[0]["argv"][-3:] == ["push", "origin", "main"]
+
+
+def test_the_push_runs_with_d8_hardening(world) -> None:
+    """Review finding 7: no repository hook or fsmonitor runs during a push."""
+    world.resign(rules=RULES + PUSH_RULE)
+    _approve_handshake(world)
+    rooted, _asked, runner = call(world, "git_push", ARGS)
+    argv = runner.calls[0]["argv"]
+    assert "core.fsmonitor=false" in argv
+    assert any(a.startswith("core.hooksPath=") for a in argv)

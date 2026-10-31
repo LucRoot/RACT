@@ -112,10 +112,16 @@ def install(
 
         seed = run_seed(run_id)
         session_key = SessionKey.load_or_create(seed)
-        sandbox = SandboxKey.generate(seed, project)
-        alm = AlmVerifierKey.generate(seed, project)
-        for key in (sandbox, alm):
-            key.archive(project)
+        # A second turn under the same run id reuses the run's archived keys:
+        # generating again would replace them and orphan earlier knots.
+        sandbox = SandboxKey.load_archived(seed, project)
+        if sandbox is None:
+            sandbox = SandboxKey.generate(seed, project)
+            sandbox.archive(project)
+        alm = AlmVerifierKey.load_archived(seed, project)
+        if alm is None:
+            alm = AlmVerifierKey.generate(seed, project)
+            alm.archive(project)
         snapshot = WorkspaceSnapshot(files=_tracked_text(project), timestamp=0.0)
         compiled = IntentCompiler().compile(intent, snapshot)
         suite = getattr(compiled, "visible", compiled)

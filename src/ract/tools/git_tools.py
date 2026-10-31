@@ -466,11 +466,14 @@ def git_push(root: Path, args: PushArgs) -> ToolResult:
             f"not run, because the handshake {handshake} is not approved with your signature",
             f"`ract handshakes approve {handshake}` at a terminal, then ask again",
         )
+    # D8 applies to the push too: fsmonitor off and an empty hooks folder,
+    # unless the grant's push rule says git_hooks: true.
+    hardening = git_argv(hooks=bool(getattr(rule, "git_hooks", False)))[1:-1]
     return run_under_rule(
         root,
         ctx,
         rule,
-        ["git", "push", args.remote, args.branch],
+        ["git", *hardening, "push", args.remote, args.branch],
         args.reason,
         kind="push",
         refused_hint="push only a named remote and branch",

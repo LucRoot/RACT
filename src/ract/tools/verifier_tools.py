@@ -81,6 +81,16 @@ class VerifierArgs(BaseModel):
         return paths
 
 
+# Tools that take paths after ``--`` (make, cargo and build treat them as
+# targets or arguments of their own, so they take none).
+_TAKES_PATHS = {"ruff", "mypy", "black", "flake8", "eslint", "pyright", "npm"}
+
+
+def takes_paths(argv: list[str] | tuple[str, ...]) -> bool:
+    names = [Path(a).name.lower().removesuffix(".exe") for a in argv[:4]]
+    return bool(_TAKES_PATHS & set(names))
+
+
 def rule_for(policy: Any, kind: str) -> Any | None:
     """The grant's rule for *kind*: the one with that id, else a known command."""
     rules = list(getattr(getattr(policy, "commands", None), "allow", []) or [])
@@ -103,6 +113,11 @@ def _runner(kind: str):
             raise ToolRefused(
                 f"not run, because the grant has no {kind} rule",
                 f"add an allow rule with id {kind} to .ract/policy.yaml and sign it",
+            )
+        if args.paths and not takes_paths(rule.argv):
+            raise ToolRefused(
+                f"the {kind} rule {' '.join(rule.argv)} takes no paths",
+                "call it without paths; it runs over the whole project",
             )
         argv = [*rule.argv, *(["--"] if args.paths else []), *args.paths]
         return run_under_rule(
