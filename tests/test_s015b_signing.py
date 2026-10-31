@@ -48,7 +48,11 @@ def test_a_run_then_verify_passes(ws: Path) -> None:
     ok, message = verify_artifact(target, ws)
     assert ok, message
     # B-038/B-039: a signed file is not listed as unsigned, and the turn says signed.
-    assert finished["provenance"] == {"signed": True, "unsigned_files": []}
+    assert finished["provenance"] == {
+        "signed": True,
+        "unsigned_files": [],
+        "sidecars": ["src/.calc.py.rootknot.json"],  # D-143
+    }
 
 
 def test_one_changed_byte_fails_verification(ws: Path) -> None:
@@ -190,3 +194,24 @@ def test_one_session_key_a_day_for_a_repository(ws: Path) -> None:
     assert seed(ws, "2026-10-30") == seed(ws, "2026-10-30")
     assert seed(ws, "2026-10-30") != seed(ws, "2026-10-31")
     assert seed(ws, "2026-10-30") != seed(ws.parent, "2026-10-30")
+
+
+def test_undo_removes_the_sidecar_with_its_file(ws: Path) -> None:
+    """D-143: the sidecar goes with its file; /undo leaves no record of a
+    change that is no longer there."""
+    from ract import undo_backup
+
+    before = (ws / "src" / "calc.py").read_bytes()
+    _turn(ws)
+    sidecar = ws / "src" / ".calc.py.rootknot.json"
+    assert sidecar.is_file()
+    result = undo_backup.undo(ws)
+    assert not result.skipped, result.skipped
+    assert (ws / "src" / "calc.py").read_bytes() == before
+    assert not sidecar.exists()
+
+
+def test_the_summary_names_the_sidecar_and_says_to_commit_it(ws: Path) -> None:
+    """D-143: the operator commits the sidecar with the file to keep the record."""
+    finished = _turn(ws)
+    assert finished["provenance"]["sidecars"] == ["src/.calc.py.rootknot.json"]

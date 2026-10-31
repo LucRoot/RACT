@@ -419,3 +419,28 @@ def test_a_stalled_clock_gives_no_beats() -> None:
         pass  # __exit__ waits for the loop to finish
     assert len(calls) == 4
     assert beats == []
+
+
+def test_the_summary_says_to_commit_each_signed_record_with_its_file() -> None:
+    """D-143: the sidecar stays beside the file; the summary names it."""
+    text = _render(
+        ("turn.started", {"input": "q", "queued": False}),
+        (
+            "turn.finished",
+            {
+                "outcome": "done",
+                "duration_ms": 1000,
+                "verdict": "Done.",
+                "changed": ["src/calc.py"],
+                "checkpoint": None,
+                "provenance": {
+                    "signed": True,
+                    "unsigned_files": [],
+                    "sidecars": ["src/.calc.py.rootknot.json"],
+                },
+            },
+        ),
+    )
+    assert (
+        "signed: commit each record with its file: src/.calc.py.rootknot.json" in text
+    )

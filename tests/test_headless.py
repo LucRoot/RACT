@@ -69,7 +69,11 @@ def test_json_result_on_stdout_progress_on_stderr(
     assert obj["changed"] == ["src/calc.py"]
     assert obj["verification"] == {"status": "not-run", "runs": [], "claims": []}
     # S-015b: the harness signs what it writes.
-    assert obj["provenance"] == {"signed": True, "unsigned_files": []}
+    assert obj["provenance"] == {
+        "signed": True,
+        "unsigned_files": [],
+        "sidecars": ["src/.calc.py.rootknot.json"],  # D-143
+    }
     assert set(obj) >= {"session", "verdict", "final_text", "cost", "denials"}
     assert ANSI not in result.stdout
     assert "[step 1]" in result.stderr  # progress went to stderr
