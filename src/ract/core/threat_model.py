@@ -38,14 +38,9 @@ DEFAULT_POLICY: dict[CapabilityTier, PolicyDecision] = {
 }
 
 
-# Patterns that mark a file or path as sensitive.
+# Folders in the user's home that are sensitive as a whole. Secret-shaped
+# file names come from workspace_path.is_secret_shaped (B-205), the one list.
 SENSITIVE_PATTERNS: list[str] = [
-    ".env",
-    ".env.*",
-    "*.pem",
-    "*.key",
-    "id_rsa",
-    "id_ed25519",
     "~/.ssh/**",
     "~/.aws/**",
     "~/.config/gcloud/**",
@@ -228,7 +223,11 @@ def _is_within_workspace(target: Path, workspace_root: Path) -> bool:
 
 
 def _matches_sensitive(path: Path | str) -> bool:
-    """Return True if the path matches a sensitive pattern."""
+    """Return True if the path matches a sensitive pattern or a secret-shaped name."""
+    from ract.workspace_path import is_secret_shaped
+
+    if is_secret_shaped(str(path)):
+        return True
     text = str(path).replace("\\", "/")
     return any(pattern.search(text) for pattern in _SENSITIVE_REGEXES)
 

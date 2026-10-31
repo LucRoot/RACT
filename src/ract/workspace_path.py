@@ -58,28 +58,78 @@ Purpose = Literal["read", "write", "send"]
 # submodule's git directory). Compared case-insensitively.
 PROTECTED_WRITE_DIRS = frozenset({".git", ".ract"})
 
-# File names that usually hold secrets: never sent to a model and left out
-# of step snapshots. Compared case-insensitively.
-SECRET_NAME_GLOBS = (".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_ed25519")
-
-# Committed placeholder files, allowed by exact name (D-014). Blocking them
-# stops a normal task (update the example file); a real key pasted into one
-# is the request-body scanner's job (S-022).
-ENV_TEMPLATE_NAMES = frozenset(
-    {".env.example", ".env.sample", ".env.template", ".env.dist"}
+# B-205: the one decision for file names that usually hold secrets. Every
+# consumer derives from ``is_secret_shaped``: the never-sent rule (the read
+# tool, every send), the write refusal, the step snapshot excludes, git_tools'
+# staging refusal and the threat model's read check. Compared case-folded.
+#
+# The OpenSSH private key types, by their default names (a ``.pub`` is not
+# one of them). Named one by one: ``id_*`` would also catch ``id_utils.py``.
+SSH_KEY_NAMES = frozenset(
+    {
+        "id_rsa",
+        "id_dsa",
+        "id_ecdsa",
+        "id_ecdsa_sk",
+        "id_ed25519",
+        "id_ed25519_sk",
+        "id_xmss",
+        "identity",
+    }
 )
+_KEY_STORES = ("*.p12", "*.pfx", "*.jks", "*.keystore", "*.ppk", "*.kdbx")
+_TOKEN_FILES = (".netrc", "_netrc", ".pypirc", ".git-credentials")
+SECRET_NAME_GLOBS = (
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.key",
+    *_KEY_STORES,
+    *_TOKEN_FILES,
+    *sorted(SSH_KEY_NAMES),
+)
+
+# Committed placeholder files (D-014): an env file whose last suffix is one of
+# these, in any case (.env.example, .env.local.example, .env.DIST). Blocking
+# them stops a normal task (update the example file); a real key pasted into
+# one is the request-body scanner's job (S-022).
+ENV_TEMPLATE_SUFFIXES = ("example", "sample", "template", "dist")
+
+
+def is_env_template(name: str) -> bool:
+    """True for a placeholder env file: ``.env.<...>.<template suffix>``, any case."""
+    folded = name.casefold()
+    return folded.startswith(".env.") and folded.rsplit(".", 1)[-1] in ENV_TEMPLATE_SUFFIXES
 
 
 def is_secret_shaped(path: str) -> bool:
-    """True when the last component of ``path`` matches ``SECRET_NAME_GLOBS``.
+    """True when the last component of ``path`` usually holds secrets (B-205).
 
-    ``ENV_TEMPLATE_NAMES`` are exempt, by exact (case-sensitive) name.
+    A placeholder env file (``is_env_template``) is not secret-shaped.
     """
     name = re.split(r"[\\/]", path)[-1]
-    if name in ENV_TEMPLATE_NAMES:
+    if is_env_template(name):
         return False
     folded = name.casefold()
     return any(fnmatch.fnmatchcase(folded, pattern) for pattern in SECRET_NAME_GLOBS)
+
+
+def secret_kind(path: str) -> str | None:
+    """What a secret-shaped file is, in words for a refusal, or None."""
+    if not is_secret_shaped(path):
+        return None
+    name = re.split(r"[\\/]", path)[-1].casefold()
+    if name == ".env" or name.startswith(".env."):
+        return "an environment file"
+    if name in SSH_KEY_NAMES:
+        return "an SSH private key file"
+    if name.endswith(".pem"):
+        return "a PEM key or certificate file"
+    if name.endswith(".key"):
+        return "a key file"
+    if any(fnmatch.fnmatchcase(name, pattern) for pattern in _KEY_STORES):
+        return "a key store"
+    return "a credentials file"
 
 
 # RACT's own config can hold literal api_key values.

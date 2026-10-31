@@ -25,7 +25,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterable
 
-from ract.workspace_path import ENV_TEMPLATE_NAMES, is_secret_shaped
+from ract.workspace_path import (
+    ENV_TEMPLATE_SUFFIXES,
+    SECRET_NAME_GLOBS,
+    is_secret_shaped,
+)
 from ract import run_checkpoint, undo_backup
 
 if TYPE_CHECKING:
@@ -563,16 +567,13 @@ def _literal(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 # Paths a base snapshot never contains, so they never reach a step worktree:
 # RACT's own state, and files that usually hold secrets (an untracked .env
 # that is not ignored would otherwise be copied into the worktree).
+# B-205: built from the one list in workspace_path, so a name the model may
+# not see is never copied into a step's worktree either.
 _SNAPSHOT_EXCLUDES = (
     ".ract",
-    ":(glob,icase)**/.env",
-    ":(glob,icase)**/.env.*",
-    ":(glob,icase)**/*.pem",
-    ":(glob,icase)**/*.key",
-    ":(glob,icase)**/id_rsa",
-    ":(glob,icase)**/id_ed25519",
-    # D-014: committed placeholders stay in the snapshot (exact name).
-    *(f":(exclude,glob)**/{name}" for name in sorted(ENV_TEMPLATE_NAMES)),
+    *(f":(glob,icase)**/{pattern}" for pattern in SECRET_NAME_GLOBS),
+    # D-014: committed placeholders stay in the snapshot, any case.
+    *(f":(exclude,glob,icase)**/.env*.{suffix}" for suffix in ENV_TEMPLATE_SUFFIXES),
 )
 
 

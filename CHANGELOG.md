@@ -285,6 +285,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- One list decides which file names hold secrets (B-205): the model's reads, writes, the step
+  snapshots, git staging and the threat model agree on it. Every OpenSSH private key name, key
+  stores (`.p12`, `.pfx`, `.jks`, `.keystore`, `.ppk`, `.kdbx`) and token files (`.netrc`,
+  `.pypirc`, `.git-credentials`) are secret; an env file whose last suffix is example, sample,
+  template or dist, in any case, is a placeholder. `id_ecdsa` and `id_dsa` were shown to the model.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.
