@@ -376,6 +376,25 @@ def test_a_typed_address_that_answers_is_written(tmp_path: Path) -> None:
     assert config["providers"]["local"]["model"] == "coder-7b"
 
 
+def test_an_address_with_a_password_is_refused_before_any_probe(
+    tmp_path: Path,
+) -> None:
+    # G-261: it would be written to ract.yaml; it is not probed nor echoed.
+    _git_init(tmp_path)
+    secret_address = "http://user:hunter2-pass@192.168.1.20:8080/v1"
+    probed: list[tuple[str, ...]] = []
+    io, said, asked = _io([secret_address, "l", "", "skip"], [])
+    io.detect = lambda extra: probed.append(extra) or []
+
+    assert wizard.run(tmp_path, interactive=True, io=io) == 0
+
+    assert all(secret_address not in extra for extra in probed)
+    text = "\n".join(said)
+    assert "holds a user name or password" in text
+    assert "hunter2-pass" not in text
+    assert "hunter2-pass" not in (tmp_path / "ract.yaml").read_text(encoding="utf-8")
+
+
 def test_a_typed_address_that_does_not_answer_writes_nothing_for_it(
     tmp_path: Path,
 ) -> None:

@@ -51,6 +51,29 @@ def test_a_cloud_provider_is_added_beside_the_local_one(tmp_path: Path) -> None:
     assert SECRET not in (tmp_path / "ract.yaml").read_text(encoding="utf-8") + text
 
 
+def test_comments_and_every_other_line_of_the_file_are_kept(tmp_path: Path) -> None:
+    # G-261: the new block is appended as text under providers:.
+    _first_setup(tmp_path)
+    path = tmp_path / "ract.yaml"
+    noted = "# my notes: keep the 7B model for weekends\n" + path.read_text(
+        encoding="utf-8"
+    ).replace("providers:\n", "providers:\n  # the local server first\n", 1)
+    path.write_text(noted, encoding="utf-8")
+    other = wizard.local_probe.Server(
+        "llama.cpp server", "http://127.0.0.1:8081/v1", ("other-7b",)
+    )
+    io, said, _ = _io(["", "y"], [other])
+
+    answers = wizard.Answers(add_provider=True)
+    assert wizard.run(tmp_path, answers=answers, interactive=True, io=io) == 0
+
+    after = path.read_text(encoding="utf-8")
+    for line in noted.splitlines():
+        assert line in after.splitlines()  # nothing removed or reformatted
+    assert _config(tmp_path)["providers"]["local_2"]["url"] == other.url
+    assert not any("rewritten whole" in line for line in said)
+
+
 def test_the_same_name_gets_a_number_and_replaces_nothing(tmp_path: Path) -> None:
     _first_setup(tmp_path)
     other = wizard.local_probe.Server(

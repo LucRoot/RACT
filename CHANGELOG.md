@@ -308,7 +308,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `RACT_KEY_HOSTS` does, so a key is withheld from an overridden address.
 - `ract setup --add-provider` adds a second endpoint to an existing `ract.yaml` (B-160c):
   the same questions, a diff before writing, the same health check on the new provider;
-  the manager provider stays, and a provider of the same name gets a numbered name.
+  the manager provider stays, a provider of the same name gets a numbered name, and the
+  new block is added as text, so every other line of the file, comments included, is kept.
 - `ract setup`'s provider list says `(no key needed)` for the presets that read no key
   (llamacpp, lmstudio, ollama, vllm), where it printed `(key in )`, and picking one no
   longer prints an empty variable name (B-160e).
@@ -316,7 +317,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   reads, one line each (B-160b); the key's value is never shown.
 - When no model server answers on the default ports, `ract setup` asks once for your
   server's address (B-160a). A typed address that answers is written to `ract.yaml`; one
-  that does not is named (`nothing answered at <address>`) and not written. Looking again
+  that does not is named (`nothing answered at <address>`) and not written; one holding a
+  user name or password is refused before any request, and not echoed. Looking again
   and still finding nothing now writes no config, where it wrote Ollama's default address
   and its check failed; typing `skip` is the explicit way to write that default.
 - The git tools are harder to walk around (G-239). The commit's secret scan reads every

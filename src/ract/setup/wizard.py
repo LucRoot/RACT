@@ -335,6 +335,17 @@ def _ask_address(
     if not typed.startswith(("http://", "https://")):
         io.say(f"  {typed} is not an address (it starts with http:// or https://)")
         return None
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(typed)
+    if parts.username is not None or parts.password is not None:
+        # G-261: the address is written to ract.yaml; a user name or password
+        # in it would be a secret in the config. It is not echoed either.
+        io.say(
+            "  that address holds a user name or password; setup writes addresses "
+            "only, so type it without them and put any key in an environment variable"
+        )
+        return None
     found = [s for s in io.detect((typed,)) if s.url.rstrip("/") == typed]
     if not found:
         io.say(f"  nothing answered at {typed}")
@@ -580,6 +591,41 @@ def _run(
     return code
 
 
+def _with_provider_block(text: str, name: str, entry: dict[str, Any]) -> str | None:
+    """``text`` with one provider block added at the end of ``providers:``.
+
+    Every other line, comments included, is kept as it was (G-261). None when
+    the file has no block-style top-level ``providers:`` to extend.
+    """
+    lines = text.splitlines(keepends=True)
+    start = next(
+        (i for i, line in enumerate(lines) if line.rstrip() == "providers:"), None
+    )
+    if start is None:
+        return None
+    indent, end = None, len(lines)
+    for i in range(start + 1, len(lines)):
+        stripped = lines[i].strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        width = len(lines[i]) - len(lines[i].lstrip(" "))
+        if width == 0:
+            end = i
+            break
+        if indent is None:
+            indent = width
+    while end > start + 1 and not lines[end - 1].strip():
+        end -= 1  # the new block goes before the blank lines that close the section
+    pad = " " * (indent or 2)
+    block = yaml.safe_dump({name: entry}, sort_keys=False, indent=len(pad))
+    added = "".join(
+        pad + line if line.strip() else line for line in block.splitlines(True)
+    )
+    if end and not lines[end - 1].endswith("\n"):
+        lines[end - 1] += "\n"
+    return "".join(lines[:end]) + added + "".join(lines[end:])
+
+
 def _add_provider(directory: Path, answers: Answers, interactive: bool, io: Io) -> int:
     """Setup case 4 (B-160c): one more provider in an existing ract.yaml.
 
@@ -610,9 +656,15 @@ def _add_provider(directory: Path, answers: Answers, interactive: bool, io: Io) 
     final, n = name, 2
     while final in existing["providers"]:
         final, n = f"{name}_{n}", n + 1
-    merged = dict(existing)
-    merged["providers"] = {**existing["providers"], final: entry}
-    after = yaml.safe_dump(merged, sort_keys=False)
+    after = _with_provider_block(before, final, entry)
+    expected = {**existing["providers"], final: entry}
+    if after is None or (yaml.safe_load(after) or {}).get("providers") != expected:
+        # A providers mapping this text edit cannot extend (flow style, odd
+        # indentation): the whole file is rewritten, and the user is told.
+        merged = dict(existing)
+        merged["providers"] = expected
+        after = yaml.safe_dump(merged, sort_keys=False)
+        io.say(f"  {CONFIG_NAME} is rewritten whole, so comments in it are not kept.")
     io.say(f"Adds the provider '{final}' to {CONFIG_NAME}:")
     io.say(
         "".join(
