@@ -473,8 +473,8 @@ def _choose_provider(io: Io, answers: Answers, interactive: bool) -> _Chosen | i
             if answers.provider == "local":
                 _local_guidance(io, profile, answers)
                 again = io.ask(
-                    "Start the server, then press Enter to look again. Or type skip to "
-                    "write a config for Ollama's address now: "
+                    "Start the server, then press Enter to look again. Or type skip "
+                    "for Ollama's address: "
                 )
                 if again.strip().lower() != "skip":
                     server = _choose_server(
