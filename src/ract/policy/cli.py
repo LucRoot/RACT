@@ -43,11 +43,18 @@ def tier_state(project: Path) -> tuple[TierState, str]:
     return tier_state_of(load_grant(project))
 
 
-def tier_state_of(state: Any) -> tuple[TierState, str]:
-    """The status-line state of a grant already loaded (``load_grant``)."""
+def tier_state_of(state: Any, session_mode: str | None = None) -> tuple[TierState, str]:
+    """The status-line state of a grant already loaded (``load_grant``).
+
+    B-195 (d): a grant opens ``ask``; the session raises it up to the grant's
+    ``max_mode`` on request, and *session_mode* is that request. Without it
+    the status only ever said ask or off.
+    """
     if state.holds and state.policy is not None:
-        # A grant opens "ask"; the session raises it up to max_mode on request.
-        return TierState("ask", state.policy.expires_at.date()), ""
+        mode = "ask"
+        if session_mode == "allowlist" and state.policy.max_mode == "allowlist":
+            mode = "allowlist"
+        return TierState(mode, state.policy.expires_at.date()), ""
     expires = (
         state.policy.expires_at.date()
         if state.status == "expired" and state.policy is not None

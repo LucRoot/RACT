@@ -859,6 +859,23 @@ class ReplSession:
             )
             return True
         self._tier3_mode = wanted
+        if self._events is not None:
+            # B-195 (d): the change is an event, with the status line's words.
+            from datetime import date
+
+            from ract.policy.cli import tier_state_of
+            from ract.ui.tier_status_view import status_line
+
+            state, _why = tier_state_of(grant, wanted)
+            self._events.emit(
+                "mode.changed",
+                {
+                    "mode": self.permission_mode(),
+                    "tier3": self._tier3_now(),
+                    "tier3_status": status_line(state, date.today()),
+                    "by": "operator",
+                },
+            )
         self._print_wrapped(
             "Tier 3: allowlist: a command that matches an allow rule runs without "
             "asking; tier 2, the always-ask list and a changed test or runner file "

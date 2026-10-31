@@ -142,3 +142,37 @@ def test_the_stream_follows_the_session_and_resume_is_emitted(tmp_path) -> None:
     assert stream.session == "s-old"
     resumed = [e.data for e in seen if e.kind == "session.resumed"]
     assert resumed and resumed[-1]["turns"] == 2 and resumed[-1]["resumed_from"] != "s-old"
+
+
+def test_permissions_allowlist_is_an_event_with_the_status_words() -> None:
+    # B-195 (d): /permissions ask|allowlist emitted nothing, and the status
+    # only ever said ask or off.
+    from datetime import datetime, timedelta, timezone
+    from types import SimpleNamespace
+
+    from ract.policy.cli import tier_state_of
+    from ract.session_events import EventStream, SessionEvent
+    from tests.test_repl import _session
+
+    grant = SimpleNamespace(
+        holds=True,
+        status="ok",
+        reason="",
+        policy=SimpleNamespace(
+            max_mode="allowlist", expires_at=datetime.now(timezone.utc) + timedelta(days=9)
+        ),
+    )
+    assert tier_state_of(grant, "allowlist")[0].mode == "allowlist"
+    assert tier_state_of(grant)[0].mode == "ask"
+
+    session, _calls, _console = _session()
+    seen: list[SessionEvent] = []
+    stream = EventStream(session="s-b195d2")
+    stream.subscribe(seen.append)
+    session._events = stream
+    session._grant_state = grant
+    session._tier3 = "ask"
+    session._set_tier3_mode("allowlist")
+    changed = [e.data for e in seen if e.kind == "mode.changed"]
+    assert changed and changed[-1]["tier3"] == "allowlist"
+    assert "allowlist" in changed[-1]["tier3_status"]
