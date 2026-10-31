@@ -308,7 +308,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `RACT_PRESET_BASE_URL=preset=url` points a preset at another address in what `ract setup`
   writes, for tests and walks against a fake server (B-160d). It is a security-class
   variable that `ract doctor --env` shows, and it never pairs a key with a host: only
-  `RACT_KEY_HOSTS` does, so a key is withheld from an overridden address.
+  `RACT_KEY_HOSTS` does, so a key is withheld from an overridden address. A malformed value
+  (not `preset=url`, an unknown preset, credentials) refuses setup and sends nothing (G-265).
 - `ract setup --add-provider` adds a second endpoint to an existing `ract.yaml` (B-160c):
   the same questions, a diff before writing, the same health check on the new provider;
   the manager provider stays, a provider of the same name gets a numbered name, and the

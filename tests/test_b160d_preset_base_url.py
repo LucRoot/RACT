@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from ract import env_registry
-from ract.provider_presets import PRESETS, get_preset
+from ract.provider_presets import PRESETS, PresetOverrideError, get_preset
 from ract.providers.openai_provider import OpenAICompatibleProvider, key_hosts
 from ract.setup import wizard
 from tests.setup.test_wizard import SERVER, _git_init, _io
@@ -26,12 +27,44 @@ def test_the_override_replaces_only_the_named_preset(monkeypatch) -> None:
     assert PRESETS["openrouter"]["providers"]["openrouter"]["url"] != FAKE
 
 
-def test_an_override_that_is_not_an_address_is_ignored(monkeypatch) -> None:
-    monkeypatch.setenv("RACT_PRESET_BASE_URL", "openrouter=file:///etc/passwd")
+@pytest.mark.parametrize(
+    "value",
+    [
+        "http://127.0.0.1:18099/v1",  # bare: names no preset (WRIGHT's control)
+        "nosuch=http://127.0.0.1:18099/v1",  # an unknown preset
+        "openrouter=",  # an empty address
+        "openrouter=http://127.0.0.1:18099/v1,",  # an empty pair
+        "openrouter=file:///etc/passwd",  # not http(s)
+        "openrouter=http://u:p@127.0.0.1:18099/v1",  # credentials
+    ],
+)
+def test_a_malformed_override_refuses(monkeypatch, value: str) -> None:
+    # G-265: fails tight; ignoring it sent a walk to the real provider.
+    monkeypatch.setenv("RACT_PRESET_BASE_URL", value)
+    with pytest.raises(PresetOverrideError, match="RACT_PRESET_BASE_URL must be"):
+        get_preset("openrouter")
+
+
+def test_setup_refuses_a_malformed_override_before_any_request(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("RACT_PRESET_BASE_URL", "http://127.0.0.1:18099/v1")
+    _git_init(tmp_path)
+    probed: list[object] = []
+    io, said, _ = _io([], [SERVER])
+    io.detect = lambda extra: probed.append(extra) or []
+    io.probe = lambda: probed.append("probe") or None  # type: ignore[assignment,func-returns-value]
+    io.health = lambda path: probed.append("health") or None  # type: ignore[assignment,func-returns-value]
+
+    assert wizard.run(tmp_path, interactive=False, io=io) == 2
+
+    assert probed == []
+    assert not (tmp_path / "ract.yaml").exists()
+    text = "\n".join(said)
     assert (
-        get_preset("openrouter")["providers"]["openrouter"]["url"]
-        == PRESETS["openrouter"]["providers"]["openrouter"]["url"]
+        "RACT_PRESET_BASE_URL must be preset=url" in text and "Nothing was sent" in text
     )
+    assert "127.0.0.1:18099" not in text  # the value is not echoed
 
 
 def test_the_override_never_pairs_a_key_with_its_host(monkeypatch) -> None:

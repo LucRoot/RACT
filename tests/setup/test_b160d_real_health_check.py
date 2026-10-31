@@ -72,7 +72,8 @@ def _setup(tmp_path: Path, override: str, key_hosts: str) -> tuple[int, str, str
         )
     finally:
         server.shutdown()
-    config = (project / "ract.yaml").read_text(encoding="utf-8")
+    written = project / "ract.yaml"
+    config = written.read_text(encoding="utf-8") if written.exists() else ""
     return done.returncode, done.stdout + done.stderr, config
 
 
@@ -90,3 +91,17 @@ def test_setup_checks_the_overridden_address(tmp_path: Path, paired: bool) -> No
     assert [carried for _, carried in _Recorder.seen] == [paired]
     assert FAKE_KEY not in output and FAKE_KEY not in config
     assert "127.0.0.1" in config
+
+
+@pytest.mark.parametrize(
+    "override",
+    ["http://127.0.0.1:{port}/v1", "nosuch=http://127.0.0.1:{port}/v1", "openai=,"],
+)
+def test_a_malformed_override_refuses_setup_and_sends_nothing(
+    tmp_path: Path, override: str
+) -> None:
+    # G-265: a bare URL, an unknown preset or an empty pair refuses (exit 2).
+    code, output, config = _setup(tmp_path, override, "")
+    assert code == 2, output
+    assert "RACT_PRESET_BASE_URL must be preset=url" in output
+    assert _Recorder.seen == [] and config == ""

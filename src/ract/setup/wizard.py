@@ -29,7 +29,13 @@ import yaml
 
 from ract import egress_scan
 from ract.console_interrupt import read_line
-from ract.provider_presets import get_preset, list_presets
+from ract.provider_presets import (
+    PRESETS,
+    PresetOverrideError,
+    get_preset,
+    list_presets,
+    preset_url_overrides,
+)
 from ract.setup import host_probe, local_probe, tiers
 from ract.tui import terminal_width
 
@@ -56,7 +62,8 @@ reconfigure: false       # write ract.yaml.draft next to an existing ract.yaml
 """
 
 _ENV_VARS = {
-    name: str(get_preset(name)["providers"][name].get("api_key", ""))[2:-1]
+    # PRESETS itself: this runs at import, before a malformed override can be refused.
+    name: str(PRESETS[name]["providers"][name].get("api_key", ""))[2:-1]
     for name in list_presets()
     if name != "local"
 }
@@ -552,6 +559,12 @@ def run(
     """Run setup in ``directory``. Returns the process exit code."""
     io = _wrapping(io or Io())
     answers = answers or Answers()
+    try:
+        # G-265: refused before any probe or request.
+        preset_url_overrides()
+    except PresetOverrideError as exc:
+        io.say(f"error: {exc}. Nothing was sent and nothing was written.")
+        return EXIT_USAGE
     try:
         return _run(directory, answers, interactive, io, opens_session)
     except KeyboardInterrupt:
