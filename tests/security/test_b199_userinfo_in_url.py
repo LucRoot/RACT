@@ -132,4 +132,5 @@ def test_the_helpers() -> None:
     assert has_userinfo(URLS[0]) and has_userinfo(URLS[1])
     assert not has_userinfo(URLS[2])
     assert shown_url(URLS[0]) == f"https://{HOST}/v1"
-    assert shown_url(URLS[2]) == URLS[2]
+    # B-200: the query is dropped too, since a key may be in it.
+    assert shown_url(URLS[2]) == f"https://{HOST}/v1"
