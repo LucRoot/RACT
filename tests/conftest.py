@@ -17,7 +17,9 @@ ambient. It resets the ContextVar and strips ``RACT_*`` keys from
 
 from __future__ import annotations
 
+import io
 import os
+import sys
 import tempfile
 
 import pytest
@@ -39,6 +41,54 @@ def pytest_configure(config: pytest.Config) -> None:
     user_config = tempfile.mkdtemp(prefix="ract-test-config-")
     os.environ["APPDATA"] = user_config
     os.environ["XDG_CONFIG_HOME"] = user_config
+    # B-134: no test waits on the stdin it inherited from the run. A child
+    # process that is given no stdin of its own reads the null device and
+    # gets end of input at once (the Linux run stalled 40 minutes on one).
+    # Kept when the run is debugged with --pdb, which reads the terminal.
+    config.addinivalue_line(
+        "markers", "uses_tty: the test reads a real terminal on stdin (B-134)"
+    )
+    if not config.getoption("usepdb", False):
+        null = os.open(os.devnull, os.O_RDONLY)
+        os.dup2(null, 0)
+        os.close(null)
+
+
+class _NoStdin(io.TextIOBase):
+    """``sys.stdin`` for a test: reading it fails and says what to do (B-134)."""
+
+    _WHY = (
+        "this test read the run's stdin; give the code its own stdin (a pipe, "
+        "io.StringIO or a monkeypatched read_line), or mark it uses_tty"
+    )
+
+    def readable(self) -> bool:
+        return True
+
+    def isatty(self) -> bool:
+        return False
+
+    @property
+    def buffer(self) -> "_NoStdin":
+        return self
+
+    @property
+    def encoding(self) -> str:
+        return "utf-8"
+
+    def read(self, size: int | None = -1) -> str:
+        raise RuntimeError(self._WHY)
+
+    def readline(self, size: int | None = -1) -> str:
+        raise RuntimeError(self._WHY)
+
+
+@pytest.fixture(autouse=True)
+def _no_inherited_stdin(request: pytest.FixtureRequest, monkeypatch) -> object:
+    """Every test but a ``uses_tty`` one reads a stdin that fails loudly (B-134)."""
+    if request.node.get_closest_marker("uses_tty") is None:
+        monkeypatch.setattr(sys, "stdin", _NoStdin())
+    yield
 
 
 @pytest.fixture

@@ -26,7 +26,8 @@ git tag, with the fake model server; nothing is installed.
   command it is followed by where the command records are kept.
 - `ract run --loop --yolo` exits with the code of the cause that stopped the
   loop (for example 4 when it ran out of iterations, 3 for a prompt that
-  changed mid-run), not 0 for every stop but a regression.
+  changed mid-run), where it used to exit 0 for every stop except a
+  regression.
 - `ract policy sign` shows what the policy allows and asks `y` before the
   passphrase, and every `ract policy` command acts on the folder that holds
   `ract.yaml` (or the git root), named on its first line.
