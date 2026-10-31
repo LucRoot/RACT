@@ -28,12 +28,12 @@ ract init --template cli-tool --provider local
 
 You now have:
 
-- `ract.yaml` — project configuration and provider preset
-- `prompts/manager.txt` — the manager prompt
-- `src/greet-tutorial/__init__.py` and `main.py` — starter source
-- `tests/test_main.py` — starter test
-- `README.md` and `pyproject.toml` — project metadata
-- `skills/cli-tool.json` — a built-in skill
+- `ract.yaml`: project configuration and provider preset
+- `prompts/manager.txt`: the manager prompt
+- `src/greet-tutorial/__init__.py` and `main.py`, starter source
+- `tests/test_main.py`: starter test
+- `README.md` and `pyproject.toml`, project metadata
+- `skills/cli-tool.json`: a built-in skill
 
 ## Step 2: Run your first intent
 

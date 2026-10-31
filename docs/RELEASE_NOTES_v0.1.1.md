@@ -7,15 +7,15 @@ This release hardens RACT's anti-rot tooling, expands provider and marketplace s
 ## What's New
 
 ### Commands & UX
-- **`ract audit`** — single-command health check running `doctor`, `dead_code_auction`, and (with `--deep`) `consolidate scan`.
-- **`ract audit --deep`** — surfaces merge proposals from `consolidate scan` in a unified pass/fail table or JSON.
-- **`ract consolidate scan|apply|rollback`** — find near-duplicate modules, preview merges as unified diffs, and roll back if needed.
-- **`ract mcp invoke`** — call configured MCP tools directly from the CLI.
-- **`ract skills marketplace list|install`** — install skills from a catalog by name.
+- **`ract audit`**: single-command health check running `doctor`, `dead_code_auction`, and (with `--deep`) `consolidate scan`.
+- **`ract audit --deep`**: surfaces merge proposals from `consolidate scan` in a unified pass/fail table or JSON.
+- **`ract consolidate scan|apply|rollback`**: find near-duplicate modules, preview merges as unified diffs, and roll back if needed.
+- **`ract mcp invoke`**: call configured MCP tools directly from the CLI.
+- **`ract skills marketplace list|install`**: install skills from a catalog by name.
 
 ### Anti-rot improvements
 - **AST-normalized structural similarity** in `consolidate` and the novelty detector catches copy-and-rename clones that byte-level compression misses.
-- **Symbol graph prefix fix** — cross-module edges went from 3 to ~375, making `dead_code_auction`, `load_bearing_guard`, and `duplication_guard` trustworthy on real `src/` layouts.
+- **Symbol graph prefix fix**: cross-module edges went from 3 to ~375, making `dead_code_auction`, `load_bearing_guard`, and `duplication_guard` trustworthy on real `src/` layouts.
 - **Compression-novelty detector** now strips prose before training and uses nearest-neighbor scoring.
 
 ### Providers

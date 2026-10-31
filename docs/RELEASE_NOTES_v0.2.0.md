@@ -11,9 +11,9 @@ This release directly addresses the depth-of-craft critique: fewer shallow compe
 ## What's New
 
 ### Signed provenance capabilities
-- **`Rootknot`** in `src/ract/core/rootknot.py` — every artifact is bound to its plan step, assumption, generator, and parent artifacts.
-- **ed25519 signatures** via `src/ract/core/keys.py` — each rootknot is signed by the generator session key.
-- **`verify_workspace`** in `src/ract/core/provenance.py` — checks invariants RK-1 and RK-2 before every recursion step.
+- **`Rootknot`** in `src/ract/core/rootknot.py`, every artifact is bound to its plan step, assumption, generator, and parent artifacts.
+- **ed25519 signatures** via `src/ract/core/keys.py`, each rootknot is signed by the generator session key.
+- **`verify_workspace`** in `src/ract/core/provenance.py`, checks invariants RK-1 and RK-2 before every recursion step.
 
 ### Assumption-driven programming
 - **`Assumed[T]`** and the assumption registry in `src/ract/core/assumption.py`.

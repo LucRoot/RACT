@@ -35,18 +35,18 @@ A skill is a JSON object with three keys:
 }
 ```
 
-- `name` — the skill identifier. Must match the filename stem.
-- `description` — a one-line summary shown in `ract skills list` after installation.
-- `template` — the prompt fragment. RACT renders it with Python's `string.Template` and prepends the result to the user intent.
-- `tools` — optional list of tool names the skill may invoke.
+- `name`: the skill identifier. Must match the filename stem.
+- `description`: a one-line summary shown in `ract skills list` after installation.
+- `template`: the prompt fragment. RACT renders it with Python's `string.Template` and prepends the result to the user intent.
+- `tools`: optional list of tool names the skill may invoke.
 
 ## Template variables
 
 RACT passes these variables to `safe_substitute`:
 
-- `$intent` — the user's original intent.
-- `$project_name` — the project name from `ract.yaml`.
-- `$context` — the curated project context block, if any.
+- `$intent`: the user's original intent.
+- `$project_name`: the project name from `ract.yaml`.
+- `$context`: the curated project context block, if any.
 
 Example template that mentions the project name:
 

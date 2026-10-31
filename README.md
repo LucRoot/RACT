@@ -14,23 +14,23 @@ v0.5.2 is the Deep-Audit Hardening release. Six modules layered on
 v0.5.1 close fifteen paired Ox-Alpha-partnered deep-audit findings
 without breaking wire compatibility. Highlights:
 
-- **Rootknot v4 signature hardening** — `Rootknot.__post_init__` v4
+- **Rootknot v4 signature hardening**: `Rootknot.__post_init__` v4
   gate + authoritative verifier v4-label check +
   `min_acceptable_schema_version` policy + closed known-versions
   allowlist (`--min-schema=N` CLI flag).
-- **Sandbox env library-injection defense** — 40+ new env vars added
+- **Sandbox env library-injection defense**: 40+ new env vars added
   to NEVER_PASSTHROUGH (LD_PRELOAD, DYLD_INSERT_LIBRARIES, PYTHONPATH,
   NODE_OPTIONS, BASH_ENV, GLIBC_TUNABLES, GIT_SSH_COMMAND,
   HTTPS_PROXY, more).
-- **Subagent lifecycle + PID-reuse hardening** — spawn-time
+- **Subagent lifecycle + PID-reuse hardening**: spawn-time
   `creation_time_ns` capture, tri-state PID identity check.
-- **Run_id continuity** — new `write_sidecar_header` primitive +
+- **Run_id continuity**: new `write_sidecar_header` primitive +
   `RACT_RUN_ID` env plumbing across subprocess subagents.
-- **Trace log durability + honest verify** — per-run
+- **Trace log durability + honest verify**: per-run
   `{run_id}.verify.json` warm-verify sidecar + streaming
   `iter_events` + torn-tail UTF-8 replace. New CLI verb
   `ract trace verify` (warm/cold, `--json`).
-- **Memory system polish** — honest dataclass grouping docstring +
+- **Memory system polish**: honest dataclass grouping docstring +
   on_moved reorder-race defense + new CLI verb
   `ract memory verify-consistency`.
 
@@ -47,26 +47,26 @@ signature schema, AL-1, author-name-free tree). The pipeline
 (`_BUILD/ract_v0.5.1_external_review_response/`) delivered nine
 closure modules plus release close:
 
-- **RootknotWAL crash-consistency (G1)** — WAL-durable assumption
+- **RootknotWAL crash-consistency (G1)**: WAL-durable assumption
   replay (`src/ract/core/assumptions_wal.py`).
-- **Rootknot canonical-bytes extension (G2 + G3)** — opt-in
+- **Rootknot canonical-bytes extension (G2 + G3)**: opt-in
   `workspace_digest` + `prompt_digest` + `run_id`; schema_version
   3 → 4; v3 sidecars still verify.
-- **RFC 8785 JCS** — `src/ract/canonical.py` `dumps_jcs` +
+- **RFC 8785 JCS**: `src/ract/canonical.py` `dumps_jcs` +
   15-file migration; grep-gate at
   `tests/architecture/test_no_sort_keys_in_canonical_paths.py`.
-- **T8 PROMPT_DRIFT + T9 PROMPT_DIGEST_MISSING + `intent recompile`** —
+- **T8 PROMPT_DRIFT + T9 PROMPT_DIGEST_MISSING + `intent recompile`**, 
   per-iteration drift hook; HMAC-signed recompile via `.ract/operator.key`
   OR `RACT_OPERATOR_KEY`.
-- **SubstrateLoop shim closure** — four-gate `ToolInvocationGate`,
+- **SubstrateLoop shim closure**: four-gate `ToolInvocationGate`,
   process-group tree-kill, environ allowlist, git-commit compensator.
-- **Ambient run_id ContextVar** — `src/ract/runtime.py`;
+- **Ambient run_id ContextVar**: `src/ract/runtime.py`;
   `LoopController.run()` binds at entry.
-- **Historical Manifest Ledger** — append-only Merkle-chained JSONL
+- **Historical Manifest Ledger**: append-only Merkle-chained JSONL
   + content-addressable snapshot store.
-- **Polyglot G5/G6 via tree-sitter** — dead-code + test-copy-paste
+- **Polyglot G5/G6 via tree-sitter**: dead-code + test-copy-paste
   detectors for Python + JS + TS + Rust + Go.
-- **Sycophancy classifier v2** — AST-delta + WhispererContract event;
+- **Sycophancy classifier v2**: AST-delta + WhispererContract event;
   F1 = 1.000.
 
 See `CHANGELOG.md` `[0.5.1]` and `docs/ROADMAP.md` for v0.6 hardening.
@@ -81,19 +81,19 @@ substrate modules plus a release-close module:
 
 - **Token budget accountant** with hard-ceiling refusal per function
   and composition override (`src/ract/memory/budget.py`).
-- **Three query indexes** — the symbol index (tree-sitter + SQLite +
+- **Three query indexes**: the symbol index (tree-sitter + SQLite +
   FTS5), the graph index (LSP-populated call/type edges), and the
   semantic index (LanceDB + `bge-small-en-v1.5`). An incremental file
   watcher keeps them current.
 - **Retrieve primitive** with a four-level cascade (symbol → graph →
   semantic → best-effort), a query cache keyed on
   `(query_hash, repo_commit_hash)`, and four chunk formats.
-- **Four function contracts** — `intake`, `research`, `plan`, `edit`
-  — each with a typed contract, a v1 prompt, and a paired test file.
-- **Four playbooks** — `refactor_rename`, `refactor_extract`,
-  `bug_fix`, `unit_test` — composed of those four functions.
-- **Three self-adjustment probes** — `needle`, `coherence`,
-  `adherence` — writing a per-repo capability fingerprint to
+- **Four function contracts**: `intake`, `research`, `plan`, `edit`
+each with a typed contract, a v1 prompt, and a paired test file.
+- **Four playbooks**: `refactor_rename`, `refactor_extract`,
+  `bug_fix`, `unit_test`, composed of those four functions.
+- **Three self-adjustment probes**: `needle`, `coherence`,
+  `adherence`, writing a per-repo capability fingerprint to
   `.ract/probes/capability.json`.
 - **Integration wiring.** `SubstrateLoop` reads a retrieval bundle
   off `SubstrateStepSpec.metadata`; `Rootknot` payload carries an
@@ -225,66 +225,66 @@ help <verb>` prints per-verb usage. The list below is generated from
 module_10, Lens A M8 closure).
 
 <!-- BEGIN VERB INDEX (auto-checked; edit VERB_DESCRIPTIONS in src/ract/cli_help.py) -->
-- `ract run` — Execute an intent as a planned-and-verified RACT run.
-- `ract plan` — Load, save, replay, diff, or analyse a serialized plan.
-- `ract session` — List, export, import, backup, or restore saved sessions.
-- `ract doctor` — Diagnose RACT installation, config, and workspace state.
-- `ract status` — Print a one-line summary of the current workspace state.
-- `ract self-audit` — Audit RACT's own code against the audit lens findings.
-- `ract audit` — Audit a workspace or run for anti-rot and provenance issues.
-- `ract leaderboard` — Print the provider leaderboard by success rate.
-- `ract source-digest` — Print the SHA-256 digest of a source file or workspace.
-- `ract init` — Initialize a new RACT project from a template.
-- `ract docs` — Generate or regenerate documentation for the workspace.
-- `ract openapi` — Generate an OpenAPI client or server scaffold.
-- `ract provider` — List, add, or configure provider adapters and presets.
-- `ract router` — Inspect or reconfigure the provider router policy.
-- `ract config` — Inspect or edit ract.yaml keys.
-- `ract cost` — Report accumulated provider cost from receipts.
-- `ract memory` — Init, apply-narrowings, and inspect memory-discipline indexes.
-- `ract retrieval` — Search the retrieval adapter; query the three memory indexes.
-- `ract intent` — Operator-signed intent recompile appending a new suite version.
-- `ract repl` — Open an interactive session: type intents, use /commands, keep context.
-- `ract handshakes` — List, approve, reject, defer, or review pending handshakes.
-- `ract operator-queue` — List or drain the operator-approval queue.
-- `ract whisper` — Add or list free-form legacy operator notes.
-- `ract auction` — List or resolve entries in the dead-code auction.
-- `ract fence` — List or resolve Chesterton's fence entries.
-- `ract trust` — Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.
-- `ract policy` — The operator key and the signed tier-3 grant: keygen, sign, status, revoke.
-- `ract setup` — Check this machine, choose a local or cloud model, and write a working ract.yaml.
-- `ract undo` — Reverse the last RACT turn: restore the files it replaced, remove the files it created.
-- `ract redo` — Reverse the last undo.
-- `ract skills` — List and inspect builtin and installed skills.
-- `ract marketplace` — (alias) Same as skills marketplace; browse skill packages.
-- `ract mcp` — Manage and invoke MCP tools registered with RACT.
-- `ract refactor` — Run a scoped refactor over a named target.
-- `ract rename` — Rename a symbol project-wide through the symbol renamer.
-- `ract diff` — Show and apply RACT-authored diffs against the workspace.
-- `ract explain` — Explain a plan, step, or artifact with its provenance chain.
-- `ract consolidate` — Scan for consolidation candidates and propose merges.
-- `ract report` — Render run reports in markdown or HTML.
-- `ract trace` — Inspect a run's events.jsonl trace file.
-- `ract quality` — Compute the plan quality scorecard.
-- `ract load-bearing` — Inspect or manage load-bearing annotations across the workspace.
-- `ract novelty` — Report novelty budget usage and scan for overruns.
-- `ract coverage` — Report coverage deltas and status.
-- `ract mutation` — Run mutation-testing checks over the workspace.
-- `ract conformance` — Run the provider conformance suite.
-- `ract rot-report` — Print the anti-rot report.
-- `ract rot` — Detect and quarantine rot in the workspace.
-- `ract merge-gate` — Evaluate the mutation-testing merge gate.
-- `ract provenance` — Verify Rootknot signatures for artifacts and workspaces.
-- `ract receipt` — List, show, or verify receipts.
-- `ract receipt-export` — Export receipts to disk or upload to a signed archive.
-- `ract manifest` — Repro-manifest alias + ledger verify/inspect/show/proof.
-- `ract repro-manifest` — Produce a reproducibility manifest for a run.
-- `ract policy-gate` — Evaluate a run against the configured policy.
-- `ract run-fingerprint` — Print or diff a run's fingerprint.
-- `ract ai-sbom` — Emit an AI Software Bill of Materials.
-- `ract release` — List, create, or update GitHub releases.
-- `ract calibrate` — Run provider calibration (experimental).
-- `ract infer` — Run a single inference call (experimental).
+- `ract run`: Execute an intent as a planned-and-verified RACT run.
+- `ract plan`: Load, save, replay, diff, or analyse a serialized plan.
+- `ract session`: List, export, import, backup, or restore saved sessions.
+- `ract doctor`: Diagnose RACT installation, config, and workspace state.
+- `ract status`: Print a one-line summary of the current workspace state.
+- `ract self-audit`: Audit RACT's own code against the audit lens findings.
+- `ract audit`: Audit a workspace or run for anti-rot and provenance issues.
+- `ract leaderboard`: Print the provider leaderboard by success rate.
+- `ract source-digest`: Print the SHA-256 digest of a source file or workspace.
+- `ract init`: Initialize a new RACT project from a template.
+- `ract docs`: Generate or regenerate documentation for the workspace.
+- `ract openapi`: Generate an OpenAPI client or server scaffold.
+- `ract provider`: List, add, or configure provider adapters and presets.
+- `ract router`: Inspect or reconfigure the provider router policy.
+- `ract config`: Inspect or edit ract.yaml keys.
+- `ract cost`: Report accumulated provider cost from receipts.
+- `ract memory`: Init, apply-narrowings, and inspect memory-discipline indexes.
+- `ract retrieval`: Search the retrieval adapter; query the three memory indexes.
+- `ract intent`: Operator-signed intent recompile appending a new suite version.
+- `ract repl`: Open an interactive session: type intents, use /commands, keep context.
+- `ract handshakes`: List, approve, reject, defer, or review pending handshakes.
+- `ract operator-queue`: List or drain the operator-approval queue.
+- `ract whisper`: Add or list free-form legacy operator notes.
+- `ract auction`: List or resolve entries in the dead-code auction.
+- `ract fence`: List or resolve Chesterton's fence entries.
+- `ract trust`: Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.
+- `ract policy`: The operator key and the signed tier-3 grant: keygen, sign, status, revoke.
+- `ract setup`: Check this machine, choose a local or cloud model, and write a working ract.yaml.
+- `ract undo`: Reverse the last RACT turn: restore the files it replaced, remove the files it created.
+- `ract redo`: Reverse the last undo.
+- `ract skills`: List and inspect builtin and installed skills.
+- `ract marketplace`: (alias) Same as skills marketplace; browse skill packages.
+- `ract mcp`: Manage and invoke MCP tools registered with RACT.
+- `ract refactor`: Run a scoped refactor over a named target.
+- `ract rename`: Rename a symbol project-wide through the symbol renamer.
+- `ract diff`: Show and apply RACT-authored diffs against the workspace.
+- `ract explain`: Explain a plan, step, or artifact with its provenance chain.
+- `ract consolidate`: Scan for consolidation candidates and propose merges.
+- `ract report`: Render run reports in markdown or HTML.
+- `ract trace`: Inspect a run's events.jsonl trace file.
+- `ract quality`: Compute the plan quality scorecard.
+- `ract load-bearing`: Inspect or manage load-bearing annotations across the workspace.
+- `ract novelty`: Report novelty budget usage and scan for overruns.
+- `ract coverage`: Report coverage deltas and status.
+- `ract mutation`: Run mutation-testing checks over the workspace.
+- `ract conformance`: Run the provider conformance suite.
+- `ract rot-report`: Print the anti-rot report.
+- `ract rot`: Detect and quarantine rot in the workspace.
+- `ract merge-gate`: Evaluate the mutation-testing merge gate.
+- `ract provenance`: Verify Rootknot signatures for artifacts and workspaces.
+- `ract receipt`: List, show, or verify receipts.
+- `ract receipt-export`: Export receipts to disk or upload to a signed archive.
+- `ract manifest`: Repro-manifest alias + ledger verify/inspect/show/proof.
+- `ract repro-manifest`: Produce a reproducibility manifest for a run.
+- `ract policy-gate`: Evaluate a run against the configured policy.
+- `ract run-fingerprint`: Print or diff a run's fingerprint.
+- `ract ai-sbom`: Emit an AI Software Bill of Materials.
+- `ract release`: List, create, or update GitHub releases.
+- `ract calibrate`: Run provider calibration (experimental).
+- `ract infer`: Run a single inference call (experimental).
 <!-- END VERB INDEX -->
 
 ### Core sub-verbs (quickstart pointers)
@@ -294,13 +294,13 @@ sub-verbs first-run users reach for most often; each is asserted by
 `tests/test_readme_cli_index.py` + `tests/test_readme_version.py` so
 first-run docs stay honest:
 
-- `ract run` — start a run from an intent
-- `ract doctor` — one-shot workspace health check
-- `ract config validate` — check `ract.yaml` before running
-- `ract provider health` — verify every provider adapter can reach its backend
-- `ract session list` — enumerate persisted session directories
-- `ract plan diff` — compare two serialized plans
-- `ract fence inspect --file <path>` — inspect Chesterton's-fence entries in a file
+- `ract run`: start a run from an intent
+- `ract doctor`: one-shot workspace health check
+- `ract config validate`: check `ract.yaml` before running
+- `ract provider health`: verify every provider adapter can reach its backend
+- `ract session list`: enumerate persisted session directories
+- `ract plan diff`: compare two serialized plans
+- `ract fence inspect --file <path>`: inspect Chesterton's-fence entries in a file
 
 Anti-lazy gates (G1-G8) are pre-commit helpers rather than top-level CLI verbs.
 A run's `evals/runs/<run_id>/` directory gains one report per gate:
@@ -311,10 +311,10 @@ rule-like intents) `iso_perturb.json`.
 
 ## What makes RACT different
 
-- **Provenance-anchored artifacts** — every file the loop writes is meant to carry a signed `Rootknot` binding it to its plan step, assumption, generator, and parent artifacts. In this release `ract` runs do not sign files yet, and each run that writes files says so. See [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
-- **Assumption-driven programming** — assumptions live in a registry with a four-state lifecycle (`proposed`, `active`, `discharged`, `violated`); violations propagate through the dependency graph.
-- **Milestone-halting recursion** — the loop halts on completion, regression, provenance violation, assumption cascade, budget exhaustion, handshake block, or provider fault, each with a distinct termination cause. On a refactoring task this spends measurably fewer tokens than a naive fixed-iteration loop — see [`evals/benchmarks/refactor-token-usage/report.md`](evals/benchmarks/refactor-token-usage/report.md).
-- **Operator Handshake** — high-risk actions queue for async review instead of blocking the loop.
+- **Provenance-anchored artifacts**: every file the loop writes is meant to carry a signed `Rootknot` binding it to its plan step, assumption, generator, and parent artifacts. In this release `ract` runs do not sign files yet, and each run that writes files says so. See [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
+- **Assumption-driven programming**: assumptions live in a registry with a four-state lifecycle (`proposed`, `active`, `discharged`, `violated`); violations propagate through the dependency graph.
+- **Milestone-halting recursion**: the loop halts on completion, regression, provenance violation, assumption cascade, budget exhaustion, handshake block, or provider fault, each with a distinct termination cause. On a refactoring task this spends measurably fewer tokens than a naive fixed-iteration loop, see [`evals/benchmarks/refactor-token-usage/report.md`](evals/benchmarks/refactor-token-usage/report.md).
+- **Operator Handshake**: high-risk actions queue for async review instead of blocking the loop.
 
 ## Architecture
 
@@ -359,7 +359,7 @@ See `evals/LEADERBOARD.md` (which now carries a per-provider
 
 ## License
 
-PolyForm Noncommercial License 1.0.0 — free for personal use, research, education, and noncommercial organizations; commercial use requires an agreement. See [`COMMERCIAL.md`](COMMERCIAL.md) and [`AUTHOR.md`](AUTHOR.md).
+PolyForm Noncommercial License 1.0.0, free for personal use, research, education, and noncommercial organizations; commercial use requires an agreement. See [`COMMERCIAL.md`](COMMERCIAL.md) and [`AUTHOR.md`](AUTHOR.md).
 
 ## Known limitations
 
@@ -373,6 +373,6 @@ License: PolyForm Noncommercial 1.0.0. Measurements: take them as one data point
 
 ---
 
-**Author:** Dr. Lucas Root, Ph.D. — [info@lucasroot.com](mailto:info@lucasroot.com)
+**Author:** Dr. Lucas Root, Ph.D., [info@lucasroot.com](mailto:info@lucasroot.com)
 
 <!-- RACT 0.5.1 -->

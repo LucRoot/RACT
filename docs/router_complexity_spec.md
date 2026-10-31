@@ -3,9 +3,9 @@
 ## Goal
 Add an optional, configurable provider router that categorizes work by complexity and routes it across a 3-tier model stack:
 
-1. **Local inference (default, ~95%)** — fast, private, zero cloud cost.
-2. **Low-cost cloud inference (~5%)** — for tasks that exceed local capacity or are explicitly tagged.
-3. **High-cost frontier fallback** — only when both local and low-cost fail or the task is explicitly flagged as requiring frontier reasoning.
+1. **Local inference (default, ~95%)**: fast, private, zero cloud cost.
+2. **Low-cost cloud inference (~5%)**: for tasks that exceed local capacity or are explicitly tagged.
+3. **High-cost frontier fallback**: only when both local and low-cost fail or the task is explicitly flagged as requiring frontier reasoning.
 
 ## Scope for this wave
 - A `ComplexityRouter` class in `src/ract/providers/complexity_router.py`.

@@ -44,9 +44,9 @@ ract release create \
 
 Optional flags:
 
-- `--asset FILE` — upload an asset (repeatable).
-- `--draft` — create as a draft release.
-- `--prerelease` — mark as a prerelease.
+- `--asset FILE`: upload an asset (repeatable).
+- `--draft`: create as a draft release.
+- `--prerelease`: mark as a prerelease.
 
 Example with assets:
 

@@ -3,7 +3,7 @@
 **Version:** 0.1 (draft)
 **Prepared for:** Lucas Root
 **Status:** Design spec for the next rebuild iteration
-**Sacred:** Rootknot — the concept, the brand, and the signed provenance capability.
+**Sacred:** Rootknot, the concept, the brand, and the signed provenance capability.
 
 ---
 
@@ -56,7 +56,7 @@ This spec turns those gaps into a finite set of modules, each with a verifiable 
 
 ## 3. Module Breakdown
 
-### Module 1 — Decouple identity from source and templates
+### Module 1, Decouple identity from source and templates
 
 **Goal:** Remove `__root_author__`, `__ract_name__`, and `_ROOT_KNOT = object()` from every source file and skill template.
 
@@ -82,7 +82,7 @@ returns clean, and the full test suite is still green.
 
 ---
 
-### Module 2 — Public provenance and separation statement
+### Module 2, Public provenance and separation statement
 
 **Goal:** Create `docs/PROVENANCE.md` as the authoritative public statement of how RACT stays independent of private systems and how every artifact is bound to a rootknot.
 
@@ -104,7 +104,7 @@ returns clean, and the full test suite is still green.
 
 ---
 
-### Module 3 — Failure modes and concurrency in architecture
+### Module 3, Failure modes and concurrency in architecture
 
 **Goal:** Add a "Failure modes and concurrency" section to `docs/ARCHITECTURE.md`, plus two ADRs: config-schema versioning and MCP/tool-execution boundaries.
 
@@ -133,7 +133,7 @@ returns clean, and the full test suite is still green.
 
 ---
 
-### Module 4 — Benchmark harness: prove the loop is better than naive
+### Module 4, Benchmark harness: prove the loop is better than naive
 
 **Goal:** Add a `evals/benchmarks/` directory with a reproducible benchmark that compares the milestone-driven recursion loop against a naive fixed-iteration baseline on a concrete dimension.
 
@@ -165,7 +165,7 @@ produces `report.md` showing RACT loop uses fewer tokens than the naive baseline
 
 ---
 
-### Module 5 — Rootknot ergonomics and persistence
+### Module 5, Rootknot ergonomics and persistence
 
 **Goal:** Make rootknots auditable outside the tool: sidecar files, SQLite index, key rotation, and a CLI verifier.
 
@@ -194,7 +194,7 @@ prints `valid` for an untouched artifact and `invalid` for a tampered one, and t
 
 ---
 
-### Module 6 — Repo hygiene finishing
+### Module 6, Repo hygiene finishing
 
 **Goal:** Close the remaining hygiene tells.
 
@@ -223,7 +223,7 @@ returns nothing, and the documented branch-protection rules are applied in the G
 
 ---
 
-### Module 7 — README and version polish
+### Module 7, README and version polish
 
 **Goal:** Finalize the public-facing surface and cut `v0.3.0`.
 

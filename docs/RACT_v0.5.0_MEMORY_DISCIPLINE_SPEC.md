@@ -4,7 +4,7 @@
 **Predecessor:** v0.4.1 Intent-Fidelity (tagged `v0.4.1`, 2026-08-17)
 **Tag target:** `v0.5.0`
 **Prepared for:** Lucas Root
-**Sacred:** Rootknot (three-signature schema — generator, environment, anti-lazy). No signature added, removed, or reshaped in this pipeline. The wordlist gate at `tests/test_release_surface.py::test_no_closed_ip_terms_in_tracked_files` stays intact. Author-name-free tree stays intact.
+**Sacred:** Rootknot (three-signature schema, generator, environment, anti-lazy). No signature added, removed, or reshaped in this pipeline. The wordlist gate at `tests/test_release_surface.py::test_no_closed_ip_terms_in_tracked_files` stays intact. Author-name-free tree stays intact.
 
 ---
 
@@ -57,7 +57,7 @@ v0.5.0 ships the load-bearing half of the memory-discipline surface. v0.6 harden
 - **Graph index** (module_03). SQLite schema, `multilspy` LSP client, edge population and update, query API (callers/callees/blast-radius/path/orphans/hotspots).
 - **Semantic index** (module_04). LanceDB store, one embedding per AST chunk, local embedding model (`bge-small-en-v1.5` default; `nomic-embed-text-v1.5` alternative under a config toggle), query API with token-bounded search.
 - **Retrieve primitive** (module_05). `retrieve(query, indexes, budget, format, strategy) -> RetrievalBundle`, four-level cascade (full → mixed → signature-neighborhood → drop), query cache keyed on `(query_hash, repo_commit_hash)`, chunk formatter with four formats (FULL/BODY_ONLY/SIGNATURE/SUMMARY).
-- **Four functions** (module_06). `intake`, `research`, `plan`, `edit` — the four verbs that carry a complete change from user request through to a candidate diff. `verify`, `review`, `commit`, `document` defer to v0.6.
+- **Four functions** (module_06). `intake`, `research`, `plan`, `edit`, the four verbs that carry a complete change from user request through to a candidate diff. `verify`, `review`, `commit`, `document` defer to v0.6.
 - **Four playbooks** (module_07). Refactor: rename symbol; refactor: extract method; bug fix; unit test. `security_audit`, `feature_addition_endpoint`, `migration_dep`, `code_review_pr`, `perf_optimization`, `dead_code`, `schema_migration`, `config_change` defer to v0.6.
 - **Self-adjustment probes** (module_08). Needle, coherence, adherence probe suites; failure-record aggregation; per-repo fingerprint (function length, LSP response time, test runtime). Nightly recompilation, drift detection defer to v0.6.
 - **Integration with existing RACT** (module_09). SubstrateLoop wires the retrieval bundle onto every `SubstrateStepSpec`; Rootknot generator-signature payload extension for retrieval attestation; new event kinds (`budget.declared`, `budget.exceeded`, `retrieval.requested`, `retrieval.satisfied`, `retrieval.cascaded`, `retrieval.refused`, `probe.evaluated`); ALM Gate G7 (companion provider) extension for `edit` function.
@@ -67,15 +67,15 @@ v0.5.0 ships the load-bearing half of the memory-discipline surface. v0.6 harden
 
 - `verify`, `review`, `commit`, `document` functions (module_06 in the v0.6 pipeline).
 - Eight remaining playbooks (security audit, feature endpoint, migration, code review, perf, dead code, schema migration, config change).
-- DSPy signature compilation with weekly recompile and diff report. **[Not shipped in v0.5.1 — deferred to v0.6 per ADR-0043. No `dspy` dependency in `pyproject.toml`; no `src/ract/compilation/` directory.]**
+- DSPy signature compilation with weekly recompile and diff report. **[Not shipped in v0.5.1, deferred to v0.6 per ADR-0043. No `dspy` dependency in `pyproject.toml`; no `src/ract/compilation/` directory.]**
 - Outlines-based structured generation for `edit` output (v0.5.0 uses AST validation + retry on parse error; v0.6 adds grammar-constrained generation).
-- Drift detector (23-dimensional behavioral vectors, statistical process control on weekly distributions). **[Not shipped in v0.5.1 — deferred to v0.6 per ADR-0044. No `src/ract/observability/` package; no `lewm.py` / `drift.py`.]**
+- Drift detector (23-dimensional behavioral vectors, statistical process control on weekly distributions). **[Not shipped in v0.5.1, deferred to v0.6 per ADR-0044. No `src/ract/observability/` package; no `lewm.py` / `drift.py`.]**
 - Automated nightly review queue that applies runtime budget narrowing.
 - Repo fingerprint feedback loop that adjusts retrieval defaults per repo.
 - Cross-language coverage for the graph index beyond Python/TypeScript/Rust/Go (Java, Kotlin, C#, C/C++).
 - OTLP export of `retrieval.*` and `budget.*` events (event kinds land in v0.5.0; the OTLP mapping lands in v0.6).
 
-**Justification for the cut.** The four v0.5.0 functions carry a full change from request through to candidate diff. `verify` already runs deterministically in the current tree (tree-sitter parse, LSP diagnostics, lint, ast-grep queries, pytest); wrapping it in a memory-discipline contract adds shape but no capability, and can wait. `review`, `commit`, `document` sit downstream of `verify` and are pure composition; they defer without blocking any v0.5.0 use case. The four v0.5.0 playbooks cover the two most common refactor shapes (rename, extract), plus bug fix, plus unit test — the four workflows that dominate any real coding session. The remaining eight playbooks are shape-work on top of the same primitives; each is a v0.6 module in its own right.
+**Justification for the cut.** The four v0.5.0 functions carry a full change from request through to candidate diff. `verify` already runs deterministically in the current tree (tree-sitter parse, LSP diagnostics, lint, ast-grep queries, pytest); wrapping it in a memory-discipline contract adds shape but no capability, and can wait. `review`, `commit`, `document` sit downstream of `verify` and are pure composition; they defer without blocking any v0.5.0 use case. The four v0.5.0 playbooks cover the two most common refactor shapes (rename, extract), plus bug fix, plus unit test, the four workflows that dominate any real coding session. The remaining eight playbooks are shape-work on top of the same primitives; each is a v0.6 module in its own right.
 
 ---
 
@@ -469,7 +469,7 @@ Each playbook is a YAML at `src/ract/memory/playbooks/`. The playbook names comp
 
 ### Bug fix
 
-`intake -> research -> reproduce -> plan -> edit`. Research: reported symbol FULL, callers FULL, related test file FULL, git log grep for recent changes to this symbol. Reproduce: deterministic — run reported failing test. Plan: fix hypothesis, specific change, regression test to add. Edit: budget 8k.
+`intake -> research -> reproduce -> plan -> edit`. Research: reported symbol FULL, callers FULL, related test file FULL, git log grep for recent changes to this symbol. Reproduce: deterministic, run reported failing test. Plan: fix hypothesis, specific change, regression test to add. Edit: budget 8k.
 
 ### Unit test
 
@@ -698,14 +698,14 @@ Elapsed time on 100k-line repo: minutes on first run, sub-second per file change
 
 Test coverage:
 
-- Every function's contract (input validation, output validation) — one test file per function.
+- Every function's contract (input validation, output validation), one test file per function.
 - Every retrieval strategy against a fixture repo.
 - Every playbook against a fixture workflow.
 - Overflow handling at every cascade level.
 - Self-adjustment probes against known-good and known-degraded model states (mocked provider).
 - Rootknot backward compatibility across v1/v2/v3 sidecars plus the new `retrieval_attestation` field.
 
-Fixture repo: `tests/memory/fixtures/tiny_repo/` — a stripped-down multi-language codebase (Python + TypeScript + Rust + Go) with tests, docs, and typical churn patterns. Used as ground truth by every retrieval and playbook test.
+Fixture repo: `tests/memory/fixtures/tiny_repo/`, a stripped-down multi-language codebase (Python + TypeScript + Rust + Go) with tests, docs, and typical churn patterns. Used as ground truth by every retrieval and playbook test.
 
 ---
 
