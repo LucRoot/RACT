@@ -1,0 +1,39 @@
+[MASON note: 1 occurrence(s) of the throwaway key were replaced by a placeholder in this tracked copy; the original run printed it inside the provider's echoed 401 body.]
+
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 6.8 GB available
+  CPU cores: 12
+  free disk here: 71.0 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on
+    this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  nothing answered
+Address of your model server (for example http://127.0.0.1:8080/v1), or Enter to skip: 
+No server chosen. Use a local model or a cloud provider? [L/c] c
+Cloud providers:
+  1) anthropic  (key in ANTHROPIC_API_KEY)
+  2) glm  (key in NVIDIA_API_KEY)
+  3) llamacpp  (no key needed)
+  4) lmstudio  (no key needed)
+  5) ollama  (no key needed)
+  6) openai  (key in OPENAI_API_KEY)
+  7) openrouter  (key in OPENROUTER_API_KEY)
+  8) vllm  (no key needed)
+  9) zai  (key in ZAI_API_KEY)
+Which one? [1] 6
+  address: http://127.0.0.1:56350/v1
+  key variable: OPENAI_API_KEY
+  OPENAI_API_KEY is set; ract.yaml will refer to it as ${OPENAI_API_KEY}.
+Wrote ract.yaml and prompts/manager.txt.
+Checking http://127.0.0.1:56350/v1 with one tiny request:
+  failed: HTTP 401: {"error":{"message":"invalid key
+    <throwaway key, redacted in this copy>","type":"auth"}}
+  hint: check the API key variable named in ract.yaml for this provider
+This directory is not a git repository. RACT records each step on its own
+  branch, so it works best in one. Command: git init
+Run git init here now? [y/N] n
+Next: run `ract` to open a session here, or try: ract -p --ask "what does this
+  project do?"

@@ -1,0 +1,39 @@
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 7.8 GB available
+  CPU cores: 12
+  free disk here: 71.0 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on
+    this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  http://127.0.0.1:61628/v1 answers (the address in RACT_BASE_URL); models:
+    fake-plain
+Use the server at http://127.0.0.1:61628/v1? [Y/n] y
+Wrote ract.yaml and prompts/manager.txt.
+Checking http://127.0.0.1:61628/v1 with one tiny request:
+  ok: the model answered in 0.0 s
+This directory is not a git repository. RACT records each step on its own
+  branch, so it works best in one. Command: git init
+Run git init here now? [y/N] n
+Next: run `ract` to open a session here, or try: ract -p --ask "what does this
+  project do?"
+
+----- reconfigure -----
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 7.2 GB available
+  CPU cores: 12
+  free disk here: 71.0 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on
+    this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  http://127.0.0.1:61628/v1 answers (the address in RACT_BASE_URL); models:
+    fake-plain
+Use the server at http://127.0.0.1:61628/v1? [Y/n] y
+Wrote ract.yaml.draft. Differences from ract.yaml:
+  (none)
+Review it, then replace ract.yaml with it to use it, or delete it.
