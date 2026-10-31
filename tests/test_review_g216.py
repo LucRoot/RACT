@@ -170,8 +170,9 @@ def _turn(
 
 
 def test_w1_a_turn_under_a_stale_session_pin_runs_no_test(
-    ws: Path, monkeypatch
-) -> None:  # noqa: F811
+    ws: Path,  # noqa: F811
+    monkeypatch,
+) -> None:
     grant = Grant(ws)
     stale = pin_digest(ws)
     grant.write(days=60)
@@ -198,8 +199,12 @@ def test_w1_a_turn_under_a_stale_session_pin_runs_no_test(
     ids=["default-repl", "run-auto", "repl-auto-accept", "yolo-or-headless"],
 )
 def test_w4_who_answers_the_named_test(
-    ws: Path, monkeypatch, auto, terminal, runs
-) -> None:  # noqa: F811
+    ws: Path,  # noqa: F811
+    monkeypatch,
+    auto,
+    terminal,
+    runs,
+) -> None:
     Grant(ws)
     runner = StandIn(0)
     code, verification, asked = _turn(
