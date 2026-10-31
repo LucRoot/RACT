@@ -14,6 +14,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from ract.workspace_state import check_state_path
+
 
 @dataclass
 class SymbolGravity:
@@ -166,6 +168,7 @@ class GravityScorer:
             )
 
     def _save_cache(self) -> None:
+        check_state_path(self._cache_path)  # B-213: never through a link
         self._cache_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "symbols": [
@@ -181,6 +184,7 @@ class GravityScorer:
             ],
             "file_mtimes": self._current_mtimes(),
         }
+        check_state_path(self._cache_path)  # B-213: never through a link
         self._cache_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def _current_mtimes(self) -> dict[str, list[float]]:

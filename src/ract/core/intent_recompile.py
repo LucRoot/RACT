@@ -40,6 +40,7 @@ from pathlib import Path
 
 _LOG = logging.getLogger("ract.core.intent_recompile")
 
+from ract.workspace_state import check_state_path
 from ract.core.module_identity import _module_knot, register_module_knot
 
 _MODULE_KNOT = _module_knot()
@@ -543,6 +544,7 @@ def _recompile_intent_locked(
 
     # Overwrite suite.json so a fresh loader picks up the new suite.
     suite_json_path = run_dir / "suite.json"
+    check_state_path(suite_json_path)  # B-213: never through a link
     suite_json_path.write_text(new_suite.to_json(), encoding="utf-8")
 
     _LOG.info(

@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ract.workspace_state import check_state_path
+
 if TYPE_CHECKING:
     from ract.core.predicate import AcceptanceSuite, PredicateResult
 
@@ -474,6 +476,7 @@ def render_html_report(report: dict[str, Any]) -> str:
 
 def export_report(report: dict[str, Any], path: Path | str) -> None:
     """Write a run-report dict to a JSON file with indent=2."""
+    check_state_path(path)  # B-213: never through a link
     Path(path).write_text(json.dumps(report, indent=2), encoding="utf-8")
 
 

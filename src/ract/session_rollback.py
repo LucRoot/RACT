@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+from ract.workspace_state import check_state_path
+
 
 class SessionRollbackError(Exception):
     """Base exception for rollback failures."""
@@ -35,6 +37,7 @@ class SessionRollback:
     def __init__(self, project_dir: Path) -> None:
         self.project_dir = Path(project_dir)
         self.snapshot_dir = self.project_dir / ".ract" / "snapshots"
+        check_state_path(self.snapshot_dir)  # B-213: never through a link
         self.snapshot_dir.mkdir(parents=True, exist_ok=True)
 
     def _snapshot_path(self, session_id: str) -> Path:
@@ -60,6 +63,7 @@ class SessionRollback:
             created_at=datetime.now(timezone.utc).isoformat(),
             files=files,
         )
+        check_state_path(self._snapshot_path(session_id))  # B-213: never through a link
         self._snapshot_path(session_id).write_text(
             json.dumps(asdict(snapshot), indent=2),
             encoding="utf-8",

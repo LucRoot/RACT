@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ract.workspace_state import check_state_path
+
 
 @dataclass(frozen=True)
 class HandshakeItem:
@@ -138,6 +140,7 @@ class HandshakeRegistry:
         if digest is None:
             mark.unlink(missing_ok=True)
             return
+        check_state_path(mark)  # B-213: never through a link
         mark.parent.mkdir(parents=True, exist_ok=True)
         mark.write_text(digest, encoding="ascii")
 
@@ -233,6 +236,7 @@ class HandshakeRegistry:
         return [item for item in data if _item_ok(item)]
 
     def _save(self, items: list[HandshakeItem]) -> None:
+        check_state_path(self.registry_path)  # B-213: never through a link
         self.registry_path.parent.mkdir(parents=True, exist_ok=True)
         payload = []
         for item in items:
@@ -424,6 +428,7 @@ def _record_approval_mark(
         signed.unlink(missing_ok=True)
         return
     record = sign_approval(item.id, digest, signer)
+    check_state_path(signed)  # B-213: never through a link
     signed.parent.mkdir(parents=True, exist_ok=True)
     temp = signed.with_name(signed.name + ".tmp")
     temp.write_text(json.dumps(record), encoding="utf-8")
