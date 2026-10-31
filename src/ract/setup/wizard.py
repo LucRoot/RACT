@@ -27,7 +27,7 @@ from typing import Any
 
 import yaml
 
-from ract import egress_scan
+from ract import egress_scan, redaction
 from ract.console_interrupt import read_line
 from ract.provider_presets import (
     PRESETS,
@@ -643,8 +643,9 @@ def _run(
         else:
             from ract.session_turn import hint_for
 
-            io.say(f"  failed: {health.detail}")
-            io.say(f"  hint: {hint_for(health.detail)}")
+            detail = redaction.redact(health.detail)  # B-165: a server may echo the key
+            io.say(f"  failed: {detail}")
+            io.say(f"  hint: {hint_for(detail)}")
             code = EXIT_PROVIDER
 
     if not _is_git_repository(directory):
@@ -788,8 +789,9 @@ def _add_provider(directory: Path, answers: Answers, interactive: bool, io: Io) 
         return EXIT_OK
     from ract.session_turn import hint_for
 
-    io.say(f"  failed: {health.detail}")
-    io.say(f"  hint: {hint_for(health.detail)}")
+    detail = redaction.redact(health.detail)  # B-165: a server may echo the key
+    io.say(f"  failed: {detail}")
+    io.say(f"  hint: {hint_for(detail)}")
     return EXIT_PROVIDER
 
 

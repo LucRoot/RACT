@@ -1,7 +1,7 @@
 import subprocess
 from typing import Any
 
-from ract import egress_scan, turn_context
+from ract import egress_scan, redaction, turn_context
 from ract.providers.base import ProviderAdapter
 from ract.rooted import Rooted
 
@@ -75,7 +75,7 @@ class InternalProvider(ProviderAdapter):
                 assumption="Internal command executes successfully.",
                 confidence=0.0,
                 provenance=["internal_provider"],
-                error=f"Internal command failed: {exc}",
+                error=f"Internal command failed: {redaction.redact(str(exc))}",
             )
         stdout = proc.stdout.decode("utf-8", errors="replace").strip()
         if proc.returncode != 0:
@@ -85,7 +85,8 @@ class InternalProvider(ProviderAdapter):
                 assumption="Internal command exits with status 0.",
                 confidence=0.0,
                 provenance=["internal_provider"],
-                error=f"Internal command exited {proc.returncode}: {stderr or stdout}",
+                error=f"Internal command exited {proc.returncode}: "
+                f"{redaction.redact(stderr or stdout)}",
             )
         return Rooted(
             value={

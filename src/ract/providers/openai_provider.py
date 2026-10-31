@@ -127,6 +127,18 @@ def _host(url: str) -> str:
     return urlsplit(url).netloc.lower()
 
 
+def _body(text: str, limit: int = 200) -> str:
+    """A response body for an error line: redacted whole, then cut (B-165).
+
+    LR:: A gateway that echoes the request's Authorization header in its 401
+    body put the key into the error text, and setup printed it in full
+    (MASON's wrong-key walk). The known-value redaction (V7-05) matches the
+    whole key, so the body is redacted before it is cut; cut first, a key at
+    the cut would pass half masked.
+    """
+    return redaction.redact(text)[:limit]
+
+
 def _aborter(client: httpx.Client):  # type: ignore[no-untyped-def]
     """The cancel abort for a request on ``client``: end its blocked read now.
 
@@ -550,7 +562,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
                     assumption="The OpenAI-compatible endpoint accepts the request and returns valid JSON.",
                     confidence=0.0,
                     provenance=["openai.complete"],
-                    error=f"HTTP {status}{where}: {last_error.response.text[:200]}{too_long}",
+                    error=f"HTTP {status}{where}: {_body(last_error.response.text)}{too_long}",
                 )
             if isinstance(last_error, httpx.RequestError):
                 return Rooted(
@@ -565,7 +577,8 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 assumption="The provider completed without an unhandled exception.",
                 confidence=0.0,
                 provenance=["openai.complete"],
-                error=f"Unexpected error after {self.max_retries} attempts: {last_error}",
+                error=f"Unexpected error after {self.max_retries} attempts: "
+                f"{redaction.redact(str(last_error))}",
             )
 
         assert data is not None
@@ -709,7 +722,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
                                 assumption="The provider returned a valid streaming chunk.",
                                 confidence=0.0,
                                 provenance=["openai.complete_stream"],
-                                error=f"Unexpected SSE line: {line[:200]}",
+                                error=f"Unexpected SSE line: {_body(line)}",
                             )
                 return
             except egress_ledger.NetworkRefused as refused:
@@ -754,7 +767,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 assumption="The OpenAI-compatible endpoint accepts the streaming request.",
                 confidence=0.0,
                 provenance=["openai.complete_stream"],
-                error=f"HTTP {exc.response.status_code}: {exc.response.text[:200]}",
+                error=f"HTTP {exc.response.status_code}: {_body(exc.response.text)}",
             )
         return Rooted(
             value=None,

@@ -307,6 +307,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   is printed as it is.
 - Setup's questions and the note that a key was withheld wrap to the terminal width too
   (B-164); at 60 columns they ran to 64, 87 and 227 characters.
+- A model server that echoes the key in its error body (for example a 401 that repeats the
+  Authorization header) no longer gets the key printed (B-165): the provider redacts the
+  body whole before it shortens it, in every error text it makes, and setup redacts what
+  it prints. `ract.yaml` never held the key.
 - `RACT_PRESET_BASE_URL=preset=url` points a preset at another address in what `ract setup`
   writes, for tests and walks against a fake server (B-160d). It is a security-class
   variable that `ract doctor --env` shows, and it never pairs a key with a host: only
