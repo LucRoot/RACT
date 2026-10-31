@@ -285,6 +285,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A broken `ract.yaml` is reported by line and column only (B-202): the YAML error text quoted
+  the broken line, so a key written on it was printed by `ract doctor`, `ract run`, a session,
+  headless runs, the preflight check and setup's answers file.
 - An unset key variable (`api_key: ${VAR}`) and the other configuration problems now exit 2
   with `error.kind: config` in a session, `ract -p` and `ract run` (B-194); they exited 1 with
   `internal`. The providers and the exit table share one list of these sentences, and `ract run`

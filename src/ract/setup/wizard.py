@@ -27,6 +27,7 @@ from typing import Any
 
 import yaml
 
+from ract import config_errors
 from ract import egress_scan, redaction
 from ract.console_interrupt import read_line
 from ract.provider_presets import (
@@ -840,7 +841,10 @@ def main(argv: list[str]) -> int:
                 )
             answers = Answers.from_yaml(text)
         except (OSError, SetupError, yaml.YAMLError) as exc:
-            print(f"error: could not use {args.answers}: {exc}", file=sys.stderr)
+            print(
+                f"error: could not use {args.answers}: {config_errors.yaml_problem(exc)}",
+                file=sys.stderr,
+            )
             return EXIT_USAGE
     if args.reconfigure:
         answers.reconfigure = True

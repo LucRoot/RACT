@@ -33,6 +33,7 @@ import uuid
 from pathlib import Path
 from typing import Any, TextIO
 
+from ract import config_errors
 from ract import egress_ledger
 from ract.plan_state import plan_items
 from ract.session_events import EventStream, JsonlSink, SessionEvent, safe_text
@@ -77,7 +78,8 @@ def _headless_context_limit(config: Any, provider: str | None) -> int | None:
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
         print(
-            f"[headless] ract.yaml was not read for the context window: {exc}",
+            "[headless] ract.yaml was not read for the context window: "
+            f"{config_errors.yaml_problem(exc)}",
             file=sys.stderr,
         )
         data = {}

@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 
 import yaml
 
+from ract import config_errors
 from ract.manager import Plan, Step
 
 
@@ -53,7 +54,9 @@ class PreflightValidator:
             raw = self.config_path.read_text(encoding="utf-8")
             config = yaml.safe_load(raw)
         except yaml.YAMLError as exc:
-            errors.append({"field": "config", "message": f"invalid YAML: {exc}"})
+            errors.append(
+                {"field": "config", "message": f"invalid YAML: {config_errors.yaml_problem(exc)}"}
+            )
             return errors
 
         if not isinstance(config, dict):
