@@ -4744,6 +4744,11 @@ def main(argv: list[str] | None = None) -> int:
     """RACT CLI entry point."""
     # B-214: no program RACT starts is taken from the current folder.
     programs.no_current_folder_search()
+    # B-200: every error line printed to stderr is redacted, whoever prints it.
+    from ract.redaction import RedactingWriter
+
+    if not isinstance(sys.stderr, RedactingWriter):
+        sys.stderr = RedactingWriter(sys.stderr)
     if argv is None:
         argv = sys.argv[1:]
     if (

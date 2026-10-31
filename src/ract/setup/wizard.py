@@ -349,6 +349,16 @@ def _ask_address(
     from urllib.parse import urlsplit
 
     parts = urlsplit(typed)
+    from ract.providers.openai_provider import QUERY_REFUSED, address_problem
+
+    if address_problem(typed) == QUERY_REFUSED:
+        # B-200: a key in the query is a secret in the config too.
+        io.say(
+            "  that address holds a key or a token in its query; setup writes "
+            "addresses only, so type it without it and put any key in an "
+            "environment variable"
+        )
+        return None
     if parts.username is not None or parts.password is not None:
         # G-261: the address is written to ract.yaml; a user name or password
         # in it would be a secret in the config. It is not echoed either.

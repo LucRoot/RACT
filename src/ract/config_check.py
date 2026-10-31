@@ -101,7 +101,7 @@ def url_credential_problems(config: dict[str, Any]) -> list[str]:
 
     The sentence names the provider and never the url.
     """
-    from ract.providers.openai_provider import USERINFO_REFUSED, has_userinfo
+    from ract.providers.openai_provider import SCHEME_REFUSED, address_problem
 
     providers = config.get("providers") if isinstance(config, dict) else None
     problems: list[str] = []
@@ -110,8 +110,11 @@ def url_credential_problems(config: dict[str, Any]) -> list[str]:
             continue
         for field in ("url", "base_url"):
             value = settings.get(field)
-            if isinstance(value, str) and has_userinfo(value):
-                problems.append(f"provider '{name}': {USERINFO_REFUSED}")
+            # B-200: the one address check (credentials in the userinfo or
+            # the query); an empty or missing url is left to the provider.
+            problem = address_problem(value) if isinstance(value, str) and value else None
+            if problem is not None and problem != SCHEME_REFUSED:
+                problems.append(f"provider '{name}': {problem}")
                 break
     return problems
 
