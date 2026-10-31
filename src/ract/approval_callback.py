@@ -456,7 +456,13 @@ def refuse_changes_callback(step: Step) -> bool:
     A headless run (`ract -p`) cannot ask before a change, so it refuses
     every step that writes a file or calls a tool. `--accept-edits` is the
     operator's way to let such a run change files.
+
+    B-139: an agent step (B-137) names no artifact and no tool call, and may
+    change any file through the step loop, so it is refused here too, not
+    only at plan approval, which a replayed plan skips.
     """
+    if getattr(step, "agent", False):
+        return False
     return not step.expected_artifact and step.tool_call is None
 
 
