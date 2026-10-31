@@ -311,9 +311,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Authorization header) no longer gets the key printed (B-165): the provider redacts the
   body whole before it shortens it, in every error text it makes, and setup redacts what
   it prints. `ract.yaml` never held the key.
-- In the hunk review of a proposed change, `s` (skip) applied the hunk; it now leaves the hunk
-  out, as `s <n>` does on the plan screen, and only `a`, `y` and `yes` accept (B-183). The
-  whole-file questions say when an answer is not understood and show the choices again.
+- In the hunk review of a proposed change, `s` (skip) applied the hunk; it now makes no
+  change to what is on disk on every review screen (B-183): a proposed hunk is not applied
+  (`s skip (do not apply it)`), and in the post-turn `/review` the hunk stays as the turn left
+  it (`s skip (leave it as it is)`). Only `a`, `y` and `yes` accept a hunk. The whole-file
+  questions say when an answer is not understood and show the choices again.
 - `RACT_PRESET_BASE_URL=preset=url` points a preset at another address in what `ract setup`
   writes, for tests and walks against a fake server (B-160d). It is a security-class
   variable that `ract doctor --env` shows, and it never pairs a key with a host: only

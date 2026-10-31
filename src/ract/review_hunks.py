@@ -1,10 +1,12 @@
 """Review the last turn's change hunk by hunk: ``/review`` (B-014c).
 
-After a turn changed files, the user takes each hunk as it is (accept),
-puts back the turn's saved copy of it (reject or skip), or types new lines
-for it (edit). ``s``/``skip`` leave a hunk out in every menu here, as
-``s <n>`` does on the plan screen (B-183). The hunks are the groups ``diff_render`` draws, so they are
-the hunks the turn summary showed. A rejected hunk is restored from the
+After a turn changed files, the user takes each hunk as it is (accept or
+skip), puts back the turn's saved copy of it (reject), or types new lines
+for it (edit). ``s``/``skip`` makes no change to what is on disk now, in
+every menu here (B-183, G-287): in this review it keeps the hunk as the turn
+left it; in the review of a proposed change, where nothing is applied yet, it
+leaves the hunk out. The hunks are the groups ``diff_render`` draws, so they
+are the hunks the turn summary showed. A rejected hunk is restored from the
 turn's saved copy; a file whose every hunk is rejected gets the saved bytes
 back exactly, and a file the turn created is removed again.
 
@@ -31,19 +33,27 @@ Answer = bool | list[str]
 Ask = Callable[[str], "str | None"]
 Show = Callable[[str], None]
 
-CHOICE_ITEMS = (
-    "a accept",
-    "r reject",
-    "e edit",
-    "s skip (leave it out)",
-    "A accept the rest of the file",
-    "R reject the rest of the file",
-)
+
+def choice_items(applied: bool) -> tuple[str, ...]:
+    """The hunk menu; *applied* is True when the change is already on disk."""
+    skip = "s skip (leave it as it is)" if applied else "s skip (do not apply it)"
+    return (
+        "a accept",
+        "r reject",
+        "e edit",
+        skip,
+        "A accept the rest of the file",
+        "R reject the rest of the file",
+    )
+
+
+CHOICE_ITEMS = choice_items(True)
 CHOICES = ", ".join(CHOICE_ITEMS)
-# B-183: the words that accept a change, and the words that leave it out, in
-# every menu of this module; "s"/"skip" are a refusal everywhere.
+# B-183: the same words in every menu of this module. "s"/"skip" makes no
+# change to what is on disk now, so its meaning follows the screen (G-287).
 ACCEPT_WORDS = frozenset({"a", "y", "yes"})
-LEAVE_OUT_WORDS = frozenset({"r", "n", "no", "s", "skip"})
+REJECT_WORDS = frozenset({"r", "n", "no"})
+SKIP_WORDS = frozenset({"s", "skip"})
 _BOM = "﻿"
 
 
@@ -181,12 +191,13 @@ def _typed_lines(ask: Ask, show: Show) -> list[str]:
         typed.append(line)
 
 
-def choice_lines(width: int) -> list[str]:
+def choice_lines(width: int, applied: bool = True) -> list[str]:
     """The choices folded at the commas, so no choice is split (J5, B-117)."""
+    items = choice_items(applied)
     out: list[str] = []
     current = ""
-    for i, item in enumerate(CHOICE_ITEMS):
-        piece = item + ("," if i < len(CHOICE_ITEMS) - 1 else "")
+    for i, item in enumerate(items):
+        piece = item + ("," if i < len(items) - 1 else "")
         candidate = f"{current} {piece}" if current else piece
         if current and len(candidate) > width:
             out.append(current)
@@ -205,6 +216,7 @@ def _answer_hunks(
     ask: Ask,
     show: Show,
     width: int,
+    applied: bool,
 ) -> dict[int, Answer]:
     old_lines, new_lines = lines(old), lines(new)
     answers: dict[int, Answer] = {}
@@ -218,7 +230,7 @@ def _answer_hunks(
             path, old_lines, new_lines, list(hunk.group), width=width
         ):
             show(line)
-        for line in choice_lines(max(width - 3, 20)):
+        for line in choice_lines(max(width - 3, 20), applied):
             show(line)
         while True:
             answer = _ask(ask, "answer: ")
@@ -227,30 +239,37 @@ def _answer_hunks(
                 answers[hunk.n] = rest
                 break
             choice = answer.lower()
-            # B-183: "skip" leaves the hunk out, as "s <n>" does on the plan
-            # screen; it accepted the hunk, so a proposed change was applied.
+            # B-183: "skip" accepted the hunk on both screens, so a proposed
+            # change was applied. It now leaves the disk as it is: True keeps
+            # an applied hunk, False leaves a proposed one out.
             if choice in ACCEPT_WORDS:
                 answers[hunk.n] = True
                 break
-            if choice in LEAVE_OUT_WORDS:
+            if choice in REJECT_WORDS:
                 answers[hunk.n] = False
+                break
+            if choice in SKIP_WORDS:
+                answers[hunk.n] = applied
                 break
             if choice == "e":
                 answers[hunk.n] = _typed_lines(ask, show)
                 break
             show(f"Not understood: {safe_text(answer)!r}. Answer with one of:")
-            for line in choice_lines(max(width - 3, 20)):
+            for line in choice_lines(max(width - 3, 20), applied):
                 show(line)
     return answers
 
 
 def _whole_file(question: str, ask: Ask, show: Show | None = None) -> bool:
-    """True to keep the turn's change to a file that is not split into hunks."""
+    """True to keep the turn's change to a file that is not split into hunks.
+
+    The change is on disk already, so "s"/"skip" keeps it as it is.
+    """
     while True:
         answer = _ask(ask, f"{question} [k keep, r restore the saved copy]: ").lower()
-        if answer in {"k", "keep"} | ACCEPT_WORDS:
+        if answer in {"k", "keep"} | ACCEPT_WORDS | SKIP_WORDS:
             return True
-        if answer in {"restore"} | LEAVE_OUT_WORDS:
+        if answer in {"restore"} | REJECT_WORDS:
             return False
         if show is not None:
             show(
@@ -319,7 +338,9 @@ def review_file(
             result.rejected = 1
         return _recorded(root, turn, result)
     assert old_text is not None and new_text is not None
-    answers = _answer_hunks(key, old_text, new_text, found, ask, show, width)
+    answers = _answer_hunks(
+        key, old_text, new_text, found, ask, show, width, applied=True
+    )
     result.hunks = len(found)
     result.rejected = sum(1 for a in answers.values() if a is False)
     result.edited = sum(1 for a in answers.values() if isinstance(a, list))
@@ -401,12 +422,15 @@ class ProposedDecision:
 
 
 def _apply_whole(question: str, ask: Ask, show: Show | None = None) -> bool:
-    """True to apply a proposed change that is not split into hunks (nothing is saved yet)."""
+    """True to apply a proposed change that is not split into hunks (nothing is saved yet).
+
+    Nothing is on disk yet, so "s"/"skip" does not apply it.
+    """
     while True:
         answer = _ask(ask, f"{question} [a apply, r leave it out]: ").lower()
-        if answer in {"apply"} | ACCEPT_WORDS:
+        if answer in {"apply", "k", "keep"} | ACCEPT_WORDS:
             return True
-        if answer in LEAVE_OUT_WORDS:
+        if answer in REJECT_WORDS | SKIP_WORDS:
             return False
         if show is not None:
             show(
@@ -469,7 +493,9 @@ def review_proposed_file(
             answers={1: "accepted" if keep else "rejected"},
         )
     assert old_text is not None and new_text is not None
-    answers = _answer_hunks(key, old_text, new_text, found, ask, show, width)
+    answers = _answer_hunks(
+        key, old_text, new_text, found, ask, show, width, applied=False
+    )
     decision = ProposedDecision(
         key,
         after,
