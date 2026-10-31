@@ -1,3 +1,5 @@
+import sys
+
 from ract.providers.internal_provider import InternalProvider
 
 
@@ -6,7 +8,9 @@ def test_internal_provider_runs_command(tmp_path):
     script.write_text(
         "import sys\nprint(sys.stdin.read()[::-1].strip())\n", encoding="utf-8"
     )
-    provider = InternalProvider({"command": ["python", str(script)]})
+    # B-136 (Linux): the interpreter running the tests; a bare "python" is
+    # not there on many Linux systems.
+    provider = InternalProvider({"command": [sys.executable, str(script)]})
     result = provider.complete([{"role": "user", "content": "hello"}])
     assert result.is_ok()
     assert result.value["choices"][0]["message"]["content"] == "olleh"

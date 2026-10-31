@@ -22,7 +22,9 @@ def test_cli_whisper_json_outputs_brief(tmp_path):
         "providers:\n"
         "  echo:\n"
         "    adapter: internal\n"
-        f"    command: [python, {script}]\n",
+        # B-136 (Linux): the interpreter running the tests, as a JSON (YAML
+        # flow) list; a bare "python" is not there on many Linux systems.
+        f"    command: {json.dumps([sys.executable, str(script)])}\n",
         encoding="utf-8",
     )
     src = tmp_path / "module.py"

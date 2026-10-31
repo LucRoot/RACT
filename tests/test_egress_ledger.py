@@ -163,7 +163,9 @@ def test_an_unwritable_ledger_never_stops_a_request(
 
 
 def test_the_ledger_rotates(ledger: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(egress_ledger, "ROTATE_BYTES", 200)
+    # B-136 (Linux): ten 22-byte lines stay under 200 bytes with LF line
+    # ends (they crossed it only as CRLF on Windows); 100 rotates on both.
+    monkeypatch.setattr(egress_ledger, "ROTATE_BYTES", 100)
     for i in range(10):
         egress_ledger.write({"i": i, "host": "h"})
 
