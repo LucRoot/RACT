@@ -69,3 +69,11 @@ Tier 3 stays off by default, and `--yolo` never runs it.
   `best_effort` until he does?
 - Is a container backend wanted at all on this machine, and with which
   pinned image?
+
+## Code so far (D-142, 2026-10-30)
+
+- A grant rule may say `backend: wsl2` or `backend: container` with `image: <name>@sha256:<digest>`; a container rule without a digest-pinned image is refused at load.
+- Such a rule is refused at run, with the reason, until its backend is wired: nothing runs on the host in its place (`tests_tool.run_under_rule`).
+- `ract.security.other_backends`: `resolve_in_wsl` finds the program on WSL's PATH and hashes it through `\\wsl$`; `ContainerBackend` renders `docker run` (network none, read-only root, no new privileges, the worktree at `/workspace`, `--pull=never`) and checks the image is present. Both run through an injectable runner; the tests start no WSL and no Docker.
+- `ract doctor --tier3` lists both backends and why they do not run yet.
+- Not done: the WSL self-test and the run path (bubblewrap in WSL is the operator's row D4), and any image (nothing is pulled).

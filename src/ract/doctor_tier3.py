@@ -12,7 +12,6 @@ nothing.
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +77,15 @@ def _tools(policy: Any, holds: bool) -> dict[str, str]:
     return out
 
 
+def _other_backends() -> dict[str, str]:
+    from ract.security.other_backends import why_not_wired
+
+    return {
+        name: f"named by a rule, not run yet: {why_not_wired(name)}"
+        for name in ("wsl2", "container")
+    }
+
+
 def tier3_report(project: Path) -> dict[str, Any]:
     """Every fact the report shows, as plain data (``--json`` prints it)."""
     from ract.policy import allowlist
@@ -93,7 +101,7 @@ def tier3_report(project: Path) -> dict[str, Any]:
     project = Path(project)
     state = load_grant(project)
     policy = state.policy
-    fixes: list[str] = []
+    fixes: list[tuple[str, str]] = []  # (problem, command)
     grant: dict[str, Any] = {
         "found": (project / ".ract" / "policy.yaml").is_file(),
         "status": state.status,
@@ -105,14 +113,22 @@ def tier3_report(project: Path) -> dict[str, Any]:
     }
     off_because = "" if state.holds else (state.reason or state.status)
     if not state.holds:
-        fixes.append(_FIX.get(state.status, "ract policy status"))
+        fixes.append(
+            (
+                f"the grant is {state.status}",
+                _FIX.get(state.status, "ract policy status"),
+            )
+        )
     try:
         key = load_public()
         operator_key = {"present": True, "key_id": key.key_id}
     except NoOperatorKey:
         operator_key = {"present": False, "key_id": None}
         fixes.append(
-            "ract policy keygen  (or ract policy init --guided, which makes one)"
+            (
+                "there is no operator key",
+                "ract policy keygen  (or ract policy init --guided, which makes one)",
+            )
         )
     operator_key["where"] = str(operator_dir())
     operator_key["protection"] = protection()
@@ -122,7 +138,7 @@ def tier3_report(project: Path) -> dict[str, Any]:
         and grant["signed_by"] != operator_key["key_id"]
     ):
         fixes.append(
-            "ract policy sign  (the grant names another key than this machine's)"
+            ("the grant names another key than this machine's", "ract policy sign")
         )
 
     from ract.cli import sandbox_report
@@ -134,8 +150,10 @@ def tier3_report(project: Path) -> dict[str, Any]:
         record = {"recorded": path.is_file(), "where": str(path)}
         if state.holds and not path.is_file():
             fixes.append(
-                "ract policy sign  (records the entry points; until then every "
-                "command asks)"
+                (
+                    "the entry points are not recorded, so every command asks",
+                    "ract policy sign",
+                )
             )
     return {
         "project": str(project),
@@ -151,72 +169,65 @@ def tier3_report(project: Path) -> dict[str, Any]:
             "not_enforced": sandbox["not_enforced"],
         },
         "entry_points": record,
+        # B-028: the other backends a rule may name, and why they do not run yet.
+        "other_backends": _other_backends(),
         "session_mode": (
             "no session here; a session starts in ask, and /permissions allowlist "
             f"raises it up to the grant's max_mode ({grant['max_mode'] or 'none'})"
         ),
         "tools": _tools(policy, state.holds),
-        "next": fixes,
+        "next": [command for _problem, command in fixes],
+        "problems": [{"problem": p, "command": c} for p, c in fixes],
     }
 
 
 def tier3_lines(report: dict[str, Any], width: int = 80) -> list[str]:
-    """The report as text, every line folded to *width* columns."""
-    from ract.session_events import safe_text
+    """The report as text: MASON's screen (``ui/tier3_report.py``) says it in words."""
+    from ract.ui.tier3_report import GrantFacts, Tier3Facts, tier3_report_lines
 
     grant = report["grant"]
-    rows = [f"tier 3: {report['tier3']}"]
-    if report["off_because"]:
-        rows.append(f"  why it is off: {report['off_because']}")
-    if grant["found"]:
-        rows.append(
-            f"grant: {grant['status']}, signed by {grant['signed_by'] or 'nobody'}, "
-            f"expires {grant['expires'] or 'unknown'}, digest {grant['digest'] or 'none'}, "
-            f"largest mode {grant['max_mode'] or 'none'}"
-        )
-    else:
-        rows.append("grant: none in .ract/policy.yaml")
     key = report["operator_key"]
-    rows.append(
-        f"operator key: {key['key_id']} in {key['where']}"
-        if key["present"]
-        else f"operator key: none on this machine ({key['where']})"
-    )
-    rows.append(f"  {key['protection']}")
-    rows.append(f"unlock window: {report['unlock_window']} (it lives inside a session)")
     sandbox = report["sandbox"]
-    rows.append(f"sandbox: {sandbox['tier3_commands']} (backend {sandbox['backend']})")
-    for what, how in sandbox["confines"].items():
-        rows.append(f"  confines {what}: {how}")
-    for item in sandbox["not_enforced"]:
-        rows.append(f"  not enforced: {item}")
     entry = report["entry_points"]
-    if entry is not None:
-        rows.append(
-            "entry points: recorded for this grant"
+    tools = report["tools"]
+    facts = Tier3Facts(
+        grant=GrantFacts(
+            found=grant["found"],
+            signed_by=grant["signed_by"] or "",
+            expires=grant["expires"] or "",
+            digest=grant["digest"] or "",
+        ),
+        why_off=report["off_because"],
+        key_present=key["present"],
+        key_location=key["where"],
+        key_protection=key["protection"],
+        window=f"{report['unlock_window']} (it lives inside a session)",
+        sandbox_backend=f"{sandbox['backend']} ({sandbox['tier3_commands']})",
+        sandbox_confines="; ".join(f"{k} {v}" for k, v in sandbox["confines"].items())
+        or "nothing on this machine",
+        sandbox_does_not="; ".join(sandbox["not_enforced"]) or "nothing listed",
+        entry_point_record=(
+            "none (there is no grant)"
+            if entry is None
+            else "recorded for this grant"
             if entry["recorded"]
-            else "entry points: not recorded for this grant; every command asks"
-        )
-    rows.append(f"session mode: {report['session_mode']}")
-    rows.append("tools:")
-    for name, how in report["tools"].items():
-        rows.append(f"  {name}: {how}")
-    if report["next"]:
-        rows.append("next:")
-        rows += [f"  {fix}" for fix in report["next"]]
-    else:
-        rows.append("next: nothing to fix")
-    out: list[str] = []
-    for row in rows:
-        indent = " " * (len(row) - len(row.lstrip(" ")))
-        out += textwrap.wrap(
-            safe_text(row),
-            width=width,
-            subsequent_indent=indent + "  ",
-            break_long_words=True,
-            break_on_hyphens=False,
-        ) or [""]
-    return out
+            else "not recorded for this grant; every command asks"
+        ),
+        session_mode=report["session_mode"],
+        tools_available=tuple(
+            n for n, how in tools.items() if how.startswith("available")
+        ),
+        tools_unavailable=tuple(
+            f"{n} ({how.removeprefix('not available: ')})"
+            for n, how in tools.items()
+            if not how.startswith("available")
+        ),
+        next_steps=tuple((p["problem"], p["command"]) for p in report["problems"]),
+        notes=[
+            f"backend {n}: {how}" for n, how in report.get("other_backends", {}).items()
+        ],
+    )
+    return tier3_report_lines(facts, width)
 
 
 __all__ = ["tier3_lines", "tier3_report"]

@@ -83,3 +83,28 @@ def test_plan_replay_dry_run(tmp_path, capsys):
 
 
 # RACT 0.1.1 - Trust and tooling
+
+
+def test_a_saved_plan_with_planned_reads_back_as_a_plan(tmp_path) -> None:
+    """B-137 added Plan.planned; a saved session's plan must still decode."""
+    from ract.manager import Plan as P
+    from ract.manager import Step as S
+
+    store = SessionStore(tmp_path / "sessions")
+    plan = P("a", 0.5, [S("fix", "", "", agent=True)], planned=False)
+    store.save("s", {"intent": "x", "plan": plan, "artifacts": {}, "outcomes": []})
+    back = store.load("s")["plan"]
+    assert isinstance(back, P) and back.planned is False and back.steps[0].agent
+
+
+def test_an_agent_plan_survives_export_and_replay() -> None:
+    from ract.manager import Plan as P
+    from ract.manager import Step as S
+    from ract.plan_serializers import plan_from_dict, plan_to_dict
+
+    back = plan_from_dict(
+        plan_to_dict(P("a", 1.0, [S("fix", "", "", agent=True)], planned=False))
+    )
+    assert back.planned is False and back.steps[0].agent is True
+    old = plan_from_dict({"assumption": "a", "confidence": 1.0, "steps": []})
+    assert old.planned is True  # a plan written before B-137 reads as planned

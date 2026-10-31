@@ -145,8 +145,9 @@ def test_the_sandbox_as_this_machine_runs_it(
     }
     monkeypatch.setattr(cli, "sandbox_report", lambda system=None: fake)
     text = "\n".join(tier3_lines(tier3_report(project), 80))
-    assert f"sandbox: {fake['tier3_commands']}" in text
-    assert ("not enforced: files and network" in text) is not confined
+    # MASON's screen (ui/tier3_report.py) words it.
+    assert f"backend: {fake['backend']} ({fake['tier3_commands']})" in text
+    assert ("does not confine: files and network" in text) is not confined
 
 
 def test_the_cli_prints_the_report_and_its_json(project: Path, tmp_path: Path) -> None:
@@ -170,7 +171,7 @@ def test_the_cli_prints_the_report_and_its_json(project: Path, tmp_path: Path) -
         run, cwd=project, env=env, capture_output=True, text=True, timeout=120
     )
     assert text.returncode == 0, text.stderr
-    assert "tier 3: off" in text.stdout and "next:" in text.stdout
+    assert "why tier 3 is off: no grant" in text.stdout and "to fix:" in text.stdout
     data = subprocess.run(
         run + ["--json"],
         cwd=project,

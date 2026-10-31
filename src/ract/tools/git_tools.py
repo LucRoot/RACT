@@ -1161,6 +1161,11 @@ def git_push(root: Path, args: PushArgs) -> ToolResult:
             f"this sends commits to the remote {args.remote}",
             f"the push URL is {url}",
             f"the branch {args.branch} is at {head}",
+            # G-243: what the approval covers, and what a repository may not set.
+            "the approval covers this URL and this commit only; a later commit "
+            "asks again",
+            "a pushurl or credential.helper in the repository's own .git/config "
+            "refuses the push; keep them in your global git config",
         ],
     )
 

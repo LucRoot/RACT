@@ -23,6 +23,10 @@ def step_to_dict(step: Step) -> dict[str, Any]:
     }
     if step.tool_call is not None:
         result["tool_call"] = step.tool_call
+    if getattr(step, "agent", False):
+        # B-137: the request as one step through the step agent loop; a
+        # replay keeps it one (its opening reply is not replayed).
+        result["agent"] = True
     return result
 
 
@@ -33,6 +37,7 @@ def step_from_dict(data: dict[str, Any]) -> Step:
         provider_hint=data["provider_hint"],
         expected_artifact=data["expected_artifact"],
         tool_call=data.get("tool_call"),
+        agent=bool(data.get("agent", False)),
     )
 
 
@@ -42,6 +47,7 @@ def plan_to_dict(plan: Plan) -> dict[str, Any]:
         "assumption": plan.assumption,
         "confidence": plan.confidence,
         "steps": [step_to_dict(step) for step in plan.steps],
+        "planned": getattr(plan, "planned", True),
     }
 
 
@@ -51,6 +57,7 @@ def plan_from_dict(data: dict[str, Any]) -> Plan:
         assumption=data["assumption"],
         confidence=data["confidence"],
         steps=[step_from_dict(step) for step in data["steps"]],
+        planned=bool(data.get("planned", True)),
     )
 
 

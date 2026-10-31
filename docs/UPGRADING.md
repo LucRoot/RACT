@@ -35,6 +35,13 @@ git tag, with the fake model server; nothing is installed.
 - A turn that changes files says `signed` only when each changed file's
   Rootknot verifies; on Linux with bubblewrap, a tier-3 command runs inside
   it, and `ract doctor --sandbox` says so.
+- A `git_push` handshake is now named `git-push:<resolved URL>:<branch>:<commit>`
+  (G-239), so one approval covers one URL and one commit. A push handshake you
+  approved before this change no longer matches; approve the new id when the
+  push asks.
+- `git_push` refuses a repository whose own `.git/config` sets `pushurl`,
+  `credential.helper`, a transport, a proxy or a URL rewrite. Keep those in your
+  global git config.
 - Each file a run signs gets its record beside it, `.<name>.rootknot.json`
   (for `src/calc.py`, `src/.calc.py.rootknot.json`). It shows in
   `git status` as a new file, and the turn summary names it. Commit it with

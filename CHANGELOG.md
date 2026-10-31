@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- A grant rule may name `backend: wsl2` or `backend: container` (with an image pinned by
+  digest, `name@sha256:...`; a tag alone is refused at load) (B-028, D-142). Such a rule
+  does not run yet and is refused at run with the reason; nothing runs on this host in its
+  place. `ract doctor --tier3` lists both backends and what each still needs.
 - `ract doctor --tier3` reports the tier-3 state in one place (B-147): the grant (status,
   key, expiry, digest, largest mode), why tier 3 is off, the operator key and how it is
   protected, the unlock window, the sandbox as this machine runs it, the entry-point

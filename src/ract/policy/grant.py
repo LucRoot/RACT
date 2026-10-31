@@ -17,6 +17,7 @@ of the bytes, signature). Tools can write neither file (ADR-0047 D3).
 
 from __future__ import annotations
 
+import re
 import base64
 import hashlib
 import json
@@ -27,7 +28,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from ract.policy import config_dir
 from ract.policy.operator_key import PublicKey, pinned
@@ -97,6 +105,11 @@ class Binding(_Strict):
     repo_root_commit: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
 
 
+_PINNED_IMAGE = re.compile(
+    r"^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}$"
+)
+
+
 class AllowRule(_Strict):
     id: str = Field(min_length=1, max_length=64)
     argv: list[str] = Field(min_length=1, max_length=32)
@@ -107,6 +120,23 @@ class AllowRule(_Strict):
     home: Literal["isolated", "real"] = "isolated"
     env_extra: list[str] = Field(default_factory=list)
     git_hooks: bool = False
+    # B-028 (D-142): where the command runs. host is this machine; wsl2 runs
+    # the program WSL resolves; container runs it in an image pinned by
+    # digest. Until those backends are wired, their rules are refused at run.
+    backend: Literal["host", "wsl2", "container"] = "host"
+    image: str | None = Field(default=None, max_length=300)
+
+    @model_validator(mode="after")
+    def _image_pinned(self) -> "AllowRule":
+        if self.backend == "container":
+            if not self.image or not _PINNED_IMAGE.match(self.image):
+                raise ValueError(
+                    "a container rule names its image pinned by digest "
+                    "(name@sha256:<64 hex>); a tag alone can change under the grant"
+                )
+        elif self.image is not None:
+            raise ValueError("image belongs to a rule with backend: container")
+        return self
 
     @field_validator("argv")
     @classmethod
