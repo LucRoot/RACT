@@ -528,6 +528,15 @@ def _decode_arguments(raw: Any) -> tuple[dict[str, Any] | None, str]:
         # ValueError: an integer over Python's digit limit (AUD-006).
         snippet = raw[:80] + ("..." if len(raw) > 80 else "")
         return None, f"arguments are not valid JSON: {snippet!r}"
+    if isinstance(value, str):
+        # B-140: arguments encoded twice (a JSON string holding the object) are
+        # decoded once more, and only once.
+        try:
+            value = _loads(value)
+        except (_DuplicateKeyError, json.JSONDecodeError, ValueError, RecursionError):
+            return None, "arguments are a JSON string, not an object"
+        if not isinstance(value, dict):
+            return None, "arguments are a JSON string, not an object"
     if not isinstance(value, dict):
         return None, f"arguments are a JSON {type(value).__name__}, not an object"
     return value, ""
@@ -932,8 +941,11 @@ class LoopGuard:
 
     repeat_limit: int = 3
     failure_limit: int = 2
+    # B-140: calls that name no tool or whose arguments do not fit, per step.
+    malformed_limit: int = 3
     _calls: dict[str, int] = field(default_factory=dict)
     _failures: dict[tuple[str, str], int] = field(default_factory=dict)
+    _malformed: int = 0
 
     @staticmethod
     def key(call: ToolCall) -> str:
@@ -951,6 +963,16 @@ class LoopGuard:
             return (
                 f"{call.name} was called {self._calls[key]} times with the same "
                 "arguments. RACT stopped the loop and asks the model to summarize."
+            )
+        return None
+
+    def record_malformed(self) -> str | None:
+        """Count one malformed call; the reason the step ends on the last allowed."""
+        self._malformed += 1
+        if self._malformed >= self.malformed_limit:
+            return (
+                "the model did not produce a valid tool call "
+                f"({self._malformed} malformed calls in this step)"
             )
         return None
 

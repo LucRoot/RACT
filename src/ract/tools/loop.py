@@ -218,6 +218,34 @@ def _result_block(call: ToolCall, ok: bool, text: str) -> str:
     return f'<tool_result tool="{call.name}" status="{status}">\n{text}\n</tool_result>'
 
 
+def _report_malformed(call: ToolCall, ids: Any, wrong: str) -> None:
+    """The malformed call on screen, as a call that failed before it ran."""
+    call_id = f"t{next(ids)}"
+    summary = _summary(call)
+    turn_context.report(
+        "tool.call.started",
+        {
+            "id": call_id,
+            "tool": call.name,
+            "tier": "T0",
+            "summary": summary,
+            "repairs": [str(r) for r in call.repairs],
+            "rung": call.rung,
+        },
+    )
+    turn_context.report(
+        "tool.call.finished",
+        {
+            "id": call_id,
+            "ok": False,
+            "duration_ms": 0,
+            "summary": summary,
+            "truncated": False,
+            "hint": wrong,
+        },
+    )
+
+
 def _run_call(
     gate: ToolInvocationGate,
     call: ToolCall,
@@ -274,6 +302,46 @@ def _run_call(
         },
     )
     return ok, text, hint
+
+
+def _expected_shape(spec: Any) -> str:
+    """``{path: string, start?: integer}``: the fields a tool takes (``?``: optional)."""
+    schema = spec.args_model.model_json_schema()
+    required = set(schema.get("required", []))
+    fields = []
+    for name, prop in schema.get("properties", {}).items():
+        kind = prop.get("type") or "/".join(
+            str(o.get("type")) for o in prop.get("anyOf", []) if o.get("type")
+        )
+        fields.append(f"{name}{'' if name in required else '?'}: {kind or 'any'}")
+    return "{" + ", ".join(fields) + "}"
+
+
+def _malformed(call: ToolCall, tools: dict[str, Any]) -> str | None:
+    """What is wrong with *call*, for the model, or None when it may go to the gate.
+
+    B-140: a call to no listed tool, or with arguments its schema refuses, is
+    answered with what was wrong and the shape expected, and never reaches a
+    tool. Only the tools offered in this loop are named.
+    """
+    from pydantic import ValidationError
+
+    spec = tools.get(call.name)
+    if spec is None:
+        return f"no tool named {call.name!r}; the tools are: {', '.join(sorted(tools))}"
+    arguments = {k: v for k, v in call.arguments.items() if v is not None}
+    try:
+        spec.args_model.model_validate(arguments)
+    except ValidationError as exc:
+        problems = "; ".join(
+            f"{'.'.join(str(p) for p in err['loc']) or 'arguments'}: {err['msg']}"
+            for err in exc.errors()
+        )
+        return (
+            f"{call.name} arguments refused: {problems}. "
+            f"{call.name} takes {_expected_shape(spec)}"
+        )
+    return None
 
 
 def _shown_tier(spec: Any, call: ToolCall, root: Path | None) -> str:
@@ -536,6 +604,22 @@ def _drive(
                     blocks.append(_result_block(call, False, stop))
                     summarize = True
                     break
+                wrong = _malformed(
+                    call, tools if tools is not None else read_only_tools()
+                )
+                if wrong is not None:
+                    # B-140: said to the model once, plainly; three end the step.
+                    _report_malformed(call, ids, wrong)
+                    blocks.append(_result_block(call, False, wrong))
+                    # As for a failed call: in a step, the reply's later calls wait.
+                    failed = work is not None
+                    ended = guard.record_malformed()
+                    if ended:
+                        return _stopped(
+                            ended[0].upper() + ended[1:] + ".",
+                            "ask again, or use a model that calls tools reliably",
+                        )
+                    continue
                 before = len(facts_out) if facts_out is not None else 0
                 ok, text, _hint = _run_call(gate, call, ids, tools, facts_out, root)
                 if work is not None:
@@ -554,6 +638,29 @@ def _drive(
             if summarize:
                 follow += "\n\n" + SUMMARY_REQUEST
             messages.append({"role": "user", "content": follow})
+            continue
+        if (
+            extraction.outcome in {"unknown_tool", "invalid_arguments"}
+            and not summarize
+        ):
+            # B-140: a call to no offered tool, or arguments that are not one
+            # JSON object, goes back to the model once, plainly (the problems
+            # name the offered tools); three such calls end the step.
+            ended = guard.record_malformed()
+            if ended:
+                return _stopped(
+                    ended[0].upper() + ended[1:] + ".",
+                    "ask again, or use a model that calls tools reliably",
+                )
+            wrong = "; ".join(extraction.problems) or "the call could not be read"
+            messages += [
+                {"role": "assistant", "content": content},
+                {
+                    "role": "user",
+                    "content": f"Tool call refused, nothing ran: {wrong}. "
+                    + REFORMAT_REQUEST,
+                },
+            ]
             continue
         action = next_action(
             extraction,

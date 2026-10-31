@@ -110,7 +110,7 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     "redo": "Reverse the last undo.",
     "setup": "Check this machine, choose a local or cloud model, and write a working ract.yaml.",
     "trust": "Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.",
-    "policy": "The operator key and the signed tier-3 grant: keygen, sign, status, revoke.",
+    "policy": "The operator key and the signed tier-3 grant: keygen, init --guided, add-rule, sign, status, revoke.",
     # Skills / marketplace
     "skills": "List and inspect builtin and installed skills.",
     "marketplace": "(alias) Same as skills marketplace; browse skill packages.",

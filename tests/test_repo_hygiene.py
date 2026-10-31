@@ -12,6 +12,8 @@ These are cheap, fast gates that prevent the repo from regressing into the
 from __future__ import annotations
 
 import subprocess
+
+import pytest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -20,6 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 RUNTIME_DIRS = (".ract", ".ract_sessions", ".rack", "_BUILD", ".venv")
 
 
+@pytest.mark.needs_repository
 def test_no_tracked_json_fixtures_at_repo_root() -> None:
     """No *.json or *.jsonl file may be tracked at the repo root.
 

@@ -33,8 +33,8 @@ from ract.policy.operator_key import (
 from ract.ui.tier_status_view import TierState, expiry_notice, status_line
 
 USAGE = (
-    "usage: ract policy init --guided | keygen [--rotate] | sign | status | revoke "
-    "| migrate-keys [--config PATH]"
+    "usage: ract policy init --guided | add-rule ID -- ARGV... | keygen [--rotate] "
+    "| sign | status | revoke | migrate-keys [--config PATH]"
 )
 
 
@@ -340,6 +340,47 @@ def _init(project: Path, guided: bool) -> int:
         return _fail(exc)
 
 
+def _add_rule(project: Path, rule_id: str, argv: list[str]) -> int:
+    """B-142: one rule more in the grant, at a terminal (the passphrase is never piped)."""
+    import shutil
+    import sys
+
+    from ract.cell_wrap import wrap_cells
+    from ract.console_interrupt import read_line
+    from ract.policy.guided import add_rule
+
+    if not (sys.stdin is not None and sys.stdin.isatty()):
+        print("error: add-rule asks you at a terminal, and this stdin is not one")
+        print(
+            "hint: run it in a terminal; the signing passphrase is never read from a pipe"
+        )
+        return 3
+    width = max(40, min(80, shutil.get_terminal_size((80, 24)).columns))
+
+    def show(line: str) -> None:
+        for part in wrap_cells(line, width) or [""]:
+            print(part)
+
+    def ask(question: str) -> str | None:
+        try:
+            return read_line(question)
+        except EOFError:
+            return None
+
+    try:
+        return add_rule(
+            project,
+            rule_id,
+            argv,
+            ask=ask,
+            show=show,
+            read_passphrase=read_passphrase,
+            width=width,
+        )
+    except (OperatorKeyError, PolicyInvalid) as exc:
+        return _fail(exc)
+
+
 def _revoke(project: Path) -> int:
     digest = revoke(project)
     if digest is None:
@@ -363,11 +404,32 @@ def _migrate_keys(project: Path) -> int:
 
 
 def policy_command(argv: list[str]) -> int:
+    rule_argv: list[str] = []
+    if argv[:1] == ["add-rule"]:
+        # B-142: the rule's command follows `--`, untouched by the parser.
+        if "--" not in argv:
+            print("error: add-rule takes the rule's command after --")
+            print("hint: ract policy add-rule lint -- python -m ruff check")
+            return 2
+        cut = argv.index("--")
+        argv, rule_argv = argv[:cut], argv[cut + 1 :]
+        if not rule_argv:
+            print("error: add-rule needs a command after --")
+            return 2
     parser = argparse.ArgumentParser(prog="ract policy", add_help=True)
     parser.add_argument(
         "action",
-        choices=["init", "keygen", "sign", "status", "revoke", "migrate-keys"],
+        choices=[
+            "init",
+            "add-rule",
+            "keygen",
+            "sign",
+            "status",
+            "revoke",
+            "migrate-keys",
+        ],
     )
+    parser.add_argument("rule_id", nargs="?", help="add-rule: the new rule's id")
     parser.add_argument(
         "--rotate", action="store_true", help="replace the operator key"
     )
@@ -398,6 +460,12 @@ def policy_command(argv: list[str]) -> int:
     print(f"project: {project}")
     if args.action == "init":
         return _init(project, args.guided)
+    if args.action == "add-rule":
+        if not args.rule_id:
+            print("error: add-rule needs the rule's id")
+            print(USAGE)
+            return 2
+        return _add_rule(project, args.rule_id, rule_argv)
     if args.action == "migrate-keys":
         return _migrate_keys(project)
     if args.action == "sign":

@@ -267,7 +267,9 @@ def test_available_check_crash_converts_to_verifier_unavailable() -> None:
     assert "simulated availability-check crash" in err.reason
 
 
-def test_build_loop_state_admits_healthy_predicates() -> None:
+def test_build_loop_state_admits_healthy_predicates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """PytestInvocation + MypyInvocation + HypothesisInvocation +
     ArtifactInvocation + healthy AssertionInvocation compose cleanly.
 
@@ -276,6 +278,15 @@ def test_build_loop_state_admits_healthy_predicates() -> None:
     environment (per ``pyproject.toml`` dev deps) has pytest, mypy,
     and hypothesis installed.
     """
+    # B-138: the pre-check looks for pytest and mypy on PATH; the dev
+    # environment's are beside the interpreter running the tests, which is on
+    # PATH only when the venv is activated (WRIGHT's Linux run, B-046).
+    import os
+    import sys
+    from pathlib import Path
+
+    scripts = str(Path(sys.executable).parent)
+    monkeypatch.setenv("PATH", scripts + os.pathsep + os.environ.get("PATH", ""))
     ok_predicates = (
         AcceptancePredicate(
             id=new_predicate_id(),

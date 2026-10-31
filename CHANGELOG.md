@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `ract policy init --guided` also finds the linter, type checker, formatter and build
+  (ruff or flake8, mypy or pyright, ruff format or black, a Python build backend, and the
+  npm scripts) and proposes the narrowest rule for each, network off and 15 minutes, in
+  one diff under one signature (B-142). `ract policy add-rule ID -- ARGV...` adds one rule
+  to a grant that holds, shows the diff and signs it again; a grant changed since its
+  signature is refused.
 - Verifier tools (B-023): `run_build`, `run_lint`, `run_typecheck` and `run_format` run the
   grant's rule for each kind (by id, or a known command such as `ruff check` or `mypy`) the
   same way `run_tests` does: tier 3, matched, asked, through `run_command`. Each result says
@@ -262,6 +268,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A malformed tool call is answered plainly and never reaches a tool (B-140): a call to a
+  tool the loop does not offer gets the offered names back, arguments that do not fit get
+  what was wrong and the fields the tool takes, and arguments encoded twice as a JSON
+  string are decoded once more. Three malformed calls in one step end it with "The model
+  did not produce a valid tool call", and the turn says so.
 - A model that answers a request with tool calls (or in prose twice) instead of a JSON plan
   no longer ends the turn with "Could not parse JSON plan" (B-137). The request becomes one
   step through the step agent loop, its first reply's tool calls the step's first turn,

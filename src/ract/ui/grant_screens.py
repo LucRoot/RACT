@@ -60,6 +60,8 @@ class DetectedRunner:
     name: str
     argv: tuple[str, ...]
     evidence: str  # the file that showed it, e.g. "pyproject.toml has [tool.pytest]"
+    # B-142: "linter", "type checker", "formatter" or "build" for the verifiers.
+    kind: str = "test runner"
 
 
 @dataclass(frozen=True)
@@ -82,7 +84,7 @@ def detected_runner_lines(runner: DetectedRunner | None, width: int) -> list[str
             indent="  ",
         )
     out = _fold(
-        _bold(f"found the test runner: {runner.name}", False), width, indent="  "
+        _bold(f"found the {runner.kind}: {runner.name}", False), width, indent="  "
     )
     out += _fold(f"the rule would allow: {_argv(runner.argv)}", width)
     out += _fold(f"seen in: {escape_controls(runner.evidence)}", width)

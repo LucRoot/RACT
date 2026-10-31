@@ -48,10 +48,41 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "uses_tty: the test reads a real terminal on stdin (B-134)"
     )
+    # B-138: tests that read this repository's own git state (tests/repository_state.py).
+    config.addinivalue_line(
+        "markers", "needs_repository: skipped where git cannot open this checkout"
+    )
+    config.addinivalue_line(
+        "markers",
+        "needs_history: skipped in a shallow clone or a copied tree (tags, old commits)",
+    )
     if not config.getoption("usepdb", False):
         null = os.open(os.devnull, os.O_RDONLY)
         os.dup2(null, 0)
         os.close(null)
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """B-138: skip a needs_* test, with the reason, where its checkout lacks it."""
+    marked = [
+        item
+        for item in items
+        if item.get_closest_marker("needs_repository")
+        or item.get_closest_marker("needs_history")
+    ]
+    if not marked:
+        return
+    from tests.repository_state import skip_reason, this_repository  # noqa: PLC0415
+
+    state = this_repository()
+    for item in marked:
+        for name in ("needs_repository", "needs_history"):
+            reason = item.get_closest_marker(name) and skip_reason(name, state)
+            if reason:
+                item.add_marker(pytest.mark.skip(reason=reason))
+                break
 
 
 class _NoStdin(io.TextIOBase):
