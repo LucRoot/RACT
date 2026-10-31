@@ -53,12 +53,8 @@ def test_available_languages_returns_probe_per_language(tmp_path: Path, monkeypa
     # B-134 (WRIGHT's FOUND): this test started a real python language server
     # where multilspy is installed, and it never answered. The probe's own
     # behaviour is tested below; here no server is started.
-    import ract.memory.lsp as lsp
-
-    def no_server(*_a, **_kw):
-        raise ModuleNotFoundError("multilspy is not used in this test")
-
-    monkeypatch.setattr(lsp, "LspClient", no_server)
+    # G-240: the probe runs in a child process; the stub child starts nothing.
+    _stub(monkeypatch, _ANSWERS)
     results = available_languages(("python", "cobol"), tmp_path)
     assert set(results) == {"python", "cobol"}
     assert results["cobol"].available is False
@@ -67,19 +63,12 @@ def test_available_languages_returns_probe_per_language(tmp_path: Path, monkeypa
 
 def test_a_probe_that_never_answers_is_bounded(tmp_path: Path, monkeypatch):
     """B-134: a language server that never answers does not hold the caller."""
-    import threading
-
     import ract.memory.lsp as lsp
 
-    stop = threading.Event()
-
-    def hangs(language, repo_root=None):
-        stop.wait(30)
-        raise AssertionError("not reached in the budget")
-
-    monkeypatch.setattr(lsp, "probe_lsp", hangs)
-    result = lsp.bounded_probe("python", tmp_path, budget_s=0.2)
-    stop.set()
+    pids = tmp_path / "pids"
+    pids.mkdir()
+    _stub(monkeypatch, _HANGS, pids)
+    result = lsp.bounded_probe("python", tmp_path, budget_s=3)
     assert result.available is False and "did not answer in" in result.error_message
 
 
@@ -142,28 +131,87 @@ def test_probe_reports_a_missing_multilspy_in_plain_words(
     assert "Traceback" not in (r.error_message or "")
 
 
-def test_the_probes_share_one_budget(tmp_path: Path, monkeypatch):
-    """B-136: four languages that never answer take one budget, not four."""
-    import threading
+# --- G-240: the probe is a child process group; past the budget its tree ends ---
+
+_ANSWERS = (
+    "import dataclasses, json, sys\n"
+    "from ract.memory.lsp import LspProbeResult\n"
+    "r = LspProbeResult(language=sys.argv[1], available=False, error_message='stub')\n"
+    "print('RACT-PROBE ' + json.dumps(dataclasses.asdict(r)), flush=True)\n"
+)
+
+# A "server" that never answers: it starts a grandchild, writes its pid, waits.
+_HANGS = (
+    "import subprocess, sys, time\n"
+    "server = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
+    "open(sys.argv[3], 'w').write(str(server.pid))\n"
+    "time.sleep(120)\n"
+)
+
+
+def _stub(monkeypatch, script: str, pid_dir: Path | None = None) -> None:
+    import sys
+
+    import ract.memory.lsp as lsp
+
+    def argv(language: str, repo_root: str) -> list[str]:
+        extra = [str(pid_dir / f"{language}.pid")] if pid_dir is not None else []
+        return [sys.executable, "-c", script, language, repo_root, *extra]
+
+    monkeypatch.setattr(lsp, "_child_argv", argv)
+
+
+def _alive(pid: int) -> bool:
+    import os
+    import subprocess
+
+    if os.name == "nt":
+        out = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout
+        return str(pid) in out
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def test_the_child_result_is_read_back(tmp_path: Path, monkeypatch) -> None:
+    import ract.memory.lsp as lsp
+
+    _stub(monkeypatch, _ANSWERS)
+    results = lsp.bounded_probes(("python", "rust"), tmp_path, budget_s=30)
+    assert set(results) == {"python", "rust"}
+    assert all(not r.available and r.error_message == "stub" for r in results.values())
+
+
+def test_the_probes_share_one_budget_and_leave_no_server(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """B-136 and G-240: four probes that never answer take one budget, and
+    after it no probe or server they started is left running."""
     import time
 
     import ract.memory.lsp as lsp
 
-    stop = threading.Event()
-
-    def hangs(language, repo_root=None):
-        stop.wait(30)
-        raise AssertionError("not reached in the budget")
-
-    monkeypatch.setattr(lsp, "probe_lsp", hangs)
+    pids = tmp_path / "pids"
+    pids.mkdir()
+    _stub(monkeypatch, _HANGS, pids)
+    langs = ("python", "typescript", "rust", "go")
     started = time.monotonic()
-    results = lsp.bounded_probes(
-        ("python", "typescript", "rust", "go"), tmp_path, budget_s=0.5
-    )
+    results = lsp.bounded_probes(langs, tmp_path, budget_s=4)
     elapsed = time.monotonic() - started
-    stop.set()
-    assert elapsed < 2.0
+    assert elapsed < 15
     assert all(
         not r.available and "did not answer" in r.error_message
         for r in results.values()
     )
+    servers = [int((pids / f"{lang}.pid").read_text()) for lang in langs]
+    deadline = time.monotonic() + 10
+    while any(_alive(pid) for pid in servers) and time.monotonic() < deadline:
+        time.sleep(0.2)
+    assert not any(_alive(pid) for pid in servers), servers
