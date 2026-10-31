@@ -370,9 +370,13 @@ def _cloud(io: Io, answers: Answers, interactive: bool) -> None:
         if pick.isdigit() and 1 <= int(pick) <= len(names):
             answers.cloud_preset = names[int(pick) - 1]
     variable = _ENV_VARS[answers.cloud_preset]
+    # B-160b: the address the preset uses and the variable it reads, one line each.
+    spec = get_preset(answers.cloud_preset)["providers"][answers.cloud_preset]
+    io.say(f"  address: {spec.get('url', '')}")
     if not variable:
-        io.say(f"  {answers.cloud_preset} needs no key.")
+        io.say("  key variable: none (no key needed)")
         return
+    io.say(f"  key variable: {variable}")
     # Presence only: the value is never read here.
     if variable in io.environ:
         io.say(f"  {variable} is set; ract.yaml will refer to it as ${{{variable}}}.")
