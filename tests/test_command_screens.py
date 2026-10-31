@@ -142,3 +142,18 @@ def test_an_unparsed_runner_summary_says_counts_not_parsed() -> None:
     text = _flat(result_lines(summary, 80))
     assert "tests: counts not parsed (1.5 s, exit 2)" in text
     assert "passed" not in text
+
+
+def test_run_tests_parses_pytests_own_summary_line() -> None:
+    """L-298 item 3: the counts come from pytest's last summary line, never guessed."""
+    from ract.tools.tests_tool import pytest_summary
+
+    out = (
+        "FAILED tests/test_calc.py::test_add - assert 1 == 2\n"
+        "==== 1 failed, 3 passed, 2 skipped in 0.42s ====\n"
+    )
+    summary = pytest_summary(out, 420, 1)
+    assert (summary.passed, summary.failed, summary.skipped) == (3, 1, 2)
+    assert summary.failing[0].name == "tests/test_calc.py::test_add"
+    unknown = pytest_summary("ok\n", 100, 0)
+    assert unknown.passed is None and unknown.failed is None

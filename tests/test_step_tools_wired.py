@@ -231,7 +231,7 @@ def test_the_workspace_line_is_shown_before_any_tool_runs(
     real_print = builtins.print
 
     def noting(*args: Any, **kwargs: Any) -> None:
-        if args and args[0] == "preparing a workspace for the changes":
+        if args and str(args[0]).startswith("preparing a workspace"):
             order.append("line")
         real_print(*args, **kwargs)
 

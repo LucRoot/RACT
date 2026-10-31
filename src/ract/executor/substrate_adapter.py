@@ -411,17 +411,26 @@ def _run_via_substrate_steps(
     # turns leave one) keeps isolation instead of forcing the in-place path.
     # H6 (package 5): a repository check or snapshot that fails (a locked file, for one) is a
     # failed result with its sentence, not an exception that escapes the substrate.
-    if getattr(harness.executor, "step_tools", None) is not None:
+    import shutil
+    import time
+
+    from ract.ui.workspace_screens import preparing_line, ready_line
+
+    width = shutil.get_terminal_size((80, 24)).columns
+    shows_workspace = getattr(harness.executor, "step_tools", None) is not None
+    started = time.monotonic()
+    if shows_workspace:
         # B-110 D6: the first visible line of a step that changes files, before
-        # the snapshot and the worktree (whose own progress line follows after
-        # two seconds).
-        print("preparing a workspace for the changes", flush=True)
+        # the snapshot and the worktree (MASON's preparing line, L-298 item 5).
+        print(preparing_line(0, width), flush=True)
     try:
         snapshot = take_snapshot(
             harness.project_dir, progress=lambda line: print(line, flush=True)
         )
     except WorktreeError as exc:
         return _snapshot_failure(exc)
+    if shows_workspace:
+        print(ready_line(time.monotonic() - started, width), flush=True)
     parent_snapshot = snapshot.sha
     if snapshot.left_out:
         print(snapshot.notice(), flush=True)

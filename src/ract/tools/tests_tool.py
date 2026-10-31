@@ -14,6 +14,7 @@ why. Network is off unless the rule says otherwise (D11).
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Any
 from pathlib import Path, PurePosixPath
@@ -111,6 +112,39 @@ def tier3_context() -> Any:
             else tier3.NO_GRANT_HINT,
         )
     return ctx
+
+
+_SUMMARY = re.compile(r"=+ (.*?) in [0-9.]+s(?: \([^)]*\))? =+\s*$")
+_COUNT = re.compile(r"(\d+) (passed|failed|skipped|errors?|xfailed|xpassed)")
+_FAILED = re.compile(r"^FAILED (\S+)(?: - (.*))?$")
+
+
+def pytest_summary(stdout: str, duration_ms: int, exit_code: int | None) -> Any:
+    """MASON's RunSummary from pytest's own last summary line; None counts otherwise."""
+    from ract.ui.command_screens import FailingTest, RunSummary
+
+    counts: dict[str, int] | None = None
+    for line in reversed(stdout.splitlines()):
+        found = _SUMMARY.search(line.strip())
+        if found:
+            counts = {}
+            for n, word in _COUNT.findall(found.group(1)):
+                key = "failed" if word.startswith("error") else word
+                counts[key] = counts.get(key, 0) + int(n)
+            break
+    failing = tuple(
+        FailingTest(m.group(1), m.group(2) or "")
+        for m in (_FAILED.match(line) for line in stdout.splitlines())
+        if m
+    )[:20]
+    return RunSummary(
+        passed=None if counts is None else counts.get("passed", 0),
+        failed=None if counts is None else counts.get("failed", 0),
+        skipped=None if counts is None else counts.get("skipped", 0),
+        duration_s=duration_ms / 1000,
+        exit_code=-1 if exit_code is None else exit_code,
+        failing=failing,
+    )
 
 
 def run_tests(root: Path, args: RunTestsArgs) -> ToolResult:
@@ -266,7 +300,14 @@ def run_under_rule(
         else ("killed: " + result.killed_by if result.killed_by else "failed")
     )
     tail = result.stdout[-4000:] if result.stdout else ""
-    text = (
+    summary_text = ""
+    if kind == "tests":
+        # MASON's result view (L-298 item 3): the counts first, each failure after.
+        from ract.ui.command_screens import result_lines
+
+        summary = pytest_summary(result.stdout, result.duration_ms, result.exit_code)
+        summary_text = "\n".join(result_lines(summary, 10_000)) + "\n"
+    text = summary_text + (
         f"{' '.join(result.argv)}: exit {result.exit_code}, {outcome}"
         + (" (fake runner: no command ran)" if result.runner == "fake" else "")
         + (f"\n{tail}" if tail else "")

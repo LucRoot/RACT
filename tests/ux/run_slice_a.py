@@ -40,7 +40,7 @@ from tests.ux.run_baseline import (
 from tests.ux.terminal_driver import Recording, spawn, strip_ansi
 
 REPO = Path(__file__).resolve().parents[2]
-WORKSPACE_LINE = "preparing a workspace for the changes"
+WORKSPACE_LINE = "preparing a workspace"
 FIX = {
     "path": "src/calc.py",
     "old": "    return a - b\n\n\ndef sub",
