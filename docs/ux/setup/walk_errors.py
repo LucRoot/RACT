@@ -50,13 +50,13 @@ with tempfile.TemporaryDirectory() as tmp:
             hostport = server.base_url.split("//", 1)[1].split("/", 1)[0]
             env = {**base, "RACT_PRESET_BASE_URL": f"openai={server.base_url}", "RACT_KEY_HOSTS": f"OPENAI_API_KEY={hostport}"}
             text = run([str(RACT), "setup"], ws, env, ["", "c", "6", "n"])
-            written = {p.name: p.read_text(encoding="utf-8") for p in ws.iterdir() if p.is_file()}
+            written = {str(p.relative_to(ws)): p.read_text(encoding="utf-8") for p in ws.rglob("*") if p.is_file()}
             (OUT / "wrong_key_setup_80.txt").write_text(text, encoding="utf-8")
             print("wrong_key requests", len(server.chat_requests), "files", sorted(written), "key leaked:", KEY in text or any(KEY in b for b in written.values()))
     elif CASE == "unreachable":
         env = {**base, "RACT_PRESET_BASE_URL": "openai=http://127.0.0.1:9/v1"}
         text = run([str(RACT), "setup"], ws, env, ["", "c", "6", "n"])
-        written = {p.name: p.read_text(encoding="utf-8") for p in ws.iterdir() if p.is_file()}
+        written = {str(p.relative_to(ws)): p.read_text(encoding="utf-8") for p in ws.rglob("*") if p.is_file()}
         (OUT / "unreachable_setup_80.txt").write_text(text, encoding="utf-8")
         print("unreachable files", sorted(written), "key leaked:", KEY in text or any(KEY in b for b in written.values()))
     elif CASE == "reconfigure":
