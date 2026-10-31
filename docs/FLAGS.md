@@ -135,6 +135,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--stream` | `ract run` | Stream provider responses to stdout as they are generated. |
 | `--tag` | `ract release create` | Git tag for the release |
 | `--template` | `ract init` | Project template to use. |
+| `--tier3` | `ract doctor` | One report of the tier-3 state: the grant, the key, the sandbox, the tools, and the command that fixes each problem (B-147). |
 | `--timeout` | `ract mutation` | Maximum seconds to wait for the mutation run. |
 | `--token-budget` | `ract run` | Stop before a request that would start at or over N tokens for this run. Overrides token_budget in ract.yaml. |
 | `--tool` | `ract mcp` | Qualified tool name (server_name/tool_name) for invoke. |
