@@ -768,14 +768,25 @@ class LoopController:
                     _os.O_WRONLY | _os.O_CREAT,
                     0o644,
                 )
-            except OSError:
+            except OSError as exc:
+                print(f"[loop] the run marker lock was not opened: {exc}", flush=True)
                 try:
                     marker.write_text(candidate, encoding="utf-8")
-                except OSError:
-                    pass
+                except OSError as write_exc:
+                    print(f"[loop] the run marker was not written: {write_exc}", flush=True)
                 return candidate
             try:
-                self._acquire_marker_lock(fd)
+                try:
+                    self._acquire_marker_lock(fd)
+                except TimeoutError as exc:
+                    # B-207: another process holds the marker; it writes the
+                    # id, so read it instead of writing one unlocked.
+                    print(f"[loop] {exc}; reading its run id", flush=True)
+                    try:
+                        held = marker.read_text(encoding="utf-8").strip()
+                    except OSError:
+                        held = ""
+                    return held or run_id_hex()
                 try:
                     # Re-check marker under lock (double-checked pattern).
                     if marker.exists():
@@ -787,16 +798,16 @@ class LoopController:
                             return existing
                     try:
                         marker.write_text(candidate, encoding="utf-8")
-                    except OSError:
-                        pass
+                    except OSError as exc:
+                        print(f"[loop] the run marker was not written: {exc}", flush=True)
                     return candidate
                 finally:
                     self._release_marker_lock(fd)
             finally:
                 try:
                     _os.close(fd)
-                except OSError:
-                    pass
+                except OSError as exc:
+                    print(f"[loop] the marker lock file was not closed: {exc}", flush=True)
         return run_id_hex()
 
     @staticmethod
@@ -810,7 +821,7 @@ class LoopController:
             import msvcrt  # type: ignore[import-not-found]
 
             _os.lseek(fd, 0, _os.SEEK_SET)
-            for _attempt in range(3):
+            for _attempt in range(50):
                 try:
                     msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
                     return
@@ -819,12 +830,14 @@ class LoopController:
         else:
             import fcntl  # type: ignore[import-not-found,unused-ignore,attr-defined,no-redef]
 
-            for _attempt in range(3):
+            for _attempt in range(50):
                 try:
                     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # type: ignore[attr-defined]
                     return
                 except OSError:
                     _time.sleep(0.01)
+        # B-207: three tries and then on without the lock; now a caller knows.
+        raise TimeoutError("the run marker lock is held by another process")
 
     @staticmethod
     def _release_marker_lock(fd: int) -> None:
@@ -840,15 +853,15 @@ class LoopController:
             _os.lseek(fd, 0, _os.SEEK_SET)
             try:
                 msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
-            except OSError:
-                pass
+            except OSError as exc:
+                print(f"[loop] the run marker lock was not released: {exc}", flush=True)
         else:
             import fcntl  # type: ignore[import-not-found,unused-ignore,attr-defined,no-redef]
 
             try:
                 fcntl.flock(fd, fcntl.LOCK_UN)  # type: ignore[attr-defined]
-            except OSError:
-                pass
+            except OSError as exc:
+                print(f"[loop] the run marker lock was not released: {exc}", flush=True)
 
     def _run_bound(
         self,
