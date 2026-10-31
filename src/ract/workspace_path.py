@@ -264,6 +264,15 @@ def resolve_workspace_path(
     fold = win or sys.platform == "darwin"
     raw = os.fspath(user_path)
     refusal = _string_checks(raw, windows=win)
+    if refusal is None and not win and re.match(r"^[A-Za-z]:[\\/]", raw):
+        # B-136 (Linux, B-046): a Windows drive path is not absolute on POSIX,
+        # so it was read as a relative name inside the project. A path written
+        # for another machine's root is refused everywhere.
+        refusal = _refuse(
+            "outside_root",
+            f"the drive path {raw!r} names another machine's root",
+            "Use a path inside the project, relative to its root.",
+        )
     if refusal is None:
         root_real = os.path.realpath(os.fspath(root))
         candidate = Path(raw)
