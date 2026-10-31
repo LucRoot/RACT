@@ -73,3 +73,57 @@ def test_the_typed_name_check_still_holds(tmp_path: Path) -> None:
     assert not resolve_workspace_path(
         root, ".ract/sessions/x.json", purpose="send"
     ).is_ok()
+
+
+# G-289: the callers that send what they read, each through a link to .ract
+# and one to .git. The planted value is secret-shaped, so a read that got
+# through would show it.
+PLANTED = "OPENAI_API_KEY=sk-" + "b211" * 10
+
+
+def _linked(tmp_path: Path, into: str) -> tuple[Path, str]:
+    root = _project(tmp_path)
+    if into == ".ract":
+        (root / ".ract" / "sessions" / "x.json").write_text(PLANTED, encoding="utf-8")
+        _dir_link(root / "lnk", root / ".ract")
+        return root, "lnk/sessions/x.json"
+    (root / ".git").mkdir()
+    (root / ".git" / "config").write_text(PLANTED, encoding="utf-8")
+    _dir_link(root / "g", root / ".git")
+    return root, "g/config"
+
+
+@pytest.mark.parametrize("into", [".ract", ".git"])
+def test_the_fence_does_not_send_a_linked_state_file(tmp_path: Path, into: str) -> None:
+    from unittest.mock import MagicMock
+
+    from ract.chestertons_fence import ChestertonsFence
+
+    root, rel = _linked(tmp_path, into)
+    provider = MagicMock()
+    result = ChestertonsFence(root, provider).inspect(rel)
+    assert result.value == "" and not provider.method_calls
+
+
+@pytest.mark.parametrize("into", [".ract", ".git"])
+def test_a_citation_into_linked_state_is_not_checked(tmp_path: Path, into: str) -> None:
+    from ract.citations import Citation, _check_one
+
+    root, rel = _linked(tmp_path, into)
+    result = _check_one(root, Citation(rel, 1, 1, None, 0))
+    assert result.status == "not checked"
+
+
+@pytest.mark.parametrize("into", [".ract", ".git"])
+def test_the_executor_reads_nothing_through_a_link_to_state(
+    tmp_path: Path, into: str
+) -> None:
+    from ract.executor.steps import Executor
+    from ract.providers.router import ProviderRouter
+
+    root, rel = _linked(tmp_path, into)
+    executor = Executor(router=ProviderRouter({}), project_dir=root)
+    block, _ = executor._target_file_block(rel, None)
+    assert PLANTED not in block
+    assert executor._target_secrets(rel) == {}
+    assert executor._current_text(rel) is None
