@@ -297,6 +297,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the cancel ends the stalled model read at once, a worktree whose git was cut short is
   pruned, and the session removes its own step worktrees when it ends. Esc Esc reaches
   `/rewind` at once on a POSIX terminal whose system inputrc binds Esc Esc sequences.
+- `ract setup --add-provider` adds a second endpoint to an existing `ract.yaml` (B-160c):
+  the same questions, a diff before writing, the same health check on the new provider;
+  the manager provider stays, and a provider of the same name gets a numbered name.
 - The git tools are harder to walk around (G-239). The commit's secret scan reads every
   staged file whole from the index, so a line starting with `++`, a binary or `-diff` file,
   a large file or a U+2028 separator no longer hides a key; it also finds `sk-ant-` keys and
