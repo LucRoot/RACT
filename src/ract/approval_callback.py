@@ -228,6 +228,9 @@ def console_tier_3_prompt(facts: dict) -> bool | str:
         f"  rule: {safe_text(str(facts.get('rule') or 'none'))} "
         f"({safe_text(str(facts.get('why', '')))})"
     )
+    if facts.get("follows"):
+        # B-149: one line, before the notes.
+        _print_wrapped(f"  {safe_text(str(facts['follows']))}")
     for note in facts.get("notes") or []:
         _print_wrapped(f"  note: {safe_text(str(note))}")
     question_gate.open_question()

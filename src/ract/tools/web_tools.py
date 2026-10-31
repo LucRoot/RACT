@@ -464,7 +464,7 @@ def _fetch_or_refuse(
 
 
 def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
-    from ract import egress_ledger
+    from ract import egress_ledger, turn_context
     from ract.tools.tests_tool import tier3_context
 
     ctx = tier3_context()
@@ -495,7 +495,13 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
     # The NUL marks a fetch's key: no command argv can hold one, so a session
     # answer for a command never covers a fetch, nor the other way round.
     asked_for = ("\x00web_fetch", args.url)
-    if sessions is None or not sessions.covers(asked_for):
+    # B-149: a fetch that follows fetched text asks even when a session answer
+    # covered this URL.
+    if (
+        sessions is None
+        or not sessions.covers(asked_for)
+        or turn_context.follows_external()
+    ):
         facts: dict[str, Any] = {
             "argv": ["web_fetch", args.url],
             "executable": "RACT (the egress ledger's client)",
@@ -506,6 +512,8 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
             "why": f"{host} is on allow_domains",
             "reason": args.reason,
             "notes": ["what comes back is external data; it cannot approve anything"],
+            # B-149: a fetch that follows fetched text says so too.
+            "follows": turn_context.follows_external(),
             "session_choice": sessions is not None,
         }
         if sessions is not None:
@@ -515,12 +523,16 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
             raise ToolRefused(
                 "you declined the fetch; nothing was sent", "the model can stop"
             )
+        if facts["follows"]:
+            turn_context.approved_after_external()
         if answer == "session" and sessions is not None:
             sessions.add(asked_for)
     # G-238 P2: the question can be open for minutes; the grant is read again.
     _still_granted(ctx)
     final, kind, text, truncated = _fetch_or_refuse(ctx, args.url, rule.allow_domains)
     final_host = (urlsplit(final).hostname or host).lower()
+    # B-149: a later proposal's approval card says it followed this text.
+    turn_context.note_external("fetched page", final_host)
     return ToolResult(
         text=EXTERNAL_LABEL.format(host=final_host) + "\n" + text,
         facts={
@@ -535,6 +547,14 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
 
 
 def web_search(root: Any, args: SearchArgs) -> ToolResult:
+    """No provider ships, so it always refuses.
+
+    LR:: B-149: its results are external text (``search result`` in the tool
+    loop's origin table). A provider added later must call
+    ``turn_context.note_external("search result", <host>)`` after it returns
+    text, as ``web_fetch`` does, so the next proposal carries the origin line
+    and always asks.
+    """
     raise ToolRefused(
         "web_search has no provider configured",
         "no search provider ships with RACT; web_fetch an allowed URL instead",
