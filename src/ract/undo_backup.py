@@ -591,6 +591,9 @@ def restore_preview(
         raise ValueError(f"no checkpoint {target!r} is recorded for this repository")
     back: list[str] = []
     left: list[str] = []
+    # What each path would hold after the newer turns are reversed: the digest
+    # of the copy a turn saved, or None for a file the turn created.
+    simulated: dict[str, str | None] = {}
     pending = [
         (folder, data)
         for folder, data in _manifests(base)
@@ -608,18 +611,20 @@ def restore_preview(
             if isinstance(p, str)
         ]
         stopped = False
+        saved = [p for p in (data.get("saved") or []) if isinstance(p, str)]
         for path in paths:
             refused = check_entry(base, base, path)
-            if refused is None and path in (data.get("saved") or []):
+            if refused is None and path in saved:
                 refused = check_entry(base, folder, path)
-            if refused is not None or (
-                not force and _sha256(base / path) != after.get(path)
-            ):
+            current = simulated[path] if path in simulated else _sha256(base / path)
+            if refused is not None or (not force and current != after.get(path)):
                 if path not in left:
                     left.append(path)
                 stopped = True
-            elif path not in back and path not in left:
+                continue
+            if path not in back and path not in left:
                 back.append(path)
+            simulated[path] = _sha256(folder / path) if path in saved else None
         if stopped:
             break
     return back, left

@@ -215,3 +215,31 @@ def test_test_files_in_folders_pytest_skips_are_not_entry_points(project) -> Non
     digests = entry_point_digests(project)
     assert "tests/test_calc.py" in digests and "conftest.py" in digests
     assert not [p for p in digests if p.startswith((".venv/", "node_modules/"))]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".pytest.ini",
+        "pytest.toml",
+        "Makefile",
+        "setup.py",
+        "pytest.py",
+        "eslint.config.mjs",
+        ".eslintrc.cjs",
+        "src/calc.test.ts",
+        "web/__tests__/a.js",
+    ],
+)
+def test_more_files_decide_what_runs(path: str) -> None:
+    """Review finding 3: files a runner or verifier runs or reads, and a top-level
+    module that would shadow ``python -m``."""
+    from ract.policy.allowlist import is_entry_point
+
+    assert is_entry_point(path)
+
+
+def test_src_code_is_not_an_entry_point() -> None:
+    from ract.policy.allowlist import is_entry_point
+
+    assert not is_entry_point("src/calc.py") and not is_entry_point("docs/a.md")

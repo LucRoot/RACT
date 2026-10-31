@@ -236,3 +236,13 @@ def test_restore_in_the_session_shows_the_preview_first(tmp_path: Path) -> None:
     _three_turns(tmp_path)
     text = _shown(tmp_path, "/restore 3")
     assert text.index("restore checkpoint 3: ") < text.index("back at checkpoint 3")
+
+
+def test_the_preview_follows_one_file_through_several_turns(tmp_path: Path) -> None:
+    """Review finding 10: t1, t2 and t3 all edit a.txt; restoring to t1 puts it back once."""
+    (tmp_path / "a.txt").write_text("zero\n", encoding="utf-8")
+    first = _turn(tmp_path, {"a.txt": "one\n"})
+    _turn(tmp_path, {"a.txt": "two\n"})
+    _turn(tmp_path, {"a.txt": "three\n"})
+    back, left = undo_backup.restore_preview(tmp_path, first.turn_id)
+    assert back == ["a.txt"] and left == []

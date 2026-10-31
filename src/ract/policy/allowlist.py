@@ -30,18 +30,51 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Files a test runner executes or reads as configuration (G-214 T2).
+# Files a test runner or a verifier executes or reads as configuration: the
+# runners' own files, the build and lint tools' files (B-023), and anything
+# the review named (pytest reads .pytest.ini first; a Makefile is what an
+# allowed make runs).
 RUNNER_FILES = frozenset(
     {
         "conftest.py",
         "pytest.ini",
+        ".pytest.ini",
+        "pytest.toml",
         "pyproject.toml",
         "tox.ini",
         "setup.cfg",
+        "setup.py",
+        "noxfile.py",
+        "mypy.ini",
+        ".mypy.ini",
+        ".flake8",
+        "ruff.toml",
+        ".ruff.toml",
+        "Makefile",
+        "makefile",
+        "GNUmakefile",
+        "Cargo.toml",
+        "build.rs",
         "package.json",
-        "jest.config.js",
-        "vitest.config.ts",
+        "tsconfig.json",
     }
 )
+# Configuration whose name is a family: jest.config.js, eslint.config.mjs,
+# .eslintrc.cjs, vitest.config.ts, prettier.config.js and the rest.
+_CONFIG_PREFIXES = (
+    "jest.config.",
+    "vitest.config.",
+    "eslint.config.",
+    ".eslintrc",
+    "prettier.config.",
+    ".prettierrc",
+    "babel.config.",
+    ".babelrc",
+)
+# JavaScript and TypeScript test files (``is_test_file`` knows Python only).
+_JS_TEST = (".test.", ".spec.")
+_JS_SUFFIXES = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs")
+LINKED = "a link: what it points at decides what runs"
 WRITTEN = "written by the model this session"
 CHANGED = "changed since the grant was signed"
 UNKNOWN = "the project's entry points could not be listed"
@@ -72,10 +105,22 @@ def _collected(rel: str) -> bool:
 
 
 def is_entry_point(path: str) -> bool:
-    """A test, conftest or runner configuration file."""
+    """A test, conftest, runner or verifier configuration file, or a Python
+    file at the top of the project (``python -m`` puts the working folder
+    first on sys.path, so a top-level ``pytest.py`` would shadow the runner)."""
     from ract.import_check import is_test_file
 
-    return Path(path).name in RUNNER_FILES or is_test_file(path)
+    p = Path(path.replace("\\", "/"))
+    name = p.name
+    if name in RUNNER_FILES or name.startswith(_CONFIG_PREFIXES) or is_test_file(path):
+        return True
+    if len(p.parts) == 1 and name.endswith(".py"):
+        return True
+    if name.endswith(_JS_SUFFIXES) and (
+        any(mark in name for mark in _JS_TEST) or "__tests__" in p.parts
+    ):
+        return True
+    return False
 
 
 def entry_point_digests(project: Path | str) -> dict[str, str] | None:
@@ -111,7 +156,12 @@ def entry_point_digests(project: Path | str) -> dict[str, str] | None:
             continue
         path = project / rel
         try:
-            if path.is_symlink() or not path.is_file():
+            if path.is_symlink():
+                # The target can change without the link changing: a linked
+                # entry point is never taken as unchanged.
+                digests[rel] = LINKED
+                continue
+            if not path.is_file():
                 continue
             digests[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
         except OSError as exc:
@@ -186,7 +236,11 @@ def changed_entry_points(
         # No record of this grant's signing: every entry point counts as changed.
         return changes + [Change(p, CHANGED) for p in sorted(now) if p not in shown]
     for path in sorted(set(now) | set(signed)):
-        if path not in shown and now.get(path) != signed.get(path):
+        if path in shown:
+            continue
+        if now.get(path) == LINKED:
+            changes.append(Change(path, LINKED))
+        elif now.get(path) != signed.get(path):
             changes.append(Change(path, CHANGED))
     return changes
 
