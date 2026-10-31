@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 
+import contextlib
+import io
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 
 def _extract_commands(md_path: Path):
@@ -33,6 +36,36 @@ def _run(args):
     )
 
 
+def _run_in_process(args):
+    """``ract <args>`` through the CLI's ``main`` in this process (B-152).
+
+    Each subprocess start costs about 1.4 s of imports; the help text and the
+    exit code are the same either way, and the module entry itself is checked
+    once by ``test_the_cli_module_starts_as_a_program``.
+    """
+    from ract import cli
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            code = cli.main(list(args))
+        except SystemExit as exc:  # argparse ends --help and usage errors this way
+            code = (
+                exc.code
+                if isinstance(exc.code, int)
+                else (0 if exc.code is None else 1)
+            )
+    return SimpleNamespace(
+        returncode=code or 0, stdout=out.getvalue(), stderr=err.getvalue()
+    )
+
+
+def test_the_cli_module_starts_as_a_program():
+    result = _run(["--help"])
+    assert result.returncode == 0, result.stderr
+    assert "usage" in result.stdout.lower()
+
+
 def test_cli_json_cheat_sheet_lists_at_least_fifteen_commands():
     cheat_sheet = Path(__file__).parent.parent / "docs" / "cli_json_cheat_sheet.md"
     commands = _extract_commands(cheat_sheet)
@@ -47,7 +80,7 @@ def test_cli_json_cheat_sheet_commands_exist():
     for cmd in commands:
         tokens = cmd.split()[1:]  # drop the 'ract'/'ract' prefix
         # Try the command's own help to confirm it is wired.
-        result = _run([*tokens, "--help"])
+        result = _run_in_process([*tokens, "--help"])
         output = result.stdout + result.stderr
         # A few commands (skills list) are manually parsed and don't expose --help,
         # so also accept a successful JSON invocation when --json is present.

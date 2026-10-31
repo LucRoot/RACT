@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
+import sysconfig
 from pathlib import Path
 
 import pytest
@@ -20,7 +22,14 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
     wheelhouse = tmp_path / "wheelhouse"
     wheelhouse.mkdir()
 
-    # Build the wheel.
+    # Build the wheel. With the build backend already installed, pip builds it
+    # in place of a new isolated environment it would fill from the package
+    # index (most of this test's time, B-152).
+    isolation = (
+        []
+        if importlib.util.find_spec("hatchling") is None
+        else ["--no-build-isolation"]
+    )
     build = subprocess.run(
         [
             sys.executable,
@@ -28,6 +37,7 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
             "pip",
             "wheel",
             "--no-deps",
+            *isolation,
             "-w",
             str(wheelhouse),
             str(repo_dir),
@@ -47,14 +57,33 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
         f"expected version {ract.__version__} in wheel name: {wheel.name}"
     )
 
-    # Create a fresh virtual environment.
+    # Create a fresh virtual environment. This interpreter's pip installs into
+    # it, and RACT's dependencies are read from this interpreter's packages
+    # through a .pth line, so the test installs only the wheel and never
+    # reaches the package index (B-152).
     venv_dir = tmp_path / "venv"
     venv_python = venv_dir / "Scripts" / "python.exe"
-    subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
+    subprocess.run(
+        [sys.executable, "-m", "venv", "--without-pip", str(venv_dir)], check=True
+    )
+    (venv_dir / "Lib" / "site-packages" / "ract_test_dependencies.pth").write_text(
+        sysconfig.get_paths()["purelib"] + "\n", encoding="utf-8"
+    )
 
     # Install the wheel.
     install = subprocess.run(
-        [str(venv_python), "-m", "pip", "install", "--quiet", str(wheel)],
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "--python",
+            str(venv_python),
+            "install",
+            "--quiet",
+            "--no-deps",
+            "--no-index",
+            str(wheel),
+        ],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -62,6 +91,20 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
         check=False,
     )
     assert install.returncode == 0, install.stderr
+
+    # The installed wheel is what the new environment imports, not this checkout.
+    where = subprocess.run(
+        [str(venv_python), "-c", "import ract; print(ract.__file__)"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    assert where.returncode == 0, where.stderr
+    assert Path(where.stdout.strip()).resolve().is_relative_to(venv_dir.resolve()), (
+        where.stdout
+    )
 
     # Verify both entry points report the expected version.
     for entry_point in ("ract", "ract"):
