@@ -77,6 +77,8 @@ class PlainRenderer:
         self._write = write
         self._show_reasoning = show_reasoning
         self._width = width
+        # Hunks kept per path in this turn's review, for the apply line (L-298).
+        self._kept_hunks: dict[str, int] = {}
         # Opt-in: the REPL wraps to the terminal; headless output is unchanged (B-041c).
         self._wrap = wrap
         # The project folder the turn changed: the diff block reads its files
@@ -418,22 +420,47 @@ class PlainRenderer:
             self._line(f"    hint: {d['hint']}")
 
     def _on_diff_proposed(self, d: dict[str, Any]) -> None:
-        # One line: the review question that follows draws each hunk (B-110),
-        # so drawing them here showed every hunk twice.
-        n = len(d.get("hunks", []))
-        self._line(
-            f"--- {safe_text(str(d.get('path')))} (proposed, {d.get('tier', 'T1')}): "
-            f"{n} hunk{'s' if n != 1 else ''}"
-        )
+        # One line (MASON's header, L-298 item 1): the review question that
+        # follows draws each hunk (B-110), so drawing them here showed them twice.
+        from ract.ui.workspace_screens import proposed_header_lines
+
+        hunks = d.get("hunks", []) or []
+        for line in proposed_header_lines(
+            str(d.get("path")),
+            len(hunks),
+            sum(int(h.get("added") or 0) for h in hunks),
+            sum(int(h.get("removed") or 0) for h in hunks),
+            str(d.get("tier", "T1")),
+            self._width,
+        ):
+            self._line(line)
 
     def _on_diff_reviewed(self, d: dict[str, Any]) -> None:
+        # Kept for the apply line: a hunk taken as it is or edited went in.
+        if d.get("decision") is not False:
+            path = str(d.get("path"))
+            self._kept_hunks[path] = self._kept_hunks.get(path, 0) + 1
         self._line(f"    {d.get('path')} hunk {d.get('hunk')}: {d.get('decision')}")
 
     def _on_change_applied(self, d: dict[str, Any]) -> None:
-        paths = ", ".join(d.get("paths", [])) or "nothing"
-        self._line(f"  applied: {paths}  (checkpoint {d.get('checkpoint')})")
-        for skipped in d.get("skipped", []):
-            self._line(f"  left alone: {skipped.get('path')} ({skipped.get('reason')})")
+        # MASON's apply-result view (L-298 item 2), then the checkpoint.
+        from ract.ui.workspace_screens import ApplyResult, apply_result_lines
+
+        paths = [str(p) for p in d.get("paths", [])]
+        skipped = [str(s.get("path")) for s in d.get("skipped", [])]
+        patch = str(d.get("patch") or "")
+        result = ApplyResult(
+            applied_hunks=sum(self._kept_hunks.pop(p, 0) for p in paths),
+            applied_files=len(paths),
+            skipped=tuple(skipped),
+            pending={p: patch for p in skipped} if patch else {},
+        )
+        for line in apply_result_lines(result, self._width):
+            self._line(line)
+        for item in d.get("skipped", []):
+            self._line(f"    why: {safe_text(str(item.get('reason')))}")
+        if d.get("checkpoint"):
+            self._line(f"  checkpoint {d.get('checkpoint')}")
 
     def _on_approval_requested(self, d: dict[str, Any]) -> None:
         self._line(f"? approval needed [{d.get('tier')}]: {d.get('action')}")

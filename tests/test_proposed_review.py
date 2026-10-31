@@ -265,7 +265,9 @@ def test_the_proposed_event_renders_one_line(tmp_path: Path) -> None:
     )
     text = "".join(out)
     lines = text.strip().splitlines()
-    assert len(lines) == 1 and lines[0].endswith("calc.py (proposed, T1): 2 hunks")
+    # MASON's header (L-298 item 1): the path, the tier, the hunks and the line counts.
+    assert len(lines) == 1 and lines[0].startswith("proposed ")
+    assert "calc.py (T1): 2 hunks, +" in lines[0]
     assert "\x1b" not in text  # the path's escape sequence never reaches the screen
 
 

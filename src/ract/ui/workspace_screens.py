@@ -110,6 +110,19 @@ def diff_proposed_lines(
     return out
 
 
+def proposed_header_lines(
+    path: str, hunks: int, added: int, removed: int, tier: str, width: int
+) -> list[str]:
+    """The one line ``diff.proposed`` draws per file; the review question draws the hunks."""
+    noun = "hunk" if hunks == 1 else "hunks"
+    return _fold(
+        f"proposed {safe_text(path)} ({safe_text(tier)}): {hunks} {noun}, "
+        f"+{added} -{removed}",
+        width,
+        indent="  ",
+    )
+
+
 def apply_result_lines(result: ApplyResult, width: int) -> list[str]:
     """What the apply did: how many hunks went in, and each skipped file with its saved patch."""
     noun = "hunk" if result.applied_hunks == 1 else "hunks"

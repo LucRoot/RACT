@@ -627,6 +627,8 @@ def _run_via_substrate_steps(
                     "skipped": [
                         {"path": p, "reason": why} for p, why in outcome.skipped.items()
                     ],
+                    # L-298 item 2: where the skipped paths' changes were saved.
+                    "patch": outcome.patch_path,
                 },
             )
         turn_context.record_written(harness.project_dir, outcome.applied)
