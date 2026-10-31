@@ -285,6 +285,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract setup --reconfigure` and `--add-provider` show a diff that masks a literal key already in
+  ract.yaml and keeps `${VAR}` references (B-202). MCP connection errors, a server's own error
+  output and `ract mcp call` results are redacted before they are shown.
 - A broken `ract.yaml` is reported by line and column only (B-202): the YAML error text quoted
   the broken line, so a key written on it was printed by `ract doctor`, `ract run`, a session,
   headless runs, the preflight check and setup's answers file.
