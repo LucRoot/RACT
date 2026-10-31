@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,10 @@ _MAX_FILE_BYTES = 256 * 1024
 # G-226 note 3: at most this much text is read in all; past it a file is
 # recorded by its hash only, as a large file is.
 _MAX_TOTAL_BYTES = 32 * 1024 * 1024
+# B-148: and for at most this long. A 50,000-file repository took 17.6 s here
+# (the first read of freshly written files); past the deadline the snapshot
+# keeps what it read, as it does at the file cap, and the turn says so.
+_DEADLINE_S = 5.0
 
 
 def _tracked_text(project: Path) -> dict[str, str]:
@@ -64,9 +69,13 @@ def _tracked_text(project: Path) -> dict[str, str]:
         return {}
     files: dict[str, str] = {}
     total = 0
+    deadline = time.monotonic() + _DEADLINE_S
     for raw in done.stdout.split(b"\0")[:_MAX_FILES]:
         if not raw:
             continue
+        if time.monotonic() > deadline:
+            _snapshot_cut(len(files))
+            break
         rel = raw.decode("utf-8", errors="replace")
         if rel.startswith(".ract/"):
             continue
@@ -88,6 +97,18 @@ def _tracked_text(project: Path) -> dict[str, str]:
         total += len(data)
         files[rel] = data.decode("utf-8", errors="replace")
     return files
+
+
+def _snapshot_cut(read: int) -> None:
+    from ract import turn_context
+
+    text = (
+        f"the signed workspace snapshot holds the first {read} tracked files: reading "
+        f"more took over {_DEADLINE_S:g} s"
+    )
+    print(f"[provenance] {text}", flush=True)
+    if turn_context.has_reporter():
+        turn_context.report("notice", {"level": "info", "text": text})
 
 
 def run_seed(run_id: str) -> bytes:

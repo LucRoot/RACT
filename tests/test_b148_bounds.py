@@ -63,3 +63,15 @@ def test_an_unknown_record_makes_a_command_ask(tmp_path: Path, monkeypatch) -> N
     monkeypatch.setattr(allowlist, "MAX_ENTRY_POINTS", 1)
     changes = allowlist.changed_entry_points(_repo(tmp_path), "0" * 64, set())
     assert [(c.path, c.reason) for c in changes] == [(".", allowlist.UNKNOWN)]
+
+
+def test_the_signing_snapshot_stops_at_its_deadline_and_says_so(
+    tmp_path: Path, monkeypatch, notices
+) -> None:
+    from ract import provenance_wiring
+
+    root = _repo(tmp_path)
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    monkeypatch.setattr(provenance_wiring, "_DEADLINE_S", -1.0)
+    assert provenance_wiring._tracked_text(root) == {}
+    assert notices and "took over" in notices[0]["text"]
