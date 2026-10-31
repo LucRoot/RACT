@@ -24,7 +24,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from ract import egress_ledger, plan_gate, turn_context, turn_summary, undo_backup
+from ract import (
+    config_errors,
+    egress_ledger,
+    plan_gate,
+    turn_context,
+    turn_summary,
+    undo_backup,
+)
 from ract.executor.worktree import working_tree_status
 from ract.session_events import EventStream, Heartbeat, TextWriter, plan_event_data
 from ract.verification import VerificationRecord
@@ -184,7 +191,7 @@ _HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
         "nothing was written for that step; change the intent as the error says",
     ),
     (
-        re.compile(r"HTTP 401|HTTP 403|api key|unauthori", re.I),
+        re.compile(r"HTTP 401|HTTP 403|\bapi[_ ]key\b|unauthori", re.I),
         "check the API key variable named in ract.yaml for this provider",
     ),
     (
@@ -264,7 +271,9 @@ _EXIT_CODES: tuple[tuple[re.Pattern[str], int], ...] = (
         ),
         6,
     ),
-    (re.compile(r"Configuration file not found|HTTP 401|HTTP 403|api key", re.I), 2),
+    # B-194: the configuration problems, from the table the providers word
+    # them with (config_errors), so "api_key ..." is exit 2 as "api key" was.
+    *((pattern, 2) for pattern in config_errors.PATTERNS),
     (
         re.compile(r"\brefused\b|not written: path refused|Preflight validation", re.I),
         3,

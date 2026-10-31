@@ -16,6 +16,7 @@ from typing import Any
 import yaml
 from dataclasses import replace
 
+from ract import config_errors
 from ract.codebase_historian import CodebaseHistorian
 from ract.config_check import resolve_manager_provider
 from ract.contracts.whisperer import WhispererContract
@@ -95,7 +96,7 @@ def _load_config(path: Path) -> Rooted[dict[str, Any]]:
             assumption=f"Configuration file exists: {path}",
             confidence=0.0,
             provenance=["harness.load_config"],
-            error=f"Configuration file not found: {path}",
+            error=config_errors.config_not_found(path),
         )
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -105,7 +106,7 @@ def _load_config(path: Path) -> Rooted[dict[str, Any]]:
             assumption=f"Configuration file '{path}' contains valid YAML.",
             confidence=0.0,
             provenance=["harness.load_config"],
-            error=f"Failed to parse config: {exc}",
+            error=config_errors.config_unparsed(exc),
         )
     return Rooted(
         value=raw,
