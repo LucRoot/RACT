@@ -285,6 +285,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A refused turn reports the outcome `refused` with exit 3, as the loop does (B-196); the turn
+  said `failed`. A trusted headless run lists the extensions it loads in `session.started`, and
+  the documented extension kinds now include `command` and `network`.
 - A step whose provider could not be reached is shown as failed, as the turn is, and no longer
   as refused (B-196): a step is refused only when the turn exits 3 for its error.
 - An unset key variable (`api_key: ${VAR}`) and the other configuration problems now exit 2
