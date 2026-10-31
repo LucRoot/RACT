@@ -285,6 +285,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Two `--loop` runs that start at once no longer both write the run id (B-207): the run-marker
+  lock reports a lock it cannot take instead of going on without it.
 - The grant's signature and the handshake registry are written to a fresh temporary file,
   synced to disk, then renamed into place (B-207): a crash no longer leaves an empty or half
   written file, and two writers no longer share one fixed temporary name.
