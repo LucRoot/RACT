@@ -263,6 +263,9 @@ def explanations(runner: Runner) -> list[str]:
         "reaching your other files",
         "home: isolated: it gets an empty home folder, not yours",
         "max_mode: ask: every command still asks you before it runs",
+        # G-242 G1: true of every proposed kind, not only the test rule.
+        "the command runs the project's own code (its tests, build backend or "
+        "scripts), as written in the project when it runs",
         "deny [git, push]: never runs, whatever else allows it",
         f"expires in {DEFAULT_DAYS} days; `ract policy sign` renews it",
     ]

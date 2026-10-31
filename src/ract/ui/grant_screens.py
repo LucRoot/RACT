@@ -115,6 +115,12 @@ def field_explanation_lines(rule: ProposedRule, width: int) -> list[str]:
         if rule.home == "isolated"
         else f"home: {escape_controls(rule.home)}: the command sees this home folder"
     )
+    # G-242 G1: every kind runs the project's own code (tests, a build backend,
+    # a package.json script), not only the test rule. MASON words it.
+    lines.append(
+        "it runs the project's own code (its tests, build backend or scripts), "
+        "as written in the project when it runs"
+    )
     if not rule.sandbox_enforced:
         lines.append("it runs with your user's rights on this machine")
     out: list[str] = []
@@ -195,6 +201,13 @@ def permissions_lines(view: PermissionsView, width: int) -> list[str]:
         out += _fold("no rule is granted in this project", width, indent="  ")
     for rule in view.rules:
         out += _fold(f"rule {escape_controls(rule.rule_id)}: {_argv(rule.argv)}", width)
+    if view.rules:
+        # G-242 G1: said once for every rule kind.
+        out += _fold(
+            "each rule runs the project's own code (its tests, build backend or "
+            "scripts), as written in the project when it runs",
+            width,
+        )
     for pattern in view.deny:
         out += _fold(f"deny: {escape_controls(pattern)}", width)
     out += _fold(f"largest mode: {escape_controls(view.max_mode)}", width)
