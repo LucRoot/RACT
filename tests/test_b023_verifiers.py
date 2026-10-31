@@ -169,6 +169,12 @@ def _turn_with_a_lint_run(root: Path, monkeypatch, exit_code: int):
     from ract import turn_context
 
     _grant(root)
+    bin_dir = root.parent / "lint-bin"
+    bin_dir.mkdir(exist_ok=True)
+    ruff = bin_dir / ("ruff.exe" if os.name == "nt" else "ruff")
+    ruff.write_text("", encoding="utf-8")
+    ruff.chmod(ruff.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ.get("PATH", ""))
     original = turn_context.bind
 
     def bind(*a, **kw):

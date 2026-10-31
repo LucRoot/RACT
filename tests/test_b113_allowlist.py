@@ -52,7 +52,7 @@ def project(tmp_path: Path, monkeypatch) -> Path:
     exe = bin_dir / ("python.exe" if os.name == "nt" else "python")
     exe.write_text("", encoding="utf-8")
     exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
-    monkeypatch.setenv("PATH", str(bin_dir))
+    monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ.get("PATH", ""))
     return root
 
 

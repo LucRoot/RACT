@@ -78,14 +78,9 @@ def domain_allowed(host: str, domains: list[str]) -> bool:
 
 def _public(address: str) -> bool:
     ip = ipaddress.ip_address(address.split("%", 1)[0])
-    return not (
-        ip.is_loopback
-        or ip.is_private
-        or ip.is_link_local
-        or ip.is_reserved
-        or ip.is_multicast
-        or ip.is_unspecified
-    )
+    # Only globally routable unicast: CGNAT (100.64.0.0/10, where some cloud
+    # metadata lives), documentation and benchmark ranges are refused too.
+    return ip.is_global and not ip.is_multicast
 
 
 def check_target(url: str, domains: list[str]) -> str:
@@ -98,8 +93,12 @@ def check_target(url: str, domains: list[str]) -> str:
         raise ToolRefused(
             "the URL names no plain host", "give an https URL with a host"
         )
-    if parts.port not in (None, 443):
-        raise ToolRefused(f"port {parts.port} is refused", "web_fetch uses port 443")
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise ToolRefused("the URL's port is not a number", "use port 443") from exc
+    if port not in (None, 443):
+        raise ToolRefused(f"port {port} is refused", "web_fetch uses port 443")
     if not domain_allowed(host, domains):
         raise ToolRefused(
             f"{host} is not on the grant's allow_domains",
@@ -123,7 +122,8 @@ def check_target(url: str, domains: list[str]) -> str:
 class _Text(HTMLParser):
     """HTML reduced to text: scripts, styles and other active content dropped."""
 
-    _DROP = {"script", "style", "noscript", "iframe", "object", "embed", "template"}
+    # Elements with an end tag only: a void element (embed) would never close.
+    _DROP = {"script", "style", "noscript", "iframe", "object", "template"}
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)

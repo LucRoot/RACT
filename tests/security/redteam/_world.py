@@ -30,7 +30,7 @@ RULES = (
     "    - id: typecheck\n      argv: [mypy]\n"
     "    - id: format\n      argv: [ruff, format, --check]\n"
 )
-EXECUTABLES = ("python", "ruff", "mypy", "sh", "bash", "git")
+EXECUTABLES = ("python", "ruff", "mypy", "sh", "bash")
 
 
 @dataclass
@@ -88,7 +88,9 @@ def build(tmp_path: Path, monkeypatch) -> World:
         exe = bin_dir / (f"{name}.exe" if os.name == "nt" else name)
         exe.write_text("", encoding="utf-8")
         exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
-    monkeypatch.setenv("PATH", str(bin_dir))
+    # The placeholders first, then the real PATH: git must be the real one
+    # (the entry-point listing runs it); the commands themselves never run.
+    monkeypatch.setenv("PATH", str(bin_dir) + os.pathsep + os.environ.get("PATH", ""))
     key = generate(PASS)
     world = World(root, bin_dir, key)
     world.resign(days=30)

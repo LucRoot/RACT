@@ -213,7 +213,6 @@ def record_written(root: Path | str, paths: Iterable[Path | str]) -> None:
             written.append(rel)
 
 
-@contextmanager
 def record_run(kind: str, result: Any) -> None:
     """Keep a command the harness ran, for the turn's verifier (B-023)."""
     runs = _runs.get()
@@ -221,6 +220,7 @@ def record_run(kind: str, result: Any) -> None:
         runs.append((kind, result))
 
 
+@contextmanager
 def recording_suspended() -> Iterator[None]:
     """Do not record writes inside this block (a step's own worktree)."""
     token = _written.set(None)

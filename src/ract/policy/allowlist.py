@@ -167,13 +167,17 @@ def changed_entry_points(
     project: Path | str,
     grant_digest: str | None,
     model_written: set[str] | frozenset[str],
+    *,
+    record_project: Path | str | None = None,
 ) -> list[Change]:
     """The entry points that put a command back to the question, each with why."""
     changes = [
         Change(path, WRITTEN) for path in sorted(model_written) if is_entry_point(path)
     ]
     shown = {c.path for c in changes}
-    signed = _signed_digests(project, grant_digest)
+    # The record is kept per operator project; the files are read in *project*,
+    # the folder the command runs in (the step worktree, a copy of it).
+    signed = _signed_digests(record_project or project, grant_digest)
     now = entry_point_digests(project)
     if now is None:
         # Not knowing what would run is not a match: it asks.

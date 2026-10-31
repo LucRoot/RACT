@@ -437,7 +437,9 @@ class PlainRenderer:
 
     def _on_diff_reviewed(self, d: dict[str, Any]) -> None:
         # Kept for the apply line: a hunk taken as it is or edited went in.
-        if d.get("decision") is not False:
+        if d.get("decision") in ("accepted", "edited", True) or isinstance(
+            d.get("decision"), list
+        ):
             path = str(d.get("path"))
             self._kept_hunks[path] = self._kept_hunks.get(path, 0) + 1
         self._line(f"    {d.get('path')} hunk {d.get('hunk')}: {d.get('decision')}")

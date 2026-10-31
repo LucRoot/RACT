@@ -244,12 +244,15 @@ def run_under_rule(
     # B-113 (D4, D6, G-214): what may run without the question.
     from ract.policy import allowlist
 
+    # Read in the folder the command runs in (the step worktree): a file that
+    # differs only there decides what runs too.
     changes = allowlist.changed_entry_points(
-        ctx.project, ctx.grant.digest, ctx.model_written
+        root, ctx.grant.digest, ctx.model_written, record_project=ctx.project
     )
     sessions = ctx.session_approvals
     approved_by = ""
-    if match.outcome == "matches" and not changes:
+    # Only the rule this tool runs under may answer for it.
+    if match.outcome == "matches" and match.rule_id == rule.id and not changes:
         if ctx.mode == "allowlist":
             approved_by = "allow-rule"
         elif sessions is not None and sessions.covers(match.argv):
@@ -258,7 +261,10 @@ def run_under_rule(
         facts["entry_points"] = [(c.path, c.reason) for c in changes]
         # A session answer is offered only where an allow rule could answer.
         facts["session_choice"] = (
-            sessions is not None and match.outcome == "matches" and not changes
+            sessions is not None
+            and match.outcome == "matches"
+            and match.rule_id == rule.id
+            and not changes
         )
         answer = ctx.approve(facts)
         if not answer:
