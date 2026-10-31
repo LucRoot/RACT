@@ -248,7 +248,10 @@ class HandshakeRegistry:
             else:
                 raw["depends_on"] = list(raw["depends_on"])
             payload.append(raw)
-        self.registry_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        from ract.atomic_write import write_atomic
+
+        # B-207: the registry is replaced whole and synced, never left half written.
+        write_atomic(self.registry_path, json.dumps(payload, indent=2).encode("utf-8"))
 
     def entries(self) -> list[HandshakeItem]:
         """Return all handshake items."""
@@ -415,8 +418,6 @@ def _record_approval_mark(
     With *signer*, the mark also holds the operator's signature (R2),
     written atomically; a decision other than approve removes it.
     """
-    import os
-
     digest = _approval_digest(item) if item.status == "approved" else None
     registry._write_mark(item.id, "approved", digest)
     signed = registry._mark(item.id, "approved.sig")
@@ -424,10 +425,9 @@ def _record_approval_mark(
         signed.unlink(missing_ok=True)
         return
     record = sign_approval(item.id, digest, signer)
-    signed.parent.mkdir(parents=True, exist_ok=True)
-    temp = signed.with_name(signed.name + ".tmp")
-    temp.write_text(json.dumps(record), encoding="utf-8")
-    os.replace(temp, signed)
+    from ract.atomic_write import write_atomic
+
+    write_atomic(signed, json.dumps(record).encode("utf-8"))  # B-207
 
 
 APPROVAL_DAYS = 30

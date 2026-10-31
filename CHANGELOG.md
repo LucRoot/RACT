@@ -285,6 +285,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The grant's signature and the handshake registry are written to a fresh temporary file,
+  synced to disk, then renamed into place (B-207): a crash no longer leaves an empty or half
+  written file, and two writers no longer share one fixed temporary name.
 - A file write goes through a fresh temporary file with a random name (B-212): a hard link
   planted at the old fixed name `.NAME.ract-tmp` no longer sends the write outside the workspace.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
