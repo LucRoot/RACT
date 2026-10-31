@@ -66,6 +66,12 @@ def _session_store_for(config_path: Path) -> SessionStore:
     return SessionStore(config_path.parent / ".ract" / "sessions")
 
 
+# B-135: what a run says when the session's memory file was refused.
+MEMORY_NOT_READ = (
+    "the session's memory was not read ({reason}); this run starts with an empty memory"
+)
+
+
 def _memory_arena_for(config_path: Path, session_id: str | None) -> MemoryArena | None:
     """Return a MemoryArena for *session_id*, or None if no session is active."""
     if session_id is None:
@@ -78,11 +84,14 @@ def _memory_arena_for(config_path: Path, session_id: str | None) -> MemoryArena 
         # B-135: an arena file a repository planted (a link out of the project,
         # a file of the wrong shape) is refused, and the run goes on with an
         # empty arena instead of stopping on it.
-        print(
-            f"note: the session's memory was not read ({exc}); this run starts "
-            "with an empty memory",
-            file=sys.stderr,
-        )
+        text = MEMORY_NOT_READ.format(reason=exc)
+        print(f"note: {text}", file=sys.stderr)
+        # G-233: in the turn's notes too, so the summary and the headless
+        # result carry it.
+        from ract import turn_context
+
+        if turn_context.has_reporter():
+            turn_context.report("notice", {"level": "warning", "text": text})
         return MemoryArena()
 
 

@@ -194,7 +194,35 @@ def test_a_run_with_a_planted_arena_link_goes_on_with_an_empty_memory(
     _link_or_skip(project.joinpath(*ARENA_FILE), outside)
     arena = _memory_arena_for(project / "ract.yaml", "s1")
     assert arena is not None and OUTSIDE_SECRET not in arena.replay()
-    assert "memory was not read" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "the session's memory was not read" in err
+    assert "this run starts with an empty memory" in err
+
+
+def test_the_planted_arena_notice_reaches_the_turns_notes(tmp_path: Path) -> None:
+    """G-233: the notice is a turn event, not only a stderr line."""
+    import threading
+
+    from ract import turn_context
+    from ract.ract_runner import MEMORY_NOT_READ, _memory_arena_for
+
+    outside = tmp_path / "outside.json"
+    outside.write_bytes(_json([{"category": "note", "content": OUTSIDE_SECRET}]))
+    project = tmp_path / "project"
+    _link_or_skip(project.joinpath(*ARENA_FILE), outside)
+
+    seen: list[tuple[str, dict]] = []
+
+    def reporter(kind, data):
+        seen.append((kind, data))
+
+    turn_context.bind(threading.Event(), reporter)
+    try:
+        _memory_arena_for(project / "ract.yaml", "s1")
+    finally:
+        turn_context.bind(None)
+    notices = [d["text"] for k, d in seen if k == "notice"]
+    assert notices and notices[0].startswith(MEMORY_NOT_READ.split("(")[0])
 
 
 # ----------------------------------------------------------- reasoning.configured_default
