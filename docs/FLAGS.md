@@ -41,7 +41,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--egress` | `ract doctor` | Show what left this machine in the last 7 days (the egress ledger) and the sites exempt from the secret scan. |
 | `--env` | `ract doctor` | List the RACT_* environment variables: names, classes and whether each is set. Values are never shown. |
 | `--evidence` | `ract policy-gate` | Evidence JSON file. |
-| `--fail-on-denial` | `ract -p` | exit 3 at the first denied action (nothing asks for approval yet) |
+| `--fail-on-denial` | `ract -p` | exit 3 at the first action nobody could approve (a tier-2 change or a tier-3 command); the run stops there |
 | `--fast` | `ract novelty` | Run a faster dictionary-only novelty scan. |
 | `--file` | `ract fence` | File to inspect. |
 | `--files` | `ract merge-gate` | Changed file paths to match policy triggers. |

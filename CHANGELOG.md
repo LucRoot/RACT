@@ -285,6 +285,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- In a headless run, an approval nobody can answer (a tier-2 change, a tier-3 command or fetch)
+  is now emitted as `approval.requested` and `approval.resolved` (`by: unattended`) and listed
+  in the result's `denials` (B-193). `--fail-on-denial` stops the run at the first one and
+  exits 3; it was parsed and never read.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.

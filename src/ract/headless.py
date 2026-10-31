@@ -39,6 +39,7 @@ from ract.session_events import EventStream, JsonlSink, SessionEvent, safe_text
 from ract.session_render import PlainRenderer
 
 RESULT_SCHEMA = "ract.result/1"
+EXIT_REFUSED = 3
 EXIT_INTERRUPTED = 5
 EXIT_TERMINATED = 143
 _INTERRUPT_GRACE_SECONDS = 0.3
@@ -114,6 +115,27 @@ def error_object(
         "hint": _cut(hint),
         "exit_code": exit_code,
     }
+
+
+def denials(events: list[SessionEvent]) -> list[dict[str, str]]:
+    """The approvals this run resolved as denied because nobody could answer (B-193)."""
+    asked = {
+        e.data.get("id"): e.data for e in events if e.kind == "approval.requested"
+    }
+    out: list[dict[str, str]] = []
+    for event in events:
+        data = event.data
+        if event.kind != "approval.resolved" or data.get("choice") != "denied":
+            continue
+        request = asked.get(data.get("id"), {})
+        out.append(
+            {
+                "rule": str(request.get("rule", "")),
+                "action": str(request.get("action", "")),
+                "tier": str(request.get("tier", "")),
+            }
+        )
+    return out
 
 
 def _error_from_events(
@@ -212,7 +234,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--fail-on-denial",
         action="store_true",
-        help="exit 3 at the first denied action (nothing asks for approval yet)",
+        help="exit 3 at the first action nobody could approve (tier 2 or tier 3)",
     )
     parser.add_argument("--allowed-tools", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--json-schema", default=None, help=argparse.SUPPRESS)
@@ -473,7 +495,8 @@ def result_object(
         # provider reported none.
         "cost": cost
         or {"tokens_in": None, "tokens_out": None, "by_purpose": {}, "total_usd": None},
-        "denials": [],
+        # B-193: every approval nobody could answer, as {rule, action, tier}.
+        "denials": denials(events),
         # Notices are progress on stderr; a CI log reading only stdout sees
         # them here (for example a question answered instead of written).
         "notices": [str(e.data.get("text", "")) for e in events if e.kind == "notice"],
@@ -586,6 +609,21 @@ def _run(
     terminated = threading.Event()
     done = threading.Event()
     box: dict[str, int] = {}
+    # B-193: --fail-on-denial ends the run at the first approval nobody
+    # could answer, and the run exits 3.
+    first_denial: list[SessionEvent] = []
+
+    def on_denial(event: SessionEvent) -> None:
+        if (
+            event.kind == "approval.resolved"
+            and event.data.get("choice") == "denied"
+            and not first_denial
+        ):
+            first_denial.append(event)
+            cancel.set()
+
+    if args.fail_on_denial:
+        stream.subscribe(on_denial)
     request = TurnRequest(
         config=Path(args.config),
         intent=prompt,
@@ -689,6 +727,32 @@ def _run(
             out,
             EXIT_TERMINATED,
             "terminated",
+            started,
+            ledger_start=ledger_start,
+        )
+    if first_denial:
+        action = next(
+            (
+                d["action"]
+                for d in denials(events)
+                if d["action"]
+            ),
+            "an action",
+        )
+        stream.error(
+            f"stopped at the first denied action (--fail-on-denial): {action}",
+            hint="run it in a session at a terminal to answer the approval, "
+            "or leave out --fail-on-denial",
+            workspace="nothing more was written after the denial",
+        )
+        return _finish(
+            stream,
+            events,
+            args,
+            session,
+            out,
+            EXIT_REFUSED,
+            "exit",
             started,
             ledger_start=ledger_start,
         )

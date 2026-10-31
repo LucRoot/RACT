@@ -486,6 +486,15 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
 
     _no_secret(args.url)
     if ctx.approve is None:
+        from ract import turn_context
+
+        # B-193: the approval nobody can answer is recorded as denied.
+        turn_context.record_denial(
+            "T3",
+            f"web_fetch {args.url}",
+            rule=str(getattr(rule, "id", "") or ""),
+            reason=str(getattr(args, "reason", "") or ""),
+        )
         raise ToolRefused(
             "tier 3 asks you before a fetch, and nobody can answer here",
             "run it in a session at a terminal; headless runs and --yolo never fetch",
