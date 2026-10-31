@@ -120,7 +120,7 @@ def test_presets_without_a_key_say_no_key_needed(tmp_path: Path) -> None:
     names = sorted(wizard._ENV_VARS)
     keyless = [n for n in names if not wizard._ENV_VARS[n]]
     assert {"llamacpp", "lmstudio", "ollama", "vllm"} <= set(keyless)
-    io, said, _ = _io(["c", str(names.index("ollama") + 1)], [SERVER])
+    io, said, _ = _io(["", "c", str(names.index("ollama") + 1)], [SERVER])
     io.detect = lambda extra: []
 
     assert wizard.run(tmp_path, interactive=True, io=io) == 0
@@ -139,7 +139,7 @@ def test_a_picked_preset_shows_its_address_and_variable(tmp_path: Path) -> None:
     _git_init(tmp_path)
     names = sorted(wizard._ENV_VARS)
     io, said, asked = _io(
-        ["c", str(names.index("openrouter") + 1)],
+        ["", "c", str(names.index("openrouter") + 1)],
         [],
         environ={"OPENROUTER_API_KEY": SECRET},
     )

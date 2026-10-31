@@ -63,7 +63,7 @@ def test_setup_writes_the_override_and_never_the_key(
     _git_init(tmp_path)
     names = sorted(wizard._ENV_VARS)
     io, said, asked = _io(
-        ["c", str(names.index("openrouter") + 1)],
+        ["", "c", str(names.index("openrouter") + 1)],
         [SERVER],
         environ={"OPENROUTER_API_KEY": THROWAWAY},
     )

@@ -24,7 +24,7 @@ def test_a_cloud_provider_is_added_beside_the_local_one(tmp_path: Path) -> None:
     _first_setup(tmp_path)
     names = sorted(wizard._ENV_VARS)
     io, said, asked = _io(
-        ["c", str(names.index("openrouter") + 1), "y"],
+        ["", "c", str(names.index("openrouter") + 1), "y"],
         [],
         environ={"OPENROUTER_API_KEY": SECRET},
     )
