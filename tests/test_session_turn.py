@@ -93,9 +93,11 @@ def test_successful_turn_streams_and_reports_what_changed(
     finished = events[-1].data
     assert finished["outcome"] == "done"
     assert finished["changed"] == ["src/calc.py"]
-    assert any(
+    # S-015b: the harness signs what it writes, so no "no signature yet" notice.
+    assert not any(
         e.kind == "notice" and "have no signature yet" in e.data["text"] for e in events
     )
+    assert finished["provenance"]["signed"] is True
     assert [e.seq for e in events] == sorted(e.seq for e in events)
 
 

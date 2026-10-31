@@ -510,7 +510,16 @@ def run_turn(
     # cross-check, reported when it disagrees (G-026).
     before_thread.join()
     observed = _changed(before_box.get("state"), working_tree_status(project))
-    changed: list[str] | None = sorted(_on_disk_name(project, name) for name in written)
+    # S-015b: a Rootknot sidecar (.name.rootknot.json) is RACT's record of a
+    # file, not a file the turn changed for the user.
+    changed: list[str] | None = sorted(
+        _on_disk_name(project, name)
+        for name in written
+        if not (
+            Path(name).name.startswith(".")
+            and Path(name).name.endswith(".rootknot.json")
+        )
+    )
     if observed is None and not written:
         changed = None  # not a git repository and nothing written: unknown
     duration = int((time.monotonic() - started) * 1000)

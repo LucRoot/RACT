@@ -788,16 +788,26 @@ class Executor:
             )
             from ract.runtime import get_current_run_id
 
-            artifact_digest = digest_bytes(content.encode("utf-8"))
+            # S-015b: the knot attests the bytes on disk (write_text turns a newline
+            # into the platform's line ending), which ract provenance verify reads.
+            artifact_digest = digest_bytes(
+                full_path.read_bytes()
+                if full_path.is_file()
+                else content.encode("utf-8")
+            )
             # The assumption digest is opaque at the write layer; use a stable
             # placeholder derived from the path so the rootknot is well-formed.
             # The plan/assumption binding is enriched upstream by the loop.
             assumption_digest = digest_bytes(
-                str(full_path.relative_to(self.project_dir)).encode("utf-8")
+                str(
+                    Path(full_path)
+                    .resolve()
+                    .relative_to(Path(self.project_dir).resolve())
+                ).encode("utf-8")
             )
-            workspace_path = str(full_path.relative_to(self.project_dir)).replace(
-                "\\", "/"
-            )
+            workspace_path = str(
+                Path(full_path).resolve().relative_to(Path(self.project_dir).resolve())
+            ).replace("\\", "/")
             # v4 field materialisation.
             ws_snapshot = self.workspace_snapshot_provider()
             ws_digest = _workspace_digest(ws_snapshot)
