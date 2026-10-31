@@ -25,3 +25,14 @@ presets before it can run on fake servers (a proposed card, B-160d).
    at 60 columns needs a wrapped capture, which this walk did not make.
 4. The `Run git init here now? [y/N]` question is asked after the config is written, so a user who says `n`
    is still told the config works. Read as intended; no change asked.
+
+## Second round (wrong key and unreachable address), 80 columns, fake servers, throwaway HOME
+
+- `wrong_key_doctor_80.txt`: `ract doctor --check-providers` with `ract.yaml` naming a fake server (a 401 that echoes the key it was sent, masked by RACT as `********`), the key in `ZZ_WALK_KEY` (throwaway value), and `RACT_KEY_HOSTS` pairing that variable with the fake server's host and port. The key value appears in no record. The 401 text reads `chat: failed (HTTP 401: ...)`, and the advice line says the key and host pair and the tiny request failed.
+- A first attempt had no `RACT_KEY_HOSTS` pairing; RACT then refused to send the key to the unpaired address and printed `the key in ZZ_WALK_KEY is not paired with 127.0.0.1:<port>, so RACT does not send it there`. That is a designed refusal and it is recorded in the run log, not here.
+- `unreachable_setup_80.txt`: `ract setup` with `RACT_BASE_URL` naming a closed port. The flow says `nothing answered`, asks `L/c`, asks memory and model questions for a local model, writes `ract.yaml` for Ollama's default address (11434) after the user presses Enter with nothing answering, then the check reports `connection refused` and the hint `start your model server, or fix the provider url in ract.yaml`.
+
+Findings for the BUILDER (wording, not claims about the product beyond the transcripts):
+1. Setup writes a config for an address nothing answered, before the health check, and the check then fails. The B-160a address prompt would have let the user type the address they run. This is the same gap as B-160a.
+2. The memory and model sizing questions appear for a user who chose a local model with no server running; the sizing text is long at 80 columns. A walk at 60 columns is still not wrapped (see the README's first round).
+3. The wrong-key text is reached only when the key is paired with the host (`RACT_KEY_HOSTS`). Setup does not say that pairing is needed. The health check in setup never takes a key, so the wrong-key text cannot appear in the setup flow itself; it appears in `ract doctor --check-providers`.
