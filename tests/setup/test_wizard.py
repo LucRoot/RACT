@@ -114,6 +114,44 @@ def test_a_server_found_after_guidance_keeps_its_own_model(tmp_path: Path) -> No
     assert config["providers"]["local"]["model"] == "coder-7b"
 
 
+def test_presets_without_a_key_say_no_key_needed(tmp_path: Path) -> None:
+    # B-160e: the local presets printed "(key in )" with nothing after "in".
+    _git_init(tmp_path)
+    names = sorted(wizard._ENV_VARS)
+    keyless = [n for n in names if not wizard._ENV_VARS[n]]
+    assert {"llamacpp", "lmstudio", "ollama", "vllm"} <= set(keyless)
+    io, said, _ = _io(["c", str(names.index("ollama") + 1)], [SERVER])
+    io.detect = lambda extra: []
+
+    assert wizard.run(tmp_path, interactive=True, io=io) == 0
+
+    text = "\n".join(said)
+    assert "(key in )" not in text and "${}" not in text
+    for name in keyless:
+        assert f") {name}  (no key needed)" in text
+    for name in set(names) - set(keyless):
+        assert f") {name}  (key in {wizard._ENV_VARS[name]})" in text
+    assert "  key variable: none (no key needed)" in text
+
+
+def test_a_picked_preset_shows_its_address_and_variable(tmp_path: Path) -> None:
+    # B-160b: one line each; the key's value is never shown.
+    _git_init(tmp_path)
+    names = sorted(wizard._ENV_VARS)
+    io, said, asked = _io(
+        ["c", str(names.index("openrouter") + 1)],
+        [],
+        environ={"OPENROUTER_API_KEY": SECRET},
+    )
+
+    assert wizard.run(tmp_path, interactive=True, io=io) == 0
+
+    url = wizard.get_preset("openrouter")["providers"]["openrouter"]["url"]
+    assert f"  address: {url}" in said
+    assert "  key variable: OPENROUTER_API_KEY" in said
+    assert SECRET not in "\n".join(said + asked)
+
+
 def test_cloud_names_the_variable_and_never_the_value(tmp_path: Path) -> None:
     # D: no secret value in any output, config or prompt.
     _git_init(tmp_path)

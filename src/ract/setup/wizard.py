@@ -354,18 +354,30 @@ def _local_guidance(io: Io, profile: host_probe.HostProfile, answers: Answers) -
         answers.local_model = advice.tier.ollama
 
 
+def _key_note(name: str) -> str:
+    """``(key in VAR)``, or ``(no key needed)`` for a preset that reads no key (B-160e)."""
+    variable = _ENV_VARS[name]
+    return f"(key in {variable})" if variable else "(no key needed)"
+
+
 def _cloud(io: Io, answers: Answers, interactive: bool) -> None:
     names = sorted(_ENV_VARS)
     if interactive:
         listing = "\n".join(
-            f"  {n}) {name}  (key in {_ENV_VARS[name]})"
-            for n, name in enumerate(names, 1)
+            f"  {n}) {name}  {_key_note(name)}" for n, name in enumerate(names, 1)
         )
         io.say(f"Cloud providers:\n{listing}")
         pick = io.ask("Which one? [1] ").strip() or "1"
         if pick.isdigit() and 1 <= int(pick) <= len(names):
             answers.cloud_preset = names[int(pick) - 1]
     variable = _ENV_VARS[answers.cloud_preset]
+    # B-160b: the address the preset uses and the variable it reads, one line each.
+    spec = get_preset(answers.cloud_preset)["providers"][answers.cloud_preset]
+    io.say(f"  address: {spec.get('url', '')}")
+    if not variable:
+        io.say("  key variable: none (no key needed)")
+        return
+    io.say(f"  key variable: {variable}")
     # Presence only: the value is never read here.
     if variable in io.environ:
         io.say(f"  {variable} is set; ract.yaml will refer to it as ${{{variable}}}.")
