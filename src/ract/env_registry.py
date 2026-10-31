@@ -82,7 +82,8 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "unset (each preset uses its provider's address)",
         "ract.provider_presets.get_preset: preset=url[,preset=url] replaces a preset's address "
         "in what setup writes; for tests and walks only; never pairs a key with a host "
-        "(only RACT_KEY_HOSTS does); ract doctor --env shows it (B-160d)",
+        "(only RACT_KEY_HOSTS does); a malformed value refuses setup (G-265); ract doctor --env "
+        "shows it (B-160d)",
         "docs/PROVIDER_SETUP.md",
     ),
     EnvVar(

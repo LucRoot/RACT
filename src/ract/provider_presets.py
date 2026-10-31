@@ -181,15 +181,49 @@ def get_preset(name: str) -> dict[str, Any]:
     return preset
 
 
-def preset_url_override(name: str) -> str | None:
-    """The address ``RACT_PRESET_BASE_URL`` gives preset *name*, or None."""
-    import os
+class PresetOverrideError(ValueError):
+    """``RACT_PRESET_BASE_URL`` is set but not ``preset=url[,preset=url]`` (G-265)."""
 
-    for pair in os.environ.get("RACT_PRESET_BASE_URL", "").split(","):
-        preset, _, url = pair.strip().partition("=")
-        if preset == name and url.strip().startswith(("http://", "https://")):
-            return url.strip().rstrip("/")
-    return None
+
+def preset_url_overrides() -> dict[str, str]:
+    """Every preset address ``RACT_PRESET_BASE_URL`` sets; empty when it is unset.
+
+    LR:: It fails tight, as RACT_NO_NETWORK does: a value that is not
+    ``preset=url[,preset=url]`` with an http or https address, that names an
+    unknown preset, or that carries credentials raises. Ignoring it sent a
+    walk aimed at a fake server to the real provider's address (G-265). The
+    value is not echoed, since an address can hold a secret.
+    """
+    import os
+    from urllib.parse import urlsplit
+
+    raw = os.environ.get("RACT_PRESET_BASE_URL", "")
+    if not raw.strip():
+        return {}
+    form = (
+        "RACT_PRESET_BASE_URL must be preset=url[,preset=url] with an http or https "
+        f"address and a known preset ({', '.join(list_presets())}); "
+    )
+    found: dict[str, str] = {}
+    for pair in raw.split(","):
+        name, sep, url = pair.strip().partition("=")
+        name, url = name.strip(), url.strip()
+        if not sep or not name or not url:
+            raise PresetOverrideError(form + "a pair is not preset=url")
+        if name not in PRESETS:
+            raise PresetOverrideError(form + "it names a preset that does not exist")
+        parts = urlsplit(url)
+        if parts.scheme not in ("http", "https") or not parts.hostname:
+            raise PresetOverrideError(form + "an address is not http(s)://host")
+        if parts.username is not None or parts.password is not None:
+            raise PresetOverrideError(form + "an address holds a user name or password")
+        found[name] = url.rstrip("/")
+    return found
+
+
+def preset_url_override(name: str) -> str | None:
+    """The address ``RACT_PRESET_BASE_URL`` gives preset *name*, or None (raises if malformed)."""
+    return preset_url_overrides().get(name)
 
 
 # RACT 0.1.1 - Trust and tooling

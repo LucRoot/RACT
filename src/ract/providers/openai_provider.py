@@ -127,6 +127,9 @@ def _host(url: str) -> str:
     return urlsplit(url).netloc.lower()
 
 
+_body = redaction.body  # B-165: one helper for every printer of a response body
+
+
 def _aborter(client: httpx.Client):  # type: ignore[no-untyped-def]
     """The cancel abort for a request on ``client``: end its blocked read now.
 
@@ -550,7 +553,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
                     assumption="The OpenAI-compatible endpoint accepts the request and returns valid JSON.",
                     confidence=0.0,
                     provenance=["openai.complete"],
-                    error=f"HTTP {status}{where}: {last_error.response.text[:200]}{too_long}",
+                    error=f"HTTP {status}{where}: {_body(last_error.response.text)}{too_long}",
                 )
             if isinstance(last_error, httpx.RequestError):
                 return Rooted(
@@ -565,7 +568,8 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 assumption="The provider completed without an unhandled exception.",
                 confidence=0.0,
                 provenance=["openai.complete"],
-                error=f"Unexpected error after {self.max_retries} attempts: {last_error}",
+                error=f"Unexpected error after {self.max_retries} attempts: "
+                f"{redaction.redact(str(last_error))}",
             )
 
         assert data is not None
@@ -606,7 +610,15 @@ class OpenAICompatibleProvider(ProviderAdapter):
         if turn_context.has_reporter():
             turn_context.report("notice", {"level": "warning", "text": text})
         else:
-            print(f"note: {text}", file=sys.stderr, flush=True)
+            # B-164: wrapped to the terminal (outside a session, for example the
+            # setup health check); a session's renderer wraps the notice itself.
+            from ract.cell_wrap import wrap_cells
+            from ract.tui import terminal_width
+
+            lines = wrap_cells(
+                f"note: {text}", terminal_width(), subsequent_indent="  "
+            )
+            print("\n".join(lines), file=sys.stderr, flush=True)
 
     def _stream_headers(self) -> dict[str, str]:
         """Return headers used for streaming chat-completions requests.
@@ -701,7 +713,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
                                 assumption="The provider returned a valid streaming chunk.",
                                 confidence=0.0,
                                 provenance=["openai.complete_stream"],
-                                error=f"Unexpected SSE line: {line[:200]}",
+                                error=f"Unexpected SSE line: {_body(line)}",
                             )
                 return
             except egress_ledger.NetworkRefused as refused:
@@ -746,7 +758,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 assumption="The OpenAI-compatible endpoint accepts the streaming request.",
                 confidence=0.0,
                 provenance=["openai.complete_stream"],
-                error=f"HTTP {exc.response.status_code}: {exc.response.text[:200]}",
+                error=f"HTTP {exc.response.status_code}: {_body(exc.response.text)}",
             )
         return Rooted(
             value=None,

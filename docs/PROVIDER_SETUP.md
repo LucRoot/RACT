@@ -346,7 +346,9 @@ The router scores providers by how well they match a step's hint. A provider nam
   preset's address in what `ract setup` writes, so a walk can point a hosted preset at a
   fake server. It never pairs a key with a host: a key still goes only to its preset's own
   host and the pairs in `RACT_KEY_HOSTS`, so with the override alone the key is withheld
-  from the overridden address. `ract doctor --env` shows when it is set.
+  from the overridden address. `ract doctor --env` shows when it is set. A value that is
+  not `preset=url` with an http or https address and a known preset refuses setup (exit 2)
+  and sends nothing, so a walk never falls through to the real provider.
 - RACT's safety guardrails block `eval()`, `exec()`, `subprocess...shell=True`, and bare `except:` in generated content.
 
 <!-- RACT 0.1.1 - Trust and tooling -->

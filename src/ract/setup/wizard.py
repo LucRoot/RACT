@@ -27,9 +27,15 @@ from typing import Any
 
 import yaml
 
-from ract import egress_scan
+from ract import egress_scan, redaction
 from ract.console_interrupt import read_line
-from ract.provider_presets import get_preset, list_presets
+from ract.provider_presets import (
+    PRESETS,
+    PresetOverrideError,
+    get_preset,
+    list_presets,
+    preset_url_overrides,
+)
 from ract.setup import host_probe, local_probe, tiers
 from ract.tui import terminal_width
 
@@ -56,7 +62,8 @@ reconfigure: false       # write ract.yaml.draft next to an existing ract.yaml
 """
 
 _ENV_VARS = {
-    name: str(get_preset(name)["providers"][name].get("api_key", ""))[2:-1]
+    # PRESETS itself: this runs at import, before a malformed override can be refused.
+    name: str(PRESETS[name]["providers"][name].get("api_key", ""))[2:-1]
     for name in list_presets()
     if name != "local"
 }
@@ -525,6 +532,7 @@ def _wrapping(io: Io) -> Io:
     from dataclasses import replace
 
     raw = io.say
+    raw_ask = io.ask
 
     def say(line: object) -> object:
         width = io.width()
@@ -532,7 +540,18 @@ def _wrapping(io: Io) -> Io:
             raw(part)
         return None
 
-    wrapped = replace(io, say=say)
+    def ask(prompt: str) -> str:
+        # B-164: a question wraps too; its last line stays the prompt, with the
+        # space it ended with, and the lines before it are printed first.
+        parts = wrap_line(prompt, io.width())
+        for part in parts[:-1]:
+            raw(part)
+        last = parts[-1] if parts else ""
+        if prompt.endswith(" ") and not last.endswith(" "):
+            last += " "
+        return raw_ask(last)
+
+    wrapped = replace(io, say=say, ask=ask)
     object.__setattr__(wrapped, "say_raw", raw)
     return wrapped
 
@@ -552,6 +571,12 @@ def run(
     """Run setup in ``directory``. Returns the process exit code."""
     io = _wrapping(io or Io())
     answers = answers or Answers()
+    try:
+        # G-265: refused before any probe or request.
+        preset_url_overrides()
+    except PresetOverrideError as exc:
+        io.say(f"error: {exc}. Nothing was sent and nothing was written.")
+        return EXIT_USAGE
     try:
         return _run(directory, answers, interactive, io, opens_session)
     except KeyboardInterrupt:
@@ -618,8 +643,9 @@ def _run(
         else:
             from ract.session_turn import hint_for
 
-            io.say(f"  failed: {health.detail}")
-            io.say(f"  hint: {hint_for(health.detail)}")
+            detail = redaction.redact(health.detail)  # B-165: a server may echo the key
+            io.say(f"  failed: {detail}")
+            io.say(f"  hint: {hint_for(detail)}")
             code = EXIT_PROVIDER
 
     if not _is_git_repository(directory):
@@ -763,8 +789,9 @@ def _add_provider(directory: Path, answers: Answers, interactive: bool, io: Io) 
         return EXIT_OK
     from ract.session_turn import hint_for
 
-    io.say(f"  failed: {health.detail}")
-    io.say(f"  hint: {hint_for(health.detail)}")
+    detail = redaction.redact(health.detail)  # B-165: a server may echo the key
+    io.say(f"  failed: {detail}")
+    io.say(f"  hint: {hint_for(detail)}")
     return EXIT_PROVIDER
 
 
