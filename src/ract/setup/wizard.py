@@ -532,6 +532,7 @@ def _wrapping(io: Io) -> Io:
     from dataclasses import replace
 
     raw = io.say
+    raw_ask = io.ask
 
     def say(line: object) -> object:
         width = io.width()
@@ -539,7 +540,18 @@ def _wrapping(io: Io) -> Io:
             raw(part)
         return None
 
-    wrapped = replace(io, say=say)
+    def ask(prompt: str) -> str:
+        # B-164: a question wraps too; its last line stays the prompt, with the
+        # space it ended with, and the lines before it are printed first.
+        parts = wrap_line(prompt, io.width())
+        for part in parts[:-1]:
+            raw(part)
+        last = parts[-1] if parts else ""
+        if prompt.endswith(" ") and not last.endswith(" "):
+            last += " "
+        return raw_ask(last)
+
+    wrapped = replace(io, say=say, ask=ask)
     object.__setattr__(wrapped, "say_raw", raw)
     return wrapped
 
