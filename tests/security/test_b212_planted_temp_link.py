@@ -8,6 +8,7 @@ there. The temporary file is now made fresh with a random name.
 from __future__ import annotations
 
 import os
+import stat
 from pathlib import Path
 
 import pytest
@@ -54,3 +55,34 @@ def test_write_atomic_cleans_up_when_the_rename_fails(tmp_path: Path, monkeypatc
     with pytest.raises(OSError):
         write_atomic(tmp_path / "f.txt", b"x\n")
     assert list(tmp_path.iterdir()) == []
+
+
+posix_only = pytest.mark.skipif(os.name == "nt", reason="POSIX file modes (WSL run)")
+
+
+@posix_only
+def test_an_executable_script_keeps_its_mode(tmp_path: Path) -> None:
+    script = tmp_path / "run.sh"
+    script.write_bytes(b"#!/bin/sh\necho one\n")
+    script.chmod(0o755)
+    write_tool._replace(script, b"#!/bin/sh\necho two\n")
+    assert stat.S_IMODE(script.stat().st_mode) == 0o755
+
+
+@posix_only
+def test_a_plain_file_keeps_its_mode(tmp_path: Path) -> None:
+    path = tmp_path / "notes.txt"
+    path.write_bytes(b"one\n")
+    path.chmod(0o644)
+    write_atomic(path, b"two\n")
+    assert stat.S_IMODE(path.stat().st_mode) == 0o644
+
+
+@posix_only
+def test_a_new_file_gets_the_umask_default(tmp_path: Path) -> None:
+    old = os.umask(0o027)
+    try:
+        write_atomic(tmp_path / "new.txt", b"x\n")
+    finally:
+        os.umask(old)
+    assert stat.S_IMODE((tmp_path / "new.txt").stat().st_mode) == 0o640
