@@ -264,7 +264,7 @@ module_10, Lens A M8 closure).
 - `ract explain`: Explain a plan, step, or artifact with its provenance chain.
 - `ract consolidate`: Scan for consolidation candidates and propose merges.
 - `ract report`: Render run reports in markdown or HTML.
-- `ract trace`: Inspect a run's events.jsonl trace file.
+- `ract trace`: Inspect an events.jsonl trace file, if one exists. No run in this build writes one.
 - `ract quality`: Compute the plan quality scorecard.
 - `ract load-bearing`: Inspect or manage load-bearing annotations across the workspace.
 - `ract novelty`: Report novelty budget usage and scan for overruns.
@@ -332,7 +332,7 @@ Three reproducible tasks under `evals/tasks/` (reports in `evals/runs/`). See [`
 ract doctor                              # workspace health + dependencies
 ract provenance verify <file>             # check a file's Rootknot (RK-1 + RK-2 + RK-3 + AL-1)
 ract conformance run --provider fake     # run the per-provider conformance corpus
-ract trace replay evals/runs/<run_id>    # replay a hash-chained event log
+ract trace replay evals/runs/<run_id>    # replays a saved event log; no run in this build writes one
 pytest -q                                # full suite (includes tests/test_release_surface.py)
 ```
 
