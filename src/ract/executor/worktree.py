@@ -478,8 +478,9 @@ class WorktreeManager:
         ):
             # B-146 (Linux): a Ctrl-C reaches the step's git too, and a
             # worktree add cut short leaves a registration whose folder is
-            # gone or half made; prune drops it, or it stays listed.
-            _git_in(self.repo_root, "worktree", "prune")
+            # gone or half made; it is dropped, or it stays listed. B-230:
+            # only RACT's own dead registrations, never a bare prune.
+            prune_dead_own(self.repo_root)
         elif remove.returncode != 0:
             raise WorktreeError(
                 f"git worktree remove failed for {wt.path}: "
@@ -1327,7 +1328,12 @@ def _write_owner(worktree: Path) -> None:
     from ract.executor.process_identity import capture_identity
 
     identity = capture_identity(os.getpid())
-    data = {"pid": os.getpid(), "created": identity.creation_time_ns if identity else 0}
+    data = {
+        "pid": os.getpid(),
+        "created": identity.creation_time_ns if identity else 0,
+        # B-230: a pid from the other system (Windows or WSL) is never tested here.
+        "system": _SYSTEM,
+    }
     try:
         _owner_path(worktree).write_text(json.dumps(data), encoding="utf-8")
     except OSError as exc:
@@ -1352,6 +1358,8 @@ def _owner_alive(worktree: Path) -> bool:
         stored = ProcessIdentity(int(data["pid"]), int(data["created"]))
     except (OSError, ValueError, KeyError, TypeError):
         return False  # no readable owner: nothing alive vouches for it
+    if data.get("system", _SYSTEM) != _SYSTEM:
+        return True  # B-230: made on the other system; its pid means nothing here
     return same_process(stored, current_identity(stored.pid)) and _running(stored.pid)
 
 
@@ -1384,6 +1392,64 @@ def _running(pid: int) -> bool:
     return stat.rsplit(")", 1)[-1].split()[:1] != ["Z"]
 
 
+_SYSTEM = "windows" if os.name == "nt" else "posix"
+
+
+def other_system_path(text: str) -> bool:
+    """True when *text* is a path in the other system's form (B-230).
+
+    A repository used from Windows and from WSL records each worktree in the
+    form of the system that made it: ``C:/...`` seen from POSIX, or ``/mnt/...``,
+    ``/home/...`` or ``//wsl$/...`` seen from Windows. Such a registration looks
+    dead from here and is treated as live.
+    """
+    text = text.strip().replace("\\", "/")
+    windows_form = len(text) > 2 and text[1] == ":" and text[0].isalpha()
+    if os.name == "nt":
+        return not windows_form and (text.startswith("/") or text.lower().startswith("//wsl"))
+    return windows_form
+
+
+def prune_dead_own(repo: Path) -> list[str]:
+    """Drop the registrations of RACT's own step worktrees whose folder is gone (B-230).
+
+    LR:: ``git worktree prune`` drops every registration whose folder it
+    cannot see, and from WSL a worktree Windows made (``gitdir: C:/...``) looks
+    gone. This removes a registration only when RACT can show it made it and
+    that it is dead: the recorded path is in this system's form, under
+    ``.git/ract-worktrees``, its folder is missing, it is not locked, and no
+    live owner on this system vouches for it. Returns the registrations it
+    dropped.
+    """
+    import shutil
+
+    admin_root = Path(repo) / ".git" / "worktrees"
+    own_root = Path(os.path.realpath(Path(repo) / ".git" / "ract-worktrees"))
+    dropped: list[str] = []
+    if not admin_root.is_dir():
+        return dropped
+    for admin in sorted(admin_root.iterdir()):
+        try:
+            recorded = (admin / "gitdir").read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            print(f"[worktree] {admin.name} is left as it is: {exc}", flush=True)
+            continue
+        if other_system_path(recorded) or (admin / "locked").exists():
+            continue
+        folder = Path(recorded).parent  # gitdir names <worktree>/.git
+        if Path(os.path.realpath(folder)).parent != own_root:
+            continue  # not RACT's
+        if folder.exists() or _owner_alive(Path(os.path.realpath(folder))):
+            continue
+        try:
+            shutil.rmtree(admin)
+        except OSError as exc:
+            print(f"[worktree] the registration {admin.name} stays: {exc}", flush=True)
+            continue
+        dropped.append(admin.name)
+    return dropped
+
+
 def _registered(repo: Path) -> list[Path]:
     """The worktree paths git has registered for *repo* (the main one left out)."""
     done = _git_in(repo, "worktree", "list", "--porcelain")
@@ -1409,7 +1475,8 @@ def sweep_orphan_worktrees(repo: Path) -> list[str]:
     removed: list[str] = []
     for path in _registered(Path(repo)):
         real = Path(os.path.realpath(path))
-        if real.parent != root or _owner_alive(real):
+        # B-230: a worktree the other system made is live, whatever it looks like here.
+        if other_system_path(str(path)) or real.parent != root or _owner_alive(real):
             continue
         done = _git_in(repo, "worktree", "remove", "--force", str(real))
         if done.returncode != 0 and real.exists():
@@ -1425,7 +1492,7 @@ def sweep_orphan_worktrees(repo: Path) -> list[str]:
             print(f"[worktree] the owner file of {real.name} stays: {exc}", flush=True)
         removed.append(real.name)
     if removed:
-        _git_in(repo, "worktree", "prune")
+        prune_dead_own(repo)  # B-230: never a bare prune
     return removed
 
 
@@ -1461,7 +1528,7 @@ def remove_own_worktrees(repo: Path) -> list[str]:
             print(f"[worktree] the owner file of {real.name} stays: {exc}", flush=True)
         removed.append(real.name)
     if removed:
-        _git_in(repo, "worktree", "prune")
+        prune_dead_own(repo)  # B-230: never a bare prune
     return removed
 
 
