@@ -66,6 +66,28 @@ _KIND_BY_EXIT = {
 _ERROR_TEXT_LIMIT = 300
 
 
+def _headless_context_limit(config: Any, provider: str | None) -> int | None:
+    """The context window for the headless session.started (B-084)."""
+    import yaml
+
+    from ract.context_window import context_limit
+
+    path = Path(config).resolve()
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        print(
+            f"[headless] ract.yaml was not read for the context window: {exc}",
+            file=sys.stderr,
+        )
+        data = {}
+    providers = data.get("providers") if isinstance(data, dict) else None
+    entry = (
+        providers.get(provider) if isinstance(providers, dict) and provider else None
+    )
+    return context_limit(path.parent, entry if isinstance(entry, dict) else None)
+
+
 def _cut(text: str) -> str:
     """*text* made inert and cut to the error object's limit."""
     clean = safe_text(text)
@@ -623,7 +645,9 @@ def _run(
             "branch": None,
             "mode": "auto-accept" if args.accept_edits else "default",
             "tier3": "off",
-            "context_limit": None,
+            # B-084: measured by the probe or declared in ract.yaml, else null.
+            "context_limit": _headless_context_limit(args.config, provider),
+            "session_id": getattr(args, "session_id", None),
             "provider_reachable": None,
             "tool_calling": "unknown",
             "extensions": {"loaded": [], "skipped": skipped},

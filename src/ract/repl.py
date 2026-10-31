@@ -167,6 +167,12 @@ def _review_line(config: dict) -> str:
     return f"review: {review} (same model)"
 
 
+def _context_limit(project: Path, provider_config: dict[str, Any] | None) -> int | None:
+    from ract.context_window import context_limit
+
+    return context_limit(project, provider_config)
+
+
 class ReplSession:
     """Read-eval-print loop over the RACT command dispatcher."""
 
@@ -1319,6 +1325,7 @@ class ReplSession:
 
         # Package 5 (handoff 9): None, not "?", when no config names a value.
         model, provider = None, None
+        provider_config: dict[str, Any] | None = None
         try:
             import yaml
 
@@ -1328,7 +1335,8 @@ class ReplSession:
 
             resolved, _ = resolve_manager_provider(config)
             provider = resolved or None
-            model = (providers.get(provider) or {}).get("model") if provider else None
+            provider_config = (providers.get(provider) or {}) if provider else None
+            model = (provider_config or {}).get("model") if provider else None
             model = None if model is None else str(model)
         except Exception:  # noqa: BLE001 -- the banner already reports config problems
             pass
@@ -1339,7 +1347,11 @@ class ReplSession:
             "branch": current_branch(self.state.config.resolve().parent),
             "mode": self.permission_mode(),
             **self._tier3_facts(),
-            "context_limit": None,
+            # B-084: measured by the probe or declared in ract.yaml, else null.
+            "context_limit": _context_limit(
+                self.state.config.resolve().parent, provider_config
+            ),
+            "session_id": self.state.session_id,
             # Not probed at session start yet (the first turn finds out);
             # the schema allows null and "unknown" for exactly this.
             "provider_reachable": None,

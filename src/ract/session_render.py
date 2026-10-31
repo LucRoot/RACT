@@ -176,6 +176,11 @@ class PlainRenderer:
         # B-111: the grant's own words (ADR-0048 D3) when the session sends them.
         tier = d.get("tier3_status") or f"T3 {d.get('tier3', 'off')}"
         items += [str(d.get("mode", "default")), str(tier)]
+        # B-084: the context window and the session id when the event knows them.
+        if isinstance(d.get("context_limit"), int):
+            items.append(f"context {d['context_limit']:,} tokens")
+        if d.get("session_id"):
+            items.append(f"session {safe_text(str(d['session_id']))}")
         self._line_items(items)
 
     def _on_session_resumed(self, d: dict[str, Any]) -> None:
