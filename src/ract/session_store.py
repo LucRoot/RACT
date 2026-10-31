@@ -11,7 +11,7 @@ _SENTINEL_DEFAULT: _SentinelType = _SentinelType()
 
 import json
 import shutil
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
@@ -36,10 +36,16 @@ class _RACTJSONEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
+_PLAN_FIELDS = frozenset(f.name for f in fields(Plan))
+
+
 def _decode_state(data: Any) -> Any:
     """Recursively restore Plan/Step dataclasses from deserialized JSON."""
     if isinstance(data, dict):
-        if set(data.keys()) == {"assumption", "confidence", "steps"}:
+        # B-137 added Plan.planned: a plan is its required keys plus only
+        # fields Plan has (an exact key set read a new plan back as a dict).
+        keys = set(data.keys())
+        if {"assumption", "confidence", "steps"} <= keys <= _PLAN_FIELDS:
             data["steps"] = [_decode_state(s) for s in data["steps"]]
             return Plan(**data)
         if {"action", "provider_hint", "expected_artifact"} <= set(data.keys()):
