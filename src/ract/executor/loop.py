@@ -31,6 +31,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ract import programs
 from ract.core.module_identity import (
     _module_knot,
     is_registered_knot,
@@ -1084,7 +1085,7 @@ def _resolve_head_safe(repo_root: Path) -> str:
     the compensator install skips when this returns ``""``.
     """
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        [programs.git(), "-C", str(repo_root), "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
         check=False,
@@ -1097,7 +1098,7 @@ def _resolve_head_safe(repo_root: Path) -> str:
 def _current_branch_name_of(repo_root: Path) -> str:
     """Return the currently checked-out branch name (or ``"HEAD"`` on detach)."""
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+        [programs.git(), "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
         capture_output=True,
         text=True,
         check=False,
@@ -1146,7 +1147,7 @@ def _fast_forward_head(
     """
     is_ancestor = subprocess.run(
         [
-            "git",
+            programs.git(),
             "-C",
             str(repo_root),
             "merge-base",
@@ -1162,7 +1163,7 @@ def _fast_forward_head(
         return
     reset_mode = "--soft" if soft else "--hard"
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "reset", reset_mode, new_sha],
+        [programs.git(), "-C", str(repo_root), "reset", reset_mode, new_sha],
         capture_output=True,
         text=True,
         check=False,
@@ -1453,7 +1454,7 @@ def _remove_worktree_only(repo_root: Path, worktree_path: Path) -> None:
     """Remove the worktree directory but leave the branch intact."""
     done = subprocess.run(
         [
-            "git",
+            programs.git(),
             "-C",
             str(repo_root),
             "worktree",
@@ -1468,7 +1469,7 @@ def _remove_worktree_only(repo_root: Path, worktree_path: Path) -> None:
     if done.returncode != 0 and not Path(worktree_path).exists():
         # B-146: a registration whose folder is gone stays listed until pruned.
         subprocess.run(
-            ["git", "-C", str(repo_root), "worktree", "prune"],
+            [programs.git(), "-C", str(repo_root), "worktree", "prune"],
             capture_output=True,
             text=True,
             check=False,

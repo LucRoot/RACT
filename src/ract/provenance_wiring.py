@@ -31,6 +31,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from ract import programs
+
 # The snapshot reads at most this much of the project at run entry.
 _MAX_FILES = 2000
 _MAX_FILE_BYTES = 256 * 1024
@@ -49,7 +51,7 @@ def _tracked_text(project: Path) -> dict[str, str]:
         done = subprocess.run(
             # core.fsmonitor=false: a repository's config cannot start a program.
             [
-                "git",
+                programs.git(),
                 "-c",
                 "core.fsmonitor=false",
                 "-c",

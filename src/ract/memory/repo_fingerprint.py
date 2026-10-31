@@ -33,6 +33,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from ract import programs
 from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
@@ -247,7 +248,7 @@ def _commit_frequency_per_week(
         return 0.0
     try:
         completed = subprocess.run(
-            ["git", "log", "--format=%at", "--since=4.weeks.ago"],
+            [programs.git(), "log", "--format=%at", "--since=4.weeks.ago"],
             cwd=str(root),
             capture_output=True,
             text=True,

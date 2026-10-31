@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
+from ract import programs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 _MODULE_KNOT = _module_knot()
@@ -168,7 +169,7 @@ class FenceGate:
     def _recent_commits(self, path: Path) -> list[str]:
         try:
             proc = subprocess.run(
-                ["git", "log", "-n10", "--pretty=format:%h %s", "--", str(path)],
+                [programs.git(), "log", "-n10", "--pretty=format:%h %s", "--", str(path)],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
@@ -186,7 +187,7 @@ class FenceGate:
             return []
         try:
             proc = subprocess.run(
-                ["git", "blame", "--date=short", "-l", "--", str(path)],
+                [programs.git(), "blame", "--date=short", "-l", "--", str(path)],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,

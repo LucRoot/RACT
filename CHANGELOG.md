@@ -324,6 +324,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `.pypirc`, `.git-credentials`) are secret; an env file whose last suffix is example, sample,
   template or dist as written is a placeholder (`.env.local.example`; `.ENV.EXAMPLE` stays secret).
   `id_ecdsa` and `id_dsa` were shown to the model.
+- RACT starts git by its full path, and on Windows no program it starts is taken from the
+  current folder (B-214): a `git.exe` a repository put at its top could run in place of git. A
+  program name with a dot in it, such as `python3.11`, is now found on PATH on Windows.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.

@@ -17,6 +17,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from ract import programs
+
 GB = 1024**3
 
 
@@ -101,11 +103,11 @@ def memory() -> tuple[int | None, int | None]:
 
 
 def _git_version() -> str | None:
-    if shutil.which("git") is None:
+    if programs.git() == "git":  # B-214: not on PATH (the current folder is not searched)
         return None
     try:
         out = subprocess.run(
-            ["git", "--version"], capture_output=True, text=True, timeout=10
+            [programs.git(), "--version"], capture_output=True, text=True, timeout=10
         )
     except (OSError, subprocess.SubprocessError):
         return None

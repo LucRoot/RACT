@@ -12,6 +12,7 @@ from typing import Any, NoReturn
 
 import yaml
 
+from ract import programs
 from ract.builtin_skill_library import BuiltinSkillLibrary
 from ract.chestertons_fence import ChestertonsFence
 from ract.code_review_mode import CodeReviewMode
@@ -4141,7 +4142,7 @@ def _session_substrate_command(parsed: argparse.Namespace) -> int:
             parsed.parent
             or _sp.run(
                 [
-                    "git",
+                    programs.git(),
                     "-C",
                     str(repo),
                     "merge-base",
@@ -4161,7 +4162,7 @@ def _session_substrate_command(parsed: argparse.Namespace) -> int:
             )
             return 1
         diff = _sp.run(
-            ["git", "-C", str(repo), "diff", parent, branch],
+            [programs.git(), "-C", str(repo), "diff", parent, branch],
             capture_output=True,
             text=True,
             check=False,
@@ -4741,6 +4742,8 @@ def _verb_help_with_example(verb: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """RACT CLI entry point."""
+    # B-214: no program RACT starts is taken from the current folder.
+    programs.no_current_folder_search()
     if argv is None:
         argv = sys.argv[1:]
     if (

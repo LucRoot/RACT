@@ -30,6 +30,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ract import programs
+
 # Files a test runner executes or reads as configuration (G-214 T2).
 # Files a test runner or a verifier executes or reads as configuration: the
 # runners' own files, the build and lint tools' files (B-023), and anything
@@ -160,7 +162,7 @@ def entry_point_digests(project: Path | str) -> dict[str, str] | None:
         done = subprocess.run(
             # core.fsmonitor=false: a repository's config cannot start a program.
             [
-                "git",
+                programs.git(),
                 "-c",
                 "core.fsmonitor=false",
                 "ls-files",

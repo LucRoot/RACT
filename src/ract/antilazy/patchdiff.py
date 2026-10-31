@@ -38,6 +38,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol, runtime_checkable
 
+from ract import programs
+
 
 # ---------------------------------------------------------------------------
 # Bounds — lateral chain branches A and B
@@ -459,7 +461,7 @@ def _git_log_S(anchor: str, path: str, workspace_root: Path, *, cap: int) -> lis
     try:
         result = subprocess.run(
             [
-                "git",
+                programs.git(),
                 "-C",
                 str(workspace_root),
                 "log",
@@ -490,7 +492,7 @@ def _git_log_grep(pattern: str, workspace_root: Path, *, cap: int) -> list[str]:
     try:
         result = subprocess.run(
             [
-                "git",
+                programs.git(),
                 "-C",
                 str(workspace_root),
                 "log",

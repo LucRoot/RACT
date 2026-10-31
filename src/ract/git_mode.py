@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 from typing import List
 
+from ract import programs
 from ract.manager import Plan, Step
 
 
@@ -61,7 +62,9 @@ class GitMode:
 
     def _run_git(self, args: List[str]) -> subprocess.CompletedProcess:
         """Run a git command and return the completed process."""
-        return subprocess.run(args, capture_output=True, text=True)
+        # B-214: started by git's full path, never one in the current folder.
+        started = [programs.git(), *args[1:]] if args[:1] == ["git"] else args
+        return subprocess.run(started, capture_output=True, text=True)
 
     def commit_files(
         self,
