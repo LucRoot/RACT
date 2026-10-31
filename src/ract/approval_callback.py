@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from ract import question_gate
-from ract.cell_wrap import wrap_cells
+from ract.cell_wrap import wrap_cells, wrap_exact
 from ract.console_interrupt import read_line
 from ract.manager import Plan, Step
 
@@ -94,7 +94,7 @@ def console_tier_2_choice(name: str, args: object, note: str = "") -> str:
     resumed session is asked again. A model's words never reach this answer:
     the question is read from the console.
     """
-    from ract.session_events import safe_text
+    from ract.session_events import screen_text
 
     width = max(_terminal_width() - 3, 20)
     if note:
@@ -108,7 +108,8 @@ def console_tier_2_choice(name: str, args: object, note: str = "") -> str:
             "Tier 2: RACT would run this git command in the step's worktree:"
         )
         for line in question_lines(name, args):
-            for part in wrap_cells(safe_text(line), width):
+            # B-184: the command as it runs, every character kept and escaped.
+            for part in wrap_exact(screen_text(line), width):
                 print(f"  {part}")
         question_gate.open_question()
         try:
@@ -123,7 +124,8 @@ def console_tier_2_choice(name: str, args: object, note: str = "") -> str:
         "file. The change:"
     )
     for line in _tier_2_change(name, args):
-        for part in wrap_cells(safe_text(line), width):
+        # B-184: the change as written: indentation, double spaces and tabs kept.
+        for part in wrap_exact(screen_text(line), width):
             print(part)
     _print_wrapped("y allows it once, s for this session, N refuses")
     question_gate.open_question()

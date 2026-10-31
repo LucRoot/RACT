@@ -22,32 +22,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ract.cell_wrap import wrap_cells
+from ract.cell_wrap import wrap_cells, wrap_exact
+from ract.session_events import screen_text
 
 ENTRY_CHOICES = "[y]es, once  [n]o"
 CARRY_STATEMENT = "session approvals do not carry over to /resume"
 
 
 def escape_controls(text: str) -> str:
-    """Show control and bidirectional characters escaped, never raw."""
-    out: list[str] = []
-    for ch in text:
-        code = ord(ch)
-        if ch == "\n":
-            out.append("\\n")
-        elif ch == "\t":
-            out.append("\\t")
-        elif code < 0x20 or 0x7F <= code <= 0x9F:
-            out.append(f"\\x{code:02x}")
-        elif (
-            0x200E <= code <= 0x200F
-            or 0x202A <= code <= 0x202E
-            or 0x2066 <= code <= 0x2069
-        ):
-            out.append(f"\\u{code:04x}")
-        else:
-            out.append(ch)
-    return "".join(out)
+    """Every control, format and direction character escaped (B-204: one shared escape)."""
+    return screen_text(text)
+
+
+def _fold_exact(text: str, width: int, indent: str = "    ") -> list[str]:
+    """A command or a path: every character kept, broken only at the width (B-184)."""
+    return wrap_exact(escape_controls(text), width, subsequent_indent=indent) or [""]
 
 
 def _fold(text: str, width: int, indent: str = "    ") -> list[str]:
@@ -123,7 +112,7 @@ def entry_point_question_lines(
     out = _fold(
         _bold("this file runs your tests and it changed", rich), width, indent="  "
     )
-    out += _fold(f"file: {escape_controls(change.path)}", width)
+    out += _fold_exact(f"file: {change.path}", width)
     out += _fold(f"why it asks now: {escape_controls(change.reason)}", width)
     out += _fold("an allow rule does not answer for it", width, indent="  ")
     out += _fold(_bold(ENTRY_CHOICES, rich), width, indent="  ")

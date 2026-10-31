@@ -10,28 +10,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ract.cell_wrap import wrap_cells
+from ract.cell_wrap import wrap_cells, wrap_exact
+from ract.session_events import screen_text
 
 
 def escape_controls(text: str) -> str:
-    out: list[str] = []
-    for ch in text:
-        code = ord(ch)
-        if ch == "\n":
-            out.append("\\n")
-        elif ch == "\t":
-            out.append("\\t")
-        elif code < 0x20 or 0x7F <= code <= 0x9F:
-            out.append(f"\\x{code:02x}")
-        elif (
-            0x200E <= code <= 0x200F
-            or 0x202A <= code <= 0x202E
-            or 0x2066 <= code <= 0x2069
-        ):
-            out.append(f"\\u{code:04x}")
-        else:
-            out.append(ch)
-    return "".join(out)
+    """Every control, format and direction character escaped (B-204: one shared escape)."""
+    return screen_text(text)
+
+
+def _fold_exact(text: str, width: int, indent: str = "    ") -> list[str]:
+    """A command or a path: every character kept, broken only at the width (B-184)."""
+    return wrap_exact(escape_controls(text), width, subsequent_indent=indent) or [""]
 
 
 def _fold(text: str, width: int, indent: str = "    ") -> list[str]:
@@ -87,7 +77,7 @@ def tier3_report_lines(facts: Tier3Facts, width: int) -> list[str]:
     )
     out += _fold("operator key:", width, indent="  ")
     if facts.key_present:
-        out += _fold(f"present, in {escape_controls(facts.key_location)}", width)
+        out += _fold_exact(f"present, in {facts.key_location}", width)
         out += _fold(f"protection: {escape_controls(facts.key_protection)}", width)
     else:
         out += _fold("not made yet (ract policy keygen makes it at a terminal)", width)

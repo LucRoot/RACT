@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ract.cell_wrap import wrap_cells
-from ract.session_events import safe_text
+from ract.cell_wrap import wrap_cells, wrap_exact
+from ract.session_events import safe_text, screen_text
 
 CHOICES = "[o]nce  [s]ession  [a]lways  [d]eny"
 TRACE_STATEMENT = (
@@ -27,19 +27,13 @@ TRACE_STATEMENT = (
 
 
 def escape_controls(text: str) -> str:
-    """Show every control character as ``\\xNN`` (or ``\\n``, ``\\t``), so nothing moves the cursor."""
-    out: list[str] = []
-    for ch in text:
-        code = ord(ch)
-        if ch == "\n":
-            out.append("\\n")
-        elif ch == "\t":
-            out.append("\\t")
-        elif code < 0x20 or 0x7F <= code <= 0x9F or ch in "‎‏‪‫‬‭‮⁦⁧⁨⁩":
-            out.append(f"\\x{code:02x}" if code <= 0xFF else f"\\u{code:04x}")
-        else:
-            out.append(ch)
-    return "".join(out)
+    """Every control, format and direction character escaped (B-204: one shared escape)."""
+    return screen_text(text)
+
+
+def _fold_exact(text: str, width: int, indent: str = "    ") -> list[str]:
+    """A command or a path: every character kept, broken only at the width (B-184)."""
+    return wrap_exact(escape_controls(text), width, subsequent_indent=indent) or [""]
 
 
 def _fold(text: str, width: int, indent: str = "    ") -> list[str]:
@@ -76,9 +70,9 @@ def approval_prompt_lines(
         else "best effort: not enforced on this machine"
     )
     out = _fold(_bold("run this command? (tier 3)", rich), width, indent="  ")
-    out += _fold(f"argv: {argv}", width)
-    out += _fold(f"executable: {escape_controls(request.executable)}", width)
-    out += _fold(f"cwd: {escape_controls(request.cwd)}", width)
+    out += _fold_exact(f"argv: {argv}", width)
+    out += _fold_exact(f"executable: {request.executable}", width)
+    out += _fold_exact(f"cwd: {request.cwd}", width)
     out += _fold(f"network: {'on' if request.network else 'off'}", width)
     out += _fold(f"sandbox: {sandbox}", width)
     if request.env_names:
