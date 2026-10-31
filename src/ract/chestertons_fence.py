@@ -16,7 +16,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ract import programs
+from ract.git_run import run_git
 from ract.providers.base import ProviderAdapter
 from ract.rooted import Rooted
 from ract.workspace_path import resolve_workspace_path
@@ -38,8 +38,8 @@ class ChestertonsFence:
     def _run_git(self, *args: str) -> str:
         """Run a git command in the project directory and return stdout."""
         try:
-            proc = subprocess.run(
-                [programs.git(), *args],
+            proc = run_git(
+                *args,
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,

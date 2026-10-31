@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ract import programs
+from ract.git_run import run_git
 from ract.core.module_identity import _module_knot, register_module_knot
 from ract.memory.budget import BudgetAccountant
 from ract.memory.budget_registry import get as budget_get
@@ -233,8 +233,8 @@ def _git_recent_commits(repo_root: Path) -> list[str]:
     if not repo_root.is_dir():
         return []
     try:
-        completed = subprocess.run(
-            [programs.git(), "-C", str(repo_root), "log", "--oneline", "-n", "10"],
+        completed = run_git(
+            "-C", str(repo_root), "log", "--oneline", "-n", "10",
             capture_output=True,
             text=True,
             check=False,

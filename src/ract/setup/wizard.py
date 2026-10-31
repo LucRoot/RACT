@@ -27,6 +27,7 @@ from typing import Any
 
 import yaml
 
+from ract.git_run import run_git
 from ract import programs
 from ract import egress_scan, redaction
 from ract.console_interrupt import read_line
@@ -238,8 +239,8 @@ def health_check(config_path: Path) -> Health:
 
 
 def _is_git_repository(directory: Path) -> bool:
-    out = subprocess.run(
-        [programs.git(), "rev-parse", "--is-inside-work-tree"],
+    out = run_git(
+        "rev-parse", "--is-inside-work-tree",
         cwd=directory,
         capture_output=True,
         text=True,
