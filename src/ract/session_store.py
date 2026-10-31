@@ -120,6 +120,9 @@ class SessionStore:
         else:
             resolved = base_dir
         self.base_dir = Path(resolved)
+        from ract.workspace_state import check_state_path
+
+        check_state_path(self.base_dir)  # B-213: never through a link
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def _path(self, session_id: str) -> Path:
@@ -132,7 +135,10 @@ class SessionStore:
         return self._path(session_id).is_file()
 
     def save(self, session_id: str, state: dict) -> None:
+        from ract.workspace_state import check_state_path
+
         file_path = self._path(session_id)
+        check_state_path(file_path)  # B-213: never through a link
         with file_path.open("w", encoding="utf-8") as f:
             json.dump(state, f, indent=2, cls=_RACTJSONEncoder)
 

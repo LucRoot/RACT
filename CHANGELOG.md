@@ -285,6 +285,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- RACT no longer writes its state through a link or junction under `.ract` (B-213): the memory
+  arena, plans, sessions, run checkpoints, undo copies and pending patches refuse with a plain
+  sentence when `.ract` or a folder in it is a link. A cloned repository could point
+  `.ract/memory` outside the project, and the arena was written there.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.

@@ -44,6 +44,7 @@ from typing import Any, cast
 from ract import undo_backup
 from ract.canonical import dumps_jcs
 from ract.manager import Plan, Step
+from ract.workspace_state import check_state_path
 
 SCHEMA = "ract.checkpoint/1"
 MAX_CHECKPOINT_BYTES = 256 * 1024
@@ -377,6 +378,7 @@ class RunCheckpoint:
         before = None
         if full.is_file():
             copy = backup.folder.joinpath(*_STEP_COPIES, str(progress["n"]), key)
+            check_state_path(copy)  # B-213: never through a link
             copy.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(full, copy)
             before = _sha256(copy)
@@ -447,6 +449,7 @@ class RunCheckpoint:
         folder = self.path.parent
         tmp = folder / f".{self.run_id}.{uuid.uuid4().hex[:8]}.tmp"
         try:
+            check_state_path(self.path)  # B-213: never through a link
             folder.mkdir(parents=True, exist_ok=True)
             data = json.dumps(self.state, indent=1).encode("utf-8")
             with open(tmp, "wb") as fh:

@@ -40,6 +40,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
+from ract.workspace_state import check_state_path
+
 KEEP_TURNS = 20
 MANIFEST = "manifest.json"
 # previous_version never loads a saved file larger than this (G-141).
@@ -193,6 +195,7 @@ class TurnBackup:
                 self.created.append(key)
                 continue
             target = self.folder / rel
+            check_state_path(target)  # B-213: never through a link
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(full, target)
             self.saved.append(key)
@@ -201,6 +204,7 @@ class TurnBackup:
         """Write the manifest: what was saved, created, and left by RACT."""
         if not self.changed:
             return
+        check_state_path(self.folder / MANIFEST)  # B-213: never through a link
         self.folder.mkdir(parents=True, exist_ok=True)
         manifest = {
             "kind": self.kind,

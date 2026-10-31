@@ -48,7 +48,10 @@ class PlanReplay:
 
     def save(self, plan: Plan, path: Path | str) -> None:
         """Serialize ``plan`` to ``path`` as JSON."""
+        from ract.workspace_state import check_state_path
+
         target = Path(path)
+        check_state_path(target)  # B-213: never through a link under .ract
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(plan_to_dict(plan), indent=2), encoding="utf-8")
 
