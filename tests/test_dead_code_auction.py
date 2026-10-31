@@ -178,9 +178,8 @@ def test_ract_auction_reports_zero_dead_modules():
     # B-125 (MASON, PREPARED): the sandbox screens are pure text, wired with B-025 (slice e).
     # Remove this entry when wired; the BUILDER reviews it.
     allowlist.add("posture_screens.py")
-    # B-126 and B-127 (MASON, PREPARED): the git and network prompt screens are pure text, wired with
-    # B-115 and B-116 (slices f and g). Remove each entry when wired; the BUILDER reviews them.
-    allowlist.add("git_screens.py")
+    # B-127 (MASON, PREPARED): the network prompt screens are pure text, wired with B-116 (slice g).
+    # Remove the entry when wired. (B-225: git_screens.py is wired into the git questions.)
     allowlist.add("network_screens.py")
     # B-147 (MASON, the screen half): the doctor --tier3 report is pure text; the BUILDER adopts it.
     allowlist.add("tier3_report.py")
