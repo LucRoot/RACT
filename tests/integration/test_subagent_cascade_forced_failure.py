@@ -20,7 +20,7 @@ Cross-references:
 
 - Ox Alpha pipeline critique §2 (forced-failure integration test
   required for compensator/cascade).
-- `_BUILD/audit_2026-08-21c/lens_2_v02_primitive_vs_kairos_wall.md`
+- `_BUILD/audit_2026-08-21c` lens 2,
   Delta 3 (SubagentHandle cascade — the source-doc audit item this
   module closes).
 - Companion primitive locked in isolation:

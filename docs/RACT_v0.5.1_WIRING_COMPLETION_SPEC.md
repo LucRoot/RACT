@@ -16,7 +16,6 @@ Close the SYSTEMIC WIRING GAP. Every module of Pipeline A' delivered a correct p
 - No new primitives (all needed pieces exist; only wiring is missing).
 - No architectural refactor beyond what the audit findings require.
 - No v0.6 feature work (deferred flagged gaps stay deferred).
-- No Kairos reference of any kind (per hard-wall rule).
 
 ## 3. Sacred spine, invariants preserved
 

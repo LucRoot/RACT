@@ -17,7 +17,6 @@ Two categories:
 ## 2. Non-goals
 
 - No new architectural primitives (all needed pieces exist).
-- No Kairos reference anywhere (hard-wall preserved).
 - No DSPy compilation-recompilation implementation (deferred to v0.6; claim REMOVED from docs).
 - No LeWM 23-dim drift detection implementation (deferred to v0.6; claim REMOVED from docs).
 - No verify/review/commit/document functions (ADR-0036/0037 deferral stands; audit acknowledges).
@@ -27,7 +26,7 @@ Two categories:
 
 - Rootknot 3-signature schema unchanged (module_02 v4 factory now production-called).
 - Author-name-free tree.
-- Closed-IP wordlist zero-tolerance (post-filter-repo state; zero kairos anywhere).
+- Closed-IP wordlist zero-tolerance (post-filter-repo state).
 - AL-1 property (structural per wiring module_07).
 - Handshake-always for push (this pipeline does NOT push).
 
