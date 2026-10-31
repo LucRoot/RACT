@@ -262,6 +262,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A model that answers a request with tool calls (or in prose twice) instead of a JSON plan
+  no longer ends the turn with "Could not parse JSON plan" (B-137). The request becomes one
+  step through the step agent loop, its first reply's tool calls the step's first turn,
+  each call through the same tier gate and approvals as any other. The plan is shown for
+  approval in default mode; headless without `--accept-edits` refuses it and says so.
+  `plan.proposed` and the headless JSON result carry `planned: false`. With
+  `agent.step_tools` off, a prose reply is the answer and tool calls are refused, named.
+- A path such as `C:\Windows\x.py` is refused on Linux and macOS as on Windows (B-136):
+  it was read as a relative name inside the project.
+- `ract memory init` checks the language servers side by side under one 20 s budget (B-136,
+  B-134); a server that does not answer is named and the index goes on without it.
+- A memory folder that is a link out of the project is not read, and the turn says so on
+  stderr and in its notes (B-135).
 - A test file a turn creates or rewrites that imports nothing of the project and starts no
   process (a test that defines the value it checks) is named next to the verified line: "tests/
   test_notes.py does not use project code". It is a warning; nothing is refused, and it never
