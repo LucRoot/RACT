@@ -37,12 +37,29 @@ def _digest(words: list[str]) -> str:
     return hashlib.sha256(" ".join(words).encode("utf-8")).hexdigest()
 
 
-def hashed_hits(text: str, hashed: dict[str, int]) -> set[str]:
-    """The hashes in ``hashed`` whose term occurs in ``text``."""
+# B-152: the sha256 of the first word of each multi-word term above, so a longer
+# window is hashed only where its first word could start a term.
+_FIRST_WORDS: frozenset[str] = frozenset(
+    {"c857d09db23e6822e3600bc06ad8d58f92ed62bc8efd81c753f77048662cb97d"}
+)
+
+
+def hashed_hits(
+    text: str, hashed: dict[str, int], first_words: frozenset[str] | None = None
+) -> set[str]:
+    """The hashes in ``hashed`` whose term occurs in ``text``.
+
+    Each distinct word is hashed once. A window of two or more words is hashed
+    only where its first word's hash is in ``first_words`` (every position when
+    it is None), which finds the same terms as hashing every window.
+    """
     words = _WORD.findall(text.lower())
-    found = set()
-    for size in set(hashed.values()):
+    word_hash = {w: _digest([w]) for w in set(words)}
+    found = {word_hash[w] for w in word_hash if word_hash[w] in hashed}
+    for size in {n for n in hashed.values() if n > 1}:
         for i in range(len(words) - size + 1):
+            if first_words is not None and word_hash[words[i]] not in first_words:
+                continue
             digest = _digest(words[i : i + size])
             if digest in hashed:
                 found.add(digest)
@@ -80,7 +97,7 @@ def test_no_tracked_file_names_a_hashed_closed_term() -> None:
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue  # binary or unreadable: the release-surface grep skips these too
-        found = hashed_hits(text, _HASHED_TERMS)
+        found = hashed_hits(text, _HASHED_TERMS, _FIRST_WORDS)
         if found:
             hits[path.relative_to(_REPO_ROOT).as_posix()] = len(found)
     assert not hits, f"tracked files naming a hashed closed term: {sorted(hits)}"
