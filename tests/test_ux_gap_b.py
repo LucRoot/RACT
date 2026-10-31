@@ -58,5 +58,7 @@ def test_permissions_answers_what_may_change_or_be_sent(tmp_path):
     assert "Mode: default:" in text
     assert "Network:" in text and "ract.yaml" in text
     assert "Tier 3" in text and "off" in text
-    assert "Sandbox:" in text and "not enforced" in text
+    # MASON's permissions view (B-111) writes "sandbox: best effort, not
+    # enforced on this machine".
+    assert "sandbox:" in text.lower() and "not enforced" in text
     assert "ract trust" in text

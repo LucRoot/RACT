@@ -14,7 +14,10 @@ from ract.repl import ReplSession
 
 def test_a_session_with_no_config_sends_null_model_and_provider(tmp_path: Path):
     session = ReplSession.__new__(ReplSession)
-    session.state = SimpleNamespace(config=tmp_path / "ract.yaml", dry_run=False, auto=False)
+    # B-084: session.started carries the session id from the state.
+    session.state = SimpleNamespace(
+        config=tmp_path / "ract.yaml", dry_run=False, auto=False, session_id="s-1"
+    )
     facts = session._session_facts()
     assert facts["model"] is None
     assert facts["provider"] is None

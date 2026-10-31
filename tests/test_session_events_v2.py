@@ -186,6 +186,7 @@ def test_plan_event_data_shape() -> None:
             {"n": 1, "action": "Fix add", "target": "src/calc.py"},
             {"n": 2, "action": "Explain", "target": None},
         ],
+        "planned": True,  # B-137: False when the request became the one step
     }
 
 
@@ -263,10 +264,8 @@ def test_turn_reports_plan_steps_and_artifact_text(
     )
     finished = events[-1].data
     assert finished["verification"] == {"status": "not-run", "runs": [], "claims": []}
-    assert finished["provenance"] == {
-        "signed": False,
-        "unsigned_files": ["src/calc.py"],
-    }
+    # S-015b: the run signs what it writes.
+    assert finished["provenance"] == {"signed": True, "unsigned_files": []}
     assert finished["workspace"].startswith("1 file changed: src/calc.py")
 
 

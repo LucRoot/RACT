@@ -148,7 +148,10 @@ def test_a_valid_rewrite_applies_and_keeps_the_previous_version(
     ][-1]
     assert "/undo restores them" in finished["data"]["workspace"]
     assert not (ws / ".ract" / "undo").exists()  # S-028: never in the workspace
-    assert _git(ws, "status", "--porcelain") == "M src/calc.py"
+    # S-015b: the run signs what it writes; the Rootknot sidecar sits beside the
+    # file, untracked (whether it is committed is the operator's choice).
+    status = _git(ws, "status", "--porcelain").splitlines()
+    assert sorted(status) == ["?? src/.calc.py.rootknot.json", "M src/calc.py"]
 
 
 def test_ract_run_names_the_backup_folder(

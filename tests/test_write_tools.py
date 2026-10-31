@@ -17,10 +17,11 @@ from ract.core.threat_model import CapabilityTier
 from ract.tools import REGISTRY, read_only_tools, run_tool
 from ract.tools.write import call_tier, path_tier
 
-T0, T1, T2 = (
+T0, T1, T2, T3 = (
     CapabilityTier.TIER_0_READ,
     CapabilityTier.TIER_1_WRITE,
     CapabilityTier.TIER_2_ENV,
+    CapabilityTier.TIER_3_EXTERNAL,
 )
 
 
@@ -150,7 +151,17 @@ def test_the_read_only_loop_never_offers_a_write_tool() -> None:
     from ract.tools import loop
 
     offered = set(read_only_tools())
-    assert offered == {"read_file", "list_dir", "glob", "grep", "repo_map"}
+    # B-115: git_status, git_diff and git_log read at tier 0.
+    assert offered == {
+        "read_file",
+        "list_dir",
+        "glob",
+        "grep",
+        "repo_map",
+        "git_status",
+        "git_diff",
+        "git_log",
+    }
     assert "write_file" not in loop.tool_lines()
     from ract.executor.tool_gate import ToolInvocationRefused
 
@@ -176,7 +187,25 @@ def test_every_registered_tool_has_its_tier_pinned() -> None:
         "move_file": T1,
         "apply_patch": T1,
         # B-112: runs a command under the grant's test rule, asked first.
-        "run_tests": CapabilityTier.TIER_3_EXTERNAL,
+        "run_tests": T3,
+        # B-023: the other verifiers, the same way.
+        "run_build": T3,
+        "run_lint": T3,
+        "run_typecheck": T3,
+        "run_format": T3,
+        # B-115 (ADR-0048 D8): git reads at tier 0, local writes at tier 2 and
+        # asked once per call, a push at tier 3 under a handshake.
+        "git_status": T0,
+        "git_diff": T0,
+        "git_log": T0,
+        "git_add": T2,
+        "git_commit": T2,
+        "git_branch": T2,
+        "git_worktree": T2,
+        "git_push": T3,
+        # B-116 (ADR-0048 D11): the network is tier 3.
+        "web_fetch": T3,
+        "web_search": T3,
     }
     assert {name: spec.tier for name, spec in REGISTRY.items()} == pinned
     for spec in REGISTRY.values():
