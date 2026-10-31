@@ -99,12 +99,10 @@ def test_the_sandboxed_runner_puts_home_in_tmp_and_starts_in_the_workspace(
     assert joined[-5:] == ["--chdir", "/workspace", "/usr/bin/python3", "-m", "pytest"]
 
 
-def test_a_rule_with_network_on_shares_the_network(tmp_path: Path) -> None:
-    fake = FakeBackend("ok")
-    command_sandbox.SandboxedRunner(fake, network=True, run_id="r").run(
-        ["/usr/bin/true"], cwd=tmp_path, env={}, timeout_s=5
-    )
-    assert fake.rendered[0][0].network.deny_default is False
+def test_a_rule_with_network_on_shares_the_network() -> None:
+    argv = ["bwrap", "--unshare-pid", "--unshare-net", "--new-session", "x"]
+    assert command_sandbox.share_network(list(argv), True)[2] == "--share-net"
+    assert command_sandbox.share_network(list(argv), False) == argv
 
 
 def test_run_command_records_the_sandbox_when_confined(tmp_path: Path) -> None:

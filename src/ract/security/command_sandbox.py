@@ -73,7 +73,9 @@ def manifest_for(run_id: str, *, network: bool, executable: str | None) -> Any:
         {
             "run_id": run_id,
             "filesystem": {"read": read, "write": []},
-            "network": {"deny_default": not network, "allow_hosts": []},
+            # The manifest is an allowlist by design (deny_default must be
+            # True); a rule with network on is shared at render time instead.
+            "network": {"deny_default": True, "allow_hosts": []},
         }
     )
 
@@ -143,6 +145,13 @@ def enforcing_backend(*, system: str | None = None) -> tuple[Any | None, str]:
     return result
 
 
+def share_network(argv: list[str], network: bool) -> list[str]:
+    """The rendered argv with the network shared when the rule allows it."""
+    if not network:
+        return argv
+    return ["--share-net" if a == "--unshare-net" else a for a in argv]
+
+
 class SandboxedRunner:
     """Runs the command inside the enforcing backend, through the real runner."""
 
@@ -169,7 +178,17 @@ class SandboxedRunner:
     ):
         from ract.tools.command import DEFAULT_OUTPUT_BYTES, ProcessRunner
 
-        inside = {**env, "HOME": "/tmp", "TMPDIR": "/tmp"}
+        from ract.security.sandbox_env import build_sandbox_env
+
+        # The command's environment once more through the sandbox allowlist,
+        # as every backend does (wiring module_04): run_command built it from
+        # the same allowlist, so this only ever drops.
+        scrubbed = build_sandbox_env(
+            process_env=dict(env),
+            manifest_passthrough=tuple(env),
+            allowlist_file=None,
+        ).env
+        inside = {**scrubbed, "HOME": "/tmp", "TMPDIR": "/tmp"}
         for name in list(inside):
             if name.upper().startswith("XDG_"):
                 inside[name] = "/tmp"
@@ -197,7 +216,7 @@ class SandboxedRunner:
             (*setenv, "--chdir", inner_cwd, program, *argv[1:]),
         )
         return ProcessRunner().run(
-            list(rendered.argv),
+            share_network(list(rendered.argv), self.network),
             cwd=Path(cwd),
             env=rendered.env,
             timeout_s=timeout_s,

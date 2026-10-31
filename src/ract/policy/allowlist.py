@@ -176,7 +176,9 @@ def _record_path(project: Path | str, grant_digest: str) -> Path:
 
 
 def record_signed(project: Path | str, grant_digest: str) -> None:
-    """Keep what the entry points were when this grant was signed."""
+    """Keep what the entry points were when this grant was signed (canonical JSON)."""
+    from ract.canonical import dumps_jcs
+
     path = _record_path(project, grant_digest)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -185,7 +187,7 @@ def record_signed(project: Path | str, grant_digest: str) -> None:
         if digests is None:
             # Nothing to compare with later: every entry point then counts as changed.
             return
-        temp.write_text(json.dumps(digests, indent=2, sort_keys=True), encoding="utf-8")
+        temp.write_text(dumps_jcs(digests).decode("utf-8"), encoding="utf-8")
         os.replace(temp, path)
     except OSError as exc:
         print(f"[allowlist] the entry points were not recorded: {exc}", flush=True)

@@ -138,6 +138,7 @@ def install(
         return why
     executor.provenance_index = ProvenanceIndex(project)
     executor.session_key = session_key
+    executor.provenance_run_id = run_id
     executor.install_v4_provenance_deps(
         session_key=session_key,
         sandbox_signer=sandbox,

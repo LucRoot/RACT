@@ -840,7 +840,11 @@ class Executor:
                 if self.gate_results_provider is not None
                 else ()
             )
-            run_id = get_current_run_id() or ""
+            # S-015b: the run id install() recorded, when no ambient one is bound
+            # (a substrate step runs in a worker thread).
+            run_id = (
+                get_current_run_id() or getattr(self, "provenance_run_id", "") or ""
+            )
             if not run_id:
                 raise ValueError(
                     "no ambient run_id bound; call ract.runtime.bind_run_id() "

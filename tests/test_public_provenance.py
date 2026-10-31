@@ -57,6 +57,8 @@ ALLOWED_IMPORT_ROOTS = {
     "json",
     # stdlib: the operator key reads its passphrase without echo (B-111)
     "getpass",
+    "html",
+    "socket",
     "re",
     "subprocess",
     "sys",

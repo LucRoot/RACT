@@ -79,7 +79,8 @@ def test_a_new_user_reaches_a_signed_pytest_rule(
     assert rule.argv == ["python", "-m", "pytest"] and rule.network is False
     assert rule.timeout_s == 900 and state.policy.max_mode == "ask"
     assert state.policy.key_id == load_public().key_id
-    assert shown[-1].endswith("Tier 3: T3 ask.")
+    # MASON's signed-result view (B-111): the status line it now shows.
+    assert any("status line now: T3 ask" in line for line in shown)
 
 
 def test_declining_writes_nothing(project: Path, user_config: Path) -> None:
@@ -119,7 +120,7 @@ def test_every_field_is_explained_in_one_line(project: Path) -> None:
 
 def test_no_runner_proposes_nothing(tmp_path: Path, user_config: Path) -> None:
     code, shown, _ = _run(tmp_path, "y")
-    assert code == 2 and "No test runner found" in shown[0]
+    assert code == 2 and "no test runner found" in shown[0]
     assert not (tmp_path / ".ract").exists()
 
 
