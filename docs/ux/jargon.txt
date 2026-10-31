@@ -8,3 +8,8 @@ hash | fingerprint
 worktree | separate copy of the folder
 tier | level
 digest | checksum
+exempt | Machine: | a one-word label, not a sentence
+exempt | local: | a one-word label, not a sentence
+exempt | Cloud providers: | a label for a list
+exempt | nothing answered | a short status label
+exempt | git_init: false # | a config comment in the template

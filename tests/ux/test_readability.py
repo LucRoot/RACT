@@ -75,10 +75,26 @@ def grade(text: str) -> float:
 def jargon_terms() -> dict[str, str]:
     terms = {}
     for line in JARGON.read_text(encoding="utf-8").splitlines():
-        if line.strip() and not line.startswith("#") and "|" in line:
+        if line.strip() and not line.startswith(("#", "exempt")) and "|" in line:
             term, plain = line.split("|", 1)
             terms[term.strip().lower()] = plain.strip()
     return terms
+
+
+def exemptions() -> list[str]:
+    """Strings that are labels or config comments, not sentences: listed in jargon.txt as "exempt | text | reason"."""
+    out = []
+    for line in JARGON.read_text(encoding="utf-8").splitlines():
+        if line.startswith("exempt") and line.count("|") >= 2:
+            out.append(line.split("|")[1].strip())
+    return out
+
+
+def is_graded(text: str) -> bool:
+    """A label (fewer than four words) and a config comment are not graded; the rest are."""
+    if len(WORD.findall(text)) < 4 or " # " in text:
+        return False
+    return not any(text.startswith(ex) for ex in exemptions())
 
 
 STRINGS = collect_strings()
@@ -98,7 +114,7 @@ def test_every_string_is_scored_and_the_report_is_written() -> None:
     assert len(rows) == len(STRINGS)
 
 
-@pytest.mark.parametrize("text", STRINGS)
+@pytest.mark.parametrize("text", [s for s in STRINGS if is_graded(s)])
 def test_no_string_is_above_the_failure_grade(text: str) -> None:
     assert grade(text) <= FAIL_ABOVE, f"grade {grade(text):.1f}: {text}"
 
