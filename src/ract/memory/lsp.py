@@ -134,12 +134,12 @@ def _load_multilspy() -> tuple[Any, Any, Any, Any]:
     specific install hint if multilspy is missing.
     """
     try:
-        from multilspy import SyncLanguageServer  # type: ignore[import-untyped]
-        from multilspy.multilspy_config import (  # type: ignore[import-untyped]
+        from multilspy import SyncLanguageServer  # type: ignore[import-untyped,import-not-found]
+        from multilspy.multilspy_config import (  # type: ignore[import-untyped,import-not-found]
             Language,
             MultilspyConfig,
         )
-        from multilspy.multilspy_logger import (  # type: ignore[import-untyped]
+        from multilspy.multilspy_logger import (  # type: ignore[import-untyped,import-not-found]
             MultilspyLogger,
         )
     except ModuleNotFoundError as exc:

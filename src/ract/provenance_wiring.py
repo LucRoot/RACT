@@ -179,7 +179,7 @@ def install(
         sandbox_signer=sandbox,
         alm_signer=alm,
         workspace_snapshot_provider=lambda: snapshot,
-        prompt_digest_provider=lambda: suite.prompt_digest,
+        prompt_digest_provider=lambda: getattr(suite, "prompt_digest"),
         acceptance_suite_provider=lambda: suite,
         manifest_digest_provider=lambda: manifest_digest,
     )

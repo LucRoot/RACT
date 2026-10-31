@@ -215,7 +215,9 @@ class OpenAICompatibleProvider(ProviderAdapter):
         self._env_var = env_var
         # The variable an explicit ``api_key: ${VAR}`` names, when it is unset.
         self._missing_key_var = (
-            env_var if reference is not None and not os.environ.get(env_var) else None
+            env_var
+            if reference is not None and not os.environ.get(env_var or "")
+            else None
         )
         if env_var is None:
             self.api_key = str(raw_key)

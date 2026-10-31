@@ -145,7 +145,9 @@ def test_the_cancel_abort_ends_a_read_blocked_on_a_stalled_stream() -> None:
 
     def read() -> None:
         try:
-            with client.stream("GET", f"http://127.0.0.1:{server.getsockname()[1]}/") as r:
+            with client.stream(
+                "GET", f"http://127.0.0.1:{server.getsockname()[1]}/"
+            ) as r:
                 for _ in r.iter_raw():
                     pass
         except Exception:  # noqa: BLE001 - any end of the read is the point

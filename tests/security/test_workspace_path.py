@@ -126,7 +126,8 @@ def test_windows_rules_refuse(project: Path, raw: str, code: str) -> None:
 
 
 @pytest.mark.skipif(
-    os.name == "nt", reason="on Windows the volume is asked (tests/security/test_s020_paths.py)"
+    os.name == "nt",
+    reason="on Windows the volume is asked (tests/security/test_s020_paths.py)",
 )
 def test_windows_rules_elsewhere_refuse_the_short_name_shape(project: Path) -> None:
     # No Windows volume to ask whether the name is an alias: the shape is refused.

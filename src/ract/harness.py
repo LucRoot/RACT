@@ -1217,7 +1217,8 @@ def _read_tools_budgets(config: dict[str, Any]) -> Any:
     """
     from ract.tools.loop import LoopBudgets
 
-    agent = config.get("agent") if isinstance(config.get("agent"), dict) else {}
+    raw = config.get("agent")
+    agent: dict[str, Any] = raw if isinstance(raw, dict) else {}
     if agent.get("read_tools") is False:
         return None
     defaults = LoopBudgets()
@@ -1259,7 +1260,8 @@ def _step_tools_budgets(config: dict[str, Any]) -> Any:
     Off by default until the slice's walkthroughs are done: a write step keeps
     the single completion. The budgets are the read loop's keys in ``agent``.
     """
-    agent = config.get("agent") if isinstance(config.get("agent"), dict) else {}
+    raw = config.get("agent")
+    agent: dict[str, Any] = raw if isinstance(raw, dict) else {}
     if agent.get("step_tools") is not True:
         return None
     from ract.tools.loop import LoopBudgets

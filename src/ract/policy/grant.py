@@ -306,11 +306,11 @@ def parse_policy(text: str, name: str = POLICY_FILE) -> Policy:
         problems = []
         for err in exc.errors():
             loc = tuple(err["loc"])
-            line = next(
+            at_line = next(
                 (lines[loc[:n]] for n in range(len(loc), 0, -1) if loc[:n] in lines),
                 None,
             )
-            where = f"{name}:{line}" if line else name
+            where = f"{name}:{at_line}" if at_line else name
             dotted = "".join(
                 f"[{p}]" if isinstance(p, int) else (f".{p}" if i else str(p))
                 for i, p in enumerate(loc)

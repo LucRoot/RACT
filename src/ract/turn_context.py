@@ -46,6 +46,9 @@ _extensions_off: ContextVar[bool] = ContextVar(
     "ract_repository_extensions_off", default=False
 )
 _write_lock: ContextVar[Any] = ContextVar("ract_turn_write_lock", default=None)
+# B-149: external text (a fetched page, a search result) put in front of the
+# model since the operator last approved a proposal, as "fetched page from x".
+_external: ContextVar[list[str] | None] = ContextVar("ract_turn_external", default=None)
 # Package 3 (B-033s): the lines typed during the turn and not yet sent; drained at each model request.
 _queued: ContextVar[Callable[[], list[str]] | None] = ContextVar(
     "ract_turn_queued", default=None
@@ -114,6 +117,31 @@ def bind(
     _runs.set(runs)
     _write_lock.set(write_lock)
     _queued.set(queued)
+    _external.set([])
+
+
+def note_external(origin: str, where: str) -> None:
+    """B-149: *origin* text from *where* is now in the model's context."""
+    seen = _external.get()
+    if seen is None:
+        seen = []
+        _external.set(seen)
+    entry = f"{origin} from {where}"
+    if entry not in seen:
+        seen.append(entry)
+
+
+def follows_external() -> str:
+    """The approval card's origin line, or "" when no external text came first."""
+    seen = _external.get() or []
+    return "follows " + "; ".join(seen) if seen else ""
+
+
+def approved_after_external() -> None:
+    """The operator approved with the origin line shown: start counting again."""
+    seen = _external.get()
+    if seen is not None:
+        seen.clear()
 
 
 def queued_notes() -> list[str]:

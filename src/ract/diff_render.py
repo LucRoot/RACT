@@ -8,6 +8,7 @@ marks as escapes. Output is deterministic.
 from __future__ import annotations
 
 import difflib
+from typing import Any, cast
 
 from rich.cells import cell_len
 
@@ -81,7 +82,9 @@ def summarize(changes: list[tuple[str, int, int]]) -> str:
 
 
 def _file_level(path: str, old: str | None, new: str | None) -> list[str]:
-    text = new if old is None else old
+    text = cast(
+        str, new if old is None else old
+    )  # one side of a file-level change is set
     marker = "+" if old is None else "-"
     kind = "new file" if old is None else "deleted file"
     lines = _lines(text)
@@ -147,7 +150,8 @@ class _Plan:
         return self._ops
 
     def get_grouped_opcodes(self, context: int) -> list[list[tuple]]:
-        return difflib.SequenceMatcher.get_grouped_opcodes(self, context)
+        grouped = difflib.SequenceMatcher.get_grouped_opcodes(cast(Any, self), context)
+        return cast("list[list[tuple]]", grouped)
 
 
 def _diff(

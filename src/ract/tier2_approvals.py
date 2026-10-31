@@ -80,7 +80,15 @@ class SessionApprovals:
         note = ""
         if self.session_id and paths & recorded(self.root, self.session_id):
             note = f"approvals from session {self.session_id} do not carry over"
+        from ract import turn_context
+
+        # B-149: a proposal that came after fetched text says so.
+        follows = turn_context.follows_external()
+        if follows:
+            note = f"{follows}; {note}" if note else follows
         answer = self.ask(name, args, note)
+        if answer in {"once", "session"} and follows:
+            turn_context.approved_after_external()
         if answer == "session" and self.session_id:
             live.update(paths)
             _record(self.root, self.session_id, paths)

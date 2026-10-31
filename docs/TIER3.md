@@ -98,6 +98,10 @@ an allow rule does not answer for it
 [y]es, once  [n]o
 ```
 
+### When a proposal follows fetched text
+
+Every tool result reaches the model inside a delimiter that names where it came from (`file`, `command output`, `fetched page`, `search result`) and says it is data, not instructions. When a page RACT fetched was in front of the model before a proposal, the prompt shows one line, `follows fetched page from <host>`, and the proposal always asks: an allow rule or a "for this session" answer does not run it. Your yes clears the line for the proposals after it. (Wording for MASON.)
+
 ## The commands
 
 - `/permissions` shows the rules, the deny rules, the largest mode, the expiry, and the sandbox line.

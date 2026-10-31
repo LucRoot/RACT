@@ -418,6 +418,7 @@ class Heartbeat:
         # The time source and the wait between beats. Production uses the real clock
         # and an Event wait; a test injects both so ticks are counted, not timed (B-071).
         self._clock = clock
+        self._stop = threading.Event()
         self._pace = (
             pace if pace is not None else (lambda seconds: self._stop.wait(seconds))
         )
@@ -432,7 +433,6 @@ class Heartbeat:
         self._waiting_on = waiting_on
         self._detail = detail
         self._interval = interval
-        self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._started = 0.0
 
