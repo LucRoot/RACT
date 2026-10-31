@@ -401,8 +401,16 @@ def console_plan_approval(plan: Plan):
             if error is None:
                 edited_n = outcome.n
                 # L-196 point 5: the edited plan is announced again, with its new hash.
+                # B-195 (a): in the shape of plan.proposed: the plan's assumption,
+                # confidence and planned stay, the steps are the edited ones.
+                from ract.session_events import plan_event_data
+
                 turn_context.report(
-                    "plan.proposed", plan_gate.approval_requested_payload(steps)
+                    "plan.proposed",
+                    {
+                        **plan_event_data(plan),
+                        "steps": plan_gate.approval_requested_payload(steps)["steps"],
+                    },
                 )
                 turn_context.report(
                     "plan.approval_requested",
