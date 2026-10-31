@@ -170,3 +170,23 @@ def test_the_snapshot_reads_at_most_its_total(tmp_path: Path, monkeypatch) -> No
     subprocess.run(["git", "add", "-A"], cwd=root, check=True)
     files = provenance_wiring._tracked_text(root)
     assert files["a.txt"] == "12345678" and files["b.txt"].startswith("sha256:")
+
+
+def test_one_session_key_a_day_for_a_repository(ws: Path) -> None:
+    """G-237 L4: a key per run left a busy user with thousands of key files."""
+    from types import SimpleNamespace
+
+    from ract import provenance_wiring
+    from ract.core.keys import _default_state_dir
+
+    keys = _default_state_dir() / "keys"
+    before = set(keys.glob("*.pem")) if keys.is_dir() else set()
+    for run in ("run-one", "run-two", "run-three"):
+        executor = SimpleNamespace(install_v4_provenance_deps=lambda **_kw: None)
+        assert provenance_wiring.install(executor, ws, "fix add", run_id=run) is None
+    assert len(set(keys.glob("*.pem")) - before) <= 1  # the day's key, made once
+
+    seed = provenance_wiring.session_seed
+    assert seed(ws, "2026-10-30") == seed(ws, "2026-10-30")
+    assert seed(ws, "2026-10-30") != seed(ws, "2026-10-31")
+    assert seed(ws, "2026-10-30") != seed(ws.parent, "2026-10-30")

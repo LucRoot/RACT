@@ -95,6 +95,20 @@ def run_seed(run_id: str) -> bytes:
     return hashlib.sha256(run_id.encode("utf-8")).digest()[:16]
 
 
+def session_seed(project: Path | str, day: str | None = None) -> bytes:
+    """The session key's seed: one per repository per UTC day (G-237 L4).
+
+    A key per run left a many-turn user with thousands of key files. The key
+    of a day stays in the user state folder after it, so older knots verify.
+    """
+    import os
+    from datetime import datetime, timezone
+
+    day = day or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    where = os.path.realpath(os.fspath(project))
+    return hashlib.sha256(f"session:{where}:{day}".encode("utf-8")).digest()[:16]
+
+
 def install(
     executor: Any, project: Path | str, intent: str, *, run_id: str
 ) -> str | None:
@@ -111,7 +125,7 @@ def install(
         from ract.security.manifest import CapabilityManifest, ManifestDigest
 
         seed = run_seed(run_id)
-        session_key = SessionKey.load_or_create(seed)
+        session_key = SessionKey.load_or_create(session_seed(project))
         # A second turn under the same run id reuses the run's archived keys:
         # generating again would replace them and orphan earlier knots.
         sandbox = SandboxKey.load_archived(seed, project)
