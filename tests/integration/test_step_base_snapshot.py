@@ -640,3 +640,46 @@ def test_a_batch_killed_at_the_budget_leaves_a_usable_snapshot(
 
     assert len(snap.over_time) == 5
     assert _git(ws, "show", f"{snap.sha}:a.txt") == "edited"
+
+
+# ---------------------------------------------------------------- S-015b sidecars
+
+
+def test_a_second_run_replaces_the_sidecar_of_the_file_it_changes(
+    tmp_path: Path,
+) -> None:
+    """The gate found it: the first run's sidecar is untracked, and the second
+    run's step refreshed it with its artifact, which was refused."""
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"src/calc.py": "one\n"})
+    (ws / "src" / ".calc.py.rootknot.json").write_text('{"run": 1}\n', encoding="utf-8")
+
+    def edit(w: Path) -> None:
+        (w / "src" / "calc.py").write_text("two\n", encoding="utf-8")
+        (w / "src" / ".calc.py.rootknot.json").write_text(
+            '{"run": 2}\n', encoding="utf-8"
+        )
+
+    before, after = _step(ws, edit)
+    result = apply_commit_to_working_tree(ws, before, after)
+
+    assert result.skipped == {}
+    assert set(result.applied) == {"src/calc.py", "src/.calc.py.rootknot.json"}
+    sidecar = (ws / "src" / ".calc.py.rootknot.json").read_text(encoding="utf-8")
+    assert sidecar == '{"run": 2}\n'
+
+
+def test_a_sidecar_changed_without_its_file_is_still_refused(tmp_path: Path) -> None:
+    ws = rb._workspace(tmp_path, "ws", git=True, files={"src/calc.py": "one\n"})
+    (ws / "src" / ".calc.py.rootknot.json").write_text('{"run": 1}\n', encoding="utf-8")
+
+    def edit(w: Path) -> None:
+        (w / "src" / ".calc.py.rootknot.json").write_text(
+            '{"forged": true}\n', encoding="utf-8"
+        )
+
+    before, after = _step(ws, edit)
+    result = apply_commit_to_working_tree(ws, before, after)
+
+    assert "untracked" in result.skipped["src/.calc.py.rootknot.json"]
+    sidecar = (ws / "src" / ".calc.py.rootknot.json").read_text(encoding="utf-8")
+    assert sidecar == '{"run": 1}\n'

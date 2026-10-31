@@ -931,6 +931,12 @@ def _classify_for_apply(
     return "delete" if kind == "D" else "write"
 
 
+def _sidecar_of(path: str) -> str:
+    """The Rootknot sidecar path beside *path* (``src/.calc.py.rootknot.json``)."""
+    head, _, name = path.rpartition("/")
+    return f"{head}/.{name}.rootknot.json" if head else f".{name}.rootknot.json"
+
+
 def apply_commit_to_working_tree(
     repo: Path,
     before: str,
@@ -980,6 +986,13 @@ def apply_commit_to_working_tree(
         )
     fields = [f for f in listing.stdout.split("\0") if f]
     changes = list(zip(fields[0::2], fields[1::2]))
+    # S-015b: a Rootknot sidecar is RACT's record of its artifact. When the
+    # step changes both, the sidecar a previous run wrote (untracked) may be
+    # replaced like a file this run created; the content check still holds
+    # and the old version is saved first. A sidecar alone is not.
+    created_by_run = created_by_run | {
+        _sidecar_of(path) for status, path in changes if status[:1] in {"A", "M"}
+    }
     applied: list[str] = []
     skipped: dict[str, str] = {}
     for status, path in changes:
