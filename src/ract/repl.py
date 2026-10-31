@@ -34,6 +34,7 @@ from typing import Any, cast
 
 from rich.markup import escape
 
+from ract import config_errors
 from ract.providers import reasoning
 from ract.session_events import safe_text
 from ract.cell_wrap import wrap_cells
@@ -956,7 +957,9 @@ class ReplSession:
         try:
             config = yaml.safe_load(self.state.config.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as exc:
-            self._console.error(f"could not read {self.state.config}: {exc}")
+            self._console.error(
+                f"could not read {self.state.config}: {config_errors.yaml_problem(exc)}"
+            )
             return True
         providers = config.get("providers") if isinstance(config, dict) else None
         if not isinstance(providers, dict) or not providers:
@@ -1020,7 +1023,9 @@ class ReplSession:
         try:
             config = yaml.safe_load(self.state.config.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError) as exc:
-            self._console.error(f"could not read {self.state.config}: {exc}")
+            self._console.error(
+                f"could not read {self.state.config}: {config_errors.yaml_problem(exc)}"
+            )
             return True
         providers = config.get("providers") if isinstance(config, dict) else None
         if not isinstance(providers, dict) or not providers:

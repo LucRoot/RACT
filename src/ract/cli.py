@@ -12,6 +12,7 @@ from typing import Any, NoReturn
 
 import yaml
 
+from ract import config_errors, redaction
 from ract import programs
 from ract.builtin_skill_library import BuiltinSkillLibrary
 from ract.chestertons_fence import ChestertonsFence
@@ -570,7 +571,10 @@ def _mcp_command(args: list[str]) -> int:
     try:
         config = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
-        print(f"[ract] failed to parse config: {exc}", file=sys.stderr)
+        print(
+            f"[ract] failed to parse config: {config_errors.yaml_problem(exc)}",
+            file=sys.stderr,
+        )
         return 1
 
     registry = McpToolRegistry.from_config(config)
@@ -619,7 +623,7 @@ def _mcp_invoke(registry: McpToolRegistry, tool: str | None, input_json: str) ->
 
     result = registry.call_tool(tool, arguments)
     if result.error is not None:
-        print(f"[ract] MCP tool failed: {result.error}", file=sys.stderr)
+        print(f"[ract] MCP tool failed: {redaction.redact(result.error)}", file=sys.stderr)
         return 1
 
     tool_result = result.unwrap()
@@ -627,10 +631,8 @@ def _mcp_invoke(registry: McpToolRegistry, tool: str | None, input_json: str) ->
         print("[ract] tool reported an error.", file=sys.stderr)
     for item in tool_result.content or []:
         text = item.get("text") if isinstance(item, dict) else None
-        if text:
-            console.direct(text)
-        else:
-            console.direct(json.dumps(item))
+        # B-202: a tool's output is redacted before it reaches the screen.
+        console.direct(redaction.redact(text if text else json.dumps(item)))
     return 0
 
 
@@ -694,7 +696,10 @@ def _retrieval_command(args: list[str]) -> int:
     try:
         config = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
-        print(f"[ract] failed to parse config: {exc}", file=sys.stderr)
+        print(
+            f"[ract] failed to parse config: {config_errors.yaml_problem(exc)}",
+            file=sys.stderr,
+        )
         return 1
 
     project_dir = parsed.config.parent.resolve()
@@ -2612,7 +2617,10 @@ def _whisper_command(args: list[str]) -> int:
     try:
         config = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
-        print(f"[ract] failed to parse config: {exc}", file=sys.stderr)
+        print(
+            f"[ract] failed to parse config: {config_errors.yaml_problem(exc)}",
+            file=sys.stderr,
+        )
         return 1
 
     router = ProviderRouter(config.get("providers", {}))
@@ -2705,7 +2713,10 @@ def _auction_command(args: list[str]) -> int:
     try:
         config = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
-        print(f"[ract] failed to parse config: {exc}", file=sys.stderr)
+        print(
+            f"[ract] failed to parse config: {config_errors.yaml_problem(exc)}",
+            file=sys.stderr,
+        )
         return 1
 
     auction_cfg = dict(config.get("dead_code_auction", {}))
@@ -2823,7 +2834,10 @@ def _fence_command(args: list[str]) -> int:
     try:
         config = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
-        print(f"[ract] failed to parse config: {exc}", file=sys.stderr)
+        print(
+            f"[ract] failed to parse config: {config_errors.yaml_problem(exc)}",
+            file=sys.stderr,
+        )
         return 1
 
     if (
@@ -3199,7 +3213,10 @@ def _release_command(args: list[str]) -> int:
     try:
         config = yaml.safe_load(parsed.config.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
-        print(f"[ract] failed to parse config: {exc}", file=sys.stderr)
+        print(
+            f"[ract] failed to parse config: {config_errors.yaml_problem(exc)}",
+            file=sys.stderr,
+        )
         return 1
 
     github_config = config.get("github", {})

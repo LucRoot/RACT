@@ -26,7 +26,26 @@ def config_not_found(path: object) -> str:
 
 
 def config_unparsed(exc: object) -> str:
-    return f"Failed to parse config: {exc}"
+    return f"Failed to parse config: {yaml_problem(exc)}"
+
+
+def yaml_problem(exc: object) -> str:
+    """A YAML error as its line, column and problem, never the line's text (B-202).
+
+    LR:: ``str()`` of a YAML error quotes the offending source line, so a
+    literal ``api_key: sk-...`` on the broken line was printed with it. A
+    marked error is shown as ``line L, column C: problem``; anything else
+    (an OSError, for one) is redacted.
+    """
+    from ract.redaction import redact
+
+    mark = getattr(exc, "problem_mark", None)
+    problem = getattr(exc, "problem", None)
+    if mark is not None and problem:
+        return f"line {mark.line + 1}, column {mark.column + 1}: {problem}"
+    if problem:
+        return str(problem)
+    return redact(str(exc))
 
 
 def slot_not_configured(name: str) -> str:

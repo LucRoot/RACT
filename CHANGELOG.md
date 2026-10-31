@@ -309,6 +309,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the documented extension kinds now include `command` and `network`.
 - A step whose provider could not be reached is shown as failed, as the turn is, and no longer
   as refused (B-196): a step is refused only when the turn exits 3 for its error.
+- `ract setup --reconfigure` and `--add-provider` show a diff that masks a literal key already in
+  ract.yaml and keeps `${VAR}` references (B-202). MCP connection errors, a server's own error
+  output and `ract mcp call` results are redacted before they are shown.
+- A broken `ract.yaml` is reported by line and column only (B-202): the YAML error text quoted
+  the broken line, so a key written on it was printed by `ract doctor`, `ract run`, a session,
+  headless runs, the preflight check and setup's answers file.
 - An unset key variable (`api_key: ${VAR}`) and the other configuration problems now exit 2
   with `error.kind: config` in a session, `ract -p` and `ract run` (B-194); they exited 1 with
   `internal`. The providers and the exit table share one list of these sentences, and `ract run`

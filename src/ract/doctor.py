@@ -16,6 +16,7 @@ from typing import Any
 
 import yaml
 
+from ract import config_errors
 from ract.session_events import safe_text
 
 from ract.config_check import find_config_problems, resolve_manager_provider
@@ -93,7 +94,7 @@ class RactDoctor:
                 CheckResult(
                     name="config_parse",
                     passed=False,
-                    message=f"Failed to parse ract.yaml: {exc}",
+                    message=f"Failed to parse ract.yaml: {config_errors.yaml_problem(exc)}",
                 )
             )
             return None

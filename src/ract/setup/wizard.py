@@ -27,6 +27,7 @@ from typing import Any
 
 import yaml
 
+from ract import config_errors
 from ract import programs
 from ract import egress_scan, redaction
 from ract.console_interrupt import read_line
@@ -186,12 +187,18 @@ def write_config(
             )
         draft = directory / DRAFT_NAME
         _atomic_write(draft, text)
-        diff = "".join(
-            difflib.unified_diff(
-                target.read_text(encoding="utf-8").splitlines(keepends=True),
-                text.splitlines(keepends=True),
-                fromfile=CONFIG_NAME,
-                tofile=DRAFT_NAME,
+        from ract.redaction import redact
+
+        # B-202: the existing file can hold a literal key; the diff shows
+        # ${VAR} references as they are and masks a literal value.
+        diff = redact(
+            "".join(
+                difflib.unified_diff(
+                    target.read_text(encoding="utf-8").splitlines(keepends=True),
+                    text.splitlines(keepends=True),
+                    fromfile=CONFIG_NAME,
+                    tofile=DRAFT_NAME,
+                )
             )
         )
         return draft, diff
@@ -755,14 +762,19 @@ def _add_provider(directory: Path, answers: Answers, interactive: bool, io: Io) 
         after = yaml.safe_dump(merged, sort_keys=False)
         io.say(f"  {CONFIG_NAME} is rewritten whole, so comments in it are not kept.")
     io.say(f"Adds the provider '{final}' to {CONFIG_NAME}:")
+    from ract.redaction import redact
+
     _say_raw(
         io,
-        "".join(
-            difflib.unified_diff(
-                before.splitlines(keepends=True),
-                after.splitlines(keepends=True),
-                fromfile=CONFIG_NAME,
-                tofile=f"{CONFIG_NAME} (with {final})",
+        # B-202: a literal key already in the file is masked in the diff.
+        redact(
+            "".join(
+                difflib.unified_diff(
+                    before.splitlines(keepends=True),
+                    after.splitlines(keepends=True),
+                    fromfile=CONFIG_NAME,
+                    tofile=f"{CONFIG_NAME} (with {final})",
+                )
             )
         ),
     )
@@ -851,7 +863,10 @@ def main(argv: list[str]) -> int:
                 )
             answers = Answers.from_yaml(text)
         except (OSError, SetupError, yaml.YAMLError) as exc:
-            print(f"error: could not use {args.answers}: {exc}", file=sys.stderr)
+            print(
+                f"error: could not use {args.answers}: {config_errors.yaml_problem(exc)}",
+                file=sys.stderr,
+            )
             return EXIT_USAGE
     if args.reconfigure:
         answers.reconfigure = True
