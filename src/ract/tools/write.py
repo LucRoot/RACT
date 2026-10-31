@@ -243,15 +243,14 @@ def _styled(new_text: str, old: bytes | None) -> bytes:
 
 
 def _replace(full: Path, data: bytes) -> None:
-    """Write *data* to *full* through a temporary file in the same folder."""
-    full.parent.mkdir(parents=True, exist_ok=True)
-    temp = full.with_name(f".{full.name}.ract-tmp")
-    try:
-        temp.write_bytes(data)
-        os.replace(temp, full)
-    finally:
-        if temp.exists():
-            temp.unlink()
+    """Write *data* to *full* through a fresh temporary file in the same folder.
+
+    B-212: the temporary name was predictable (``.NAME.ract-tmp``), so a hard
+    link planted at it sent the write to a file outside the workspace.
+    """
+    from ract.atomic_write import write_atomic
+
+    write_atomic(full, data)
 
 
 def _result(
