@@ -199,11 +199,12 @@ def run_tool(
 
 
 from ract.tools.read import READ_TOOLS  # noqa: E402  (needs the names above)
+from ract.tools.git_tools import GIT_TOOLS  # noqa: E402
 from ract.tools.tests_tool import RUN_TESTS  # noqa: E402
 from ract.tools.verifier_tools import VERIFIER_TOOLS  # noqa: E402
 from ract.tools.write import WRITE_TOOLS  # noqa: E402
 
-for _spec in (*READ_TOOLS, *WRITE_TOOLS, RUN_TESTS, *VERIFIER_TOOLS):
+for _spec in (*READ_TOOLS, *WRITE_TOOLS, RUN_TESTS, *VERIFIER_TOOLS, *GIT_TOOLS):
     register(_spec)
 
 __all__ = [
