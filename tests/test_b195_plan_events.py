@@ -24,3 +24,24 @@ def test_the_edited_plan_keeps_assumption_confidence_and_planned(tmp_path, monke
         assert again[field] == first[field], field
     assert "plan_hash" not in again
     assert again["steps"][0]["action"] != first["steps"][0]["action"]  # the edited step
+
+
+def test_an_agent_step_has_no_target_and_the_hash_ignores_the_shown_words() -> None:
+    # B-195 (b): the prose "(the files its tools change)" was the agent step's
+    # target on one path, so it reached plan_hash and result.plan[].file.
+    from ract import plan_gate
+    from ract.approval_callback import _plan_steps
+    from ract.manager import Plan, Step
+    from ract.ui.plan_approval_view import AGENT_TARGET_TEXT, Step as PlanStep, screen_lines
+
+    plan = Plan(
+        assumption="a", confidence=1.0,
+        steps=[Step(action="fix the test", provider_hint="", expected_artifact="", agent=True)],
+    )
+    steps = _plan_steps(plan)
+    assert steps[0].target is None and steps[0].agent
+    payload = plan_gate.approval_requested_payload(steps)
+    assert payload["steps"][0]["target"] is None
+    plain = [PlanStep(n=1, action="fix the test")]
+    assert plan_gate.plan_hash(steps) == plan_gate.plan_hash(plain)
+    assert any(AGENT_TARGET_TEXT in line for line in screen_lines(steps, 80))

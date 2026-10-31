@@ -48,14 +48,13 @@ def _changes_files(steps: list[Step]) -> bool:
     return any(step.target for step in steps)
 
 
-# B-137: the target an agent step shows (the request run as one step): it can
-# change any file its tools reach, so it is always shown before it runs.
-AGENT_TARGET = "(the files its tools change)"
-
-
 def approval_needed(steps: list[Step], *, mode: str) -> bool:
-    """True when the plan is shown and approved once, before the first step runs."""
-    if mode in ASK_MODES and any(s.target == AGENT_TARGET for s in steps):
+    """True when the plan is shown and approved once, before the first step runs.
+
+    B-137: an agent step can change any file its tools reach, so it is always
+    shown before it runs. B-195: it is marked ``agent``, not by a target text.
+    """
+    if mode in ASK_MODES and any(getattr(s, "agent", False) for s in steps):
         return True
     return mode in ASK_MODES and len(steps) >= 2 and _changes_files(steps)
 

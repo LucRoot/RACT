@@ -28,6 +28,11 @@ _SKIP = {"s", "skip"}
 _EDIT = {"e", "edit"}
 
 
+# What the checklist shows for an agent step (B-137). Shown only: it is no
+# target, so it never reaches the plan hash or the result's file field (B-195).
+AGENT_TARGET_TEXT = "(the files its tools change)"
+
+
 @dataclass(frozen=True)
 class Step:
     """A plan step as the checklist shows it: a number, what it does, and the file it touches."""
@@ -36,6 +41,9 @@ class Step:
     action: str
     target: str | None = None
     state: str = "pending"  # pending or skipped
+    # B-137, B-195: a step the model runs with its tools; it names no file
+    # (``target`` is None) and the checklist says what it may change.
+    agent: bool = False
 
 
 @dataclass(frozen=True)
@@ -52,7 +60,10 @@ def screen_lines(steps: list[Step], width: int, *, rich: bool = False) -> list[s
     lines = [f"Plan: {len(steps)} step{'s' if len(steps) != 1 else ''}"]
     for step in steps:
         mark = "[-]" if step.state == "skipped" else "[ ]"
-        target = f" -> {step.target}" if step.target else ""
+        if step.agent:
+            target = f" -> {AGENT_TARGET_TEXT}"
+        else:
+            target = f" -> {step.target}" if step.target else ""
         text = f"{mark} {step.n}. {step.action}{target}"
         if rich and step.state == "skipped":
             text = f"[dim]{text}[/dim]"

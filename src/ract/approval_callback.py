@@ -302,15 +302,12 @@ def _plan_steps(plan: Plan) -> list:
     """The plan as the approval checklist numbers it (ADR-0049 D12)."""
     from ract.ui.plan_approval_view import Step as PlanStep
 
-    from ract.plan_gate import AGENT_TARGET
-
     return [
         PlanStep(
             n=n,
             action=step.action,
-            target=AGENT_TARGET
-            if getattr(step, "agent", False)
-            else (step.expected_artifact or None),
+            target=None if getattr(step, "agent", False) else (step.expected_artifact or None),
+            agent=bool(getattr(step, "agent", False)),
         )
         for n, step in enumerate(plan.steps, start=1)
     ]
