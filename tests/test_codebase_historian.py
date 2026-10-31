@@ -197,7 +197,7 @@ def test_blame_runs_once_per_file_and_again_only_after_a_change(tmp_path, monkey
     blames: list[list[str]] = []
 
     def counting_run(args, **kwargs):
-        if args[:2] == ["git", "blame"]:
+        if "blame" in args:  # B-206: argv is the full git path and the hardening
             blames.append(args)
         return real_run(args, **kwargs)
 

@@ -26,12 +26,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
-from ract import programs
+from ract.git_run import run_git
 from ract.trace.events import Event
 from ract.trace.repair import repair as repair_events
 from ract.trace.writer import EventReader, JsonlEventWriter
@@ -77,8 +76,8 @@ def _events_up_to_step(events: list[Event], step_hex: str) -> list[Event]:
 
 def _repo_head(repo: Path) -> str | None:
     """Return the current HEAD sha of ``repo``, or ``None`` if not a git repo."""
-    result = subprocess.run(
-        [programs.git(), "-C", str(repo), "rev-parse", "HEAD"],
+    result = run_git(
+        "-C", str(repo), "rev-parse", "HEAD",
         capture_output=True,
         text=True,
         check=False,

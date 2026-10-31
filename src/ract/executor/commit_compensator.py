@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ract.git_run import run_git
 from ract import programs
 from ract.core.module_identity import _module_knot, register_module_knot
 
@@ -299,8 +300,8 @@ class CompensatorStack:
 
 def _resolve_head(repo_root: Path) -> str:
     """Return HEAD sha for ``repo_root`` or ``""`` on failure."""
-    result = subprocess.run(
-        [programs.git(), "-C", str(repo_root), "rev-parse", "HEAD"],
+    result = run_git(
+        "-C", str(repo_root), "rev-parse", "HEAD",
         capture_output=True,
         text=True,
         check=False,
@@ -317,8 +318,8 @@ def _resolve_branch(repo_root: Path, branch: str) -> str:
     tip, not HEAD, so a downstream commit on a DIFFERENT branch does
     not spuriously refuse the compensator.
     """
-    result = subprocess.run(
-        [programs.git(), "-C", str(repo_root), "rev-parse", branch],
+    result = run_git(
+        "-C", str(repo_root), "rev-parse", branch,
         capture_output=True,
         text=True,
         check=False,
@@ -330,8 +331,8 @@ def _resolve_branch(repo_root: Path, branch: str) -> str:
 
 def _current_branch(repo_root: Path) -> str:
     """Return the currently checked-out branch (or ``"HEAD"`` if detached)."""
-    result = subprocess.run(
-        [programs.git(), "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+    result = run_git(
+        "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD",
         capture_output=True,
         text=True,
         check=False,
@@ -349,8 +350,8 @@ def check_pushed(repo_root: Path, sha: str) -> bool:
     the repo has no remotes at all, this always returns False -- the
     compensator is free to run.
     """
-    result = subprocess.run(
-        [programs.git(), "-C", str(repo_root), "branch", "-r", "--contains", sha],
+    result = run_git(
+        "-C", str(repo_root), "branch", "-r", "--contains", sha,
         capture_output=True,
         text=True,
         check=False,

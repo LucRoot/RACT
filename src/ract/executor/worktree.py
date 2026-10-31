@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterable
 
+from ract.git_run import run_git
 from ract import programs
 from ract.workspace_path import (
     ENV_TEMPLATE_SUFFIXES,
@@ -111,8 +112,8 @@ def ensure_git_repo(root: Path) -> None:
         raise WorktreeError(
             f"workspace root does not exist or is not a directory: {root}"
         )
-    result = subprocess.run(
-        [programs.git(), "-C", str(root), "rev-parse", "--show-toplevel"],
+    result = run_git(
+        "-C", str(root), "rev-parse", "--show-toplevel",
         capture_output=True,
         text=True,
         check=False,
@@ -137,8 +138,8 @@ def ensure_clean_tracked_tree(root: Path) -> None:
     root = Path(root)
     # ``--porcelain=v1`` gives one line per changed path with a two-column
     # status prefix. ``?? `` lines are untracked; anything else is tracked.
-    result = subprocess.run(
-        [programs.git(), "-C", str(root), "status", "--porcelain=v1"],
+    result = run_git(
+        "-C", str(root), "status", "--porcelain=v1",
         capture_output=True,
         text=True,
         check=False,
@@ -165,8 +166,8 @@ def ensure_clean_tracked_tree(root: Path) -> None:
 
 def resolve_head_sha(root: Path) -> str:
     """Return the full commit sha for ``HEAD`` at ``root``."""
-    result = subprocess.run(
-        [programs.git(), "-C", str(root), "rev-parse", "HEAD"],
+    result = run_git(
+        "-C", str(root), "rev-parse", "HEAD",
         capture_output=True,
         text=True,
         check=False,
@@ -290,8 +291,8 @@ class WorktreeManager:
         naming discipline is what makes gc trivial later (lateral chain
         branch C, deferred).
         """
-        result = subprocess.run(
-            [programs.git(), "-C", str(self.repo_root), "branch", "--list", "rootact/step/*"],
+        result = run_git(
+            "-C", str(self.repo_root), "branch", "--list", "rootact/step/*",
             capture_output=True,
             text=True,
             check=False,
@@ -307,8 +308,8 @@ class WorktreeManager:
 
     def worktree_list(self) -> list[dict[str, str]]:
         """Return ``git worktree list --porcelain`` parsed into records."""
-        result = subprocess.run(
-            [programs.git(), "-C", str(self.repo_root), "worktree", "list", "--porcelain"],
+        result = run_git(
+            "-C", str(self.repo_root), "worktree", "list", "--porcelain",
             capture_output=True,
             text=True,
             check=False,
@@ -333,8 +334,8 @@ class WorktreeManager:
 
     def commit(self, wt: Worktree, message: str) -> str:
         """Stage all changes in the worktree and commit; return the new sha."""
-        add = subprocess.run(
-            [programs.git(), "-C", str(wt.path), "add", "-A"],
+        add = run_git(
+            "-C", str(wt.path), "add", "-A",
             capture_output=True,
             text=True,
             check=False,
@@ -369,8 +370,8 @@ class WorktreeManager:
             raise WorktreeError(
                 f"git commit failed in {wt.path}: {commit.stderr.strip()}"
             )
-        sha_result = subprocess.run(
-            [programs.git(), "-C", str(wt.path), "rev-parse", "HEAD"],
+        sha_result = run_git(
+            "-C", str(wt.path), "rev-parse", "HEAD",
             capture_output=True,
             text=True,
             check=False,
@@ -539,8 +540,8 @@ class WorktreeManager:
 
 
 def _git_in(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [programs.git(), "-C", str(repo), *args],
+    return run_git(
+        "-C", str(repo), *args,
         capture_output=True,
         text=True,
         encoding="utf-8",
