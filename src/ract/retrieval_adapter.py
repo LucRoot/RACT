@@ -348,7 +348,8 @@ class WebSearchAdapter(RetrievalAdapter):
                 assumption="Search API returns a successful status.",
                 confidence=0.0,
                 provenance=["retrieval_adapter.web"],
-                error=f"Search API returned {exc.response.status_code}: {exc.response.text[:200]}",
+                error=f"Search API returned {exc.response.status_code}: "
+                f"{redaction.body(exc.response.text)}",
             )
         except httpx.RequestError as exc:
             return Rooted(

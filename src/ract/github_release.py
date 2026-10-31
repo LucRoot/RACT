@@ -54,7 +54,8 @@ class GitHubReleaseClient:
             response = client.get(self._repo_url("/releases"))
         if response.status_code != 200:
             raise GitHubReleaseError(
-                f"Failed to list releases: {response.status_code} {response.text}",
+                f"Failed to list releases: {response.status_code} "
+                f"{redaction.body(response.text, None)}",
                 response.status_code,
             )
         return response.json()
@@ -87,7 +88,8 @@ class GitHubReleaseClient:
             response = client.post(self._repo_url("/releases"), json=payload)
         if response.status_code not in (201, 422):
             raise GitHubReleaseError(
-                f"Failed to create release: {response.status_code} {response.text}",
+                f"Failed to create release: {response.status_code} "
+                f"{redaction.body(response.text, None)}",
                 response.status_code,
             )
         data = response.json()
@@ -130,7 +132,8 @@ class GitHubReleaseClient:
             response = client.post(upload_url, content=data)
         if response.status_code != 201:
             raise GitHubReleaseError(
-                f"Failed to upload asset: {response.status_code} {response.text}",
+                f"Failed to upload asset: {response.status_code} "
+                f"{redaction.body(response.text, None)}",
                 response.status_code,
             )
         return response.json()

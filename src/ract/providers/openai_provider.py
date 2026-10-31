@@ -127,16 +127,7 @@ def _host(url: str) -> str:
     return urlsplit(url).netloc.lower()
 
 
-def _body(text: str, limit: int = 200) -> str:
-    """A response body for an error line: redacted whole, then cut (B-165).
-
-    LR:: A gateway that echoes the request's Authorization header in its 401
-    body put the key into the error text, and setup printed it in full
-    (MASON's wrong-key walk). The known-value redaction (V7-05) matches the
-    whole key, so the body is redacted before it is cut; cut first, a key at
-    the cut would pass half masked.
-    """
-    return redaction.redact(text)[:limit]
+_body = redaction.body  # B-165: one helper for every printer of a response body
 
 
 def _aborter(client: httpx.Client):  # type: ignore[no-untyped-def]

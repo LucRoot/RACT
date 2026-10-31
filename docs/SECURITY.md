@@ -42,6 +42,11 @@ The audit records are kept in the project's coordination folder, which is not pa
 | Text sent to a provider | the egress scan (`src/ract/egress_scan.py`) and the egress ledger (`src/ract/egress_ledger.py`); credentials are redacted (`src/ract/redaction.py`) |
 | A sandboxed command | the sandbox backend. Where the backend does not enforce, the run records `sandbox.unenforced` and the page says "declared, not enforced". |
 
+A key or token RACT resolves (a provider key, a search key, the GitHub release token) is masked
+by its exact value wherever text is redacted, including the body a server sends back in an
+error: a server that echoes the key in a 401 shows it masked (B-165). Masking by value needs at
+least eight characters; a shorter secret is not masked by value, only by the secret patterns.
+
 ## Declared, not enforced
 
 On Windows without WSL2, the sandbox backend does not enforce confinement. The stub backend emits `sandbox.unenforced` into the event log when it runs a command. Read every sandbox claim in this page and in the other documents as a declaration of intent unless the run record shows `sandbox.granted`.
