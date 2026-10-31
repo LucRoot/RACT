@@ -117,7 +117,8 @@ def test_prose_for_a_python_file_is_refused_whatever_the_verb(
 
     assert result.returncode == 3, result.stderr  # refused
     assert (ws / "src" / "calc.py").read_bytes() == before
-    assert json.loads(result.stdout)["outcome"] == "failed"
+    # B-196: exit 3 is outcome "refused" on every path.
+    assert json.loads(result.stdout)["outcome"] == "refused"
     assert "not a valid python file" in result.stderr
     # The hint names /ask, not the model server (the old hint table read
     # any "refused" as a refused connection).
