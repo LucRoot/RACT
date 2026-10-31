@@ -293,7 +293,11 @@ def _merge_reports(
 
 def _is_answer_step(step: Step) -> bool:
     """An answer step (B-042) names no file and calls no tool: it writes nothing."""
-    return not step.expected_artifact and step.tool_call is None
+    return (
+        not step.expected_artifact
+        and step.tool_call is None
+        and not getattr(step, "agent", False)  # B-137: it changes files
+    )
 
 
 def _snapshot_failure(exc: WorktreeError) -> Rooted[ExecutionReport]:

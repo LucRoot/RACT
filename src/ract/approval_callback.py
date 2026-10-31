@@ -102,7 +102,9 @@ def console_tier_2_choice(name: str, args: object, note: str = "") -> str:
         # B-115 (D8): a git tool shows the exact command and is asked once per call.
         from ract.tools.git_tools import command_for
 
-        _print_wrapped("Tier 2: RACT would run this git command in the step's worktree:")
+        _print_wrapped(
+            "Tier 2: RACT would run this git command in the step's worktree:"
+        )
         for part in wrap_cells(safe_text(" ".join(command_for(name, args))), width):
             print(f"  {part}")
         question_gate.open_question()
@@ -294,8 +296,16 @@ def _plan_steps(plan: Plan) -> list:
     """The plan as the approval checklist numbers it (ADR-0049 D12)."""
     from ract.ui.plan_approval_view import Step as PlanStep
 
+    from ract.plan_gate import AGENT_TARGET
+
     return [
-        PlanStep(n=n, action=step.action, target=step.expected_artifact or None)
+        PlanStep(
+            n=n,
+            action=step.action,
+            target=AGENT_TARGET
+            if getattr(step, "agent", False)
+            else (step.expected_artifact or None),
+        )
         for n, step in enumerate(plan.steps, start=1)
     ]
 

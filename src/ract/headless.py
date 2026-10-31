@@ -450,6 +450,7 @@ def result_object(
         if e.kind == "agent.text.delta" and e.data.get("channel") == "answer"
     )
     turns = sum(1 for e in events if e.kind == "turn.started")
+    plans = [e.data for e in events if e.kind == "plan.proposed"]
     return {
         "schema": RESULT_SCHEMA,
         "outcome": finished.get("outcome", "failed"),
@@ -459,6 +460,9 @@ def result_object(
         "session": session,
         "turns": turns,
         "verdict": finished.get("verdict", ""),
+        # B-137: false when the model went straight to tools and the request
+        # ran as one step; null when no plan was proposed.
+        "planned": bool(plans[-1].get("planned", True)) if plans else None,
         "final_text": answer,
         "changed": finished.get("changed") or [],
         "verification": finished.get("verification")

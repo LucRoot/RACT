@@ -365,6 +365,8 @@ def plan_event_data(plan: Any) -> dict[str, Any]:
     return {
         "assumption": safe_text(str(getattr(plan, "assumption", ""))),
         "confidence": float(getattr(plan, "confidence", 0.0)),
+        # B-137: false when the model went straight to tools.
+        "planned": bool(getattr(plan, "planned", True)),
         "steps": [
             {
                 "n": n,

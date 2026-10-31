@@ -1183,6 +1183,17 @@ class Executor:
         temperature = self.temperature_router.for_action(step.action)
         errors: list[str] = []
         hints: list[str] = []
+        if getattr(step, "agent", False):
+            # B-137: the request as one step, through the step agent loop.
+            if (
+                self.step_tools is not None
+                and self.in_step_worktree
+                and self.project_dir is not None
+            ):
+                return self._work_with_step_tools(
+                    candidates, step, user_content, index, temperature
+                )
+            return self._agent_without_tools(step, index)
         if (
             self.read_tools is not None
             and self.project_dir is not None
@@ -1780,6 +1791,37 @@ class Executor:
         assumptions.append(f"Step {n} was revised once after the review.")
         return written
 
+    def _agent_without_tools(
+        self, step: Step, index: int
+    ) -> Rooted[tuple[dict[str, Any], str, dict[str, Any]]]:
+        """B-137 with the step agent loop off: prose is the answer; tool calls are refused."""
+        from ract.manager import _has_tool_calls
+
+        opening = getattr(step, "opening", None)
+        if _has_tool_calls(opening) or not isinstance(opening, dict):
+            return Rooted(
+                value=None,
+                assumption="The step agent loop is on for a request the model "
+                "answered with tools.",
+                confidence=0.0,
+                provenance=[f"executor.step:{index}", "agent_plan"],
+                error=(
+                    "The model went straight to tools and gave no plan, and the step "
+                    "agent loop is off here, so nothing was run."
+                ),
+                hint="set agent.step_tools: true in ract.yaml, or ask for a plan",
+            )
+        content = str(
+            ((opening.get("choices") or [{}])[0].get("message") or {}).get("content")
+            or ""
+        )
+        return Rooted(
+            value=(opening, content, {}),
+            assumption="The model's prose answers the request.",
+            confidence=0.5,
+            provenance=[f"executor.step:{index}", "agent_plan"],
+        )
+
     def _work_with_step_tools(
         self,
         candidates: list[ProviderAdapter],
@@ -1803,16 +1845,30 @@ class Executor:
         """
         from ract.tools.loop import StepWork, work_with_tools
 
-        assert self.project_dir is not None and step.expected_artifact
-        target = self.project_dir / step.expected_artifact
-        before = target.read_bytes() if target.is_file() else None
+        agent = bool(getattr(step, "agent", False))
+        assert self.project_dir is not None and (step.expected_artifact or agent)
+        target = None if agent else self.project_dir / step.expected_artifact
+        before = (
+            target.read_bytes() if target is not None and target.is_file() else None
+        )
         errors: list[str] = []
         hints: list[str] = []
+        # B-137: the planning reply is the loop's first turn, so a tool call the
+        # model made there goes through the same gates and is not lost.
+        opening: list[Any] = [getattr(step, "opening", None)] if agent else [None]
         for adapter in candidates:
             if turn_context.cancelled():
                 break
 
             def complete(messages, _adapter=adapter):
+                if opening[0] is not None:
+                    first, opening[0] = opening[0], None
+                    return Rooted(
+                        value=first,
+                        assumption="The planning reply is the loop's first turn.",
+                        confidence=1.0,
+                        provenance=["manager.plan", "agent_plan"],
+                    )
                 return _adapter.complete(
                     messages, max_tokens=1024, temperature=temperature
                 )
@@ -1865,6 +1921,30 @@ class Executor:
                         "to your files."
                     ),
                     hint=done.hint,
+                )
+            if target is None:
+                # B-137: no single file; every change stays in the worktree and
+                # reaches the operator's files through the substrate's apply.
+                summary = work.summary or "The step ended."
+                raw = {
+                    "choices": [
+                        {"message": {"content": summary}, "finish_reason": "stop"}
+                    ],
+                    "usage": {"total_tokens": work.tokens},
+                }
+                return Rooted(
+                    value=(raw, summary, self._extract_step_metrics(adapter, raw)),
+                    assumption=(
+                        f"Provider '{adapter.name}' worked the request as one step "
+                        "with the tools; the step's checks judge the result."
+                    ),
+                    confidence=1.0,
+                    provenance=[
+                        f"executor.step:{index}",
+                        f"provider:{adapter.name}",
+                        "step_agent",
+                        "agent_plan",
+                    ],
                 )
             after = target.read_bytes() if target.is_file() else None
             if after is None or after == before:

@@ -160,7 +160,7 @@ the acknowledgement from it; the time until `turn.finished` with outcome
 
 | Kind | `data` fields |
 |---|---|
-| `plan.proposed` | `assumption` (string), `confidence` (number from 0 to 1), `steps` (list of `{n, action, target}`; `target` is a path or null) |
+| `plan.proposed` | `assumption` (string), `confidence` (number from 0 to 1), `planned` (boolean: false when the model went straight to tools or answered in prose twice, and the request runs as the one step through the step agent loop, B-137), `steps` (list of `{n, action, target}`; `target` is a path or null) |
 | `step.started` | `n` (integer), `action` (string), `target` (string or null) |
 | `step.finished` | `n`, `outcome` (`done`, `failed`, `skipped`, `refused`), `artifact` (path or null), `confidence` (number or null), `duration_ms` (integer), `hint` (string or null: the next step in words, when `outcome` is not `done` and the step knows one; the turn's `error.surfaced` always has one) |
 
@@ -279,6 +279,7 @@ sequences, so `ract -p "..." > out.txt` gives a clean file.
 | `session` | string | Session id. |
 | `turns` | integer | Turns run. |
 | `verdict` | string | The last turn's verdict sentence. |
+| `planned` | boolean or null | False when the model went straight to tools and the request ran as one step (B-137); null when no plan was proposed. |
 | `final_text` | string | The answer text of the last turn (`channel: answer` only). |
 | `changed` | list of paths | Files changed across the run. |
 | `verification` | object | As in `turn.finished`, for the run as a whole. |

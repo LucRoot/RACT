@@ -9,7 +9,7 @@ on the assumption that the provider returned well-formed JSON.
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +48,11 @@ class Step:
     provider_hint: str
     expected_artifact: str
     tool_call: dict[str, Any] | None = None
+    # B-137: the request run as one step through the step agent loop, because
+    # the model answered the planning request with tool calls or prose.
+    # ``opening`` is that reply, given to the loop as its first turn.
+    agent: bool = False
+    opening: dict[str, Any] | None = field(default=None, compare=False, repr=False)
 
 
 @dataclass(frozen=True)
@@ -57,6 +62,18 @@ class Plan:
     assumption: str
     confidence: float
     steps: list[Step]
+    # B-137: False when the model went straight to tools (or answered in prose
+    # twice) and the request became the one step.
+    planned: bool = True
+
+
+def _has_tool_calls(raw: dict[str, Any] | None) -> bool:
+    """True when a chat-completion reply carries native tool calls."""
+    if not isinstance(raw, dict):
+        return False
+    choices = raw.get("choices") or [{}]
+    message = (choices[0] or {}).get("message") or {}
+    return bool(message.get("tool_calls"))
 
 
 # B-086: the second request after a reply with no plan steps, and the
@@ -193,6 +210,9 @@ class Manager:
             {"role": "user", "content": f"Intent: {intent}\nEmit the JSON plan now."},
         ]
         first = self._plan_once(intent, messages)
+        if not first.is_ok() and _has_tool_calls(self._last_raw):
+            # B-137: the model went straight to tools; nothing of its reply is lost.
+            return self._agent_plan(intent, self._last_raw)
         if first.is_ok() or first.hint != NO_STEPS_HINT:
             return first
         reply = self._last_reply[:_REPLY_ECHO_CHARS]
@@ -202,20 +222,43 @@ class Manager:
             {"role": "user", "content": PLAN_SHAPE_REQUEST},
         ]
         second = self._plan_once(intent, retry)
+        if not second.is_ok() and _has_tool_calls(self._last_raw):
+            return self._agent_plan(intent, self._last_raw)
         if second.is_ok() or second.hint != NO_STEPS_HINT:
             return second
+        # B-137: prose twice; the request becomes the one step, and its first
+        # turn is the prose (an answer when the step agent loop is off).
+        return self._agent_plan(intent, self._last_raw or None)
+
+    def _agent_plan(self, intent: str, opening: dict[str, Any] | None) -> Rooted[Plan]:
+        """The request as the one step, through the step agent loop (B-137)."""
         return Rooted(
-            value=None,
-            assumption="The management LM returns a JSON plan with steps.",
-            confidence=0.0,
-            provenance=["manager.plan"],
-            error=NO_PLAN_SENTENCE,
-            hint=NO_STEPS_HINT,
+            value=Plan(
+                assumption=(
+                    "The model went straight to tools (or answered in prose); the "
+                    "request is the one step."
+                ),
+                confidence=0.5,
+                steps=[
+                    Step(
+                        action=intent,
+                        provider_hint="",
+                        expected_artifact="",
+                        agent=True,
+                        opening=opening,
+                    )
+                ],
+                planned=False,
+            ),
+            assumption="planned: no (the model went straight to tools)",
+            confidence=0.5,
+            provenance=["manager.plan", "agent_plan"],
         )
 
     def _plan_once(self, intent: str, messages: list[dict[str, str]]) -> Rooted[Plan]:
         """One planning request; the reply's text is kept in ``_last_reply`` for a retry."""
         self._last_reply = ""
+        self._last_raw: dict[str, Any] = {}
         temperature = self.temperature_router.for_plan(intent)
         with egress_ledger.purpose("plan", role="manager"):
             response_rooted = self.provider.complete(
@@ -234,6 +277,7 @@ class Manager:
         message = raw.get("choices", [{}])[0].get("message", {})
         content = message.get("content") or ""
         self._last_reply = content
+        self._last_raw = raw
         # Inline <think> blocks can contain JSON-looking fragments; parse only
         # what the model presented as its answer.
         parsed = _extract_json(strip_reasoning(content))
