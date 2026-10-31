@@ -100,13 +100,15 @@ def console_tier_2_choice(name: str, args: object, note: str = "") -> str:
         _print_wrapped(note)
     if name.startswith("git_"):
         # B-115 (D8): a git tool shows the exact command and is asked once per call.
-        from ract.tools.git_tools import command_for
+        # G-239 D8: quoted, with the staged files and the secret scan's result.
+        from ract.tools.git_tools import question_lines
 
         _print_wrapped(
             "Tier 2: RACT would run this git command in the step's worktree:"
         )
-        for part in wrap_cells(safe_text(" ".join(command_for(name, args))), width):
-            print(f"  {part}")
+        for line in question_lines(name, args):
+            for part in wrap_cells(safe_text(line), width):
+                print(f"  {part}")
         question_gate.open_question()
         try:
             response = read_line("Run it once? [y/N]: ").strip().lower()

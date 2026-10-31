@@ -95,7 +95,23 @@ _SUBCOMMAND_TOOLS = {
     "docker",
     "kubectl",
 }
-_REMOTE_GIT = {"push", "pull", "fetch", "clone", "ls-remote", "remote", "submodule"}
+# G-239 D12: the plumbing that talks to a remote asks too; ``archive``
+# asks when it names ``--remote``.
+_REMOTE_GIT = {
+    "push",
+    "pull",
+    "fetch",
+    "clone",
+    "ls-remote",
+    "remote",
+    "submodule",
+    "send-pack",
+    "fetch-pack",
+    "http-push",
+    "http-fetch",
+    "upload-pack",
+    "receive-pack",
+}
 _DANGEROUS_FLAGS = {
     "--output",
     "--upload-pack",
@@ -412,7 +428,10 @@ def classify(
         sub = next((a for a in args if not a.startswith("-")), "")
         if args[0].startswith("-"):
             asks_because = "git global options change what the subcommand does"
-        elif sub in _REMOTE_GIT:
+        elif sub in _REMOTE_GIT or (
+            sub == "archive"
+            and any(a == "--remote" or a.startswith("--remote=") for a in args)
+        ):
             asks_because = "remote git always asks"
     elif name in _SUBCOMMAND_TOOLS and args and args[0].startswith("-"):
         asks_because = f"{name} global options change what the subcommand does"

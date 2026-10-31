@@ -74,6 +74,10 @@ def test_tier_two_tools_ask_and_a_no_does_nothing(repo: Path, tool: str) -> None
         "git_branch": {"name": "feature"},
         "git_worktree": {"action": "add", "name": "w1"},
     }[tool]
+    if tool == "git_commit":
+        # G-239 D8: a commit with nothing staged is refused before it asks.
+        (repo / "a.txt").write_text("two\n", encoding="utf-8")
+        _git(repo, "add", "a.txt")
     asked: list[str] = []
     rooted = run_tool(
         repo, tool, args, approve_tier_2=lambda n, a: asked.append(n) and False

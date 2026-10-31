@@ -63,6 +63,8 @@ class ToolSpec:
     mutates: bool
     result_cap_bytes: int
     run: Callable[[Path, Any], ToolResult]
+    # LR:: G-239 D8: read what a tier-2 question shows (or refuse) before asking.
+    prepare: Callable[[Path, Any], None] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.tier, CapabilityTier):
@@ -154,6 +156,8 @@ def run_tool(
 
             if tier3.current() is None:
                 raise ToolRefused(f"{name} would act at tier 3", tier3.NO_GRANT_HINT)
+        if spec.prepare is not None:
+            spec.prepare(Path(root), args)
         if tier is CapabilityTier.TIER_2_ENV and not (
             approve_tier_2 is not None and approve_tier_2(name, args)
         ):

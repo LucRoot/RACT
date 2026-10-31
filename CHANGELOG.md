@@ -268,6 +268,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The git tools are harder to walk around (G-239). The commit's secret scan reads every
+  staged file whole from the index, so a line starting with `++`, a binary or `-diff` file,
+  a large file or a U+2028 separator no longer hides a key; it also finds `sk-ant-` keys and
+  bare 40-character AWS secrets, and a scan that cannot run refuses the commit. `git_add`
+  and `git_commit` refuse `.env`, `*.pem`, `*.key` and `id_*` key files by name. A project
+  that is not its own repository's top folder, a repository whose config defines a filter
+  program or whose attributes name an undefined filter, a link on the worktree path, and a
+  push from a repository whose own config sets a transport, proxy, credential helper or
+  other URL are refused. Signing is off for every git call. The tier-2 question quotes the
+  command and, for a commit, lists the staged files with their line counts and the scan's
+  result; the commit runs only if the staged change is still the one shown. The push
+  question shows the resolved push URL and commit, and its handshake id is
+  `git-push:<URL>:<branch>:<commit>`, so one approval covers one URL and one commit.
 - A malformed tool call is answered plainly and never reaches a tool (B-140): a call to a
   tool the loop does not offer gets the offered names back, arguments that do not fit get
   what was wrong and the fields the tool takes, and arguments encoded twice as a JSON
