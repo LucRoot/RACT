@@ -18,6 +18,22 @@ git tag, with the fake model server; nothing is installed.
 
 ### What changes
 
+- A failed command that RACT ran in a turn (a named test, or a build, lint,
+  typecheck or format run) now keeps the turn from "done": the outcome is
+  `failed`, the process exits 1, and the verdict names the command. A script
+  that read exit 0 after a red test now sees 1.
+- The turn summary's first line reads `verdict: ...`; when the turn ran a
+  command it is followed by where the command records are kept.
+- `ract run --loop --yolo` exits with the code of the cause that stopped the
+  loop (for example 4 when it ran out of iterations, 3 for a prompt that
+  changed mid-run), not 0 for every stop but a regression.
+- `ract policy sign` shows what the policy allows and asks `y` before the
+  passphrase, and every `ract policy` command acts on the folder that holds
+  `ract.yaml` (or the git root), named on its first line.
+- `max_mode: unrestricted` in `.ract/policy.yaml` is refused at load.
+- A turn that changes files says `signed` only when each changed file's
+  Rootknot verifies; on Linux with bubblewrap, a tier-3 command runs inside
+  it, and `ract doctor --sandbox` says so.
 - A handshake you approved before this change no longer widens a run's
   capability manifest. Approve it again with `ract handshakes approve
   <milestone-id>`. An approval now counts only when this machine recorded it,

@@ -113,9 +113,9 @@ Earlier releases: see [CHANGELOG.md](CHANGELOG.md).
 
 v0.4.0 was the first release where **the environment decides**, not the
 model. Substrate: every plan step runs in its own git worktree under an
-OS-enforced sandbox derived from a `CapabilityManifest` (designed; in this
-build the sandbox backends do not execute commands yet, and `ract doctor`
-shows what is enforced on your machine); every model
+sandbox described by a `CapabilityManifest` (designed; in this build only
+tier-3 commands on Linux run inside bubblewrap, after a self-test, and
+`ract doctor --sandbox` shows what is enforced on your machine); every model
 action is a member of a closed Pydantic union; every run emits a
 hash-chained event log at `evals/runs/<run_id>/events.jsonl` and
 optionally OpenTelemetry spans; termination T1 reads: every required
@@ -228,7 +228,7 @@ module_10, Lens A M8 closure).
 - `ract run` — Execute an intent as a planned-and-verified RACT run.
 - `ract plan` — Load, save, replay, diff, or analyse a serialized plan.
 - `ract session` — List, export, import, backup, or restore saved sessions.
-- `ract doctor` — Diagnose RACT installation, config, and workspace state.
+- `ract doctor` — Diagnose RACT installation, config, and workspace state; `--sandbox` says what confines a command here.
 - `ract status` — Print a one-line summary of the current workspace state.
 - `ract self-audit` — Audit RACT's own code against the audit lens findings.
 - `ract audit` — Audit a workspace or run for anti-rot and provenance issues.
