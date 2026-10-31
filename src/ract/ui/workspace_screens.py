@@ -194,6 +194,11 @@ def preparing_line(seconds: float, width: int) -> str:
     return _fold(text, width, indent="  ")[0]
 
 
+def ready_line(seconds: float, width: int) -> str:
+    """The line printed once the worktree is ready, with the measured seconds (B-110, the BUILDER's note)."""
+    return _fold(f"workspace ready ({seconds:.1f} s)", width, indent="  ")[0]
+
+
 def not_git_offer_lines(
     command: str,
     left_out: list[str],

@@ -105,9 +105,11 @@ class FailingTest:
 
 @dataclass(frozen=True)
 class RunSummary:
-    passed: int
-    failed: int
-    skipped: int
+    passed: (
+        int | None
+    )  # None when the runner's summary is not parsed (only pytest's is)
+    failed: int | None
+    skipped: int | None
     duration_s: float
     exit_code: int
     failing: tuple[FailingTest, ...] = ()
@@ -115,10 +117,14 @@ class RunSummary:
 
 def result_lines(summary: RunSummary, width: int, *, rich: bool = False) -> list[str]:
     """The structured result of a test run: counts and time on one line, each failure after it."""
-    head = (
-        f"tests: {summary.passed} passed, {summary.failed} failed, "
-        f"{summary.skipped} skipped ({summary.duration_s:.1f} s, exit {summary.exit_code})"
-    )
+    if summary.passed is None or summary.failed is None or summary.skipped is None:
+        # A runner whose summary RACT does not parse (only pytest's is parsed): say so, do not guess.
+        head = f"tests: counts not parsed ({summary.duration_s:.1f} s, exit {summary.exit_code})"
+    else:
+        head = (
+            f"tests: {summary.passed} passed, {summary.failed} failed, "
+            f"{summary.skipped} skipped ({summary.duration_s:.1f} s, exit {summary.exit_code})"
+        )
     out = _fold(_bold(head, rich), width, indent="  ")
     for failing in summary.failing:
         out += _fold(f"failed: {escape_controls(failing.name)}", width, indent="    ")

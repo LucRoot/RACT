@@ -133,3 +133,12 @@ def test_the_trace_statement_is_the_adr_sentence() -> None:
 def test_a_verdict_with_no_command_run_places_no_records() -> None:
     lines = verdict_lines("Done: 1 step ran; no tests were run.", 0, 80)
     assert lines == ["verdict: Done: 1 step ran; no tests were run."]
+
+
+def test_an_unparsed_runner_summary_says_counts_not_parsed() -> None:
+    summary = RunSummary(
+        passed=None, failed=None, skipped=None, duration_s=1.5, exit_code=2
+    )
+    text = _flat(result_lines(summary, 80))
+    assert "tests: counts not parsed (1.5 s, exit 2)" in text
+    assert "passed" not in text

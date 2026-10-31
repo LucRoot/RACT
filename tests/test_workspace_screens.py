@@ -184,3 +184,14 @@ def test_a_path_with_an_escape_sequence_is_shown_escaped() -> None:
         80,
     )
     assert not any("\x1b" in line for line in result)
+
+
+def test_the_ready_line_carries_the_measured_seconds() -> None:
+    from ract.ui.workspace_screens import ready_line
+
+    for width in WIDTHS:
+        line = ready_line(2.25, width)
+        assert "\n" not in line and len(line) <= width
+        assert line.startswith("workspace ready (2.2 s)") or line.startswith(
+            "workspace ready (2.3 s)"
+        )
