@@ -83,6 +83,39 @@ def _tier_2_change(name: str, args: object) -> list[str]:
     return lines
 
 
+def git_screen_lines(name: str, args: object, width: int) -> list[str] | None:
+    """MASON's screen for a tier-2 git call (B-225), with the command quoted, or None.
+
+    The commit, branch and worktree questions are the slice (f) screens; the
+    exact command stays on them, quoted (G-239 D8). ``git_add`` has no screen
+    and keeps ``question_lines``.
+    """
+    import shlex
+
+    from ract.tools.git_tools import command_for
+    from ract.ui import git_screens
+
+    command = git_screens._fold(
+        "command: " + git_screens.escape_controls(shlex.join(command_for(name, args))),
+        width,
+    )
+    if name == "git_commit":
+        staged = getattr(args, "_staged", None)
+        files = tuple(path for _status, path, _a, _d in staged.files) if staged else ()
+        lines = git_screens.commit_prompt_lines(
+            git_screens.CommitRequest(str(getattr(args, "message", "")), files), width
+        )
+        return lines[:1] + command + lines[1:]
+    if name == "git_branch":
+        lines = git_screens.branch_prompt_lines("create", str(getattr(args, "name", "")), width)
+        return lines[:1] + command + lines[1:]
+    if name == "git_worktree" and getattr(args, "action", "") == "add":
+        where = f".ract/worktrees/{getattr(args, 'name', '')}"
+        lines = git_screens.worktree_prompt_lines(where, width)
+        return lines[:1] + command + lines[1:]
+    return None
+
+
 def console_tier_2_choice(name: str, args: object, note: str = "") -> str:
     """Ask the operator before a tier-2 tool call: "once", "session" or "deny".
 
@@ -104,16 +137,24 @@ def console_tier_2_choice(name: str, args: object, note: str = "") -> str:
         # G-239 D8: quoted, with the staged files and the secret scan's result.
         from ract.tools.git_tools import question_lines
 
-        _print_wrapped(
-            "Tier 2: RACT would run this git command in the step's worktree:"
-        )
-        for line in question_lines(name, args):
-            # B-184: the command as it runs, every character kept and escaped.
-            for part in wrap_exact(screen_text(line), width):
-                print(f"  {part}")
+        screen = git_screen_lines(name, args, width)
+        if screen is not None:
+            # B-225: the slice (f) screen, which names its own choices.
+            for line in screen:
+                print(line)
+            prompt = "answer [y/N]: "
+        else:
+            _print_wrapped(
+                "Tier 2: RACT would run this git command in the step's worktree:"
+            )
+            for line in question_lines(name, args):
+                # B-184: the command as it runs, every character kept and escaped.
+                for part in wrap_exact(screen_text(line), width):
+                    print(f"  {part}")
+            prompt = "Run it once? [y/N]: "
         question_gate.open_question()
         try:
-            response = read_line("Run it once? [y/N]: ").strip().lower()
+            response = read_line(prompt).strip().lower()
         except EOFError:
             return "deny"
         finally:

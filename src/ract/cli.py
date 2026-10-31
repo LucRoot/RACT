@@ -1880,23 +1880,31 @@ def _doctor_command(args: list[str]) -> int:
         "verify <file>` checks it. When signing cannot be set up, the run names "
         "the files it left unsigned and says why. See docs/PROVENANCE.md."
     )
+    # B-225: MASON's slice (e) posture screen. A machine whose backend does
+    # not run commands is best effort, never "none": a Windows grant says
+    # sandbox: best_effort and tier 3 can still be granted there.
+    from ract.tui import terminal_width
+    from ract.ui.posture_screens import (
+        BEST_EFFORT,
+        ENFORCED,
+        SandboxPosture,
+        doctor_sandbox_lines,
+    )
+
     found = (
-        f"{sandbox.backend} found on PATH"
+        sandbox.backend
         if sandbox.backend_binary
         else (
-            "no sandbox backend for this platform"
+            f"no backend for {sandbox.platform}"
             if sandbox.backend == "none"
             else f"{sandbox.backend} not found on PATH"
         )
     )
-    console.print(
-        f"Sandbox ({sandbox.platform}): {found}; "
-        + (
-            "commands run inside it."
-            if sandbox.executes_commands
-            else "no backend runs commands in this build."
-        )
+    posture = SandboxPosture(
+        backend=found, posture=ENFORCED if sandbox.executes_commands else BEST_EFFORT
     )
+    for line in doctor_sandbox_lines(posture, max(terminal_width() - 1, 40)):
+        console.print(line, markup=False)
     for prop, state in sandbox.properties.items():
         console.print(f"  {prop}: {state}")
     if pruned:

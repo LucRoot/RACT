@@ -341,6 +341,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   commands are handled and says "Tier-3 commands:". `/set auto` is retired, because `/set auto
   on` selected the mode that asks; it now names `/mode default` and `/mode auto-accept`.
   `/set mode` is now `/set task`, and the old name still works for now.
+- The tier-2 git questions (commit, branch, worktree) and the sandbox section of `ract doctor`
+  now show the screens designed and walked for them (B-225); the exact git command stays on the
+  question. A machine whose sandbox does not run commands reads "best effort, not enforced on
+  this machine".
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.
