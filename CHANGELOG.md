@@ -285,6 +285,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A message with brackets in it is shown as written (B-185): `[line 3, column 2]` or a path like
+  `C:/proj/[draft]/ract.yaml` was deleted from the line, and `[/bold]` stopped the turn with an
+  error. The plan lines of `ract run` show the model's brackets as text too.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.

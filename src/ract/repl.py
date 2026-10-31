@@ -1411,8 +1411,15 @@ class ReplSession:
                     self._events, request, turn=turn_no, cancel=cancel
                 )
             except Exception as exc:
-                self._console.error(f"the turn stopped: {exc}")
                 box["code"] = 1
+                try:
+                    self._console.error(f"the turn stopped: {exc}")
+                except Exception as shown:  # noqa: BLE001 - B-185: the handler must not raise
+                    print(
+                        f"the turn stopped: {exc} (and could not be shown: {shown})",
+                        file=sys.stderr,
+                        flush=True,
+                    )
             finally:
                 done.set()
 
