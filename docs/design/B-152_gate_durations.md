@@ -48,9 +48,13 @@ pays for them anyway.
 
 Each change keeps every test and every assertion. None is deleted or skipped.
 
-1. **Import these modules only where used.** In `ract.cli`, `doctor`, the skill library
-   and the TUI move into the commands that use them. That saves about 0.4 s for every CLI
-   start, in tests and for users. Check: the architecture import tests and the CLI tests.
+1. **Import these modules only where used: measured and dropped.** Moving `ract.doctor`
+   into the two commands that use it left `import ract.cli` at 1.4 s: `ract.harness`, the
+   expensive part, is then loaded through `ract.project_initializer`. The `ract` package's
+   own `__init__` loads `ract.core.keys`, the providers and the provenance index (0.36 s)
+   for every importer. A real saving needs a wider change to the import graph (lazy
+   package attributes, commands that import their modules when they run), which touches
+   the public API and the release surface. That belongs on its own card.
 2. **The wheel smoke test installs only the wheel.** It makes the virtual environment with
    `--system-site-packages` and installs with `--no-deps --no-index`. It still builds the
    wheel, installs it into a fresh environment and checks the version and every entry point.
@@ -68,8 +72,8 @@ Each change keeps every test and every assertion. None is deleted or skipped.
    equal a serial run's. The MANAGER decides whether a sharded run counts as the gate. It
    uses more cores at once on a shared machine.
 
-Changes 1 to 3 together should save roughly 300 to 500 s; the measured runs will say. The
-target needs change 4.
+Changes 2 and 3 should save roughly 150 s; the measured runs will say. The target needs
+change 4.
 
 ## Measurement
 
