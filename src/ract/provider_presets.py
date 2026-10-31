@@ -159,14 +159,37 @@ def list_presets() -> list[str]:
 
 
 def get_preset(name: str) -> dict[str, Any]:
-    """Return a deep copy of the named preset."""
+    """Return a deep copy of the named preset.
+
+    ``RACT_PRESET_BASE_URL`` (``preset=url[,preset=url]``) replaces the named
+    preset's address in the copy, for tests and walks against a fake server
+    (B-160d). It changes only what is written to ``ract.yaml``: the hosts a
+    key may reach are read from ``PRESETS`` itself (``key_hosts``), so the
+    override never pairs a key with a new host; only ``RACT_KEY_HOSTS`` does.
+    """
     if name not in PRESETS:
         raise KeyError(
             f"Unknown provider preset: {name}. Choose from {list_presets()}."
         )
     import copy
 
-    return copy.deepcopy(PRESETS[name])
+    preset = copy.deepcopy(PRESETS[name])
+    url = preset_url_override(name)
+    spec = (preset.get("providers") or {}).get(name)
+    if url is not None and isinstance(spec, dict):
+        spec["url"] = url
+    return preset
+
+
+def preset_url_override(name: str) -> str | None:
+    """The address ``RACT_PRESET_BASE_URL`` gives preset *name*, or None."""
+    import os
+
+    for pair in os.environ.get("RACT_PRESET_BASE_URL", "").split(","):
+        preset, _, url = pair.strip().partition("=")
+        if preset == name and url.strip().startswith(("http://", "https://")):
+            return url.strip().rstrip("/")
+    return None
 
 
 # RACT 0.1.1 - Trust and tooling

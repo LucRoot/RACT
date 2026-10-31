@@ -7,6 +7,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | --- | --- | --- |
 | `--about` | `ract` | Print the RACT manifesto, authorship, and license summary. |
 | `--accept-edits` | `ract -p` | let this run change files; without it a step that changes a file is refused (exit 3), since a headless run cannot ask first |
+| `--add-provider` | `ract setup` | add one more provider to ract.yaml (the same questions; a diff first) |
 | `--after` | `ract coverage` | Path to a pytest-cov coverage.json (after). |
 | `--allow-debt` | `ract run` | Allow the loop to complete even if the refactor-tax ratio is breached. |
 | `--allow-load-bearing` | `ract run` | Allow writes that modify code marked with a # load-bearing: annotation. |
