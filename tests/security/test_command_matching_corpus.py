@@ -90,6 +90,13 @@ ROWS = [
     (["git", "-C", "..", "status"], "asks", "global options"),
     (["git", "show", "--output=/tmp/x", "HEAD"], "asks", "output"),
     (["git", "push"], "asks", "remote git"),
+    # G-239 D12: remote plumbing and archive --remote ask too.
+    (["git", "send-pack", "x", "main"], "asks", "remote git"),
+    (["git", "fetch-pack", "x"], "asks", "remote git"),
+    (["git", "http-push", "x"], "asks", "remote git"),
+    (["git", "archive", "--remote=x", "HEAD"], "asks", "remote git"),
+    (["git", "archive", "--remote", "x", "HEAD"], "asks", "remote git"),
+    (["git", "submodule", "update"], "asks", "remote git"),
     (["git", "reset", "--hard"], "refused", "denied"),
     (["sh", "-c", "pytest"], "refused", "shell"),
     (["bash", "-lc", "pytest"], "refused", "shell"),
