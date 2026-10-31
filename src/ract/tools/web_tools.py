@@ -493,13 +493,10 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
     # The NUL marks a fetch's key: no command argv can hold one, so a session
     # answer for a command never covers a fetch, nor the other way round.
     asked_for = ("\x00web_fetch", args.url)
-    # B-149: a fetch that follows fetched text asks even when a session answer
-    # covered this URL.
-    if (
-        sessions is None
-        or not sessions.covers(asked_for)
-        or turn_context.follows_external()
-    ):
+    # B-149: a fetch that follows fetched text asks with the origin line; the
+    # exact URL the operator approved for the session is the one exception
+    # (fetching it again goes nowhere new; a different URL always asks).
+    if sessions is None or not sessions.covers(asked_for):
         facts = {
             "argv": ["web_fetch", args.url],
             "executable": "RACT (the egress ledger's client)",
