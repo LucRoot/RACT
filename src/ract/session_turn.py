@@ -662,12 +662,17 @@ def run_turn(
             workspace=workspace,
             turn=turn,
         )
+        code = exit_code_for(error_text)
         if error_text.startswith("stopped: this run used"):
             # A token budget stop (B-065): its own outcome, exit 4.
             finished("budget", "Stopped: the run used its token budget.", [])
+        elif code == 3:
+            # B-196: exit 3 is a refusal, and the loop path says refused for
+            # it; the turn path said failed. One word for one exit code.
+            finished("refused", "The turn was refused.", [])
         else:
             finished("failed", "The turn failed.", [])
-        return exit_code_for(error_text)
+        return code
 
     value = result.unwrap()
     unsigned: list[str] = []

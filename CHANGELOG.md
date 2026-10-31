@@ -304,6 +304,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   is now emitted as `approval.requested` and `approval.resolved` (`by: unattended`) and listed
   in the result's `denials` (B-193). `--fail-on-denial` stops the run at the first one and
   exits 3; it was parsed and never read.
+- A refused turn reports the outcome `refused` with exit 3, as the loop does (B-196); the turn
+  said `failed`. A trusted headless run lists the extensions it loads in `session.started`, and
+  the documented extension kinds now include `command` and `network`.
+- A step whose provider could not be reached is shown as failed, as the turn is, and no longer
+  as refused (B-196): a step is refused only when the turn exits 3 for its error.
 - An unset key variable (`api_key: ${VAR}`) and the other configuration problems now exit 2
   with `error.kind: config` in a session, `ract -p` and `ract run` (B-194); they exited 1 with
   `internal`. The providers and the exit table share one list of these sentences, and `ract run`

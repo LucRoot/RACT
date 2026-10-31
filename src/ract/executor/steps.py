@@ -128,10 +128,21 @@ def unfinished_step_outcome(error: str, *, cancelled: bool) -> str:
 
     An interrupted step is skipped, the same outcome the checklist gives a stopped
     step; a refusal stays refused; anything else is failed.
+
+    B-196: "refused" is what the turn's exit table calls exit 3. The word
+    alone was the test, so "connection refused" from a provider that was down
+    made the step refused while the turn said failed, exit 6.
     """
     if cancelled:
         return "skipped"
-    return "refused" if "refused" in error.lower() else "failed"
+    return step_outcome(error)
+
+
+def step_outcome(error: str) -> str:
+    """``refused`` when the turn would exit 3 for *error*, else ``failed`` (B-196)."""
+    from ract.session_turn import exit_code_for
+
+    return "refused" if exit_code_for(error) == 3 else "failed"
 
 
 # A context label as the prompt writes it around a file (``_target_file_block``
