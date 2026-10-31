@@ -5482,9 +5482,13 @@ def main(argv: list[str] | None = None) -> int:
         console.direct(f"assumption: {value.assumption}")
         console.direct(f"confidence: {value.confidence}")
         for i, step in enumerate(value.steps, start=1):
+            # B-185: the plan's text is the model's; brackets in it are text.
+            from rich.markup import escape
+
+            artifact = step.expected_artifact or "answer, no file written"
             console.print(
-                f"  [bold]{i}.[/] [{step.provider_hint}] {step.action} "
-                f"-> {step.expected_artifact or 'answer, no file written'}"
+                f"  [bold]{i}.[/] {escape(f'[{step.provider_hint}] {step.action}')} "
+                f"-> {escape(artifact)}"
             )
         score = QualityScorecard().compute_score(value)
         console.direct(f"quality score: {score}")

@@ -14,6 +14,7 @@ from typing import Any
 
 from rich import box
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
@@ -132,34 +133,37 @@ class RactConsole:
     def print(self, *args: Any, **kwargs: Any) -> None:
         self._console.print(*args, **kwargs)
 
+    # B-185: every message is text, never markup. "[line 3]" in a message was
+    # read as a style and deleted, and "[/bold]" raised MarkupError.
+
     def info(self, message: str) -> None:
-        self._console.print(f"[bold {self.BRAND_BLUE}][ract][/] {message}")
+        self._console.print(f"[bold {self.BRAND_BLUE}][ract][/] {escape(message)}")
 
     def success(self, message: str) -> None:
         self._console.print(
-            f"[bold {self.BRAND_GREEN}]✓[/] [bold {self.BRAND_BLUE}][ract][/] {message}"
+            f"[bold {self.BRAND_GREEN}]✓[/] [bold {self.BRAND_BLUE}][ract][/] {escape(message)}"
         )
 
     def warning(self, message: str) -> None:
         self._console.print(
-            f"[bold {self.BRAND_AMBER}]⚠[/] [bold {self.BRAND_BLUE}][ract][/] {message}"
+            f"[bold {self.BRAND_AMBER}]⚠[/] [bold {self.BRAND_BLUE}][ract][/] {escape(message)}"
         )
 
     def error(self, message: str) -> None:
         self._stderr_console.print(
-            f"[bold {self.BRAND_RED}]✗[/] [bold {self.BRAND_BLUE}][ract][/] {message}"
+            f"[bold {self.BRAND_RED}]✗[/] [bold {self.BRAND_BLUE}][ract][/] {escape(message)}"
         )
 
     def user_input(self, label: str, value: str) -> None:
         """Highlight text that originated from the user."""
         self._console.print(
-            f"[bold {self.BRAND_BLUE}][ract][/] {label}: "
-            f"[italic {self.USER_INPUT}]{value}[/]"
+            f"[bold {self.BRAND_BLUE}][ract][/] {escape(label)}: "
+            f"[italic {self.USER_INPUT}]{escape(value)}[/]"
         )
 
     def direct(self, message: str) -> None:
         """Direct system-to-user communication in a unique color."""
-        self._console.print(f"[bold {self.DIRECT_OUTPUT}]▸ {message}[/]")
+        self._console.print(f"[bold {self.DIRECT_OUTPUT}]▸ {escape(message)}[/]")
 
     def panel(self, title: str, content: str, style: str = "") -> None:
         style = style or f"bold {self.BRAND_GOLD}"
