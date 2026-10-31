@@ -101,3 +101,31 @@ def test_a_plain_ract_folder_is_written_as_before(tmp_path: Path) -> None:
     MemoryArena().save(root / ".ract" / "memory" / "s1.json")
     assert (root / ".ract" / "memory" / "s1.json").is_file()
     check_state_path(tmp_path / "elsewhere" / "file.json")  # not RACT's state: no check
+
+
+def _linked_ract(tmp_path: Path) -> tuple[Path, Path]:
+    root = tmp_path / "project"
+    outside = tmp_path / "outside"
+    root.mkdir()
+    outside.mkdir()
+    _dir_link(root / ".ract", outside)
+    return root, outside
+
+
+def test_the_other_state_writers_refuse_a_linked_ract(tmp_path: Path) -> None:
+    # B-213 part 2: the error memory, the refactor ledger and the session
+    # snapshots write directly under .ract.
+    from ract.error_memory import ErrorMemory
+    from ract.refactor_ledger import RefactorLedger
+    from ract.session_rollback import SessionRollback
+
+    root, outside = _linked_ract(tmp_path)
+    (outside / "error_memory.jsonl").write_text('{"pattern": "kept"}\n', encoding="utf-8")
+    with pytest.raises(StateDirRefused):
+        ErrorMemory(root).clear()
+    assert (outside / "error_memory.jsonl").read_text(encoding="utf-8") != ""
+    with pytest.raises(StateDirRefused):
+        RefactorLedger(project_dir=root).save()
+    with pytest.raises(StateDirRefused):
+        SessionRollback(root)
+    assert sorted(p.name for p in outside.iterdir()) == ["error_memory.jsonl"]

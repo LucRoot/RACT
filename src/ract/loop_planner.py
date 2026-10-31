@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from ract.workspace_state import check_state_path
 from ract.codebase_historian import CodebaseHistorian
 from ract.harness import Harness
 from ract.rooted import Rooted
@@ -236,6 +237,7 @@ class LoopPlanner:
 
     def save(self, milestones: list[Milestone]) -> Path:
         """Persist the backlog to disk."""
+        check_state_path(self.backlog_path)  # B-213: never through a link
         self.backlog_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "milestones": [asdict(milestone) for milestone in milestones],

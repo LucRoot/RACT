@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ract.workspace_state import check_state_path
+
 
 @dataclass(frozen=True)
 class FailurePattern:
@@ -40,6 +42,7 @@ class ErrorMemory:
         self.max_stored = max(max_stored, 1)
 
     def _ensure_dir(self) -> None:
+        check_state_path(self.memory_path)  # B-213: never through a link
         self.memory_path.parent.mkdir(parents=True, exist_ok=True)
 
     def _load(self) -> list[dict[str, Any]]:
@@ -209,6 +212,7 @@ class ErrorMemory:
     def clear(self) -> None:
         """Drop all recorded patterns. Useful after a strategic context reset."""
         if self.memory_path.is_file():
+            check_state_path(self.memory_path)  # B-213: never through a link
             self.memory_path.write_text("", encoding="utf-8")
 
 

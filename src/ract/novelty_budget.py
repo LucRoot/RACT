@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from ract.workspace_state import check_state_path
 from ract.gravity_scorer import GravityScorer
 
 
@@ -86,6 +87,7 @@ class NoveltyBudget:
 
     def save(self) -> None:
         """Persist the current budget state."""
+        check_state_path(self._state_path)  # B-213: never through a link
         self._state_path.parent.mkdir(parents=True, exist_ok=True)
         self._state_path.write_text(
             json.dumps(
