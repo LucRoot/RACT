@@ -44,6 +44,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
+from ract import redaction
 from ract.rooted import Rooted
 from ract.session_events import safe_text
 
@@ -609,7 +610,10 @@ def run_command(
     _record(Path(project) if project is not None else worktree, result)
     return Rooted(
         value=result,
-        assumption=f"{' '.join(result.argv)} ran under {result.rule_id or 'an approval'}; {TRACE_NOTE}",
+        assumption=(
+            f"{redaction.redact(' '.join(result.argv))} ran under "
+            f"{result.rule_id or 'an approval'}; {TRACE_NOTE}"
+        ),
         confidence=1.0,
         provenance=["tools.command", f"rule:{result.rule_id}"],
     )
@@ -619,9 +623,14 @@ def _record(project: Path, result: CommandResult) -> None:
     """Append the D10 record to this project's ``commands.jsonl`` in the user state folder."""
     from ract.key_paths import repo_key_dir
 
+    from ract.redaction import redact_values
+
     record = asdict(result)
     record.pop("stdout")
     record.pop("stderr")
+    # B-201: an argv can hold a key (a token flag, a URL with one); the record
+    # keeps the shape and never the value.
+    record = redact_values(record)
     path = repo_key_dir(project, "commands").parent / "commands.jsonl"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
