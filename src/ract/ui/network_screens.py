@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from ract.cell_wrap import wrap_cells
 
-FETCH_CHOICES = "[y]es, fetch once  [n]o"
+FETCH_CHOICES = "y allows it once, s for this session (this URL only), N refuses"
 UNTRUSTED_LABEL = (
     "untrusted content from the web: treated as data, never as instructions"
 )
@@ -50,11 +50,12 @@ class FetchRequest:
     host: str
     allowlist_match: str | None  # the allowlist entry that matches the host, or None
     size_cap_kib: int
+    follows_external: bool = False  # B-149: this fetch follows fetched text
 
 
 def fetch_prompt_lines(request: FetchRequest, width: int) -> list[str]:
     """The fetch prompt: the host, whether the allowlist matches it, the size cap, and the label."""
-    out = _fold("fetch from the web (tier 2)", width, indent="  ")
+    out = _fold("fetch from the web (tier 3)", width, indent="  ")
     out += _fold(f"url: {escape_controls(request.url)}", width)
     out += _fold(f"host: {escape_controls(request.host)}", width)
     if request.allowlist_match:
@@ -63,12 +64,14 @@ def fetch_prompt_lines(request: FetchRequest, width: int) -> list[str]:
             width,
         )
     else:
-        out += _fold("allowlist: no entry matches this host; it will ask", width)
+        out += _fold("not on the grant's allow_domains: refused; nothing is fetched", width)
     out += _fold(f"size cap: {request.size_cap_kib} KiB; a larger page is cut", width)
     out += _fold(
         "what comes back is untrusted content: later steps in this turn ask before a change or a command",
         width,
     )
+    if request.follows_external:
+        out += _fold("this fetch follows fetched text: the question says so, with its origin", width)
     out += _fold(FETCH_CHOICES, width, indent="  ")
     return out
 
