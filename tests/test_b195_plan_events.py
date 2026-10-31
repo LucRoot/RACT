@@ -91,3 +91,25 @@ def test_mode_changed_carries_the_real_tier_3_state() -> None:
         session.handle("/mode plan")
         changed = [e.data for e in seen if e.kind == "mode.changed"]
         assert changed and changed[-1]["tier3"] == expected, (grant_state, changed)
+
+
+def test_a_turn_started_from_the_queue_says_queued(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # B-195 (e): turn.started.queued was never true.
+    from ract import session_turn
+    from ract.session_events import EventStream
+    from tests.test_repl import _session
+
+    seen: list[bool] = []
+
+    def fake_run_turn(stream, request, *, turn, cancel, queued=False):  # type: ignore[no-untyped-def]
+        seen.append(queued)
+        return 0
+
+    monkeypatch.setattr(session_turn, "run_turn", fake_run_turn)
+    session, _calls, _console = _session()
+    session._events = EventStream(session="s-b195e")
+    session._from_queue = True
+    session._event_turn("fix it", dry=True)
+    session._from_queue = False
+    session._event_turn("fix it again", dry=True)
+    assert seen == [True, False]

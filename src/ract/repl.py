@@ -304,6 +304,8 @@ class ReplSession:
                 try:
                     # A line queued during the last turn runs next (package 6), before any typed line.
                     queued = self._take_queued()
+                    # B-195 (e): the turn this line starts says it was queued.
+                    self._from_queue = queued is not None
                     line = (
                         queued if queued is not None else self._read_line(self.prompt())
                     )
@@ -1420,7 +1422,11 @@ class ReplSession:
             # traceback that the interpreter prints after the prompt returns.
             try:
                 box["code"] = run_turn(
-                    self._events, request, turn=turn_no, cancel=cancel
+                    self._events,
+                    request,
+                    turn=turn_no,
+                    cancel=cancel,
+                    queued=getattr(self, "_from_queue", False),
                 )
             except Exception as exc:
                 self._console.error(f"the turn stopped: {exc}")
