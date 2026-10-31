@@ -285,6 +285,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The session's event stream tells the truth in more places (B-195): an interrupted turn says
+  what changed is not known (it said the folder was not a git repository), `mode.changed` carries
+  the real tier-3 state, a turn started from the queue says `queued`, the events follow the
+  session after `/session` and `/resume`, and `session.resumed` and `session.rewound` are emitted.
 - An edited plan is announced again with its assumption, confidence and the planned flag
   (B-195): the summary lost the plan's assumption line after an edit.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
