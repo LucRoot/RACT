@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Text of unknown origin is marked in front of the model (B-149): each tool result arrives
+  in a delimiter naming its origin (`file`, `command output`, `fetched page`, `search
+  result`) and saying it is data, and text inside it cannot close the delimiter. A tier-2 or
+  tier-3 proposal that follows a fetched page says `follows fetched page from <host>` on its
+  card and always asks: an allow rule or a session answer does not run it.
 - A grant rule may name `backend: wsl2` or `backend: container` (with an image pinned by
   digest, `name@sha256:...`; a tag alone is refused at load) (B-028, D-142). Such a rule
   does not run yet and is refused at run with the reason; nothing runs on this host in its
