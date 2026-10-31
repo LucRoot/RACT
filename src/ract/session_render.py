@@ -565,7 +565,11 @@ class PlainRenderer:
         ):
             self._line(f"  {line}")
         changed = d.get("changed")
-        if changed is None:
+        if changed is None and d.get("outcome") == "interrupted":
+            # B-195 (c): an interrupted turn does not know what changed; it is
+            # not a sign that the folder has no git repository.
+            self._line("  changed: not known (the turn was interrupted)")
+        elif changed is None:
             self._line("  changed: not tracked here (not a git repository)")
         elif changed:
             stats = d.get("diffstat") or {}

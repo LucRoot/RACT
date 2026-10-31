@@ -304,6 +304,8 @@ class ReplSession:
                 try:
                     # A line queued during the last turn runs next (package 6), before any typed line.
                     queued = self._take_queued()
+                    # B-195 (e): the turn this line starts says it was queued.
+                    self._from_queue = queued is not None
                     line = (
                         queued if queued is not None else self._read_line(self.prompt())
                     )
@@ -679,6 +681,26 @@ class ReplSession:
         for result in results:
             for line in result.lines("restore"):
                 self._print_wrapped(line)
+        if self._events is not None:
+            # B-195 (f): documented, never emitted until now.
+            self._events.emit(
+                "session.rewound",
+                {
+                    "to_turn": n,
+                    "scope": "code",
+                    "restored": sum(len(r.restored) + len(r.removed) for r in results),
+                    "skipped": [
+                        {"path": path, "reason": "changed since"}
+                        for r in results
+                        for path in r.skipped
+                    ]
+                    + [
+                        {"path": path, "reason": why}
+                        for r in results
+                        for path, why in r.refused
+                    ],
+                },
+            )
         stopped = results and (results[-1].skipped or results[-1].refused)
         self._print_wrapped(
             f"stopped before checkpoint {n}: a later turn kept a file you changed"
@@ -818,6 +840,17 @@ class ReplSession:
         )
         return True
 
+    def _tier3_now(self) -> str:
+        """The tier-3 state events and the status line show (B-195 d).
+
+        ``off`` or ``suspended`` from the grant; otherwise the session's mode
+        (``ask`` or ``allowlist``). ``/mode`` sent ``off`` whatever it was.
+        """
+        base = getattr(self, "_tier3", "off")
+        if base in ("off", "suspended"):
+            return base
+        return self._tier3_mode
+
     def _set_tier3_mode(self, wanted: str) -> bool:
         """``/permissions allowlist`` or ``ask`` (B-113, D6): only up to the grant's max_mode."""
         grant = self._grant_state
@@ -831,6 +864,23 @@ class ReplSession:
             )
             return True
         self._tier3_mode = wanted
+        if self._events is not None:
+            # B-195 (d): the change is an event, with the status line's words.
+            from datetime import date
+
+            from ract.policy.cli import tier_state_of
+            from ract.ui.tier_status_view import status_line
+
+            state, _why = tier_state_of(grant, wanted)
+            self._events.emit(
+                "mode.changed",
+                {
+                    "mode": self.permission_mode(),
+                    "tier3": self._tier3_now(),
+                    "tier3_status": status_line(state, date.today()),
+                    "by": "operator",
+                },
+            )
         self._print_wrapped(
             "Tier-3 commands: allowlist: a command that matches an allow rule runs "
             "without asking; tier 2, the always-ask list and a changed test or "
@@ -861,7 +911,8 @@ class ReplSession:
         self.state.auto = wanted == "default"
         if self._events is not None:
             self._events.emit(
-                "mode.changed", {"mode": wanted, "tier3": "off", "by": "operator"}
+                "mode.changed",
+                {"mode": wanted, "tier3": self._tier3_now(), "by": "operator"},
             )
         self._print_wrapped(self._MODE_TEXT[wanted])
         return True
@@ -1083,8 +1134,29 @@ class ReplSession:
         )
         # Switching to a named session assumes it already exists; "new" does not.
         s.session_started = target != "new"
+        self._follow_session()
         self._console.success(f"session = {s.session_id}")
         return True
+
+    def _follow_session(self) -> None:
+        """B-195 (f): events carry the active session's id, not the first one's."""
+        if self._events is not None:
+            self._events.session = self.state.session_id
+
+    @staticmethod
+    def _saved_turns(directory: Path, session_id: str) -> int:
+        """How many turns a saved session holds, or 0 when that cannot be read."""
+        import json
+
+        try:
+            data = json.loads((directory / f"{session_id}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            print(f"[repl] the session's turns were not counted: {exc}", flush=True)
+            return 0
+        if not isinstance(data, dict):
+            return 0
+        turns = data.get("turns", data.get("outcomes"))  # the run layer keeps outcomes
+        return len(turns) if isinstance(turns, list) else 0
 
     def _cmd_context(self, args: list[str]) -> bool:
         """What the last request sent and the room left, from records already on disk.
@@ -1187,12 +1259,24 @@ class ReplSession:
             )
             return True
         s = self.state
+        resumed_from = s.session_id
         s.session_id = row.session_id
         s.session_started = True
         # Session approvals are never restored by /resume (ADR-0047 D6).
         from ract import tier2_approvals
 
         tier2_approvals.forget(row.session_id)
+        self._follow_session()
+        if self._events is not None:
+            # B-195 (f): documented, never emitted until now.
+            self._events.emit(
+                "session.resumed",
+                {
+                    **self._session_facts(),
+                    "resumed_from": resumed_from,
+                    "turns": self._saved_turns(directory, row.session_id),
+                },
+            )
         self._console.success(
             f"resumed {escape(row.session_id)}, last request: {escape(row.request)}"
         )
@@ -1422,7 +1506,11 @@ class ReplSession:
             # traceback that the interpreter prints after the prompt returns.
             try:
                 box["code"] = run_turn(
-                    self._events, request, turn=turn_no, cancel=cancel
+                    self._events,
+                    request,
+                    turn=turn_no,
+                    cancel=cancel,
+                    queued=getattr(self, "_from_queue", False),
                 )
             except Exception as exc:
                 box["code"] = 1

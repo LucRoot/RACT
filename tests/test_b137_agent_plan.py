@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ract.manager import Manager, _has_tool_calls
-from ract.plan_gate import AGENT_TARGET, approval_needed
+from ract.plan_gate import approval_needed
 from ract.rooted import Rooted
 
 
@@ -96,7 +96,7 @@ def test_an_agent_step_is_always_shown_for_approval_in_default_mode() -> None:
     """G-233 note 1: the one-step plan is shown before any tool call runs."""
     from ract.ui.plan_approval_view import Step as PlanStep
 
-    steps = [PlanStep(n=1, action="fix the failing test", target=AGENT_TARGET)]
+    steps = [PlanStep(n=1, action="fix the failing test", agent=True)]  # B-195
     assert approval_needed(steps, mode="default") is True
 
 

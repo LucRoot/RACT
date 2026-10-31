@@ -345,6 +345,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   now show the screens designed and walked for them (B-225); the exact git command stays on the
   question. A machine whose sandbox does not run commands reads "best effort, not enforced on
   this machine".
+- The session's event stream tells the truth in more places (B-195): an interrupted turn says
+  what changed is not known (it said the folder was not a git repository), `mode.changed` carries
+  the real tier-3 state, a turn started from the queue says `queued`, the events follow the
+  session after `/session` and `/resume`, and `session.resumed` and `session.rewound` are emitted.
+- An edited plan is announced again with its assumption, confidence and the planned flag
+  (B-195): the summary lost the plan's assumption line after an edit.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.
