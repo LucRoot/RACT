@@ -43,7 +43,13 @@ from ract.trace.writer import EventReader, JsonlEventWriter
 
 
 def _run_events_path(runs_root: Path, run_id: str) -> Path:
-    """Return the event-log path for ``run_id`` under ``runs_root``."""
+    """Return the event-log path for ``run_id``: a run id under ``runs_root``, a run's
+    folder, or the events file itself (B-220: a path was refused with rc 2 or 3)."""
+    given = Path(run_id)
+    if given.is_file():
+        return given
+    if (given / "events.jsonl").is_file():
+        return given / "events.jsonl"
     return runs_root / run_id / "events.jsonl"
 
 

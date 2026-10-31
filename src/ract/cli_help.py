@@ -103,7 +103,7 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     # Handshake / approval
     "handshakes": "List, approve, reject, defer, or review pending handshakes.",
     "operator-queue": "List or drain the operator-approval queue.",
-    "whisper": "Add or list free-form legacy operator notes.",
+    "whisper": "Brief the conventions and recent history that bear on a task (writes nothing).",
     "auction": "List or resolve entries in the dead-code auction.",
     "fence": "List or resolve Chesterton's fence entries.",
     "undo": "Reverse the last RACT turn: restore the files it replaced, remove the files it created.",
@@ -215,6 +215,27 @@ def build_discovery_parser(cli_verbs: Iterable[str]) -> argparse.ArgumentParser:
         dest="json_output",
         action="store_true",
         help="Emit machine-readable JSON for commands that support it.",
+    )
+    # B-220: the global flags every verb takes were in no --help.
+    parser.add_argument(
+        "-p",
+        "--print",
+        dest="print_prompt",
+        metavar="PROMPT",
+        help="Run one turn without a terminal and print the result (ract -p --help).",
+    )
+    parser.add_argument(
+        "--no-color", action="store_true", help="Print without color (NO_COLOR=1 too)."
+    )
+    parser.add_argument(
+        "--plain",
+        action="store_true",
+        help="Labels instead of color, boxes or redraws (for screen readers and logs).",
+    )
+    parser.add_argument(
+        "--no-network",
+        action="store_true",
+        help="Send nothing over the network; a step that would is refused.",
     )
     return parser
 

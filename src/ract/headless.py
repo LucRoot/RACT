@@ -169,6 +169,15 @@ def _parser() -> argparse.ArgumentParser:
             "Run one turn without a terminal and print the result. The prompt "
             "is the argument, or stdin, or both (stdin is then added as context)."
         ),
+        # B-220: the stdin rule and the exit codes were only in EVENTS_SESSION.md.
+        epilog=(
+            "stdin: piped stdin that stays open and sends nothing for 30 s stops the "
+            "run with exit 2 (RACT_STDIN_IDLE_TIMEOUT sets the seconds; --no-stdin "
+            "skips the read). Exit codes: 0 done; 1 the task or its tests failed; "
+            "2 usage, configuration or a stalled stdin; 3 refused by policy or tier "
+            "(and the first denial with --fail-on-denial); 4 a budget was used up; "
+            "5 interrupted; 6 the provider was unavailable; 143 terminated."
+        ),
     )
     parser.add_argument(
         "-p", "--print", dest="prompt", nargs="?", const="", metavar="PROMPT"
@@ -207,8 +216,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--bare",
         action="store_true",
-        help="load no repository-supplied extension (hooks, MCP servers, skills); "
-        "a headless run already loads none in this release",
+        # B-220: a trusted repository's extensions do load headless (`ract
+        # trust` or --trust-project); --bare is the way to load none of them.
+        help="load no repository-supplied extension (hooks, MCP servers, skills), "
+        "even for a repository you trusted with `ract trust` or --trust-project",
     )
     parser.add_argument(
         "--ask",

@@ -19,7 +19,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--at` | `ract trace fork` | - |
 | `--auto` | `ract run` | Ask before the plan and before each step (the default in a terminal). |
 | `--backup-dir` | `ract session backup` | - |
-| `--bare` | `ract -p` | load no repository-supplied extension (hooks, MCP servers, skills); a headless run already loads none in this release |
+| `--bare` | `ract -p` | load no repository-supplied extension (hooks, MCP servers, skills), even for a repository you trusted with `ract trust` or --trust-project |
 | `--base-url` | `ract openapi` | Override the base URL from the spec (client only). |
 | `--baseline` | `ract config diff` | Baseline config file |
 | `--before` | `ract coverage` | Path to a pytest-cov coverage.json (before). |
@@ -70,6 +70,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--lock` | `ract source-digest` | Rewrite GOLDEN_HASH_CONSTANT to the current computed hash. |
 | `--loop` | `ract run` | Run the intent in a Root-Knot-anchored loop until done, regressed, or max iterations. |
 | `--markdown` | `ract config diff` | - |
+| `--max-inconsistencies` | `ract memory verify-consistency` | Cap on returned detail entries (default 500; must be >= 1). |
 | `--max-iterations` | `ract run` | Maximum loop iterations when using --loop (default: 10). |
 | `--max-modules` | `ract consolidate scan` | Maximum modules to scan. |
 | `--max-turns` | `ract -p` | turns allowed; a headless run is one turn in this release |
@@ -84,8 +85,9 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--name` | `ract marketplace install` | Skill name to install |
 | `--new` | `ract refactor` | New symbol name. |
 | `--no-anonymize` | `ract receipt-export` | Include identifying fields in the export. |
-| `--no-color` | `ract (any command)` | no colour |
-| `--no-network` | `ract run` | refuse every request to a host that is not this machine; a model server on localhost still works. A refused request names its purpose and host and is recorded in the egress |
+| `--no-color` | `ract` | Print without color (NO_COLOR=1 too). |
+| `--no-disk-check` | `ract memory verify-consistency` | Skip the missing-symbol-file check (only useful in CI where paths are synthetic). |
+| `--no-network` | `ract` | Send nothing over the network; a step that would is refused. |
 | `--no-stdin` | `ract -p` | Do not read stdin (for a parent that leaves it open). |
 | `--old` | `ract refactor` | Current symbol name. |
 | `--out` | `ract trace to-test` | - |
@@ -95,12 +97,12 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--parent` | `ract session diff` | Parent snapshot to diff against (default: the branch's fork point from HEAD). |
 | `--patch` | `ract diff` | Path to unified-diff patch. |
 | `--paths` | `ract consolidate scan` | Restrict scan to specific directories or files. |
-| `--plain` | `ract (any command)` | plain output: labels, no colour, no boxes |
+| `--plain` | `ract` | Labels instead of color, boxes or redraws (for screen readers and logs). |
 | `--plan` | `ract explain` | Path to a saved plan JSON to explain. |
 | `--plot` | `ract rot baseline` | Print an ASCII line chart of duplication_ratio. |
 | `--policy` | `ract merge-gate` | JSON file with a policy object or list. |
 | `--prerelease` | `ract release create` | Mark as prerelease |
-| `--print` | `ract -p` | - |
+| `--print` | `ract` | Run one turn without a terminal and print the result (ract -p --help). |
 | `--print-defaults` | `ract setup` | print an answers template |
 | `--project` | `ract ai-sbom` | Project name. |
 | `--project-dir` | `ract consolidate` | - |
@@ -117,6 +119,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--reload` | `ract run` | Re-run the intent once after a successful execution. |
 | `--remove` | `ract trust` | remove trust for this one |
 | `--repo` | `ract session ls` | Repository root (default: current directory). |
+| `--repo-path` | `ract memory apply-narrowings` | Path to the repository whose narrowings are inspected. |
 | `--response` | `ract operator-queue` | Operator response text. |
 | `--resume` | `ract run` | Resume a previously saved session or an interrupted run (requires --session); finished steps are not run again. |
 | `--review-diff` | `ract run` | Path to a unified-diff file to review (instead of running a plan). |
@@ -131,6 +134,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--session` | `ract plan export` | Session id to export. |
 | `--signer` | `ract operator-queue` | Signer of the answer. |
 | `--similarity-threshold` | `ract consolidate scan` | Minimum pair similarity to form a candidate (0.0-1.0). |
+| `--skip-semantic` | `ract memory init` | Skip the semantic-index build. Useful when LanceDB or the embedding model is unavailable (offline / CI). The symbol and graph indexes still build. |
 | `--spec` | `ract openapi` | Path to OpenAPI spec. |
 | `--store` | `ract session list` | Session store (default .ract/sessions) |
 | `--stream` | `ract run` | Stream provider responses to stdout as they are generated. |
