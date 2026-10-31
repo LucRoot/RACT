@@ -46,6 +46,8 @@ with tempfile.TemporaryDirectory() as tmp, FakeModelServer(scenario) as server:
     ws = Path(tmp) / "proj"
     ws.mkdir()
     env = {**_env(), "HOME": str(home), "USERPROFILE": str(home)}
+    # Loopback only: a bare or unnamed preset URL would otherwise reach the real provider (BUILDER L-379).
+    env["RACT_NO_NETWORK"] = "1"
     if CASE in ("hosted_key_set", "preset"):
         env["RACT_PRESET_BASE_URL"] = f"openai={server.base_url}"
         env["OPENAI_API_KEY"] = KEY
