@@ -226,27 +226,37 @@ def permission_lines(project: Path) -> list[str]:
         if why and why != "no grant" and tier.grant_expires is None
         else f"Tier 3: {status_line(tier)}"
     ]
-    if state.holds and state.policy is not None:
-        policy = state.policy
-        lines.append(
-            f"Grant signed by {policy.key_id}, max mode {policy.max_mode}, "
-            f"expires {policy.expires_at.date().isoformat()}."
-        )
-        for rule in policy.commands.allow:
-            net = "network on" if rule.network else "network off"
-            lines.append(
-                f"  allow {rule.id}: {' '.join(rule.argv)} ({net}, {rule.timeout_s} s)"
+    # MASON's permissions view (B-111): the rules, the deny rules, the largest
+    # mode, the expiry, and the sandbox as this machine runs it.
+    from ract.ui.grant_screens import PermissionsView, ProposedRule, permissions_lines
+
+    confined = sandbox_confines_commands()
+    policy = state.policy if state.holds else None
+    view = PermissionsView(
+        rules=tuple(
+            ProposedRule(
+                rule_id=rule.id,
+                argv=tuple(rule.argv),
+                network=rule.network,
+                timeout_minutes=max(1, rule.timeout_s // 60),
+                cwd=rule.cwd,
+                env_names=tuple(rule.env_extra),
+                home=rule.home,
+                sandbox_enforced=confined,
             )
-        for rule in policy.commands.deny:
-            lines.append(f"  deny: {' '.join(rule.argv)}")
-    else:
-        lines.append("`ract policy init --guided` proposes and signs a first grant.")
-    # Always said, grant or not: what the machine does, not what a grant hopes.
-    lines.append(
-        "Sandbox: best_effort: not enforced on this machine; commands are not confined."
-        if not sandbox_confines_commands()
-        else "Sandbox: enforced: commands are confined to what their rule allows."
+            for rule in (policy.commands.allow if policy else [])
+        ),
+        deny=tuple(" ".join(r.argv) for r in (policy.commands.deny if policy else [])),
+        max_mode=policy.max_mode if policy else "ask",
+        expires=policy.expires_at.date().isoformat() if policy else "",
+        sandbox_enforced=confined,
+        notes=(
+            [f"signed by {policy.key_id}"]
+            if policy
+            else ["`ract policy init --guided` proposes and signs a first grant."]
+        ),
     )
+    lines += permissions_lines(view, 10_000)
     lines.append(
         "Signing key: unlocked in memory; /permissions lock closes it."
         if SESSION_WINDOW.is_open
