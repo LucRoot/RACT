@@ -285,6 +285,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- RACT's own git reads in the historian, the fences, the step commits, the worktrees and the
+  setup check start git with the full hardening (B-206), so a repository's fsmonitor or hooks
+  no longer run a program for them.
 - RACT starts git by its full path, and on Windows no program it starts is taken from the
   current folder (B-214): a `git.exe` a repository put at its top could run in place of git. A
   program name with a dot in it, such as `python3.11`, is now found on PATH on Windows.
