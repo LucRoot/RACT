@@ -649,12 +649,16 @@ def _retrieval_command(args: list[str]) -> int:
         from ract.memory.cli_memory import retrieval_query_command
 
         return retrieval_query_command(args[1:])
-    parser = argparse.ArgumentParser(prog="ract retrieval")
+    parser = argparse.ArgumentParser(
+        prog="ract retrieval",
+        # B-220: `query` is handled above, before this parser; the help says so.
+        epilog="ract retrieval query <text> asks the memory indexes (see its --help).",
+    )
     parser.add_argument(
         "action",
         nargs="?",
         choices=["search"],
-        help="Retrieval action to perform.",
+        help="Retrieval action to perform: search (keyword retrieval) here, or query.",
     )
     parser.add_argument("query", nargs="?", help="Search query.")
     parser.add_argument(
@@ -4782,8 +4786,8 @@ def main(argv: list[str] | None = None) -> int:
         from ract.workspace_state import migrate_rack_to_ract
 
         migrate_rack_to_ract(Path.cwd())
-    except Exception:  # noqa: BLE001 -- migration must never crash the CLI
-        pass
+    except Exception as exc:  # noqa: BLE001 -- migration must never crash the CLI
+        print(f"[ract] the .rack folder was not migrated: {exc}", file=sys.stderr)
 
     # v0.5.1 wiring module_10 (Lens A C1): comprehensive top-level
     # ``--help``. A bare ``ract --help`` / ``ract -h`` / ``ract help``
@@ -5496,14 +5500,13 @@ def main(argv: list[str] | None = None) -> int:
             console.rule(f"Step {i}: {step_result.step.action}")
             console.print(step_result.content)
     if report.unsigned_artifacts:
-        # LR:: Rootknot signing is not wired into CLI runs yet (S-015). Say
-        # so on every run that wrote files, instead of implying they are
-        # signed.
+        # B-220: runs sign what they write (S-015b); the files named here are
+        # the ones this run could not sign, and the sentence says only that.
         names = ", ".join(report.unsigned_artifacts)
         console.warning(
             f"provenance: {len(report.unsigned_artifacts)} file(s) written without "
-            f"a Rootknot ({names}). Signing is not wired into this release; "
-            "see docs/PROVENANCE.md."
+            f"a Rootknot ({names}): this run could not sign them. "
+            "`ract provenance verify <file>` checks a file; see docs/PROVENANCE.md."
         )
     score = QualityScorecard().compute_score(report.plan)
     console.direct(f"quality score: {score}")

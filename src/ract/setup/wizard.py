@@ -802,6 +802,13 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="ract setup",
         description="Check this machine, choose a model, and write a working ract.yaml.",
+        # B-220: the exits were undocumented.
+        epilog=(
+            "Exit codes: 0 ract.yaml written (or nothing to change); 2 a usage "
+            "problem or an answer setup cannot use; 5 interrupted; 6 no model answered "
+            "(nothing written when no server was found; ract.yaml written when only "
+            "the health check failed)."
+        ),
     )
     parser.add_argument(
         "--answers", type=Path, help="answer the questions from a YAML file"

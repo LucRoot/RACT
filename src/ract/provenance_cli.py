@@ -110,11 +110,11 @@ def verify_artifact(
         if knot is None:
             return False, (
                 f"{NO_ROOTKNOT_PREFIX} for {artifact_path.name}: no sidecar "
-                f"({sidecar.name}) and no index entry. ract runs in this release "
-                "do not sign the files they write, so this is the expected "
-                "result for them. A missing record cannot be told apart from a "
-                "removed one; if this file was signed before, treat it as "
-                "unverified (see docs/PROVENANCE.md)."
+                f"({sidecar.name}) and no index entry. A run signs the files it "
+                "writes, so this file was not written by a run, or the run could "
+                "not sign it (it named the file when it ended), or its record "
+                "was removed. A missing record cannot be told apart from a "
+                "removed one: treat the file as unverified (see docs/PROVENANCE.md)."
             )
         return _check_knot(knot, artifact_path, min_schema_version)
 

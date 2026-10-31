@@ -47,6 +47,15 @@ def memory_command(args: list[str]) -> int:
     if not args:
         parser.print_help()
         return 0
+    # B-220: a sub-verb's own --help reaches it; the parent parser printed its
+    # help for `ract memory init --help` because it saw --help first.
+    subverbs = {
+        "init": _memory_init,
+        "apply-narrowings": _memory_apply_narrowings,
+        "verify-consistency": _memory_verify_consistency,
+    }
+    if args[0] in subverbs:
+        return subverbs[args[0]](args[1:])
     parser.add_argument(
         "subverb",
         choices=["init", "apply-narrowings", "verify-consistency"],
