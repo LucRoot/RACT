@@ -124,7 +124,7 @@ def _host(url: str) -> str:
     """Lowercased host and port of ``url`` (the part a key is paired with).
 
     B-199: the whole netloc was returned, so a user name and password written
-    before the host (``https://svc:pw@host``) were printed in notices and
+    before the host (user, colon, password, at sign) were printed in notices and
     refusals. Only the host name and the port are returned now.
     """
     from urllib.parse import urlsplit
