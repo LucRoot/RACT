@@ -78,6 +78,7 @@ LINKED = "a link: what it points at decides what runs"
 WRITTEN = "written by the model this session"
 CHANGED = "changed since the grant was signed"
 UNKNOWN = "the project's entry points could not be listed"
+NAMED_UNCOVERED = "named by the command, in a folder the signed record does not cover"
 # Folders pytest does not collect from by default (its norecursedirs, and
 # every folder whose name starts with a dot): their test files are not
 # entry points of this project's runner. A config that changes that is
@@ -215,17 +216,37 @@ class Change:
     reason: str
 
 
+def _named_uncovered(argv: list[str] | tuple[str, ...]) -> list[str]:
+    """The paths *argv* names inside folders the record leaves out (G-237 L1).
+
+    pytest collects a path named on its command line from any folder, so a
+    planted ``.hidden/test_x.py`` or ``build/conftest.py`` named as a
+    selector would run; the record skips those folders, so it cannot vouch
+    for them, and the command asks.
+    """
+    found = []
+    for token in list(argv)[1:]:
+        if not token or token.startswith("-"):
+            continue
+        rel = token.split("::", 1)[0].replace("\\", "/").strip("/")
+        if rel and not _collected(rel + "/x"):
+            found.append(rel)
+    return found
+
+
 def changed_entry_points(
     project: Path | str,
     grant_digest: str | None,
     model_written: set[str] | frozenset[str],
     *,
     record_project: Path | str | None = None,
+    argv: list[str] | tuple[str, ...] = (),
 ) -> list[Change]:
     """The entry points that put a command back to the question, each with why."""
     changes = [
         Change(path, WRITTEN) for path in sorted(model_written) if is_entry_point(path)
     ]
+    changes += [Change(path, NAMED_UNCOVERED) for path in _named_uncovered(argv)]
     shown = {c.path for c in changes}
     # The record is kept per operator project; the files are read in *project*,
     # the folder the command runs in (the step worktree, a copy of it).
