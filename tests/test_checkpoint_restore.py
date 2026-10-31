@@ -212,3 +212,27 @@ def test_rewind_needs_two_turns(tmp_path: Path) -> None:
     (tmp_path / "a.txt").write_text("one\n", encoding="utf-8")
     _turn(tmp_path, {"a.txt": "two\n"})
     assert "nothing to rewind to" in _rewind(tmp_path, "1")
+
+
+def test_the_restore_preview_says_what_goes_back_and_writes_nothing(
+    tmp_path: Path,
+) -> None:
+    """MASON's restore preview (B-110 D6), from undo_backup.restore_preview."""
+    turns = _three_turns(tmp_path)
+    before = {name: _read(tmp_path, name) for name in ("a.txt", "b.txt", "c.txt")}
+    back, left = undo_backup.restore_preview(tmp_path, turns[0].turn_id)
+    assert set(back) == {"a.txt", "b.txt", "c.txt"} and left == []
+    assert {name: _read(tmp_path, name) for name in before} == before
+
+
+def test_the_restore_preview_names_a_file_you_changed(tmp_path: Path) -> None:
+    turns = _three_turns(tmp_path)
+    (tmp_path / "c.txt").write_text("mine now\n", encoding="utf-8")
+    back, left = undo_backup.restore_preview(tmp_path, turns[0].turn_id)
+    assert left == ["c.txt"] and back == []  # the walk stops at the newest turn
+
+
+def test_restore_in_the_session_shows_the_preview_first(tmp_path: Path) -> None:
+    _three_turns(tmp_path)
+    text = _shown(tmp_path, "/restore 3")
+    assert text.index("restore checkpoint 3: ") < text.index("back at checkpoint 3")

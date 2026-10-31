@@ -649,9 +649,20 @@ class ReplSession:
                 "checkpoint 1 is the newest: the files are already as it left them"
             )
             return True
+        from ract.ui.workspace_screens import restore_preview_lines
+
+        root = self.state.config.resolve().parent
         try:
+            # MASON's view (B-110 D6): what goes back and what is left alone, first.
+            back, left_alone = undo_backup.restore_preview(
+                root, rows[n - 1]["turn"], force="--force" in args
+            )
+            for line in restore_preview_lines(
+                n, back, left_alone, self._render_width()
+            ):
+                self._print_wrapped(line)
             results = undo_backup.restore(
-                self.state.config.resolve().parent,
+                root,
                 rows[n - 1]["turn"],
                 force="--force" in args,
             )

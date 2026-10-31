@@ -574,6 +574,57 @@ def redo(root: Path | str, *, force: bool = False) -> UndoResult:
     return _reverse(Path(root), {"undo"}, "redo", force)
 
 
+def restore_preview(
+    root: Path | str, turn_id: object, *, force: bool = False
+) -> tuple[list[str], list[str]]:
+    """What ``restore`` would do, without doing it: ``(put back, left alone)``.
+
+    The same walk and the same rule as ``restore``: newest turn first, a
+    file goes back only while it still has the digest RACT left (unless
+    *force*), and the walk stops after the first turn that leaves one alone.
+    Nothing is written. A refused id raises ``ValueError`` as ``restore`` does.
+    """
+    base = Path(os.path.realpath(root))
+    target = require_name(turn_id, "checkpoint")
+    known = {folder.name for folder, _data in _manifests(base)}
+    if target not in known:
+        raise ValueError(f"no checkpoint {target!r} is recorded for this repository")
+    back: list[str] = []
+    left: list[str] = []
+    pending = [
+        (folder, data)
+        for folder, data in _manifests(base)
+        if data.get("kind") in {"turn", "redo"}
+        and not data.get("done")
+        and folder.name > target
+    ]
+    for folder, data in reversed(pending):
+        after_raw = data.get("after")
+        after: dict[str, Any] = after_raw if isinstance(after_raw, dict) else {}
+        paths = [
+            p
+            for key in ("saved", "created")
+            for p in (data.get(key) if isinstance(data.get(key), list) else [])
+            if isinstance(p, str)
+        ]
+        stopped = False
+        for path in paths:
+            refused = check_entry(base, base, path)
+            if refused is None and path in (data.get("saved") or []):
+                refused = check_entry(base, folder, path)
+            if refused is not None or (
+                not force and _sha256(base / path) != after.get(path)
+            ):
+                if path not in left:
+                    left.append(path)
+                stopped = True
+            elif path not in back and path not in left:
+                back.append(path)
+        if stopped:
+            break
+    return back, left
+
+
 def restore(
     root: Path | str, turn_id: object, *, force: bool = False
 ) -> list[UndoResult]:
@@ -610,6 +661,7 @@ def restore(
 
 
 __all__ = [
+    "restore_preview",
     "KEEP_TURNS",
     "check_entry",
     "current_backup_id",
