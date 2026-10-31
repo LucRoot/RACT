@@ -17,3 +17,5 @@ Evidence so far is the code. The real-CLI run of each row is recorded in the
 
 After S-015b lands, the signing rows are run again: a run followed by
 `ract provenance verify` on a file it changed.
+
+Run again on `work/builder/B-137` (2026-10-30): `tests/integration/test_unsigned_artifacts_are_reported.py`, 3 passed. On both run paths (with and without git), a run that changes `src/calc.py` signs it and `ract provenance verify src/calc.py` passes. A file no run wrote is still `unsigned`. `ract doctor` said "files ract writes are not signed yet"; it now says that each file a run writes is signed, and how to check one.

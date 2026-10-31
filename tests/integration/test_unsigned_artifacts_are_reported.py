@@ -1,10 +1,9 @@
-"""S-015: a run that writes files without a Rootknot says so.
+"""S-015: what a run says about signing the files it writes.
 
-Rootknot signing is not wired into CLI runs in this release (the executor's
-v4 dependencies have no production caller). Until it is, every run that
-writes a file must name the unsigned files, and `ract doctor` must say that
-runs do not sign. When signing is wired, the first test here must change: a
-real run followed by `ract provenance verify` should pass.
+S-015b wired signing into CLI runs, and this file changed as it said it
+would: a real run followed by `ract provenance verify` passes, and `ract
+doctor` says that runs sign. A file left unsigned is still named, and a
+missing record is still "unsigned" (AUD-013).
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ def _ract(ws: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.mark.parametrize("git", [False, True], ids=["legacy-path", "substrate-path"])
-def test_run_that_writes_a_file_names_it_as_unsigned(
+def test_run_that_writes_a_file_signs_it(
     tmp_path: Path, fake_model_server: Any, git: bool
 ) -> None:
     server = fake_model_server("baseline_j4_today")
@@ -70,22 +69,24 @@ def test_run_that_writes_a_file_names_it_as_unsigned(
 
     assert result.returncode == 0, result.stdout + result.stderr
     out = " ".join(result.stdout.split())
-    assert "1 file(s) written without a Rootknot (src/calc.py)" in out
+    assert "without a Rootknot" not in out
     verify = _ract(ws, "provenance", "verify", "src/calc.py")
-    assert verify.returncode != 0
+    assert verify.returncode == 0, verify.stdout + verify.stderr
     verify_text = " ".join(verify.stdout.split())
-    assert verify.stdout.splitlines()[0] == "unsigned"
-    # AUD-013: a missing record is not proof of anything either way.
-    assert "cannot be told apart from a removed one" in verify_text
-    assert "not evidence of tampering" not in verify_text
-    assert "invalid" not in verify_text
+    assert "unsigned" not in verify_text and "invalid" not in verify_text
+    # AUD-013: a file no run wrote still has no record, and says so.
+    (ws / "src" / "extra.py").write_text("x = 1\n", encoding="utf-8")
+    other = _ract(ws, "provenance", "verify", "src/extra.py")
+    assert other.returncode != 0
+    assert other.stdout.splitlines()[0] == "unsigned"
+    assert "cannot be told apart from a removed one" in " ".join(other.stdout.split())
     # PHILOSOPHY: "attested" appears only when all three signatures land.
     import re
 
     assert not re.search(r"attested", result.stdout, re.IGNORECASE)
 
 
-def test_doctor_states_that_runs_do_not_sign(tmp_path: Path) -> None:
+def test_doctor_states_that_runs_sign(tmp_path: Path) -> None:
     ws = tmp_path / "ws"
     ws.mkdir()
     rb._configure(ws, "http://127.0.0.1:9/v1", "fake-coder")
@@ -93,4 +94,4 @@ def test_doctor_states_that_runs_do_not_sign(tmp_path: Path) -> None:
     result = _ract(ws, "doctor", "--config", "ract.yaml")
 
     # B-083 (cold reader row 6): the doctor says it in plain words.
-    assert "files ract writes are not signed yet" in " ".join(result.stdout.split())
+    assert "each file a run writes is signed" in " ".join(result.stdout.split())

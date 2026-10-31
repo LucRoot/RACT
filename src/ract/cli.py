@@ -1850,8 +1850,10 @@ def _doctor_command(args: list[str]) -> int:
             "ract doctor --check-providers"
         )
     console.print(
-        "Provenance: files ract writes are not signed yet in this release, so "
-        "nothing proves which run wrote them. See docs/PROVENANCE.md."
+        # S-015b: a run signs what it writes; this line said it did not.
+        "Provenance: each file a run writes is signed, and `ract provenance "
+        "verify <file>` checks it. When signing cannot be set up, the run names "
+        "the files it left unsigned and says why. See docs/PROVENANCE.md."
     )
     found = (
         f"{sandbox.backend} found on PATH"

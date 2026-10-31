@@ -6,12 +6,16 @@ source symbols rather than prose.
 
 ## Current state
 
-The signing library and its verifier exist and are tested. In this release a
-normal `ract` run does not use them: `Executor.install_v4_provenance_deps` has
-no production caller, so no sidecar and no index row is written. A run that
-writes files names them, `ract doctor` says so, and `ract provenance verify`
-reports such a file as `unsigned`. The design below applies once the harness
-wires signing (ADR-0048 R3 and R4).
+A normal `ract` run signs what it writes (S-015b): at run entry
+`ract.provenance_wiring.install` loads the session key from the user state
+folder, makes the run's sandbox and verifier keys in this repository's state
+folder (never inside the project, ADR-0048 R3) and calls
+`Executor.install_v4_provenance_deps`. Each file a turn changes gets a v4
+Rootknot over the bytes on disk, and `ract provenance verify <file>` passes on
+it. When any of that cannot be built, nothing is signed, the run prints why
+and names the files it left unsigned, and `ract provenance verify` reports
+such a file as `unsigned`. Command records are not part of a knot; they bind
+into the trace chain (ADR-0048 D10).
 
 ## What a Rootknot attests
 

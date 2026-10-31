@@ -86,7 +86,8 @@ def test_a_file_name_with_escape_sequences_is_shown_escaped(tmp_path: Path) -> N
 def test_doctor_says_provenance_in_plain_words(tmp_path: Path) -> None:
     _config(tmp_path)
     proc = _ract(tmp_path, "doctor")
-    assert "not signed yet" in proc.stdout
+    out = " ".join(proc.stdout.split())
+    assert "each file a run writes is signed" in out  # S-015b wired signing
     assert "Rootknot" not in proc.stdout
 
 
