@@ -249,3 +249,29 @@ def test_add_rule_refuses_a_pipe(tmp_path: Path) -> None:
     assert done.returncode == 3, done.stdout + done.stderr
     assert "at a terminal" in done.stdout
     assert not (project / ".ract").exists()
+
+
+def test_every_proposed_rule_says_it_runs_the_projects_own_code(tmp_path: Path) -> None:
+    """G-242 G1: a build backend or a package.json script runs project code too."""
+    from ract.ui.grant_screens import PermissionsView, ProposedRule, permissions_lines
+
+    project = _project(tmp_path, {"pyproject.toml": PYPROJECT})
+    code, shown, _ = _guided(project, "n")
+    assert code == 1
+    says = [line for line in shown if "runs the project's own code" in line]
+    assert len(says) >= 5  # tests, lint, typecheck, format, build: one each
+    view = PermissionsView(
+        rules=(
+            ProposedRule(
+                "build", ("python", "-m", "build"), False, 15, "step_worktree"
+            ),
+        ),
+        deny=(),
+        max_mode="ask",
+        expires="",
+        sandbox_enforced=False,
+        notes=[],
+    )
+    assert any(
+        "runs the project's own code" in line for line in permissions_lines(view, 80)
+    )
