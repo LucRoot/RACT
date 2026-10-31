@@ -22,7 +22,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ract import egress_ledger, plan_gate, turn_context, turn_summary, undo_backup
 from ract.executor.worktree import working_tree_status
@@ -695,7 +695,7 @@ def run_turn(
             runs, not_run_reason = run_named_tests(
                 project,
                 request.intent,
-                console_tier_3_prompt if asks else None,
+                cast(Any, console_tier_3_prompt) if asks else None,
                 expected_pin=request.grant_pin,
                 mode=request.tier3_mode,
                 session_approvals=request.tier3_session_approvals,
@@ -718,10 +718,10 @@ def run_turn(
         ]
         if failed:
             kind, first = failed[0]
-            others = f" and {len(failed) - 1} more" if len(failed) > 1 else ""
+            more = f" and {len(failed) - 1} more" if len(failed) > 1 else ""
             verdict = (
                 f"Not done: {n} step{'s' if n != 1 else ''} ran; the {kind} run "
-                f"`{' '.join(first.argv)}` failed (exit {first.exit_code}){others}."
+                f"`{' '.join(first.argv)}` failed (exit {first.exit_code}){more}."
             )
     if unsigned:
         stream.emit(
@@ -764,7 +764,7 @@ def _citations(root: Path, answer: str) -> dict[str, Any]:
 
     results = cite.verify(root, cite.extract(answer))
     counts = {"verified": 0, "unverified": 0, "not_checked": 0}
-    items = []
+    items: list[dict[str, Any]] = []
     for result in results:
         key = "not_checked" if result.status == "not checked" else result.status
         counts[key] = counts.get(key, 0) + 1

@@ -30,15 +30,25 @@ def test_a_snapshot_failure_is_returned_as_a_failed_result(tmp_path, monkeypatch
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True, capture_output=True)
 
     def boom(*args, **kwargs):
-        raise WorktreeError("could not snapshot the working tree: open src/calc.py: Permission denied")
+        raise WorktreeError(
+            "could not snapshot the working tree: open src/calc.py: Permission denied"
+        )
 
     monkeypatch.setattr(substrate_adapter, "take_snapshot", boom)
     plan = Plan(
         assumption="write the file",
         confidence=0.9,
-        steps=[Step(action="write the file", provider_hint="", expected_artifact="src/calc.py")],
+        steps=[
+            Step(
+                action="write the file",
+                provider_hint="",
+                expected_artifact="src/calc.py",
+            )
+        ],
     )
-    result = substrate_adapter.run_via_substrate(_harness(tmp_path), "write the file", plan)
+    result = substrate_adapter.run_via_substrate(
+        _harness(tmp_path), "write the file", plan
+    )
     assert not result.is_ok()
     assert "could not snapshot" in result.error
 
@@ -47,8 +57,12 @@ def test_a_folder_that_is_not_a_repository_is_a_failed_result(tmp_path):
     plan = Plan(
         assumption="write the file",
         confidence=0.9,
-        steps=[Step(action="write the file", provider_hint="", expected_artifact="a.py")],
+        steps=[
+            Step(action="write the file", provider_hint="", expected_artifact="a.py")
+        ],
     )
-    result = substrate_adapter.run_via_substrate(_harness(tmp_path), "write the file", plan)
+    result = substrate_adapter.run_via_substrate(
+        _harness(tmp_path), "write the file", plan
+    )
     assert not result.is_ok()
     assert "not a git repository" in result.error

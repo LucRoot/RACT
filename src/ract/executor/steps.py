@@ -15,7 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ract.core.module_identity import _module_knot, register_module_knot
 
@@ -160,6 +160,7 @@ class Executor:
     # ran in its worktree. While set, a finished step is held and reported by
     # release_held_step once the apply result is known.
     hold_step_report: bool = False
+    _held_step: tuple[int, Step, float, float | None] | None
     # B-011a: the budgets of the read-only tools loop for answer steps, set by
     # the harness from ract.yaml (``agent``); None keeps the single completion.
     read_tools: Any = None
@@ -1683,7 +1684,7 @@ class Executor:
 
         return review_written_step(
             complete,
-            root=self.project_dir,
+            root=cast(Path, self.project_dir),
             n=self._shown(index),
             goal=step.action,
             path=step.expected_artifact,
@@ -2053,7 +2054,7 @@ class Executor:
                 answered = answer_with_tools(
                     complete,
                     question,
-                    self.project_dir,
+                    cast(Path, self.project_dir),
                     budgets=self.read_tools,
                     max_tokens=1024,
                 )
@@ -2528,7 +2529,7 @@ class Executor:
                 continue
             if isinstance(written, Rooted):
                 return written
-            content = written
+            content = cast(str, written)
 
             # Charge the novelty budget only after a successful write so partial
             # failures do not consume points.

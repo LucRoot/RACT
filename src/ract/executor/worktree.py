@@ -472,9 +472,14 @@ class WorktreeManager:
         )
         # Missing worktree is not fatal — the caller may have already
         # removed the directory (e.g. inside a container tear-down).
-        if remove.returncode != 0 and "is not a working tree" not in (
+        if remove.returncode != 0 and "is not a working tree" in (
             remove.stderr + remove.stdout
         ):
+            # B-146 (Linux): a Ctrl-C reaches the step's git too, and a
+            # worktree add cut short leaves a registration whose folder is
+            # gone or half made; prune drops it, or it stays listed.
+            _git_in(self.repo_root, "worktree", "prune")
+        elif remove.returncode != 0:
             raise WorktreeError(
                 f"git worktree remove failed for {wt.path}: "
                 f"{remove.stderr.strip() or remove.stdout.strip()}"
@@ -1406,11 +1411,48 @@ def sweep_orphan_worktrees(repo: Path) -> list[str]:
         if real.parent != root or _owner_alive(real):
             continue
         done = _git_in(repo, "worktree", "remove", "--force", str(real))
-        if done.returncode != 0:
+        if done.returncode != 0 and real.exists():
             print(
                 f"[worktree] {real.name} was not removed: {done.stderr.strip()}",
                 flush=True,
             )
+            continue
+        # B-146: a registration whose folder is gone is pruned below.
+        try:
+            _owner_path(real).unlink(missing_ok=True)
+        except OSError as exc:
+            print(f"[worktree] the owner file of {real.name} stays: {exc}", flush=True)
+        removed.append(real.name)
+    if removed:
+        _git_in(repo, "worktree", "prune")
+    return removed
+
+
+def remove_own_worktrees(repo: Path) -> list[str]:
+    """Remove the step worktrees this process made; for the session's end (B-146).
+
+    LR:: Called only when no turn's worker is still running, so none of them
+    is in use. On Linux the interrupted step's cleanup could leave its
+    worktree registered (a git it ran was cut short by the same Ctrl-C);
+    the session ended with it listed in the operator's repository.
+    """
+    import json
+
+    root = Path(os.path.realpath(Path(repo) / ".git" / "ract-worktrees"))
+    removed: list[str] = []
+    for path in _registered(Path(repo)):
+        real = Path(os.path.realpath(path))
+        if real.parent != root:
+            continue
+        try:
+            owner = json.loads(_owner_path(real).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue  # no record of who made it: the next session's sweep decides
+        if owner.get("pid") != os.getpid():
+            continue
+        done = _git_in(repo, "worktree", "remove", "--force", str(real))
+        if done.returncode != 0 and real.exists():
+            print(f"[worktree] {real.name} stays: {done.stderr.strip()}", flush=True)
             continue
         try:
             _owner_path(real).unlink(missing_ok=True)

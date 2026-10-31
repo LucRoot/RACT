@@ -58,7 +58,7 @@ RACT depends only on its declared, public dependencies (`pyproject.toml`):
 ## How to verify a Rootknot without the tool
 
 Each indexed artifact is stored two ways: a SQLite index at
-`.rack/rootknots.db` in the workspace root (`ProvenanceIndex`,
+`.ract/rootknots.db` in the workspace root (`ProvenanceIndex`,
 `src/ract/core/provenance.py`) and a sidecar file
 `.<artifact>.rootknot.json` beside the artifact.
 

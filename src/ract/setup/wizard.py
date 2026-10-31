@@ -31,6 +31,7 @@ from ract import egress_scan
 from ract.console_interrupt import read_line
 from ract.provider_presets import get_preset, list_presets
 from ract.setup import host_probe, local_probe, tiers
+from ract.tui import terminal_width
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -79,6 +80,7 @@ class Answers:
     check: bool = True
     git_init: bool = False
     reconfigure: bool = False
+    add_provider: bool = False
 
     @classmethod
     def from_yaml(cls, text: str) -> Answers:
@@ -250,6 +252,8 @@ class Io:
     probe: Callable[[], host_probe.HostProfile] = host_probe.probe_host
     health: Callable[[Path], Health] = health_check
     environ: Any = field(default_factory=lambda: os.environ)
+    # B-163: the columns setup's lines must fit (the terminal's, 40 to 80).
+    width: Callable[[], int] = terminal_width
 
 
 # Files setup itself creates, which say nothing about the user's project.
@@ -313,6 +317,49 @@ def _choose_server(
     return server
 
 
+ADDRESS_QUESTION = (
+    "Address of your model server (for example http://127.0.0.1:8080/v1), "
+    "or Enter to skip: "
+)
+
+
+def _ask_address(
+    io: Io, answers: Answers, interactive: bool
+) -> local_probe.Server | None:
+    """Setup case 2 (B-160a): nothing answered on the default ports; ask once.
+
+    A typed address is probed (the server's model list); one that does not
+    answer is said and dropped, so no config names an address that is not
+    there. The address is written to ract.yaml as an address, never as a secret.
+    """
+    typed = io.ask(ADDRESS_QUESTION).strip().rstrip("/")
+    if not typed:
+        return None
+    if not typed.startswith(("http://", "https://")):
+        io.say(f"  {typed} is not an address (it starts with http:// or https://)")
+        return None
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(typed)
+    if parts.username is not None or parts.password is not None:
+        # G-261: the address is written to ract.yaml; a user name or password
+        # in it would be a secret in the config. It is not echoed either.
+        io.say(
+            "  that address holds a user name or password; setup writes addresses "
+            "only, so type it without them and put any key in an environment variable"
+        )
+        return None
+    found = [s for s in io.detect((typed,)) if s.url.rstrip("/") == typed]
+    if not found:
+        io.say(f"  nothing answered at {typed}")
+        return None
+    answers.local_url = typed
+    server = _choose_server(io, found, answers, interactive)
+    if server is None:
+        answers.local_url = None
+    return server
+
+
 def _local_guidance(io: Io, profile: host_probe.HostProfile, answers: Answers) -> None:
     gb = host_probe.GB
     total = None if profile.total_ram_bytes is None else profile.total_ram_bytes / gb
@@ -353,18 +400,30 @@ def _local_guidance(io: Io, profile: host_probe.HostProfile, answers: Answers) -
         answers.local_model = advice.tier.ollama
 
 
+def _key_note(name: str) -> str:
+    """``(key in VAR)``, or ``(no key needed)`` for a preset that reads no key (B-160e)."""
+    variable = _ENV_VARS[name]
+    return f"(key in {variable})" if variable else "(no key needed)"
+
+
 def _cloud(io: Io, answers: Answers, interactive: bool) -> None:
     names = sorted(_ENV_VARS)
     if interactive:
         listing = "\n".join(
-            f"  {n}) {name}  (key in {_ENV_VARS[name]})"
-            for n, name in enumerate(names, 1)
+            f"  {n}) {name}  {_key_note(name)}" for n, name in enumerate(names, 1)
         )
         io.say(f"Cloud providers:\n{listing}")
         pick = io.ask("Which one? [1] ").strip() or "1"
         if pick.isdigit() and 1 <= int(pick) <= len(names):
             answers.cloud_preset = names[int(pick) - 1]
     variable = _ENV_VARS[answers.cloud_preset]
+    # B-160b: the address the preset uses and the variable it reads, one line each.
+    spec = get_preset(answers.cloud_preset)["providers"][answers.cloud_preset]
+    io.say(f"  address: {spec.get('url', '')}")
+    if not variable:
+        io.say("  key variable: none (no key needed)")
+        return
+    io.say(f"  key variable: {variable}")
     # Presence only: the value is never read here.
     if variable in io.environ:
         io.say(f"  {variable} is set; ract.yaml will refer to it as ${{{variable}}}.")
@@ -373,6 +432,113 @@ def _cloud(io: Io, answers: Answers, interactive: bool) -> None:
             f"  {variable} is not set. ract.yaml will refer to it as ${{{variable}}}; set it "
             "in your shell before running RACT. Setup never reads or stores the key."
         )
+
+
+@dataclass
+class _Chosen:
+    server: local_probe.Server | None
+
+
+def _choose_provider(io: Io, answers: Answers, interactive: bool) -> _Chosen | int:
+    """The machine, then the provider questions; an exit code when setup stops."""
+    io.say("Machine:")
+    profile = io.probe()
+    for line in host_probe.describe(profile):
+        io.say(f"  {line}")
+    io.say(
+        "  network: not tested; setup contacts only the default model-server "
+        "addresses on this machine and the provider you choose"
+    )
+    server: local_probe.Server | None = None
+    if answers.provider == "local":
+        io.say("Looking for a model server on this machine (default ports only):")
+        detected = io.detect(_extra(answers))
+        server = _choose_server(io, detected, answers, interactive)
+        if server is None and interactive and not detected:
+            server = _ask_address(io, answers, interactive)
+        if server is None and interactive:
+            choice = io.ask(
+                "No server chosen. Use a local model or a cloud provider? [L/c] "
+            )
+            answers.provider = (
+                "cloud" if choice.strip().lower().startswith("c") else "local"
+            )
+            if answers.provider == "local":
+                _local_guidance(io, profile, answers)
+                again = io.ask(
+                    "Start the server, then press Enter to look again, or type skip to "
+                    "write a config for Ollama's default address now: "
+                )
+                if again.strip().lower() != "skip":
+                    server = _choose_server(
+                        io, io.detect(_extra(answers)), answers, interactive
+                    )
+                    if server is None:
+                        # B-160a: a look that still finds nothing writes no config
+                        # that would fail its own check; skip is the explicit way.
+                        io.say(
+                            "Still nothing to use; no config written. Run ract setup "
+                            "again once the server is up, or type skip at that "
+                            "question to write a config for Ollama's default address."
+                        )
+                        return EXIT_PROVIDER
+        elif server is None:
+            io.say(
+                "  none found; writing a config for "
+                + (answers.local_url or "Ollama's default address")
+            )
+    if answers.provider == "cloud":
+        _cloud(io, answers, interactive)
+    return _Chosen(server)
+
+
+def wrap_line(line: str, width: int) -> list[str]:
+    """One printed line as lines of at most ``width`` columns (B-163).
+
+    A continuation keeps the line's own indent plus two spaces, so a wrapped
+    item still reads as one item.
+    """
+    from ract.cell_wrap import wrap_cells
+
+    from rich.cells import cell_len
+
+    out: list[str] = []
+    for part in line.split("\n"):
+        if cell_len(part) <= width:
+            out.append(part)  # a line that fits is printed exactly as written
+            continue
+        lead = part[: len(part) - len(part.lstrip(" "))]
+        wrapped = wrap_cells(
+            part.strip(), width, initial_indent=lead, subsequent_indent=lead + "  "
+        )
+        out.extend(wrapped or [""])
+    return out
+
+
+def _wrapping(io: Io) -> Io:
+    """``io`` whose ``say`` wraps each line to ``io.width()``; ``say_raw`` does not.
+
+    LR:: Setup printed its lines whole, so at 60 columns five of them ran to
+    64 to 124 characters (MASON's walk, G-260). A diff keeps its lines as they
+    are (``say_raw``): wrapped, it would no longer be a diff.
+    """
+    from dataclasses import replace
+
+    raw = io.say
+
+    def say(line: object) -> object:
+        width = io.width()
+        for part in wrap_line(str(line), width):
+            raw(part)
+        return None
+
+    wrapped = replace(io, say=say)
+    object.__setattr__(wrapped, "say_raw", raw)
+    return wrapped
+
+
+def _say_raw(io: Io, text: str) -> None:
+    getattr(io, "say_raw", io.say)(text)
 
 
 def run(
@@ -384,7 +550,7 @@ def run(
     opens_session: bool = False,
 ) -> int:
     """Run setup in ``directory``. Returns the process exit code."""
-    io = io or Io()
+    io = _wrapping(io or Io())
     answers = answers or Answers()
     try:
         return _run(directory, answers, interactive, io, opens_session)
@@ -409,55 +575,23 @@ def _run(
     io: Io,
     opens_session: bool = False,
 ) -> int:
+    if answers.add_provider:
+        return _add_provider(directory, answers, interactive, io)
     if (directory / CONFIG_NAME).exists() and not answers.reconfigure:
         raise SetupError(
             f"{CONFIG_NAME} already exists here; nothing was changed. To draft a new one "
             "next to it: ract setup --reconfigure. To check this one: ract doctor "
             "--check-providers"
         )
-    io.say("Machine:")
-    profile = io.probe()
-    for line in host_probe.describe(profile):
-        io.say(f"  {line}")
-    io.say(
-        "  network: not tested; setup contacts only the default model-server "
-        "addresses on this machine and the provider you choose"
-    )
-
-    server: local_probe.Server | None = None
-    if answers.provider == "local":
-        io.say("Looking for a model server on this machine (default ports only):")
-        server = _choose_server(io, io.detect(_extra(answers)), answers, interactive)
-        if server is None and interactive:
-            choice = io.ask(
-                "No server chosen. Use a local model or a cloud provider? [L/c] "
-            )
-            answers.provider = (
-                "cloud" if choice.strip().lower().startswith("c") else "local"
-            )
-            if answers.provider == "local":
-                _local_guidance(io, profile, answers)
-                again = io.ask(
-                    "Start the server, then press Enter to look again, or type skip to "
-                    "write a config for Ollama's default address now: "
-                )
-                if again.strip().lower() != "skip":
-                    server = _choose_server(
-                        io, io.detect(_extra(answers)), answers, interactive
-                    )
-        elif server is None:
-            io.say(
-                "  none found; writing a config for "
-                + (answers.local_url or "Ollama's default address")
-            )
-    if answers.provider == "cloud":
-        _cloud(io, answers, interactive)
-
+    chosen = _choose_provider(io, answers, interactive)
+    if isinstance(chosen, int):
+        return chosen
+    server = chosen.server
     config = build_config(directory, answers, server)
     path, diff = write_config(directory, config, reconfigure=answers.reconfigure)
     if diff or path.name == DRAFT_NAME:
         io.say(f"Wrote {path.name}. Differences from {CONFIG_NAME}:")
-        io.say(diff or "  (none)")
+        _say_raw(io, diff or "  (none)")
         io.say(
             f"Review it, then replace {CONFIG_NAME} with it to use it, or delete it."
         )
@@ -509,6 +643,131 @@ def _run(
     return code
 
 
+def _with_provider_block(text: str, name: str, entry: dict[str, Any]) -> str | None:
+    """``text`` with one provider block added at the end of ``providers:``.
+
+    Every other line, comments included, is kept as it was (G-261). None when
+    the file has no block-style top-level ``providers:`` to extend.
+    """
+    lines = text.splitlines(keepends=True)
+    start = next(
+        (i for i, line in enumerate(lines) if line.rstrip() == "providers:"), None
+    )
+    if start is None:
+        return None
+    indent, end = None, len(lines)
+    for i in range(start + 1, len(lines)):
+        stripped = lines[i].strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        width = len(lines[i]) - len(lines[i].lstrip(" "))
+        if width == 0:
+            end = i
+            break
+        if indent is None:
+            indent = width
+    while end > start + 1 and not lines[end - 1].strip():
+        end -= 1  # the new block goes before the blank lines that close the section
+    pad = " " * (indent or 2)
+    block = yaml.safe_dump({name: entry}, sort_keys=False, indent=len(pad))
+    added = "".join(
+        pad + line if line.strip() else line for line in block.splitlines(True)
+    )
+    if end and not lines[end - 1].endswith("\n"):
+        lines[end - 1] += "\n"
+    return "".join(lines[:end]) + added + "".join(lines[end:])
+
+
+def _add_provider(directory: Path, answers: Answers, interactive: bool, io: Io) -> int:
+    """Setup case 4 (B-160c): one more provider in an existing ract.yaml.
+
+    The same questions and the same health check as a first setup; the
+    difference is shown before anything is written, the manager provider is
+    left as it is, and an existing provider of the same name is never replaced
+    (the new one gets a numbered name).
+    """
+    import tempfile
+
+    target = directory / CONFIG_NAME
+    if not target.exists():
+        raise SetupError(
+            f"{CONFIG_NAME} does not exist here; nothing to add to. Run: ract setup"
+        )
+    before = target.read_text(encoding="utf-8")
+    existing = yaml.safe_load(before) or {}
+    if not isinstance(existing, dict) or not isinstance(
+        existing.get("providers"), dict
+    ):
+        raise SetupError(f"{CONFIG_NAME} has no providers mapping; nothing was changed")
+    chosen = _choose_provider(io, answers, interactive)
+    if isinstance(chosen, int):
+        return chosen
+    fresh = build_config(directory, answers, chosen.server)
+    name = str(fresh["manager_provider"])
+    entry = fresh["providers"][name]
+    final, n = name, 2
+    while final in existing["providers"]:
+        final, n = f"{name}_{n}", n + 1
+    after = _with_provider_block(before, final, entry)
+    expected = {**existing["providers"], final: entry}
+    if after is None or (yaml.safe_load(after) or {}).get("providers") != expected:
+        # A providers mapping this text edit cannot extend (flow style, odd
+        # indentation): the whole file is rewritten, and the user is told.
+        merged = dict(existing)
+        merged["providers"] = expected
+        after = yaml.safe_dump(merged, sort_keys=False)
+        io.say(f"  {CONFIG_NAME} is rewritten whole, so comments in it are not kept.")
+    io.say(f"Adds the provider '{final}' to {CONFIG_NAME}:")
+    _say_raw(
+        io,
+        "".join(
+            difflib.unified_diff(
+                before.splitlines(keepends=True),
+                after.splitlines(keepends=True),
+                fromfile=CONFIG_NAME,
+                tofile=f"{CONFIG_NAME} (with {final})",
+            )
+        ),
+    )
+    if interactive and not _yes(io.ask(f"Write it to {CONFIG_NAME}? [y/N] "), False):
+        io.say("Nothing was changed.")
+        return EXIT_OK
+    _atomic_write(target, after)
+    io.say(
+        f"Wrote {CONFIG_NAME}; the manager provider stays "
+        f"'{existing.get('manager_provider')}'."
+    )
+    variable = (
+        _ENV_VARS.get(answers.cloud_preset, "") if answers.provider == "cloud" else ""
+    )
+    if not answers.check:
+        io.say("Skipped the health check (check: false).")
+        return EXIT_OK
+    if variable and variable not in io.environ:
+        io.say(
+            "Skipped the health check: the key variable is not set yet. Then run: "
+            "ract doctor --check-providers"
+        )
+        return EXIT_OK
+    io.say(f"Checking {entry.get('url', '')} with one tiny request:")
+    with tempfile.TemporaryDirectory() as scratch:
+        probe_path = Path(scratch) / CONFIG_NAME
+        probe_path.write_text(
+            yaml.safe_dump({"manager_provider": final, "providers": {final: entry}}),
+            encoding="utf-8",
+        )
+        health = io.health(probe_path)
+    if health.ok:
+        io.say(f"  ok: {health.detail} in {health.seconds:.1f} s")
+        io.say("Both are listed by: ract doctor --check-providers")
+        return EXIT_OK
+    from ract.session_turn import hint_for
+
+    io.say(f"  failed: {health.detail}")
+    io.say(f"  hint: {hint_for(health.detail)}")
+    return EXIT_PROVIDER
+
+
 def main(argv: list[str]) -> int:
     """`ract setup [--answers FILE | --yolo | --print-defaults] [--reconfigure]`."""
     import argparse
@@ -530,6 +789,11 @@ def main(argv: list[str]) -> int:
         "--reconfigure",
         action="store_true",
         help=f"write {DRAFT_NAME} and show how it differs from {CONFIG_NAME}",
+    )
+    parser.add_argument(
+        "--add-provider",
+        action="store_true",
+        help=f"add one more provider to {CONFIG_NAME} (the same questions; a diff first)",
     )
     args = parser.parse_args(argv)
     if args.print_defaults:
@@ -553,6 +817,8 @@ def main(argv: list[str]) -> int:
             return EXIT_USAGE
     if args.reconfigure:
         answers.reconfigure = True
+    if args.add_provider:
+        answers.add_provider = True
     # Both ends: on Windows the null device reports itself as a terminal.
     interactive = (
         args.answers is None

@@ -53,7 +53,7 @@ class RunTestsArgs(BaseModel):
         return selectors
 
 
-def _test_rule(policy: object) -> object | None:
+def _test_rule(policy: object) -> Any | None:
     rules = list(getattr(getattr(policy, "commands", None), "allow", []) or [])
     for rule in rules:
         if rule.id == "tests":
@@ -259,6 +259,8 @@ def run_under_rule(
         "why": match.reason,
         "reason": reason,
         "notes": [*match.notes, *notes],
+        # B-149: a proposal that came after fetched text says so on its card.
+        "follows": turn_context.follows_external(),
     }
     # B-113 (D4, D6, G-214): what may run without the question.
     from ract.policy import allowlist
@@ -275,7 +277,15 @@ def run_under_rule(
     sessions = ctx.session_approvals
     approved_by = ""
     # Only the rule this tool runs under may answer for it.
-    if match.outcome == "matches" and match.rule_id == rule.id and not changes:
+    # B-149: a proposal that follows fetched text always asks: an allow rule
+    # or a session answer never runs what a web page may have steered.
+    steered = bool(facts["follows"])
+    if (
+        match.outcome == "matches"
+        and match.rule_id == rule.id
+        and not changes
+        and not steered
+    ):
         if ctx.mode == "allowlist":
             approved_by = "allow-rule"
         elif sessions is not None and sessions.covers(match.argv):
@@ -288,6 +298,7 @@ def run_under_rule(
             and match.outcome == "matches"
             and match.rule_id == rule.id
             and not changes
+            and not steered
         )
         answer = ctx.approve(facts)
         if not answer:
@@ -295,6 +306,8 @@ def run_under_rule(
                 "you declined the command; nothing ran",
                 "the model can ask again or stop",
             )
+        if steered:
+            turn_context.approved_after_external()
         if answer == "session" and facts["session_choice"]:
             sessions.add(match.argv)
             approved_by = "operator-tty, for this session"

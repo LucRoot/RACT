@@ -127,6 +127,52 @@ def _host(url: str) -> str:
     return urlsplit(url).netloc.lower()
 
 
+def _aborter(client: httpx.Client):  # type: ignore[no-untyped-def]
+    """The cancel abort for a request on ``client``: end its blocked read now.
+
+    LR:: On Windows a closed client ends the blocked read in about a
+    millisecond, but only a closed socket does that: the egress ledger's
+    transport has no close of its own, so closing the client left the
+    sockets open. On Linux a socket closed from another thread does not wake
+    the thread reading it either, so the worker of a turn cancelled
+    mid-stream sat out the server's stall and the session ended with its
+    step worktree still listed (B-146, G-249). Each open connection's socket
+    is shut down (which wakes the read on Linux) and closed (which wakes it
+    on Windows); the client's close follows.
+    """
+
+    def abort() -> None:
+        import socket
+
+        for sock in _open_sockets(client):
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                sock.close()  # already shut or never connected: the close ends it
+                continue
+            sock.close()
+        client.close()
+
+    return abort
+
+
+def _open_sockets(client: httpx.Client) -> list[Any]:
+    """The sockets of ``client``'s pooled connections, through wrapping transports."""
+    transport: Any = getattr(client, "_transport", None)
+    for _ in range(4):  # the ledger's transport wraps httpx's; follow a few layers
+        if transport is None or hasattr(transport, "_pool"):
+            break
+        transport = getattr(transport, "_inner", None)
+    pool = getattr(transport, "_pool", None)
+    found = []
+    for conn in list(getattr(pool, "connections", None) or []):
+        stream = getattr(getattr(conn, "_connection", None), "_network_stream", None)
+        sock = getattr(stream, "_sock", None)
+        if sock is not None:
+            found.append(sock)
+    return found
+
+
 class OpenAICompatibleProvider(ProviderAdapter):
     """Adapter for OpenAI-compatible HTTP endpoints."""
 
@@ -169,7 +215,9 @@ class OpenAICompatibleProvider(ProviderAdapter):
         self._env_var = env_var
         # The variable an explicit ``api_key: ${VAR}`` names, when it is unset.
         self._missing_key_var = (
-            env_var if reference is not None and not os.environ.get(env_var) else None
+            env_var
+            if reference is not None and not os.environ.get(env_var or "")
+            else None
         )
         if env_var is None:
             self.api_key = str(raw_key)
@@ -465,7 +513,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
                 error=budget.stop_message(),
             )
         start = time.perf_counter()
-        with turn_context.on_abort(self.client.close):
+        with turn_context.on_abort(_aborter(self.client)):
             data, last_error = self._retry_policy.execute(
                 lambda: self._post_completion(payload),
                 lambda exc: not turn_context.cancelled() and self._is_retryable(exc),
@@ -612,7 +660,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
             streamed = False
             try:
                 with (
-                    turn_context.on_abort(self.client.close),
+                    turn_context.on_abort(_aborter(self.client)),
                     self.client.stream(
                         "POST",
                         f"{self.url}/chat/completions",

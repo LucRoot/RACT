@@ -2,9 +2,14 @@ name: RACT CI
 
 on:
   push:
-    branches: [main, master]
+    # The release push carries the evidence for every system (D-148): the
+    # feature and release branches and the version tags run the full matrix
+    # too, not only main.
+    branches: [main, master, "feat/**", "release/**"]
+    tags: ["v*"]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   lint-format-type:

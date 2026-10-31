@@ -288,8 +288,8 @@ def _status(project: Path) -> int:
             print(
                 f"  allow {rule.id}: {' '.join(rule.argv)} ({net}, {rule.timeout_s} s)"
             )
-        for rule in policy.commands.deny:
-            print(f"  deny: {' '.join(rule.argv)}")
+        for deny in policy.commands.deny:
+            print(f"  deny: {' '.join(deny.argv)}")
     for problem in state.problems:
         print(f"  {problem}")
     from datetime import date

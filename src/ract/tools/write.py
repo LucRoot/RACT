@@ -23,6 +23,7 @@ import hashlib
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -459,22 +460,24 @@ def apply_patch(root: Path, args: ApplyPatchArgs) -> ToolResult:
                 raise ToolRefused(
                     f"{rel} exists; the patch creates it", "re-read the project"
                 )
-            new = _patched("", file, rel)
-            planned.append((full, rel, None, _styled(new, None)))
+            created = _patched("", file, rel)
+            planned.append((full, rel, None, _styled(created, None)))
             continue
         if not full.is_file():
             raise ToolRefused(f"{rel} does not exist", "list_dir shows what is there")
-        old = full.read_bytes()
-        text = _text_of(old, rel).replace("\r\n", "\n")
+        current = full.read_bytes()
+        text = _text_of(current, rel).replace("\r\n", "\n")
         if file.new_path is None:  # a deleted file
             if _patched(text, file, rel).strip():
                 raise ToolRefused(
                     f"the patch deletes {rel} but does not remove all its lines",
                     "re-read the file",
                 )
-            planned.append((full, rel, old, None))
+            planned.append((full, rel, current, None))
             continue
-        planned.append((full, rel, old, _styled(_patched(text, file, rel), old)))
+        planned.append(
+            (full, rel, current, _styled(_patched(text, file, rel), current))
+        )
     done: list[tuple[Path, bytes | None]] = []
     try:
         for full, _rel, old, new in planned:
@@ -492,7 +495,7 @@ def apply_patch(root: Path, args: ApplyPatchArgs) -> ToolResult:
         raise ToolRefused(
             f"the patch could not be written ({exc}); nothing changed", "try again"
         ) from exc
-    changed = [
+    changed: list[dict[str, Any]] = [
         {
             "path": rel,
             "digest_before": _digest(old) if old is not None else None,

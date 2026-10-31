@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Text of unknown origin is marked in front of the model (B-149): each tool result arrives
+  in a delimiter naming its origin (`file`, `command output`, `fetched page`, `search
+  result`) and saying it is data, and text inside it cannot close the delimiter. A tier-2 or
+  tier-3 proposal that follows a fetched page says `follows fetched page from <host>` on its
+  card and always asks: an allow rule or a session answer does not run it.
 - A grant rule may name `backend: wsl2` or `backend: container` (with an image pinned by
   digest, `name@sha256:...`; a tag alone is refused at load) (B-028, D-142). Such a rule
   does not run yet and is refused at run with the reason; nothing runs on this host in its
@@ -293,6 +298,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   next session starts, and the session says so (B-146); only worktrees RACT made and no
   running process owns are touched. `/exit` after an interrupt waits up to 10 s for the
   step's cleanup and, past that, names the worktree and the `git worktree remove` command.
+- On Linux, Ctrl-C mid-stream then `/exit` no longer leaves a step worktree listed (G-249):
+  the cancel ends the stalled model read at once, a worktree whose git was cut short is
+  pruned, and the session removes its own step worktrees when it ends. Esc Esc reaches
+  `/rewind` at once on a POSIX terminal whose system inputrc binds Esc Esc sequences.
+- Every line `ract setup` prints wraps to the terminal width (40 to 80 columns), with a
+  hanging indent (B-163); at 60 columns five of them ran to 64 to 124 characters. A diff
+  is printed as it is.
+- `RACT_PRESET_BASE_URL=preset=url` points a preset at another address in what `ract setup`
+  writes, for tests and walks against a fake server (B-160d). It is a security-class
+  variable that `ract doctor --env` shows, and it never pairs a key with a host: only
+  `RACT_KEY_HOSTS` does, so a key is withheld from an overridden address.
+- `ract setup --add-provider` adds a second endpoint to an existing `ract.yaml` (B-160c):
+  the same questions, a diff before writing, the same health check on the new provider;
+  the manager provider stays, a provider of the same name gets a numbered name, and the
+  new block is added as text, so every other line of the file, comments included, is kept.
+- `ract setup`'s provider list says `(no key needed)` for the presets that read no key
+  (llamacpp, lmstudio, ollama, vllm), where it printed `(key in )`, and picking one no
+  longer prints an empty variable name (B-160e).
+- After a preset is picked, `ract setup` prints the address it uses and the variable it
+  reads, one line each (B-160b); the key's value is never shown.
+- When no model server answers on the default ports, `ract setup` asks once for your
+  server's address (B-160a). A typed address that answers is written to `ract.yaml`; one
+  that does not is named (`nothing answered at <address>`) and not written; one holding a
+  user name or password is refused before any request, and not echoed. Looking again
+  and still finding nothing now writes no config, where it wrote Ollama's default address
+  and its check failed; typing `skip` is the explicit way to write that default.
 - The git tools are harder to walk around (G-239). The commit's secret scan reads every
   staged file whole from the index, so a line starting with `++`, a binary or `-diff` file,
   a large file or a U+2028 separator no longer hides a key; it also finds `sk-ant-` keys and

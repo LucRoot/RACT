@@ -15,7 +15,9 @@ import pytest
 from ract.session_turn import _on_disk_name
 
 
-@pytest.mark.skipif(os.name != "nt", reason="case-insensitive lookup is the Windows behaviour")
+@pytest.mark.skipif(
+    os.name != "nt", reason="case-insensitive lookup is the Windows behaviour"
+)
 def test_a_changed_name_uses_the_case_on_disk(tmp_path: Path):
     (tmp_path / "README.md").write_text("old\n", encoding="utf-8")
     assert _on_disk_name(tmp_path, "Readme.md") == "README.md"

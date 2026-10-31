@@ -18,6 +18,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from ract.policy.grant import (
     DEFAULT_DAYS,
@@ -387,7 +388,7 @@ def guided_init(
     return 0
 
 
-def _proposed(runner: Runner) -> object:
+def _proposed(runner: Runner) -> Any:
     from ract.ui.grant_screens import ProposedRule
 
     return ProposedRule(

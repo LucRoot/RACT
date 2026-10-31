@@ -129,7 +129,10 @@ def test_the_named_test_runs_after_the_fix_and_verifies_the_turn(
     assert "verified: verified" in text and "not verified" not in text
     assert "ran: " in text and "tests/test_calc.py::test_add, exit 0" in text
     # Condition 4: the summary says where the command record lives.
-    assert "command records are in the trace; they are not part of the signed Rootknot" in text
+    assert (
+        "command records are in the trace; they are not part of the signed Rootknot"
+        in text
+    )
 
 
 def test_a_failing_run_says_failed(ws: Path, monkeypatch) -> None:
