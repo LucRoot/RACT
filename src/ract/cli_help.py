@@ -77,7 +77,10 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     "session": "List, export, import, backup, or restore saved sessions.",
     "loop": "(alias) Same as run --loop; execute a loop-controlled run.",
     # Discovery / status
-    "doctor": "Diagnose RACT installation, config, and workspace state.",
+    "doctor": (
+        "Diagnose RACT installation, config, and workspace state; `--sandbox` "
+        "says what confines a command here."
+    ),
     "status": "Print a one-line summary of the current workspace state.",
     "self-audit": "Audit RACT's own code against the audit lens findings.",
     "audit": "Audit a workspace or run for anti-rot and provenance issues.",
@@ -134,7 +137,7 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     # Provenance / receipts
     "provenance": "Verify Rootknot signatures for artifacts and workspaces.",
     "receipt": "List, show, or verify receipts.",
-    "receipt-export": "Export receipts to disk or upload to a signed archive.",
+    "receipt-export": "Print the signed receipts in a directory as JSON.",
     "manifest": "Repro-manifest alias + ledger verify/inspect/show/proof.",
     "repro-manifest": "Produce a reproducibility manifest for a run.",
     "policy-gate": "Evaluate a run against the configured policy.",

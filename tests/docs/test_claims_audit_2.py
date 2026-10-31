@@ -13,7 +13,8 @@ ROWS = [
     (
         "README.md",
         "upload to a signed archive",
-        "`ract receipt-export` — Print the signed receipts in a directory as JSON.",
+        # B-133: a colon after the verb in README's index.
+        "`ract receipt-export`: Print the signed receipts in a directory as JSON.",
     ),
     (
         "docs/QUICKSTART.md",

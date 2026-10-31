@@ -22,7 +22,9 @@ BEGIN = "<!-- BEGIN VERB INDEX"
 END = "<!-- END VERB INDEX -->"
 
 # Extract lines like: - `ract verbname` — description text.
-_LINE_RE = re.compile(r"^-\s+`ract\s+([\w-]+)`\s+[—-]\s+(.+?)\s*$")
+# B-133 writes a colon after the verb (no long dashes in README); a dash is
+# still read.
+_LINE_RE = re.compile(r"^-\s+`ract\s+([\w-]+)`(?::\s+|\s+[—-]\s+)(.+?)\s*$")
 
 
 def _readme_verb_map() -> dict[str, str]:
