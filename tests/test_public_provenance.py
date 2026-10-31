@@ -66,6 +66,7 @@ ALLOWED_IMPORT_ROOTS = {
     "os",
     "datetime",
     "ast",
+    "atexit",  # G-239 C10: the private hooks folder is removed at exit
     # stdlib parsers the write gate uses to check a replaced file (S-026)
     "configparser",
     "tomllib",

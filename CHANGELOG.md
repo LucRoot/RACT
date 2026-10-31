@@ -10,6 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `ract doctor --tier3` reports the tier-3 state in one place (B-147): the grant (status,
+  key, expiry, digest, largest mode), why tier 3 is off, the operator key and how it is
+  protected, the unlock window, the sandbox as this machine runs it, the entry-point
+  record, the session mode, which tier-3 tools the grant makes available, and the command
+  that fixes each problem. `--json` carries the same fields.
 - `ract policy init --guided` also finds the linter, type checker, formatter and build
   (ruff or flake8, mypy or pyright, ruff format or black, a Python build backend, and the
   npm scripts) and proposes the narrowest rule for each, network off and 15 minutes, in
@@ -271,6 +276,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A step worktree an ended RACT process left in `.git/ract-worktrees` is removed when the
+  next session starts, and the session says so (B-146); only worktrees RACT made and no
+  running process owns are touched. `/exit` after an interrupt waits up to 10 s for the
+  step's cleanup and, past that, names the worktree and the `git worktree remove` command.
 - The git tools are harder to walk around (G-239). The commit's secret scan reads every
   staged file whole from the index, so a line starting with `++`, a binary or `-diff` file,
   a large file or a U+2028 separator no longer hides a key; it also finds `sk-ant-` keys and

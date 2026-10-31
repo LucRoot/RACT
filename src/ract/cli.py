@@ -1631,6 +1631,22 @@ def _doctor_sandbox(*, json_output: bool) -> int:
     return 0
 
 
+def _doctor_tier3(config: Path, *, json_output: bool) -> int:
+    """`ract doctor --tier3` (B-147): reads only, signs and runs nothing."""
+    import shutil
+
+    from ract.doctor_tier3 import tier3_lines, tier3_report
+
+    report = tier3_report(Path(config).resolve().parent)
+    if json_output:
+        print(json.dumps({"tier3": report}, indent=2))
+        return 0
+    width = max(40, min(100, shutil.get_terminal_size((80, 24)).columns))
+    for line in tier3_lines(report, width):
+        print(line)
+    return 0
+
+
 def _doctor_egress(*, json_output: bool) -> int:
     """`ract doctor --egress`: the last 7 days of the egress ledger (B-044)."""
     from datetime import datetime, timedelta, timezone
@@ -1754,7 +1770,15 @@ def _doctor_command(args: list[str]) -> int:
         help="Say what confines a command on this machine (B-025); on Linux this "
         "runs the sandbox's self-test once.",
     )
+    parser.add_argument(
+        "--tier3",
+        action="store_true",
+        help="One report of the tier-3 state: the grant, the key, the sandbox, the "
+        "tools, and the command that fixes each problem (B-147).",
+    )
     parsed = parser.parse_args(args)
+    if parsed.tier3:
+        return _doctor_tier3(parsed.config, json_output=parsed.json_output)
     if parsed.sandbox:
         return _doctor_sandbox(json_output=parsed.json_output)
     if parsed.egress:

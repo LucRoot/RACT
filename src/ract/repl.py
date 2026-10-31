@@ -151,7 +151,7 @@ Dispatch = Callable[[list[str]], int]
 # How long Ctrl-C waits for the turn's worker before the prompt returns.
 _INTERRUPT_GRACE_SECONDS = 0.3
 # How long leaving the session waits for interrupted workers to clean up.
-_EXIT_CLEANUP_SECONDS = 15.0
+_EXIT_CLEANUP_SECONDS = 10.0  # B-146: the bound at /exit
 
 
 def _review_line(config: dict) -> str:
@@ -296,6 +296,7 @@ class ReplSession:
         self._resume_offer()
         if self._event_mode:
             self._start_events()
+        self._sweep_step_worktrees()
         started = time.monotonic()
         reason = "error"
         try:
@@ -1487,6 +1488,31 @@ class ReplSession:
         ahead.start()
         return ahead
 
+    def _sweep_step_worktrees(self) -> None:
+        """B-146: step worktrees an ended RACT process left are removed, and said."""
+        from ract.executor.worktree import sweep_orphan_worktrees
+
+        try:
+            removed = sweep_orphan_worktrees(self.state.config.resolve().parent)
+        except Exception as exc:  # noqa: BLE001 - a sweep never stops a session
+            print(f"[repl] step worktrees were not checked: {exc}", flush=True)
+            return
+        if removed:
+            self._print_wrapped(
+                f"removed {len(removed)} step worktree(s) an earlier RACT run left: "
+                + ", ".join(removed)
+            )
+
+    def _leftover_worktrees(self) -> list[str]:
+        from ract.executor.worktree import WorktreeManager
+
+        try:
+            manager = WorktreeManager(self.state.config.resolve().parent)
+            return [str(p) for p in manager.leftovers()]
+        except Exception as exc:  # noqa: BLE001 - only a message depends on it
+            print(f"[repl] step worktrees were not listed: {exc}", flush=True)
+            return []
+
     def _finish_interrupted_workers(self) -> dict[str, Any] | None:
         """Give interrupted turns' workers a bounded time to clean up.
 
@@ -1512,11 +1538,27 @@ class ReplSession:
             for done in pending:
                 done.wait(max(0.0, deadline - time.monotonic()))
         except KeyboardInterrupt:
-            pass  # a further Ctrl-C at exit: stop waiting
-        return {
+            print("[repl] a second Ctrl-C at exit: stopped waiting", flush=True)
+        finished = all(done.is_set() for done in pending)
+        left = [] if finished else self._leftover_worktrees()
+        if left and self._events is not None:
+            # B-146: past the bound, say what stays and how to remove it.
+            self._events.emit(
+                "notice",
+                {
+                    "level": "warning",
+                    "text": "the interrupted step's worktree is still there: "
+                    + "; ".join(f"git worktree remove --force {p}" for p in left)
+                    + " (the next session removes it too)",
+                },
+            )
+        out: dict[str, Any] = {
             "waited_ms": int((time.monotonic() - started) * 1000),
-            "finished": all(done.is_set() for done in pending),
+            "finished": finished,
         }
+        if left:
+            out["left"] = left
+        return out
 
     def _interrupt(
         self,
