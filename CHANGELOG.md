@@ -297,6 +297,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the cancel ends the stalled model read at once, a worktree whose git was cut short is
   pruned, and the session removes its own step worktrees when it ends. Esc Esc reaches
   `/rewind` at once on a POSIX terminal whose system inputrc binds Esc Esc sequences.
+- `RACT_PRESET_BASE_URL=preset=url` points a preset at another address in what `ract setup`
+  writes, for tests and walks against a fake server (B-160d). It is a security-class
+  variable that `ract doctor --env` shows, and it never pairs a key with a host: only
+  `RACT_KEY_HOSTS` does, so a key is withheld from an overridden address.
 - The git tools are harder to walk around (G-239). The commit's secret scan reads every
   staged file whole from the index, so a line starting with `++`, a binary or `-diff` file,
   a large file or a U+2028 separator no longer hides a key; it also finds `sk-ant-` keys and

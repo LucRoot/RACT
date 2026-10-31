@@ -77,6 +77,15 @@ ENV_VARS: tuple[EnvVar, ...] = (
         "docs/PROVIDER_SETUP.md",
     ),
     EnvVar(
+        "RACT_PRESET_BASE_URL",
+        "security",
+        "unset (each preset uses its provider's address)",
+        "ract.provider_presets.get_preset: preset=url[,preset=url] replaces a preset's address "
+        "in what setup writes; for tests and walks only; never pairs a key with a host "
+        "(only RACT_KEY_HOSTS does); ract doctor --env shows it (B-160d)",
+        "docs/PROVIDER_SETUP.md",
+    ),
+    EnvVar(
         "RACT_FAKE_RUNNER",
         "security",
         "unset (commands run for real, under the grant)",
