@@ -80,6 +80,15 @@ when there is none.
 
 {{sample ask_cost_undo.txt 8 14}}
 
+## Review a change, then undo it
+
+After a turn that changes files, `/review` walks each hunk. `a` accepts it, `r` rejects it, `e` edits it
+(type the new lines, then a line holding only a dot), `s` skips it, `A` accepts the rest of the file and
+`R` rejects the rest. `/undo` puts back the version from before the turn for the files the turn kept.
+The capture below is a real run: one turn that changed three files, then the review and `/undo`.
+
+{{sample review_three_files.txt 78 117}}
+
 ## Ask a question
 
 `/ask` answers a question about the code, with no plan and no file written. The
