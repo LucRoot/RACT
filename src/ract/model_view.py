@@ -7,10 +7,10 @@ a key: the block shows the host, never the URL path or any key field.
 
 from __future__ import annotations
 
-import textwrap
 from typing import Any
 from urllib.parse import urlsplit
 
+from ract.cell_wrap import wrap_cells
 from ract.session_events import safe_text
 
 CAPABILITY_HINT = "not checked; run ract doctor --check-providers"
@@ -70,14 +70,10 @@ def model_blocks(
             f"capabilities: {CAPABILITY_HINT}",
             price_text(slot),
         ]
-        lines += textwrap.wrap(title, width=width, break_long_words=True)
+        # B-210: by terminal columns; a long word is split, never overflowed.
+        lines += wrap_cells(title, width)
         for detail in details:
-            lines += textwrap.wrap(
-                detail,
-                width=width,
-                initial_indent="  ",
-                subsequent_indent="      ",
-                break_long_words=True,
-                break_on_hyphens=False,
+            lines += wrap_cells(
+                detail, width, initial_indent="  ", subsequent_indent="      "
             )
     return lines

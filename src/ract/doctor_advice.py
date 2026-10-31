@@ -12,11 +12,11 @@ The memory numbers are estimates: parameters in billions times 0.6 GB, plus
 from __future__ import annotations
 
 import re
-import textwrap
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
 
+from ract.cell_wrap import wrap_cells
 from ract.providers.capability_probe import ProviderProbe
 from ract.session_events import safe_text
 
@@ -176,11 +176,6 @@ def render(lines: list[str], width: int) -> list[str]:
     """Wrap each advice line to *width* columns, keeping every word."""
     rows: list[str] = []
     for line in lines:
-        rows += textwrap.wrap(
-            safe_text(line),
-            width=width,
-            subsequent_indent="  ",
-            break_long_words=True,
-            break_on_hyphens=False,
-        ) or [""]
+        # B-210: by terminal columns; a long word is split, never overflowed.
+        rows += wrap_cells(safe_text(line), width, subsequent_indent="  ") or [""]
     return rows

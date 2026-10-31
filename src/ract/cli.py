@@ -292,14 +292,16 @@ def _offer_setup(ask: Any = read_line) -> bool:
     """
     from ract.setup import wizard
 
-    import textwrap
 
     from ract.tui import terminal_width
 
     # Wrapped to the terminal, so the question fits 60 columns too (package F).
-    for line in textwrap.wrap(
+    from ract.cell_wrap import wrap_cells
+
+    # B-210: by terminal columns, as every other wrapped line.
+    for line in wrap_cells(
         "No ract.yaml in this directory, so RACT does not know which model to use.",
-        width=terminal_width(),
+        terminal_width(),
     ):
         print(line)
     try:
