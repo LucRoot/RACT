@@ -41,3 +41,29 @@ def test_the_branch_and_worktree_questions_are_their_screens(
     assert "branch (tier 2)" in out and "create branch topic" in out
     out = _ask("git_worktree", WorktreeArgs(action="add", name="w1"), width, monkeypatch, capsys)
     assert "worktree (tier 2)" in out and ".ract/worktrees/w1" in out
+
+
+@pytest.mark.parametrize("columns", ["80", "60"])
+def test_doctor_prints_the_sandbox_posture_screen(columns: str, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # B-225: the slice (e) screen is the doctor's sandbox section.
+    import os
+    import subprocess
+    import sys
+
+    from tests.ux import run_baseline as rb
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    rb._configure(ws, "http://127.0.0.1:9/v1", "fake-coder")
+    env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
+    env.update(NO_COLOR="1", COLUMNS=columns, RACT_NO_NETWORK="1")
+    done = subprocess.run(
+        [sys.executable, "-m", "ract.cli", "doctor", "--config", "ract.yaml"],
+        cwd=ws, capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=120, env=env,
+    )
+    lines = done.stdout.splitlines()
+    start = [line.strip() for line in lines].index("sandbox")
+    section = lines[start : start + 3]
+    assert "best effort, not enforced on this machine" in " ".join(" ".join(section).split())
+    assert all(len(line) <= int(columns) for line in section), section

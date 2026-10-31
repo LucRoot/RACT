@@ -84,7 +84,8 @@ def test_doctor_prints_and_emits_the_sandbox_facts(tmp_path: Path) -> None:
     rb._configure(ws, "http://127.0.0.1:9/v1", "fake-coder")
 
     text = _doctor(ws).stdout
-    assert "no backend runs commands in this build" in text
+    # B-225: the posture screen; no backend runs commands here, so best effort.
+    assert "sandbox: best effort, not enforced on this machine" in text
     assert "filesystem: not enforced in this build" in text
 
     data = json.loads(_doctor(ws, "--json").stdout)

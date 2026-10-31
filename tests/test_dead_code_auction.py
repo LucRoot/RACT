@@ -175,9 +175,7 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("verifier_tools.py")
     allowlist.add("git_tools.py")
     allowlist.add("web_tools.py")
-    # B-125 (MASON, PREPARED): the sandbox screens are pure text, wired with B-025 (slice e).
-    # Remove this entry when wired; the BUILDER reviews it.
-    allowlist.add("posture_screens.py")
+    # B-225: posture_screens.py is wired into ract doctor's sandbox section.
     # B-127 (MASON, PREPARED): the network prompt screens are pure text, wired with B-116 (slice g).
     # Remove the entry when wired. (B-225: git_screens.py is wired into the git questions.)
     allowlist.add("network_screens.py")
