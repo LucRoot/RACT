@@ -27,7 +27,7 @@ else:
 from ract.providers.base import ProviderAdapter
 from ract.providers import reasoning
 from ract.providers.rate_limit import TokenBucket
-from ract import egress_ledger, egress_scan, redaction, turn_context
+from ract import config_errors, egress_ledger, egress_scan, redaction, turn_context
 from ract import run_token_budget as token_budget
 from ract.retry_policy import (
     MAX_RETRY_AFTER_S,
@@ -377,10 +377,7 @@ class OpenAICompatibleProvider(ProviderAdapter):
             assumption="The key the provider block names is set.",
             confidence=0.0,
             provenance=[self.name],
-            error=(
-                f"api_key in ract.yaml names ${{{self._missing_key_var}}}, and "
-                f"{self._missing_key_var} is not set in this environment; nothing was sent"
-            ),
+            error=config_errors.missing_key_variable(self._missing_key_var),
             hint=(
                 f"set {self._missing_key_var}, or remove api_key from this provider's "
                 "block in ract.yaml if the server needs no key"

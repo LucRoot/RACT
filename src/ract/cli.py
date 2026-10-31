@@ -5468,7 +5468,13 @@ def main(argv: list[str] | None = None) -> int:
         from ract import egress_ledger
 
         # V7-06 (G-198): the offline switch's refusal is a policy refusal, exit 3.
-        return 3 if egress_ledger.is_network_refusal(result.error) else 1
+        if egress_ledger.is_network_refusal(result.error):
+            return 3
+        # B-194: the exit table of the session and headless runs, so a
+        # configuration problem is exit 2 here too.
+        from ract.session_turn import exit_code_for
+
+        return exit_code_for(result.error or "")
 
     value = result.unwrap()
 

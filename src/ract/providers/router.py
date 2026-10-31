@@ -15,6 +15,7 @@ from ract.providers.base import ProviderAdapter
 from ract.providers.internal_provider import InternalProvider
 from ract.providers.local_http_provider import LocalHttpProvider
 from ract.providers.openai_provider import OpenAICompatibleProvider
+from ract import config_errors
 from ract.rooted import Rooted
 
 # Registry of built-in adapters. Users can register custom adapters at runtime.
@@ -82,7 +83,7 @@ class ProviderRouter:
                 assumption=f"Provider slot '{name}' is configured.",
                 confidence=0.0,
                 provenance=["router.get_adapter"],
-                error=f"Provider slot '{name}' is not configured.",
+                error=config_errors.slot_not_configured(name),
             )
 
         adapter_name = config.get("adapter", "openai")
@@ -93,7 +94,7 @@ class ProviderRouter:
                 assumption=f"Adapter '{adapter_name}' is registered.",
                 confidence=0.0,
                 provenance=["router.get_adapter"],
-                error=f"Unknown provider adapter: {adapter_name}",
+                error=config_errors.unknown_adapter(adapter_name),
             )
 
         try:
@@ -104,7 +105,7 @@ class ProviderRouter:
                 assumption=f"Provider slot '{name}' has a valid configuration.",
                 confidence=0.0,
                 provenance=["router.get_adapter"],
-                error=f"Provider slot '{name}' is misconfigured: {exc}",
+                error=config_errors.slot_misconfigured(name, exc),
             )
         self._adapters[name] = adapter
         return Rooted(
@@ -149,7 +150,7 @@ class ProviderRouter:
                 assumption="At least one provider is configured.",
                 confidence=0.0,
                 provenance=["router.select_for_hint"],
-                error="No providers are configured.",
+                error=config_errors.NO_PROVIDERS,
             )
 
         selected = self._registry.select(hint)

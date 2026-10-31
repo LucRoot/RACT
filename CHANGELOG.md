@@ -299,6 +299,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   is now emitted as `approval.requested` and `approval.resolved` (`by: unattended`) and listed
   in the result's `denials` (B-193). `--fail-on-denial` stops the run at the first one and
   exits 3; it was parsed and never read.
+- An unset key variable (`api_key: ${VAR}`) and the other configuration problems now exit 2
+  with `error.kind: config` in a session, `ract -p` and `ract run` (B-194); they exited 1 with
+  `internal`. The providers and the exit table share one list of these sentences, and `ract run`
+  uses the same exit table as the other runs.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.
