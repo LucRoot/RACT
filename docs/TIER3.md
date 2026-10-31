@@ -59,7 +59,7 @@ The status line shows the state of tier 3. These are the states, in the words RA
 | `T3 off (grant expired <date>)` | A grant was on file and its date has passed. Renew it. |
 | `T3 ask` | A grant holds. Each tier 3 command asks you first. |
 | `T3 allowlist` | A grant holds. A command that matches an allow rule runs without asking. |
-| `UNRESTRICTED (signed grant)` | The grant allows unrestricted tier 3. It is printed in bold on a terminal that supports it. |
+| `UNRESTRICTED (signed grant)` | Not reachable from a grant: the signing step refuses `max_mode: unrestricted` on a machine where no sandbox confines commands. |
 | `T3 suspended: policy changed` | The policy file or its signature changed during this session. Tier 3 is off until you confirm the change. |
 
 A grant that expires within seven days adds one notice at the start of a session:

@@ -172,7 +172,7 @@ ract doctor                          # verify workspace and dependencies
 ract fence inspect --file src/<package>/__init__.py  # check safety guardrails; use any file in your project
 ract run "add a test for the hello-world script" --config ract.yaml --dry-run
 ract run "add a test for the hello-world script" --config ract.yaml
-ract run "refactor the greeting module" --config ract.yaml --loop --max-iterations 5
+ract run "refactor the greeting module" --config ract.yaml --loop --yolo --max-iterations 5
 ```
 
 Indexes need `RACT_EMBED_MODEL_ROOT` or `RACT_EMBED_ONLINE=1`.
