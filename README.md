@@ -251,7 +251,7 @@ module_10, Lens A M8 closure).
 - `ract auction` — List or resolve entries in the dead-code auction.
 - `ract fence` — List or resolve Chesterton's fence entries.
 - `ract trust` — Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.
-- `ract policy` — The operator key and the signed tier-3 grant: keygen, sign, status, revoke.
+- `ract policy` — The operator key and the signed tier-3 grant: keygen, sign, status, revoke. New to tier 3: [docs/TIER3.md](docs/TIER3.md).
 - `ract setup` — Check this machine, choose a local or cloud model, and write a working ract.yaml.
 - `ract undo` — Reverse the last RACT turn: restore the files it replaced, remove the files it created.
 - `ract redo` — Reverse the last undo.
