@@ -78,7 +78,7 @@ class StandIn:
 
 
 def _turn(ws: Path, monkeypatch, runner, answer: Any, auto: bool = True):
-    monkeypatch.setattr("ract.tools.command.default_runner", lambda: runner)
+    monkeypatch.setattr("ract.tools.command.default_runner", lambda rule=None: runner)
     asked: list[str] = []
 
     # One answer for every question, or a list answered in order, the last repeated.

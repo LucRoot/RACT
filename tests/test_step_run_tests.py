@@ -36,7 +36,7 @@ def env(tmp_path: Path, monkeypatch) -> None:
 
 
 def _turn(ws: Path, monkeypatch, answers: list[str], runner) -> list[SessionEvent]:
-    monkeypatch.setattr("ract.tools.command.default_runner", lambda: runner)
+    monkeypatch.setattr("ract.tools.command.default_runner", lambda rule=None: runner)
     queue = list(answers)
     monkeypatch.setattr(
         "ract.approval_callback.read_line",
@@ -129,7 +129,7 @@ def test_a_test_file_the_step_wrote_always_asks(
     _grant(ws)
     prompts: list[str] = []
     runner = ScriptedRunner([{"exit_code": 0}])
-    monkeypatch.setattr("ract.tools.command.default_runner", lambda: runner)
+    monkeypatch.setattr("ract.tools.command.default_runner", lambda rule=None: runner)
 
     def read_line(prompt: str) -> str:
         prompts.append(prompt)

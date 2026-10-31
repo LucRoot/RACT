@@ -125,7 +125,7 @@ def test_w1_a_change_while_the_question_is_open_runs_nothing(project: Path) -> N
 
 
 def _turn(ws: Path, monkeypatch, runner, *, auto: bool, terminal: bool, pin: str | None = None):
-    monkeypatch.setattr("ract.tools.command.default_runner", lambda: runner)
+    monkeypatch.setattr("ract.tools.command.default_runner", lambda rule=None: runner)
     asked: list[str] = []
 
     def read_line(prompt: str) -> str:
