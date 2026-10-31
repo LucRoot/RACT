@@ -77,5 +77,21 @@ change 4.
 
 ## Measurement
 
-The card asks for two gate runs on the same machine after the changes, each with
-`--durations=50`. The counts must match the baseline: the same collected number, and 0 failed.
+Two serial gate runs on the same commit (`49bfefa`, changes 2 and 3 on the landed tip), on
+the same shared machine, each with `--durations=50`:
+
+| Run | Wall time | Passed / skipped / xfailed / failed | Collected | s/test |
+|---|---|---|---|---|
+| before (`8e7268e`) | 57:38 | 6512 / 60 / 0 / 0 | 6570 | 0.526 |
+| run 1 (`49bfefa`) | 46:16 | 6615 / 60 / 1 / 0 | 6674 | 0.416 |
+| run 2 (`49bfefa`) | 45:43 | 6615 / 60 / 1 / 0 | 6674 | 0.411 |
+
+The count check holds on both (passed + skipped + xfailed + failed = collected + 2). The
+slowest 50 phases fell from 749 s to 458 s: the wheel smoke test from 128 s to 18 s, and the
+cheat-sheet test left the list. Seconds per test fell by about a fifth.
+
+**The target of 35 minutes is not met by serial runs.** The long tail of CLI subprocess
+tests sets the floor at about 45 minutes on this machine. Change 4 (`tools/gate_shards.py`,
+two shards) is the remaining step; whether a sharded run counts as the gate is the MANAGER's
+decision. After the measured runs, the hashed closed-term test was made about three times
+faster (`236a65b`: 15 s to about 5 s alone); it is not in the measured tree.
