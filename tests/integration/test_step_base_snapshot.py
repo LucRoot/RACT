@@ -270,7 +270,10 @@ def test_aud009_error_on_one_path_does_not_stop_the_others(tmp_path: Path) -> No
         result = apply_commit_to_working_tree(ws, before, after)
     finally:
         os.chmod(ws, stat.S_IRWXU)
-        os.chmod(ws / "b.txt", stat.S_IWRITE | stat.S_IREAD)
+        # B-136 (Linux, B-046): as root the read-only folder does not stop the
+        # deletion, so b.txt may be gone; the cleanup raised FileNotFoundError.
+        if (ws / "b.txt").exists():
+            os.chmod(ws / "b.txt", stat.S_IWRITE | stat.S_IREAD)
 
     if os.name == "nt":
         assert (
