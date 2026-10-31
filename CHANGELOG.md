@@ -289,6 +289,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   such as `lnk -> .ract` no longer lets `lnk/sessions/x.json` reach a never-sent file.
 - A file write goes through a fresh temporary file with a random name (B-212): a hard link
   planted at the old fixed name `.NAME.ract-tmp` no longer sends the write outside the workspace.
+- A user name or password written in a provider url before the host is no longer printed in
+  notices, refusals or the doctor's advice (B-199). Such a url is refused when ract.yaml is
+  loaded, by a sentence that names the provider and not the url, and the probe does not contact it.
+- `ract doctor --check-providers` no longer prints the start of a key that a server echoes in
+  a long error body (B-198): the body is masked whole, then cut. Every cut of a server reply or
+  of an error's text is masked the same way, and a test keeps it so.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.

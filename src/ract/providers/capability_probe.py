@@ -30,8 +30,13 @@ else:
 
     httpx = lazy_module("httpx")  # B-087b: imported at first use, not at start
 
-from ract import egress_ledger, egress_scan
-from ract.providers.openai_provider import OpenAICompatibleProvider
+from ract import egress_ledger, egress_scan, redaction
+from ract.providers.openai_provider import (
+    USERINFO_REFUSED,
+    OpenAICompatibleProvider,
+    has_userinfo,
+    shown_url,
+)
 from ract.providers.router import ProviderRouter
 from ract.retry_policy import RetryConfig, RetryPolicy
 from ract.trust import repository_named_host
@@ -160,15 +165,21 @@ def _run_probes(name: str, adapter: Any, *, url: str, model: str) -> ProviderPro
 
 
 class _Scrubber:
-    """Replaces the provider's key with a mask in any text the report shows."""
+    """Masks the provider's key in any text the report shows, then cuts it.
+
+    B-198: the body was cut and then masked, so a key across the cut passed
+    half shown. The provider's own key is replaced first (any length), then
+    ``redaction.body`` masks the registered keys, their encoded forms and the
+    key shapes in the whole text, and only then cuts it.
+    """
 
     def __init__(self, key: object) -> None:
         self._key = key if isinstance(key, str) and len(key) >= 4 else ""
 
-    def __call__(self, text: str) -> str:
+    def __call__(self, text: str, limit: int | None = None) -> str:
         if self._key and self._key in text:
-            return text.replace(self._key, "********")
-        return text
+            text = text.replace(self._key, "********")
+        return redaction.body(text, limit)
 
 
 def _chat_payload(model: str, prompt: str, max_tokens: int) -> dict[str, Any]:
@@ -231,7 +242,7 @@ def _chat_next_step(exc: Exception) -> str:
 def _explain(exc: Exception, adapter: Any, scrub: _Scrubber) -> str:
     """The plain reason a probe request failed. Never a traceback, never a key."""
     if isinstance(exc, httpx.HTTPStatusError):
-        body = scrub(exc.response.text[:120]).strip()
+        body = scrub(exc.response.text, 120).strip()
         return f"HTTP {exc.response.status_code}" + (f": {body}" if body else "")
     if isinstance(exc, httpx.TimeoutException):
         return f"did not answer within {PROBE_TIMEOUT_S:g} s"
@@ -383,8 +394,13 @@ def probe_configured(providers: dict[str, Any]) -> list[ProviderProbe]:
     router = ProviderRouter({n: providers[n] for n in names})
     for name in names:
         settings = providers[name]
-        url = str(settings.get("url") or settings.get("base_url") or "")
+        raw_url = str(settings.get("url") or settings.get("base_url") or "")
+        url = shown_url(raw_url)
         model = str(settings.get("model", ""))
+        if has_userinfo(raw_url):
+            # B-199: not contacted, and the report shows the url without it.
+            probes.append(not_tried(name, url, model, USERINFO_REFUSED, probed=False))
+            continue
         missing = _missing_key_variable(settings)
         if missing:
             probes.append(

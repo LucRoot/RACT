@@ -82,6 +82,7 @@ def find_config_problems(config: dict[str, Any]) -> list[str]:
     except ReviewConfigError as exc:
         problems.append(str(exc))
 
+    problems.extend(url_credential_problems(config))
     providers = config.get("providers")
     if isinstance(providers, dict):
         for name, settings in providers.items():
@@ -92,6 +93,26 @@ def find_config_problems(config: dict[str, Any]) -> list[str]:
                     problems.append(
                         f"provider '{name}': '{key}' is not read; {advice}."
                     )
+    return problems
+
+
+def url_credential_problems(config: dict[str, Any]) -> list[str]:
+    """One sentence per provider whose url carries credentials (B-199).
+
+    The sentence names the provider and never the url.
+    """
+    from ract.providers.openai_provider import USERINFO_REFUSED, has_userinfo
+
+    providers = config.get("providers") if isinstance(config, dict) else None
+    problems: list[str] = []
+    for name, settings in (providers if isinstance(providers, dict) else {}).items():
+        if not isinstance(settings, dict):
+            continue
+        for field in ("url", "base_url"):
+            value = settings.get(field)
+            if isinstance(value, str) and has_userinfo(value):
+                problems.append(f"provider '{name}': {USERINFO_REFUSED}")
+                break
     return problems
 
 

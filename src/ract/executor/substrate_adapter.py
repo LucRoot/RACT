@@ -48,7 +48,7 @@ from ract.core.module_identity import _module_knot, register_module_knot
 _MODULE_KNOT = _module_knot()
 register_module_knot(__name__, _MODULE_KNOT)
 
-from ract import plan_gate, run_checkpoint, turn_context, undo_backup
+from ract import plan_gate, redaction, run_checkpoint, turn_context, undo_backup
 from ract.core.loop import WorkspaceSnapshot
 from ract.core.predicate import PredicateResult
 from ract.core.transaction import ResourceBudget, TransactionOutcome
@@ -259,7 +259,7 @@ class _ExecutorSucceeded:
             return PredicateResult(ok=True, reason="the step's executor call succeeded")
         error = str(snapshot.metadata.get("executor_error") or "")
         return PredicateResult(
-            ok=False, reason=f"the step's executor call failed: {error[:200]}"
+            ok=False, reason=f"the step's executor call failed: {redaction.body(error, 200)}"
         )
 
 
