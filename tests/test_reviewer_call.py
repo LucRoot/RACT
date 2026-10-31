@@ -106,12 +106,14 @@ def test_a_review_reply_naming_a_write_tool_is_refused(
         {"tool": "write_file", "arguments": {"path": "src/calc.py", "content": "x"}},
         {"findings": [FINDING]},
     )
-    # The loop offers only the tier-0 tools: a write tool is an unknown tool,
-    # and the review ends there with nothing run and nothing written.
+    # The loop offers only the tier-0 tools: a write tool is an unknown tool.
+    # B-140: the model is told so (the offered names, nothing run) and may
+    # answer again; the write never happens.
     assert (repo / "src" / "calc.py").read_text(encoding="utf-8") == CALC
-    assert len(server.chat_requests) == 1
-    assert not result.is_ok()
-    assert result.error.startswith("review not completed")
+    assert len(server.chat_requests) == 2
+    told = json.dumps(server.chat_requests[1].body)
+    assert "no tool named 'write_file'" in told and "nothing ran" in told
+    assert "write_file" not in str(result.value or "")
 
 
 def test_an_approval_in_the_review_reply_changes_nothing(
