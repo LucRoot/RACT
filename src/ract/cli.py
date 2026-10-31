@@ -1572,6 +1572,65 @@ def _doctor_env(*, json_output: bool) -> int:
     return 0
 
 
+def sandbox_report(system: str | None = None) -> dict[str, Any]:
+    """What confines a command here (B-025, ADR-0048 D7): facts, not the design."""
+    from ract.doctor import sandbox_status
+    from ract.security.command_sandbox import enforcing_backend
+
+    status = sandbox_status(system)
+    backend, why = enforcing_backend(system=status.platform)
+    confined = backend is not None
+    return {
+        "platform": status.platform,
+        "backend": status.backend,
+        "backend_binary_found": status.backend_binary is not None,
+        "tier3_commands": "enforced" if confined else "best_effort",
+        "why_not": "" if confined else why,
+        "confines": (
+            {
+                "files": "outside the step worktree",
+                "network": "unless the rule allows it",
+            }
+            if confined
+            else {}
+        ),
+        "not_enforced": [
+            "process, memory and CPU limits",
+            "hook, test and lint commands outside tier 3",
+            *([] if confined else ["files and network for tier-3 commands"]),
+        ],
+        "grant": (
+            "a grant may say sandbox: enforced"
+            if confined
+            else "a grant must say sandbox: best_effort; one that says enforced "
+            "does not hold"
+        ),
+    }
+
+
+def _doctor_sandbox(*, json_output: bool) -> int:
+    """`ract doctor --sandbox`: per machine, what confines a command (B-025)."""
+    report = sandbox_report()
+    if json_output:
+        print(json.dumps({"sandbox": report}, indent=2))
+        return 0
+    print(f"platform: {report['platform']}")
+    print(
+        f"backend: {report['backend']}"
+        + ("" if report["backend_binary_found"] else " (not found on this machine)")
+    )
+    print(f"tier-3 commands: {report['tier3_commands']}")
+    if report["why_not"]:
+        print(f"  why: {safe_text(report['why_not'])[:300]}")
+    for what, how in report["confines"].items():
+        print(f"  confines {what}: {how}")
+    for item in report["not_enforced"]:
+        print(f"  not enforced: {item}")
+    print(f"grant: {report['grant']}")
+    print("Windows: see docs/SECURITY.md, 'Commands on Windows'.")
+    return 0
+
+
 def _doctor_egress(*, json_output: bool) -> int:
     """`ract doctor --egress`: the last 7 days of the egress ledger (B-044)."""
     from datetime import datetime, timedelta, timezone
@@ -1689,7 +1748,15 @@ def _doctor_command(args: list[str]) -> int:
         help="List the RACT_* environment variables: names, classes and whether "
         "each is set. Values are never shown.",
     )
+    parser.add_argument(
+        "--sandbox",
+        action="store_true",
+        help="Say what confines a command on this machine (B-025); on Linux this "
+        "runs the sandbox's self-test once.",
+    )
     parsed = parser.parse_args(args)
+    if parsed.sandbox:
+        return _doctor_sandbox(json_output=parsed.json_output)
     if parsed.egress:
         return _doctor_egress(json_output=parsed.json_output)
     if parsed.env:

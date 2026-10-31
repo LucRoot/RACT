@@ -124,6 +124,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--run` | `ract coverage` | Run pytest and compute the delta directly (delta action only). |
 | `--runs-dir` | `ract plan analyze` | Directory containing the session subdirectories. |
 | `--runs-root` | `ract intent recompile` | Root directory of run dirs (default .ract/runs). |
+| `--sandbox` | `ract doctor` | Say what confines a command on this machine (B-025); on Linux this runs the sandbox's self-test once. |
 | `--script` | `ract mutation` | Path to a mutmut-compatible runner script. |
 | `--self-test` | `ract` | Run RACT's internal test suite and report the result. |
 | `--session` | `ract plan export` | Session id to export. |

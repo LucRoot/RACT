@@ -51,3 +51,17 @@ On Windows without WSL2, the sandbox backend does not enforce confinement. The s
 A command runs only under a signed tier-3 grant and, in `ask` mode, only after you answer its prompt (ADR-0048 D5, D6). It never runs through a shell; its environment is the scrubbed allowlist plus the rule's `env_extra`, with no `RACT_*` name except `RACT_RUN_ID`; its home folders are a temporary folder of the step. No backend confines commands yet on any platform, so the process, memory and CPU limits and "network off" are not enforced; the wall-clock timeout is. Each run is recorded in the project's `commands.jsonl` in the user state folder: command records are in the trace; they are not part of the signed Rootknot.
 
 `RACT_FAKE_RUNNER` names a JSON script of results that answers each command instead of running it. It exists for RACT's own tests and walkthroughs, which never run a command; every result it gives says `runner: fake`, and a fake run never makes a turn verified.
+
+## Commands on Windows
+
+On Windows no backend confines a command yet. A tier-3 command (`run_tests`,
+the verifiers, `git push`) runs with your user's rights, in the step's
+worktree, with the environment allowlist, a wall-clock timeout, and network
+off asked of the command through its proxy settings, not enforced. Every
+grant on Windows says `sandbox: best_effort`, the tier-3 prompt says "best
+effort: not enforced on this machine", and `ract doctor --sandbox` says the
+same. WSL2, a container backend and a low-integrity experiment are card
+B-028; nothing is installed for them. On Linux, a tier-3 command runs inside
+bubblewrap only after its self-test proves that a write outside the
+workspace and a network connection are refused (B-114); `ract doctor
+--sandbox` runs that self-test and reports it.
