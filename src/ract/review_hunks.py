@@ -1,8 +1,9 @@
 """Review the last turn's change hunk by hunk: ``/review`` (B-014c).
 
-After a turn changed files, the user takes each hunk as it is (accept or
-skip), puts back the turn's saved copy of it (reject), or types new lines
-for it (edit). The hunks are the groups ``diff_render`` draws, so they are
+After a turn changed files, the user takes each hunk as it is (accept),
+puts back the turn's saved copy of it (reject or skip), or types new lines
+for it (edit). ``s``/``skip`` leave a hunk out in every menu here, as
+``s <n>`` does on the plan screen (B-183). The hunks are the groups ``diff_render`` draws, so they are
 the hunks the turn summary showed. A rejected hunk is restored from the
 turn's saved copy; a file whose every hunk is rejected gets the saved bytes
 back exactly, and a file the turn created is removed again.
@@ -34,11 +35,15 @@ CHOICE_ITEMS = (
     "a accept",
     "r reject",
     "e edit",
-    "s skip",
+    "s skip (leave it out)",
     "A accept the rest of the file",
     "R reject the rest of the file",
 )
 CHOICES = ", ".join(CHOICE_ITEMS)
+# B-183: the words that accept a change, and the words that leave it out, in
+# every menu of this module; "s"/"skip" are a refusal everywhere.
+ACCEPT_WORDS = frozenset({"a", "y", "yes"})
+LEAVE_OUT_WORDS = frozenset({"r", "n", "no", "s", "skip"})
 _BOM = "﻿"
 
 
@@ -222,29 +227,35 @@ def _answer_hunks(
                 answers[hunk.n] = rest
                 break
             choice = answer.lower()
-            if choice in {"a", "s", "y", "yes", "skip"}:
+            # B-183: "skip" leaves the hunk out, as "s <n>" does on the plan
+            # screen; it accepted the hunk, so a proposed change was applied.
+            if choice in ACCEPT_WORDS:
                 answers[hunk.n] = True
                 break
-            if choice in {"r", "n", "no"}:
+            if choice in LEAVE_OUT_WORDS:
                 answers[hunk.n] = False
                 break
             if choice == "e":
                 answers[hunk.n] = _typed_lines(ask, show)
                 break
-            show("Answer with one of:")
+            show(f"Not understood: {safe_text(answer)!r}. Answer with one of:")
             for line in choice_lines(max(width - 3, 20)):
                 show(line)
     return answers
 
 
-def _whole_file(question: str, ask: Ask) -> bool:
+def _whole_file(question: str, ask: Ask, show: Show | None = None) -> bool:
     """True to keep the turn's change to a file that is not split into hunks."""
     while True:
         answer = _ask(ask, f"{question} [k keep, r restore the saved copy]: ").lower()
-        if answer in {"k", "a", "keep", "s", "skip", "y"}:
+        if answer in {"k", "keep"} | ACCEPT_WORDS:
             return True
-        if answer in {"r", "n", "restore"}:
+        if answer in {"restore"} | LEAVE_OUT_WORDS:
             return False
+        if show is not None:
+            show(
+                f"Not understood: {safe_text(answer)!r}. Answer k to keep or r to restore."
+            )
 
 
 def _write(root: Path, key: str, data: bytes | None) -> None:
@@ -279,7 +290,7 @@ def review_file(
     if before is not None and now is None:
         # The turn removed the file, or it was removed since.
         show(f"{safe_text(key)}: removed since the turn's copy was saved.")
-        if not _whole_file(f"Keep {safe_text(key)} removed?", ask):
+        if not _whole_file(f"Keep {safe_text(key)} removed?", ask, show):
             _write(root, key, before)
             result.restored = True
         result.hunks = 1
@@ -301,7 +312,7 @@ def review_file(
         ):
             show(line)
         result.hunks = 1
-        if not _whole_file(f"Keep the turn's change to {safe_text(key)}?", ask):
+        if not _whole_file(f"Keep the turn's change to {safe_text(key)}?", ask, show):
             _write(root, key, before)
             result.removed = before is None
             result.restored = before is not None
@@ -389,14 +400,18 @@ class ProposedDecision:
         return bool(self.rejected or self.edited)
 
 
-def _apply_whole(question: str, ask: Ask) -> bool:
+def _apply_whole(question: str, ask: Ask, show: Show | None = None) -> bool:
     """True to apply a proposed change that is not split into hunks (nothing is saved yet)."""
     while True:
         answer = _ask(ask, f"{question} [a apply, r leave it out]: ").lower()
-        if answer in {"a", "y", "yes", "apply", "k", "keep"}:
+        if answer in {"apply"} | ACCEPT_WORDS:
             return True
-        if answer in {"r", "n", "no"}:
+        if answer in LEAVE_OUT_WORDS:
             return False
+        if show is not None:
+            show(
+                f"Not understood: {safe_text(answer)!r}. Answer a to apply or r to leave it out."
+            )
 
 
 def review_proposed_file(
@@ -418,7 +433,7 @@ def review_proposed_file(
     """
     if after is None:
         show(f"{safe_text(key)}: the step removes this file.")
-        keep = _apply_whole(f"Remove {safe_text(key)}?", ask)
+        keep = _apply_whole(f"Remove {safe_text(key)}?", ask, show)
         return ProposedDecision(
             key,
             None if keep else before,
@@ -444,6 +459,7 @@ def review_proposed_file(
             f"Apply the step's {'new file' if before is None else 'change to'} "
             f"{safe_text(key)}?",
             ask,
+            show,
         )
         return ProposedDecision(
             key,

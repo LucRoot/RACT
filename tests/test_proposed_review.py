@@ -67,7 +67,9 @@ def test_a_new_file_rejected_is_not_created() -> None:
 
 
 def test_a_removal_kept_or_refused() -> None:
-    assert review_proposed_file("a.txt", OLD, None, _asker("k"), print).content is None
+    assert (
+        review_proposed_file("a.txt", OLD, None, _asker("a"), print).content is None
+    )  # B-183: only a, y, yes apply
     assert review_proposed_file("a.txt", OLD, None, _asker("r"), print).content == OLD
 
 

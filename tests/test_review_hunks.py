@@ -119,7 +119,7 @@ def test_reject_all_puts_the_saved_bytes_back(tmp_path: Path) -> None:
 def test_accept_all_leaves_the_file_untouched(tmp_path: Path) -> None:
     _notes_turn(tmp_path)
     written = (tmp_path / "notes.txt").read_bytes()
-    text = _review(tmp_path, ["a", "s", "A"])
+    text = _review(tmp_path, ["a", "y", "A"])  # B-183: "s" now leaves a hunk out
     assert (tmp_path / "notes.txt").read_bytes() == written
     assert "notes.txt: kept as the turn left it" in text
 
