@@ -31,6 +31,7 @@ from ract import egress_scan
 from ract.console_interrupt import read_line
 from ract.provider_presets import get_preset, list_presets
 from ract.setup import host_probe, local_probe, tiers
+from ract.tui import terminal_width
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -251,6 +252,8 @@ class Io:
     probe: Callable[[], host_probe.HostProfile] = host_probe.probe_host
     health: Callable[[Path], Health] = health_check
     environ: Any = field(default_factory=lambda: os.environ)
+    # B-163: the columns setup's lines must fit (the terminal's, 40 to 80).
+    width: Callable[[], int] = terminal_width
 
 
 # Files setup itself creates, which say nothing about the user's project.
@@ -489,6 +492,55 @@ def _choose_provider(io: Io, answers: Answers, interactive: bool) -> _Chosen | i
     return _Chosen(server)
 
 
+def wrap_line(line: str, width: int) -> list[str]:
+    """One printed line as lines of at most ``width`` columns (B-163).
+
+    A continuation keeps the line's own indent plus two spaces, so a wrapped
+    item still reads as one item.
+    """
+    from ract.cell_wrap import wrap_cells
+
+    from rich.cells import cell_len
+
+    out: list[str] = []
+    for part in line.split("\n"):
+        if cell_len(part) <= width:
+            out.append(part)  # a line that fits is printed exactly as written
+            continue
+        lead = part[: len(part) - len(part.lstrip(" "))]
+        wrapped = wrap_cells(
+            part.strip(), width, initial_indent=lead, subsequent_indent=lead + "  "
+        )
+        out.extend(wrapped or [""])
+    return out
+
+
+def _wrapping(io: Io) -> Io:
+    """``io`` whose ``say`` wraps each line to ``io.width()``; ``say_raw`` does not.
+
+    LR:: Setup printed its lines whole, so at 60 columns five of them ran to
+    64 to 124 characters (MASON's walk, G-260). A diff keeps its lines as they
+    are (``say_raw``): wrapped, it would no longer be a diff.
+    """
+    from dataclasses import replace
+
+    raw = io.say
+
+    def say(line: object) -> object:
+        width = io.width()
+        for part in wrap_line(str(line), width):
+            raw(part)
+        return None
+
+    wrapped = replace(io, say=say)
+    object.__setattr__(wrapped, "say_raw", raw)
+    return wrapped
+
+
+def _say_raw(io: Io, text: str) -> None:
+    getattr(io, "say_raw", io.say)(text)
+
+
 def run(
     directory: Path,
     *,
@@ -498,7 +550,7 @@ def run(
     opens_session: bool = False,
 ) -> int:
     """Run setup in ``directory``. Returns the process exit code."""
-    io = io or Io()
+    io = _wrapping(io or Io())
     answers = answers or Answers()
     try:
         return _run(directory, answers, interactive, io, opens_session)
@@ -539,7 +591,7 @@ def _run(
     path, diff = write_config(directory, config, reconfigure=answers.reconfigure)
     if diff or path.name == DRAFT_NAME:
         io.say(f"Wrote {path.name}. Differences from {CONFIG_NAME}:")
-        io.say(diff or "  (none)")
+        _say_raw(io, diff or "  (none)")
         io.say(
             f"Review it, then replace {CONFIG_NAME} with it to use it, or delete it."
         )
@@ -666,7 +718,8 @@ def _add_provider(directory: Path, answers: Answers, interactive: bool, io: Io) 
         after = yaml.safe_dump(merged, sort_keys=False)
         io.say(f"  {CONFIG_NAME} is rewritten whole, so comments in it are not kept.")
     io.say(f"Adds the provider '{final}' to {CONFIG_NAME}:")
-    io.say(
+    _say_raw(
+        io,
         "".join(
             difflib.unified_diff(
                 before.splitlines(keepends=True),
@@ -674,7 +727,7 @@ def _add_provider(directory: Path, answers: Answers, interactive: bool, io: Io) 
                 fromfile=CONFIG_NAME,
                 tofile=f"{CONFIG_NAME} (with {final})",
             )
-        )
+        ),
     )
     if interactive and not _yes(io.ask(f"Write it to {CONFIG_NAME}? [y/N] "), False):
         io.say("Nothing was changed.")

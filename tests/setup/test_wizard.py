@@ -59,6 +59,7 @@ def _io(
             else "Request failed: nothing is answering at http://127.0.0.1:8080/v1 (connection refused).",
         ),
         environ=environ if environ is not None else {},
+        width=lambda: 10_000,  # these tests read whole lines; B-163's test sets widths
     )
     return io, said, asked
 

@@ -302,6 +302,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the cancel ends the stalled model read at once, a worktree whose git was cut short is
   pruned, and the session removes its own step worktrees when it ends. Esc Esc reaches
   `/rewind` at once on a POSIX terminal whose system inputrc binds Esc Esc sequences.
+- Every line `ract setup` prints wraps to the terminal width (40 to 80 columns), with a
+  hanging indent (B-163); at 60 columns five of them ran to 64 to 124 characters. A diff
+  is printed as it is.
 - `RACT_PRESET_BASE_URL=preset=url` points a preset at another address in what `ract setup`
   writes, for tests and walks against a fake server (B-160d). It is a security-class
   variable that `ract doctor --env` shows, and it never pairs a key with a host: only
