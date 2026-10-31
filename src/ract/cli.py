@@ -4741,6 +4741,11 @@ def _verb_help_with_example(verb: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """RACT CLI entry point."""
+    # B-200: every error line printed to stderr is redacted, whoever prints it.
+    from ract.redaction import RedactingWriter
+
+    if not isinstance(sys.stderr, RedactingWriter):
+        sys.stderr = RedactingWriter(sys.stderr)
     if argv is None:
         argv = sys.argv[1:]
     if (

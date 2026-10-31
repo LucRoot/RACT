@@ -12,6 +12,7 @@ only what the server reports about itself.
 from __future__ import annotations
 
 import os
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -44,13 +45,22 @@ def candidates(extra: tuple[str, ...] = ()) -> list[tuple[str, str]]:
 
     ``extra`` holds addresses the user gave setup itself (an answers file).
     """
-    found: list[tuple[str, str]] = [
-        ("the address in your answers", url.strip().rstrip("/")) for url in extra if url
-    ]
+    from ract.providers.openai_provider import address_problem
+
+    given = [("the address in your answers", url.strip().rstrip("/")) for url in extra if url]
     for name in ADDRESS_VARIABLES:
         value = os.environ.get(name, "").strip().rstrip("/")
         if value:
-            found.append((f"the address in {name}", value))
+            given.append((f"the address in {name}", value))
+    found: list[tuple[str, str]] = []
+    for label, url in given:
+        # B-200: the same check as setup's question; the address is not
+        # asked, written or printed when it holds credentials.
+        problem = address_problem(url)
+        if problem is None:
+            found.append((label, url))
+        else:
+            print(f"note: {label} is not used: {problem}", file=sys.stderr, flush=True)
     found.extend(DEFAULT_SERVERS)
     seen: set[str] = set()
     unique = []

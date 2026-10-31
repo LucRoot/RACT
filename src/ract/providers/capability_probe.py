@@ -32,9 +32,9 @@ else:
 
 from ract import egress_ledger, egress_scan, redaction
 from ract.providers.openai_provider import (
-    USERINFO_REFUSED,
+    SCHEME_REFUSED,
     OpenAICompatibleProvider,
-    has_userinfo,
+    address_problem,
     shown_url,
 )
 from ract.providers.router import ProviderRouter
@@ -397,9 +397,11 @@ def probe_configured(providers: dict[str, Any]) -> list[ProviderProbe]:
         raw_url = str(settings.get("url") or settings.get("base_url") or "")
         url = shown_url(raw_url)
         model = str(settings.get("model", ""))
-        if has_userinfo(raw_url):
-            # B-199: not contacted, and the report shows the url without it.
-            probes.append(not_tried(name, url, model, USERINFO_REFUSED, probed=False))
+        problem = address_problem(raw_url) if raw_url else None
+        if problem is not None and problem != SCHEME_REFUSED:
+            # B-199, B-200: not contacted, and the report shows the url without
+            # its credentials.
+            probes.append(not_tried(name, url, model, problem, probed=False))
             continue
         missing = _missing_key_variable(settings)
         if missing:

@@ -285,6 +285,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- One address check covers every way an address reaches RACT (B-200): setup's question,
+  `RACT_BASE_URL` and `OPENAI_BASE_URL`, an answers file, ract.yaml and the provider probe. An
+  address with a user name, a password or a key in its query is not used, and the sentence does
+  not repeat it. Error messages show an address without those parts, and every line RACT prints
+  to stderr is redacted.
 - A user name or password written in a provider url before the host is no longer printed in
   notices, refusals or the doctor's advice (B-199). Such a url is refused when ract.yaml is
   loaded, by a sentence that names the provider and not the url, and the probe does not contact it.

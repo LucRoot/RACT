@@ -23,6 +23,7 @@ from __future__ import annotations
 import base64
 import re
 import threading
+from typing import Any
 from urllib.parse import quote
 
 REPLACEMENT = "[redacted]"
@@ -245,6 +246,37 @@ def redact_report(text: str) -> tuple[str, dict[str, int]]:
         if n:
             counts[name] = counts.get(name, 0) + n
     return text, counts
+
+
+class RedactingWriter:
+    """A text stream that redacts each whole line before it reaches *target* (B-200).
+
+    LR:: About thirty places print an error with ``print(..., file=sys.stderr)``
+    or the console's stderr, each with the raw text of an exception or a
+    provider's message. ``cli.main`` puts this in front of ``sys.stderr`` once,
+    so every one of them is redacted, including the ones added later. A
+    partial line waits for its end, or for ``flush``.
+    """
+
+    def __init__(self, target: Any) -> None:
+        self._target = target
+        self._pending = ""
+
+    def write(self, text: str) -> int:
+        self._pending += text
+        *done, self._pending = self._pending.split("\n")
+        for line in done:
+            self._target.write(redact(line) + "\n")
+        return len(text)
+
+    def flush(self) -> None:
+        if self._pending:
+            self._target.write(redact(self._pending))
+            self._pending = ""
+        self._target.flush()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._target, name)
 
 
 class StreamingRedactor:

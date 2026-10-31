@@ -148,13 +148,48 @@ def has_userinfo(url: str) -> bool:
 
 
 def shown_url(url: str) -> str:
-    """``url`` with any user name or password before the host removed (B-199)."""
+    """``url`` as it may be printed: no user name or password, no query (B-199, B-200)."""
     from urllib.parse import urlsplit, urlunsplit
 
     parts = urlsplit(url)
-    if "@" not in parts.netloc:
+    if "@" not in parts.netloc and not parts.query and not parts.fragment:
         return url
-    return urlunsplit(parts._replace(netloc=parts.netloc.rsplit("@", 1)[1]))
+    netloc = parts.netloc.rsplit("@", 1)[-1]
+    return urlunsplit(parts._replace(netloc=netloc, query="", fragment=""))
+
+
+# B-200: a query parameter whose name says it carries a credential.
+_CREDENTIAL_PARAM = re.compile(
+    r"(?:^|[_.-])(?:key|token|secret|password|passwd|pwd|auth|sig|signature|credential)s?$",
+    re.I,
+)
+
+QUERY_REFUSED = (
+    "its url carries a key or a token in its query, and RACT does not use an "
+    "address with credentials in it. Put the key in api_key (as ${VAR}) and "
+    "remove it from url. The value is not shown."
+)
+SCHEME_REFUSED = "its url is not an http:// or https:// address."
+
+
+def address_problem(url: str) -> str | None:
+    """Why RACT does not write or contact *url*, or None (B-200).
+
+    The one address check: setup's question, the address variables, an
+    answers file, the config load and the probe all use it. The sentence
+    never repeats the url.
+    """
+    from urllib.parse import parse_qsl, urlsplit
+
+    parts = urlsplit(url.strip())
+    if parts.scheme.lower() not in ("http", "https") or not parts.netloc:
+        return SCHEME_REFUSED
+    if "@" in parts.netloc:
+        return USERINFO_REFUSED
+    for name, _value in parse_qsl(parts.query, keep_blank_values=True):
+        if _CREDENTIAL_PARAM.search(name):
+            return QUERY_REFUSED
+    return None
 
 
 USERINFO_REFUSED = (
@@ -435,16 +470,16 @@ class OpenAICompatibleProvider(ProviderAdapter):
         """The plain reason for a failed request, with no OS error text (B-043)."""
         if self._nothing_listening(exc):
             if _is_loopback(self.url):
-                return f"nothing is answering at {self.url} (connection refused)"
-            return f"could not connect to {self.url}"
+                return f"nothing is answering at {shown_url(self.url)} (connection refused)"
+            return f"could not connect to {shown_url(self.url)}"
         if isinstance(exc, httpx.TimeoutException):
-            return f"{self.url} did not answer within {self.timeout:g} s"
+            return f"{shown_url(self.url)} did not answer within {self.timeout:g} s"
         if isinstance(exc, httpx.HTTPStatusError):
             if exc.response.status_code == 429:
                 return "the provider is rate-limiting"
-            return f"HTTP {exc.response.status_code} from {self.url}"
+            return f"HTTP {exc.response.status_code} from {shown_url(self.url)}"
         if isinstance(exc, httpx.RequestError):
-            return f"the request to {self.url} failed ({type(exc).__name__})"
+            return f"the request to {shown_url(self.url)} failed ({type(exc).__name__})"
         return type(exc).__name__
 
     def _is_retryable(self, exc: Exception) -> bool:
