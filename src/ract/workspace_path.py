@@ -394,6 +394,22 @@ def _location_checks(
                 f"{'/'.join(rel_parts[: i + 1])!r} resolves outside the project",
                 "The path leads out of the project through a link. Use a path inside it.",
             )
+    if purpose == "send":
+        # B-211: the never-sent check above reads the typed name; a junction or
+        # a symlink a repository ships ("lnk -> .ract") passed it while the
+        # read went to RACT or git state. The target it resolves to is checked too.
+        target = root_real.joinpath(*rel_parts)
+        if os.path.lexists(target):
+            resolved = os.path.realpath(target)
+            if _same_or_inside(resolved, str(root_real), fold=fold):
+                real_rel = os.path.relpath(resolved, root_real).replace(os.sep, "/")
+                if real_rel != "." and is_never_sent(real_rel):
+                    return _refuse(
+                        "never_sent",
+                        f"{'/'.join(rel_parts)!r} resolves to {real_rel!r}, which is RACT "
+                        "or git state, or usually holds secrets, and is never sent to a model",
+                        "Name a project source file. Keep credentials out of model requests.",
+                    )
     if purpose == "write" and _is_hard_linked(root_real.joinpath(*rel_parts)):
         # S-020 (AUD-015): a write goes through the shared file, which may be
         # outside the project.

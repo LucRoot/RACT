@@ -285,6 +285,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A path sent to a model is checked by what it resolves to (B-211): a junction or symlink
+  such as `lnk -> .ract` no longer lets `lnk/sessions/x.json` reach a never-sent file.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.
