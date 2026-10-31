@@ -654,7 +654,11 @@ def _run(
             "session_id": getattr(args, "session_id", None),
             "provider_reachable": None,
             "tool_calling": "unknown",
-            "extensions": {"loaded": [], "skipped": skipped},
+            # B-196: a trusted run loads what the repository supplies, and says so.
+            "extensions": {
+                "loaded": repository_extensions(Path(args.config)) if trusted else [],
+                "skipped": skipped,
+            },
         },
     )
     worker = threading.Thread(target=work, name="ract-headless-turn", daemon=True)
