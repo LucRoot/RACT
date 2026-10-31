@@ -441,7 +441,7 @@ Ed25519 pubkey bytes). The public ``held_out_digest`` is committed to
 ``evals/runs/<run_id>/suite.json`` alongside the base64-encoded seal;
 the plaintext of the held-out predicates never lands on disk in that
 file. The sandbox layer's capability manifest denies read of
-``.rack/sandbox/holdout/`` so a model-facing tool cannot request the
+``.ract/sandbox/holdout/`` so a model-facing tool cannot request the
 seal bytes.
 
 A composer that produces a suite whose predicates evaluate identically
@@ -784,7 +784,7 @@ the sidecar carries both the signature and the pubkey that verifies
 it. The verifier is REQUIRED to cross-check the embedded pubkey
 against an out-of-sidecar source: a resolver passed as ``alm_pubkey``
 to ``verify_workspace`` (typically a lookup into the workspace-level
-``.rack/alm/archive/*.key`` file the ALM verifier process wrote at
+``.ract/alm/archive/*.key`` file the ALM verifier process wrote at
 run close, or an operator-supplied registry). The
 ``load_sidecar_alm_pubkey`` docstring documents this explicitly. See
 ADR-0023.
@@ -904,7 +904,7 @@ test_over_ceiling_refuses_invocation_before_model_call``.
 ## Symbol index (v0.5.0 memory discipline)
 
 The first of the three memory-discipline indexes. SQLite-backed
-store at ``.rack/index/symbols.db`` with an FTS5 mirror for
+store at ``.ract/index/symbols.db`` with an FTS5 mirror for
 docstring + name full-text search. Tree-sitter parses Python,
 TypeScript, Rust, and Go into a flat symbol list per file; the
 store is language-agnostic so ``find_by_name("User")`` returns
@@ -938,7 +938,7 @@ test_find_by_text_reflects_update_in_same_transaction``.
 ## Graph index (v0.5.0 memory discipline)
 
 The second of the three memory-discipline indexes. SQLite-backed
-store at ``.rack/index/graph.db`` with an ``edges`` table keyed on
+store at ``.ract/index/graph.db`` with an ``edges`` table keyed on
 ``(source_symbol_id, target_symbol_id, edge_type, location_file,
 location_line)``. Every edge references ``symbols.id`` from the
 module_02 store; the two stores are separate SQLite databases and
@@ -995,7 +995,7 @@ Recommended LSP installs (per-platform):
 ## Semantic index (v0.5.0 memory discipline)
 
 The third of the three memory-discipline indexes. LanceDB-backed
-vector store at ``.rack/index/semantic/`` with one embedding per
+vector store at ``.ract/index/semantic/`` with one embedding per
 AST chunk. Chunks derive from the module_02
 :class:`~ract.memory.symbol_index.SymbolRow` records; small symbols
 produce one chunk, symbols over the 500-token cap split at logical
@@ -1122,7 +1122,7 @@ Growth is impossible because the per-level format table only drops
 or shrinks (never adds). ``test_cascade_never_loops_returns_or_refuses``
 is the sacred-spine anchor.
 
-Cache: SQLite at ``.rack/cache/retrieval.db`` (WAL enabled). Key
+Cache: SQLite at ``.ract/cache/retrieval.db`` (WAL enabled). Key
 digest is SHA-256 over ``canonical_json(query) + repo_commit_hash``.
 Each entry records the referenced symbol id list plus file path list
 so :meth:`~ract.memory.cache.RetrievalCache.invalidate_by_symbol`
@@ -1314,7 +1314,7 @@ ADR-0038.
 The scheduler at `src/ract/memory/probes/scheduler.py` invokes the
 three probes with the same provider and sink, then reduces to a
 `ModelCapability` record written atomically to
-`.rack/probes/capability.json` (tmp + fsync + `os.replace`).
+`.ract/probes/capability.json` (tmp + fsync + `os.replace`).
 `read_capability_record` returns `None` on missing file (fresh
 install path, module_01 spec defaults fire); malformed JSON or
 unsupported schema version raises `ValueError` so a corrupted file
@@ -1322,14 +1322,14 @@ never silently reverts.
 
 Failure records (`src/ract/memory/failure_records.py`): every
 function failure appends one `FailureRecord` JSONL line to
-`.rack/failures/records.jsonl`. The record shape excludes prompt /
+`.ract/failures/records.jsonl`. The record shape excludes prompt /
 response content by design (privacy invariant enforced at the
 type). `aggregate(root, window_days=7, current_budgets=None)` groups
 by `(function, failure_type)` inside the window and emits a
 `NarrowingProposal` per `(function, budget_field)` pair whose count
 reached `REPEATED_FAILURE_THRESHOLD` (3). Proposals refuse widening
 at construct time; `append_applied_narrowing` writes one audit line
-per applied narrowing to `.rack/failures/applied_narrowings.jsonl`.
+per applied narrowing to `.ract/failures/applied_narrowings.jsonl`.
 `failure_from_phase_record` bridges module_07's `PhaseRecord.outcome
 == "raised"` into the aggregator input (module_07 POST inbound
 constraint 1).
