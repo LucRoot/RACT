@@ -77,7 +77,7 @@ ract> /exit
 | `/rewind` | The turns that changed files, by what you asked, numbered; type a number to go back to that turn, Enter to keep everything. Esc Esc at the prompt runs it where the prompt uses readline (not in the Windows console, where Esc clears the line). |
 | `/review` | Go through the last turn's changes hunk by hunk: `a` accept, `r` reject (the turn's saved copy of that hunk comes back), `e` edit, `s` skip, `A` or `R` for the rest of the file. `/undo` still reverses the whole turn afterwards. |
 | `/loop <intent>` | Run the quality-anchored loop. |
-| `/set dry-run\|stream\|auto on\|off` | Change how turns run. `/set mode` and `/set iterations` also work. |
+| `/set dry-run\|stream on\|off` | Change how turns run. `/set task` and `/set iterations` also work. File changes are set with `/mode`, tier-3 commands with `/permissions ask\|allowlist`. |
 | `/settings`, `/session [new\|id]` | Show settings, or restart or switch the session that carries context. |
 | `/providers`, `/config`, `/doctor`, `/report` | Inspect the setup and the last run. |
 | `/<verb>` | Any other RACT verb, for example `/whisper` or `/fence`. |
