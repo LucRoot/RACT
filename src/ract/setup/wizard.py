@@ -313,6 +313,38 @@ def _choose_server(
     return server
 
 
+ADDRESS_QUESTION = (
+    "Address of your model server (for example http://127.0.0.1:8080/v1), "
+    "or Enter to skip: "
+)
+
+
+def _ask_address(
+    io: Io, answers: Answers, interactive: bool
+) -> local_probe.Server | None:
+    """Setup case 2 (B-160a): nothing answered on the default ports; ask once.
+
+    A typed address is probed (the server's model list); one that does not
+    answer is said and dropped, so no config names an address that is not
+    there. The address is written to ract.yaml as an address, never as a secret.
+    """
+    typed = io.ask(ADDRESS_QUESTION).strip().rstrip("/")
+    if not typed:
+        return None
+    if not typed.startswith(("http://", "https://")):
+        io.say(f"  {typed} is not an address (it starts with http:// or https://)")
+        return None
+    found = [s for s in io.detect((typed,)) if s.url.rstrip("/") == typed]
+    if not found:
+        io.say(f"  nothing answered at {typed}")
+        return None
+    answers.local_url = typed
+    server = _choose_server(io, found, answers, interactive)
+    if server is None:
+        answers.local_url = None
+    return server
+
+
 def _local_guidance(io: Io, profile: host_probe.HostProfile, answers: Answers) -> None:
     gb = host_probe.GB
     total = None if profile.total_ram_bytes is None else profile.total_ram_bytes / gb
@@ -427,7 +459,10 @@ def _run(
     server: local_probe.Server | None = None
     if answers.provider == "local":
         io.say("Looking for a model server on this machine (default ports only):")
-        server = _choose_server(io, io.detect(_extra(answers)), answers, interactive)
+        detected = io.detect(_extra(answers))
+        server = _choose_server(io, detected, answers, interactive)
+        if server is None and interactive and not detected:
+            server = _ask_address(io, answers, interactive)
         if server is None and interactive:
             choice = io.ask(
                 "No server chosen. Use a local model or a cloud provider? [L/c] "
@@ -445,6 +480,15 @@ def _run(
                     server = _choose_server(
                         io, io.detect(_extra(answers)), answers, interactive
                     )
+                    if server is None:
+                        # B-160a: a look that still finds nothing writes no config
+                        # that would fail its own check; skip is the explicit way.
+                        io.say(
+                            "Still nothing to use; no config written. Run ract setup "
+                            "again once the server is up, or type skip at that "
+                            "question to write a config for Ollama's default address."
+                        )
+                        return EXIT_PROVIDER
         elif server is None:
             io.say(
                 "  none found; writing a config for "

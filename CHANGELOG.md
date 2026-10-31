@@ -297,6 +297,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the cancel ends the stalled model read at once, a worktree whose git was cut short is
   pruned, and the session removes its own step worktrees when it ends. Esc Esc reaches
   `/rewind` at once on a POSIX terminal whose system inputrc binds Esc Esc sequences.
+- When no model server answers on the default ports, `ract setup` asks once for your
+  server's address (B-160a). A typed address that answers is written to `ract.yaml`; one
+  that does not is named (`nothing answered at <address>`) and not written. Looking again
+  and still finding nothing now writes no config, where it wrote Ollama's default address
+  and its check failed; typing `skip` is the explicit way to write that default.
 - The git tools are harder to walk around (G-239). The commit's secret scan reads every
   staged file whole from the index, so a line starting with `++`, a binary or `-diff` file,
   a large file or a U+2028 separator no longer hides a key; it also finds `sk-ant-` keys and

@@ -88,12 +88,12 @@ def test_a_detected_server_takes_one_question(tmp_path: Path) -> None:
 
 def test_no_server_local_path_recommends_and_writes_on_skip(tmp_path: Path) -> None:
     _git_init(tmp_path)
-    io, said, asked = _io(["l", "", "skip"], [])
+    io, said, asked = _io(["", "l", "", "skip"], [])
 
     code = wizard.run(tmp_path, interactive=True, io=io)
 
     assert code == 0
-    assert len(asked) == 3  # local or cloud, memory, start or skip
+    assert len(asked) == 4  # address, local or cloud, memory, start or skip
     text = "\n".join(said)
     assert "Suggested model: Qwen2.5-Coder 7B Instruct" in text  # 60% of 12 GB
     assert "ollama pull qwen2.5-coder:7b" in text
@@ -105,7 +105,7 @@ def test_no_server_local_path_recommends_and_writes_on_skip(tmp_path: Path) -> N
 def test_a_server_found_after_guidance_keeps_its_own_model(tmp_path: Path) -> None:
     _git_init(tmp_path)
     found = iter([[], [SERVER]])
-    io, _, _ = _io(["l", "", "", ""], [])
+    io, _, _ = _io(["", "l", "", "", ""], [])
     io.detect = lambda extra: next(found)
 
     assert wizard.run(tmp_path, interactive=True, io=io) == 0
@@ -120,7 +120,7 @@ def test_cloud_names_the_variable_and_never_the_value(tmp_path: Path) -> None:
     environ = {"OPENROUTER_API_KEY": SECRET}
     names = sorted(wizard._ENV_VARS)
     io, said, asked = _io(
-        ["c", str(names.index("openrouter") + 1)], [SERVER], environ=environ
+        ["", "c", str(names.index("openrouter") + 1)], [SERVER], environ=environ
     )
     io.detect = lambda extra: []
 
@@ -321,6 +321,49 @@ def test_a_server_with_no_model_is_not_offered(tmp_path: Path) -> None:
     assert not any("Use the server" in a for a in asked)
 
 
+OTHER = Server("llama.cpp server", "http://192.168.1.20:8080/v1", ("coder-7b",))
+
+
+def test_a_typed_address_that_answers_is_written(tmp_path: Path) -> None:
+    # B-160a, setup case 2: a server on another address.
+    _git_init(tmp_path)
+    io, said, asked = _io([OTHER.url, ""], [])
+    io.detect = lambda extra: [OTHER] if OTHER.url in extra else []
+
+    assert wizard.run(tmp_path, interactive=True, io=io) == 0
+
+    assert asked[0] == wizard.ADDRESS_QUESTION
+    config = yaml.safe_load((tmp_path / "ract.yaml").read_text(encoding="utf-8"))
+    assert config["providers"]["local"]["url"] == OTHER.url
+    assert config["providers"]["local"]["model"] == "coder-7b"
+
+
+def test_a_typed_address_that_does_not_answer_writes_nothing_for_it(
+    tmp_path: Path,
+) -> None:
+    _git_init(tmp_path)
+    io, said, asked = _io(["http://192.168.1.99:8080/v1", "l", "", ""], [])
+
+    assert wizard.run(tmp_path, interactive=True, io=io) == wizard.EXIT_PROVIDER
+
+    text = "\n".join(said)
+    assert "nothing answered at http://192.168.1.99:8080/v1" in text
+    assert "no config written" in text
+    assert not (tmp_path / "ract.yaml").exists()
+
+
+def test_looking_again_and_finding_nothing_writes_no_config(tmp_path: Path) -> None:
+    # MASON's walk: Enter at "look again" with nothing answering wrote an Ollama
+    # default whose check then said connection refused.
+    _git_init(tmp_path)
+    io, said, _ = _io(["", "l", "", ""], [])
+
+    assert wizard.run(tmp_path, interactive=True, io=io) == wizard.EXIT_PROVIDER
+
+    assert not (tmp_path / "ract.yaml").exists()
+    assert "Still nothing to use; no config written." in "\n".join(said)
+
+
 def test_nothing_answering_is_said(tmp_path: Path) -> None:
     _git_init(tmp_path)
     io, said, _ = _io([], [])
@@ -355,7 +398,7 @@ def test_the_memory_suggestion_follows_the_machine_not_the_minute(
         "2.45.0",
         None,
     )
-    io, said, asked = _io(["l", "", "skip"], [])
+    io, said, asked = _io(["", "l", "", "skip"], [])
     io.probe = lambda: busy
 
     assert wizard.run(tmp_path, interactive=True, io=io) == 0
