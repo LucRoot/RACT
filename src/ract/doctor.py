@@ -396,6 +396,14 @@ def sandbox_status(system: str | None = None) -> SandboxStatus:
             else "scrubbed by allowlist for hook commands; inherited from your "
             "shell for test, lint and step commands"
         ),
+        # B-114: tier-3 commands (run_tests, the verifiers, git push) run inside
+        # the backend once its self-test passes; doctor itself starts no process.
+        "tier-3 commands": (
+            f"run inside {backend} when its self-test passes at the first command; "
+            "otherwise not confined"
+            if name == "Linux" and binary is not None
+            else "not confined on this platform (sandbox: best_effort)"
+        ),
     }
     return SandboxStatus(name, backend, binary, executes, properties)
 

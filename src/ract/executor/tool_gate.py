@@ -689,6 +689,12 @@ _EXEMPT_SITES: dict[str, str] = {
         "model fills only validated paths and names. Calls to the tools go through "
         "SubstrateLoop.invoke_tool; git_push runs through run_command under the grant."
     ),
+    "security/command_sandbox.py": (
+        "operator-invoked-diagnostic: the sandbox self-test (B-114), one fixed "
+        "/bin/sh probe line run once per process inside the rendered backend, "
+        "with a timeout; no model input reaches the argv. Tier-3 commands "
+        "themselves still go through run_command and its approval."
+    ),
     "key_paths.py": (
         "operator-invoked-diagnostic: one fixed git ls-files --error-unmatch "
         "with core.fsmonitor off and a timeout, asking whether the repository "

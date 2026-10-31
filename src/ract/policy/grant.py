@@ -306,15 +306,19 @@ def parse_policy(text: str, name: str = POLICY_FILE) -> Policy:
 
 
 def sandbox_confines_commands() -> bool:
-    """True where RACT can confine a command (ADR-0048 D7); False everywhere today.
+    """True where RACT confines a tier-3 command (ADR-0048 D7, B-114).
 
-    Windows without WSL2 or a container has no enforcing backend, and the
-    Linux and macOS backends are slice (e) (B-114), not built. So every grant
-    says ``sandbox: best_effort`` and the interface says so; a grant that says
-    ``enforced`` does not hold. This turns True per platform when its backend
-    lands.
+    Only where the platform's backend exists and its self-test, run once per
+    process, proved that a write outside the workspace and a network
+    connection are refused (``security.command_sandbox``). Windows has no
+    backend yet (B-028) and macOS's profile is not run, so there a grant says
+    ``sandbox: best_effort`` and the interface says so; a grant that says
+    ``enforced`` there does not hold.
     """
-    return False
+    from ract.security.command_sandbox import enforcing_backend
+
+    backend, _why = enforcing_backend()
+    return backend is not None
 
 
 def _message(data: bytes) -> bytes:

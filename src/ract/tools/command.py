@@ -130,7 +130,12 @@ class _Stream:
 
     def snapshot(self) -> tuple[bytes, bytes, int, str]:
         with self.lock:
-            return bytes(self.head), bytes(self.tail), self.total, self.sha.copy().hexdigest()
+            return (
+                bytes(self.head),
+                bytes(self.tail),
+                self.total,
+                self.sha.copy().hexdigest(),
+            )
 
 
 def _drain(pipe: Any, stream: _Stream, flood: threading.Event) -> None:
@@ -192,8 +197,12 @@ class ProcessRunner:
         out, err = _Stream(keep_bytes), _Stream(keep_bytes)
         flood = threading.Event()
         readers = [
-            threading.Thread(target=_drain, args=(popen.stdout, out, flood), daemon=True),
-            threading.Thread(target=_drain, args=(popen.stderr, err, flood), daemon=True),
+            threading.Thread(
+                target=_drain, args=(popen.stdout, out, flood), daemon=True
+            ),
+            threading.Thread(
+                target=_drain, args=(popen.stderr, err, flood), daemon=True
+            ),
         ]
         for reader in readers:
             reader.start()
@@ -221,7 +230,9 @@ class ProcessRunner:
             if killed is None:
                 kill_tree(handle)
             if not _joined(readers, 2.0):
-                threading.Thread(target=_close_pipes, args=(popen,), daemon=True).start()
+                threading.Thread(
+                    target=_close_pipes, args=(popen,), daemon=True
+                ).start()
         try:
             popen.wait(timeout=PIPE_GRACE_S)
         except subprocess.TimeoutExpired as exc:
@@ -272,11 +283,15 @@ class ScriptedRunner:
         )
 
 
-def default_runner() -> CommandRunner:
-    """The real runner, or the scripted one when ``RACT_FAKE_RUNNER`` names a script."""
+def default_runner(rule: Any = None) -> CommandRunner:
+    """The runner for a command: scripted when ``RACT_FAKE_RUNNER`` names a
+    script; else inside the enforcing sandbox where this machine has one
+    (B-114, ``security.command_sandbox``); else the plain process runner."""
     script = os.environ.get("RACT_FAKE_RUNNER")
     if not script:
-        return ProcessRunner()
+        from ract.security.command_sandbox import runner_for
+
+        return runner_for(rule) or ProcessRunner()
     try:
         steps = json.loads(Path(script).read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -351,7 +366,11 @@ def cap_output(
     if not dropped:
         lost = len(head_raw) - 2 * half
     else:
-        lost = dropped + (len(head_raw) - len(head_kept)) + (len(tail_raw) - len(tail_kept))
+        lost = (
+            dropped
+            + (len(head_raw) - len(head_kept))
+            + (len(tail_raw) - len(tail_kept))
+        )
     head_text = head_kept.decode("utf-8", errors="ignore")
     tail_text = tail_kept.decode("utf-8", errors="ignore")
     return f"{head_text}\n[cut: {lost} bytes dropped]\n{tail_text}", True
@@ -435,7 +454,7 @@ def run_command(
     holds, and the operator approved where approval is needed. Limits from
     the rule are ceilings; *timeout_s* and *max_output_bytes* only lower them.
     """
-    runner = runner or default_runner()
+    runner = runner or default_runner(rule)
     worktree = Path(worktree)
     cwd = worktree
     rule_cwd = getattr(rule, "cwd", "step_worktree") or "step_worktree"
@@ -469,11 +488,17 @@ def run_command(
         env, env_digest = command_env(
             list(getattr(rule, "env_extra", []) or []), home, step_home, process_env
         )
+        confined = getattr(runner, "sandbox", None)
         notes = [
-            "no sandbox confines commands on this machine: process, memory and CPU "
-            "limits are not enforced; the wall-clock timeout is",
+            f"the command runs inside {confined}: the filesystem outside the "
+            "workspace and the network (unless the rule allows it) are refused; "
+            "process, memory and CPU limits are not enforced; the wall-clock "
+            "timeout is"
+            if confined
+            else "no sandbox confines commands on this machine: process, memory "
+            "and CPU limits are not enforced; the wall-clock timeout is",
         ]
-        if not network:
+        if not network and not confined:
             # Asked of the command, not enforced (no backend yet): an unreachable proxy.
             for name in (
                 "HTTP_PROXY",
@@ -511,8 +536,16 @@ def run_command(
         home_state = _remove_home(step_home)
     if refused is not None:
         return refused
-    out_total = len(raw.stdout) + len(raw.stdout_tail) if raw.stdout_total is None else raw.stdout_total
-    err_total = len(raw.stderr) + len(raw.stderr_tail) if raw.stderr_total is None else raw.stderr_total
+    out_total = (
+        len(raw.stdout) + len(raw.stdout_tail)
+        if raw.stdout_total is None
+        else raw.stdout_total
+    )
+    err_total = (
+        len(raw.stderr) + len(raw.stderr_tail)
+        if raw.stderr_total is None
+        else raw.stderr_total
+    )
     stdout, out_cut = cap_output(
         raw.stdout,
         cap,
@@ -543,10 +576,16 @@ def run_command(
         rule_id=getattr(rule, "id", None),
         approval_id=approval_id,
         approver=approver,
-        sandbox="none",
-        enforced=False,
+        sandbox=getattr(runner, "sandbox", None) or "none",
+        enforced=bool(getattr(runner, "sandbox", None)),
         limits={"wall_s": wall, "output_bytes": cap},
-        network="on" if network else "off (not enforced)",
+        network=(
+            "on"
+            if network
+            else "off"
+            if getattr(runner, "sandbox", None)
+            else "off (not enforced)"
+        ),
         runner=runner.name,
         exit_code=raw.exit_code,
         duration_ms=raw.duration_ms,
