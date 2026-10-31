@@ -70,7 +70,20 @@ def _memory_arena_for(config_path: Path, session_id: str | None) -> MemoryArena 
     """Return a MemoryArena for *session_id*, or None if no session is active."""
     if session_id is None:
         return None
-    return MemoryArena.for_session(config_path.parent, session_id)
+    from ract.memory_arena import MemoryArenaError
+
+    try:
+        return MemoryArena.for_session(config_path.parent, session_id)
+    except MemoryArenaError as exc:
+        # B-135: an arena file a repository planted (a link out of the project,
+        # a file of the wrong shape) is refused, and the run goes on with an
+        # empty arena instead of stopping on it.
+        print(
+            f"note: the session's memory was not read ({exc}); this run starts "
+            "with an empty memory",
+            file=sys.stderr,
+        )
+        return MemoryArena()
 
 
 def _memory_arena_path(config_path: Path, session_id: str) -> Path:

@@ -171,8 +171,30 @@ def test_memory_arena_symlink_out_of_project(tmp_path: Path) -> None:
     outside.write_bytes(_json([{"category": "note", "content": OUTSIDE_SECRET}]))
     project = tmp_path / "project"
     _link_or_skip(project.joinpath(*ARENA_FILE), outside)
-    arena = MemoryArena.for_session(project, "s1")
+    # B-135 (Linux, B-046): the loader refuses the link with its documented
+    # error, as the hostile-file cases above accept; what matters is that
+    # nothing outside the project is read.
+    try:
+        arena = MemoryArena.for_session(project, "s1")
+    except MemoryArenaError as exc:
+        assert OUTSIDE_SECRET not in str(exc)
+        return
     assert OUTSIDE_SECRET not in arena.replay()
+
+
+def test_a_run_with_a_planted_arena_link_goes_on_with_an_empty_memory(
+    tmp_path: Path, capsys
+) -> None:
+    """B-135: the runner refuses the planted file and does not stop on it."""
+    from ract.ract_runner import _memory_arena_for
+
+    outside = tmp_path / "outside.json"
+    outside.write_bytes(_json([{"category": "note", "content": OUTSIDE_SECRET}]))
+    project = tmp_path / "project"
+    _link_or_skip(project.joinpath(*ARENA_FILE), outside)
+    arena = _memory_arena_for(project / "ract.yaml", "s1")
+    assert arena is not None and OUTSIDE_SECRET not in arena.replay()
+    assert "memory was not read" in capsys.readouterr().err
 
 
 # ----------------------------------------------------------- reasoning.configured_default

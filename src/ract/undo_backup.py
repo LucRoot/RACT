@@ -350,6 +350,11 @@ def previous_version(
     folder = turns_dir(base) / name
     problem = check_entry(base, folder, relative_path)
     if problem is not None:
+        # B-135 (Linux, B-046): a saved copy replaced by a link is the case
+        # this docstring names, "not read", so it gives None like any file
+        # that is not there; a bad path still raises.
+        if isinstance(relative_path, str) and (folder / relative_path).is_symlink():
+            return None
         raise ValueError(f"{relative_path!r} is not a saved file: {problem}")
     assert isinstance(relative_path, str)
     try:
