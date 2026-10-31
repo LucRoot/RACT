@@ -33,6 +33,9 @@ from typing import Any
 # The snapshot reads at most this much of the project at run entry.
 _MAX_FILES = 2000
 _MAX_FILE_BYTES = 256 * 1024
+# G-226 note 3: at most this much text is read in all; past it a file is
+# recorded by its hash only, as a large file is.
+_MAX_TOTAL_BYTES = 32 * 1024 * 1024
 
 
 def _tracked_text(project: Path) -> dict[str, str]:
@@ -40,7 +43,16 @@ def _tracked_text(project: Path) -> dict[str, str]:
     try:
         done = subprocess.run(
             # core.fsmonitor=false: a repository's config cannot start a program.
-            ["git", "-c", "core.fsmonitor=false", "ls-files", "-z"],
+            [
+                "git",
+                "-c",
+                "core.fsmonitor=false",
+                "-c",
+                "core.hooksPath=",
+                "--no-optional-locks",
+                "ls-files",
+                "-z",
+            ],
             cwd=project,
             capture_output=True,
             timeout=30,
@@ -51,6 +63,7 @@ def _tracked_text(project: Path) -> dict[str, str]:
     if done.returncode != 0:
         return {}
     files: dict[str, str] = {}
+    total = 0
     for raw in done.stdout.split(b"\0")[:_MAX_FILES]:
         if not raw:
             continue
@@ -65,9 +78,14 @@ def _tracked_text(project: Path) -> dict[str, str]:
         except OSError as exc:
             print(f"[provenance] {rel} was not read: {exc}", flush=True)
             continue
-        if len(data) > _MAX_FILE_BYTES or b"\0" in data:
+        if (
+            len(data) > _MAX_FILE_BYTES
+            or b"\0" in data
+            or total + len(data) > _MAX_TOTAL_BYTES
+        ):
             files[rel] = "sha256:" + hashlib.sha256(data).hexdigest()
             continue
+        total += len(data)
         files[rel] = data.decode("utf-8", errors="replace")
     return files
 

@@ -695,6 +695,12 @@ _EXEMPT_SITES: dict[str, str] = {
         "with a timeout; no model input reaches the argv. Tier-3 commands "
         "themselves still go through run_command and its approval."
     ),
+    "provenance_wiring.py": (
+        "operator-invoked-diagnostic: one fixed git ls-files at run entry, with "
+        "core.fsmonitor off, no hooks, --no-optional-locks and a timeout, listing "
+        "the tracked files the run's Rootknots attest (S-015b). No model input "
+        "reaches the argv; not a model tool_use."
+    ),
     "key_paths.py": (
         "operator-invoked-diagnostic: one fixed git ls-files --error-unmatch "
         "with core.fsmonitor off and a timeout, asking whether the repository "

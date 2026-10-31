@@ -99,3 +99,74 @@ def test_every_knot_is_v4(ws: Path) -> None:
         (ws / "src" / ".calc.py.rootknot.json").read_text(encoding="utf-8")
     )
     assert data["schema"] == "sidecar/v4" and data["schema_version"] == 4
+
+
+def test_a_knot_that_does_not_verify_is_not_signed(ws: Path, monkeypatch) -> None:
+    """G-226 note 1: signed comes from verification, not from a sidecar's presence."""
+    import json
+
+    from ract import session_turn
+
+    original = session_turn._provenance
+
+    def tampered(unsigned, changed, project):
+        sidecar = project / "src" / ".calc.py.rootknot.json"
+        data = json.loads(sidecar.read_text(encoding="utf-8"))
+        data["run_id"] = "someone-else"
+        sidecar.write_text(json.dumps(data), encoding="utf-8")
+        return original(unsigned, changed, project)
+
+    monkeypatch.setattr(session_turn, "_provenance", tampered)
+    finished = _turn(ws)
+    assert finished["provenance"]["signed"] is False
+    assert finished["provenance"]["unverified_files"] == ["src/calc.py"]
+
+
+@pytest.mark.parametrize(
+    "auto, refuse_changes",
+    [(True, False), (False, False)],
+    ids=["default-repl-or-run-auto", "headless-accept-edits"],
+)
+def test_each_way_a_person_runs_it_signs(ws: Path, auto, refuse_changes) -> None:
+    """G-226 note 2. ``ask`` is the /ask answer-only mode (no plan, nothing
+    written), not the default: the default REPL and ``ract run --auto`` are
+    auto=True, ``ract -p --accept-edits`` is auto=False with changes allowed."""
+    events: list[SessionEvent] = []
+    stream = EventStream(session="s-s015b-modes")
+    stream.subscribe(events.append)
+    request = TurnRequest(
+        config=ws / "ract.yaml",
+        intent="fix add in src/calc.py",
+        session_id="s-s015b-modes",
+        resume=False,
+        auto=auto,
+        refuse_changes=refuse_changes,
+        terminal=auto,
+    )
+    import ract.approval_callback as ac
+
+    original = ac.read_line
+    ac.read_line = lambda _p: "y"
+    try:
+        assert run_turn(stream, request, turn=1, cancel=threading.Event()) == 0
+    finally:
+        ac.read_line = original
+    ok, message = verify_artifact(ws / "src" / "calc.py", ws)
+    assert ok, message
+
+
+def test_the_snapshot_reads_at_most_its_total(tmp_path: Path, monkeypatch) -> None:
+    """G-226 note 3: past the total, files are recorded by hash only."""
+    import subprocess
+
+    from ract import provenance_wiring
+
+    monkeypatch.setattr(provenance_wiring, "_MAX_TOTAL_BYTES", 10)
+    root = tmp_path / "p"
+    root.mkdir()
+    for name, text in (("a.txt", "12345678"), ("b.txt", "12345678")):
+        (root / name).write_text(text, encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    files = provenance_wiring._tracked_text(root)
+    assert files["a.txt"] == "12345678" and files["b.txt"].startswith("sha256:")

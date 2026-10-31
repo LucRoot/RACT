@@ -330,13 +330,40 @@ def _workspace_line(changed: list[str] | None) -> str:
     )
 
 
-def _provenance(unsigned: list[str], changed: list[str] | None) -> dict[str, Any]:
-    # S-015b: the harness signs what it writes; a turn is signed when it
-    # changed files and none of them is without a Rootknot.
-    return {
-        "signed": bool(changed) and not unsigned,
+def _provenance(
+    unsigned: list[str], changed: list[str] | None, project: Path
+) -> dict[str, Any]:
+    """S-015b: signed only when every changed file's knot verifies (G-226 note 1).
+
+    A file with no knot is unsigned; a file whose knot is present and does
+    not verify (``ract provenance verify``'s own check, offline) is named in
+    ``unverified_files``, and the turn is not signed.
+    """
+    from ract.provenance_cli import NO_ROOTKNOT_PREFIX, verify_artifact
+
+    unverified: list[str] = []
+    for name in changed or []:
+        if name in unsigned:
+            continue
+        path = project / name
+        if not path.is_file():
+            continue
+        try:
+            ok, message = verify_artifact(path, project)
+        except Exception as exc:  # noqa: BLE001 - a check that fails is not a pass
+            print(f"[provenance] {name} was not verified: {exc}", flush=True)
+            ok, message = False, str(exc)
+        if not ok and message.startswith(NO_ROOTKNOT_PREFIX):
+            unsigned = [*unsigned, name]
+        elif not ok:
+            unverified.append(name)
+    out: dict[str, Any] = {
+        "signed": bool(changed) and not unsigned and not unverified,
         "unsigned_files": list(unsigned),
     }
+    if unverified:
+        out["unverified_files"] = unverified
+    return out
 
 
 class _TurnReporter:
@@ -580,7 +607,9 @@ def run_turn(
                 "verification": verification,
                 # B-090 (H5): the unsigned list names files as the disk spells them.
                 "provenance": _provenance(
-                    [_on_disk_name(project, name) for name in unsigned], changed
+                    [_on_disk_name(project, name) for name in unsigned],
+                    changed,
+                    project,
                 ),
                 "citations": None if answer is None else _citations(project, answer),
                 "review": list(reporter.reviews) or None,
