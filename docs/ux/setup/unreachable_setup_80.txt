@@ -1,0 +1,29 @@
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 9.3 GB available
+  CPU cores: 12
+  free disk here: 72.2 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  nothing answered
+No server chosen. Use a local model or a cloud provider? [L/c] 
+  this machine has 63 GB, 9.3 GB free right now
+How many GB of memory should the model use? [38.1] 
+Suggested model: Qwen2.5-Coder 32B Instruct (about 19.9 GB): it needs about 23 GB of the 38.1 GB you dedicate.
+  strongest dense model here; slow without a GPU
+  only 9.3 GB is free right now; close other programs before loading it
+Start it with one of these (setup does not download anything):
+  Ollama:     ollama pull qwen2.5-coder:32b   (then Ollama serves it on port 11434)
+  llama.cpp:  llama-server -hf Qwen/Qwen2.5-Coder-32B-Instruct-GGUF:Q4_K_M --port 8080
+  LM Studio:  search for Qwen2.5-Coder 32B Instruct in the app, load it, start the server
+Guidance reviewed 2026-10-22; sizes are approximate.
+Start the server, then press Enter to look again, or type skip to write a config for Ollama's default address now: 
+  nothing answered
+Wrote ract.yaml and prompts/manager.txt.
+Checking http://127.0.0.1:11434/v1 with one tiny request:
+  failed: Request failed: nothing is answering at http://127.0.0.1:11434/v1 (connection refused).
+  hint: start your model server, or fix the provider url in ract.yaml; `ract doctor --check-providers` checks it
+This directory is not a git repository. RACT records each step on its own branch, so it works best in one. Command: git init
+Run git init here now? [y/N] 

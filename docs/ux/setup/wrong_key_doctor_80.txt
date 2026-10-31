@@ -1,0 +1,46 @@
+────────────────────────── Doctor: 8/10 checks passed──────────────────────────
+┏━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Status ┃ Check                       ┃ Message                               ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ PASS   │ config_exists               │ Found ract.yaml.                      │
+│ PASS   │ config_parse                │ ract.yaml parses cleanly.             │
+│ FAIL   │ project_name                │ Missing project.name in ract.yaml.    │
+│ PASS   │ manager_provider            │ Manager provider 'wrong' is           │
+│        │                             │ configured.                           │
+│ PASS   │ providers                   │ 1 provider(s) configured.             │
+│ PASS   │ provider_reachable:wrong    │ Provider 'wrong' is reachable.        │
+│ FAIL   │ provider_capabilities:wrong │ HTTP 401:                             │
+│        │                             │ {"error":{"message":"invalid key      │
+│        │                             │ ********","type":"auth"}}             │
+│ PASS   │ prompt_file                 │ Project prompt missing; bundled       │
+│        │                             │ default at                            │
+│        │                             │ C:\RootClaw\RACT_wt\walk1a\src\ract\d │
+│        │                             │ efault_prompts\manager.txt will be    │
+│        │                             │ used.                                 │
+│ PASS   │ skills                      │ No skill configured; optional.        │
+│ PASS   │ operator_key                │ Operator key: no operator key on this │
+│        │                             │ machine; `ract policy keygen` makes   │
+│        │                             │ one.                                  │
+└────────┴─────────────────────────────┴───────────────────────────────────────┘
+provider wrong (http://127.0.0.1:65086/v1)  model: fake-coder
+  chat:             failed (HTTP 401: {"error":{"message":"invalid key 
+********","type":"auth"}})
+                    check the key variable named in ract.yaml for this provider
+  streaming:        not tried
+  tool calling:     not tried
+  reasoning text:   not tried
+  context window:   not tried
+Advice
+provider 'wrong': the key and host pair, but the tiny request failed: HTTP 401:
+  {"error":{"message":"invalid key ********","type":"auth"}}
+Provenance: each file a run writes is signed, and `ract provenance verify 
+<file>` checks it. When signing cannot be set up, the run names the files it 
+left unsigned and says why. See docs/PROVENANCE.md.
+Sandbox (Windows): no sandbox backend for this platform; no backend runs 
+commands in this build.
+  filesystem: not enforced in this build
+  network: not enforced in this build
+  process limits: not enforced in this build
+  environment: scrubbed by allowlist for hook commands; inherited from your     
+shell for test, lint and step commands
+  tier-3 commands: not confined on this platform (sandbox: best_effort)
