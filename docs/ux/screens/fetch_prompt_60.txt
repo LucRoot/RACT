@@ -1,0 +1,8 @@
+fetch from the web (tier 2)
+url: https://docs.example.org/api
+host: docs.example.org
+allowlist: no entry matches this host; it will ask
+size cap: 512 KiB; a larger page is cut
+what comes back is untrusted content: later steps in this
+    turn ask before a change or a command
+[y]es, fetch once [n]o

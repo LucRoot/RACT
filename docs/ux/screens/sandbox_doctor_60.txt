@@ -1,0 +1,6 @@
+sandbox
+sandbox: best effort, not enforced on this machine
+    (windows-job)
+limits applied: wall 900 s
+a grant must say sandbox: best_effort; this machine does not
+    confine commands
