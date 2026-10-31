@@ -71,6 +71,7 @@ def test_run_mutation_tests_parses_output(monkeypatch, tmp_path):
 
 
 def test_run_mutation_tests_timeout(monkeypatch, tmp_path):
+    monkeypatch.setenv("RACT_WSL_DISTRO", "Ubuntu")  # B-231: no guessed distribution
     script = tmp_path / "mutmut.sh"
     script.write_text("#!/bin/bash\n", encoding="utf-8")
 
@@ -86,6 +87,7 @@ def test_run_mutation_tests_timeout(monkeypatch, tmp_path):
 
 
 def test_run_mutation_tests_missing_runner(monkeypatch, tmp_path):
+    monkeypatch.setenv("RACT_WSL_DISTRO", "Ubuntu")  # B-231: no guessed distribution
     script = tmp_path / "mutmut.sh"
     script.write_text("#!/bin/bash\n", encoding="utf-8")
 
@@ -133,6 +135,7 @@ def test_report_str_with_score():
 
 def test_resolve_runner_command_on_windows(monkeypatch):
     monkeypatch.setattr("sys.platform", "win32")
+    monkeypatch.setenv("RACT_WSL_DISTRO", "Ubuntu")  # B-231: no guessed distribution
     from ract.mutation_runner import _resolve_runner_command
 
     cmd = _resolve_runner_command(Path("/tmp/script.sh"))

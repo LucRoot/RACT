@@ -106,28 +106,42 @@ def _detect_wsl_distro() -> str | None:
         return env_distro
     try:
         result = subprocess.run(
-            ["wsl", "-l", "--running"],
+            ["wsl", "-l", "--running", "--quiet"],
             capture_output=True,
-            text=True,
             timeout=10.0,
             check=False,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        print(f"[mutation] WSL distributions were not listed: {exc}", flush=True)
         return None
-    # wsl -l output uses OEM code page and may contain trailing nulls/whitespace.
-    for line in result.stdout.splitlines():
-        line = line.strip().rstrip("\x00")
-        if not line or line.startswith("NAME"):
-            continue
-        # Default marker is an asterisk prefix, e.g. "* Ubuntu-24.04".
-        distro = (
-            line.lstrip("* ").split()[0]
-            if line.lstrip().startswith("*")
-            else line.split()[0]
-        )
-        if distro and distro not in {"docker-desktop", "docker-desktop-data"}:
+    for distro in wsl_distributions(result.stdout):
+        if distro not in {"docker-desktop", "docker-desktop-data"}:
             return distro
     return None
+
+
+def wsl_distributions(out: bytes | str) -> list[str]:
+    """The names in ``wsl -l`` output (B-231).
+
+    LR:: ``wsl.exe`` writes UTF-16LE (a NUL after every ASCII character) and,
+    without ``--quiet``, a header line ("Windows Subsystem for Linux
+    Distributions:"). Read as text, the header was taken for a distribution
+    and passed to ``wsl -d``. Decoded as ``other_backends._text`` does it; the
+    header, blank lines and the default marker (``*`` or ``(Default)``) are
+    dropped.
+    """
+    from ract.security.other_backends import _text
+
+    names: list[str] = []
+    for line in _text(out).splitlines():
+        line = line.strip().strip("\x00").strip()
+        if not line or line.endswith(":") or line.upper().startswith("NAME"):
+            continue
+        line = line.lstrip("*").strip()
+        line = line.replace("(Default)", "").strip()
+        if line:
+            names.append(line.split()[0])
+    return names
 
 
 def _to_wsl_path(path: Path) -> str:
@@ -142,6 +156,17 @@ def _to_wsl_path(path: Path) -> str:
     """
     # Normalize backslashes first; POSIX pathlib may treat them as literal chars.
     posix = str(path).replace("\\", "/")
+    # B-231: an extended-length path (\\?\C:\...) is a drive path with a prefix;
+    # a network path (\\server\share) has no /mnt form, so it is refused.
+    if posix.startswith(("//?/", "//./")):
+        posix = posix[4:]
+        if posix.upper().startswith("UNC/"):
+            posix = "//" + posix[4:]
+    if posix.startswith("//"):
+        raise ValueError(
+            f"{path} is a network path, and WSL has no /mnt form for it; "
+            "run the mutation tests from a drive letter path"
+        )
     if posix.startswith("/"):
         return posix
     # Drive-letter form: X:/... or X:\... (after normalization).
@@ -161,9 +186,13 @@ def _resolve_runner_command(
     if sys.platform == "win32":
         distro = wsl_distro or _detect_wsl_distro()
         wsl_script = _to_wsl_path(script_path)
-        if distro:
-            return ["wsl", "-d", distro, "-e", "bash", wsl_script]
-        return ["wsl", "-e", "bash", wsl_script]
+        if not distro:
+            # B-231: an empty or unreadable list is no reason to guess.
+            raise ValueError(
+                "WSL lists no running Linux distribution; start one, or name it "
+                "in RACT_WSL_DISTRO"
+            )
+        return ["wsl", "-d", distro, "-e", "bash", wsl_script]
     return ["bash", str(script_path)]
 
 
@@ -197,12 +226,29 @@ def run_mutation_tests(
             error=f"Mutation script not found: {script}",
         )
 
-    cmd = _resolve_runner_command(script, wsl_distro=wsl_distro)
+    try:
+        cmd = _resolve_runner_command(script, wsl_distro=wsl_distro)
+    except ValueError as exc:
+        return Rooted(
+            value=None,
+            assumption="The mutation runner can start.",
+            confidence=0.0,
+            provenance=["mutation_runner.run_mutation_tests"],
+            error=str(exc),
+        )
     env = os.environ.copy()
     if targets:
         env["RACT_MUTATION_TARGETS"] = ",".join(targets)
     if test_runner:
         env["RACT_TEST_RUNNER"] = test_runner
+    if sys.platform == "win32":
+        # B-231: a Windows variable reaches WSL only when WSLENV names it. The
+        # targets are paths relative to the project and the runner is a
+        # command, so neither takes the /p path flag.
+        names = [n for n in ("RACT_MUTATION_TARGETS", "RACT_TEST_RUNNER") if n in env]
+        if names:
+            kept = [n for n in env.get("WSLENV", "").split(":") if n]
+            env["WSLENV"] = ":".join(dict.fromkeys([*kept, *names]))
     try:
         result = subprocess.run(
             cmd,
