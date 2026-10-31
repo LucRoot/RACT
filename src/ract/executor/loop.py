@@ -944,7 +944,11 @@ class SubstrateLoop:
                 unresolved = [hid for hid in spec.handshake_ids if hid in pending_ids]
             if unresolved:
                 explain = getattr(self.handshakes, "unsigned_reason", None)
-                why = [r for r in (explain(h) for h in unresolved) if r] if explain else []
+                why = (
+                    [r for r in (explain(h) for h in unresolved) if r]
+                    if explain
+                    else []
+                )
                 record = StepRecord(
                     step_id=txn.step_id,
                     outcome=TransactionOutcome.BLOCKED_ON_HANDSHAKE,
@@ -953,8 +957,7 @@ class SubstrateLoop:
                     branch=wt.branch,
                     reason=(
                         "post-conditions ok; commit blocked on handshake "
-                        f"{unresolved!r}"
-                        + "".join(f"; {line}" for line in why)
+                        f"{unresolved!r}" + "".join(f"; {line}" for line in why)
                     ),
                 )
                 self.records.append(record)
@@ -1448,7 +1451,7 @@ def _emit_step_event(record: StepRecord, kind: str) -> None:
 
 def _remove_worktree_only(repo_root: Path, worktree_path: Path) -> None:
     """Remove the worktree directory but leave the branch intact."""
-    subprocess.run(
+    done = subprocess.run(
         [
             "git",
             "-C",
@@ -1462,6 +1465,14 @@ def _remove_worktree_only(repo_root: Path, worktree_path: Path) -> None:
         text=True,
         check=False,
     )
+    if done.returncode != 0 and not Path(worktree_path).exists():
+        # B-146: a registration whose folder is gone stays listed until pruned.
+        subprocess.run(
+            ["git", "-C", str(repo_root), "worktree", "prune"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
 
 # RACT 0.4.0

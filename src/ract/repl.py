@@ -1503,6 +1503,14 @@ class ReplSession:
                 + ", ".join(removed)
             )
 
+    def _remove_own_worktrees(self) -> None:
+        from ract.executor.worktree import remove_own_worktrees
+
+        try:
+            remove_own_worktrees(self.state.config.resolve().parent)
+        except Exception as exc:  # noqa: BLE001 - the session still ends
+            print(f"[repl] step worktrees were not removed: {exc}", flush=True)
+
     def _leftover_worktrees(self) -> list[str]:
         from ract.executor.worktree import WorktreeManager
 
@@ -1540,7 +1548,11 @@ class ReplSession:
         except KeyboardInterrupt:
             print("[repl] a second Ctrl-C at exit: stopped waiting", flush=True)
         finished = all(done.is_set() for done in pending)
-        left = [] if finished else self._leftover_worktrees()
+        if finished:
+            # B-146: no worker runs now, so this process's step worktrees are
+            # not in use; one an interrupted step could not remove goes now.
+            self._remove_own_worktrees()
+        left = self._leftover_worktrees()
         if left and self._events is not None:
             # B-146: past the bound, say what stays and how to remove it.
             self._events.emit(
@@ -1718,10 +1730,13 @@ class ReplSession:
     # --------------------------------------------------------------- history
 
     def _setup_readline(self) -> None:
+        start = _readline_start_inputrc()
         try:
             import readline
         except ImportError:  # Windows without pyreadline: plain input() still works.
             return
+        finally:
+            start()
         words = sorted(
             {f"/{name}" for name in self._builtins} | {f"/{v}" for v in self._verbs}
         )
@@ -1760,6 +1775,60 @@ class ReplSession:
             readline.write_history_file(str(self._history_path))
         except (ImportError, OSError):
             pass
+
+
+def inputrc_without_esc_esc(system_text: str, home_inputrc: str | None) -> str:
+    """The inputrc RACT starts readline from, so Esc Esc is a whole key (J7).
+
+    LR:: Ubuntu's /etc/inputrc binds "\\e\\e[C" and "\\e\\e[D" (Alt-arrow word
+    moves), which makes Esc Esc the start of longer keys; CPython reads
+    through readline's callback interface, where the wait for the rest never
+    times out, so Esc Esc did nothing until the next key. With a ~/.inputrc
+    readline would read it instead of the system file, and so does this.
+    """
+    if home_inputrc is not None:
+        return f"$include {home_inputrc}\n"
+    kept = [
+        line
+        for line in system_text.splitlines()
+        if not line.lstrip().startswith('"\\e\\e')
+    ]
+    return "\n".join(kept) + "\n"
+
+
+def _readline_start_inputrc():  # type: ignore[no-untyped-def]
+    """Point INPUTRC at RACT's copy while readline is first imported; a callable undoes it.
+
+    Only on POSIX, only when the operator set no INPUTRC, and only before the
+    first import (readline reads its init file then).
+    """
+    import tempfile
+
+    if os.name == "nt" or "INPUTRC" in os.environ or "readline" in sys.modules:
+        return lambda: None
+    home = os.path.expanduser("~/.inputrc")
+    try:
+        system = Path("/etc/inputrc").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        system = ""
+    text = inputrc_without_esc_esc(system, home if os.path.isfile(home) else None)
+    try:
+        handle, path = tempfile.mkstemp(prefix="ract-inputrc-")
+        os.write(handle, text.encode("utf-8"))
+        os.close(handle)
+    except OSError as exc:
+        print(f"[repl] Esc Esc may wait for a next key: {exc}", flush=True)
+        return lambda: None
+    os.environ["INPUTRC"] = path
+
+    def undo() -> None:
+        os.environ.pop("INPUTRC", None)
+        try:
+            os.unlink(path)
+        except OSError as exc:
+            print(f"[repl] the inputrc copy stays: {exc}", flush=True)
+
+    return undo
 
 
 def _flag(value: bool) -> str:
