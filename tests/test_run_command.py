@@ -156,7 +156,9 @@ def test_the_fake_runner_is_chosen_only_by_its_variable(
 
     monkeypatch.delenv("RACT_FAKE_RUNNER", raising=False)
     # B-114: where no sandbox confines commands, the plain runner.
-    monkeypatch.setattr("ract.security.command_sandbox.runner_for", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "ract.security.command_sandbox.runner_for", lambda *a, **k: None
+    )
     assert isinstance(default_runner(), ProcessRunner)
     script = tmp_path / "script.json"
     script.write_text('[{"exit_code": 0}]', encoding="utf-8")

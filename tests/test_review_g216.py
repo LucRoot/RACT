@@ -17,7 +17,7 @@ import pytest
 
 from ract.handshake_registry import HandshakeRegistry
 from ract.policy import tier3
-from ract.policy.grant import load_grant, pin_digest, sign
+from ract.policy.grant import pin_digest, sign
 from ract.policy.operator_key import generate, unlock
 from ract.session_events import EventStream, SessionEvent
 from ract.session_turn import TurnRequest, run_turn
@@ -36,7 +36,12 @@ class Grant:
         self.key = generate(PASS)
         self.write(days=30)
 
-    def write(self, *, days: int, rules: str = "    - id: tests\n      argv: [python, -m, pytest]\n") -> str:
+    def write(
+        self,
+        *,
+        days: int,
+        rules: str = "    - id: tests\n      argv: [python, -m, pytest]\n",
+    ) -> str:
         now = datetime.now(timezone.utc) - timedelta(hours=1)
         (self.root / ".ract").mkdir(exist_ok=True)
         (self.root / ".ract" / "policy.yaml").write_text(
@@ -60,7 +65,9 @@ def project(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(cfg))
     root = tmp_path / "calc"
     (root / "tests").mkdir(parents=True)
-    (root / "tests" / "test_calc.py").write_text("def test_add():\n    pass\n", encoding="utf-8")
+    (root / "tests" / "test_calc.py").write_text(
+        "def test_add():\n    pass\n", encoding="utf-8"
+    )
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     exe = bin_dir / ("python.exe" if os.name == "nt" else "python")
@@ -96,7 +103,9 @@ def test_w1_the_sessions_pin_suspends_a_new_steps_context(project: Path) -> None
     session_pin = pin_digest(project)
     grant.write(days=60)
     runner = ScriptedRunner([{}])
-    ctx = tier3.for_project(project, lambda facts: True, runner, expected_pin=session_pin)
+    ctx = tier3.for_project(
+        project, lambda facts: True, runner, expected_pin=session_pin
+    )
     assert ctx.grant.status == "suspended"
     rooted = _call(ctx)
     assert not rooted.is_ok() and "/permissions resume" in rooted.error
@@ -117,14 +126,25 @@ def test_w1_a_change_while_the_question_is_open_runs_nothing(project: Path) -> N
     runner = ScriptedRunner([{}])
 
     def approve(facts: dict) -> bool:
-        grant.write(days=60, rules="    - id: tests\n      argv: [python, -m, pytest]\n    - id: all\n      argv: [make, test]\n")
+        grant.write(
+            days=60,
+            rules="    - id: tests\n      argv: [python, -m, pytest]\n    - id: all\n      argv: [make, test]\n",
+        )
         return True
 
     rooted = _call(tier3.for_project(project, approve, runner))
     assert not rooted.is_ok() and "nothing ran" in rooted.error and runner.calls == []
 
 
-def _turn(ws: Path, monkeypatch, runner, *, auto: bool, terminal: bool, pin: str | None = None):
+def _turn(
+    project: Path,
+    monkeypatch,
+    runner,
+    *,
+    auto: bool,
+    terminal: bool,
+    pin: str | None = None,
+):
     monkeypatch.setattr("ract.tools.command.default_runner", lambda rule=None: runner)
     asked: list[str] = []
 
@@ -137,7 +157,7 @@ def _turn(ws: Path, monkeypatch, runner, *, auto: bool, terminal: bool, pin: str
     stream = EventStream(session="s-g216")
     stream.subscribe(events.append)
     request = TurnRequest(
-        config=ws / "ract.yaml",
+        config=project / "ract.yaml",
         intent=INTENT,
         session_id="s-g216",
         resume=False,
@@ -149,12 +169,16 @@ def _turn(ws: Path, monkeypatch, runner, *, auto: bool, terminal: bool, pin: str
     return code, events[-1].data["verification"], asked
 
 
-def test_w1_a_turn_under_a_stale_session_pin_runs_no_test(ws: Path, monkeypatch) -> None:  # noqa: F811
+def test_w1_a_turn_under_a_stale_session_pin_runs_no_test(
+    ws: Path, monkeypatch
+) -> None:  # noqa: F811
     grant = Grant(ws)
     stale = pin_digest(ws)
     grant.write(days=60)
     runner = StandIn(0)
-    code, verification, _ = _turn(ws, monkeypatch, runner, auto=True, terminal=True, pin=stale)
+    code, verification, _ = _turn(
+        ws, monkeypatch, runner, auto=True, terminal=True, pin=stale
+    )
     assert code == 0 and runner.calls == []
     assert "suspended: policy changed" in verification["not_run_reason"]
     assert "/permissions resume" in verification["not_run_reason"]
@@ -173,17 +197,24 @@ def test_w1_a_turn_under_a_stale_session_pin_runs_no_test(ws: Path, monkeypatch)
     ],
     ids=["default-repl", "run-auto", "repl-auto-accept", "yolo-or-headless"],
 )
-def test_w4_who_answers_the_named_test(ws: Path, monkeypatch, auto, terminal, runs) -> None:  # noqa: F811
+def test_w4_who_answers_the_named_test(
+    ws: Path, monkeypatch, auto, terminal, runs
+) -> None:  # noqa: F811
     Grant(ws)
     runner = StandIn(0)
-    code, verification, asked = _turn(ws, monkeypatch, runner, auto=auto, terminal=terminal)
+    code, verification, asked = _turn(
+        ws, monkeypatch, runner, auto=auto, terminal=terminal
+    )
     assert code == 0
     if runs:
         assert runner.calls and "Run it once? [y/N]: " in asked
         assert verification["status"] == "verified"
     else:
         assert runner.calls == [] and "Run it once? [y/N]: " not in asked
-        assert verification["not_run_reason"] == "nobody can answer the tier-3 question here"
+        assert (
+            verification["not_run_reason"]
+            == "nobody can answer the tier-3 question here"
+        )
 
 
 # ---------------------------------------------------------------- W6
@@ -197,11 +228,16 @@ def _repl(project: Path, typed: list[str]):
     return session, console
 
 
-def test_w6_resume_shows_what_changed_and_without_y_changes_nothing(project: Path) -> None:
+def test_w6_resume_shows_what_changed_and_without_y_changes_nothing(
+    project: Path,
+) -> None:
     grant = Grant(project)
     session, console = _repl(project, ["n"])
     pinned = session._grant_pin
-    grant.write(days=60, rules="    - id: tests\n      argv: [python, -m, pytest]\n    - id: all\n      argv: [make, test]\n")
+    grant.write(
+        days=60,
+        rules="    - id: tests\n      argv: [python, -m, pytest]\n    - id: all\n      argv: [make, test]\n",
+    )
     session._cmd_permissions(["resume"])
     text = console.text
     assert "allow rule added: make test" in text and "expiry:" in text
@@ -320,7 +356,9 @@ def _pem() -> bytes:
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
 @pytest.mark.parametrize("kind", ["sandbox", "alm"])
-def test_w3_a_key_the_repository_tracks_is_never_read(tmp_path: Path, kind: str, capsys) -> None:
+def test_w3_a_key_the_repository_tracks_is_never_read(
+    tmp_path: Path, kind: str, capsys
+) -> None:
     from ract.security.alm_verifier_key import AlmVerifierKey
     from ract.security.keys import SandboxKey
 
@@ -337,7 +375,9 @@ def test_w3_a_key_the_repository_tracks_is_never_read(tmp_path: Path, kind: str,
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
-def test_w3_an_untracked_old_key_is_read_with_a_warning_every_time(tmp_path: Path, capsys) -> None:
+def test_w3_an_untracked_old_key_is_read_with_a_warning_every_time(
+    tmp_path: Path, capsys
+) -> None:
     from ract.security.keys import SandboxKey
 
     root = tmp_path / "repo"
@@ -377,4 +417,3 @@ def test_w5_an_unsigned_approval_says_what_to_do(tmp_path: Path) -> None:
     )
     registry.add("m2", "other", "ok")
     assert registry.unsigned_reason("m2") is None  # pending: the usual wording
-

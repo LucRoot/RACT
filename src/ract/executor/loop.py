@@ -944,7 +944,11 @@ class SubstrateLoop:
                 unresolved = [hid for hid in spec.handshake_ids if hid in pending_ids]
             if unresolved:
                 explain = getattr(self.handshakes, "unsigned_reason", None)
-                why = [r for r in (explain(h) for h in unresolved) if r] if explain else []
+                why = (
+                    [r for r in (explain(h) for h in unresolved) if r]
+                    if explain
+                    else []
+                )
                 record = StepRecord(
                     step_id=txn.step_id,
                     outcome=TransactionOutcome.BLOCKED_ON_HANDSHAKE,
@@ -953,8 +957,7 @@ class SubstrateLoop:
                     branch=wt.branch,
                     reason=(
                         "post-conditions ok; commit blocked on handshake "
-                        f"{unresolved!r}"
-                        + "".join(f"; {line}" for line in why)
+                        f"{unresolved!r}" + "".join(f"; {line}" for line in why)
                     ),
                 )
                 self.records.append(record)

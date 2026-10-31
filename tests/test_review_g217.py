@@ -87,11 +87,13 @@ def test_s1_sign_shows_the_policy_and_a_no_signs_nothing(
     capsys.readouterr()
     assert policy_cli.policy_command(["sign"]) == 1
     out = capsys.readouterr().out
-    assert "allow tests: python -m pytest (network off, 900 s, cwd step_worktree, home isolated)" in out
+    assert (
+        "allow tests: python -m pytest (network off, 900 s, cwd step_worktree, home isolated)"
+        in out
+    )
     assert "deny: git push" in out and "max mode ask; expires 2027-01-28" in out
     assert "not enforced on this machine" in out and "Nothing was signed." in out
     assert prompts == [] and not (project / ".ract" / "policy.yaml.sig").exists()
-
 
 
 def test_s1_a_yes_asks_the_passphrase_and_signs(
@@ -149,7 +151,9 @@ def test_s2_find_project_prefers_ract_yaml_then_the_git_root(tmp_path: Path) -> 
 def runner_project(tmp_path: Path) -> Path:
     root = tmp_path / "calc"
     (root / "tests").mkdir(parents=True)
-    (root / "tests" / "test_calc.py").write_text("def test_x():\n    pass\n", encoding="utf-8")
+    (root / "tests" / "test_calc.py").write_text(
+        "def test_x():\n    pass\n", encoding="utf-8"
+    )
     return root
 
 
@@ -165,7 +169,9 @@ def test_g1_the_explanation_says_what_the_machine_does(
         assert network == "network: false: it runs with the network off"
         assert "never in your files" in cwd
     else:
-        assert network == "network: false: declared off; this machine does not enforce it"
+        assert (
+            network == "network: false: declared off; this machine does not enforce it"
+        )
         assert "nothing stops it reaching your other files" in cwd
         assert any("runs with your user's rights" in line for line in lines)
 
@@ -191,10 +197,14 @@ def _guided(project: Path, answers: list[str]) -> tuple[int, list[str], list[str
     return code, shown, asked
 
 
-def test_g2_a_project_path_with_an_apostrophe_holds(tmp_path: Path, user_config: Path) -> None:
+def test_g2_a_project_path_with_an_apostrophe_holds(
+    tmp_path: Path, user_config: Path
+) -> None:
     project = tmp_path / "it's here"
     (project / "tests").mkdir(parents=True)
-    (project / "tests" / "test_calc.py").write_text("def test_x():\n    pass\n", encoding="utf-8")
+    (project / "tests" / "test_calc.py").write_text(
+        "def test_x():\n    pass\n", encoding="utf-8"
+    )
     code, _shown, _asked = _guided(project, ["y"])
     assert code == 0
     assert load_grant(project, now=NOW).holds
@@ -207,7 +217,9 @@ def test_g2_a_preview_that_cannot_hold_fails_before_the_question_and_the_key(
     monkeypatch.setattr(
         guided,
         "proposed_policy",
-        lambda *a, **kw: good(*a, **kw).replace("max_mode: ask", "max_mode: everything"),
+        lambda *a, **kw: good(*a, **kw).replace(
+            "max_mode: ask", "max_mode: everything"
+        ),
     )
     asked: list[str] = []
     with pytest.raises(PolicyInvalid):
@@ -224,8 +236,12 @@ def test_g2_a_preview_that_cannot_hold_fails_before_the_question_and_the_key(
     assert not (runner_project / ".ract" / "policy.yaml").exists()
 
 
-def test_g2_the_policy_is_written_whole(runner_project: Path, user_config: Path) -> None:
+def test_g2_the_policy_is_written_whole(
+    runner_project: Path, user_config: Path
+) -> None:
     code, _shown, _asked = _guided(runner_project, ["y"])
     assert code == 0
-    leftovers = [p.name for p in (runner_project / ".ract").iterdir() if p.name.endswith(".tmp")]
+    leftovers = [
+        p.name for p in (runner_project / ".ract").iterdir() if p.name.endswith(".tmp")
+    ]
     assert leftovers == []

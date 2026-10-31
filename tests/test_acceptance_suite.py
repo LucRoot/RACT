@@ -291,7 +291,9 @@ def test_new_test_predicates_require_handshake(tmp_path, operator_signer):
     assert "+ tests/test_new.py::test_new_case" in test_handshake.acceptance
 
     # Once the operator approves the group, a re-compile lands the predicate.
-    approvals.update_status("acceptance.compiler.group.test", "approved", signer=operator_signer)
+    approvals.update_status(
+        "acceptance.compiler.group.test", "approved", signer=operator_signer
+    )
     suite2 = compiler.compile(
         intent_text="add a new feature", ws=ws, approvals=approvals, inputs=inputs
     )
