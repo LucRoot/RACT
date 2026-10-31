@@ -25,6 +25,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ract import programs
 from ract.core.threat_model import CapabilityTier
 from ract.tools import ToolRefused, ToolResult, ToolSpec
 from ract.workspace_path import is_never_sent, resolve_workspace_path
@@ -132,7 +133,7 @@ def _git_ignored(base: Path, rels: list[str]) -> set[str]:
     try:
         done = subprocess.run(
             # core.fsmonitor=false: a repository's config cannot start a program.
-            ["git", "-c", "core.fsmonitor=false", "check-ignore", "-z", "--stdin"],
+            [programs.git(), "-c", "core.fsmonitor=false", "check-ignore", "-z", "--stdin"],
             cwd=base,
             input="\0".join(rels) + "\0",
             capture_output=True,

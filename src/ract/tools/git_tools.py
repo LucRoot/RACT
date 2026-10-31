@@ -52,6 +52,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
+from ract import programs
 from ract.core.threat_model import CapabilityTier
 from ract.tools import ToolRefused, ToolResult, ToolSpec
 
@@ -278,8 +279,11 @@ def _run(
     if real.parent != real:
         env["GIT_CEILING_DIRECTORIES"] = str(real.parent)
     try:
+        # B-214: git_argv keeps the name "git" (it is shown and matched by
+        # rules); the program started is git's full path.
+        started = [programs.git(), *argv[1:]] if argv[:1] == ["git"] else argv
         popen = subprocess.Popen(
-            argv,
+            started,
             cwd=root,
             env=env,
             stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,

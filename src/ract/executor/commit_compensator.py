@@ -41,6 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ract import programs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 _MODULE_KNOT = _module_knot()
@@ -153,7 +154,7 @@ class CommitCompensator:
         if current_branch == self.branch:
             result = subprocess.run(
                 [
-                    "git",
+                    programs.git(),
                     "-C",
                     str(self.repo_root),
                     "reset",
@@ -167,7 +168,7 @@ class CommitCompensator:
         else:
             result = subprocess.run(
                 [
-                    "git",
+                    programs.git(),
                     "-C",
                     str(self.repo_root),
                     "update-ref",
@@ -299,7 +300,7 @@ class CompensatorStack:
 def _resolve_head(repo_root: Path) -> str:
     """Return HEAD sha for ``repo_root`` or ``""`` on failure."""
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        [programs.git(), "-C", str(repo_root), "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
         check=False,
@@ -317,7 +318,7 @@ def _resolve_branch(repo_root: Path, branch: str) -> str:
     not spuriously refuse the compensator.
     """
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "rev-parse", branch],
+        [programs.git(), "-C", str(repo_root), "rev-parse", branch],
         capture_output=True,
         text=True,
         check=False,
@@ -330,7 +331,7 @@ def _resolve_branch(repo_root: Path, branch: str) -> str:
 def _current_branch(repo_root: Path) -> str:
     """Return the currently checked-out branch (or ``"HEAD"`` if detached)."""
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+        [programs.git(), "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
         capture_output=True,
         text=True,
         check=False,
@@ -349,7 +350,7 @@ def check_pushed(repo_root: Path, sha: str) -> bool:
     compensator is free to run.
     """
     result = subprocess.run(
-        ["git", "-C", str(repo_root), "branch", "-r", "--contains", sha],
+        [programs.git(), "-C", str(repo_root), "branch", "-r", "--contains", sha],
         capture_output=True,
         text=True,
         check=False,

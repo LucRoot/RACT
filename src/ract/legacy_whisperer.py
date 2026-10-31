@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ract import programs
 from ract.providers.base import ProviderAdapter
 from ract.rooted import Rooted
 from ract.symbol_graph import SymbolGraph
@@ -113,7 +114,7 @@ class LegacyWhisperer:
         try:
             proc = subprocess.run(
                 [
-                    "git",
+                    programs.git(),
                     "log",
                     f"-n{self.top_k}",
                     "--pretty=format:%s",

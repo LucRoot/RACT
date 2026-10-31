@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ract import programs
 from ract.git_head import read_head
 from ract.symbol_graph import SymbolGraph, SymbolNode
 
@@ -120,7 +121,7 @@ class CodebaseHistorian:
             return cheap
         try:
             result = subprocess.run(
-                ["git", "rev-parse", "-q", "--verify", "HEAD"],
+                [programs.git(), "rev-parse", "-q", "--verify", "HEAD"],
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,
@@ -144,7 +145,7 @@ class CodebaseHistorian:
         try:
             result = subprocess.run(
                 [
-                    "git",
+                    programs.git(),
                     "blame",
                     "--line-porcelain",
                     "--",
@@ -187,7 +188,7 @@ class CodebaseHistorian:
         try:
             result = subprocess.run(
                 [
-                    "git",
+                    programs.git(),
                     "blame",
                     "-L",
                     f"{line},{line}",

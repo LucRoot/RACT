@@ -25,6 +25,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ract import programs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 _MODULE_KNOT = _module_knot()
@@ -190,7 +191,7 @@ class WhispererContract:
     def _recent_commits_from_git(self) -> tuple[str, ...]:
         try:
             proc = subprocess.run(
-                ["git", "log", "-n5", "--pretty=format:%s"],
+                [programs.git(), "log", "-n5", "--pretty=format:%s"],
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,

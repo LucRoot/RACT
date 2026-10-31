@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ract import programs
 from ract.core.module_identity import _module_knot, register_module_knot
 from ract.memory.budget import BudgetAccountant
 from ract.memory.budget_registry import get as budget_get
@@ -233,7 +234,7 @@ def _git_recent_commits(repo_root: Path) -> list[str]:
         return []
     try:
         completed = subprocess.run(
-            ["git", "-C", str(repo_root), "log", "--oneline", "-n", "10"],
+            [programs.git(), "-C", str(repo_root), "log", "--oneline", "-n", "10"],
             capture_output=True,
             text=True,
             check=False,

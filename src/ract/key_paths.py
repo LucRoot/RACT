@@ -18,6 +18,8 @@ import stat
 import sys
 from pathlib import Path
 
+from ract import programs
+
 _WARNED: set[str] = set()
 # FILE_ATTRIBUTE_REPARSE_POINT: a junction, a symbolic link or another redirect.
 _REPARSE_POINT = 0x400
@@ -81,7 +83,7 @@ def _tracked(path: Path, root: Path) -> bool:
         done = subprocess.run(
             # core.fsmonitor=false: a repository's config cannot start a program.
             [
-                "git",
+                programs.git(),
                 "-c",
                 "core.fsmonitor=false",
                 "ls-files",

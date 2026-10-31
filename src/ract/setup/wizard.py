@@ -27,6 +27,7 @@ from typing import Any
 
 import yaml
 
+from ract import programs
 from ract import egress_scan, redaction
 from ract.console_interrupt import read_line
 from ract.provider_presets import (
@@ -238,7 +239,7 @@ def health_check(config_path: Path) -> Health:
 
 def _is_git_repository(directory: Path) -> bool:
     out = subprocess.run(
-        ["git", "rev-parse", "--is-inside-work-tree"],
+        [programs.git(), "rev-parse", "--is-inside-work-tree"],
         cwd=directory,
         capture_output=True,
         text=True,
@@ -657,7 +658,7 @@ def _run(
             interactive and _yes(io.ask("Run git init here now? [y/N] "), False)
         )
         if run_init:
-            subprocess.run(["git", "init", "-q"], cwd=directory, check=False)
+            subprocess.run([programs.git(), "init", "-q"], cwd=directory, check=False)
             io.say("  ran: git init")
 
     if opens_session:

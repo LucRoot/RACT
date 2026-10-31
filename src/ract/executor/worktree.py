@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterable
 
+from ract import programs
 from ract.workspace_path import ENV_TEMPLATE_NAMES, is_secret_shaped
 from ract import run_checkpoint, undo_backup
 
@@ -106,7 +107,7 @@ def ensure_git_repo(root: Path) -> None:
             f"workspace root does not exist or is not a directory: {root}"
         )
     result = subprocess.run(
-        ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+        [programs.git(), "-C", str(root), "rev-parse", "--show-toplevel"],
         capture_output=True,
         text=True,
         check=False,
@@ -132,7 +133,7 @@ def ensure_clean_tracked_tree(root: Path) -> None:
     # ``--porcelain=v1`` gives one line per changed path with a two-column
     # status prefix. ``?? `` lines are untracked; anything else is tracked.
     result = subprocess.run(
-        ["git", "-C", str(root), "status", "--porcelain=v1"],
+        [programs.git(), "-C", str(root), "status", "--porcelain=v1"],
         capture_output=True,
         text=True,
         check=False,
@@ -160,7 +161,7 @@ def ensure_clean_tracked_tree(root: Path) -> None:
 def resolve_head_sha(root: Path) -> str:
     """Return the full commit sha for ``HEAD`` at ``root``."""
     result = subprocess.run(
-        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        [programs.git(), "-C", str(root), "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
         check=False,
@@ -250,7 +251,7 @@ class WorktreeManager:
         _assert_case_match(target)
         branch = _branch_name(step_id)
         cmd = [
-            "git",
+            programs.git(),
             "-C",
             str(self.repo_root),
             *_no_hooks(),
@@ -285,7 +286,7 @@ class WorktreeManager:
         branch C, deferred).
         """
         result = subprocess.run(
-            ["git", "-C", str(self.repo_root), "branch", "--list", "rootact/step/*"],
+            [programs.git(), "-C", str(self.repo_root), "branch", "--list", "rootact/step/*"],
             capture_output=True,
             text=True,
             check=False,
@@ -302,7 +303,7 @@ class WorktreeManager:
     def worktree_list(self) -> list[dict[str, str]]:
         """Return ``git worktree list --porcelain`` parsed into records."""
         result = subprocess.run(
-            ["git", "-C", str(self.repo_root), "worktree", "list", "--porcelain"],
+            [programs.git(), "-C", str(self.repo_root), "worktree", "list", "--porcelain"],
             capture_output=True,
             text=True,
             check=False,
@@ -328,7 +329,7 @@ class WorktreeManager:
     def commit(self, wt: Worktree, message: str) -> str:
         """Stage all changes in the worktree and commit; return the new sha."""
         add = subprocess.run(
-            ["git", "-C", str(wt.path), "add", "-A"],
+            [programs.git(), "-C", str(wt.path), "add", "-A"],
             capture_output=True,
             text=True,
             check=False,
@@ -337,7 +338,7 @@ class WorktreeManager:
             raise WorktreeError(f"git add failed in {wt.path}: {add.stderr.strip()}")
         commit = subprocess.run(
             [
-                "git",
+                programs.git(),
                 "-C",
                 str(wt.path),
                 *_NO_SIGNING,
@@ -364,7 +365,7 @@ class WorktreeManager:
                 f"git commit failed in {wt.path}: {commit.stderr.strip()}"
             )
         sha_result = subprocess.run(
-            ["git", "-C", str(wt.path), "rev-parse", "HEAD"],
+            [programs.git(), "-C", str(wt.path), "rev-parse", "HEAD"],
             capture_output=True,
             text=True,
             check=False,
@@ -458,7 +459,7 @@ class WorktreeManager:
         """
         remove = subprocess.run(
             [
-                "git",
+                programs.git(),
                 "-C",
                 str(self.repo_root),
                 "worktree",
@@ -487,7 +488,7 @@ class WorktreeManager:
         if abandon:
             rename = subprocess.run(
                 [
-                    "git",
+                    programs.git(),
                     "-C",
                     str(self.repo_root),
                     "branch",
@@ -509,7 +510,7 @@ class WorktreeManager:
             # dangling branch per DoD ("rolled-back steps leave no branch").
             delete = subprocess.run(
                 [
-                    "git",
+                    programs.git(),
                     "-C",
                     str(self.repo_root),
                     "branch",
@@ -533,7 +534,7 @@ class WorktreeManager:
 
 def _git_in(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["git", "-C", str(repo), *args],
+        [programs.git(), "-C", str(repo), *args],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -547,7 +548,7 @@ def _git_bytes(
 ) -> subprocess.CompletedProcess[bytes]:
     """Run git and keep stdout as bytes (file contents, patches)."""
     return subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, check=False, env=env
+        [programs.git(), "-C", str(repo), *args], capture_output=True, check=False, env=env
     )
 
 
@@ -736,7 +737,7 @@ def take_snapshot(
             excludes = [f":(exclude,literal){name}" for name in tracked_large]
             try:
                 add = subprocess.run(
-                    ["git", "-C", str(repo), "add", "-u", "--", ".", *excludes],
+                    [programs.git(), "-C", str(repo), "add", "-u", "--", ".", *excludes],
                     capture_output=True,
                     check=False,
                     env=env,
@@ -762,7 +763,7 @@ def take_snapshot(
             try:
                 added = subprocess.run(
                     [
-                        "git",
+                        programs.git(),
                         "-C",
                         str(repo),
                         "--literal-pathspecs",
@@ -1132,7 +1133,7 @@ def reviewed_commit(repo: Path, after: str, kept: dict[str, bytes | None]) -> st
 
         def git(*args: str, data: bytes | None = None) -> str:
             done = subprocess.run(
-                ["git", "-C", str(repo), *args],
+                [programs.git(), "-C", str(repo), *args],
                 input=data,
                 capture_output=True,
                 env=env,
@@ -1216,7 +1217,7 @@ def init_repository(root: Path) -> list[str]:
     for start in range(0, len(keep), 200):
         added = subprocess.run(
             [
-                "git",
+                programs.git(),
                 "-C",
                 str(root),
                 *_no_hooks(),
@@ -1233,7 +1234,7 @@ def init_repository(root: Path) -> list[str]:
             raise WorktreeError(f"git add failed: {added.stderr.strip()}")
     committed = subprocess.run(
         [
-            "git",
+            programs.git(),
             "-C",
             str(root),
             *_no_hooks(),

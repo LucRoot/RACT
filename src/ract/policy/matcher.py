@@ -227,7 +227,10 @@ def resolve_executable(name: str, path_env: str, outside: list[Path]) -> str | N
         exts = [
             e for e in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";") if e
         ]
-        names = [name] if Path(name).suffix else [name + e for e in exts]
+        # B-214: "python3.11" has the suffix ".11", which is no extension:
+        # only a PATHEXT suffix means the name is already complete.
+        has_ext = Path(name).suffix.casefold() in {e.casefold() for e in exts}
+        names = [name] if has_ext else [name + e for e in exts]
     else:
         names = [name]
     for entry in path_env.split(os.pathsep):
