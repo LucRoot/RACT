@@ -210,6 +210,25 @@ def run_under_rule(
     )
     if match.outcome == "refused":
         raise ToolRefused(f"refused: {match.reason}", refused_hint)
+    # B-028 (D-142): a rule that names another backend never runs on this host.
+    for named in (
+        rule,
+        *(
+            r
+            for r in getattr(getattr(policy, "commands", None), "allow", []) or []
+            if r.id == match.rule_id
+        ),
+    ):
+        backend = getattr(named, "backend", "host")
+        if backend != "host":
+            from ract.security.other_backends import why_not_wired
+
+            raise ToolRefused(
+                f"the rule {named.id!r} runs with backend {backend}, which this "
+                f"release does not run yet ({why_not_wired(backend)}); "
+                "nothing ran",
+                "use a rule without a backend, or wait for the backend (B-028)",
+            )
     if ctx.approve is None:
         raise ToolRefused(
             "tier 3 asks you before a command runs, and nobody can answer here",

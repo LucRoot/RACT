@@ -78,6 +78,15 @@ def _tools(policy: Any, holds: bool) -> dict[str, str]:
     return out
 
 
+def _other_backends() -> dict[str, str]:
+    from ract.security.other_backends import why_not_wired
+
+    return {
+        name: f"named by a rule, not run yet: {why_not_wired(name)}"
+        for name in ("wsl2", "container")
+    }
+
+
 def tier3_report(project: Path) -> dict[str, Any]:
     """Every fact the report shows, as plain data (``--json`` prints it)."""
     from ract.policy import allowlist
@@ -151,6 +160,8 @@ def tier3_report(project: Path) -> dict[str, Any]:
             "not_enforced": sandbox["not_enforced"],
         },
         "entry_points": record,
+        # B-028: the other backends a rule may name, and why they do not run yet.
+        "other_backends": _other_backends(),
         "session_mode": (
             "no session here; a session starts in ask, and /permissions allowlist "
             f"raises it up to the grant's max_mode ({grant['max_mode'] or 'none'})"
@@ -190,6 +201,8 @@ def tier3_lines(report: dict[str, Any], width: int = 80) -> list[str]:
         rows.append(f"  confines {what}: {how}")
     for item in sandbox["not_enforced"]:
         rows.append(f"  not enforced: {item}")
+    for name, how in report.get("other_backends", {}).items():
+        rows.append(f"  backend {name}: {how}")
     entry = report["entry_points"]
     if entry is not None:
         rows.append(
