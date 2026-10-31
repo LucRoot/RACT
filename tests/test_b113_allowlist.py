@@ -191,3 +191,27 @@ def test_the_console_prompt_offers_session_only_when_asked_to(
         assert (
             "file: conftest.py" in out and "an allow rule does not answer for it" in out
         )
+
+
+def test_a_project_whose_entry_points_cannot_be_listed_asks(
+    project, monkeypatch
+) -> None:
+    """Self-review of B-113: not knowing what would run is not a match."""
+    import ract.policy.allowlist as allowlist
+
+    _grant(project)
+    monkeypatch.setattr(allowlist, "entry_point_digests", lambda root: None)
+    _rooted, asked, _runner = _call(project)
+    assert len(asked) == 1 and (".", allowlist.UNKNOWN) in asked[0]["entry_points"]
+
+
+def test_test_files_in_folders_pytest_skips_are_not_entry_points(project) -> None:
+    from ract.policy.allowlist import entry_point_digests
+
+    (project / ".venv" / "lib").mkdir(parents=True)
+    (project / ".venv" / "lib" / "test_site.py").write_text("", encoding="utf-8")
+    (project / "node_modules").mkdir()
+    (project / "node_modules" / "conftest.py").write_text("", encoding="utf-8")
+    digests = entry_point_digests(project)
+    assert "tests/test_calc.py" in digests and "conftest.py" in digests
+    assert not [p for p in digests if p.startswith((".venv/", "node_modules/"))]

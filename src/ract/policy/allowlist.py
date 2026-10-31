@@ -44,6 +44,31 @@ RUNNER_FILES = frozenset(
 )
 WRITTEN = "written by the model this session"
 CHANGED = "changed since the grant was signed"
+UNKNOWN = "the project's entry points could not be listed"
+# Folders pytest does not collect from by default (its norecursedirs, and
+# every folder whose name starts with a dot): their test files are not
+# entry points of this project's runner. A config that changes that is
+# itself an entry point, so a change to it asks.
+_NOT_COLLECTED = frozenset(
+    {
+        "node_modules",
+        "venv",
+        "build",
+        "dist",
+        "site-packages",
+        "__pycache__",
+        "_darcs",
+        "CVS",
+    }
+)
+
+
+def _collected(rel: str) -> bool:
+    folders = Path(rel).parts[:-1]
+    return not any(
+        part.startswith(".") or part in _NOT_COLLECTED or part.endswith(".egg")
+        for part in folders
+    )
 
 
 def is_entry_point(path: str) -> bool:
@@ -53,7 +78,7 @@ def is_entry_point(path: str) -> bool:
     return Path(path).name in RUNNER_FILES or is_test_file(path)
 
 
-def entry_point_digests(project: Path | str) -> dict[str, str]:
+def entry_point_digests(project: Path | str) -> dict[str, str] | None:
     """The SHA-256 of every entry point in *project*, tracked, new or ignored (B-027:
     a planted conftest.py counts even when the repository's .gitignore hides it)."""
     project = Path(project)
@@ -74,14 +99,15 @@ def entry_point_digests(project: Path | str) -> dict[str, str]:
             timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        print(f"[allowlist] the tracked files were not listed: {exc}", flush=True)
-        return {}
+        print(f"[allowlist] the project's files were not listed: {exc}", flush=True)
+        return None
     if done.returncode != 0:
-        return {}
+        # Not a git repository, or git refused: the entry points are unknown.
+        return None
     digests: dict[str, str] = {}
     for raw in done.stdout.split(b"\0"):
         rel = raw.decode("utf-8", errors="replace")
-        if not rel or not is_entry_point(rel):
+        if not rel or not is_entry_point(rel) or not _collected(rel):
             continue
         path = project / rel
         try:
@@ -105,10 +131,11 @@ def record_signed(project: Path | str, grant_digest: str) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_name(path.name + ".tmp")
-        temp.write_text(
-            json.dumps(entry_point_digests(project), indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
+        digests = entry_point_digests(project)
+        if digests is None:
+            # Nothing to compare with later: every entry point then counts as changed.
+            return
+        temp.write_text(json.dumps(digests, indent=2, sort_keys=True), encoding="utf-8")
         os.replace(temp, path)
     except OSError as exc:
         print(f"[allowlist] the entry points were not recorded: {exc}", flush=True)
@@ -148,6 +175,9 @@ def changed_entry_points(
     shown = {c.path for c in changes}
     signed = _signed_digests(project, grant_digest)
     now = entry_point_digests(project)
+    if now is None:
+        # Not knowing what would run is not a match: it asks.
+        return [*changes, Change(".", UNKNOWN)]
     if signed is None:
         # No record of this grant's signing: every entry point counts as changed.
         return changes + [Change(p, CHANGED) for p in sorted(now) if p not in shown]

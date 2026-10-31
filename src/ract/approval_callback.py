@@ -191,7 +191,7 @@ def console_tier_3_prompt(facts: dict) -> bool | str:
         executable=str(facts.get("executable") or "not resolved"),
         cwd=str(facts.get("cwd", "")),
         network=str(facts.get("network", "off")).startswith("on"),
-        sandbox_enforced=False,
+        sandbox_enforced=str(facts.get("sandbox", "")).startswith("enforced"),
         limits=(
             f"wall {facts['timeout_s']} s; processes, memory and CPU not enforced "
             "on this machine"

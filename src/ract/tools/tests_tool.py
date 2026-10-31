@@ -181,12 +181,26 @@ def run_under_rule(
             "tier 3 asks you before a command runs, and nobody can answer here",
             "run it in a session at a terminal; headless runs and --yolo never run tier 3",
         )
+    # B-114: the lines say what the runner that will run it does.
+    if ctx.runner is not None:
+        confined = getattr(ctx.runner, "sandbox", None)
+    else:
+        from ract.security.command_sandbox import enforcing_backend
+
+        backend, _why = enforcing_backend()
+        confined = getattr(backend, "name", None)
     facts = {
         "argv": list(match.argv),
         "executable": match.executable,
         "cwd": "the step's worktree",
-        "network": "on" if rule.network else "off (not enforced on this machine)",
-        "sandbox": "best effort: not enforced on this machine",
+        "network": "on"
+        if rule.network
+        else "off"
+        if confined
+        else "off (not enforced on this machine)",
+        "sandbox": f"enforced: {confined}"
+        if confined
+        else "best effort: not enforced on this machine",
         "rule": rule.id,
         "timeout_s": rule.timeout_s,
         "why": match.reason,
