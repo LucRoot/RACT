@@ -2409,7 +2409,16 @@ class LoopController:
         return "\n\n".join(parts) + f"\n\n{intent}"
 
     def _run_tests(self) -> tuple[int | None, str, str]:
-        """Run the project's test suite and return (returncode, summary, full_output)."""
+        """Run the project's test suite and return (returncode, summary, full_output).
+
+        B-201: the tests run with the environment ``run_command`` gives a
+        command (no provider key, no ``RACT_*`` name), and their output is
+        redacted before it reaches the loop state and ``loop_report.json``.
+        """
+        from ract.redaction import redact
+        from ract.tools.command import command_env
+
+        env, _digest = command_env([], "real", None)
         try:
             proc = subprocess.run(
                 [self.python_executable, *self.test_command],
@@ -2417,10 +2426,11 @@ class LoopController:
                 capture_output=True,
                 text=True,
                 timeout=300,
+                env=env,
             )
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return None, "test runner unavailable or timed out", ""
-        full_output = (proc.stdout or "") + (proc.stderr or "")
+        full_output = redact((proc.stdout or "") + (proc.stderr or ""))
         summary = full_output.strip().splitlines()[-1] if full_output else ""
         return proc.returncode, summary, full_output
 

@@ -5405,8 +5405,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         return code
 
+    # B-201: streamed text goes through the session's redactor, as in a
+    # session and in headless runs; the held-back tail is printed at the end.
+    from ract.redaction import StreamingRedactor
+
+    stream_redactor = StreamingRedactor()
+
     def _stream_callback(delta: str) -> None:
-        print(delta, end="", flush=True)
+        print(stream_redactor.feed(delta), end="", flush=True)
 
     from ract import run_checkpoint
 
@@ -5489,12 +5495,16 @@ def main(argv: list[str] | None = None) -> int:
     for assumption in report.assumptions:
         console.print(f"  • {assumption}")
     if args.stream:
+        print(stream_redactor.close(), end="", flush=True)
         console.direct("streaming complete")
     else:
         console.direct("results:")
         for i, step_result in enumerate(report.step_results, start=1):
             console.rule(f"Step {i}: {step_result.step.action}")
-            console.print(step_result.content)
+            # B-201: the model's text, redacted and never read as markup.
+            from ract.redaction import redact
+
+            console.print(redact(step_result.content), markup=False)
     if report.unsigned_artifacts:
         # LR:: Rootknot signing is not wired into CLI runs yet (S-015). Say
         # so on every run that wrote files, instead of implying they are

@@ -77,8 +77,11 @@ class ErrorMemory:
         self._ensure_dir()
         # Keep only the most recent entries under the cap.
         kept = entries[-self.max_stored :]
+        from ract.redaction import redact_values
+
+        # B-201: a FAILED reason is command output; it is stored redacted.
         self.memory_path.write_text(
-            "".join(json.dumps(e) + "\n" for e in kept),
+            "".join(json.dumps(redact_values(e)) + "\n" for e in kept),
             encoding="utf-8",
         )
 

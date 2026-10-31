@@ -23,6 +23,7 @@ from __future__ import annotations
 import base64
 import re
 import threading
+from typing import Any
 from urllib.parse import quote
 
 REPLACEMENT = "[redacted]"
@@ -245,6 +246,17 @@ def redact_report(text: str) -> tuple[str, dict[str, int]]:
         if n:
             counts[name] = counts.get(name, 0) + n
     return text, counts
+
+
+def redact_values(value: Any) -> Any:
+    """*value* with every string in it redacted, at any depth (B-201)."""
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, dict):
+        return {key: redact_values(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [redact_values(item) for item in value]
+    return value
 
 
 class StreamingRedactor:
