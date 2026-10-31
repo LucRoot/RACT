@@ -42,7 +42,11 @@ def test_the_read_tools_are_registered_at_tier_0_and_never_mutate() -> None:
     # B-110 adds repo_map (tier 0) and the write tools, which read_only_tools() leaves out.
     from ract.tools import read_only_tools
 
+    # B-115 adds git_status, git_diff and git_log, which read at tier 0.
     assert sorted(read_only_tools()) == [
+        "git_diff",
+        "git_log",
+        "git_status",
         "glob",
         "grep",
         "list_dir",

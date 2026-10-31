@@ -497,7 +497,10 @@ def _run_via_substrate_steps(
                 error=(
                     f"Interrupted before step {index + 1}. Already applied to your "
                     "files in this run: "
-                    + (", ".join(applied_so_far) or "nothing")
+                    + (
+                        ", ".join(p for p in applied_so_far if not _is_sidecar(p))
+                        or "nothing"
+                    )
                     + "."
                 ),
                 hint="interrupted",
@@ -658,7 +661,8 @@ def _run_via_substrate_steps(
             turn_context.report(
                 "change.applied",
                 {
-                    "paths": list(outcome.applied),
+                    # S-015b: the operator's files; a sidecar follows its file.
+                    "paths": [p for p in outcome.applied if not _is_sidecar(p)],
                     "checkpoint": undo_backup.current_backup_id() or "",
                     "skipped": [
                         {"path": p, "reason": why} for p, why in outcome.skipped.items()
@@ -686,7 +690,10 @@ def _run_via_substrate_steps(
                 error=(
                     f"Step {index + 1} left these paths as they are: {left}.{where} "
                     "Already applied to your files in this run: "
-                    + (", ".join(applied_so_far) or "nothing")
+                    + (
+                        ", ".join(p for p in applied_so_far if not _is_sidecar(p))
+                        or "nothing"
+                    )
                     + "."
                 ),
                 hint=(
