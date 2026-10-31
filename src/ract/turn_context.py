@@ -334,6 +334,37 @@ def cancelled_within(seconds: float) -> bool:
     return bool(event is not None and event.wait(seconds))
 
 
+def record_denial(tier: str, action: str, *, rule: str = "", reason: str = "") -> None:
+    """An approval nobody could answer, resolved at once as denied (B-193).
+
+    In a headless run and under ``--yolo`` nobody is asked. The request and
+    its resolution (``by: unattended``) are still emitted, so the result lists
+    the denial and ``--fail-on-denial`` can end the run on it. No model
+    output reaches the resolution: it is decided here, by the harness.
+    """
+    import uuid
+
+    from ract.session_events import safe_text
+
+    approval_id = f"a-{uuid.uuid4().hex[:12]}"
+    report(
+        "approval.requested",
+        {
+            "id": approval_id,
+            "tier": tier,
+            "rule": rule,
+            "action": safe_text(action),
+            "reason": safe_text(reason),
+            "facts": {},
+            "choices": ["once", "deny"],
+        },
+    )
+    report(
+        "approval.resolved",
+        {"id": approval_id, "choice": "denied", "by": "unattended"},
+    )
+
+
 def report(kind: str, data: dict[str, Any]) -> None:
     """Emit a session event for the current turn, if a session is listening.
 

@@ -230,6 +230,10 @@ def run_under_rule(
                 "use a rule without a backend, or wait for the backend (B-028)",
             )
     if ctx.approve is None:
+        # B-193: the approval nobody can answer is recorded as denied.
+        turn_context.record_denial(
+            "T3", " ".join(match.argv), rule=match.rule_id or "", reason=reason
+        )
         raise ToolRefused(
             "tier 3 asks you before a command runs, and nobody can answer here",
             "run it in a session at a terminal; headless runs and --yolo never run tier 3",

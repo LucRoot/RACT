@@ -161,6 +161,15 @@ def run_tool(
         if tier is CapabilityTier.TIER_2_ENV and not (
             approve_tier_2 is not None and approve_tier_2(name, args)
         ):
+            if approve_tier_2 is None:
+                # B-193: nobody can answer here (headless, --yolo).
+                from ract import turn_context
+                from ract.tools.write import targets
+
+                paths = ", ".join(targets(name, args))
+                turn_context.record_denial(
+                    "T2", f"{name} {paths}".strip(), rule="tier-2 write"
+                )
             raise ToolRefused(
                 f"{name} touches a control or executable-configuration file (tier 2), "
                 "which needs the operator's approval",
