@@ -49,10 +49,38 @@ def test_lsp_binary_hints_cover_every_adapter():
         assert LSP_BINARY_HINTS[lang]
 
 
-def test_available_languages_returns_probe_per_language(tmp_path: Path):
+def test_available_languages_returns_probe_per_language(tmp_path: Path, monkeypatch):
+    # B-134 (WRIGHT's FOUND): this test started a real python language server
+    # where multilspy is installed, and it never answered. The probe's own
+    # behaviour is tested below; here no server is started.
+    import ract.memory.lsp as lsp
+
+    def no_server(*_a, **_kw):
+        raise ModuleNotFoundError("multilspy is not used in this test")
+
+    monkeypatch.setattr(lsp, "LspClient", no_server)
     results = available_languages(("python", "cobol"), tmp_path)
     assert set(results) == {"python", "cobol"}
     assert results["cobol"].available is False
+    assert results["python"].available is False
+
+
+def test_a_probe_that_never_answers_is_bounded(tmp_path: Path, monkeypatch):
+    """B-134: a language server that never answers does not hold the caller."""
+    import threading
+
+    import ract.memory.lsp as lsp
+
+    stop = threading.Event()
+
+    def hangs(language, repo_root=None):
+        stop.wait(30)
+        raise AssertionError("not reached in the budget")
+
+    monkeypatch.setattr(lsp, "probe_lsp", hangs)
+    result = lsp.bounded_probe("python", tmp_path, budget_s=0.2)
+    stop.set()
+    assert result.available is False and "did not answer in" in result.error_message
 
 
 def test_lsp_client_rejects_unsupported_language(tmp_path: Path):

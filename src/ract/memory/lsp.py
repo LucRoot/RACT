@@ -451,7 +451,50 @@ def available_languages(
     marking unsupported languages for fallback in one pass.
     """
     langs = tuple(languages) if languages is not None else tuple(LSP_ADAPTERS)
-    return {lang: probe_lsp(lang, repo_root) for lang in langs}
+    return {lang: bounded_probe(lang, repo_root) for lang in langs}
+
+
+# B-134 (WRIGHT's FOUND of 18:15): a language server that starts and never
+# answers held the caller, and a whole test run, without end. A probe gets
+# this long; past it the language is reported unavailable.
+PROBE_BUDGET_SECONDS = 45.0
+
+
+def bounded_probe(
+    language: str,
+    repo_root: Path | str | None = None,
+    *,
+    budget_s: float | None = None,
+) -> LspProbeResult:
+    """``probe_lsp`` with a wall-clock bound; past it the language is unavailable.
+
+    The probe runs in a daemon thread. When it does not return in time the
+    result says so, and the thread is left to end with its server (a server
+    that never answers is not waited for; it ends with the process).
+    """
+    import threading
+
+    budget = PROBE_BUDGET_SECONDS if budget_s is None else budget_s
+    box: list[LspProbeResult] = []
+    worker = threading.Thread(
+        target=lambda: box.append(probe_lsp(language, repo_root)),
+        name=f"ract-lsp-probe-{language}",
+        daemon=True,
+    )
+    worker.start()
+    worker.join(budget)
+    if box:
+        return box[0]
+    _LOGGER.warning("probe_lsp: %s did not answer in %.0f s", language, budget)
+    return LspProbeResult(
+        language=language,
+        available=False,
+        latency_ms=int(budget * 1000),
+        error_message=(
+            f"probe_lsp: the {language} language server did not answer in "
+            f"{budget:.0f} s"
+        ),
+    )
 
 
 __all__ = [
