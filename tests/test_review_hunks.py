@@ -223,3 +223,24 @@ def test_the_hunks_are_the_ones_the_summary_draws() -> None:
     assert [h.n for h in found] == [1, 2, 3] and len(drawn) == 3
     assert review_hunks.combine(OLD, NEW, found, {}) == NEW
     assert review_hunks.combine(OLD, NEW, found, {1: False, 2: False, 3: False}) == OLD
+
+
+# --- S-015b: a sidecar follows its file --------------------------------------
+
+
+def test_the_sidecar_is_not_asked_about_and_goes_with_a_rejected_file(
+    tmp_path: Path,
+) -> None:
+    """The gate found it (test_review_pty): /review asked about the sidecar."""
+    _turn(tmp_path, {"notes.py": 'NOTE = "two"\n', ".notes.py.rootknot.json": "{}\n"})
+    text = _review(tmp_path, ["r"])  # one question: notes.py
+    assert "rootknot" not in text
+    assert not (tmp_path / "notes.py").exists()
+    assert not (tmp_path / ".notes.py.rootknot.json").exists()
+
+
+def test_a_kept_file_keeps_its_sidecar(tmp_path: Path) -> None:
+    _turn(tmp_path, {"notes.py": 'NOTE = "two"\n', ".notes.py.rootknot.json": "{}\n"})
+    text = _review(tmp_path, ["a"])
+    assert "rootknot" not in text
+    assert (tmp_path / ".notes.py.rootknot.json").read_text(encoding="utf-8") == "{}\n"

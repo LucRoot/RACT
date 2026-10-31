@@ -508,7 +508,11 @@ def review_last_turn(
         return TurnReview(turn=None)
     last = turns[0]
     review = TurnReview(turn=last["turn"])
-    for key in [*last["saved"], *last["created"]]:
+    keys = [*last["saved"], *last["created"]]
+    # S-015b: a Rootknot sidecar is RACT's record of its file, not a change to
+    # ask about; it follows its file after the review (below).
+    sidecars = [key for key in keys if _is_sidecar(key)]
+    for key in [key for key in keys if not _is_sidecar(key)]:
         if undo_backup.check_entry(base, base, key) is not None:
             review.notes.append(
                 f"{safe_text(key)} cannot be reviewed: not a project path"
@@ -534,7 +538,48 @@ def review_last_turn(
             break
         except WorkspacePathRefused as refused:
             review.notes.append(f"{safe_text(key)} was not written: {refused}")
+    _sidecars_follow(base, last, sidecars, review)
     return review
+
+
+def _is_sidecar(key: str) -> bool:
+    name = key.rpartition("/")[2]
+    return name.startswith(".") and name.endswith(".rootknot.json")
+
+
+def _sidecars_follow(
+    base: Path, last: dict, sidecars: list[str], review: TurnReview
+) -> None:
+    """A file the review changed takes back its sidecar: the knot attests the
+    turn's version, which is no longer there (S-015b). Recorded, so /undo
+    stays true."""
+    changed = {
+        file.path
+        for file in review.files
+        if file.rewritten or file.removed or file.restored
+    }
+    for key in sidecars:
+        head, _, name = key.rpartition("/")
+        artifact = name[1 : -len(".rootknot.json")]
+        if (f"{head}/{artifact}" if head else artifact) not in changed:
+            continue
+        before: bytes | None = None
+        if key in last["saved"]:
+            try:
+                before = undo_backup.previous_version(base, last["turn"], key)
+            except ValueError:
+                before = None
+            if before is None:
+                review.notes.append(
+                    f"{safe_text(key)} was left as it is: the turn's saved copy is missing"
+                )
+                continue
+        try:
+            _write(base, key, before)
+        except WorkspacePathRefused as refused:
+            review.notes.append(f"{safe_text(key)} was not written: {refused}")
+            continue
+        undo_backup.note_reviewed(base, last["turn"], key)
 
 
 def report_lines(review: TurnReview) -> list[str]:
