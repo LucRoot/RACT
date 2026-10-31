@@ -146,6 +146,9 @@ class Manager:
         self.system_prompt = system_prompt
         self.tools_description = tools_description or ""
         self.temperature_router = temperature_router or TemperatureRouter()
+        # B-137: set by the harness when the step agent loop is on; prose twice
+        # then becomes the one step, else it ends with the plain sentence (B-086).
+        self.agent_steps = False
 
     def _full_system_prompt(self) -> str:
         """Return the system prompt with optional MCP tools appendix."""
@@ -226,9 +229,19 @@ class Manager:
             return self._agent_plan(intent, self._last_raw)
         if second.is_ok() or second.hint != NO_STEPS_HINT:
             return second
-        # B-137: prose twice; the request becomes the one step, and its first
-        # turn is the prose (an answer when the step agent loop is off).
-        return self._agent_plan(intent, self._last_raw or None)
+        if self.agent_steps:
+            # B-137: prose twice, and the step agent loop is on: the request is
+            # the one step, and the loop asks the model again with the tools (a
+            # prose reply replayed as its first turn would end the loop at once).
+            return self._agent_plan(intent, None)
+        return Rooted(
+            value=None,
+            assumption="The management LM returns a JSON plan with steps.",
+            confidence=0.0,
+            provenance=["manager.plan"],
+            error=NO_PLAN_SENTENCE,
+            hint=NO_STEPS_HINT,
+        )
 
     def _agent_plan(self, intent: str, opening: dict[str, Any] | None) -> Rooted[Plan]:
         """The request as the one step, through the step agent loop (B-137)."""

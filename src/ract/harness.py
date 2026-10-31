@@ -394,6 +394,9 @@ class Harness:
         # the tier-0 tools, within the budgets in ract.yaml (``agent``).
         self.executor.read_tools = _read_tools_budgets(self.config)
         self.executor.step_tools = _step_tools_budgets(self.config)
+        # B-137: with the step agent loop on, a model that answers in prose twice
+        # gets the request as one step through the loop.
+        self.manager.agent_steps = self.executor.step_tools is not None
         self.executor.grant_root = self.project_dir
         # B-061c (ADR-0049 D14): the per-step review; off unless ract.yaml says.
         self.executor.review_mode = _review_mode(self.config)

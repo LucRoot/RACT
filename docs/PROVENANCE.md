@@ -6,16 +6,14 @@ source symbols rather than prose.
 
 ## Current state
 
-A normal `ract` run signs what it writes (S-015b): at run entry
+A normal `ract` run signs what it writes (S-015b):
 `ract.provenance_wiring.install` loads the session key from the user state
 folder, makes the run's sandbox and verifier keys in this repository's state
 folder (never inside the project, ADR-0048 R3) and calls
 `Executor.install_v4_provenance_deps`. Each file a turn changes gets a v4
-Rootknot over the bytes on disk, and `ract provenance verify <file>` passes on
-it. When any of that cannot be built, nothing is signed, the run prints why
-and names the files it left unsigned, and `ract provenance verify` reports
-such a file as `unsigned`. Command records are not part of a knot; they bind
-into the trace chain (ADR-0048 D10).
+Rootknot over its bytes on disk, which `ract provenance verify <file>` checks.
+When that cannot be set up, nothing is signed, the run names the files it
+left unsigned and why, and verify reports them as `unsigned`.
 
 ## What a Rootknot attests
 

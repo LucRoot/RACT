@@ -62,13 +62,25 @@ def test_the_planner_the_harness_calls_passes_the_agent_plan_on() -> None:
     assert rooted.unwrap().steps[0].agent is True
 
 
-def test_prose_twice_becomes_the_one_step_and_says_so() -> None:
+def test_prose_twice_with_the_step_loop_on_becomes_the_one_step() -> None:
     provider = Provider([_text("Sure, I can help."), _text("Let me look.")])
-    rooted = Manager(provider, "plan").plan("fix the failing test")
+    manager = Manager(provider, "plan")
+    manager.agent_steps = True  # the harness sets it from agent.step_tools
+    rooted = manager.plan("fix the failing test")
     assert rooted.is_ok(), rooted.error
     plan = rooted.unwrap()
     assert plan.planned is False and plan.steps[0].agent is True
+    # The loop starts fresh with the tools; replayed prose would end it at once.
+    assert plan.steps[0].opening is None
     assert "went straight to tools" in rooted.assumption
+
+
+def test_prose_twice_with_the_step_loop_off_keeps_the_plain_sentence() -> None:
+    from ract.manager import NO_PLAN_SENTENCE
+
+    provider = Provider([_text("Sure, I can help."), _text("Let me look.")])
+    rooted = Manager(provider, "plan").plan("fix the failing test")
+    assert not rooted.is_ok() and rooted.error == NO_PLAN_SENTENCE  # B-086
 
 
 def test_a_json_plan_is_still_a_plan() -> None:
@@ -125,7 +137,7 @@ def test_the_plan_event_and_the_headless_result_say_planned() -> None:
     assert result_object(events, session="s", exit_code=0)["planned"] is False
 
 
-def test_with_the_step_loop_off_prose_is_the_answer_and_tools_are_refused(
+def test_with_the_step_loop_off_the_tool_calls_are_refused_and_named(
     tmp_path,
 ) -> None:
     from ract.executor.steps import Executor
@@ -133,14 +145,6 @@ def test_with_the_step_loop_off_prose_is_the_answer_and_tools_are_refused(
     from ract.providers.router import ProviderRouter
 
     executor = Executor(router=ProviderRouter({}), project_dir=tmp_path)
-    prose = Step(
-        action="q",
-        provider_hint="",
-        expected_artifact="",
-        agent=True,
-        opening=_text("hi"),
-    )
-    assert executor._agent_without_tools(prose, 1).unwrap()[1] == "hi"
     tools = Step(
         action="q", provider_hint="", expected_artifact="", agent=True, opening=_tools()
     )

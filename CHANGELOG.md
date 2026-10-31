@@ -267,8 +267,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   step through the step agent loop, its first reply's tool calls the step's first turn,
   each call through the same tier gate and approvals as any other. The plan is shown for
   approval in default mode; headless without `--accept-edits` refuses it and says so.
-  `plan.proposed` and the headless JSON result carry `planned: false`. With
-  `agent.step_tools` off, a prose reply is the answer and tool calls are refused, named.
+  `plan.proposed` and the headless JSON result carry `planned: false`. A model that
+  answers in prose twice gets the same one step when `agent.step_tools` is on; with it off,
+  that still ends with the plain sentence (B-086), and tool calls are refused, named.
 - A path such as `C:\Windows\x.py` is refused on Linux and macOS as on Windows (B-136):
   it was read as a relative name inside the project.
 - `ract memory init` checks the language servers side by side under one 20 s budget (B-136,

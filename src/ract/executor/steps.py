@@ -1794,32 +1794,22 @@ class Executor:
     def _agent_without_tools(
         self, step: Step, index: int
     ) -> Rooted[tuple[dict[str, Any], str, dict[str, Any]]]:
-        """B-137 with the step agent loop off: prose is the answer; tool calls are refused."""
-        from ract.manager import _has_tool_calls
+        """B-137 with the step agent loop off: the tool calls are refused, named.
 
-        opening = getattr(step, "opening", None)
-        if _has_tool_calls(opening) or not isinstance(opening, dict):
-            return Rooted(
-                value=None,
-                assumption="The step agent loop is on for a request the model "
-                "answered with tools.",
-                confidence=0.0,
-                provenance=[f"executor.step:{index}", "agent_plan"],
-                error=(
-                    "The model went straight to tools and gave no plan, and the step "
-                    "agent loop is off here, so nothing was run."
-                ),
-                hint="set agent.step_tools: true in ract.yaml, or ask for a plan",
-            )
-        content = str(
-            ((opening.get("choices") or [{}])[0].get("message") or {}).get("content")
-            or ""
-        )
+        The manager makes a prose reply an agent step only when the loop is on,
+        so only a reply that went straight to tools arrives here.
+        """
         return Rooted(
-            value=(opening, content, {}),
-            assumption="The model's prose answers the request.",
-            confidence=0.5,
+            value=None,
+            assumption="The step agent loop is on for a request the model "
+            "answered with tools.",
+            confidence=0.0,
             provenance=[f"executor.step:{index}", "agent_plan"],
+            error=(
+                "The model went straight to tools and gave no plan, and the step "
+                "agent loop is off here, so nothing was run."
+            ),
+            hint="set agent.step_tools: true in ract.yaml, or ask for a plan",
         )
 
     def _work_with_step_tools(
