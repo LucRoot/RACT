@@ -20,6 +20,8 @@ presets before it can run on fake servers (a proposed card, B-160d).
    `4) lmstudio  (key in )`, `5) ollama  (key in )`, `8) vllm  (key in )`. A local server has no key
    variable, so the line should say `(no key needed)` or name nothing at all, not an empty `(key in )`.
 2. The same transcript: `Which one? [1] 1` shows the chosen digit echoed after the prompt. Harmless, noted.
-3. Case 2, both widths: the `Next:` line names `ract -p --ask` and reads correctly at 60 columns.
+3. Width is NOT established by these records. The 60-column record has lines of 91 to 124 characters
+   (for example the `Next:` line), so the driver stored the output unwrapped. The check that every line fits
+   at 60 columns needs a wrapped capture, which this walk did not make.
 4. The `Run git init here now? [y/N]` question is asked after the config is written, so a user who says `n`
    is still told the config works. Read as intended; no change asked.
