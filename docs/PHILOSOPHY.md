@@ -42,7 +42,8 @@ v0.4.0-rc1 moves that authority out of the model and into the
 environment. Two combined pipelines land in this tag:
 
 - **Substrate.** Every plan step runs in its own git worktree, inside an
-  OS-enforced sandbox derived from a signed capability manifest. Every
+  sandbox described by a capability manifest (no backend enforces it
+  yet: ADR-0048 D7). Every
   model action is a member of a closed Pydantic union validated at the
   provider boundary. Every run emits a hash-chained event log the
   environment (not the model) reads to decide T1 completion: *every

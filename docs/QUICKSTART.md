@@ -257,7 +257,7 @@ If a provider call hangs, the loop enforces a per-iteration timeout (default 900
 
 ## Use built-in skills
 
-RACT ships with signed skill templates for common tasks:
+RACT ships skill templates for common tasks (they are not signed):
 
 ```bash
 ract skills list

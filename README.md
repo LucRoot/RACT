@@ -276,7 +276,7 @@ module_10, Lens A M8 closure).
 - `ract merge-gate` — Evaluate the mutation-testing merge gate.
 - `ract provenance` — Verify Rootknot signatures for artifacts and workspaces.
 - `ract receipt` — List, show, or verify receipts.
-- `ract receipt-export` — Export receipts to disk or upload to a signed archive.
+- `ract receipt-export` — Print the signed receipts in a directory as JSON.
 - `ract manifest` — Repro-manifest alias + ledger verify/inspect/show/proof.
 - `ract repro-manifest` — Produce a reproducibility manifest for a run.
 - `ract policy-gate` — Evaluate a run against the configured policy.
