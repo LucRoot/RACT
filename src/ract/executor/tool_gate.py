@@ -695,6 +695,13 @@ _EXEMPT_SITES: dict[str, str] = {
         "with a timeout; no model input reaches the argv. Tier-3 commands "
         "themselves still go through run_command and its approval."
     ),
+    "git_run.py": (
+        "RACT's own git reads and step commits (B-206): run_git starts git by its "
+        "full path with G-239's whole hardening (fsmonitor off, an empty hooks "
+        "folder, no pager, no external diff or signing program, a filtered "
+        "environment). The callers pass fixed git argv; the model's git calls still "
+        "go through SubstrateLoop.invoke_tool and the git tools."
+    ),
     "provenance_wiring.py": (
         "operator-invoked-diagnostic: one fixed git ls-files at run entry, with "
         "core.fsmonitor off, no hooks, --no-optional-locks and a timeout, listing "
