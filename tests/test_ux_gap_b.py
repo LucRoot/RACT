@@ -55,7 +55,7 @@ def test_permissions_answers_what_may_change_or_be_sent(tmp_path):
     session.state.auto = True  # a terminal session starts in default mode (repl.py)
     session._handle_command("/permissions")
     text = console.text
-    assert "Mode: default:" in text
+    assert "File changes: default:" in text  # B-191: the setting names itself
     assert "Network:" in text and "ract.yaml" in text
     assert "Tier 3" in text and "off" in text
     # MASON's permissions view (B-111) writes "sandbox: best effort, not

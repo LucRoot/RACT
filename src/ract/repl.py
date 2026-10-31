@@ -689,10 +689,15 @@ class ReplSession:
 
     # B-034: the session's permission mode, made of the two switches it
     # already had (dry-run, auto) and shown in the status line.
+    # B-191: the file-change mode (/mode) and the tier-3 mode (/permissions
+    # ask|allowlist) are two settings; each text names which one it is.
     _MODE_TEXT = {
-        "plan": "plan: the planner proposes; nothing runs and nothing is written",
-        "default": "default: RACT asks before each step that changes a file",
-        "auto-accept": "auto-accept: changes are applied without asking (/undo reverses a turn)",
+        "plan": "File changes: plan: the planner proposes; nothing runs and nothing is written",
+        "default": "File changes: default: RACT asks before each step that changes a file",
+        "auto-accept": (
+            "File changes: auto-accept: changes are applied without asking "
+            "(/undo reverses a turn)"
+        ),
     }
     _MODE_ALIASES = {
         "ask": "default",
@@ -792,7 +797,7 @@ class ReplSession:
                 "Signing key locked: the next signature asks for the passphrase."
             )
             return True
-        self._print_wrapped(f"Mode: {self._MODE_TEXT[self.permission_mode()]}")
+        self._print_wrapped(self._MODE_TEXT[self.permission_mode()])
         self._print_wrapped(
             "Network: requests go only to the providers named in ract.yaml; "
             "/cost lists what was sent."
@@ -827,11 +832,11 @@ class ReplSession:
             return True
         self._tier3_mode = wanted
         self._print_wrapped(
-            "Tier 3: allowlist: a command that matches an allow rule runs without "
-            "asking; tier 2, the always-ask list and a changed test or runner file "
-            "still ask"
+            "Tier-3 commands: allowlist: a command that matches an allow rule runs "
+            "without asking; tier 2, the always-ask list and a changed test or "
+            "runner file still ask"
             if wanted == "allowlist"
-            else "Tier 3: ask: every command asks before it runs"
+            else "Tier-3 commands: ask: every command asks before it runs"
         )
         return True
 
@@ -1015,23 +1020,32 @@ class ReplSession:
     def _cmd_set(self, args: list[str]) -> bool:
         if len(args) != 2:
             self._console.error(
-                "usage: /set <dry-run|stream|auto|mode|iterations|reasoning> <value>"
+                "usage: /set <dry-run|stream|task|iterations|reasoning> <value>"
             )
             return True
         name, value = args[0].lower().replace("_", "-"), args[1].lower()
         s = self.state
-        if name in {"dry-run", "stream", "auto"}:
+        if name == "auto":
+            # B-191: "/set auto on" selected the mode that asks, the opposite of
+            # /mode auto-accept. It is retired; the line names what to type.
+            self._console.error(
+                "/set auto is retired: /mode default asks before each change, "
+                "/mode auto-accept applies changes without asking"
+            )
+            return True
+        if name == "mode":
+            # B-191: renamed so it is not read as /mode; the old name still
+            # works for now and says the new one.
+            self._console.info("/set mode is now /set task")
+            name = "task"
+        if name in {"dry-run", "stream"}:
             if value not in _BOOL_TRUE | _BOOL_FALSE:
                 self._console.error(f"{name} takes on or off, not '{escape(value)}'")
                 return True
-            on = value in _BOOL_TRUE
-            if name == "auto" and on and not sys.stdin.isatty():
-                self._console.error("auto needs a terminal to ask for approval")
-                return True
-            setattr(s, name.replace("-", "_"), on)
-        elif name == "mode":
+            setattr(s, name.replace("-", "_"), value in _BOOL_TRUE)
+        elif name == "task":
             if value not in {"default", "documentation", "git"}:
-                self._console.error("mode is default, documentation or git")
+                self._console.error("task is default, documentation or git")
                 return True
             s.mode = value
         elif name == "reasoning":

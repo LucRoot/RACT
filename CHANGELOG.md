@@ -285,6 +285,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Each mode word has one meaning in a session (B-191): `/mode` sets how file changes are handled
+  and its text starts with "File changes:"; `/permissions ask|allowlist` sets how tier-3
+  commands are handled and says "Tier-3 commands:". `/set auto` is retired, because `/set auto
+  on` selected the mode that asks; it now names `/mode default` and `/mode auto-accept`.
+  `/set mode` is now `/set task`, and the old name still works for now.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.
