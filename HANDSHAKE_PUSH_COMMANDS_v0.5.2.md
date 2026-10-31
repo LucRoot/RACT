@@ -1,7 +1,7 @@
 # HANDSHAKE REQUIRED
 # Operator must explicitly execute the following commands manually after verification.
 # DO NOT PIPE THIS FILE TO A SHELL. DO NOT AUTOMATE THIS.
-# Claude has NOT authorized push. Operator authorization is required per RACT invariant five.
+# No push has been performed. Operator authorization is required per RACT invariant five.
 
 # v0.5.2 (Deep-Audit Hardening) handshake-gated push commands
 

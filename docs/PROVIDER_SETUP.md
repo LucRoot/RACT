@@ -16,7 +16,7 @@ RACT routes each plan step to a provider adapter. You can use local models, remo
 Start the server:
 
 ```bash
-llama-server -m /path/to/model.gguf --port 8011 --host 127.0.0.1 -c 32768
+llama-server -m /path/to/model.gguf --port 8080 --host 127.0.0.1 -c 32768
 ```
 
 Configure RACT:
@@ -27,7 +27,7 @@ manager_provider: local
 providers:
   local:
     adapter: local_http
-    url: http://127.0.0.1:8011/v1
+    url: http://127.0.0.1:8080/v1
     model: my-local-model
 ```
 

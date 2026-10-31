@@ -16,8 +16,6 @@ import re
 import subprocess
 from pathlib import Path
 
-import pytest
-
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # sha256 of the normalised term -> its number of words.
@@ -83,13 +81,7 @@ def test_the_matcher_finds_a_term_by_its_hash_alone() -> None:
     assert hashed_hits("harmless and example apart", term) == set()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "waits for R-002a: the scrub branch removes these mentions; until the operator "
-        "merges it, 8 tracked places still name three hashed terms (D-152)"
-    ),
-)
+# B-166 (D-156): the scrub is merged, so no tracked file names these terms.
 def test_no_tracked_file_names_a_hashed_closed_term() -> None:
     hits: dict[str, int] = {}
     for path in _tracked_text_files():

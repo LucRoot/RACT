@@ -13,14 +13,13 @@ Close the HIGH-severity findings surfaced by the DA-A + DA-B adversarial audits.
 ## 2. Non-goals
 
 - No new features (all v0.6+ scope per ADR-0043/44/45/46 remains deferred).
-- No Kairos references (post-filter-repo state preserved).
 - No breaking Rootknot 3-signature schema. Enforce EXISTING schema invariants more strictly, do not add new fields.
 
 ## 3. Sacred spine, invariants preserved (and strengthened)
 
 - Rootknot 3-signature schema unchanged, but v4 schema-label now STRUCTURALLY implies v4 fields present + non-empty (module_01 fix; closes v4-label-attack surface).
 - Author-name-free tree.
-- Closed-IP wordlist zero-tolerance (zero kairos anywhere).
+- Closed-IP wordlist zero-tolerance.
 - AL-1 property (structural per wiring module_07).
 - Handshake-always for push.
 
