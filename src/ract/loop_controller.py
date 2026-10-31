@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ract import redaction
 from ract.core.loop import (
     LoopState,
     TerminationCause,
@@ -1787,7 +1788,7 @@ class LoopController:
 
                 _emit_event(
                     "whisperer.classifier_error",
-                    {"error_type": type(exc).__name__, "message": str(exc)[:512]},
+                    {"error_type": type(exc).__name__, "message": redaction.body(str(exc), 512)},
                 )
             except Exception:  # noqa: BLE001
                 pass
@@ -1960,7 +1961,7 @@ class LoopController:
                     {
                         "surface": "_run_canonical_g1_g7_g8",
                         "error_type": type(exc).__name__,
-                        "message": str(exc)[:512],
+                        "message": redaction.body(str(exc), 512),
                     },
                 )
             except Exception:  # noqa: BLE001
@@ -2025,7 +2026,7 @@ class LoopController:
                     "memory.probe_scheduler_error",
                     {
                         "error_type": type(exc).__name__,
-                        "message": str(exc)[:512],
+                        "message": redaction.body(str(exc), 512),
                     },
                 )
             except Exception:  # noqa: BLE001
@@ -2089,7 +2090,7 @@ class LoopController:
                     "memory.composition_runner_error",
                     {
                         "error_type": type(exc).__name__,
-                        "message": str(exc)[:512],
+                        "message": redaction.body(str(exc), 512),
                     },
                 )
             except Exception:  # noqa: BLE001

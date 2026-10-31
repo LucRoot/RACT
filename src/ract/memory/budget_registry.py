@@ -26,6 +26,7 @@ from typing import Any, cast
 
 import yaml
 
+from ract import redaction
 from ract.core.module_identity import _module_knot, register_module_knot
 from ract.memory.budget import BudgetDeclaration
 
@@ -357,7 +358,7 @@ def get_with_capability_clamp(
                 {
                     "function": function,
                     "error_type": type(exc).__name__,
-                    "message": str(exc)[:512],
+                    "message": redaction.body(str(exc), 512),
                     "usable_context_window": usable,
                 },
             )

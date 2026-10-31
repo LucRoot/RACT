@@ -48,6 +48,7 @@ from typing import Any, Sequence
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
+from ract import redaction
 from ract.core.module_identity import _module_knot, register_module_knot
 from ract.memory.parser import SUPPORTED_EXTENSIONS, parse_file
 from ract.memory.symbol_index import SymbolIndex
@@ -461,7 +462,7 @@ class SymbolIndexWatcher:
                     "index_kind": index_kind,
                     "event_kind": event_kind,
                     "error_type": type(exc).__name__,
-                    "message": str(exc)[:512],
+                    "message": redaction.body(str(exc), 512),
                 },
             )
         except Exception:  # noqa: BLE001 -- trace failure must not break the watcher

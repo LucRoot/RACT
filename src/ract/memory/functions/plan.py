@@ -21,6 +21,7 @@ import hashlib
 import json
 from typing import Any
 
+from ract import redaction
 from ract.core.module_identity import _module_knot, register_module_knot
 from ract.memory.budget import BudgetAccountant
 from ract.memory.budget_registry import get as budget_get
@@ -219,7 +220,7 @@ def _parse_response(response: str) -> ChangePlan:
         raise ProviderContractError(
             f"plan response is not valid JSON: {exc}",
             function=PLAN_FUNCTION_NAME,
-            payload={"response_excerpt": response[:200]},
+            payload={"response_excerpt": redaction.body(response, 200)},
         ) from exc
     if not isinstance(payload, dict):
         raise ProviderContractError(

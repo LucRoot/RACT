@@ -81,6 +81,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
 
+from ract import redaction
 from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
@@ -1361,7 +1362,7 @@ def record_environment_attestation(
                     "manifest_digest": manifest_digest_hex,
                     "run_id": run_id_str,
                     "error_kind": type(exc).__name__,
-                    "error_message": str(exc)[:512],
+                    "error_message": redaction.body(str(exc), 512),
                 },
             )
         except Exception:  # noqa: BLE001 -- trace failure never masks the WARN log

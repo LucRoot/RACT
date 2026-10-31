@@ -8,6 +8,8 @@ import time
 from dataclasses import dataclass
 from typing import Callable, TypeVar
 
+from ract import redaction
+
 T = TypeVar("T")
 
 # The HTTP-date form of Retry-After (IMF-fixdate, RFC 9110). Other spellings
@@ -204,7 +206,7 @@ class RetryPolicy:
                     reason = (
                         describe(exc)
                         if describe is not None
-                        else " ".join(f"{type(exc).__name__}: {exc}".split())[:120]
+                        else redaction.body(" ".join(f"{type(exc).__name__}: {exc}".split()), 120)
                     )
                     on_retry(attempt + 1, limit, reason, delay)
                 if cancelled is None:
