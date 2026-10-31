@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 import sysconfig
@@ -63,6 +64,9 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
     # reaches the package index (B-152).
     venv_dir = tmp_path / "venv"
     venv_python = venv_dir / "Scripts" / "python.exe"
+    # The new environment runs without this run's PYTHONPATH, which points at
+    # the checkout's src and would be imported in place of the installed wheel.
+    clean_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
     subprocess.run(
         [sys.executable, "-m", "venv", "--without-pip", str(venv_dir)], check=True
     )
@@ -95,6 +99,7 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
     # The installed wheel is what the new environment imports, not this checkout.
     where = subprocess.run(
         [str(venv_python), "-c", "import ract; print(ract.__file__)"],
+        env=clean_env,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -110,6 +115,7 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
     for entry_point in ("ract", "ract"):
         result = subprocess.run(
             [str(venv_dir / "Scripts" / f"{entry_point}.exe"), "--version"],
+            env=clean_env,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -124,6 +130,7 @@ def test_wheel_builds_and_entry_points_work(tmp_path: Path):
     # Verify ract doctor passes in the installed environment.
     doctor = subprocess.run(
         [str(venv_dir / "Scripts" / "ract.exe"), "doctor"],
+        env=clean_env,
         capture_output=True,
         text=True,
         encoding="utf-8",
