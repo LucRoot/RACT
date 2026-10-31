@@ -813,6 +813,17 @@ class ReplSession:
         )
         return True
 
+    def _tier3_now(self) -> str:
+        """The tier-3 state events and the status line show (B-195 d).
+
+        ``off`` or ``suspended`` from the grant; otherwise the session's mode
+        (``ask`` or ``allowlist``). ``/mode`` sent ``off`` whatever it was.
+        """
+        base = getattr(self, "_tier3", "off")
+        if base in ("off", "suspended"):
+            return base
+        return self._tier3_mode
+
     def _set_tier3_mode(self, wanted: str) -> bool:
         """``/permissions allowlist`` or ``ask`` (B-113, D6): only up to the grant's max_mode."""
         grant = self._grant_state
@@ -856,7 +867,8 @@ class ReplSession:
         self.state.auto = wanted == "default"
         if self._events is not None:
             self._events.emit(
-                "mode.changed", {"mode": wanted, "tier3": "off", "by": "operator"}
+                "mode.changed",
+                {"mode": wanted, "tier3": self._tier3_now(), "by": "operator"},
             )
         self._print_wrapped(self._MODE_TEXT[wanted])
         return True

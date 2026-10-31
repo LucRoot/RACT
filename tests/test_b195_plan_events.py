@@ -68,3 +68,26 @@ def test_an_interrupted_turn_says_so_and_not_that_git_is_missing() -> None:
             turn=1,
         )
         assert expected in out.getvalue(), out.getvalue()
+
+
+def test_mode_changed_carries_the_real_tier_3_state() -> None:
+    # B-195 (d): /mode emitted tier3 "off" whatever tier 3 was.
+    from ract.session_events import EventStream, SessionEvent
+    from tests.test_repl import _session
+
+    for grant_state, session_mode, expected in (
+        ("off", "ask", "off"),
+        ("suspended", "ask", "suspended"),
+        ("ask", "allowlist", "allowlist"),
+        ("allowlist", "ask", "ask"),
+    ):
+        session, _calls, _console = _session()
+        seen: list[SessionEvent] = []
+        stream = EventStream(session="s-b195d")
+        stream.subscribe(seen.append)
+        session._events = stream
+        session._tier3 = grant_state
+        session._tier3_mode = session_mode
+        session.handle("/mode plan")
+        changed = [e.data for e in seen if e.kind == "mode.changed"]
+        assert changed and changed[-1]["tier3"] == expected, (grant_state, changed)
