@@ -309,6 +309,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   longer prints an empty variable name (B-160e).
 - After a preset is picked, `ract setup` prints the address it uses and the variable it
   reads, one line each (B-160b); the key's value is never shown.
+- When no model server answers on the default ports, `ract setup` asks once for your
+  server's address (B-160a). A typed address that answers is written to `ract.yaml`; one
+  that does not is named (`nothing answered at <address>`) and not written. Looking again
+  and still finding nothing now writes no config, where it wrote Ollama's default address
+  and its check failed; typing `skip` is the explicit way to write that default.
 - The git tools are harder to walk around (G-239). The commit's secret scan reads every
   staged file whole from the index, so a line starting with `++`, a binary or `-diff` file,
   a large file or a U+2028 separator no longer hides a key; it also finds `sk-ant-` keys and

@@ -478,12 +478,14 @@ def s1(tmp: Path, j: Journey) -> Recording:
 
 
 def s2(tmp: Path, j: Journey) -> Recording:
-    """No server anywhere: local guidance, then write the config and skip."""
+    """No server anywhere: no address given, local guidance, then write the config and skip."""
     ws = _workspace(tmp, "s2", git=True)
     rec = _interactive(
         j,
         ws,
         [
+            ("line", ""),
+            ("expect", r"Address of your model server"),
             ("line", ""),
             ("expect", r"local model or a cloud provider"),
             ("line", "l"),
