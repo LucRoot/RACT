@@ -382,6 +382,7 @@ def _fetch(ctx: Any, url: str, domains: list[str]) -> tuple[str, str, str, bool]
                             "a redirect named no location", "try another URL"
                         )
                     url = urljoin(url, location)
+                    _no_secret(url)  # a redirect target is scanned like the first URL
                     continue
                 coding = response.headers.get("content-encoding", "").strip().lower()
                 if coding not in ("", "identity"):
@@ -417,6 +418,19 @@ def _fetch(ctx: Any, url: str, domains: list[str]) -> tuple[str, str, str, bool]
                     text = html_to_text(text)
                 return url, kind, text, truncated
     raise ToolRefused(f"more than {MAX_HOPS} redirects", "fetch the final URL directly")
+
+
+def _no_secret(url: str) -> None:
+    """Refuse *url* when it holds a secret-shaped value (S-022), before any DNS."""
+    from ract import egress_scan
+
+    _clean, counts = egress_scan.scan_text(url)
+    if counts:
+        raise ToolRefused(
+            f"the URL holds a secret-shaped value ({egress_scan.describe(counts)}); "
+            "nothing was sent",
+            "fetch a URL without credentials or keys in it",
+        )
 
 
 def _fetch_or_refuse(
@@ -467,15 +481,8 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
     host = check_target(args.url, rule.allow_domains)
     # S-022 for a model-written URL: a secret-shaped value never leaves in it,
     # not even in a DNS question for its host.
-    from ract import egress_scan
 
-    _clean, counts = egress_scan.scan_text(args.url)
-    if counts:
-        raise ToolRefused(
-            f"the URL holds a secret-shaped value ({egress_scan.describe(counts)}); "
-            "nothing was sent",
-            "fetch a URL without credentials or keys in it",
-        )
+    _no_secret(args.url)
     if ctx.approve is None:
         raise ToolRefused(
             "tier 3 asks you before a fetch, and nobody can answer here",
@@ -483,10 +490,12 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
         )
     # D-144: asked in every mode; a session answer covers this exact URL.
     sessions = ctx.session_approvals
-    asked_for = ("web_fetch", args.url)
+    # The NUL marks a fetch's key: no command argv can hold one, so a session
+    # answer for a command never covers a fetch, nor the other way round.
+    asked_for = ("\x00web_fetch", args.url)
     if sessions is None or not sessions.covers(asked_for):
         facts = {
-            "argv": list(asked_for),
+            "argv": ["web_fetch", args.url],
             "executable": "RACT (the egress ledger's client)",
             "cwd": "none",
             "network": "on, to " + host,

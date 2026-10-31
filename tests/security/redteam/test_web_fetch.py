@@ -522,3 +522,36 @@ def test_a_host_resolving_to_nat64_of_a_private_address_is_refused(
     seen = _serve(monkeypatch, lambda r: _html("x"))
     rooted, _asked, _r = call(world, "web_fetch", {"url": "https://docs.example.com/a"})
     assert not rooted.is_ok() and "64:ff9b::a00:5" in rooted.error and seen == []
+
+
+def test_a_redirect_to_a_secret_shaped_url_is_refused(world, monkeypatch) -> None:
+    """A redirect target is scanned like the first URL; nothing goes to it."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/a":
+            return httpx.Response(
+                302,
+                headers={
+                    "location": "https://docs.example.com/?k=AKIAIOSFODNN7EXAMPLE"
+                },
+            )
+        return _html("you should not see this")
+
+    seen = _serve(monkeypatch, handler)
+    rooted, _asked, _r = call(world, "web_fetch", {"url": "https://docs.example.com/a"})
+    assert not rooted.is_ok() and "secret-shaped" in rooted.error
+    assert [r.url.path for r in seen] == ["/a"]
+
+
+def test_a_command_approval_never_covers_a_fetch(world, monkeypatch) -> None:
+    """The fetch's session key cannot be a command argv (a NUL marks it)."""
+    from ract.policy.allowlist import SessionApprovals
+
+    url = "https://docs.example.com/a"
+    sessions = SessionApprovals()
+    sessions.add(["web_fetch", url])  # what a command approval would look like
+    _serve(monkeypatch, lambda r: _html("ok"))
+    rooted, asked, _r = call(
+        world, "web_fetch", {"url": url}, answer=True, sessions=sessions
+    )
+    assert rooted.is_ok() and len(asked) == 1
