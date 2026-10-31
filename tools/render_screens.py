@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from ract.ui import git_screens, network_screens, sandbox_screens  # noqa: E402
+from ract.ui import git_screens, network_screens, posture_screens as sandbox_screens  # noqa: E402
 
 OUT = ROOT / "docs" / "ux" / "screens"
 WIDTHS = (80, 60, 40)

@@ -177,7 +177,7 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("web_tools.py")
     # B-125 (MASON, PREPARED): the sandbox screens are pure text, wired with B-025 (slice e).
     # Remove this entry when wired; the BUILDER reviews it.
-    allowlist.add("sandbox_screens.py")
+    allowlist.add("posture_screens.py")
     # B-126 and B-127 (MASON, PREPARED): the git and network prompt screens are pure text, wired with
     # B-115 and B-116 (slices f and g). Remove each entry when wired; the BUILDER reviews them.
     allowlist.add("git_screens.py")

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from ract.ui.sandbox_screens import (
+from ract.ui.posture_screens import (
     BEST_EFFORT,
     ENFORCED,
     NONE,
