@@ -23,3 +23,9 @@ Files: `J5_80.txt` and `J5_60.txt`. The header of `J5_60.txt` says "80x40" becau
 2. **The review's choice prompt folds in the middle of a phrase** at both widths: `R reject` / `the rest of the file:` at 80 (`J5_80.txt` lines 48 and 49), and `A accept the rest of` / `the file, R reject the rest of the file:` at 60 (`J5_60.txt` lines 51 and 52). The text is `src/ract/review_hunks.py:33-35` (`CHOICES`), printed through `_ask` at line 196. Fold at the commas, one choice per line, or keep each choice whole.
 3. **The prompt after the review has no space:** `ract>/diff` (`J5_80.txt` line 51; `J5_60.txt` line 54), where every other prompt reads `ract> /exit`. The line after the review answer `r` also carries the answer on the same line (`file:r`). Unexplained from the capture alone: it may be the driver's echo at the end of the review loop. The BUILDER should check it in a real terminal before it changes anything.
 4. **Minor:** `changed: ... review with git` / `    diff` splits the words `git diff` at 60 columns (`J5_60.txt` lines 24-25).
+
+## The three-file walk on the landed tip 1a7d33d (D-145), 80 and 60 columns
+
+The same scenario (`j5_three_files`) and the same keys as the walk above, run on the feature tip after the B-137 batch and D-145 landed: `landed_80.txt` and `landed_60.txt`. Every terminal line is within its width.
+
+What changed since the first recording: the status line shows `T3 off (no grant)` on its own item, and each walk prints `removed src/.calc.py.rootknot.json (the turn created it)` at `/undo`: the signed record beside each file is removed with the file it recorded (the landed `.<name>.rootknot.json` record). The plan's first approval, the review hunks, the edit, the reject and `/undo` work as before.
