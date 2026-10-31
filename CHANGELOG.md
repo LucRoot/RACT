@@ -280,6 +280,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The tier-3 entry-point record is bounded at run entry (B-148): at most 5000 entry points,
+  64 MiB and 10 s. Past a bound the record is unknown, so every tier-3 command asks, and the
+  turn says which bound was hit. A very large repository no longer makes this read slow or
+  large in memory.
 - A step worktree an ended RACT process left in `.git/ract-worktrees` is removed when the
   next session starts, and the session says so (B-146); only worktrees RACT made and no
   running process owns are touched. `/exit` after an interrupt waits up to 10 s for the
