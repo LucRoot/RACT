@@ -95,9 +95,12 @@ def git_screen_lines(name: str, args: object, width: int) -> list[str] | None:
     from ract.tools.git_tools import command_for
     from ract.ui import git_screens
 
-    command = git_screens._fold(
+    # B-184: the command as it runs, every character kept; wrap_cells would
+    # fold a run of spaces in a quoted message into one.
+    command = wrap_exact(
         "command: " + git_screens.escape_controls(shlex.join(command_for(name, args))),
         width,
+        subsequent_indent="    ",
     )
     if name == "git_commit":
         staged = getattr(args, "_staged", None)
