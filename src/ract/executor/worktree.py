@@ -267,6 +267,7 @@ class WorktreeManager:
                 f"git worktree add failed for step {step_id.hex()}: "
                 f"{result.stderr.strip() or result.stdout.strip()}"
             )
+        _write_owner(target)
         return Worktree(
             step_id=step_id,
             path=target,
@@ -439,6 +440,12 @@ class WorktreeManager:
             passing_tests_touched=passing_tests_touched,
             declared_unaffected=declared_unaffected,
         )
+
+    def leftovers(self) -> list[Path]:
+        """Step worktrees still registered under this manager's root."""
+        return [
+            p for p in _registered(self.repo_root) if p.parent == self.worktree_root
+        ]
 
     def rollback(self, wt: Worktree, *, abandon: bool = False) -> None:
         """Remove the worktree and its branch (or tag it abandoned).
@@ -1294,6 +1301,125 @@ def repo_root_commit(repo: Path) -> str | None:
         return None
     roots = sorted(done.stdout.split())
     return roots[0] if roots else None
+
+
+# ---------------------------------------------------------------------------
+# Step worktrees no live process owns (B-146)
+# ---------------------------------------------------------------------------
+
+OWNER_SUFFIX = ".owner"
+
+
+def _owner_path(worktree: Path) -> Path:
+    return worktree.with_name(worktree.name + OWNER_SUFFIX)
+
+
+def _write_owner(worktree: Path) -> None:
+    """Record which process made *worktree* (pid and its start time), beside it."""
+    import json
+
+    from ract.executor.process_identity import capture_identity
+
+    identity = capture_identity(os.getpid())
+    data = {"pid": os.getpid(), "created": identity.creation_time_ns if identity else 0}
+    try:
+        _owner_path(worktree).write_text(json.dumps(data), encoding="utf-8")
+    except OSError as exc:
+        print(
+            f"[worktree] the owner of {worktree.name} was not recorded: {exc}",
+            flush=True,
+        )
+
+
+def _owner_alive(worktree: Path) -> bool:
+    """True while the process that made *worktree* runs (the same pid and start time)."""
+    import json
+
+    from ract.executor.process_identity import (
+        ProcessIdentity,
+        current_identity,
+        same_process,
+    )
+
+    try:
+        data = json.loads(_owner_path(worktree).read_text(encoding="utf-8"))
+        stored = ProcessIdentity(int(data["pid"]), int(data["created"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        return False  # no readable owner: nothing alive vouches for it
+    return same_process(stored, current_identity(stored.pid)) and _running(stored.pid)
+
+
+def _running(pid: int) -> bool:
+    """True while *pid* runs: an exited process that is still held open (Windows)
+    or not yet reaped (a zombie) keeps its identity, and owns nothing."""
+    if os.name == "nt":
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        handle = kernel32.OpenProcess(0x1000, False, pid)  # QUERY_LIMITED_INFORMATION
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return False
+            return code.value == 259  # STILL_ACTIVE
+        finally:
+            kernel32.CloseHandle(handle)
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+    except OSError:
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return False
+        return True
+    # The state field follows the command name in parentheses.
+    return stat.rsplit(")", 1)[-1].split()[:1] != ["Z"]
+
+
+def _registered(repo: Path) -> list[Path]:
+    """The worktree paths git has registered for *repo* (the main one left out)."""
+    done = _git_in(repo, "worktree", "list", "--porcelain")
+    if done.returncode != 0:
+        return []
+    paths = [
+        Path(line[len("worktree ") :])
+        for line in done.stdout.splitlines()
+        if line.startswith("worktree ")
+    ]
+    return paths[1:]
+
+
+def sweep_orphan_worktrees(repo: Path) -> list[str]:
+    """Remove step worktrees RACT made that no live process owns; their names.
+
+    LR:: B-146: a process that ended (killed, or quit before an interrupted
+    step finished its cleanup) left its step worktree registered in the
+    operator's repository. Only worktrees under ``.git/ract-worktrees`` are
+    touched, never one the operator made, and never one whose owner runs.
+    """
+    root = Path(os.path.realpath(Path(repo) / ".git" / "ract-worktrees"))
+    removed: list[str] = []
+    for path in _registered(Path(repo)):
+        real = Path(os.path.realpath(path))
+        if real.parent != root or _owner_alive(real):
+            continue
+        done = _git_in(repo, "worktree", "remove", "--force", str(real))
+        if done.returncode != 0:
+            print(
+                f"[worktree] {real.name} was not removed: {done.stderr.strip()}",
+                flush=True,
+            )
+            continue
+        try:
+            _owner_path(real).unlink(missing_ok=True)
+        except OSError as exc:
+            print(f"[worktree] the owner file of {real.name} stays: {exc}", flush=True)
+        removed.append(real.name)
+    if removed:
+        _git_in(repo, "worktree", "prune")
+    return removed
 
 
 def ensure_ract_dir_excluded(repo: Path) -> bool:

@@ -271,6 +271,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A step worktree an ended RACT process left in `.git/ract-worktrees` is removed when the
+  next session starts, and the session says so (B-146); only worktrees RACT made and no
+  running process owns are touched. `/exit` after an interrupt waits up to 10 s for the
+  step's cleanup and, past that, names the worktree and the `git worktree remove` command.
 - The git tools are harder to walk around (G-239). The commit's secret scan reads every
   staged file whole from the index, so a line starting with `++`, a binary or `-diff` file,
   a large file or a U+2028 separator no longer hides a key; it also finds `sk-ant-` keys and
