@@ -106,6 +106,10 @@ prints what to run next. It never downloads a model and never asks for an
 API key: the config refers to the key's environment variable. An existing
 `ract.yaml` is never overwritten; `ract setup --reconfigure` writes
 `ract.yaml.draft` and shows the difference.
+To add a second endpoint to an existing `ract.yaml`, run `ract setup --add-provider`:
+the same questions, the difference shown before anything is written, the same one-request
+check on the new provider, and the manager provider left as it is. `ract doctor
+--check-providers` then checks every provider in the file.
 
 | Situation | Command |
 |---|---|

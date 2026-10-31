@@ -79,6 +79,7 @@ class Answers:
     check: bool = True
     git_init: bool = False
     reconfigure: bool = False
+    add_provider: bool = False
 
     @classmethod
     def from_yaml(cls, text: str) -> Answers:
@@ -375,6 +376,52 @@ def _cloud(io: Io, answers: Answers, interactive: bool) -> None:
         )
 
 
+@dataclass
+class _Chosen:
+    server: local_probe.Server | None
+
+
+def _choose_provider(io: Io, answers: Answers, interactive: bool) -> _Chosen | int:
+    """The machine, then the provider questions; an exit code when setup stops."""
+    io.say("Machine:")
+    profile = io.probe()
+    for line in host_probe.describe(profile):
+        io.say(f"  {line}")
+    io.say(
+        "  network: not tested; setup contacts only the default model-server "
+        "addresses on this machine and the provider you choose"
+    )
+    server: local_probe.Server | None = None
+    if answers.provider == "local":
+        io.say("Looking for a model server on this machine (default ports only):")
+        server = _choose_server(io, io.detect(_extra(answers)), answers, interactive)
+        if server is None and interactive:
+            choice = io.ask(
+                "No server chosen. Use a local model or a cloud provider? [L/c] "
+            )
+            answers.provider = (
+                "cloud" if choice.strip().lower().startswith("c") else "local"
+            )
+            if answers.provider == "local":
+                _local_guidance(io, profile, answers)
+                again = io.ask(
+                    "Start the server, then press Enter to look again, or type skip to "
+                    "write a config for Ollama's default address now: "
+                )
+                if again.strip().lower() != "skip":
+                    server = _choose_server(
+                        io, io.detect(_extra(answers)), answers, interactive
+                    )
+        elif server is None:
+            io.say(
+                "  none found; writing a config for "
+                + (answers.local_url or "Ollama's default address")
+            )
+    if answers.provider == "cloud":
+        _cloud(io, answers, interactive)
+    return _Chosen(server)
+
+
 def run(
     directory: Path,
     *,
@@ -409,50 +456,18 @@ def _run(
     io: Io,
     opens_session: bool = False,
 ) -> int:
+    if answers.add_provider:
+        return _add_provider(directory, answers, interactive, io)
     if (directory / CONFIG_NAME).exists() and not answers.reconfigure:
         raise SetupError(
             f"{CONFIG_NAME} already exists here; nothing was changed. To draft a new one "
             "next to it: ract setup --reconfigure. To check this one: ract doctor "
             "--check-providers"
         )
-    io.say("Machine:")
-    profile = io.probe()
-    for line in host_probe.describe(profile):
-        io.say(f"  {line}")
-    io.say(
-        "  network: not tested; setup contacts only the default model-server "
-        "addresses on this machine and the provider you choose"
-    )
-
-    server: local_probe.Server | None = None
-    if answers.provider == "local":
-        io.say("Looking for a model server on this machine (default ports only):")
-        server = _choose_server(io, io.detect(_extra(answers)), answers, interactive)
-        if server is None and interactive:
-            choice = io.ask(
-                "No server chosen. Use a local model or a cloud provider? [L/c] "
-            )
-            answers.provider = (
-                "cloud" if choice.strip().lower().startswith("c") else "local"
-            )
-            if answers.provider == "local":
-                _local_guidance(io, profile, answers)
-                again = io.ask(
-                    "Start the server, then press Enter to look again, or type skip to "
-                    "write a config for Ollama's default address now: "
-                )
-                if again.strip().lower() != "skip":
-                    server = _choose_server(
-                        io, io.detect(_extra(answers)), answers, interactive
-                    )
-        elif server is None:
-            io.say(
-                "  none found; writing a config for "
-                + (answers.local_url or "Ollama's default address")
-            )
-    if answers.provider == "cloud":
-        _cloud(io, answers, interactive)
-
+    chosen = _choose_provider(io, answers, interactive)
+    if isinstance(chosen, int):
+        return chosen
+    server = chosen.server
     config = build_config(directory, answers, server)
     path, diff = write_config(directory, config, reconfigure=answers.reconfigure)
     if diff or path.name == DRAFT_NAME:
@@ -509,6 +524,89 @@ def _run(
     return code
 
 
+def _add_provider(directory: Path, answers: Answers, interactive: bool, io: Io) -> int:
+    """Setup case 4 (B-160c): one more provider in an existing ract.yaml.
+
+    The same questions and the same health check as a first setup; the
+    difference is shown before anything is written, the manager provider is
+    left as it is, and an existing provider of the same name is never replaced
+    (the new one gets a numbered name).
+    """
+    import tempfile
+
+    target = directory / CONFIG_NAME
+    if not target.exists():
+        raise SetupError(
+            f"{CONFIG_NAME} does not exist here; nothing to add to. Run: ract setup"
+        )
+    before = target.read_text(encoding="utf-8")
+    existing = yaml.safe_load(before) or {}
+    if not isinstance(existing, dict) or not isinstance(
+        existing.get("providers"), dict
+    ):
+        raise SetupError(f"{CONFIG_NAME} has no providers mapping; nothing was changed")
+    chosen = _choose_provider(io, answers, interactive)
+    if isinstance(chosen, int):
+        return chosen
+    fresh = build_config(directory, answers, chosen.server)
+    name = str(fresh["manager_provider"])
+    entry = fresh["providers"][name]
+    final, n = name, 2
+    while final in existing["providers"]:
+        final, n = f"{name}_{n}", n + 1
+    merged = dict(existing)
+    merged["providers"] = {**existing["providers"], final: entry}
+    after = yaml.safe_dump(merged, sort_keys=False)
+    io.say(f"Adds the provider '{final}' to {CONFIG_NAME}:")
+    io.say(
+        "".join(
+            difflib.unified_diff(
+                before.splitlines(keepends=True),
+                after.splitlines(keepends=True),
+                fromfile=CONFIG_NAME,
+                tofile=f"{CONFIG_NAME} (with {final})",
+            )
+        )
+    )
+    if interactive and not _yes(io.ask(f"Write it to {CONFIG_NAME}? [y/N] "), False):
+        io.say("Nothing was changed.")
+        return EXIT_OK
+    _atomic_write(target, after)
+    io.say(
+        f"Wrote {CONFIG_NAME}; the manager provider stays "
+        f"'{existing.get('manager_provider')}'."
+    )
+    variable = (
+        _ENV_VARS.get(answers.cloud_preset, "") if answers.provider == "cloud" else ""
+    )
+    if not answers.check:
+        io.say("Skipped the health check (check: false).")
+        return EXIT_OK
+    if variable and variable not in io.environ:
+        io.say(
+            "Skipped the health check: the key variable is not set yet. Then run: "
+            "ract doctor --check-providers"
+        )
+        return EXIT_OK
+    io.say(f"Checking {entry.get('url', '')} with one tiny request:")
+    with tempfile.TemporaryDirectory() as scratch:
+        probe_path = Path(scratch) / CONFIG_NAME
+        probe_path.write_text(
+            yaml.safe_dump({"manager_provider": final, "providers": {final: entry}}),
+            encoding="utf-8",
+        )
+        health = io.health(probe_path)
+    if health.ok:
+        io.say(f"  ok: {health.detail} in {health.seconds:.1f} s")
+        io.say("Both are listed by: ract doctor --check-providers")
+        return EXIT_OK
+    from ract.session_turn import hint_for
+
+    io.say(f"  failed: {health.detail}")
+    io.say(f"  hint: {hint_for(health.detail)}")
+    return EXIT_PROVIDER
+
+
 def main(argv: list[str]) -> int:
     """`ract setup [--answers FILE | --yolo | --print-defaults] [--reconfigure]`."""
     import argparse
@@ -530,6 +628,11 @@ def main(argv: list[str]) -> int:
         "--reconfigure",
         action="store_true",
         help=f"write {DRAFT_NAME} and show how it differs from {CONFIG_NAME}",
+    )
+    parser.add_argument(
+        "--add-provider",
+        action="store_true",
+        help=f"add one more provider to {CONFIG_NAME} (the same questions; a diff first)",
     )
     args = parser.parse_args(argv)
     if args.print_defaults:
@@ -553,6 +656,8 @@ def main(argv: list[str]) -> int:
             return EXIT_USAGE
     if args.reconfigure:
         answers.reconfigure = True
+    if args.add_provider:
+        answers.add_provider = True
     # Both ends: on Windows the null device reports itself as a terminal.
     interactive = (
         args.answers is None
