@@ -577,6 +577,12 @@ else:
     import struct
     import termios
 
+    _CLAIM_THE_TERMINAL = (
+        "import fcntl, os, sys, termios\n"
+        "fcntl.ioctl(0, termios.TIOCSCTTY, 0)\n"
+        "os.execvp(sys.argv[1], sys.argv[1:])\n"
+    )
+
     class _PosixSession(_Session):
         def __init__(
             self,
@@ -592,8 +598,13 @@ else:
             fcntl.ioctl(
                 slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0)
             )
+            # B-136 (Linux, B-046): start_new_session makes a session with no
+            # controlling terminal, and a pty opened before setsid does not
+            # become one, so a Ctrl-C written to the master raised SIGINT in
+            # no process. The child claims the pty (TIOCSCTTY) and then execs
+            # the program in place, keeping its pid and process group.
             self._proc = subprocess.Popen(
-                list(argv),
+                [sys.executable, "-c", _CLAIM_THE_TERMINAL, *argv],
                 stdin=slave,
                 stdout=slave,
                 stderr=slave,
