@@ -109,7 +109,6 @@ _COMMIT_ONLY_PATTERNS = (
         ),
     ),
 )
-_SSH_KEY_NAME = re.compile(r"^id_[a-z0-9]+$")
 
 
 def _is_junction(path: Path) -> bool:
@@ -504,20 +503,14 @@ def _inside(paths: list[str]) -> list[str]:
 
 
 def blocked_name(path: str) -> str | None:
-    """Why RACT never stages *path* by its name (G-239 A9), or None."""
-    name = PurePosixPath(path.replace("\\", "/")).name.lower()
-    if name == ".env" or (
-        name.startswith(".env.")
-        and not name.endswith((".example", ".sample", ".template"))
-    ):
-        return "an environment file"
-    if name.endswith(".pem"):
-        return "a PEM key or certificate file"
-    if name.endswith(".key"):
-        return "a key file"
-    if _SSH_KEY_NAME.match(name):
-        return "an SSH private key file"
-    return None
+    """Why RACT never stages *path* by its name (G-239 A9), or None.
+
+    B-205: the same decision as ``workspace_path.is_secret_shaped``, which the
+    model's reads and the step snapshots use; this list disagreed with it.
+    """
+    from ract.workspace_path import secret_kind
+
+    return secret_kind(PurePosixPath(path.replace("\\", "/")).name)
 
 
 class _Args(BaseModel):
