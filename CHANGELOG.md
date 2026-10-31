@@ -10,6 +10,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Verifier tools (B-023): `run_build`, `run_lint`, `run_typecheck` and `run_format` run the
+  grant's rule for each kind (by id, or a known command such as `ruff check` or `mypy`) the
+  same way `run_tests` does: tier 3, matched, asked, through `run_command`. Each result says
+  the kind, the command id, the exit code, the time and the output digest. A failed real run,
+  a named test included, makes the turn `failed` (exit 1) and the verdict names it.
+- Allowlist mode and session approvals (B-113, ADR-0048 D4, D6): `/permissions allowlist` lets
+  a command that matches an allow rule run without asking, up to the grant's `max_mode`;
+  `/permissions ask` goes back. Remote git, output and execution flags, tier 2 and a changed
+  test, conftest or runner or build configuration file still ask, in every mode; the entry
+  points are recorded when the grant is signed, outside the project. `s` at a tier-3 question
+  approves that exact command for the session (memory only; it does not carry over to
+  `--resume`), and `/permissions` lists those approvals.
+- Git tools (B-115, B-024, ADR-0048 D8): `git_status`, `git_diff` and `git_log` read; `git_add`,
+  `git_commit`, `git_branch` and `git_worktree` ask once per call with the exact command; a
+  staged secret refuses the commit and names the file and line; hooks run only under a grant
+  rule with `git_hooks: true`. `git_push` needs a grant rule for it, a signed handshake for the
+  remote and branch, and the operator's yes. Every git call runs with fsmonitor off, no hooks,
+  no pager and no external diff.
+- `web_fetch` (B-116, B-026, ADR-0048 D11): https only, to the grant's `allow_domains`, every
+  redirect checked, private, loopback and metadata addresses refused after resolution, a body
+  cap, HTML reduced to text, the result labeled external; `--no-network` refuses it.
+  `web_search` has no provider and says so.
+- On Linux, a tier-3 command runs inside bubblewrap once a self-test inside it shows that a
+  write outside the workspace, a host file, the network and the host's processes are out of
+  reach (B-114). `ract doctor --sandbox` says, for this machine, what confines a command and
+  what does not (B-025). On Windows and macOS grants still say `best_effort`.
+- The harness signs what it writes (S-015b): each file a turn changes gets a v4 Rootknot, and
+  `ract provenance verify` passes on it; the turn says signed only when every changed file's
+  knot verifies, and names any that does not.
+- `session.started` carries the session id and the context window when the probe measured it
+  or `ract.yaml` declares it; the status line shows both (B-084).
 - Session modes: `/mode plan` (the planner proposes, nothing runs or is written), `/mode default`
   (RACT asks before each step that changes a file; a step that only answers is not asked
   about), `/mode auto-accept` (changes are applied without asking). The session starts in
@@ -203,6 +234,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The session's screens come from MASON's views: the guided grant flow, `/permissions`,
+  `/checkpoint`, the `/restore` preview (what goes back and what is left alone, shown before
+  it runs), the proposed-change line, the apply result, the test-run summary, the verdict and
+  the workspace lines.
+- README, QUICKSTART and PHILOSOPHY no longer claim what this release does not do:
+  `receipt-export` prints receipts and uploads nothing, skill templates are not signed, and no
+  backend enforced the step sandbox (S-017, docs/CLAIMS_AUDIT_2.md).
 - `ract run --loop --yolo` exits with the code of the cause that stopped the loop and
   prints it (`halt: T5 BUDGET_EXHAUSTED: outcome budget, exit 4`): T1 0, T2 and T4 1,
   T3, T6, T8 and T9 3, T5 4, T7 6 (D-122). It used to exit 0 for every stop but a
