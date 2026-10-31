@@ -311,6 +311,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Authorization header) no longer gets the key printed (B-165): the provider redacts the
   body whole before it shortens it, in every error text it makes, and setup redacts what
   it prints. `ract.yaml` never held the key.
+- A turn whose tests passed and that then changed a file again now reports `stale`, not
+  `verified` (B-192): the turn counts every write, and each test run keeps how many writes
+  came before it.
 - `RACT_PRESET_BASE_URL=preset=url` points a preset at another address in what `ract setup`
   writes, for tests and walks against a fake server (B-160d). It is a security-class
   variable that `ract doctor --env` shows, and it never pairs a key with a host: only

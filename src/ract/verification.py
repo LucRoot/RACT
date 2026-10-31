@@ -84,6 +84,11 @@ class VerificationRecord:
         """A file was written or replaced."""
         self._changes += 1
 
+    @property
+    def changes(self) -> int:
+        """How many changes have been noted so far."""
+        return self._changes
+
     def record(
         self, command: list[str] | tuple[str, ...], exit_code: int, duration_ms: int
     ) -> None:

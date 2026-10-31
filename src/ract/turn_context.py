@@ -42,6 +42,9 @@ _report_error: ContextVar[str | None] = ContextVar(
 _written: ContextVar[list[str] | None] = ContextVar("ract_turn_written", default=None)
 # B-023: the commands the harness ran in this turn, as (kind, CommandResult).
 _runs: ContextVar[list[Any] | None] = ContextVar("ract_turn_runs", default=None)
+# B-192: how many writes the turn has made so far, every write counted (a second
+# write to one file counts again), so a run knows which changes it saw.
+_changes: ContextVar[list[int] | None] = ContextVar("ract_turn_changes", default=None)
 _extensions_off: ContextVar[bool] = ContextVar(
     "ract_repository_extensions_off", default=False
 )
@@ -115,6 +118,7 @@ def bind(
     _reporter.set(reporter)
     _written.set(written)
     _runs.set(runs)
+    _changes.set([0])
     _write_lock.set(write_lock)
     _queued.set(queued)
     _external.set([])
@@ -230,6 +234,10 @@ def record_written(root: Path | str, paths: Iterable[Path | str]) -> None:
     touched during the turn. Paths are stored relative to ``root`` with
     forward slashes.
     """
+    paths = list(paths)
+    counter = _changes.get()
+    if counter is not None:
+        counter[0] += len(paths)
     written = _written.get()
     if written is None:
         return
@@ -241,11 +249,21 @@ def record_written(root: Path | str, paths: Iterable[Path | str]) -> None:
             written.append(rel)
 
 
+def changes_made() -> int:
+    """How many writes the turn has made so far (B-192)."""
+    counter = _changes.get()
+    return counter[0] if counter is not None else 0
+
+
 def record_run(kind: str, result: Any) -> None:
-    """Keep a command the harness ran, for the turn's verifier (B-023)."""
+    """Keep a command the harness ran, for the turn's verifier (B-023).
+
+    B-192: with the number of writes made before it, so a later write makes the
+    run stale instead of leaving the turn ``verified``.
+    """
     runs = _runs.get()
     if runs is not None:
-        runs.append((kind, result))
+        runs.append((kind, result, changes_made()))
 
 
 @contextmanager
