@@ -68,7 +68,9 @@ def test_a_new_user_reaches_a_signed_pytest_rule(
     assert code == 0
     # One passphrase entry (confirmed once), for the new key and the signature.
     assert passphrases == ["New passphrase (8 characters or more, 12 is better): "]
-    assert shown[0].startswith("Test runner: python -m pytest (found: tests/test_*.py)")
+    # MASON's detected-runner view (B-111).
+    assert shown[0].startswith("found the test runner: python -m pytest")
+    assert any("seen in: tests/test_*.py" in line for line in shown)
     assert any("there is no operator key" in line.lower() for line in shown)
     assert any(line.startswith("+") or " + " in line for line in shown)  # the diff
     state = load_grant(project, now=NOW)

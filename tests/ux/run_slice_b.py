@@ -139,7 +139,7 @@ def sb1(tmp: Path, walk: Walk, cols: int) -> Recording:
         (
             e.t
             for e in rec.events
-            if e.kind == "out" and "Signed .ract" in strip_ansi(e.data)
+            if e.kind == "out" and "signed: rule" in strip_ansi(e.data)
         ),
         None,
     )

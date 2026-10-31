@@ -158,13 +158,27 @@ def guided_init(
     """Run the guided flow; the exit code (0 signed, 1 declined, 2 nothing to propose)."""
     from ract.diff_render import render_hunks
 
+    from ract.ui.grant_screens import (
+        DetectedRunner,
+        ProposedRule,
+        detected_runner_lines,
+        policy_diff_lines,
+        proposed_rule_lines,
+        signed_result_lines,
+    )
+
     now = now or datetime.now(timezone.utc)
     runner = detect_runner(project)
     if runner is None:
-        show("No test runner found here (pytest or an npm test script).")
+        # MASON's view (B-111), then where to go from here.
+        for line in detected_runner_lines(None, width):
+            show(line)
         show("hint: write .ract/policy.yaml by hand, then run `ract policy sign`")
         return 2
-    show(f"Test runner: {' '.join(runner.argv)} (found: {runner.found_by})")
+    for line in detected_runner_lines(
+        DetectedRunner(" ".join(runner.argv), runner.argv, runner.found_by), width
+    ):
+        show(line)
     try:
         key = load_public()
         has_key = True
@@ -175,9 +189,23 @@ def guided_init(
     # G-217 G2: a policy that cannot hold fails here, before the question and
     # before any key is made.
     parse_policy(text)
-    show("The narrowest rule for it:")
+    # MASON's rule view, then the grant-wide fields D13 also asks to explain.
+    for line in proposed_rule_lines(
+        ProposedRule(
+            rule_id=runner.rule_id,
+            argv=runner.argv,
+            network=False,
+            timeout_minutes=15,
+            cwd="step_worktree",
+            home="isolated",
+            sandbox_enforced=sandbox_confines_commands(),
+        ),
+        width,
+    ):
+        show(line)
     for line in explanations(runner):
-        show(f"  {line}")
+        if line.startswith(("max_mode", "deny", "expires", "sandbox")):
+            show(f"  {line}")
     path = project / ".ract" / POLICY_FILE
     old = path.read_text(encoding="utf-8") if path.is_file() else None
     # With no key yet, its id is unknown until the yes: say so in the preview.
@@ -188,7 +216,9 @@ def guided_init(
             f"key_id: {key_id}", "key_id: (your new key, made when you answer yes)"
         )
     )
-    for line in render_hunks(f".ract/{POLICY_FILE}", old, preview, width=width):
+    for line in policy_diff_lines(
+        render_hunks(f".ract/{POLICY_FILE}", old, preview, width=width), width
+    ):
         show(line)
     if not has_key:
         show(
@@ -225,9 +255,10 @@ def guided_init(
         if temp.exists():
             temp.unlink()
     digest = sign(project, private, key)
-    show(
-        f"Signed .ract/{POLICY_FILE} with {key.key_id} (sha256 {digest[:12]}). Tier 3: T3 ask."
-    )
+    expires = (now + timedelta(days=DEFAULT_DAYS)).date().isoformat()
+    for line in signed_result_lines(runner.rule_id, expires, "T3 ask", width):
+        show(line)
+    show(f"  .ract/{POLICY_FILE} signed with {key.key_id} (sha256 {digest[:12]})")
     return 0
 
 
