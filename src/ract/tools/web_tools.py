@@ -545,6 +545,14 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
 
 
 def web_search(root: Any, args: SearchArgs) -> ToolResult:
+    """No provider ships, so it always refuses.
+
+    LR:: B-149: its results are external text (``search result`` in the tool
+    loop's origin table). A provider added later must call
+    ``turn_context.note_external("search result", <host>)`` after it returns
+    text, as ``web_fetch`` does, so the next proposal carries the origin line
+    and always asks.
+    """
     raise ToolRefused(
         "web_search has no provider configured",
         "no search provider ships with RACT; web_fetch an allowed URL instead",
