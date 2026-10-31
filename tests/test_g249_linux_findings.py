@@ -107,3 +107,59 @@ def test_the_sweep_prunes_a_registration_whose_folder_is_gone(tmp_path: Path) ->
     shutil.rmtree(wt.path)
     assert sweep_orphan_worktrees(ws) == [wt.path.name]
     assert _listed(ws) == 1
+
+
+def test_the_cancel_abort_ends_a_read_blocked_on_a_stalled_stream() -> None:
+    import socket
+    import threading
+    import time
+
+    import httpx
+
+    from ract.providers.openai_provider import _aborter
+
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    release = threading.Event()
+
+    def serve() -> None:
+        conn, _ = server.accept()
+        conn.recv(65536)
+        conn.sendall(
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\none\r\n"
+        )
+        release.wait(30)  # the stall: no more bytes until the test ends
+        conn.close()
+
+    class Wrapping(httpx.BaseTransport):  # as the egress ledger wraps httpx's
+        def __init__(self) -> None:
+            self._inner = httpx.HTTPTransport()
+
+        def handle_request(self, request: httpx.Request) -> httpx.Response:
+            return self._inner.handle_request(request)
+
+    threading.Thread(target=serve, daemon=True).start()
+    client = httpx.Client(transport=Wrapping(), timeout=60)
+    ended = threading.Event()
+
+    def read() -> None:
+        try:
+            with client.stream("GET", f"http://127.0.0.1:{server.getsockname()[1]}/") as r:
+                for _ in r.iter_raw():
+                    pass
+        except Exception:  # noqa: BLE001 - any end of the read is the point
+            ended.set()
+            return
+        ended.set()
+
+    reader = threading.Thread(target=read, daemon=True)
+    reader.start()
+    time.sleep(0.5)
+    started = time.monotonic()
+    _aborter(client)()
+    try:
+        assert ended.wait(5) and time.monotonic() - started < 5
+    finally:
+        release.set()
+        server.close()
