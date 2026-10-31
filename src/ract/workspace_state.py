@@ -77,6 +77,38 @@ def workspace_state_dir(root: Path | str) -> Path:
     return Path(root) / WORKSPACE_STATE_DIR_NAME
 
 
+class StateDirRefused(OSError):
+    """A folder of RACT's state, or the file written there, is a link (B-213)."""
+
+
+def check_state_path(path: Path | str) -> None:
+    """Refuse a write at *path* when ``.ract`` or a folder under it is a link.
+
+    LR:: ``.ract`` is in the workspace, so a cloned repository can ship it,
+    or a folder in it, as a link or a junction (B-213). The memory arena
+    refused such a file on load and wrote through it on save, so the write
+    landed outside the project. Every writer of RACT's state calls this with
+    the file it is about to write: ``.ract`` itself, each folder below it on
+    the way, and the file must each be no link, junction or other reparse
+    point. A path with no ``.ract`` part is not RACT's state and is left as
+    it is. Raises ``StateDirRefused`` with a plain sentence.
+    """
+    from ract.workspace_path import _is_link_or_junction
+
+    parts = Path(path).parts
+    folded = [part.casefold() for part in parts]
+    if WORKSPACE_STATE_DIR_NAME not in folded:
+        return
+    start = folded.index(WORKSPACE_STATE_DIR_NAME)
+    for end in range(start + 1, len(parts) + 1):
+        current = Path(*parts[:end])
+        if _is_link_or_junction(current):
+            raise StateDirRefused(
+                f"{current} is a link or a junction, and RACT does not write its "
+                "state through one; remove it and RACT makes a plain folder"
+            )
+
+
 def legacy_state_dir(root: Path | str) -> Path:
     """Return the legacy (pre-module_10) workspace-state directory.
 

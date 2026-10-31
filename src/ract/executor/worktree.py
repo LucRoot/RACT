@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Callable, Iterable
 
 from ract.workspace_path import ENV_TEMPLATE_NAMES, is_secret_shaped
 from ract import run_checkpoint, undo_backup
+from ract.workspace_state import check_state_path
 
 if TYPE_CHECKING:
     from ract.antilazy.pre_commit import (
@@ -1038,8 +1039,9 @@ def apply_commit_to_working_tree(
     real_skips = [p for p in skipped if p != "(all paths)"]
     if real_skips:
         pending = repo / ".ract" / "pending"
-        pending.mkdir(parents=True, exist_ok=True)
         target = pending / f"{after[:12]}.patch"
+        check_state_path(target)  # B-213: never through a link
+        pending.mkdir(parents=True, exist_ok=True)
         diff = _git_bytes(
             repo,
             "--literal-pathspecs",

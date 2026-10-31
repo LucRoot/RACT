@@ -146,8 +146,14 @@ class MemoryArena:
         return header + "".join(parts)
 
     def save(self, path: Path | str) -> None:
-        """Persist the arena to *path* as JSON."""
+        """Persist the arena to *path* as JSON; never through a link (B-213)."""
+        from ract.workspace_state import StateDirRefused, check_state_path
+
         path = Path(path)
+        try:
+            check_state_path(path)
+        except StateDirRefused as exc:
+            raise MemoryArenaError(f"Memory arena is not saved: {exc}") from exc
         path.parent.mkdir(parents=True, exist_ok=True)
         data: list[dict[str, Any]] = []
         for key, recs in self._records.items():
