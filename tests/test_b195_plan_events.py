@@ -113,3 +113,32 @@ def test_a_turn_started_from_the_queue_says_queued(monkeypatch) -> None:  # type
     session._from_queue = False
     session._event_turn("fix it again", dry=True)
     assert seen == [True, False]
+
+
+def test_the_stream_follows_the_session_and_resume_is_emitted(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    # B-195 (f): events kept the first session id after /session new and
+    # /resume, and session.resumed was never emitted.
+    import json
+
+    from ract.session_events import EventStream, SessionEvent
+    from tests.test_session_commands import _session as _named_session
+
+    directory = tmp_path / ".ract" / "sessions"
+    directory.mkdir(parents=True)
+    (directory / "s-old.json").write_text(
+        json.dumps({"intent": "fix it", "plan": {}, "artifacts": {}, "outcomes": [{}, {}]}),
+        encoding="utf-8",
+    )
+    session, _console = _named_session(tmp_path)
+    seen: list[SessionEvent] = []
+    stream = EventStream(session=session.state.session_id)
+    stream.subscribe(seen.append)
+    session._events = stream
+    first = session.state.session_id
+
+    session.handle("/session s-other")
+    assert stream.session == "s-other" != first
+    session.handle("/resume s-old")
+    assert stream.session == "s-old"
+    resumed = [e.data for e in seen if e.kind == "session.resumed"]
+    assert resumed and resumed[-1]["turns"] == 2 and resumed[-1]["resumed_from"] != "s-old"
