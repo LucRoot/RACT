@@ -66,10 +66,11 @@ def wrap_exact(text: str, width: int, *, subsequent_indent: str | None = None) -
     """``text`` cut into lines of at most ``width`` columns, every character kept (B-184).
 
     Runs of spaces and leading spaces stay; a tab is shown as ``\\t``. A line
-    breaks only where it would pass the width, never inside a character and
-    its marks. Continuation lines start with ``subsequent_indent``, by default
-    the text's own leading spaces (at most half the width), so code stays
-    aligned.
+    breaks only where it would pass the width: after its last space when that
+    leaves the words whole (the space stays at the end of the line), else at
+    the width, never inside a character and its marks. Continuation lines
+    start with ``subsequent_indent``, by default the text's own leading spaces
+    (at most half the width), so code stays aligned.
     """
     text = text.replace("\t", "\\t")
     if subsequent_indent is None:
@@ -80,11 +81,21 @@ def wrap_exact(text: str, width: int, *, subsequent_indent: str | None = None) -
     lines: list[str] = []
     line = ""
     for piece in _clusters(text):
+        base = subsequent_indent if lines else ""
         # A line holds something past its indent before it may break.
-        started = line != (subsequent_indent if lines else "")
-        if started and cell_len(line) + cell_len(piece) > width:
-            lines.append(line)
-            line = subsequent_indent
+        if line != base and cell_len(line) + cell_len(piece) > width:
+            cut = line.rfind(" ")
+            while cut > 0 and cut + 1 < len(line) and _zero_width(line[cut + 1]):
+                cut = line.rfind(" ", 0, cut)  # a space carrying a mark is not a break
+            if cut >= len(base) and line[len(base) : cut].strip() and not piece.isspace():
+                lines.append(line[: cut + 1])
+                line = subsequent_indent + line[cut + 1 :]
+            else:
+                lines.append(line)
+                line = subsequent_indent
+            if line != subsequent_indent and cell_len(line) + cell_len(piece) > width:
+                lines.append(line)
+                line = subsequent_indent
         line += piece
     lines.append(line)
     return lines

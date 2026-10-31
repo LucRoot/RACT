@@ -126,3 +126,10 @@ def test_the_screens_show_no_raw_character(ch: str) -> None:
     ]
     for lines in screens:
         assert ch not in "".join(lines), lines
+
+
+def test_a_break_falls_after_a_space_when_one_fits() -> None:
+    # The batch gate (L-413): at 40 columns "tests/test_calc.py" was cut in two.
+    lines = wrap_exact("argv: python -m pytest tests/test_calc.py", 30)
+    assert lines == ["argv: python -m pytest ", "tests/test_calc.py"]
+    assert wrap_exact("x" * 50, 20) == ["x" * 20, "x" * 20, "x" * 10]  # no space: cut
