@@ -518,6 +518,8 @@ def run_turn(
             )
     finally:
         reporter.close()
+        # B-192: unbinding resets the count, so it is read first.
+        turn_changes = turn_context.changes_made()
         turn_context.bind(None)
 
     # What RACT wrote is the answer; the before/after comparison is only a
@@ -586,17 +588,14 @@ def run_turn(
         answer: str | None = None,
         runs: list[Any] | None = None,
         not_run_reason: str = "",
+        seen: list[int] | None = None,
     ) -> None:
         # The VERIFIER is harness code (ADR-0049 D4): only the runs the
         # harness made count, and a run by the scripted runner never does.
-        record = VerificationRecord()
+        # B-192: the changes and the runs are replayed in the order they
+        # happened, so a write after a passing run makes it stale.
+        record = verification_record(runs or [], seen, turn_changes)
         fake = [r for r in runs or [] if r.runner == "fake"]
-        for run in runs or []:
-            if run.runner != "fake":
-                code = run.exit_code if run.exit_code is not None else -1
-                record.record(
-                    run.argv, code if run.killed_by is None else -1, run.duration_ms
-                )
         verification = record.result(claims or []).to_event()
         if fake:
             verification["fake_runs"] = len(fake)
@@ -664,6 +663,7 @@ def run_turn(
     value = result.unwrap()
     unsigned: list[str] = []
     runs: list[Any] = []
+    seen: list[int] = []
     failed: list[Any] = []
     not_run_reason = ""
     if request.dry_run or not hasattr(value, "step_results"):
@@ -709,7 +709,11 @@ def run_turn(
                 )
         # B-023 (ADR-0049 D4): what the steps ran counts too; a failed real
         # run keeps the turn from done, and the verdict names it.
-        kinds = [*step_runs, *(("tests", r) for r in runs)]
+        after_steps = turn_changes
+        kinds = [(kind, result) for kind, result, _seen in step_runs]
+        seen = [changes for _kind, _result, changes in step_runs]
+        kinds += [("tests", r) for r in runs]
+        seen += [after_steps] * len(runs)
         runs = [result for _kind, result in kinds]
         failed = [
             (kind, result)
@@ -743,8 +747,44 @@ def run_turn(
         answer,
         runs=runs,
         not_run_reason=not_run_reason,
+        seen=seen,
     )
     return 1 if failed else 0
+
+
+def verification_record(
+    runs: list[Any], seen: list[int] | None, total: int
+) -> VerificationRecord:
+    """The turn's VerificationRecord, its changes and runs replayed in order (B-192).
+
+    LR:: The record was built after the turn from the runs alone, and no
+    change was ever noted, so a passing run followed by a later write still
+    read ``verified``. ``seen[i]`` is how many writes came before run ``i``;
+    ``total`` is the turn's writes in all. A run by the scripted runner
+    never counts (G-215). A test run that found no tests (pytest's exit 5,
+    "no tests ran") is no check: with no other run the turn is ``no-tests``.
+    """
+    record = VerificationRecord()
+    for i, run in enumerate(runs):
+        before = seen[i] if seen is not None and i < len(seen) else None
+        while before is not None and record.changes < before:
+            record.note_change()
+        if run.runner != "fake" and _found_no_tests(run):
+            record.tests_found = False
+        elif run.runner != "fake":
+            code = run.exit_code if run.exit_code is not None else -1
+            record.record(
+                run.argv, code if run.killed_by is None else -1, run.duration_ms
+            )
+    while record.changes < total:
+        record.note_change()
+    return record
+
+
+def _found_no_tests(run: Any) -> bool:
+    """True for a pytest run that collected nothing (exit 5, "no tests ran")."""
+    stdout = getattr(run, "stdout", "") or ""
+    return run.exit_code == 5 and "no tests ran" in stdout
 
 
 # At most this many citation items travel in one event; the counts cover all.

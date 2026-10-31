@@ -27,6 +27,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ract import turn_context
 from ract.core.threat_model import CapabilityTier
 from ract.tools import ToolRefused, ToolResult, ToolSpec
 from ract.workspace_path import require_workspace_path, WorkspacePathRefused
@@ -257,6 +258,8 @@ def _replace(full: Path, data: bytes) -> None:
 def _result(
     action: str, rel: str, before: bytes | None, after: bytes | None
 ) -> ToolResult:
+    """The result of a write that happened; the path is offered to the verifier (B-192)."""
+    turn_context.note_changed(rel, after)
     facts = {
         "path": rel,
         "digest_before": _digest(before) if before is not None else None,
@@ -335,6 +338,8 @@ def move_file(root: Path, args: MoveFileArgs) -> ToolResult:
     dest.parent.mkdir(parents=True, exist_ok=True)
     os.replace(full, dest)
     result = _result("moved", rel, old, old)
+    turn_context.note_changed(rel, None)
+    turn_context.note_changed(dest_rel, old)
     return ToolResult(
         text=f"moved {rel} to {dest_rel}",
         facts={**result.facts, "destination": dest_rel},
@@ -503,6 +508,8 @@ def apply_patch(root: Path, args: ApplyPatchArgs) -> ToolResult:
         }
         for _full, rel, old, new in planned
     ]
+    for _full, rel, _old, new in planned:
+        turn_context.note_changed(rel, new)
     return ToolResult(
         text="patched " + ", ".join(c["path"] for c in changed),
         facts={"files": changed},
