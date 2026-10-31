@@ -1,0 +1,117 @@
+# Captured: /review and /undo after a three-file turn; fake server, scenario j5_three_files, 80 columns.
+# Driver: tests/ux/terminal_driver.py (ConPTY). Escape sequences removed by the driver.
+# Stripped: trailing spaces only. Made on the feature tip 0cf81b9 (the transcript of docs/ux/j5/three_files_80.txt).
+
+ RACT 0.5.2  config: ract.yaml  type an intent, or /help for commands
+RACT session fake-coder via local | master | default | T3 off
+ract> fix add() and add a notes module and a sub test
+Plan (3 steps):
+  assumes: The failing test needs add() fixed, a notes module, and one more
+    test.
+[ ] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+[ ] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+[ ] 3. Add a sub test to tests/test_calc.py -> tests/test_calc.py
+Run it? [a]pprove [s]kip <n> [e]dit <n> [c]ancel a
+[>] 1. Fix add() in src/calc.py so it adds -> src/calc.py
+--- src/calc.py ---
+def add(a, b):
+    return a + b
+
+
+def sub(a, b):
+    return a - b
+[x] 1. Fix add() in src/calc.py so it adds -> src/calc.py (1.0s) passed
+[>] 2. Add src/notes.py with the NOTE constant -> src/notes.py
+--- src/notes.py ---
+NOTE = "two"
+[x] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.8s) passed
+[>] 3. Add a sub test to tests/test_calc.py -> tests/test_calc.py
+--- tests/test_calc.py ---
+from src.calc import add, sub
+
+
+def test_add():
+    assert add(2, 3) == 5
+
+
+def test_sub():
+    assert sub(5, 3) == 2
+
+
+def test_sub_zero():
+    assert sub(1, 0) == 1
+[x] 3. Add a sub test to tests/test_calc.py -> tests/test_calc.py (1.1s) passed
+warning: provenance: 3 file(s) have no signature yet (src/calc.py, src/notes.py,
+  tests/test_calc.py). See docs/PROVENANCE.md.
+Plan (3 steps), final:
+[x] 1. Fix add() in src/calc.py so it adds -> src/calc.py (1.0s) passed
+[x] 2. Add src/notes.py with the NOTE constant -> src/notes.py (0.8s) passed    
+[x] 3. Add a sub test to tests/test_calc.py -> tests/test_calc.py (1.1s) passed 
+  Done: 3 steps ran; no tests were run.
+  changed: src/calc.py (+1 -1), src/notes.py (new, 1 line), tests/test_calc.py  
+    (+4 -0); unstaged, review with git diff
+  src/calc.py: lines 1-5 -> 1-5, +1 -1
+  1   def add(a, b):
+  2 -     return a - b
+  2 +     return a + b
+  3
+  4
+  5   def sub(a, b):
+  src/notes.py: new file, 1 line
+  1 + NOTE = "two"
+  tests/test_calc.py: lines 7-9 -> 7-13, +4 -0
+   7
+   8   def test_sub():
+   9       assert sub(5, 3) == 2
+  10 +
+  11 +
+  12 + def test_sub_zero():
+  13 +     assert sub(1, 0) == 1
+  3 files, +6 -1
+  way back: /undo, or /review per hunk
+  verified: RACT ran no tests this turn
+  assumed: The failing test needs add() fixed, a notes module, and one more     
+    test. (planner confidence 0.85, not checked)
+  unsigned: 3 files
+  4 model requests, 13.8 s, 1420 tokens in / 177 out
+ract>/review
+Hunk 1 of 1 in src/calc.py:
+src/calc.py: lines 1-5 -> 1-5, +1 -1
+1   def add(a, b):
+2 -     return a - b
+2 +     return a + b
+3
+4
+5   def sub(a, b):
+a accept, r reject, e edit, s skip, A accept the rest of the file,
+R reject the rest of the file
+answer:a
+Hunk 1 of 1 in tests/test_calc.py:
+tests/test_calc.py: lines 7-9 -> 7-13, +4 -0
+ 7   
+ 8   def test_sub():
+ 9       assert sub(5, 3) == 2
+10 + 
+11 + 
+12 + def test_sub_zero():
+13 +     assert sub(1, 0) == 1
+a accept, r reject, e edit, s skip, A accept the rest of the file,
+R reject the rest of the file
+answer:e
+Type the new lines for this hunk. End with a line holding only a dot (.).       
+> def test_sub_zero():
+>     assert sub(1, 0) == 1
+> .
+Hunk 1 of 1 in src/notes.py:
+src/notes.py: lines 1-0 -> 1-1, +1 -0
+1 + NOTE = "two"
+a accept, r reject, e edit, s skip, A accept the rest of the file,
+R reject the rest of the file
+answer: r
+src/calc.py: kept as the turn left it
+tests/test_calc.py: 1 edited
+src/notes.py: removed again (the turn created it)
+ract> /undo
+restored src/calc.py to the version before the turn
+restored tests/test_calc.py to the version before the turn
+ract> /exit

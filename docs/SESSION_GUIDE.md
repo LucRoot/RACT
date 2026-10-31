@@ -173,6 +173,56 @@ ract> /undo
 nothing to undo: no turn RACT can reverse is recorded here
 ```
 
+## Review a change, then undo it
+
+After a turn that changes files, `/review` walks each hunk. `a` accepts it, `r` rejects it, `e` edits it
+(type the new lines, then a line holding only a dot), `s` skips it, `A` accepts the rest of the file and
+`R` rejects the rest. `/undo` puts back the version from before the turn for the files the turn kept.
+The capture below is a real run: one turn that changed three files, then the review and `/undo`.
+
+```text
+Hunk 1 of 1 in src/calc.py:
+src/calc.py: lines 1-5 -> 1-5, +1 -1
+1   def add(a, b):
+2 -     return a - b
+2 +     return a + b
+3
+4
+5   def sub(a, b):
+a accept, r reject, e edit, s skip, A accept the rest of the file,
+R reject the rest of the file
+answer:a
+Hunk 1 of 1 in tests/test_calc.py:
+tests/test_calc.py: lines 7-9 -> 7-13, +4 -0
+ 7   
+ 8   def test_sub():
+ 9       assert sub(5, 3) == 2
+10 + 
+11 + 
+12 + def test_sub_zero():
+13 +     assert sub(1, 0) == 1
+a accept, r reject, e edit, s skip, A accept the rest of the file,
+R reject the rest of the file
+answer:e
+Type the new lines for this hunk. End with a line holding only a dot (.).       
+> def test_sub_zero():
+>     assert sub(1, 0) == 1
+> .
+Hunk 1 of 1 in src/notes.py:
+src/notes.py: lines 1-0 -> 1-1, +1 -0
+1 + NOTE = "two"
+a accept, r reject, e edit, s skip, A accept the rest of the file,
+R reject the rest of the file
+answer: r
+src/calc.py: kept as the turn left it
+tests/test_calc.py: 1 edited
+src/notes.py: removed again (the turn created it)
+ract> /undo
+restored src/calc.py to the version before the turn
+restored tests/test_calc.py to the version before the turn
+ract> /exit
+```
+
 ## Ask a question
 
 `/ask` answers a question about the code, with no plan and no file written. The
