@@ -247,7 +247,7 @@ module_10, Lens A M8 closure).
 - `ract repl`: Open an interactive session: type intents, use /commands, keep context.
 - `ract handshakes`: List, approve, reject, defer, or review pending handshakes.
 - `ract operator-queue`: List or drain the operator-approval queue.
-- `ract whisper`: Add or list free-form legacy operator notes.
+- `ract whisper`: Brief the conventions and recent history that bear on a task (writes nothing).
 - `ract auction`: List or resolve entries in the dead-code auction.
 - `ract fence`: List or resolve Chesterton's fence entries.
 - `ract trust`: Trust this repository's own commands and endpoints (hooks, MCP servers, gates), or list and remove trust.
