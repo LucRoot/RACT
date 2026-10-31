@@ -60,6 +60,9 @@ RUNNER_FILES = frozenset(
         "tsconfig.json",
     }
 )
+# B-215: Windows, macOS and WSL under /mnt/c open these files whatever the
+# case of the name, so every name is compared case-folded on every platform.
+_RUNNER_FOLDED = frozenset(name.casefold() for name in RUNNER_FILES)
 # Configuration whose name is a family: jest.config.js, eslint.config.mjs,
 # .eslintrc.cjs, vitest.config.ts, prettier.config.js and the rest.
 _CONFIG_PREFIXES = (
@@ -112,9 +115,14 @@ def is_entry_point(path: str) -> bool:
     first on sys.path, so a top-level ``pytest.py`` would shadow the runner)."""
     from ract.import_check import is_test_file
 
-    p = Path(path.replace("\\", "/"))
+    folded = path.replace("\\", "/").casefold()
+    p = Path(folded)
     name = p.name
-    if name in RUNNER_FILES or name.startswith(_CONFIG_PREFIXES) or is_test_file(path):
+    if (
+        name in _RUNNER_FOLDED
+        or name.startswith(_CONFIG_PREFIXES)
+        or is_test_file(folded)
+    ):
         return True
     if len(p.parts) == 1 and name.endswith(".py"):
         return True

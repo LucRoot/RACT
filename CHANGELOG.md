@@ -285,6 +285,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- An allowlisted command asks when a runner configuration or test file it would load changed,
+  whatever the case of the file's name (B-215): `PYTEST.INI`, `Pyproject.toml` and
+  `sub/Conftest.py` were not recognized, though Windows and macOS open them by any case.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.

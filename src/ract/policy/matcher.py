@@ -446,7 +446,10 @@ def classify(
         plugin = next((args[i + 1] for i, a in enumerate(args[:-1]) if a == "-p"), None)
         if plugin and (project / (plugin.replace(".", "/") + ".py")).is_file():
             asks_because = "pytest -p loads a plugin from the project"
-    written = [a for a in args if a.replace("\\", "/") in model_written]
+    # B-215: a written file named in another case is the same file on
+    # Windows, macOS and WSL under /mnt/c.
+    written_folded = {w.replace("\\", "/").casefold() for w in model_written}
+    written = [a for a in args if a.replace("\\", "/").casefold() in written_folded]
     if asks_because is None and written:
         asks_because = f"it names a file written in this session ({written[0]})"
 
