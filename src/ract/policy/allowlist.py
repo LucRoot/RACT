@@ -26,6 +26,7 @@ import hashlib
 import json
 import os
 import subprocess
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -124,6 +125,25 @@ def is_entry_point(path: str) -> bool:
     return False
 
 
+# B-148: bounds on the work at run entry. Past any of them the record is
+# unknown, so every command asks (the safe answer), and the turn says so.
+MAX_ENTRY_POINTS = 5000
+MAX_ENTRY_BYTES = 64 * 1024 * 1024
+ENTRY_DEADLINE_S = 10.0
+
+
+def _bound_hit(what: str) -> None:
+    from ract import turn_context
+
+    text = (
+        f"the project's entry points were not all read ({what}); every tier-3 "
+        "command asks this turn"
+    )
+    print(f"[allowlist] {text}", flush=True)
+    if turn_context.has_reporter():
+        turn_context.report("notice", {"level": "warning", "text": text})
+
+
 def entry_point_digests(project: Path | str) -> dict[str, str] | None:
     """The SHA-256 of every entry point in *project*, tracked, new or ignored (B-027:
     a planted conftest.py counts even when the repository's .gitignore hides it)."""
@@ -151,10 +171,18 @@ def entry_point_digests(project: Path | str) -> dict[str, str] | None:
         # Not a git repository, or git refused: the entry points are unknown.
         return None
     digests: dict[str, str] = {}
+    read_bytes = 0
+    deadline = time.monotonic() + ENTRY_DEADLINE_S
     for raw in done.stdout.split(b"\0"):
         rel = raw.decode("utf-8", errors="replace")
         if not rel or not is_entry_point(rel) or not _collected(rel):
             continue
+        if len(digests) >= MAX_ENTRY_POINTS:
+            _bound_hit(f"more than {MAX_ENTRY_POINTS} entry points")
+            return None
+        if time.monotonic() > deadline:
+            _bound_hit(f"reading them took over {ENTRY_DEADLINE_S:g} s")
+            return None
         path = project / rel
         try:
             if path.is_symlink():
@@ -164,6 +192,11 @@ def entry_point_digests(project: Path | str) -> dict[str, str] | None:
                 continue
             if not path.is_file():
                 continue
+            size = path.stat().st_size
+            if read_bytes + size > MAX_ENTRY_BYTES:
+                _bound_hit(f"more than {MAX_ENTRY_BYTES // (1024 * 1024)} MiB of them")
+                return None
+            read_bytes += size
             digests[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
         except OSError as exc:
             print(f"[allowlist] {rel} was not read: {exc}", flush=True)
