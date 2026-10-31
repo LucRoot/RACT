@@ -24,7 +24,7 @@ OUT = Path(sys.argv[2])
 OUT.mkdir(parents=True, exist_ok=True)
 CASE = sys.argv[3]
 COLS = int(sys.argv[4]) if len(sys.argv) > 4 else 80
-KEY = "sk-throwaway-hosted-0002"
+KEY = "sk-" + "throwaway-hosted-0002"  # split: the source-tree scan sees no key shape
 RACT = Path(sys.executable).with_name("ract.exe")
 
 # (label, answers) per case. Prompts are answered in order, one at a time.

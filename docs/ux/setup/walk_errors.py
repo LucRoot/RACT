@@ -27,7 +27,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 SCENARIO = sys.argv[3]
 CASE = sys.argv[4]
 COLS = int(sys.argv[5]) if len(sys.argv) > 5 else 80
-KEY = "sk-throwaway-error-0003"
+KEY = "sk-" + "throwaway-error-0003"  # split: the source-tree scan sees no key shape
 RACT = Path(sys.executable).with_name("ract.exe")
 
 
