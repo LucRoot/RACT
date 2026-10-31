@@ -238,7 +238,9 @@ class Manager:
                     "The model went straight to tools (or answered in prose); the "
                     "request is the one step."
                 ),
-                confidence=0.5,
+                # The one step is the request itself, nothing guessed; the
+                # Planner passes this on, and under 0.7 it is not ok.
+                confidence=1.0,
                 steps=[
                     Step(
                         action=intent,
@@ -251,7 +253,10 @@ class Manager:
                 planned=False,
             ),
             assumption="planned: no (the model went straight to tools)",
-            confidence=0.5,
+            # Turning the request into its one step is certain, as for an asked
+            # question. Below the floor (0.7) the harness read it as "Planning
+            # failed: None" (the J4 flip, B-137).
+            confidence=1.0,
             provenance=["manager.plan", "agent_plan"],
         )
 

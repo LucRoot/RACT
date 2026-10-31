@@ -43,16 +43,29 @@ def _tools(content: str = "") -> dict[str, Any]:
 
 def test_a_tool_call_first_reply_becomes_the_one_step_with_its_opening() -> None:
     provider = Provider([_tools("I will run the tests first.")])
-    plan = Manager(provider, "plan").plan("fix the failing test").unwrap()
+    rooted = Manager(provider, "plan").plan("fix the failing test")
+    assert rooted.is_ok(), rooted.error  # the harness reads is_ok, not unwrap
+    plan = rooted.unwrap()
     assert plan.planned is False and provider.calls == 1  # no re-ask: nothing lost
     (step,) = plan.steps
     assert step.agent is True and step.action == "fix the failing test"
     assert _has_tool_calls(step.opening)
 
 
+def test_the_planner_the_harness_calls_passes_the_agent_plan_on() -> None:
+    """The J4 flip: the harness calls Planner.plan, which checks the plan's confidence."""
+    from ract.planner import Planner
+
+    provider = Provider([_tools("I will run the tests first.")])
+    rooted = Planner(Manager(provider, "plan")).plan("fix the failing test")
+    assert rooted.is_ok(), rooted.error
+    assert rooted.unwrap().steps[0].agent is True
+
+
 def test_prose_twice_becomes_the_one_step_and_says_so() -> None:
     provider = Provider([_text("Sure, I can help."), _text("Let me look.")])
     rooted = Manager(provider, "plan").plan("fix the failing test")
+    assert rooted.is_ok(), rooted.error
     plan = rooted.unwrap()
     assert plan.planned is False and plan.steps[0].agent is True
     assert "went straight to tools" in rooted.assumption
@@ -133,3 +146,49 @@ def test_with_the_step_loop_off_prose_is_the_answer_and_tools_are_refused(
     )
     refused = executor._agent_without_tools(tools, 1)
     assert not refused.is_ok() and "step agent loop is off" in refused.error
+
+
+def test_headless_a_tool_call_first_reply_runs_as_the_one_step(
+    tmp_path, fake_model_server
+) -> None:
+    """End to end (the J4 flip found it): the harness reads the plan through the
+    Planner's confidence floor, and the one step is the request as typed."""
+    import json
+
+    from tests.fixtures.fake_model_server import Scenario
+    from tests.test_headless import _ract
+    from tests.test_session_turn import _repo
+
+    server = fake_model_server(
+        Scenario.from_dict(
+            {
+                "turns": [
+                    {
+                        "reply": {
+                            "kind": "tool_calls",
+                            "content": "I will read it first.",
+                            "calls": [
+                                {
+                                    "name": "read_file",
+                                    "arguments": {"path": "src/calc.py"},
+                                }
+                            ],
+                        }
+                    },
+                    {"reply": {"kind": "text", "content": "add subtracts."}},
+                ]
+            }
+        )
+    )
+    ws = _repo(tmp_path, server.base_url)
+    config = ws / "ract.yaml"
+    config.write_text(
+        config.read_text(encoding="utf-8") + "\nagent:\n  step_tools: true\n",
+        encoding="utf-8",
+    )
+    result = _ract(ws, "-p", "--accept-edits", "look at add", "--output-format", "json")
+    assert result.returncode == 0, result.stderr
+    assert "Planning failed" not in result.stderr
+    assert "1. look at add" in result.stderr
+    assert "dialect brief" not in result.stderr  # the planning prompt is not the step
+    assert json.loads(result.stdout.strip().splitlines()[-1])["planned"] is False

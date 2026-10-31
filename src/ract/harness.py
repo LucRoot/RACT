@@ -911,6 +911,17 @@ class Harness:
             )
 
         plan = plan_rooted.unwrap()
+        if not plan.planned:
+            # B-137: the one step is the user's own request. The planner was
+            # given the augmented prompt (dialect brief, context), which the
+            # plan showed whole and the step would have carried twice.
+            plan = replace(
+                plan,
+                steps=[
+                    replace(step, action=intent) if step.agent else step
+                    for step in plan.steps
+                ],
+            )
         validation = PlanValidator.validate(plan)
         if not validation.is_valid:
             return Rooted(
