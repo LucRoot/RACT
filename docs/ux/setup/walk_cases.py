@@ -29,9 +29,9 @@ RACT = Path(sys.executable).with_name("ract.exe")
 
 # (label, answers) per case. Prompts are answered in order, one at a time.
 ANSWERS = {
-    # Declined local, cloud, provider 6 (openai), then git init declined.
-    "hosted_key_set": ["c", "6", "n"],
-    "preset": ["c", "6", "n"],
+    # Enter at the address prompt (B-160a), cloud, provider 6 (openai), then git init declined.
+    "hosted_key_set": ["", "c", "6", "n"],
+    "preset": ["", "c", "6", "n"],
     # Second endpoint: setup again with a local server, then the reconfigure diff.
     "second_endpoint": ["y", "", "n"],
 }
