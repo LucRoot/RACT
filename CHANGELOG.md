@@ -268,6 +268,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `web_fetch` asks before every fetch in every mode (D-144; "for this session" covers that
+  exact URL), and resolves a host only after the string check, the secret scan of the URL
+  and the answer, then connects to that vetted address with the host name kept for TLS
+  (G-238). The body is read raw with no content coding up to the cap, one 60 s deadline
+  covers DNS, redirects and the body, a control character in the URL is refused, the grant
+  pin is read again after the question and before each hop, NAT64, 6to4 and mapped IPv6
+  forms of inner addresses are refused, and a connection error is a plain refusal.
 - A malformed tool call is answered plainly and never reaches a tool (B-140): a call to a
   tool the loop does not offer gets the offered names back, arguments that do not fit get
   what was wrong and the fields the tool takes, and arguments encoded twice as a JSON
