@@ -4787,7 +4787,7 @@ def main(argv: list[str] | None = None) -> int:
 
         migrate_rack_to_ract(Path.cwd())
     except Exception as exc:  # noqa: BLE001 -- migration must never crash the CLI
-        print(f"[ract] the .rack folder was not migrated: {exc}", file=sys.stderr)
+        print(f"[ract] the old state folder was not migrated: {exc}", file=sys.stderr)
 
     # v0.5.1 wiring module_10 (Lens A C1): comprehensive top-level
     # ``--help``. A bare ``ract --help`` / ``ract -h`` / ``ract help``
