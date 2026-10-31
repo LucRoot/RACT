@@ -95,8 +95,10 @@ pushing that branch publishes these mentions again, even after the repair.
 
 ## Findings that become cards
 
-0. **The scrub goes into every branch before it is pushed**: R-002a for the feature
-   branch, and the scrub's two commits on the v0.5.3 branch (prepared as patches).
+0. **Whether the scrub goes into a branch before it is pushed is the operator's decision**
+   (R-002a for the feature branch; for the v0.5.3 branch, variant B2 in the release commands,
+   with the scrub's two commits prepared as patches). A branch pushed without it carries the
+   8 mentions.
 1. **The kit needs the extended rules** before the operator runs it. Without
    them, the repair push would publish the wordlist terms again. The extended
    `msg_cb.py` and `mailmap.txt` are in the BUILDER's log entry for the
