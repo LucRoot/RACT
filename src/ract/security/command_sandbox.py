@@ -27,7 +27,26 @@ from pathlib import Path
 from typing import Any
 
 # Read-only inside the sandbox, so the usual tools and their libraries work.
-SYSTEM_READ = ("/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc")
+# G-237 L3: from /etc only what the loader, TLS and user lookups need; the
+# whole of /etc would show /etc/shadow to a command run as root (WSL).
+SYSTEM_READ = (
+    "/usr",
+    "/bin",
+    "/sbin",
+    "/lib",
+    "/lib64",
+    "/etc/ld.so.cache",
+    "/etc/ld.so.conf",
+    "/etc/ld.so.conf.d",
+    "/etc/alternatives",
+    "/etc/ssl/certs",
+    "/etc/passwd",
+    "/etc/group",
+    "/etc/localtime",
+    "/etc/nsswitch.conf",
+)
+# Name resolution, bound only for a rule with the network on.
+NETWORK_READ = ("/etc/resolv.conf", "/etc/hosts")
 # The self-test (one shell line, POSIX sh): a write into a read-only system
 # folder must fail, a host file outside the workspace must not be visible,
 # and only the loopback interface may exist in an unshared network namespace.
@@ -37,6 +56,8 @@ SELF_TEST = (
     '[ "$(grep -c : /proc/net/dev)" -le 1 ] || echo NET; '
     # In its own pid namespace the probe sees a handful of processes at most.
     '[ "$(ls /proc | grep -c "^[0-9]")" -le 8 ] || echo PROC; '
+    # G-237 L3: the host's password hashes are not bound in.
+    "[ -e /etc/shadow ] && echo SHADOW; "
     "echo DONE"
 )
 _checked: dict[str, Any] = {}
@@ -65,7 +86,7 @@ def manifest_for(run_id: str, *, network: bool, executable: str | None) -> Any:
     """The capability manifest a tier-3 command runs under."""
     from ract.security.manifest import CapabilityManifest
 
-    read = list(SYSTEM_READ)
+    read = list(SYSTEM_READ) + (list(NETWORK_READ) if network else [])
     for path in _prefix_binds(executable) if executable else []:
         if path not in read:
             read.append(path)
@@ -116,6 +137,8 @@ def _self_test(backend: Any) -> str | None:
         return "the network namespace has more than the loopback interface"
     if "PROC" in out:
         return "the host's processes were visible inside"
+    if "SHADOW" in out:
+        return "/etc/shadow was visible inside"
     return None
 
 

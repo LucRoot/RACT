@@ -247,7 +247,11 @@ def run_under_rule(
     # Read in the folder the command runs in (the step worktree): a file that
     # differs only there decides what runs too.
     changes = allowlist.changed_entry_points(
-        root, ctx.grant.digest, ctx.model_written, record_project=ctx.project
+        root,
+        ctx.grant.digest,
+        ctx.model_written,
+        record_project=ctx.project,
+        argv=list(match.argv),
     )
     sessions = ctx.session_approvals
     approved_by = ""

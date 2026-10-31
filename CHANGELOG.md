@@ -240,6 +240,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- A signed file's record sits beside it (`src/.calc.py.rootknot.json`), and the turn
+  summary names it: commit it with its file to keep the record (D-143). `turn.finished`
+  and the headless result carry `provenance.sidecars`; `/undo` takes it back with its file.
 - The session's screens come from MASON's views: the guided grant flow, `/permissions`,
   `/checkpoint`, the `/restore` preview (what goes back and what is left alone, shown before
   it runs), the proposed-change line, the apply result, the test-run summary, the verdict and

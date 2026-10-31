@@ -363,7 +363,21 @@ def _provenance(
     }
     if unverified:
         out["unverified_files"] = unverified
+    # D-143: each signed file's record sits beside it; the operator commits it
+    # with the file to keep the record (the summary names them).
+    out["sidecars"] = [
+        _sidecar_name(name)
+        for name in changed or []
+        if name not in unsigned
+        and name not in unverified
+        and (project / _sidecar_name(name)).is_file()
+    ]
     return out
+
+
+def _sidecar_name(name: str) -> str:
+    head, _, base = name.rpartition("/")
+    return f"{head}/.{base}.rootknot.json" if head else f".{base}.rootknot.json"
 
 
 class _TurnReporter:

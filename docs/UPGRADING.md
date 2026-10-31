@@ -35,6 +35,11 @@ git tag, with the fake model server; nothing is installed.
 - A turn that changes files says `signed` only when each changed file's
   Rootknot verifies; on Linux with bubblewrap, a tier-3 command runs inside
   it, and `ract doctor --sandbox` says so.
+- Each file a run signs gets its record beside it, `.<name>.rootknot.json`
+  (for `src/calc.py`, `src/.calc.py.rootknot.json`). It shows in
+  `git status` as a new file, and the turn summary names it. Commit it with
+  its file to keep the record with your history; `/undo` and `/restore`
+  take it back with its file (D-143).
 - A handshake you approved before this change no longer widens a run's
   capability manifest. Approve it again with `ract handshakes approve
   <milestone-id>`. An approval now counts only when this machine recorded it,

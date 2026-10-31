@@ -48,7 +48,11 @@ def test_a_run_then_verify_passes(ws: Path) -> None:
     ok, message = verify_artifact(target, ws)
     assert ok, message
     # B-038/B-039: a signed file is not listed as unsigned, and the turn says signed.
-    assert finished["provenance"] == {"signed": True, "unsigned_files": []}
+    assert finished["provenance"] == {
+        "signed": True,
+        "unsigned_files": [],
+        "sidecars": ["src/.calc.py.rootknot.json"],  # D-143
+    }
 
 
 def test_one_changed_byte_fails_verification(ws: Path) -> None:
@@ -170,3 +174,44 @@ def test_the_snapshot_reads_at_most_its_total(tmp_path: Path, monkeypatch) -> No
     subprocess.run(["git", "add", "-A"], cwd=root, check=True)
     files = provenance_wiring._tracked_text(root)
     assert files["a.txt"] == "12345678" and files["b.txt"].startswith("sha256:")
+
+
+def test_one_session_key_a_day_for_a_repository(ws: Path) -> None:
+    """G-237 L4: a key per run left a busy user with thousands of key files."""
+    from types import SimpleNamespace
+
+    from ract import provenance_wiring
+    from ract.core.keys import _default_state_dir
+
+    keys = _default_state_dir() / "keys"
+    before = set(keys.glob("*.pem")) if keys.is_dir() else set()
+    for run in ("run-one", "run-two", "run-three"):
+        executor = SimpleNamespace(install_v4_provenance_deps=lambda **_kw: None)
+        assert provenance_wiring.install(executor, ws, "fix add", run_id=run) is None
+    assert len(set(keys.glob("*.pem")) - before) <= 1  # the day's key, made once
+
+    seed = provenance_wiring.session_seed
+    assert seed(ws, "2026-10-30") == seed(ws, "2026-10-30")
+    assert seed(ws, "2026-10-30") != seed(ws, "2026-10-31")
+    assert seed(ws, "2026-10-30") != seed(ws.parent, "2026-10-30")
+
+
+def test_undo_removes_the_sidecar_with_its_file(ws: Path) -> None:
+    """D-143: the sidecar goes with its file; /undo leaves no record of a
+    change that is no longer there."""
+    from ract import undo_backup
+
+    before = (ws / "src" / "calc.py").read_bytes()
+    _turn(ws)
+    sidecar = ws / "src" / ".calc.py.rootknot.json"
+    assert sidecar.is_file()
+    result = undo_backup.undo(ws)
+    assert not result.skipped, result.skipped
+    assert (ws / "src" / "calc.py").read_bytes() == before
+    assert not sidecar.exists()
+
+
+def test_the_summary_names_the_sidecar_and_says_to_commit_it(ws: Path) -> None:
+    """D-143: the operator commits the sidecar with the file to keep the record."""
+    finished = _turn(ws)
+    assert finished["provenance"]["sidecars"] == ["src/.calc.py.rootknot.json"]

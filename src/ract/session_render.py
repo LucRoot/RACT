@@ -621,6 +621,11 @@ class PlainRenderer:
             self._line(
                 f"  unsigned: {len(unsigned)} file{'s' if len(unsigned) != 1 else ''}"
             )
+        sidecars = (d.get("provenance") or {}).get("sidecars") or []
+        if sidecars:
+            # D-143: the record of each signed file; it travels when committed.
+            shown = ", ".join(safe_text(str(s)) for s in sidecars)
+            self._line(f"  signed: commit each record with its file: {shown}")
         self._line("  " + self._cost_line(seconds))
         if test_named:
             why = verification.get("not_run_reason") or "no test ran"

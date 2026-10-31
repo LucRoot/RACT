@@ -243,3 +243,42 @@ def test_src_code_is_not_an_entry_point() -> None:
     from ract.policy.allowlist import is_entry_point
 
     assert not is_entry_point("src/calc.py") and not is_entry_point("docs/a.md")
+
+
+# --- G-237 L1: a selector in a folder the record does not cover asks ---------
+
+
+def _call_selecting(root: Path, selector: str):  # type: ignore[no-untyped-def]
+    asked: list[dict] = []
+    runner = ScriptedRunner([{"exit_code": 0}])
+    ctx = tier3.for_project(
+        root, lambda facts: asked.append(facts) or True, runner, mode="allowlist"
+    )
+    with tier3.bound(ctx):
+        rooted = run_tool(root, "run_tests", {"selectors": [selector], "reason": "x"})
+    return rooted, asked, runner
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [".hidden/test_x.py", "build/conftest.py", "node_modules/pkg/test_a.py::test_a"],
+)
+def test_a_selector_in_an_uncollected_folder_asks(project: Path, selector: str) -> None:
+    from ract.policy.allowlist import NAMED_UNCOVERED
+
+    _grant(project)
+    planted = project / selector.split("::")[0]
+    planted.parent.mkdir(parents=True, exist_ok=True)
+    planted.write_text("def test_a():\n    pass\n", encoding="utf-8")
+    _rooted, asked, _runner = _call_selecting(project, selector)
+    assert len(asked) == 1, (
+        "a planted file named as a selector ran without the question"
+    )
+    assert (selector.split("::")[0], NAMED_UNCOVERED) in asked[0]["entry_points"]
+
+
+def test_a_selector_in_the_project_still_runs_without_asking(project: Path) -> None:
+    _grant(project)
+    rooted, asked, runner = _call_selecting(project, "tests/test_calc.py")
+    assert rooted.is_ok(), rooted.error
+    assert asked == [] and len(runner.calls) == 1

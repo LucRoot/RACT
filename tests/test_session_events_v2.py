@@ -265,7 +265,11 @@ def test_turn_reports_plan_steps_and_artifact_text(
     finished = events[-1].data
     assert finished["verification"] == {"status": "not-run", "runs": [], "claims": []}
     # S-015b: the run signs what it writes.
-    assert finished["provenance"] == {"signed": True, "unsigned_files": []}
+    assert finished["provenance"] == {
+        "signed": True,
+        "unsigned_files": [],
+        "sidecars": ["src/.calc.py.rootknot.json"],  # D-143
+    }
     assert finished["workspace"].startswith("1 file changed: src/calc.py")
 
 

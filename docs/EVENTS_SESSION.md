@@ -151,6 +151,7 @@ next turn (`turn.started` with `queued: true`).
 |---|---|---|
 | `signed` | boolean | True only when every changed file has a signed Rootknot record. Until S-015b lands this is false. |
 | `unsigned_files` | list of paths | Changed files without a signed record. |
+| `sidecars` | list of paths | The signed record beside each signed file (`src/.calc.py.rootknot.json`); commit it with the file to keep the record (D-143). |
 
 `turn.interrupting` is emitted within 200 ms of Ctrl-C. A renderer prints
 the acknowledgement from it; the time until `turn.finished` with outcome

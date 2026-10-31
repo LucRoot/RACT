@@ -412,10 +412,12 @@ def probe_lsp(language: str, repo_root: Path | str | None = None) -> LspProbeRes
             with client._server.open_file(rel):
                 _ = client._server.request_references(rel, 0, 4)
         finally:
+            # G-240: the probe's server is shut down on every path.
+            client.close()
             try:
                 probe_path.unlink()
-            except OSError:
-                pass
+            except OSError as exc:
+                _LOGGER.debug("probe_lsp: probe file not removed: %s", exc)
         elapsed = int((time.perf_counter() - started) * 1000)
         return LspProbeResult(
             language=language,
@@ -462,35 +464,86 @@ def available_languages(
 PROBE_BUDGET_SECONDS = 20.0
 
 
+# G-240: each probe runs in its own Python process, started as a process
+# group, so a server that never answers is ended with its whole tree when the
+# budget runs out (on Windows a thread's server could outlive RACT).
+_PROBE_MAIN = (
+    "import dataclasses, json, sys\n"
+    "from ract.memory.lsp import probe_lsp\n"
+    "result = probe_lsp(sys.argv[1], sys.argv[2])\n"
+    "print('RACT-PROBE ' + json.dumps(dataclasses.asdict(result)), flush=True)\n"
+)
+
+
+def _child_argv(language: str, repo_root: str) -> list[str]:
+    import sys
+
+    return [sys.executable, "-c", _PROBE_MAIN, language, repo_root]
+
+
+def _parsed(language: str, output: str) -> LspProbeResult:
+    import json
+
+    for line in reversed(output.splitlines()):
+        if line.startswith("RACT-PROBE "):
+            try:
+                return LspProbeResult(**json.loads(line[len("RACT-PROBE ") :]))
+            except (TypeError, ValueError) as exc:
+                _LOGGER.warning("probe_lsp: %s result not read: %s", language, exc)
+                break
+    return LspProbeResult(
+        language=language,
+        available=False,
+        error_message=f"probe_lsp: the {language} probe ended without a result",
+    )
+
+
 def bounded_probes(
     languages: Iterable[str],
     repo_root: Path | str | None = None,
     *,
     budget_s: float | None = None,
 ) -> dict[str, LspProbeResult]:
-    """Every language's probe at once, under one wall-clock budget (B-136)."""
+    """Every language's probe at once, under one wall-clock budget (B-136).
+
+    Each probe is a child process group; a probe still running at the end of
+    the budget is killed with its tree (G-240), and the language is reported
+    unavailable.
+    """
     import threading
     import time as _time
 
+    from ract.executor.process_group import kill_tree, spawn
+
     budget = PROBE_BUDGET_SECONDS if budget_s is None else budget_s
-    results: dict[str, LspProbeResult] = {}
-    workers: dict[str, threading.Thread] = {}
+    root = str(Path(repo_root).resolve() if repo_root is not None else Path.cwd())
+    outputs: dict[str, str] = {}
+    handles = {}
+    readers: dict[str, threading.Thread] = {}
     for lang in languages:
+        handle = spawn(_child_argv(lang, root), cwd=root)
+        handles[lang] = handle
 
-        def run(lang: str = lang) -> None:
-            results[lang] = probe_lsp(lang, repo_root)
+        def read(lang: str = lang, handle=handle) -> None:  # type: ignore[no-untyped-def]
+            out, _err = handle.popen.communicate()
+            outputs[lang] = (out or b"").decode("utf-8", errors="replace")
 
-        worker = threading.Thread(
-            target=run, name=f"ract-lsp-probe-{lang}", daemon=True
+        reader = threading.Thread(
+            target=read, name=f"ract-lsp-probe-{lang}", daemon=True
         )
-        workers[lang] = worker
-        worker.start()
+        readers[lang] = reader
+        reader.start()
     deadline = _time.monotonic() + budget
-    for worker in workers.values():
-        worker.join(max(deadline - _time.monotonic(), 0))
+    for reader in readers.values():
+        reader.join(max(deadline - _time.monotonic(), 0))
     out: dict[str, LspProbeResult] = {}
-    for lang in workers:
-        out[lang] = results.get(lang) or _unanswered(lang, budget)
+    for lang, reader in readers.items():
+        if reader.is_alive():
+            kill_tree(handles[lang])
+            reader.join(5)
+            out[lang] = _unanswered(lang, budget)
+        else:
+            out[lang] = _parsed(lang, outputs.get(lang, ""))
     return out
 
 
@@ -515,33 +568,10 @@ def bounded_probe(
 ) -> LspProbeResult:
     """``probe_lsp`` with a wall-clock bound; past it the language is unavailable.
 
-    The probe runs in a daemon thread. When it does not return in time the
-    result says so, and the thread is left to end with its server (a server
-    that never answers is not waited for; it ends with the process).
+    The probe runs as a child process group; past the bound it is killed with
+    its server (G-240).
     """
-    import threading
-
-    budget = PROBE_BUDGET_SECONDS if budget_s is None else budget_s
-    box: list[LspProbeResult] = []
-    worker = threading.Thread(
-        target=lambda: box.append(probe_lsp(language, repo_root)),
-        name=f"ract-lsp-probe-{language}",
-        daemon=True,
-    )
-    worker.start()
-    worker.join(budget)
-    if box:
-        return box[0]
-    _LOGGER.warning("probe_lsp: %s did not answer in %.0f s", language, budget)
-    return LspProbeResult(
-        language=language,
-        available=False,
-        latency_ms=int(budget * 1000),
-        error_message=(
-            f"probe_lsp: the {language} language server did not answer in "
-            f"{budget:.0f} s"
-        ),
-    )
+    return bounded_probes([language], repo_root, budget_s=budget_s)[language]
 
 
 __all__ = [

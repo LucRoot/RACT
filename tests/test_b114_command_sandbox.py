@@ -64,6 +64,7 @@ def test_a_backend_that_passes_its_self_test_is_used(monkeypatch) -> None:
         ("WROTE\nDONE", "read-only system folder"),
         ("SEEN\nDONE", "outside the workspace was visible"),
         ("NET\nDONE", "more than the loopback"),
+        ("SHADOW\nDONE", "/etc/shadow was visible"),
         ("", "did not finish"),
     ],
 )
@@ -188,3 +189,20 @@ def test_only_the_prefix_bin_and_lib_are_bound(tmp_path: Path) -> None:
     binds = command_sandbox._prefix_binds(str(prefix / "bin" / "pytest"))
     assert str(prefix / "bin") in binds and str(prefix / "lib") in binds
     assert not [b for b in binds if b.endswith("share")] and str(prefix) not in binds
+
+
+def test_etc_is_bound_entry_by_entry_and_resolution_only_with_the_network(
+    tmp_path: Path,
+) -> None:
+    """G-237 L3: /etc whole showed /etc/shadow to a command run as root."""
+    from ract.security.sandbox_linux import LinuxSandbox
+
+    backend = LinuxSandbox.__new__(LinuxSandbox)
+    backend.bwrap_path = "/usr/bin/bwrap"
+    for network in (False, True):
+        manifest = command_sandbox.manifest_for("r", network=network, executable=None)
+        argv = list(backend.render(manifest, tmp_path, ("/bin/true",)).argv)
+        bound = {argv[i + 1] for i, a in enumerate(argv) if a.startswith("--ro-bind")}
+        assert "/etc" not in bound and "/etc/shadow" not in bound
+        assert {"/etc/ld.so.cache", "/etc/ssl/certs", "/etc/passwd"} <= bound
+        assert ("/etc/resolv.conf" in bound) is network
