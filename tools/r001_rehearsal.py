@@ -31,6 +31,7 @@ import time
 from pathlib import Path
 
 FEATURE = "refs/heads/feat/interactive-session-and-setup-fixes"
+RELEASE = "refs/heads/release/v0.5.3-security"
 OPERATOR_EMAIL = "<info@lucasroot.com>"
 
 
@@ -75,8 +76,10 @@ def tips(repo: Path) -> dict[str, str]:
 
 
 def pushed_refs(repo: Path) -> list[str]:
-    tags = git(repo, "for-each-ref", "--format=%(refname)", "refs/tags").split()
-    return ["refs/heads/main", FEATURE, *tags]
+    """``main``, the feature and release branches and the ``v*`` tags: nothing else is pushed."""
+    tags = git(repo, "for-each-ref", "--format=%(refname)", "refs/tags/v*").split()
+    heads = git(repo, "for-each-ref", "--format=%(refname)", "refs/heads").split()
+    return [r for r in ("refs/heads/main", FEATURE, RELEASE) if r in heads] + tags
 
 
 def identities(repo: Path, refs: list[str] | None = None) -> list[str]:
@@ -92,6 +95,44 @@ def message_hits(repo: Path, terms: list[str]) -> list[int]:
     ]
 
 
+def tag_message_hits(repo: Path, terms: list[str]) -> list[int]:
+    """Hits per term in the annotated tag objects (tagger line and message)."""
+    out = git(repo, "for-each-ref", "--format=%(objecttype) %(refname)", "refs/tags")
+    bodies = [
+        git(repo, "cat-file", "-p", ref).lower()
+        for kind, ref in (line.split(" ", 1) for line in out.splitlines())
+        if kind == "tag"
+    ]
+    return [sum(t.lower() in body for body in bodies) for t in terms]
+
+
+def tracked_file_hits(repo: Path, ref: str, terms: list[str]) -> dict[str, int]:
+    """Tracked files at ``ref`` naming a term; the wordlist test's two exemptions apply."""
+    exempt = {"tests/test_release_surface.py", "assets/demo.cast"}
+    hits = {}
+    for i, term in enumerate(terms):
+        out = git(repo, "grep", "-I", "-i", "-F", "-l", "-e", term, ref, check=False)
+        files = [f.split(":", 1)[1] for f in out.splitlines() if ":" in f]
+        files = [f for f in files if f not in exempt]
+        if files:
+            hits[f"term_{i + 1}"] = len(files)
+    return hits
+
+
+def handed_back_state(repo: Path) -> dict:
+    """What else the rewritten clone holds besides the branches and tags."""
+    every = git(repo, "for-each-ref", "--format=%(refname)").split()
+    notes = git(repo, "notes", "list", check=False).split()
+    return {
+        "refs_outside_heads_and_tags": sorted(
+            r for r in every if not r.startswith(("refs/heads/", "refs/tags/"))
+        ),
+        "notes": len(notes),
+        "reflog_entries": len(git(repo, "reflog", "--all", check=False).splitlines()),
+        "stash_entries": len(git(repo, "stash", "list", check=False).splitlines()),
+    }
+
+
 def snapshot(repo: Path, terms: list[str]) -> dict:
     refs = trees(repo)
     return {
@@ -101,6 +142,7 @@ def snapshot(repo: Path, terms: list[str]) -> dict:
         "identities_all_refs": identities(repo),
         "identities_pushed_refs": identities(repo, pushed_refs(repo)),
         "message_hits_per_term": message_hits(repo, terms),
+        "tag_object_hits_per_term": tag_message_hits(repo, terms),
     }
 
 
@@ -155,6 +197,18 @@ def main(argv: list[str]) -> int:
         git(rewritten, "ls-tree", "-r", "--full-tree", FEATURE) == before_files
     )
 
+    report["handed_back"] = handed_back_state(rewritten)
+    report["refs_to_push"] = [
+        r for r in pushed_refs(rewritten) if r.startswith("refs/heads/")
+    ] + ["refs/tags/v*"]
+    report["tracked_file_hits_at_feature_tip"] = tracked_file_hits(
+        rewritten, FEATURE, terms
+    )
+    kit_tracked = git(
+        src, "ls-files", "--", *(str(p) for p in kit.iterdir()), check=False
+    )
+    report["kit_files_tracked"] = kit_tracked.split()
+
     stand_in, backup = work / "stand_in", work / "backup.git"
     clone(src, stand_in)
     original = tips(stand_in)
@@ -176,6 +230,11 @@ def main(argv: list[str]) -> int:
         and not report["refs_lost"]
         and report["feature_tip_files_identical"]
         and not any(report["after"]["message_hits_per_term"])
+        and not any(report["after"]["tag_object_hits_per_term"])
+        and not report["handed_back"]["refs_outside_heads_and_tags"]
+        and not report["handed_back"]["notes"]
+        and not report["tracked_file_hits_at_feature_tip"]
+        and not report["kit_files_tracked"]
         and all(
             "Lucas Root" in i and i.endswith(OPERATOR_EMAIL)
             for i in report["after"]["identities_pushed_refs"]

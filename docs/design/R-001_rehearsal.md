@@ -58,6 +58,8 @@ review branches. The extended kit passes every check:
 | Messages naming a private term (29 terms, all refs) | up to 37 per term | 0 for every term |
 | Identities on the refs to push (`main`, tags, feature) | 3, one of them wrong | 2, both the operator |
 | Time for the rewrite itself | | 6.3 s (the whole script about 3 minutes) |
+| Annotated tag objects naming a private term (tagger line and message) | 0 | 0 |
+| Notes, reflog entries, stash, refs outside branches and tags in the clone | | none |
 | Undo: adopt the rewritten refs, then restore from the mirror | | every ref back to its original commit |
 
 Each check's "before" number is from the same clone just before the rewrite.
@@ -65,8 +67,36 @@ The trees are unchanged, so the source digest, the golden hashes and every
 test stay as they are. Commit ids change on 203 of the 204 refs, because the
 earliest commits' messages change.
 
+## What is pushed, and what stays
+
+The rewritten clone holds every local branch and tag, so the operator pushes named refs
+only: `main`, the feature branch, `release/v0.5.3-security` and the ten `v*` tags. It never
+uses `--mirror`, `--all` or `--tags`. The clone also holds local work branches, two
+`rootact/step/...` branches and five `backup-v0.5.1-pre*` tags. Those tags point at history
+from before an earlier scrub. None of these may be pushed. The script checks that the clone
+holds no notes, reflog entries, stash or refs outside branches and tags.
+
+## Where the terms live
+
+The kit (`mailmap.txt`, `msg_cb.py`, `terms.txt`, `run_r001.sh`) names the private terms in
+plain words, so it stays in the operator's board folder and is never tracked. The script
+checks that no kit file is tracked by git. This page, the script and the release commands
+name the kit by its path and quote no term.
+
+## File contents still name three terms
+
+Option A never changes file contents. Tracked files at the feature tip, and on `main`, still
+name three of the 29 terms in 8 places: 6 files for one term, and 1 file each for two more. The
+closed-IP wordlist test does not list these three terms, so it passes. They are the file
+mentions the release plan names. Branch `scrub/private-refs` (M-002) removes all 8, and it is
+not yet merged into the feature branch (R-002a). On a copy of the v0.5.3 cut, adding the
+scrub's two commits brings the count to 0 for all 29 terms. Until the scrub is in a branch,
+pushing that branch publishes these mentions again, even after the repair.
+
 ## Findings that become cards
 
+0. **The scrub goes into every branch before it is pushed**: R-002a for the feature
+   branch, and the scrub's two commits on the v0.5.3 branch (prepared as patches).
 1. **The kit needs the extended rules** before the operator runs it. Without
    them, the repair push would publish the wordlist terms again. The extended
    `msg_cb.py` and `mailmap.txt` are in the BUILDER's log entry for the
