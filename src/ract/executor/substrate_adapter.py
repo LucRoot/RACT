@@ -376,10 +376,11 @@ def run_via_substrate(
         else:
             error = (result.error if result is not None else None) or "the turn stopped"
             hint = result.hint if result is not None else None
-            refused = "refused" in error or "left these paths" in error
-            executor.release_held_step(
-                "refused" if refused else "failed", hint or error
-            )
+            # B-196: the same classifier as the turn and the in-place path.
+            from ract.executor.steps import step_outcome
+
+            outcome = "refused" if "left these paths" in error else step_outcome(error)
+            executor.release_held_step(outcome, hint or error)
 
 
 def _run_via_substrate_steps(
