@@ -24,8 +24,26 @@ else:
 
     httpx = lazy_module("httpx")  # B-087b: imported at first use, not at start
 
-from ract import egress_ledger, egress_scan
+from ract import egress_ledger, egress_scan, redaction
 from ract.rooted import Rooted
+
+
+_CREDENTIAL_NAME = ("key", "token", "secret", "password", "passwd", "auth", "credential")
+
+
+def _register_credentials(values: Any) -> None:
+    """Register the credential-named entries of an MCP server's env or headers (B-202).
+
+    Only names that say they hold a credential: registering every value
+    would also mask ordinary long values such as a PATH.
+    """
+    if not isinstance(values, dict):
+        return
+    for name, value in values.items():
+        if isinstance(value, str) and any(w in str(name).lower() for w in _CREDENTIAL_NAME):
+            redaction.register_known(value)
+            if " " in value:  # "Bearer <token>": the token alone too
+                redaction.register_known(value.split(" ", 1)[1])
 
 
 @dataclass(frozen=True)
@@ -115,7 +133,8 @@ class StdioMcpClient(McpAdapter):
                 assumption="MCP server process exits cleanly.",
                 confidence=0.0,
                 provenance=["mcp_adapter.stdio"],
-                error=proc.stderr.strip() or f"exit code {proc.returncode}",
+                # B-202: a server's stderr can print its own credentials.
+                error=redaction.redact(proc.stderr.strip()) or f"exit code {proc.returncode}",
             )
         try:
             response = json.loads(proc.stdout.strip().splitlines()[-1])
@@ -273,7 +292,8 @@ class SseMcpClient(McpAdapter):
                 assumption="MCP SSE endpoint is reachable.",
                 confidence=0.0,
                 provenance=["mcp_adapter.sse"],
-                error=str(exc),
+                # B-202: an httpx error names the URL, user name and token included.
+                error=redaction.redact(str(exc)),
             )
 
     def list_tools(self) -> Rooted[list[dict[str, Any]]]:
@@ -349,6 +369,10 @@ class McpToolRegistry:
         for name, spec in servers.items():
             if not isinstance(spec, dict):
                 continue
+            # B-202: a credential configured for a server is masked wherever
+            # it would be printed, as a provider's key is.
+            _register_credentials(spec.get("env"))
+            _register_credentials(spec.get("headers"))
             transport = spec.get("transport", "stdio")
             if transport == "stdio":
                 registry.register(

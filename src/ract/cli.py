@@ -12,7 +12,7 @@ from typing import Any, NoReturn
 
 import yaml
 
-from ract import config_errors
+from ract import config_errors, redaction
 from ract.builtin_skill_library import BuiltinSkillLibrary
 from ract.chestertons_fence import ChestertonsFence
 from ract.code_review_mode import CodeReviewMode
@@ -622,7 +622,7 @@ def _mcp_invoke(registry: McpToolRegistry, tool: str | None, input_json: str) ->
 
     result = registry.call_tool(tool, arguments)
     if result.error is not None:
-        print(f"[ract] MCP tool failed: {result.error}", file=sys.stderr)
+        print(f"[ract] MCP tool failed: {redaction.redact(result.error)}", file=sys.stderr)
         return 1
 
     tool_result = result.unwrap()
@@ -630,10 +630,8 @@ def _mcp_invoke(registry: McpToolRegistry, tool: str | None, input_json: str) ->
         print("[ract] tool reported an error.", file=sys.stderr)
     for item in tool_result.content or []:
         text = item.get("text") if isinstance(item, dict) else None
-        if text:
-            console.direct(text)
-        else:
-            console.direct(json.dumps(item))
+        # B-202: a tool's output is redacted before it reaches the screen.
+        console.direct(redaction.redact(text if text else json.dumps(item)))
     return 0
 
 
