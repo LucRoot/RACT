@@ -64,7 +64,7 @@ def test_a_plain_folder_is_none(tmp_path: Path) -> None:
 
 
 def test_a_copied_worktree_whose_git_file_names_nothing_is_none(tmp_path: Path) -> None:
-    # B-046: the copy's .git named C:/RootClaw/RACT/.git/worktrees/b046 inside WSL.
+    # B-046: the copy's .git named a Windows worktree path, which WSL cannot open.
     folder = tmp_path / "copy"
     folder.mkdir()
     (folder / ".git").write_text(
