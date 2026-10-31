@@ -136,6 +136,23 @@ def visible_text(text: str) -> str:
     return "".join(out)
 
 
+# B-204: invisible format characters that can make a command read differently.
+_HIDDEN_FORMAT = frozenset(chr(code) for code in (0x200B, 0x200C, 0x200D, 0xFEFF))
+
+
+def screen_text(text: str) -> str:
+    """Text for an approval screen: ``visible_text`` with zero-width characters escaped too.
+
+    B-204: four screens each had a copy of an escape that passed U+061C and
+    the zero-width characters through raw. A command, a grant rule or a path
+    the operator approves shows every control, format and direction
+    character as an escape, so it cannot look different from what runs.
+    """
+    return "".join(
+        f"\\u{ord(ch):04x}" if ch in _HIDDEN_FORMAT else ch for ch in visible_text(text)
+    )
+
+
 def split_text(text: str, limit: int = MAX_DELTA_BYTES) -> list[str]:
     """Split ``text`` into pieces of at most ``limit`` UTF-8 bytes.
 

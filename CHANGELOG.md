@@ -285,6 +285,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- An approval screen shows the change, command or path it asks about as written (B-184):
+  indentation and double spaces are kept, a tab is shown as `\t`, and a line breaks only where
+  it passes the width. A combining mark no longer starts a continuation line. Every approval
+  screen escapes control, format and direction characters the same way (B-204); four screens
+  printed U+061C and the zero-width characters raw.
 - In a session's auto-accept mode a tier-2 call (a commit, a branch, a control file) asks
   at the terminal, as a tier-3 command does; auto-accept covers file edits only (D-145).
   Headless runs and `--yolo` still refuse tier 2 and tier 3.

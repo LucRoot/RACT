@@ -16,31 +16,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ract.cell_wrap import wrap_cells
+from ract.cell_wrap import wrap_cells, wrap_exact
+from ract.session_events import screen_text
 
 PASSPHRASE_PROMPT = "passphrase for the operator key (typed here; never read from an environment variable)"
 SIGN_CHOICES = "[y]es, sign once  [n]o, sign nothing"
 
 
 def escape_controls(text: str) -> str:
-    out: list[str] = []
-    for ch in text:
-        code = ord(ch)
-        if ch == "\n":
-            out.append("\\n")
-        elif ch == "\t":
-            out.append("\\t")
-        elif code < 0x20 or 0x7F <= code <= 0x9F:
-            out.append(f"\\x{code:02x}")
-        elif (
-            0x200E <= code <= 0x200F
-            or 0x202A <= code <= 0x202E
-            or 0x2066 <= code <= 0x2069
-        ):
-            out.append(f"\\u{code:04x}")
-        else:
-            out.append(ch)
-    return "".join(out)
+    """Every control, format and direction character escaped (B-204: one shared escape)."""
+    return screen_text(text)
+
+
+def _fold_exact(text: str, width: int, indent: str = "    ") -> list[str]:
+    """A command or a path: every character kept, broken only at the width (B-184)."""
+    return wrap_exact(escape_controls(text), width, subsequent_indent=indent) or [""]
 
 
 def _fold(text: str, width: int, indent: str = "    ") -> list[str]:
@@ -86,8 +76,8 @@ def detected_runner_lines(runner: DetectedRunner | None, width: int) -> list[str
     out = _fold(
         _bold(f"found the {runner.kind}: {runner.name}", False), width, indent="  "
     )
-    out += _fold(f"the rule would allow: {_argv(runner.argv)}", width)
-    out += _fold(f"seen in: {escape_controls(runner.evidence)}", width)
+    out += _fold_exact(f"the rule would allow: {_argv(runner.argv)}", width)
+    out += _fold_exact(f"seen in: {runner.evidence}", width)
     return out
 
 
