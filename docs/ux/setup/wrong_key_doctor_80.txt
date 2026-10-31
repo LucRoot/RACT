@@ -14,7 +14,7 @@
 │        │                             │ ********","type":"auth"}}             │
 │ PASS   │ prompt_file                 │ Project prompt missing; bundled       │
 │        │                             │ default at                            │
-│        │                             │ C:\RootClaw\RACT_wt\walk1a\src\ract\d │
+│        │                             │ <checkout>\src\ract\d                 │
 │        │                             │ efault_prompts\manager.txt will be    │
 │        │                             │ used.                                 │
 │ PASS   │ skills                      │ No skill configured; optional.        │
