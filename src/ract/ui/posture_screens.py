@@ -86,7 +86,9 @@ def permissions_sandbox_line(posture: SandboxPosture, width: int) -> list[str]:
 def approval_sandbox_line(posture: SandboxPosture, width: int) -> list[str]:
     """The approval prompt's sandbox line, with the wording a user needs before a yes."""
     if posture.posture == ENFORCED:
-        text = "sandbox: enforced here, so the command is confined to the project folder"
+        text = (
+            "sandbox: enforced here, so the command is confined to the project folder"
+        )
     elif posture.posture == BEST_EFFORT:
         text = "sandbox: best effort; the command is NOT confined on this machine"
     else:
