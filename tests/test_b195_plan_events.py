@@ -45,3 +45,26 @@ def test_an_agent_step_has_no_target_and_the_hash_ignores_the_shown_words() -> N
     plain = [PlanStep(n=1, action="fix the test")]
     assert plan_gate.plan_hash(steps) == plan_gate.plan_hash(plain)
     assert any(AGENT_TARGET_TEXT in line for line in screen_lines(steps, 80))
+
+
+def test_an_interrupted_turn_says_so_and_not_that_git_is_missing() -> None:
+    # B-195 (c): changed None on an interrupted turn printed "not a git repository".
+    import io
+
+    from ract.session_events import EventStream
+    from ract.session_render import PlainRenderer
+
+    for outcome, expected in (
+        ("interrupted", "changed: not known (the turn was interrupted)"),
+        ("done", "changed: not tracked here (not a git repository)"),
+    ):
+        out = io.StringIO()
+        stream = EventStream(session="s-b195")
+        stream.subscribe(PlainRenderer(out.write, width=80))
+        stream.emit(
+            "turn.finished",
+            {"outcome": outcome, "verdict": "Stopped.", "changed": None,
+             "verification": {"status": "not-run", "runs": []}},
+            turn=1,
+        )
+        assert expected in out.getvalue(), out.getvalue()
