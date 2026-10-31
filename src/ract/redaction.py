@@ -279,6 +279,17 @@ class RedactingWriter:
         return getattr(self._target, name)
 
 
+def redact_values(value: Any) -> Any:
+    """*value* with every string in it redacted, at any depth (B-201)."""
+    if isinstance(value, str):
+        return redact(value)
+    if isinstance(value, dict):
+        return {key: redact_values(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [redact_values(item) for item in value]
+    return value
+
+
 class StreamingRedactor:
     """Redacts text that arrives in pieces, holding back as little as it can.
 

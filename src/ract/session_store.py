@@ -135,12 +135,16 @@ class SessionStore:
         return self._path(session_id).is_file()
 
     def save(self, session_id: str, state: dict) -> None:
+        from ract.redaction import redact_values
         from ract.workspace_state import check_state_path
 
         file_path = self._path(session_id)
         check_state_path(file_path)  # B-213: never through a link
+        # B-201: the intent, the plan and the artifacts are model and user
+        # text; a key in them is not written to the session file.
+        encoded = json.loads(json.dumps(state, cls=_RACTJSONEncoder))
         with file_path.open("w", encoding="utf-8") as f:
-            json.dump(state, f, indent=2, cls=_RACTJSONEncoder)
+            json.dump(redact_values(encoded), f, indent=2)
 
     def load(self, session_id: str) -> dict:
         file_path = self._path(session_id)
