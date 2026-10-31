@@ -128,3 +128,8 @@ def test_the_trace_statement_is_the_adr_sentence() -> None:
     assert TRACE_STATEMENT == (
         "command records are in the trace; they are not part of the signed Rootknot"
     )
+
+
+def test_a_verdict_with_no_command_run_places_no_records() -> None:
+    lines = verdict_lines("Done: 1 step ran; no tests were run.", 0, 80)
+    assert lines == ["verdict: Done: 1 step ran; no tests were run."]

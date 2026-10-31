@@ -551,7 +551,17 @@ class PlainRenderer:
             self._line(f"Plan ({len(self._checklist)} steps), final:")
             for n in self._checklist:
                 self._line(self._checklist_line(n))
-        self._line(f"  {d.get('verdict') or d.get('outcome', '')}")
+        # MASON's verdict view (L-298 item 4): the verdict once, and where the
+        # turn's command records bind when it ran any.
+        from ract.ui.command_screens import verdict_lines
+
+        runs = (d.get("verification") or {}).get("runs") or []
+        for line in verdict_lines(
+            str(d.get("verdict") or d.get("outcome", "")),
+            len(runs),
+            self._width - 2 if self._wrap else 10_000,
+        ):
+            self._line(f"  {line}")
         changed = d.get("changed")
         if changed is None:
             self._line("  changed: not tracked here (not a git repository)")
@@ -593,11 +603,6 @@ class PlainRenderer:
             self._line(
                 f"  ran: {safe_text(str(run.get('command', '')))}, exit {run.get('exit_code')}"
             )
-        if verification.get("runs"):
-            # ADR-0048 D10, condition 4: said wherever the verdict speaks of a run.
-            from ract.tools.command import TRACE_NOTE
-
-            self._line(f"  {TRACE_NOTE}")
         for claim in verification.get("claims") or []:
             self._line(f'  the reply says "{claim}"; nothing in this turn checked that')
         self._citation_lines(d.get("citations") or {})

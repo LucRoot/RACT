@@ -133,7 +133,10 @@ def verdict_lines(
     """The verdict line, then the sentence that says where the command records bind."""
     noun = "record" if command_records == 1 else "records"
     out = _fold(_bold(f"verdict: {safe_text(verdict)}", rich), width, indent="  ")
-    out += _fold(
-        f"{command_records} command {noun}: {TRACE_STATEMENT}", width, indent="  "
-    )
+    # ADR-0048 D10: said wherever the verdict speaks of a run; a turn that ran
+    # no command has no records to place.
+    if command_records:
+        out += _fold(
+            f"{command_records} command {noun}: {TRACE_STATEMENT}", width, indent="  "
+        )
     return out
