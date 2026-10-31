@@ -1,0 +1,29 @@
+Machine:
+  Python 3.11.15 on Windows AMD64
+  git 2.53.0
+  memory: 63.5 GB total, 9.7 GB available
+  CPU cores: 12
+  free disk here: 72.3 GB
+  GPU: none detected
+  network: not tested; setup contacts only the default model-server addresses on this machine and the provider you choose
+Looking for a model server on this machine (default ports only):
+  http://127.0.0.1:54373/v1 answers (the address in RACT_BASE_URL); models: fake-plain
+Use the server at http://127.0.0.1:54373/v1? [Y/n] n
+No server chosen. Use a local model or a cloud provider? [L/c] c
+Cloud providers:
+  1) anthropic  (key in ANTHROPIC_API_KEY)
+  2) glm  (key in NVIDIA_API_KEY)
+  3) llamacpp  (key in )
+  4) lmstudio  (key in )
+  5) ollama  (key in )
+  6) openai  (key in OPENAI_API_KEY)
+  7) openrouter  (key in OPENROUTER_API_KEY)
+  8) vllm  (key in )
+  9) zai  (key in ZAI_API_KEY)
+Which one? [1] 1
+  ANTHROPIC_API_KEY is not set. ract.yaml will refer to it as ${ANTHROPIC_API_KEY}; set it in your shell before running RACT. Setup never reads or stores the key.
+Wrote ract.yaml and prompts/manager.txt.
+Skipped the health check: the key variable is not set yet. Then run: ract doctor --check-providers
+This directory is not a git repository. RACT records each step on its own branch, so it works best in one. Command: git init
+Run git init here now? [y/N] 
+Next: run `ract` to open a session here, or try: ract -p --ask "what does this project do?"
