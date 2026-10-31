@@ -86,14 +86,12 @@ def _tracked_markdown() -> list[str]:
 
 @pytest.fixture(scope="module")
 def citations() -> dict[str, set[str]]:
-    if (
-        not (REPO / ".git").exists()
-        or _git("rev-parse", "--is-shallow-repository").stdout.strip() == "true"
-    ):
-        pytest.skip("needs a full git checkout of this repository")
+    # B-138: the tests that use this are marked needs_history; the check that
+    # stood here read a copied tree (a .git git cannot open) as a full one.
     return cited_hashes(REPO, _tracked_markdown())
 
 
+@pytest.mark.needs_history
 def test_no_document_cites_a_hash_that_does_not_resolve(citations) -> None:
     missing = unresolved(sorted(citations))
     allowed = _frozen()
@@ -109,6 +107,7 @@ def test_no_document_cites_a_hash_that_does_not_resolve(citations) -> None:
     )
 
 
+@pytest.mark.needs_history
 def test_the_frozen_list_only_names_citations_that_still_exist(citations) -> None:
     stale = sorted(
         f"{token} {path}"
@@ -135,8 +134,7 @@ def test_the_scanner_finds_hashes_and_leaves_words(tmp_path: Path) -> None:
     assert set(found) == {"1a2b3c4", "0123456789abcdef0123456789abcdef01234567"}
 
 
+@pytest.mark.needs_repository
 def test_a_hash_that_names_no_commit_is_unresolved() -> None:
-    if not (REPO / ".git").exists():
-        pytest.skip("needs a git checkout")
     head = _git("rev-parse", "--short=7", "HEAD").stdout.strip()
     assert unresolved([head, "0000000aaaaaaa"]) == {"0000000aaaaaaa"}

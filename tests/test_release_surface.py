@@ -468,7 +468,19 @@ def _git_tag_exists(tag: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("sid,desc,check", REBUILD_SIGNALS)
+# B-138: R11 reads a tag, which a shallow clone or a copied tree does not have.
+_NEEDS_HISTORY = {"R11"}
+
+
+@pytest.mark.parametrize(
+    "sid,desc,check",
+    [
+        pytest.param(*signal, marks=pytest.mark.needs_history)
+        if signal[0] in _NEEDS_HISTORY
+        else signal
+        for signal in REBUILD_SIGNALS
+    ],
+)
 def test_rebuild_signals_all_green(sid: str, desc: str, check: callable) -> None:
     assert check(), f"REBUILD signal {sid} RED: {desc}"
 
@@ -1023,6 +1035,7 @@ def test_no_closed_ip_terms_in_tracked_files() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.needs_history
 def test_changelog_v051_shas_resolve_in_git() -> None:
     """Every short SHA cited in the CHANGELOG's ``[0.5.1]`` section must
     resolve to a real commit under ``git rev-parse --verify``.
