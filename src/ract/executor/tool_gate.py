@@ -592,29 +592,9 @@ _EXEMPT_SITES: dict[str, str] = {
         "or repository input reaches it."
     ),
     # ---- substrate-internal (mechanism itself) -----------------------
-    "executor/loop.py": (
-        "substrate-internal: SubstrateLoop's own git ops "
-        "(rev-parse HEAD, update-ref, worktree finalize). "
-        "Wrapping these in the gate would be cyclic -- the gate "
-        "runs INSIDE the loop."
-    ),
-    "executor/worktree.py": (
-        "substrate-internal: WorktreeManager git ops for step "
-        "worktree lifecycle (add/list/commit/remove). Part of the "
-        "substrate mechanism the gate itself runs on."
-    ),
-    "executor/commit_compensator.py": (
-        "substrate-internal: commit compensator git ops "
-        "(soft/hard reset, ancestor check, push probe). Module_05 "
-        "primitive; runs to undo mid-loop commits."
-    ),
     "executor/runtime.py": (
         "substrate-internal: ContainerBackend._run helper for "
         "backend probes (dagger/podman/docker version check)."
-    ),
-    "trace/cli_trace.py": (
-        "substrate-internal: trace subsystem HEAD sha read for "
-        "trace-record provenance stamping."
     ),
     "loop_controller.py": (
         "substrate-internal: LoopController one-off git probe. "
@@ -627,37 +607,6 @@ _EXEMPT_SITES: dict[str, str] = {
         "for tree reap on Windows."
     ),
     # ---- observability-git-read (read-only history) ------------------
-    "contracts/whisperer.py": (
-        "observability-git-read: whisperer reads recent commit "
-        "subjects. Argv is fixed (['git','log','-n5','--pretty=...']); "
-        "no model-controlled arguments. Malicious git-config threat "
-        "(SP Q4) mitigated at manifest.env.passthrough (module_04) + "
-        "workspace-scoped cwd."
-    ),
-    "contracts/fence.py": (
-        "observability-git-read: fence reads git log/blame for "
-        "chesterton-fence protection. Argv is fixed except for the "
-        "``path`` argument, which is a WorkspaceSnapshot-derived "
-        "Path (never model-controlled string). Malicious git-config "
-        "threat (SP Q4) mitigated at manifest.env.passthrough."
-    ),
-    "legacy_whisperer.py": (
-        "observability-git-read: legacy pre-contracts whisperer "
-        "git log helper; retained for backward-compat callers."
-    ),
-    "chestertons_fence.py": (
-        "observability-git-read: legacy pre-contracts fence git "
-        "helper; retained for backward-compat callers."
-    ),
-    "codebase_historian.py": (
-        "observability-git-read: git blame -L for annotated code review context."
-    ),
-    "memory/repo_fingerprint.py": (
-        "observability-git-read: git log --format=%at for repo activity fingerprinting."
-    ),
-    "memory/functions/intake.py": (
-        "observability-git-read: git log --oneline for memory intake context digest."
-    ),
     "memory/composition_runner.py": (
         "observability-git-read: memory composition runner shell "
         "invocation for retrieval script (v0.6 target: gate through "
@@ -676,11 +625,6 @@ _EXEMPT_SITES: dict[str, str] = {
         "argv, a scrubbed environment and a timeout; the model fills only "
         "data fields. Calls to the tools go through SubstrateLoop.invoke_tool "
         "(B-011a), the way the MCP transport sits beneath its gated path."
-    ),
-    "policy/allowlist.py": (
-        "operator-invoked-diagnostic: one fixed git ls-files (core.fsmonitor off, "
-        "a timeout) listing the entry points whose digests B-113 compares with the "
-        "ones recorded at signing. No model input reaches the argv."
     ),
     "tools/git_tools.py": (
         "tool implementation: the git tools' own subprocesses (B-115, ADR-0048 D8), "
@@ -702,18 +646,6 @@ _EXEMPT_SITES: dict[str, str] = {
         "environment). The callers pass fixed git argv; the model's git calls still "
         "go through SubstrateLoop.invoke_tool and the git tools."
     ),
-    "provenance_wiring.py": (
-        "operator-invoked-diagnostic: one fixed git ls-files at run entry, with "
-        "core.fsmonitor off, no hooks, --no-optional-locks and a timeout, listing "
-        "the tracked files the run's Rootknots attest (S-015b). No model input "
-        "reaches the argv; not a model tool_use."
-    ),
-    "key_paths.py": (
-        "operator-invoked-diagnostic: one fixed git ls-files --error-unmatch "
-        "with core.fsmonitor off and a timeout, asking whether the repository "
-        "tracks a key at its old place inside the project before RACT reads it "
-        "(G-216 W3). No model input reaches the argv; not a model tool_use."
-    ),
     "mcp_adapter.py": (
         "provider-transport: StdioMcpClient subprocess is the MCP "
         "transport under Executor's MCP tool_call path. That path "
@@ -725,10 +657,6 @@ _EXEMPT_SITES: dict[str, str] = {
         "operator-invoked-diagnostic: operator-configured hooks "
         "(pre/post step callbacks). Not a model tool_use. v0.6: "
         "per-hook capability declaration in manifest."
-    ),
-    "git_mode.py": (
-        "operator-invoked-diagnostic: operator-facing git commit "
-        "mode helper. Direct CLI-invoked, not model tool_use."
     ),
     "test_failure_diagnoser.py": (
         "operator-invoked-diagnostic: pytest re-run for failure "
@@ -754,20 +682,10 @@ _EXEMPT_SITES: dict[str, str] = {
         "operator-invoked-diagnostic: eval script subprocess for "
         "the eval harness. Operator-invoked, not model tool_use."
     ),
-    "antilazy/patchdiff.py": (
-        "operator-invoked-diagnostic: polyglot AST tool subprocess "
-        "for anti-lazy patchdiff analysis. Called from anti-lazy "
-        "dispatch chain, not from model tool_use."
-    ),
     "setup/host_probe.py": (
         "operator-invoked-diagnostic: `ract setup` reads git --version "
         "and, on macOS, sysctl and vm_stat for memory size. Fixed "
         "argument lists, no model involvement."
-    ),
-    "setup/wizard.py": (
-        "operator-invoked: `ract setup` runs git rev-parse to see whether "
-        "the directory is a repository, and git init only when the "
-        "operator answers yes or sets git_init in the answers file."
     ),
 }
 

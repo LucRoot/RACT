@@ -35,14 +35,12 @@ they had already been pushed.
 from __future__ import annotations
 
 import logging
-import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from ract.git_run import run_git
-from ract import programs
 from ract.core.module_identity import _module_knot, register_module_knot
 
 _MODULE_KNOT = _module_knot()
@@ -153,30 +151,24 @@ class CommitCompensator:
         # touching the working tree.
         current_branch = _current_branch(self.repo_root)
         if current_branch == self.branch:
-            result = subprocess.run(
-                [
-                    programs.git(),
-                    "-C",
-                    str(self.repo_root),
-                    "reset",
-                    flag,
-                    self.sha_before,
-                ],
+            result = run_git(
+                "-C",
+                str(self.repo_root),
+                "reset",
+                flag,
+                self.sha_before,
                 capture_output=True,
                 text=True,
                 check=False,
             )
         else:
-            result = subprocess.run(
-                [
-                    programs.git(),
-                    "-C",
-                    str(self.repo_root),
-                    "update-ref",
-                    f"refs/heads/{self.branch}",
-                    self.sha_before,
-                    self.sha_after,
-                ],
+            result = run_git(
+                "-C",
+                str(self.repo_root),
+                "update-ref",
+                f"refs/heads/{self.branch}",
+                self.sha_before,
+                self.sha_after,
                 capture_output=True,
                 text=True,
                 check=False,

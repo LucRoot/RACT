@@ -30,7 +30,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ract import programs
+from ract.git_run import run_git
 
 # Files a test runner executes or reads as configuration (G-214 T2).
 # Files a test runner or a verifier executes or reads as configuration: the
@@ -159,17 +159,12 @@ def entry_point_digests(project: Path | str) -> dict[str, str] | None:
     a planted conftest.py counts even when the repository's .gitignore hides it)."""
     project = Path(project)
     try:
-        done = subprocess.run(
-            # core.fsmonitor=false: a repository's config cannot start a program.
-            [
-                programs.git(),
-                "-c",
-                "core.fsmonitor=false",
-                "ls-files",
-                "-z",
-                "--cached",
-                "--others",
-            ],
+        done = run_git(
+            # B-206: run_git turns fsmonitor and the operator's hooks off.
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
             cwd=project,
             capture_output=True,
             timeout=30,

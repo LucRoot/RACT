@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import difflib
 import os
-import subprocess
 import sys
 import time
 from collections.abc import Callable
@@ -29,7 +28,6 @@ import yaml
 
 from ract import config_errors
 from ract.git_run import run_git
-from ract import programs
 from ract import egress_scan, redaction
 from ract.console_interrupt import read_line
 from ract.provider_presets import (
@@ -676,7 +674,7 @@ def _run(
             interactive and _yes(io.ask("Run git init here now? [y/N] "), False)
         )
         if run_init:
-            subprocess.run([programs.git(), "init", "-q"], cwd=directory, check=False)
+            run_git("init", "-q", cwd=directory, check=False)
             io.say("  ran: git init")
 
     if opens_session:

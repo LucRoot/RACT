@@ -18,7 +18,7 @@ import stat
 import sys
 from pathlib import Path
 
-from ract import programs
+from ract.git_run import run_git
 
 _WARNED: set[str] = set()
 # FILE_ATTRIBUTE_REPARSE_POINT: a junction, a symbolic link or another redirect.
@@ -80,17 +80,12 @@ def _tracked(path: Path, root: Path) -> bool:
     import subprocess
 
     try:
-        done = subprocess.run(
-            # core.fsmonitor=false: a repository's config cannot start a program.
-            [
-                programs.git(),
-                "-c",
-                "core.fsmonitor=false",
-                "ls-files",
-                "--error-unmatch",
-                "--",
-                path.relative_to(root).as_posix(),
-            ],
+        done = run_git(
+            # B-206: run_git turns fsmonitor and the operator's hooks off.
+            "ls-files",
+            "--error-unmatch",
+            "--",
+            path.relative_to(root).as_posix(),
             cwd=root,
             capture_output=True,
             timeout=10,

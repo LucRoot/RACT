@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ract import programs
+from ract.git_run import run_git
 
 GB = 1024**3
 
@@ -106,9 +107,7 @@ def _git_version() -> str | None:
     if programs.git() == "git":  # B-214: not on PATH (the current folder is not searched)
         return None
     try:
-        out = subprocess.run(
-            [programs.git(), "--version"], capture_output=True, text=True, timeout=10
-        )
+        out = run_git("--version", capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
         return None
     m = re.search(r"(\d+\.\d+(?:\.\d+)?)", out.stdout)

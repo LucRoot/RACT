@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol, runtime_checkable
 
-from ract import programs
+from ract.git_run import run_git
 
 
 # ---------------------------------------------------------------------------
@@ -459,19 +459,16 @@ def _search_git_history(hunk: Hunk, workspace_root: Path) -> tuple[str, ...]:
 def _git_log_S(anchor: str, path: str, workspace_root: Path, *, cap: int) -> list[str]:
     """Wrapper around ``git log --all -S <anchor> -- <path>``."""
     try:
-        result = subprocess.run(
-            [
-                programs.git(),
-                "-C",
-                str(workspace_root),
-                "log",
-                "--all",
-                "--format=%H",
-                "-S",
-                anchor,
-                "--",
-                path,
-            ],
+        result = run_git(
+            "-C",
+            str(workspace_root),
+            "log",
+            "--all",
+            "--format=%H",
+            "-S",
+            anchor,
+            "--",
+            path,
             capture_output=True,
             text=True,
             timeout=15,
@@ -490,17 +487,14 @@ def _git_log_grep(pattern: str, workspace_root: Path, *, cap: int) -> list[str]:
     marker convention.
     """
     try:
-        result = subprocess.run(
-            [
-                programs.git(),
-                "-C",
-                str(workspace_root),
-                "log",
-                "--all",
-                "--format=%H",
-                "--grep",
-                pattern,
-            ],
+        result = run_git(
+            "-C",
+            str(workspace_root),
+            "log",
+            "--all",
+            "--format=%H",
+            "--grep",
+            pattern,
             capture_output=True,
             text=True,
             timeout=15,

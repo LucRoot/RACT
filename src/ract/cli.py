@@ -61,6 +61,7 @@ from ract.run_fingerprint import fingerprint_run, diff_fingerprints
 
 from ract.config_diff import diff_configs
 from ract.preflight_validator import PreflightValidator
+from ract.git_run import run_git
 
 
 def toggle_mode(mode: str) -> str:
@@ -4124,7 +4125,6 @@ def _session_substrate_command(parsed: argparse.Namespace) -> int:
     the patch a named step's transaction produced against its parent
     snapshot. Both accept ``--json`` for machine consumption.
     """
-    import subprocess as _sp
     from ract.executor.worktree import WorktreeManager
 
     repo = Path(parsed.repo)
@@ -4171,15 +4171,12 @@ def _session_substrate_command(parsed: argparse.Namespace) -> int:
         branch = f"rootact/step/{parsed.step_id}"
         parent = (
             parsed.parent
-            or _sp.run(
-                [
-                    programs.git(),
-                    "-C",
-                    str(repo),
-                    "merge-base",
-                    "HEAD",
-                    branch,
-                ],
+            or run_git(
+                "-C",
+                str(repo),
+                "merge-base",
+                "HEAD",
+                branch,
                 capture_output=True,
                 text=True,
                 check=False,
@@ -4192,8 +4189,8 @@ def _session_substrate_command(parsed: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-        diff = _sp.run(
-            [programs.git(), "-C", str(repo), "diff", parent, branch],
+        diff = run_git(
+            "-C", str(repo), "diff", parent, branch,
             capture_output=True,
             text=True,
             check=False,
