@@ -149,7 +149,7 @@ def explore_in_parallel(
         return []
     from concurrent.futures import ThreadPoolExecutor
 
-    from ract import runtime
+    from ract.runtime import run_with_ambient
     from ract.tools.loop import LoopBudgets, answer_with_tools
 
     def run_one(question: str) -> Rooted[str]:
@@ -164,7 +164,7 @@ def explore_in_parallel(
         max_workers=max_workers or min(len(questions), 4)
     ) as pool:
         futures = [
-            pool.submit(runtime.run_with_ambient(run_one, question))
+            pool.submit(run_with_ambient(run_one, question))
             for question in questions
         ]
         return [future.result() for future in futures]
