@@ -186,15 +186,12 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("todo_tool.py")
     # B-147 (MASON, the screen half): the doctor --tier3 report is pure text; the BUILDER adopts it.
     allowlist.add("tier3_report.py")
-<<<<<<< HEAD
     # B-178 (MASON, the first slice): the guided-spec screens are pure text; the spec command wires them
     # in the next slice. Remove this entry when wired; the BUILDER reviews it.
     allowlist.add("spec_screens.py")
-=======
     # B-179 (MASON, the first slice): the named colour styles are pure; the screens use them in the
     # wiring slice. Remove this entry when wired; the BUILDER reviews it.
     allowlist.add("colour.py")
->>>>>>> tmp-b5-b179
     allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped
@@ -378,14 +375,12 @@ def test_ract_auction_reports_zero_dead_modules():
     # mirrors the transitional-substrate pattern above.
     allowlist.add("process_group.py")
     allowlist.add("sycophancy_v2.py")
-<<<<<<< HEAD
     # ADR-0049 D2 (B-172): the role loader has no caller until the role wiring cards
-    # (B-173 to B-176) land. The only file with this name in the tree is src/ract/roles/loader.py.
+    # (B-173 to B-176) land; the playbooks loader (B-173) shares the unqualified name
+    # (src/ract/playbooks/loader.py). ADR-0049 D9 (B-174): the offload store has no
+    # caller until the tool loop reads it.
     allowlist.add("loader.py")
-=======
-    # ADR-0049 D9 (B-174): the offload store has no caller until the tool loop reads it.
     allowlist.add("offload.py")
->>>>>>> tmp-b5-B174
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
