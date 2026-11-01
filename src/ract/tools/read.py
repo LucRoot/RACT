@@ -25,10 +25,10 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ract import programs
 from ract.core.threat_model import CapabilityTier
 from ract.tools import ToolRefused, ToolResult, ToolSpec
 from ract.workspace_path import is_never_sent, resolve_workspace_path
+from ract.git_run import run_git
 
 READ_CAP_BYTES = 256 * 1024
 MAX_READ_FILE_BYTES = 64 * 1024 * 1024
@@ -131,9 +131,11 @@ def _git_ignored(base: Path, rels: list[str]) -> set[str]:
     if not rels:
         return set()
     try:
-        done = subprocess.run(
-            # core.fsmonitor=false: a repository's config cannot start a program.
-            [programs.git(), "-c", "core.fsmonitor=false", "check-ignore", "-z", "--stdin"],
+        done = run_git(
+            # B-206: run_git turns fsmonitor and the operator's hooks off.
+            "check-ignore",
+            "-z",
+            "--stdin",
             cwd=base,
             input="\0".join(rels) + "\0",
             capture_output=True,

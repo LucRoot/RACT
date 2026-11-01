@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Any
 
 from ract.git_run import run_git
-from ract import programs
 from ract.git_head import read_head
 from ract.symbol_graph import SymbolGraph, SymbolNode
 
@@ -144,14 +143,11 @@ class CodebaseHistorian:
         if cached is not None:
             return cached
         try:
-            result = subprocess.run(
-                [
-                    programs.git(),
-                    "blame",
-                    "--line-porcelain",
-                    "--",
-                    str(path.relative_to(self.project_dir)),
-                ],
+            result = run_git(
+                "blame",
+                "--line-porcelain",
+                "--",
+                str(path.relative_to(self.project_dir)),
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,
@@ -187,15 +183,12 @@ class CodebaseHistorian:
     def _blame_line(self, path: Path, line: int) -> dict[str, Any] | None:
         """Return git blame metadata for a single line."""
         try:
-            result = subprocess.run(
-                [
-                    programs.git(),
-                    "blame",
-                    "-L",
-                    f"{line},{line}",
-                    "--porcelain",
-                    str(path.relative_to(self.project_dir)),
-                ],
+            result = run_git(
+                "blame",
+                "-L",
+                f"{line},{line}",
+                "--porcelain",
+                str(path.relative_to(self.project_dir)),
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,

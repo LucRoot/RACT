@@ -26,7 +26,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterable
 
 from ract.git_run import run_git
-from ract import programs
 from ract.workspace_path import (
     ENV_TEMPLATE_SUFFIXES,
     SECRET_NAME_GLOBS,
@@ -52,38 +51,22 @@ if TYPE_CHECKING:
 # branches the operator may push, and on a machine with no identity (a
 # fresh CI runner) the step failed with "Author identity unknown" (S-024).
 # The environment variables win over any git config and over values the
-# operator's environment already sets; commit signing is off so a signing
-# setup cannot prompt or hang a step.
+# operator's environment already sets. Signing and the operator's hooks are
+# off through ``run_git`` (B-206): step commits are RACT's transaction records,
+# and an empty hooks folder stops post-commit and post-checkout too, where
+# `--no-verify` covers only pre-commit and commit-msg (G-038).
 RACT_GIT_NAME = "ract"
 RACT_GIT_EMAIL = "ract@localhost"
-_NO_SIGNING = ("-c", "commit.gpgsign=false")
 
 
-def _no_hooks() -> tuple[str, str]:
-    """``-c core.hooksPath=<empty directory>``: run none of the operator's hooks.
+def ract_commit_env(extra: dict[str, str] | None = None) -> dict[str, str]:
+    """RACT's commit identity, plus *extra*, for ``run_git``'s ``extra_env`` (B-206).
 
-    LR:: Step worktrees share the repository's hooks. The operator's
-    pre-commit hook ran on every RACT step commit (a failing hook failed
-    every step), and post-checkout ran on every `git worktree add` (G-038).
-    Step commits are RACT's transaction records; the operator's hooks belong
-    to the operator's own commit when the change reaches their branch. An
-    empty hooks directory disables every hook, post-commit and post-checkout
-    included, where `--no-verify` covers only pre-commit and commit-msg.
+    LR:: This used to copy the whole process environment, so a commit saw
+    whatever the operator's shell set (GIT_DIR, GIT_CONFIG_*). ``run_git``
+    starts from the filtered environment and adds only these.
     """
-    global _EMPTY_HOOKS_DIR
-    if _EMPTY_HOOKS_DIR is None or not Path(_EMPTY_HOOKS_DIR).is_dir():
-        import tempfile
-
-        _EMPTY_HOOKS_DIR = tempfile.mkdtemp(prefix="ract-no-hooks-")
-    return ("-c", f"core.hooksPath={_EMPTY_HOOKS_DIR}")
-
-
-_EMPTY_HOOKS_DIR: str | None = None
-
-
-def ract_commit_env(base: dict[str, str] | None = None) -> dict[str, str]:
-    """``base`` (default: this process's environment) with RACT's identity."""
-    env = dict(os.environ if base is None else base)
+    env = dict(extra or {})
     env["GIT_AUTHOR_NAME"] = RACT_GIT_NAME
     env["GIT_AUTHOR_EMAIL"] = RACT_GIT_EMAIL
     env["GIT_COMMITTER_NAME"] = RACT_GIT_NAME
@@ -256,19 +239,11 @@ class WorktreeManager:
         target = self.path_for(step_id)
         _assert_case_match(target)
         branch = _branch_name(step_id)
-        cmd = [
-            programs.git(),
-            "-C",
-            str(self.repo_root),
-            *_no_hooks(),
-            "worktree",
-            "add",
-            str(target),
-            "-b",
-            branch,
+        result = run_git(
+            "-C", str(self.repo_root), "worktree", "add", str(target), "-b", branch,
             parent_snapshot,
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            text=True,
+        )
         if result.returncode != 0:
             raise WorktreeError(
                 f"git worktree add failed for step {step_id.hex()}: "
@@ -342,29 +317,22 @@ class WorktreeManager:
         )
         if add.returncode != 0:
             raise WorktreeError(f"git add failed in {wt.path}: {add.stderr.strip()}")
-        commit = subprocess.run(
-            [
-                programs.git(),
-                "-C",
-                str(wt.path),
-                *_NO_SIGNING,
-                *_no_hooks(),
-                # ``--allow-empty`` because a step whose only observable
-                # effect is that its post-conditions now hold (say, a config
-                # tweak we already committed elsewhere) should still record
-                # the intent — auditors reading the git graph should see
-                # every step's transaction, not only the ones that added
-                # bytes.
-                "commit",
-                "--allow-empty",
-                "--no-verify",
-                "-m",
-                message,
-            ],
-            capture_output=True,
+        commit = run_git(
+            "-C",
+            str(wt.path),
+            # ``--allow-empty`` because a step whose only observable
+            # effect is that its post-conditions now hold (say, a config
+            # tweak we already committed elsewhere) should still record
+            # the intent — auditors reading the git graph should see
+            # every step's transaction, not only the ones that added
+            # bytes.
+            "commit",
+            "--allow-empty",
+            "--no-verify",
+            "-m",
+            message,
             text=True,
-            check=False,
-            env=ract_commit_env(),
+            extra_env=ract_commit_env(),
         )
         if commit.returncode != 0:
             raise WorktreeError(
@@ -463,19 +431,9 @@ class WorktreeManager:
         step branches without them polluting the ``rootact/step/*``
         namespace.
         """
-        remove = subprocess.run(
-            [
-                programs.git(),
-                "-C",
-                str(self.repo_root),
-                "worktree",
-                "remove",
-                "--force",
-                str(wt.path),
-            ],
-            capture_output=True,
+        remove = run_git(
+            "-C", str(self.repo_root), "worktree", "remove", "--force", str(wt.path),
             text=True,
-            check=False,
         )
         # Missing worktree is not fatal — the caller may have already
         # removed the directory (e.g. inside a container tear-down).
@@ -493,19 +451,10 @@ class WorktreeManager:
                 f"{remove.stderr.strip() or remove.stdout.strip()}"
             )
         if abandon:
-            rename = subprocess.run(
-                [
-                    programs.git(),
-                    "-C",
-                    str(self.repo_root),
-                    "branch",
-                    "-M",
-                    wt.branch,
-                    _abandoned_branch_name(wt.step_id),
-                ],
-                capture_output=True,
+            rename = run_git(
+                "-C", str(self.repo_root), "branch", "-M", wt.branch,
+                _abandoned_branch_name(wt.step_id),
                 text=True,
-                check=False,
             )
             if rename.returncode != 0:
                 raise WorktreeError(
@@ -515,18 +464,9 @@ class WorktreeManager:
         else:
             # Drop the branch entirely; a rolled-back step must leave no
             # dangling branch per DoD ("rolled-back steps leave no branch").
-            delete = subprocess.run(
-                [
-                    programs.git(),
-                    "-C",
-                    str(self.repo_root),
-                    "branch",
-                    "-D",
-                    wt.branch,
-                ],
-                capture_output=True,
+            delete = run_git(
+                "-C", str(self.repo_root), "branch", "-D", wt.branch,
                 text=True,
-                check=False,
             )
             # A missing branch is fine — the transaction may never have
             # advanced past ``create``.
@@ -551,12 +491,10 @@ def _git_in(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _git_bytes(
-    repo: Path, *args: str, env: dict[str, str] | None = None
+    repo: Path, *args: str, extra_env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[bytes]:
     """Run git and keep stdout as bytes (file contents, patches)."""
-    return subprocess.run(
-        [programs.git(), "-C", str(repo), *args], capture_output=True, check=False, env=env
-    )
+    return run_git("-C", str(repo), *args, extra_env=extra_env)
 
 
 def _literal(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -719,8 +657,7 @@ def take_snapshot(
     over_time: list[str] = []
     tmp_dir = _tempfile.mkdtemp(prefix="ract-snapshot-")
     index_path = _os.path.join(tmp_dir, "index")
-    env = dict(_os.environ)
-    env["GIT_INDEX_FILE"] = index_path
+    env = {"GIT_INDEX_FILE": index_path}  # B-206: through run_git's extra_env
     last_progress = started
 
     def remaining() -> float:
@@ -736,15 +673,13 @@ def take_snapshot(
         if operator_index_path.is_file():
             _shutil.copyfile(operator_index_path, index_path)
         elif head_sha:
-            _git_bytes(repo, "read-tree", head_sha, env=env)
+            _git_bytes(repo, "read-tree", head_sha, extra_env=env)
         if modified_tracked:
             excludes = [f":(exclude,literal){name}" for name in tracked_large]
             try:
-                add = subprocess.run(
-                    [programs.git(), "-C", str(repo), "add", "-u", "--", ".", *excludes],
-                    capture_output=True,
-                    check=False,
-                    env=env,
+                add = run_git(
+                    "-C", str(repo), "add", "-u", "--", ".", *excludes,
+                    extra_env=env,
                     timeout=max(remaining(), 1.0),
                 )
             except subprocess.TimeoutExpired as exc:
@@ -765,20 +700,15 @@ def take_snapshot(
                 over_time = untracked[i:]
                 break
             try:
-                added = subprocess.run(
-                    [
-                        programs.git(),
-                        "-C",
-                        str(repo),
-                        "--literal-pathspecs",
-                        "add",
-                        "--pathspec-from-file=-",
-                        "--pathspec-file-nul",
-                    ],
+                added = run_git(
+                    "-C",
+                    str(repo),
+                    "--literal-pathspecs",
+                    "add",
+                    "--pathspec-from-file=-",
+                    "--pathspec-file-nul",
                     input="\0".join(batch).encode("utf-8"),
-                    capture_output=True,
-                    check=False,
-                    env=env,
+                    extra_env=env,
                     # The budget decides whether a batch starts; a batch that
                     # has started gets time to finish (one is about 0.1 s,
                     # several seconds under heavy load). Killing it at the
@@ -820,9 +750,9 @@ def take_snapshot(
             "--ignore-unmatch",
             "--",
             *_SNAPSHOT_EXCLUDES,
-            env=env,
+            extra_env=env,
         )
-        tree = _git_bytes(repo, "write-tree", env=env)
+        tree = _git_bytes(repo, "write-tree", extra_env=env)
         if tree.returncode != 0:
             raise WorktreeError(
                 "could not write the snapshot tree: "
@@ -836,9 +766,7 @@ def take_snapshot(
         ]
         if head_sha:
             commit_args[2:2] = ["-p", head_sha]
-        identity = ract_commit_env(env)
-        identity.pop("GIT_INDEX_FILE", None)
-        commit = _git_bytes(repo, *_NO_SIGNING, *commit_args, env=identity)
+        commit = _git_bytes(repo, *commit_args, extra_env=ract_commit_env())
         if commit.returncode != 0:
             raise WorktreeError(
                 "could not commit the snapshot: "
@@ -1132,18 +1060,11 @@ def reviewed_commit(repo: Path, after: str, kept: dict[str, bytes | None]) -> st
         return after
     handle, index = tempfile.mkstemp(prefix="ract-review-index-")
     os.close(handle)
-    env = ract_commit_env()
-    env["GIT_INDEX_FILE"] = index
+    env = ract_commit_env({"GIT_INDEX_FILE": index})
     try:
 
         def git(*args: str, data: bytes | None = None) -> str:
-            done = subprocess.run(
-                [programs.git(), "-C", str(repo), *args],
-                input=data,
-                capture_output=True,
-                env=env,
-                check=False,
-            )
+            done = run_git("-C", str(repo), *args, input=data, extra_env=env)
             if done.returncode != 0:
                 raise WorktreeError(
                     f"git {args[0]} failed while recording the review: "
@@ -1163,9 +1084,7 @@ def reviewed_commit(repo: Path, after: str, kept: dict[str, bytes | None]) -> st
                 mode = listed[0]
             git("update-index", "--add", "--cacheinfo", f"{mode},{sha},{path}")
         tree = git("write-tree")
-        return git(
-            *_NO_SIGNING, "commit-tree", tree, "-p", after, "-m", "rootact reviewed"
-        )
+        return git("commit-tree", tree, "-p", after, "-m", "rootact reviewed")
     finally:
         try:
             os.unlink(index)
@@ -1220,40 +1139,18 @@ def init_repository(root: Path) -> list[str]:
     ]
     env = ract_commit_env()
     for start in range(0, len(keep), 200):
-        added = subprocess.run(
-            [
-                programs.git(),
-                "-C",
-                str(root),
-                *_no_hooks(),
-                "add",
-                "--",
-                *keep[start : start + 200],
-            ],
-            capture_output=True,
+        added = run_git(
+            "-C", str(root), "add", "--", *keep[start : start + 200],
             text=True,
-            env=env,
-            check=False,
+            extra_env=env,
         )
         if added.returncode != 0:
             raise WorktreeError(f"git add failed: {added.stderr.strip()}")
-    committed = subprocess.run(
-        [
-            programs.git(),
-            "-C",
-            str(root),
-            *_no_hooks(),
-            *_NO_SIGNING,
-            "commit",
-            "-q",
-            "--allow-empty",
-            "-m",
-            "ract: initial commit of the current files",
-        ],
-        capture_output=True,
+    committed = run_git(
+        "-C", str(root), "commit", "-q", "--allow-empty", "-m",
+        "ract: initial commit of the current files",
         text=True,
-        env=env,
-        check=False,
+        extra_env=env,
     )
     if committed.returncode != 0:
         raise WorktreeError(f"git commit failed: {committed.stderr.strip()}")
@@ -1274,7 +1171,7 @@ def keep_checkpoint_ref(repo: Path, turn_id: str, n: int, commit: str) -> str | 
     saved copies.
     """
     ref = f"{CHECKPOINT_REFS}/{turn_id}/{n}"
-    done = _git_in(repo, *_no_hooks(), "update-ref", ref, commit)
+    done = _git_in(repo, "update-ref", ref, commit)
     if done.returncode != 0:
         print(
             f"[worktree] checkpoint ref {ref} not kept: {done.stderr.strip()}",
@@ -1296,7 +1193,7 @@ def drop_checkpoint_refs(repo: Path, turn_id: str) -> None:
         )
         return
     for ref in listing.stdout.split():
-        gone = _git_in(repo, *_no_hooks(), "update-ref", "-d", ref)
+        gone = _git_in(repo, "update-ref", "-d", ref)
         if gone.returncode != 0:
             print(f"[worktree] {ref} not removed: {gone.stderr.strip()}", flush=True)
 

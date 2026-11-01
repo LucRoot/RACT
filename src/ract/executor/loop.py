@@ -32,7 +32,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ract.git_run import run_git
-from ract import programs
 from ract.core.module_identity import (
     _module_knot,
     is_registered_knot,
@@ -1146,16 +1145,13 @@ def _fast_forward_head(
     advance fails so an operator can correlate a failed fast-forward
     to a specific branch without a second git call.
     """
-    is_ancestor = subprocess.run(
-        [
-            programs.git(),
-            "-C",
-            str(repo_root),
-            "merge-base",
-            "--is-ancestor",
-            "HEAD",
-            new_sha,
-        ],
+    is_ancestor = run_git(
+        "-C",
+        str(repo_root),
+        "merge-base",
+        "--is-ancestor",
+        "HEAD",
+        new_sha,
         capture_output=True,
         text=True,
         check=False,
@@ -1453,16 +1449,13 @@ def _emit_step_event(record: StepRecord, kind: str) -> None:
 
 def _remove_worktree_only(repo_root: Path, worktree_path: Path) -> None:
     """Remove the worktree directory but leave the branch intact."""
-    done = subprocess.run(
-        [
-            programs.git(),
-            "-C",
-            str(repo_root),
-            "worktree",
-            "remove",
-            "--force",
-            str(worktree_path),
-        ],
+    done = run_git(
+        "-C",
+        str(repo_root),
+        "worktree",
+        "remove",
+        "--force",
+        str(worktree_path),
         capture_output=True,
         text=True,
         check=False,

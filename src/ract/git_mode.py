@@ -8,8 +8,8 @@ from pathlib import Path
 import subprocess
 from typing import List
 
-from ract import programs
 from ract.manager import Plan, Step
+from ract.git_run import run_git
 
 
 @dataclass
@@ -62,9 +62,9 @@ class GitMode:
 
     def _run_git(self, args: List[str]) -> subprocess.CompletedProcess:
         """Run a git command and return the completed process."""
-        # B-214: started by git's full path, never one in the current folder.
-        started = [programs.git(), *args[1:]] if args[:1] == ["git"] else args
-        return subprocess.run(started, capture_output=True, text=True)
+        # B-206: RACT's own commit, with the whole hardening (git's full path,
+        # no fsmonitor, no hook or signing program of the repository's).
+        return run_git(*(args[1:] if args[:1] == ["git"] else args), text=True)
 
     def commit_files(
         self,

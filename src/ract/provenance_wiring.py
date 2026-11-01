@@ -31,7 +31,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ract import programs
+from ract.git_run import run_git
 
 # The snapshot reads at most this much of the project at run entry.
 _MAX_FILES = 2000
@@ -48,18 +48,11 @@ _DEADLINE_S = 5.0
 def _tracked_text(project: Path) -> dict[str, str]:
     """The project's tracked text files at run entry (the attested workspace)."""
     try:
-        done = subprocess.run(
-            # core.fsmonitor=false: a repository's config cannot start a program.
-            [
-                programs.git(),
-                "-c",
-                "core.fsmonitor=false",
-                "-c",
-                "core.hooksPath=",
-                "--no-optional-locks",
-                "ls-files",
-                "-z",
-            ],
+        done = run_git(
+            # B-206: run_git turns fsmonitor and the operator's hooks off.
+            "--no-optional-locks",
+            "ls-files",
+            "-z",
             cwd=project,
             capture_output=True,
             timeout=30,

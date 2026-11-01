@@ -20,10 +20,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ract import programs
 from ract.providers.base import ProviderAdapter
 from ract.rooted import Rooted
 from ract.symbol_graph import SymbolGraph
+from ract.git_run import run_git
 
 
 @dataclass(frozen=True)
@@ -112,15 +112,12 @@ class LegacyWhisperer:
     def _git_history(self, path: Path) -> list[str]:
         """Return recent commit messages for *path*, if git is available."""
         try:
-            proc = subprocess.run(
-                [
-                    programs.git(),
-                    "log",
-                    f"-n{self.top_k}",
-                    "--pretty=format:%s",
-                    "--",
-                    str(path),
-                ],
+            proc = run_git(
+                "log",
+                f"-n{self.top_k}",
+                "--pretty=format:%s",
+                "--",
+                str(path),
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,
