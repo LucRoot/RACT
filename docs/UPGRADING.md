@@ -217,7 +217,9 @@ Direct API consumers may catch:
    run them in a while: `ract memory init`.
 4. (Optional) Sanity-check cross-index consistency:
    `ract memory verify-consistency`. A `CONSISTENT` result means
-   the memory tri-store agrees with itself.
+   the symbol and graph indexes cross-check cleanly (no orphan edges,
+   no missing files); the semantic index is checked only when it is
+   attached, which a normal run never does.
 5. (Optional) Sanity-check any long-running trace logs:
    `ract trace verify <run_id>`, warms the incremental sidecar
    and returns `VALID` for a clean chain.

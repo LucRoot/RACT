@@ -559,7 +559,9 @@ def _trace_command(argv: list[str]) -> int:
         description=(
             "Operate on the event trace (SUBSTRATE §6). The event log at "
             "evals/runs/<run_id>/events.jsonl is replayable, forkable, "
-            "diffable, and convertible to regression tests."
+            "diffable, and convertible to regression tests. No shipped "
+            "command writes one in this build; the verbs read or repair a "
+            "file made by other tooling."
         ),
     )
     parser.add_argument(
