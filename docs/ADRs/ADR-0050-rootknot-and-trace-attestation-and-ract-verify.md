@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (draft by the BUILDER, 2026-10-30, card B-150). Not accepted: only the operator accepts an ADR. It answers the deferral in ADR-0048 D10 ("the Rootknot field ADR is scheduled before `ract verify`") and gives board card B-039 its acceptance.
+Accepted (the operator, 2026-11-01, decision D-174) with amendments to D2 and D4 recorded in place; the ruling text is in the board's `DECISIONS.md` (D-174). Draft by the BUILDER, 2026-10-30, card B-150. It answers the deferral in ADR-0048 D10 ("the Rootknot field ADR is scheduled before `ract verify`") and gives board card B-039 its acceptance.
 
 ## Context
 
@@ -31,6 +31,8 @@ The run's event log (`evals/runs/<run_id>/events.jsonl`) is hash-chained from GE
 
 A command record is in the trace. It is not inside any Rootknot. That stays so until a later ADR adds an optional, signed `commands_digest` field to the payload. That would be a sacred-spine change, and this ADR does not make it.
 
+**Amended 2026-11-01 (D-174), because a 0.6.0 run writes no hash-chained trace (D-166):** the paragraph above says what the trace chain attests *when a run has one*. In this version real runs write no trace; the command records live in `.ract/commands.jsonl`, which is neither chained nor signed, and nothing yet binds them to a file's knot.
+
 ### D3. What neither attests
 
 No signature proves:
@@ -43,22 +45,22 @@ The verdict and `ract verify` say these in plain words; they never print "attest
 
 ### D4. `ract verify` (the command B-039 builds)
 
-One offline command checks both kinds of evidence for a range of commits or a run. It reads only local files and opens no socket. Proposed form:
+One offline command checks both kinds of evidence for a range of commits or a run, or both, with at least one. It reads only local files and opens no socket. Proposed form:
 
 ```text
-ract verify [--run <run_id>] [<from-commit>..<to-commit>] [--json]
+ract verify [--run <run_id>] [<from-commit>..<to-commit>] [--strict] [--json]
 ```
 
 What it checks, in order:
 1. **Every changed line is attributed.** Each line changed between the two commits is attributed to a recorded step: its file has a Rootknot whose `artifact_digest` matches the bytes at `<to-commit>`.
 2. **Each such Rootknot verifies.** RK-1 is always checked; RK-3 and AL-1 where the sidecar carries them, exactly as `ract provenance verify` does for one file.
-3. **The run's trace chain verifies from GENESIS,** as `ract trace verify --cold` does.
-4. **Each verifier run named in the trace matches the output digest stored in its command record.**
+3. **The run's trace chain verifies from GENESIS,** as `ract trace verify --cold` does. **Amended 2026-11-01 (D-174):** steps 3 and 4 run only when the run has a trace. When it has none, the report prints `trace: none recorded for this run` as a fact; it never prints `broken` and never prints `verified` for the trace.
+4. **Each verifier run named in the trace matches the output digest stored in its command record.** (As above: only when the run has a trace.)
 
 What it prints when only one kind holds:
 - "files: signed and verified; trace: broken at event N", or the reverse, never a single "verified".
-- Every report ends with: "command records are in the trace; they are not part of the signed Rootknot".
-- Exit code: 0 only when everything checked holds. 1 when any check fails. 2 when there is nothing to check (no run, no knots).
+- Every report ends with: **"command records are not part of the signed Rootknot; in this version they are in `.ract/commands.jsonl`, which is not signed"** (amended by D-174; the original said the records are in the trace).
+- **Amended 2026-11-01 (D-174):** the exit code is 0 only when everything the command could check holds, and the report says what it could not check. A changed line that no step wrote is reported as "not written by RACT" and fails only with `--strict`. Exit 1 when a check that ran fails; exit 2 when there is nothing to check (no run, no knots).
 
 ### D5. Key custody
 
@@ -92,9 +94,9 @@ What it prints when only one kind holds:
 - B-039 gets its acceptance (below). `ract provenance verify` and `ract trace verify` stay as the per-file and per-run commands; `ract verify` composes them.
 - The verdict line of a turn keeps saying "signed" only when every changed file's knot verifies (S-015b), and adds the D2 sentence wherever it speaks about commands.
 
-Acceptance line proposed for B-039:
+Acceptance line for B-039 (amended 2026-11-01, D-174):
 
-> `ract verify <from>..<to> --run <id>` checks every changed line's Rootknot and the run's trace chain offline. It prints which held and which did not, never one "verified" for both. It ends with the D2 sentence. Its exit code is 0 only when all hold. Tests cover each row of D6.
+> `ract verify <from>..<to> --run <id>` checks every changed line's Rootknot offline, and the run's trace chain when the run has one. It prints which held and which did not, never one "verified" for both; when the run has no trace it prints `trace: none recorded for this run` as a fact. It ends with: "command records are not part of the signed Rootknot; in this version they are in `.ract/commands.jsonl`, which is not signed". Its exit code is 0 only when what it could check holds, and the report says what it could not check. Tests cover each row of D6.
 
 ## Commands quoted here that exist today
 
@@ -105,9 +107,9 @@ ract trace verify --cold <run_id>
 ract doctor --tier3
 ```
 
-## Open questions for the operator
+## Open questions for the operator (answered 2026-11-01, D-174)
 
-1. **Range or run first.** Should `ract verify` take a commit range first (attribution) or a run first (the trace)? This draft takes both and needs at least one.
-2. **Lines no step wrote.** Should a changed line with no Rootknot fail `ract verify`, or be reported as "not written by RACT"? The operator's own edits are normal. This draft proposes reporting them and failing only with `--strict`.
-3. **`commands_digest`.** Is the optional signed `commands_digest` field in the Rootknot payload wanted at all (a sacred-spine ADR)? Or is the trace chain the lasting home of command records?
-4. **Day keys.** Do day keys need a published list (a key ring file) so a reviewer on another machine can check old knots? Or is "copy the user state folder's `keys/`" enough for v0.6?
+1. **Range or run first.** Answered: `ract verify` takes a commit range, a run, or both, with at least one.
+2. **Lines no step wrote.** Answered: reported as "not written by RACT"; they fail only with `--strict`.
+3. **`commands_digest`.** Answered: no `commands_digest` in the Rootknot payload now; the sacred spine does not change in 0.6.0, and wiring a trace is a later decision.
+4. **Day keys.** Answered: for 0.6.0, copying the user state folder's `keys/` is enough; a key ring file waits.
