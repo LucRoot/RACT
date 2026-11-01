@@ -323,7 +323,7 @@ class WorktreeManager:
             # ``--allow-empty`` because a step whose only observable
             # effect is that its post-conditions now hold (say, a config
             # tweak we already committed elsewhere) should still record
-            # the intent — auditors reading the git graph should see
+            # the intent: auditors reading the git graph should see
             # every step's transaction, not only the ones that added
             # bytes.
             "commit",
