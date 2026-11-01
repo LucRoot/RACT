@@ -5,6 +5,11 @@ An output over OFFLOAD_THRESHOLD bytes is stored whole under the run's folder, o
 lines, and a handle. The summary is made by this module, never by a model. A slice is read with
 read_slice, which is bounded, refuses binary files, refuses any handle that is not this session's,
 and passes the outbound secret scan before the text can enter a request.
+
+B-238: the stored bytes are written through check_state_path and write_atomic
+(a fresh temporary file, never through a link planted at the name); the stub's
+head and tail pass the same outbound scan as a slice; a handle whose name is a
+Windows device name (con, nul, com1) is refused.
 """
 
 from __future__ import annotations
@@ -14,7 +19,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ract import egress_scan
+from ract.atomic_write import write_atomic
 from ract.tools import UNTRUSTED_LABEL
+from ract.workspace_path import _WINDOWS_RESERVED
+from ract.workspace_state import check_state_path
 
 OFFLOAD_THRESHOLD = 8 * 1024
 SUMMARY_CAP = 4 * 1024
@@ -65,16 +73,33 @@ class OffloadStore:
         handle = f"artifact:{self.session_id}/{turn}/{name}"
         path = self._path(handle)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
+        # B-238: the stored bytes go through the state-path guard and a
+        # fresh temporary file, never through a link planted at the name
+        # (B-212 class): the rename replaces the directory entry.
+        check_state_path(path)
+        write_atomic(path, data)
         lines = text.splitlines()
-        head = "\n".join(lines[:HEAD_LINES])
-        tail = "\n".join(lines[-TAIL_LINES:]) if len(lines) > HEAD_LINES else ""
+        # B-238: the stub is model-facing text; the head and tail pass the
+        # same outbound scan as a slice, so a secret in the shown lines is
+        # redacted before the stub can enter a request.
+        head, head_counts = egress_scan.scan_text("\n".join(lines[:HEAD_LINES]))
+        tail, tail_counts = egress_scan.scan_text(
+            "\n".join(lines[-TAIL_LINES:]) if len(lines) > HEAD_LINES else ""
+        )
+        counts = dict(head_counts)
+        for pattern, n in tail_counts.items():
+            counts[pattern] = counts.get(pattern, 0) + n
         summary = (
             f"[offloaded: {len(lines)} lines, {len(data)} bytes]\n"
             f"first {min(HEAD_LINES, len(lines))} lines:\n{head}\n"
             f"last {min(TAIL_LINES, len(lines))} lines:\n{tail}\n"
             f"read more with read_slice on {handle}"
         )
+        if counts:
+            summary += (
+                f"\nredacted before this stub can reach a request: "
+                f"{egress_scan.describe(counts)}"
+            )
         summary = _cap_text(summary, SUMMARY_CAP)
         return Placed(text=f"{UNTRUSTED_LABEL}\n{summary}", handle=handle, offloaded=True)
 
@@ -116,6 +141,14 @@ class OffloadStore:
         match = HANDLE_PATTERN.match(handle)
         if match is None:
             raise OffloadError(f"handle {handle!r} is not an artifact pointer")
+        for part in (match.group(1), match.group(3)):
+            # B-238: a name such as "con" or "nul" maps to a Windows device
+            # (con.txt opens the CON device) in every folder, so a handle
+            # carrying one is refused on every OS.
+            if part.split(".")[0].strip().lower() in _WINDOWS_RESERVED:
+                raise OffloadError(
+                    f"output name {part!r} is a Windows device name, refused"
+                )
         path = self.folder / match.group(1) / match.group(2) / f"{match.group(3)}.txt"
         if not path.resolve().is_relative_to(self.folder.resolve()):
             raise OffloadError("handle leaves the run folder")
