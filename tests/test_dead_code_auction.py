@@ -181,6 +181,9 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("network_screens.py")
     # B-147 (MASON, the screen half): the doctor --tier3 report is pure text; the BUILDER adopts it.
     allowlist.add("tier3_report.py")
+    # B-179 (MASON, the first slice): the named colour styles are pure; the screens use them in the
+    # wiring slice. Remove this entry when wired; the BUILDER reviews it.
+    allowlist.add("colour.py")
     allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped
