@@ -19,7 +19,9 @@ def _plant(target: Path, outside: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         target.symlink_to(outside)
-    except OSError:
+    except (OSError, NotImplementedError):
+        # Symlinks can be unavailable or unprivileged on Windows; a hard
+        # link is the same class when the two names share a volume.
         os.link(outside, target)
 
 
@@ -58,9 +60,12 @@ def test_the_trust_store_replaces_a_planted_link(
 
     state = tmp_path / "state"
     monkeypatch.setattr("ract.core.keys._default_state_dir", lambda: state)
-    outside = tmp_path / "outside.txt"
-    outside.write_text("sentinel\n", encoding="utf-8")
     target = trust.store_path()
+    # Beside the target, on its own volume: a hard link cannot cross drives
+    # and a symlink may need privilege.
+    outside = target.parent / "outside.txt"
+    outside.parent.mkdir(parents=True, exist_ok=True)
+    outside.write_text("sentinel\n", encoding="utf-8")
     _plant(target, outside)
 
     trust._write_store({"deadbeef": "trusted"})
@@ -80,9 +85,11 @@ def test_the_plan_approval_store_replaces_a_planted_link(tmp_path: Path) -> None
 
     root = tmp_path / "proj"
     root.mkdir()
-    outside = tmp_path / "outside.txt"
-    outside.write_text("sentinel\n", encoding="utf-8")
     target = plan_approval_store.approvals_path(root, "sess1")
+    # Beside the target, on its own volume (same reason as the trust test).
+    outside = target.parent / "outside.txt"
+    outside.parent.mkdir(parents=True, exist_ok=True)
+    outside.write_text("sentinel\n", encoding="utf-8")
     _plant(target, outside)
 
     plan_approval_store.remember(root, "sess1", "digest1", [2])

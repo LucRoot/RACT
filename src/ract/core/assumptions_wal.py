@@ -56,7 +56,6 @@ _LOG = logging.getLogger("ract.core.assumptions_wal")
 
 from ract import file_lock
 from ract.atomic_write import write_atomic
-from ract.atomic_write import write_atomic
 from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
