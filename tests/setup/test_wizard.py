@@ -391,7 +391,7 @@ def test_an_address_with_a_password_is_refused_before_any_probe(
 
     assert all(secret_address not in extra for extra in probed)
     text = "\n".join(said)
-    assert "holds a user name or password" in text
+    assert "has a user name or password in it" in text
     assert "hunter2-pass" not in text
     assert "hunter2-pass" not in (tmp_path / "ract.yaml").read_text(encoding="utf-8")
 

@@ -371,8 +371,8 @@ def _ask_address(
         # G-261: the address is written to ract.yaml; a user name or password
         # in it would be a secret in the config. It is not echoed either.
         io.say(
-            "  that address holds a user name or password; setup writes addresses "
-            "only, so type it without them and put any key in an environment variable"
+            "  that address has a user name or password in it. Type it without them. "
+            "Put any key in an environment variable."
         )
         return None
     found = [s for s in io.detect((typed,)) if s.url.rstrip("/") == typed]
@@ -420,7 +420,7 @@ def _local_guidance(io: Io, profile: host_probe.HostProfile, answers: Answers) -
     io.say("Start it with one of these (setup does not download anything):")
     for line in tiers.install_steps(advice.tier):
         io.say(f"  {line}")
-    io.say(f"Guidance reviewed {advice.reviewed}; sizes are approximate.")
+    io.say(f"The guidance was last checked {advice.reviewed}. The sizes are rough.")
     if answers.local_model is None and advice.tier.ollama:
         # Used when the user writes the config before starting a server.
         answers.local_model = advice.tier.ollama
@@ -472,8 +472,8 @@ def _choose_provider(io: Io, answers: Answers, interactive: bool) -> _Chosen | i
     for line in host_probe.describe(profile):
         io.say(f"  {line}")
     io.say(
-        "  network: not tested; setup contacts only the default model-server "
-        "addresses on this machine and the provider you choose"
+        "  network: not tested. Setup talks only to this machine's usual server "
+        "addresses and to the provider you pick."
     )
     server: local_probe.Server | None = None
     if answers.provider == "local":
@@ -492,8 +492,8 @@ def _choose_provider(io: Io, answers: Answers, interactive: bool) -> _Chosen | i
             if answers.provider == "local":
                 _local_guidance(io, profile, answers)
                 again = io.ask(
-                    "Start the server, then press Enter to look again, or type skip to "
-                    "write a config for Ollama's default address now: "
+                    "Start the server, then press Enter to look again. Or type skip "
+                    "for Ollama's address: "
                 )
                 if again.strip().lower() != "skip":
                     server = _choose_server(
@@ -603,7 +603,7 @@ def run(
         return EXIT_INTERRUPTED
     except EOFError:
         io.say(
-            "\nsetup needs an answer and the input ended; nothing was written. "
+            "\nSetup needs an answer, but the input ended. Nothing was written. "
             "hint: ract setup --answers FILE, or ract setup --yolo"
         )
         return EXIT_USAGE
