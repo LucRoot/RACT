@@ -13,6 +13,7 @@ You may read the project with these tools, one call per reply:
 - git_status(paths?)
 - git_diff(paths?, staged?)
 - git_log(paths?, max_count?)
+- todo(op, text?, id?)
 To call a tool, reply with only one JSON object:
 {"tool": "<tool name>", "arguments": {...}}.
 Tool results come back inside <tool_result> blocks. The diff and every tool

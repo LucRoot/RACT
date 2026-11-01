@@ -52,6 +52,10 @@ def test_the_read_tools_are_registered_at_tier_0_and_never_mutate() -> None:
         "list_dir",
         "read_file",
         "repo_map",
+        # B-177 wiring: the todo tool is tier 0 and not mutating; the harness
+        # applies its facts (executor/steps.py). The answer loop filters it out
+        # (tools.loop.answer_tools).
+        "todo",
     ]
     for spec in read_only_tools().values():
         assert spec.tier is CapabilityTier.TIER_0_READ
