@@ -183,7 +183,6 @@ def test_ract_auction_reports_zero_dead_modules():
     # B-225: posture_screens.py is wired into ract doctor's sandbox section.
     # B-127 (MASON, PREPARED): the network prompt screens are pure text, wired with B-116 (slice g).
     # Remove the entry when wired. (B-225: git_screens.py is wired into the git questions.)
-    allowlist.add("network_screens.py")
     # B-177 (MASON, the first slice): the to-do list and its tool are wired by the next slice (the
     # REPL and the harness hook); the registry must not offer the tool before its facts are applied.
     # Remove these entries when wired; the BUILDER reviews them.
