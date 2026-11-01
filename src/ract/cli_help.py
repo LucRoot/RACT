@@ -43,7 +43,7 @@ from ract.tui import terminal_width
 _EPILOG = (
     "Examples:\n"
     '  ract "add a test for utils.py" --config ract.yaml\n'
-    '  ract run "refactor the parser" --loop --max-iterations 5\n'
+    '  ract run "refactor the parser" --loop --yolo --max-iterations 5\n'
     "  ract memory init\n"
     '  ract retrieval query "parser"\n'
     "  ract manifest ledger verify\n"
@@ -124,7 +124,7 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     "consolidate": "Scan for consolidation candidates and propose merges.",
     # Reports
     "report": "Render run reports in markdown or HTML.",
-    "trace": "Inspect an events.jsonl trace file, if one exists. No run in this build writes one.",
+    "trace": "Inspect an events.jsonl trace file, if one exists. No shipped command writes one in this build.",
     # Quality / anti-lazy
     "quality": "Compute the plan quality scorecard.",
     "load-bearing": "Inspect or manage load-bearing annotations across the workspace.",

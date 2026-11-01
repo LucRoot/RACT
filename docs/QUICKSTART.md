@@ -201,7 +201,7 @@ ract run "write a hello-world Python script" --config ract.yaml --session demo
 ract run "add a test for it" --config ract.yaml --session demo --resume
 ```
 
-The second call loads the memory arena from the first run and prepends a replay block to the prompt.
+The second call resumes the session: the stored intent is the one that runs (an intent typed on the command line is not used), and the run opens with a short summary of the prior outcomes and artifacts.
 
 ## Use a project document
 

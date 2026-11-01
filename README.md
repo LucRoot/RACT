@@ -117,8 +117,11 @@ sandbox described by a `CapabilityManifest` (designed; in this build only
 tier-3 commands on Linux run inside bubblewrap, after a self-test, and
 `ract doctor --sandbox` shows what is enforced on your machine); every model
 action is a member of a closed Pydantic union; every run emits a
-hash-chained event log at `evals/runs/<run_id>/events.jsonl` and
-optionally OpenTelemetry spans; termination T1 reads: every required
+hash-chained event log at `evals/runs/<run_id>/events.jsonl` (designed
+in v0.4.0; the writer is not wired in this build, so a run records its
+audit trail in the egress ledger, the signed sidecars, the rootknot
+store and, on request, the session events from `--output-format
+stream-json`) and optionally OpenTelemetry spans; termination T1 reads: every required
 predicate in the `AcceptanceSuite` evaluates true against the final
 snapshot (the model does not say "done"). Rootknot gained
 `environment_signature` (**Invariant RK-3**). ALM: eight pre-commit
@@ -264,7 +267,7 @@ module_10, Lens A M8 closure).
 - `ract explain`: Explain a plan, step, or artifact with its provenance chain.
 - `ract consolidate`: Scan for consolidation candidates and propose merges.
 - `ract report`: Render run reports in markdown or HTML.
-- `ract trace`: Inspect an events.jsonl trace file, if one exists. No run in this build writes one.
+- `ract trace`: Inspect an events.jsonl trace file, if one exists. No shipped command writes one in this build.
 - `ract quality`: Compute the plan quality scorecard.
 - `ract load-bearing`: Inspect or manage load-bearing annotations across the workspace.
 - `ract novelty`: Report novelty budget usage and scan for overruns.
@@ -306,15 +309,17 @@ first-run docs stay honest:
 - `ract fence inspect --file <path>`: inspect Chesterton's-fence entries in a file
 
 Anti-lazy gates (G1-G8) are pre-commit helpers rather than top-level CLI verbs.
-A run's `evals/runs/<run_id>/` directory gains one report per gate:
-`mutation_kill.json`, `patch_diff.json`, `coverage_delta.json`,
-`test_integrity.json`, `under_edit.json`, `companion_report.json`,
-`effort_reconciliation.json`, `sycophancy.json`, `investigator.json`, and (for
-rule-like intents) `iso_perturb.json`.
+A run records its audit trail in the egress ledger in the user state
+directory, in the signed Rootknot sidecars beside the files it wrote and the
+`.ract/rootknots.db` index, and, when a caller asks for it, in the session
+events from `--output-format stream-json`. A normal run writes no report
+files; the gate report shapes the README listed here in earlier drafts
+(`mutation_kill.json`, `patch_diff.json`, `coverage_delta.json` and friends)
+exist as library functions the test suite exercises.
 
 ## What makes RACT different
 
-- **Provenance-anchored artifacts**: every file the loop writes is meant to carry a signed `Rootknot` binding it to its plan step, assumption, generator, and parent artifacts. In this release `ract` runs do not sign files yet, and each run that writes files says so. See [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
+- **Provenance-anchored artifacts**: every file the loop writes carries a signed `Rootknot` binding it to its plan step, assumption, generator, and parent artifacts; a run that could not sign its files says so in the turn summary. See [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
 - **Assumption-driven programming**: assumptions live in a registry with a four-state lifecycle (`proposed`, `active`, `discharged`, `violated`); violations propagate through the dependency graph.
 - **Milestone-halting recursion**: the loop halts on completion, regression, provenance violation, assumption cascade, budget exhaustion, handshake block, or provider fault, each with a distinct termination cause. On a refactoring task this spends measurably fewer tokens than a naive fixed-iteration loop, see [`evals/benchmarks/refactor-token-usage/report.md`](evals/benchmarks/refactor-token-usage/report.md).
 - **Operator Handshake**: high-risk actions queue for async review instead of blocking the loop.
@@ -333,7 +338,7 @@ Three reproducible tasks under `evals/tasks/` (reports in `evals/runs/`). See [`
 ract doctor                              # workspace health + dependencies
 ract provenance verify <file>             # check a file's Rootknot (RK-1 + RK-2 + RK-3 + AL-1)
 ract conformance run --provider fake     # run the per-provider conformance corpus
-ract trace replay evals/runs/<run_id>    # replays a saved event log; no run in this build writes one
+ract trace replay <run_id>               # replays a saved event log; no shipped command writes one in this build
 pytest -q                                # full suite (includes tests/test_release_surface.py)
 ```
 

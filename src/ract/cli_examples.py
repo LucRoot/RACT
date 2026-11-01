@@ -65,7 +65,7 @@ VERB_EXAMPLES: dict[str, str] = {
     "skills": "ract skills list",
     "source-digest": "ract source-digest src/ract/cli.py",
     "status": "ract status",
-    "trace": "ract trace verify <events.jsonl>",
+    "trace": "ract trace verify <run_id>",
     "trust": "ract trust --list",
     "policy": "ract policy status",
     "undo": "ract undo",

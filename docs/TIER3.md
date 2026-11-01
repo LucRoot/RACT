@@ -129,6 +129,6 @@ best effort as a command with your user's rights.
 
 ## What tier 3 does not do
 
-It does not run in headless mode (`ract -p`, CI) unless an allow rule matches and the grant holds.
+It does not run headless: a `ract -p` or CI run records tier 3 as off, and a tier-3 tool call with nobody to ask is refused and recorded as a denial, whether or not a rule matches.
 It does not let `--yolo` through: `--yolo` never lifts tier 3. A command that needs an answer and
 gets none is refused.
