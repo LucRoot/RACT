@@ -293,6 +293,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract verify` reads the commits, not the working tree (B-236): the line-ending
+  fallback runs only when the later commit is HEAD; only sidecar files count as
+  RACT's own record, so any other path under `.ract/` is reported as not written
+  by RACT; and away from HEAD the knot records are read from the later commit,
+  with any working-tree read said plainly in the report.
+- The offload store writes the stored output through `check_state_path` and a
+  fresh temporary file (B-238): a hard link planted at the file name is replaced,
+  not written through; the stub's first and last lines pass the outbound scan
+  before they can reach a request; and a handle naming a Windows device (con,
+  nul, com1) is refused on every operating system.
 - Writers of the workspace and of RACT's state no longer use a predictable
   temporary file name (B-224, the class B-212 closed in the write tool):
   the per-hunk review restore, the plan approval store, the trust store, the
