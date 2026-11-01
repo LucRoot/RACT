@@ -364,6 +364,8 @@ def test_ract_auction_reports_zero_dead_modules():
     # mirrors the transitional-substrate pattern above.
     allowlist.add("process_group.py")
     allowlist.add("sycophancy_v2.py")
+    # ADR-0049 D9 (B-174): the offload store has no caller until the tool loop reads it.
+    allowlist.add("offload.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
