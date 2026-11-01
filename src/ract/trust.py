@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ract.atomic_write import write_atomic
 from ract.canonical import dumps_jcs
 from ract.console_interrupt import read_line
 from ract.session_events import visible_text
@@ -252,9 +253,10 @@ def _read_store() -> dict[str, str]:
 def _write_store(store: dict[str, str]) -> None:
     path = store_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(dict(sorted(store.items())), indent=2), encoding="utf-8")
-    tmp.replace(path)
+    # B-224: a fresh temporary file, never the predictable ".tmp" name.
+    write_atomic(
+        path, json.dumps(dict(sorted(store.items())), indent=2).encode("utf-8")
+    )
 
 
 def is_trusted(root: Path | str) -> bool:

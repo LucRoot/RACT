@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+
+from ract.atomic_write import write_atomic
 import os
 from pathlib import Path
 
@@ -58,6 +60,5 @@ def remember(
     approved[digest] = sorted(skipped)
     path = approvals_path(root, session_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(".json.tmp")
-    temp.write_text(json.dumps(approved), encoding="utf-8")
-    os.replace(temp, path)
+    # B-224: a fresh temporary file, never the predictable ".json.tmp" name.
+    write_atomic(path, json.dumps(approved).encode("utf-8"))

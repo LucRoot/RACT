@@ -217,17 +217,17 @@ def _record_path(project: Path | str, grant_digest: str) -> Path:
 def record_signed(project: Path | str, grant_digest: str) -> None:
     """Keep what the entry points were when this grant was signed (canonical JSON)."""
     from ract.canonical import dumps_jcs
+    from ract.atomic_write import write_atomic
 
     path = _record_path(project, grant_digest)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.with_name(path.name + ".tmp")
         digests = entry_point_digests(project)
         if digests is None:
             # Nothing to compare with later: every entry point then counts as changed.
             return
-        temp.write_text(dumps_jcs(digests).decode("utf-8"), encoding="utf-8")
-        os.replace(temp, path)
+        # B-224: a fresh temporary file, never the predictable ".tmp" name.
+        write_atomic(path, dumps_jcs(digests))
     except OSError as exc:
         print(f"[allowlist] the entry points were not recorded: {exc}", flush=True)
 

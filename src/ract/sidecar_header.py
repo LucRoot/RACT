@@ -67,6 +67,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ract.atomic_write import write_atomic
 from ract.core.module_identity import _module_knot, register_module_knot
 
 _MODULE_KNOT = _module_knot()
@@ -807,25 +808,10 @@ def write_json_sidecar_with_header(
 
     raw = dumps_jcs(merged)
     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
-    # SP amendment (Ox Alpha Q7 DEFECT verdict): tmp + os.replace so
-    # a reader NEVER observes a partial write. Previously only the
-    # loop_state persist path had this atomicity discipline; now
-    # every caller of the write helper inherits it. On serialization
-    # failure the tmp file is cleaned up in a finally clause so no
-    # ``.tmp`` litter accumulates.
-    import os as _os  # noqa: PLC0415
-
-    tmp_path = path.parent / (path.name + ".tmp")
-    try:
-        tmp_path.write_text(text, encoding="utf-8")
-        _os.replace(str(tmp_path), str(path))
-    except Exception:
-        try:
-            if tmp_path.exists():
-                tmp_path.unlink()
-        except OSError:
-            pass
-        raise
+    # SP amendment (Ox Alpha Q7 DEFECT verdict): a reader NEVER observes a
+    # partial write. B-224: the bytes go through a fresh temporary file,
+    # never the predictable ".tmp" name a planted link could wait on.
+    write_atomic(path, text.encode("utf-8"))
     _emit_header_trace_event(
         "sidecar.header.written",
         {

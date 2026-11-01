@@ -27,6 +27,7 @@ from typing import Any
 import yaml
 
 from ract import config_errors
+from ract.atomic_write import write_atomic
 from ract.git_run import run_git
 from ract import egress_scan, redaction
 from ract.console_interrupt import read_line
@@ -161,14 +162,8 @@ def build_config(
 
 
 def _atomic_write(path: Path, text: str) -> None:
-    """Write ``path`` through a temporary file and one rename (never half a file)."""
-    temp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    try:
-        temp.write_text(text, encoding="utf-8")
-        os.replace(temp, path)
-    finally:
-        if temp.exists():
-            temp.unlink()
+    """Written whole through a fresh temporary file, then one rename (B-224)."""
+    write_atomic(path, text.encode("utf-8"))
 
 
 def write_config(
