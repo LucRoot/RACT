@@ -138,3 +138,11 @@ def test_save_does_not_write_through_a_link_at_the_temp_name(tmp_path: Path) -> 
     assert outside.read_text(encoding="utf-8") == "sentinel\n"
     assert (state / "todo.json").is_file()
     assert not (state / "todo.json").is_symlink()
+
+
+def test_a_none_tools_default_is_the_answer_set() -> None:
+    from ract.tools.loop import _signatures
+
+    names = [s.name for s in _signatures()]
+    assert "todo" not in names
+    assert "read_file" in names
