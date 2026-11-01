@@ -55,6 +55,8 @@ from typing import Any, ContextManager
 _LOG = logging.getLogger("ract.core.assumptions_wal")
 
 from ract import file_lock
+from ract.atomic_write import write_atomic
+from ract.atomic_write import write_atomic
 from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
@@ -107,7 +109,6 @@ _LOCK_BACKOFF_S = 0.01
 # JSONL stream on every OS.
 _BINARY_FLAG = getattr(os, "O_BINARY", 0)
 _WAL_OPEN_FLAGS_APPEND = os.O_WRONLY | os.O_CREAT | os.O_APPEND | _BINARY_FLAG
-_WAL_OPEN_FLAGS_TRUNC = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | _BINARY_FLAG
 
 
 def _lock_exclusive(fd: int) -> None:
@@ -355,8 +356,9 @@ class AssumptionWal:
 
         The full sequence:
 
-        1. Write ``assumptions.json.tmp`` with all entries + ``fsync``.
-        2. ``os.replace(tmp, assumptions.json)`` — atomic rename.
+        1. Write the snapshot through a fresh temporary file (B-224:
+           ``write_atomic``) + ``fsync``.
+        2. One rename replaces the snapshot cleanly on POSIX and Windows.
         3. Truncate ``assumptions.wal`` to zero bytes + ``fsync``.
 
         Steps 1-3 happen inside the WAL byte-0 lock so no concurrent
@@ -387,7 +389,6 @@ class AssumptionWal:
         above — the cost is a longer WAL replay, not data loss. See
         Flagged gap: directory-fsync durability, v0.6-scope.
         """
-        tmp_path = self._snapshot_path.with_suffix(".json.tmp")
         # Serialize the snapshot body first so a bad payload raises
         # BEFORE we take the lock.
         body = b"".join(
@@ -406,21 +407,12 @@ class AssumptionWal:
         try:
             _lock_exclusive(lock_fd)
             try:
-                # 1. Snapshot to tmp + fsync.
-                snap_fd = os.open(
-                    tmp_path,
-                    _WAL_OPEN_FLAGS_TRUNC,
-                    0o644,
-                )
-                try:
-                    if body:
-                        os.write(snap_fd, body)
-                    os.fsync(snap_fd)
-                finally:
-                    os.close(snap_fd)
-                # 2. Atomic rename tmp -> snapshot. ``os.replace``
-                # overwrites cleanly on both POSIX and Windows.
-                os.replace(tmp_path, self._snapshot_path)
+                # 1.+2. Snapshot through a fresh temporary file and one
+                # rename (B-224: the old fixed ".json.tmp" name could hold a
+                # planted link, which ``os.open(..., TRUNC)`` would have
+                # followed). ``write_atomic`` flushes and syncs before the
+                # rename, which overwrites cleanly on POSIX and Windows.
+                write_atomic(self._snapshot_path, body)
                 # 3. Truncate WAL under the same lock. We already hold
                 # ``lock_fd`` open; truncate it and fsync.
                 os.ftruncate(lock_fd, 0)

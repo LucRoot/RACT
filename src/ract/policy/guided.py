@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from ract.atomic_write import write_atomic
 from ract.policy.grant import (
     DEFAULT_DAYS,
     POLICY_FILE,
@@ -403,15 +404,9 @@ def _proposed(runner: Runner) -> Any:
 
 
 def _write_whole(path: Path, text: str) -> None:
-    """Written whole: a temporary file beside it, then one replace."""
+    """Written whole through a fresh temporary file, then one rename (B-224)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(f".{POLICY_FILE}.{os.getpid()}.tmp")
-    try:
-        temp.write_text(text, encoding="utf-8")
-        os.replace(temp, path)
-    finally:
-        if temp.exists():
-            temp.unlink()
+    write_atomic(path, text.encode("utf-8"))
 
 
 def add_rule(

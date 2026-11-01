@@ -37,6 +37,7 @@ from pydantic import (
     model_validator,
 )
 
+from ract.atomic_write import write_atomic
 from ract.policy import config_dir
 from ract.policy.operator_key import PublicKey, pinned
 
@@ -455,9 +456,9 @@ def revoke(project: Path | str, *, config: Path | None = None) -> str | None:
         listed = revoked(config) | {digest}
         out = _revoked_file(config)
         out.parent.mkdir(parents=True, exist_ok=True)
-        temp = out.with_name(out.name + ".tmp")
-        temp.write_text(json.dumps(sorted(listed)), encoding="utf-8")
-        os.replace(temp, out)  # never a half-written list (G-213 G1)
+        # B-224: a fresh temporary file, never the predictable ".tmp" name;
+        # never a half-written list (G-213 G1).
+        write_atomic(out, json.dumps(sorted(listed)).encode("utf-8"))
     if sig_path.exists():
         sig_path.unlink()
     return digest

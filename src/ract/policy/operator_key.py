@@ -46,6 +46,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
+from ract.atomic_write import write_atomic
 from ract.policy import config_dir
 
 FORMAT = "ract-operator-key/1"
@@ -439,9 +440,8 @@ def pin(key: PublicKey, *, config: Path | None = None) -> None:
             data = loaded
     data["operator_key"] = {"key_id": key.key_id, "public_key": _b64(key.public_key)}
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".tmp")
-    temp.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
-    os.replace(temp, path)
+    # B-224: a fresh temporary file, never the predictable ".tmp" name.
+    write_atomic(path, yaml.safe_dump(data, sort_keys=False).encode("utf-8"))
 
 
 def pinned(config: Path | None = None) -> PublicKey | None:

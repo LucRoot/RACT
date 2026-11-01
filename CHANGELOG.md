@@ -290,6 +290,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Writers of the workspace and of RACT's state no longer use a predictable
+  temporary file name (B-224, the class B-212 closed in the write tool):
+  the per-hunk review restore, the plan approval store, the trust store, the
+  signed-grant records (revoked list, entry points, guided policy, the pinned
+  operator record), the setup config write, the signing sidecar header and the
+  assumption snapshot all write through a fresh temporary file and one rename,
+  so a link planted at a name is replaced, not written through.
 - Every git command RACT runs for itself (step worktrees and commits, snapshots, reviews, the
   history and policy reads, `ract step diff`) starts with the full hardening (B-206), and the
   tool gate lists no file that no longer starts a process.

@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ract import diff_render, undo_backup
+from ract.atomic_write import write_atomic
 from ract.session_events import safe_text
 from ract.workspace_path import WorkspacePathRefused, require_workspace_path
 
@@ -285,9 +286,9 @@ def _write(root: Path, key: str, data: bytes | None) -> None:
             target.unlink()
         return
     target.parent.mkdir(parents=True, exist_ok=True)
-    temp = target.with_name(target.name + ".ract-review")
-    temp.write_bytes(data)
-    os.replace(temp, target)
+    # B-224: a fresh temporary file and one rename, never the predictable
+    # ".ract-review" name a planted link could wait on (B-212 class).
+    write_atomic(target, data)
 
 
 def review_file(
