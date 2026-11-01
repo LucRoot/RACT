@@ -364,9 +364,14 @@ def test_ract_auction_reports_zero_dead_modules():
     # mirrors the transitional-substrate pattern above.
     allowlist.add("process_group.py")
     allowlist.add("sycophancy_v2.py")
+<<<<<<< HEAD
     # ADR-0049 D2 (B-172): the role loader has no caller until the role wiring cards
     # (B-173 to B-176) land. The only file with this name in the tree is src/ract/roles/loader.py.
     allowlist.add("loader.py")
+=======
+    # ADR-0049 D9 (B-174): the offload store has no caller until the tool loop reads it.
+    allowlist.add("offload.py")
+>>>>>>> tmp-b5-B174
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
