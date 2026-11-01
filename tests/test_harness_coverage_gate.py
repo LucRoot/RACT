@@ -13,6 +13,11 @@ from ract.harness import Harness
 from ract.manager import Plan, Step
 from ract.rooted import Rooted
 
+# B-232: a 60 s limit made this tiny fixture run fail under a shared, loaded machine (L-421).
+# The limit is stated here, not hidden: the fixture's own suite is small, the margin is for load.
+COVERAGE_RUN_LIMIT_S = 240.0
+
+
 
 @pytest.fixture
 def tmp_coverage_project(tmp_path_factory):
@@ -50,7 +55,7 @@ def tmp_coverage_project(tmp_path_factory):
 def test_gate_establishes_baseline(tmp_coverage_project):
     project_dir = tmp_coverage_project
     result = coverage_delta.gate(
-        project_dir, pytest_args=["tests/", "-q"], timeout=60.0
+        project_dir, pytest_args=["tests/", "-q"], timeout=COVERAGE_RUN_LIMIT_S
     )
     assert result.is_ok(), result.error
     delta = result.unwrap()
@@ -60,7 +65,7 @@ def test_gate_establishes_baseline(tmp_coverage_project):
 
 def test_gate_detects_regress(tmp_coverage_project):
     project_dir = tmp_coverage_project
-    coverage_delta.gate(project_dir, pytest_args=["tests/", "-q"], timeout=60.0)
+    coverage_delta.gate(project_dir, pytest_args=["tests/", "-q"], timeout=COVERAGE_RUN_LIMIT_S)
 
     # Add an uncovered function.
     core_path = project_dir / "src" / "pkg" / "core.py"
@@ -71,7 +76,7 @@ def test_gate_detects_regress(tmp_coverage_project):
     )
 
     result = coverage_delta.gate(
-        project_dir, pytest_args=["tests/", "-q"], timeout=60.0
+        project_dir, pytest_args=["tests/", "-q"], timeout=COVERAGE_RUN_LIMIT_S
     )
     assert result.is_ok(), result.error
     delta = result.unwrap()
@@ -81,7 +86,7 @@ def test_gate_detects_regress(tmp_coverage_project):
 
 def test_gate_detects_earn(tmp_coverage_project):
     project_dir = tmp_coverage_project
-    coverage_delta.gate(project_dir, pytest_args=["tests/", "-q"], timeout=60.0)
+    coverage_delta.gate(project_dir, pytest_args=["tests/", "-q"], timeout=COVERAGE_RUN_LIMIT_S)
 
     # Cover the missing branch.
     test_path = project_dir / "tests" / "test_core.py"
@@ -92,7 +97,7 @@ def test_gate_detects_earn(tmp_coverage_project):
     )
 
     result = coverage_delta.gate(
-        project_dir, pytest_args=["tests/", "-q"], timeout=60.0
+        project_dir, pytest_args=["tests/", "-q"], timeout=COVERAGE_RUN_LIMIT_S
     )
     assert result.is_ok(), result.error
     delta = result.unwrap()
@@ -115,7 +120,7 @@ def test_harness_hard_fail_on_coverage_regress(tmp_path, monkeypatch):
         "coverage_gate": {
             "enabled": True,
             "hard_fail": True,
-            "timeout": 60.0,
+            "timeout": COVERAGE_RUN_LIMIT_S,
         },
     }
     (tmp_path / "prompts").mkdir()
@@ -196,7 +201,7 @@ def test_harness_soft_fail_attaches_delta(tmp_path, monkeypatch):
         "coverage_gate": {
             "enabled": True,
             "hard_fail": False,
-            "timeout": 60.0,
+            "timeout": COVERAGE_RUN_LIMIT_S,
         },
     }
     (tmp_path / "prompts").mkdir()
@@ -278,7 +283,7 @@ def test_harness_floor_breach_hard_fail(tmp_path, monkeypatch):
         "coverage_gate": {
             "enabled": True,
             "hard_fail": True,
-            "timeout": 60.0,
+            "timeout": COVERAGE_RUN_LIMIT_S,
             "min_percent": 95.0,
         },
     }
