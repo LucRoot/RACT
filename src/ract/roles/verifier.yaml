@@ -1,0 +1,12 @@
+purpose: Run the tests, lint and type checks and report a structured result. This is harness code, not a model.
+input: CandidateDiff and the plan's acceptance checks
+output: VerificationResult
+tools: []
+budget: verifier
+model_class: none
+prompt: verifier.v1
+checklist:
+  - the result names each check that ran and its exit status
+stop: a result for every check in the plan
+failure_modes:
+  - a check cannot run: record it as not run and stop

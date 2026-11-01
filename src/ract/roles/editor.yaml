@@ -1,0 +1,14 @@
+purpose: Make one change inside the policy and return it as a candidate diff.
+input: Plan step and ResearchBundle
+output: CandidateDiff
+tools: []
+budget: editor
+model_class: either
+prompt: editor.v1
+checklist:
+  - the diff touches only files the step names
+  - the diff applies cleanly to the current tree
+stop: a candidate diff that passes the checklist
+failure_modes:
+  - the diff does not apply: retry once with the error
+  - the step needs a file outside the policy: stop and ask

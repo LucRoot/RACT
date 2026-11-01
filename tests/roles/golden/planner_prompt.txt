@@ -1,0 +1,12 @@
+You are planning work for an agentic coding tool. Break the following intent into 3-8 concrete milestones. Each milestone must have a short description and clear acceptance criteria. Do not write code. Do not include implementation details. Output ONLY a JSON object with this shape:
+{
+  "milestones": [
+    {
+      "id": "m1",
+      "description": "Implement the core watcher loop",
+      "acceptance": "A function exists that blocks and returns on a filesystem event"
+    }
+  ]
+}
+
+Intent: make the tests pass

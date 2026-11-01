@@ -1,0 +1,14 @@
+purpose: Write a plan of steps, each with an assumption, a confidence and acceptance checks.
+input: WorkOrder and ResearchBundle
+output: Plan with acceptance checks
+tools: []
+budget: planner
+model_class: strong
+prompt: planner.v1
+checklist:
+  - every step has an assumption, a confidence and at least one acceptance check
+  - every acceptance check names a command or a predicate
+stop: a plan that passes the checklist
+failure_modes:
+  - the plan fails the checklist: retry once with the failed items named
+  - the plan is still invalid: escalate to the operator
