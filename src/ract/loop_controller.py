@@ -83,6 +83,9 @@ class LoopResult:
     # B-122 (D-122): why the loop stopped; ``outcome_for`` gives its word and
     # exit code. None only for a result built outside the controller.
     cause: TerminationCause | None = None
+    # ADR-0049 D10 (B-175): at the iteration limit, the question the operator is asked: what ran,
+    # the last decision and tests, and the files the last round changed. None before the limit.
+    limit_question: str | None = None
 
 
 class LoopController:
@@ -1123,12 +1126,14 @@ class LoopController:
                 continue
 
             if decision in {"done", "stop", "regression"}:
+                at_limit = decision == "stop" and iteration.index >= self.max_iterations
                 return LoopResult(
                     iterations=iterations,
                     final_decision=decision,
                     cause=self._cause_of(decision, iteration),
                     summary=self._summarize(iterations),
                     handshake_milestones=list(self.handshake_milestones),
+                    limit_question=self._limit_question(iterations) if at_limit else None,
                 )
 
             if decision == "stagnant":
@@ -1220,6 +1225,29 @@ class LoopController:
             cause=TerminationCause.BUDGET_EXHAUSTED,
             summary=f"Reached max iterations ({self.max_iterations}).",
             handshake_milestones=list(self.handshake_milestones),
+            limit_question=self._limit_question(iterations),
+        )
+
+    def _limit_question(self, iterations: list[LoopIteration]) -> str:
+        """The question a limit stop puts to the operator (ADR-0049 D10).
+
+        Names what ran, the last decision and tests, and the files the last round changed (a file
+        whose content differs from the round before). It does not raise the limit.
+        """
+        last = iterations[-1] if iterations else None
+        before = iterations[-2].content_snapshot if len(iterations) > 1 else {}
+        touched = (
+            sorted(path for path, text in last.content_snapshot.items() if before.get(path) != text)
+            if last is not None
+            else []
+        )
+        shown = ", ".join(touched[:20]) + (" and more" if len(touched) > 20 else "") or "none"
+        return (
+            f"Reached max iterations ({self.max_iterations}): {len(iterations)} rounds ran, "
+            f"the last ended with decision {last.decision if last else 'none'}. "
+            f"Tests: {last.test_summary if last and last.test_summary else 'not run'}. "
+            f"Files changed in the last round: {shown}. "
+            "Run one more round of the same size?"
         )
 
     # ------------------------------------------------------------------
