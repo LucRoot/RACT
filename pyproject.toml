@@ -97,6 +97,7 @@ include = [
     "src/ract/setup/model_tiers.yaml",
     "src/ract/roles/*.yaml",
     "src/ract/roles/prompts/*.txt",
+    "src/ract/playbooks/*.yaml",
 ]
 
 [tool.pytest.ini_options]
