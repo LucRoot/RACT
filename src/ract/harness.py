@@ -56,7 +56,7 @@ from ract.providers.router import ProviderRouter
 from ract.rooted import Rooted
 from ract.token_budget import TokenBudget
 from ract.workspace_path import is_never_sent
-from ract import plan_gate, run_checkpoint, turn_context, write_gate
+from ract import plan_gate, run_checkpoint, strong_path, turn_context, write_gate
 from ract.session_events import plan_event_data
 
 
@@ -337,6 +337,9 @@ class Harness:
                 # Historian build is best-effort; do not block harness init.
                 pass
         self.novelty_budget = None
+        # B-233 (ADR-0049 D6): the strong-model path reads this; it stays
+        # "weak" until a capability cache wires probe facts to it.
+        self.model_strength = strong_path.WEAK
         if self.project_dir is not None:
             nb_cfg = config.get("novelty_budget", {})
             self.novelty_budget = NoveltyBudget(
@@ -1011,6 +1014,15 @@ class Harness:
                         {step.target for step in outcome.kept if step.target},
                     )
 
+        # B-233 (ADR-0049 D6): a strong model executes the approved plan as
+        # fewer, larger steps; weak keeps the plan exactly as approved (D5).
+        # The merge needs the step agent loop, without which a merged step
+        # could not run.
+        plan = strong_path.apply_strong_path(
+            plan,
+            strength=strong_path.strength_for_harness(self),
+            agent_loop=self.executor.step_tools is not None,
+        )
         run_checkpoint.plan_ready(plan)
         if pre_execute_callback is not None:
             pre_execute_callback(plan)
