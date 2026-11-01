@@ -191,7 +191,6 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("tier3_report.py")
     # B-178 (MASON, the first slice): the guided-spec screens are pure text; the spec command wires them
     # in the next slice. Remove this entry when wired; the BUILDER reviews it.
-    allowlist.add("spec_screens.py")
     # B-179 (MASON, the first slice): the named colour styles are pure; the screens use them in the
     # wiring slice. Remove this entry when wired; the BUILDER reviews it.
     allowlist.add("colour.py")
