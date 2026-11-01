@@ -170,6 +170,9 @@ def _no_hooks_dir() -> Path:
     return folder
 
 
+_DIFF_CAPABLE = ("diff", "log", "show", "format-patch", "whatchanged", "range-diff")
+
+
 def git_argv(*args: str, hooks: bool = False) -> list[str]:
     """``git`` with D8's hardening, then *args*."""
     argv = [
@@ -180,9 +183,12 @@ def git_argv(*args: str, hooks: bool = False) -> list[str]:
         "core.pager=cat",
         "-c",
         "color.ui=false",
-        "-c",
-        "diff.external=",
-        # G-239 B: no attributes file named by config, no signing program.
+        # G-239 B: no external diff and no attributes file named by config, no
+        # signing program. ``diff.external=`` alone is not enough: with it set
+        # to the empty string, git tries to spawn "" for a diff whose path
+        # needs one and the diff dies ("cannot spawn :"), so every
+        # diff-capable subcommand also carries ``--no-ext-diff``, which
+        # overrides a repository's own ``diff.external`` for the invocation.
         "-c",
         "core.attributesFile=",
         "-c",
@@ -198,7 +204,10 @@ def git_argv(*args: str, hooks: bool = False) -> list[str]:
     ]
     if not hooks:
         argv += ["-c", f"core.hooksPath={_no_hooks_dir().as_posix()}"]
-    return [*argv, "--no-pager", *args]
+    out = [*argv, "--no-pager", *args]
+    if args and args[0] in _DIFF_CAPABLE:
+        out.insert(out.index(args[0]) + 1, "--no-ext-diff")
+    return out
 
 
 def git_env(source: dict[str, str] | None = None) -> dict[str, str]:
