@@ -123,7 +123,7 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     "consolidate": "Scan for consolidation candidates and propose merges.",
     # Reports
     "report": "Render run reports in markdown or HTML.",
-    "trace": "Inspect a run's events.jsonl trace file.",
+    "trace": "Inspect an events.jsonl trace file, if one exists. No run in this build writes one.",
     # Quality / anti-lazy
     "quality": "Compute the plan quality scorecard.",
     "load-bearing": "Inspect or manage load-bearing annotations across the workspace.",
