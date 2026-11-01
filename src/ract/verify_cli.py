@@ -13,6 +13,14 @@ when everything the command could check holds; the report names what it
 could not check. A changed line no step wrote is reported as ``not
 written by RACT`` and fails only with ``--strict``. Exit 1 when a check
 that ran fails; exit 2 when there is nothing to check.
+
+A range is checked against the commits: the bytes come from the later
+commit and, when the later commit is not HEAD, the knot records are read
+from it too (``git show <to>:<sidecar>``); a record then read from the
+working tree is said so in the report. The working-tree line-ending
+fallback runs only when the later commit is HEAD. Only sidecar files
+are RACT's own record; any other path under ``.ract/`` is checked like
+a step's file.
 """
 
 from __future__ import annotations
@@ -110,34 +118,62 @@ class VerifyReport:
         return 0
 
 
-def _load_knot(repo: Path, path: str):
-    """Load the Rootknot recorded for ``path``: sidecar first, then index.
+def _load_knot(
+    repo: Path, path: str, *, at_commit: str | None, later_is_head: bool
+) -> tuple[object | None, str | None, str]:
+    """Load the Rootknot recorded for ``path``.
 
-    Returns ``(knot, error)`` with exactly one side set. ``error`` carries
-    a refused or unparseable sidecar's reason; ``(None, None)`` means no
-    record exists anywhere, which is the ``not written by RACT`` case.
+    Returns ``(knot, error, source)`` with ``source`` naming where the
+    record was read: ``"commit"`` or ``"working tree"``. When the later
+    commit is not HEAD the sidecar is read from the commit itself
+    (``git show <to>:<sidecar>``); the working tree is only a fallback
+    then, and the caller says so in the report. ``error`` carries a
+    refused or unparseable sidecar's reason; ``(None, None, source)`` is
+    the ``not written by RACT`` case.
     """
     artifact = repo / path
     sidecar = _sidecar_path(artifact)
+    if not later_is_head and at_commit is not None:
+        sidecar_rel = sidecar.relative_to(repo).as_posix()
+        committed = _commit_bytes(repo, at_commit, sidecar_rel)
+        if committed is not None:
+            try:
+                return (
+                    _knot_from_json(committed.decode("utf-8")),
+                    None,
+                    "commit",
+                )
+            except RootknotUnknownSidecarFormat as exc:
+                return None, (
+                    f"unknown sidecar schema literal: {exc}; known values are "
+                    "'sidecar/v2', 'sidecar/v3', 'sidecar/v4' (or absent for the "
+                    "legacy v0.3 v1 shape)"
+                ), "commit"
+            except Exception as exc:  # noqa: BLE001 - malformed sidecar is a failure
+                return None, f"sidecar unparseable: {exc}", "commit"
     if sidecar.is_file():
         try:
-            return _knot_from_json(sidecar.read_text(encoding="utf-8")), None
+            return (
+                _knot_from_json(sidecar.read_text(encoding="utf-8")),
+                None,
+                "working tree",
+            )
         except RootknotUnknownSidecarFormat as exc:
             return None, (
                 f"unknown sidecar schema literal: {exc}; known values are "
                 "'sidecar/v2', 'sidecar/v3', 'sidecar/v4' (or absent for the "
                 "legacy v0.3 v1 shape)"
-            )
+            ), "working tree"
         except Exception as exc:  # noqa: BLE001 - malformed sidecar is a failure
-            return None, f"sidecar unparseable: {exc}"
+            return None, f"sidecar unparseable: {exc}", "working tree"
     try:
         index = ProvenanceIndex(repo)
         knot = index.load(artifact)
     except Exception as exc:  # noqa: BLE001 - surface any index failure
-        return None, f"no sidecar and index load failed: {exc}"
+        return None, f"no sidecar and index load failed: {exc}", "working tree"
     if knot is None:
-        return None, None
-    return knot, None
+        return None, None, "working tree"
+    return knot, None, "working tree"
 
 
 def _check_knot_bytes(knot, data: bytes) -> tuple[str, str, str]:
@@ -245,15 +281,33 @@ def _clean_paths(repo: Path, paths: list[str]) -> set[str] | None:
     return {p for p in paths if p not in dirty}
 
 
+def _rev_parse(repo: Path, ref: str) -> str | None:
+    result = run_git("-C", str(repo), "rev-parse", ref)
+    if result.returncode != 0:
+        return None
+    return result.stdout.decode("utf-8", "replace").strip()
+
+
 def _is_ract_record(path: str) -> bool:
-    """A sidecar or a path under .ract/: RACT's own record, not a step's file."""
+    """A sidecar file (``.NAME.rootknot.json``): RACT's own record.
+
+    Where a path sits does not make it RACT's record: a file under
+    ``.ract/`` that is not a sidecar is checked like any other path, so
+    it is reported as ``not written by RACT`` when no step recorded it.
+    """
     from pathlib import PurePosixPath
 
     posix = PurePosixPath(path)
-    return (
-        posix.parts[0] == ".ract"
-        or (posix.name.startswith(".") and posix.name.endswith(".rootknot.json"))
-    )
+    return posix.name.startswith(".") and posix.name.endswith(".rootknot.json")
+
+
+def _tree_source_note(source: str, later_is_head: bool) -> str:
+    if source == "working tree" and not later_is_head:
+        return (
+            " (the knot record was read from the working tree; the later "
+            "commit is not HEAD)"
+        )
+    return ""
 
 
 def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
@@ -266,6 +320,14 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
     report.range_expr = range_expr
     changed = _changed_files(repo, from_c, to_c)
     clean = _clean_paths(repo, [p for _s, p in changed])
+    # The line-ending fallback compares the working tree, so it applies
+    # only when the later commit resolves to HEAD; for a range ending
+    # before HEAD the working tree can hold bytes the commit never had.
+    to_resolved = _rev_parse(repo, to_c)
+    later_is_head = (
+        to_resolved is not None
+        and to_resolved == _rev_parse(repo, "HEAD")
+    )
     for status, path in changed:
         if _is_ract_record(path):
             report.files.append(
@@ -284,21 +346,38 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
                 )
                 report.could_not_check.append(f"{path}: bytes at {to_c[:12]}")
                 continue
-            knot, error = _load_knot(repo, path)
+            knot, error, source = _load_knot(
+                repo, path, at_commit=to_c, later_is_head=later_is_head
+            )
             if error:
-                report.files.append(FileVerdict(status, path, error, _FAIL))
+                report.files.append(
+                    FileVerdict(
+                        status,
+                        path,
+                        error + _tree_source_note(source, later_is_head),
+                        _FAIL,
+                    )
+                )
             elif knot is None:
                 report.files.append(
                     FileVerdict(status, path, NOT_WRITTEN, _UNATTRIBUTED)
                 )
             else:
                 verdict, kind, _detail = _check_knot_bytes(knot, data)
-                if kind == _FAIL and clean is not None and path in clean:
+                if (
+                    kind == _FAIL
+                    and clean is not None
+                    and path in clean
+                    and later_is_head
+                ):
                     # The blob can differ from the signed bytes by the
                     # repository's declared line-ending normalization
-                    # (core.autocrlf). For a clean path the working-tree
-                    # bytes are exactly what this checkout holds for that
-                    # commit; a knot that matches them attests that content.
+                    # (core.autocrlf). This fallback reads the working
+                    # tree, so it applies only when the later commit is
+                    # HEAD; for a clean path the working-tree bytes are
+                    # then exactly what this checkout holds for that
+                    # commit, and a knot that matches them attests that
+                    # content.
                     try:
                         tree_bytes = (repo / path).read_bytes()
                     except OSError:
@@ -308,17 +387,21 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
                         if kind2 == _OK:
                             verdict, kind = (
                                 verdict2 + " (the repository normalizes line "
-                                "endings; the digest matches the bytes as this "
-                                "checkout holds them)",
+                                "endings; the later commit is HEAD, so the "
+                                "digest matches the bytes as this checkout "
+                                "holds them)",
                                 kind2,
                             )
+                verdict += _tree_source_note(source, later_is_head)
                 report.files.append(FileVerdict(status, path, verdict, kind))
         elif status == "D":
             # The ADR's rule compares the bytes at the later commit; a
             # deleted file has none there, so the knot is checked against
             # the bytes at the earlier commit and the report says so.
             data = _commit_bytes(repo, from_c, path)
-            knot, error = _load_knot(repo, path)
+            knot, error, source = _load_knot(
+                repo, path, at_commit=to_c, later_is_head=later_is_head
+            )
             if data is None:
                 report.files.append(
                     FileVerdict(status, path, "deleted; could not read the "
@@ -326,7 +409,14 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
                 )
                 report.could_not_check.append(f"{path}: bytes at {from_c[:12]}")
             elif error:
-                report.files.append(FileVerdict(status, path, error, _FAIL))
+                report.files.append(
+                    FileVerdict(
+                        status,
+                        path,
+                        error + _tree_source_note(source, later_is_head),
+                        _FAIL,
+                    )
+                )
             elif knot is None:
                 report.files.append(
                     FileVerdict(
@@ -337,6 +427,7 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
                 )
             else:
                 verdict, kind, _detail = _check_knot_bytes(knot, data)
+                verdict += _tree_source_note(source, later_is_head)
                 report.files.append(
                     FileVerdict(
                         status, path,
