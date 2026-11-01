@@ -290,6 +290,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract verify` reads the commits, not the working tree (B-236): the line-ending
+  fallback runs only when the later commit is HEAD; only sidecar files count as
+  RACT's own record, so any other path under `.ract/` is reported as not written by
+  RACT; and away from HEAD the knot records are read from the later commit, with any
+  working-tree read said plainly in the report.
 - Every git command RACT runs for itself (step worktrees and commits, snapshots, reviews, the
   history and policy reads, `ract step diff`) starts with the full hardening (B-206), and the
   tool gate lists no file that no longer starts a process.
