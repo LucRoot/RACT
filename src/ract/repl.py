@@ -82,6 +82,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ),
     ("/diff", "Show the last turn's changes, from the copies it saved."),
     ("/todo", "The to-do list the model wrote and the harness tracks (B-177)."),
+    ("/spec", "A guided walk from an idea to an approved SPEC.md (B-178)."),
     (
         "/review",
         "Go through the last turn's changes hunk by hunk: accept, reject, edit or skip.",
@@ -260,6 +261,8 @@ class ReplSession:
             "clear": self._cmd_clear,
             # B-177 wiring: the to-do list the model writes and the harness tracks.
             "todo": self._cmd_todo,
+            # B-178 wiring: the guided spec, from an idea to an approved SPEC.md.
+            "spec": self._cmd_spec,
         }
         self._events: Any = None
         self._renderer: Any = None
@@ -462,6 +465,14 @@ class ReplSession:
         todo = load_todo(folder)
         for line in todo_lines(todo, self._render_width()):
             print(line)
+        return False
+
+    def _cmd_spec(self, args: list[str]) -> bool:
+        """``/spec``: the guided walk from an idea to an approved SPEC.md (B-178)."""
+        from ract.spec_guide import walk as spec_walk
+
+        project = self.state.config.resolve().parent
+        spec_walk(project, ask=self._read_line, width=self._render_width())
         return False
 
     def _cmd_diff(self, args: list[str]) -> bool:
