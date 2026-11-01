@@ -4,6 +4,15 @@ schema_version: "11"
 
 # RACT event schema
 
+**Status in this build (D-166).** The hash-chained trace below is the
+designed record, and its writer is not wired: no shipped command writes
+`evals/runs/<run_id>/events.jsonl`, so a real run records its audit
+trail in the egress ledger, the signed sidecars and the rootknot store,
+and, on request, the session events from `--output-format stream-json`
+(those are specified in [`EVENTS_SESSION.md`](EVENTS_SESSION.md)). The
+vocabulary, the schemas and the tools in this document describe the
+subsystem as designed; `ract trace --help` names no shipped writer.
+
 **Origin.** SUBSTRATE spec §6 (Substrate Layer 5: The Trace is the
 Product) and §11 signals 9, 10, 11. Every load-bearing decision a run
 makes lands as one event in the hash-chained JSONL log at
