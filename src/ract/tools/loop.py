@@ -152,7 +152,7 @@ def answer_tools() -> dict[str, Any]:
 def _signatures(tools: dict[str, Any] | None = None) -> list[ToolSignature]:
     return [
         ToolSignature(spec.name, frozenset(spec.args_model.model_fields))
-        for spec in (tools if tools is not None else read_only_tools()).values()
+        for spec in (tools if tools is not None else answer_tools()).values()
     ]
 
 
@@ -311,7 +311,7 @@ def _run_call(
     """
     call_id = f"t{next(ids)}"
     summary = _summary(call)
-    spec = (tools if tools is not None else read_only_tools()).get(call.name)
+    spec = (tools if tools is not None else answer_tools()).get(call.name)
     turn_context.report(
         "tool.call.started",
         {
@@ -658,7 +658,7 @@ def _drive(
                     summarize = True
                     break
                 wrong = _malformed(
-                    call, tools if tools is not None else read_only_tools()
+                    call, tools if tools is not None else answer_tools()
                 )
                 if wrong is not None:
                     # B-140: said to the model once, plainly; three end the step.
