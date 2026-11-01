@@ -254,7 +254,7 @@ ract run "commit the greeting tool" --config ract.yaml --mode git
 For tasks that need multiple iterations of plan/execute/verify, use `--loop`. The loop plans milestones, executes one per iteration, runs your test command, and continues until the work is done, a regression is detected, or the iteration limit is reached.
 
 ```bash
-ract run "add input validation to the login endpoint" --config ract.yaml --loop --max-iterations 10
+ract run "add input validation to the login endpoint" --config ract.yaml --loop --yolo --max-iterations 10
 ```
 
 If a provider call hangs, the loop enforces a per-iteration timeout (default 900s, configurable in code) and feeds the previous iteration's error, test output, and any missing Rootknot sidecars into the next prompt.
@@ -294,7 +294,7 @@ ract handshakes defer <milestone-id>
 
 ## Toggles
 
-- `--yolo`: execute without per-step approval (default).
+- `--yolo`: execute without per-step approval (off by default; `--loop` refuses to run without it).
 - `--auto`: prompt for approval before each step.
 - `--reload`: run the intent again after a successful first run.
 - `--stream`: stream provider responses to stdout as they are generated.

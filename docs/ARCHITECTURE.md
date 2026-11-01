@@ -235,6 +235,8 @@ signals 7 and 8 for the master-spec source.
 
 ## Event trace as the product
 
+Status in this build: designed, not wired. No run writes the event trace yet, so the `ract trace` verbs have no run to read.
+
 module_05 (SUBSTRATE §6) makes the append-only event log the source of
 truth. Every load-bearing decision, every predicate evaluation, every
 step transaction outcome, every prompt/response pair, every sandbox
