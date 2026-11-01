@@ -1,0 +1,1 @@
+The verifier is harness code. It has no prompt. This file exists so every built-in role names a prompt file.

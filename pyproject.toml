@@ -95,6 +95,8 @@ include = [
     "src/ract/default_prompts/reviewer.txt",
     "src/ract/project_templates/*.json",
     "src/ract/setup/model_tiers.yaml",
+    "src/ract/roles/*.yaml",
+    "src/ract/roles/prompts/*.txt",
 ]
 
 [tool.pytest.ini_options]

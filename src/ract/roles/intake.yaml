@@ -1,0 +1,14 @@
+purpose: Restate the request as a work order and pick a playbook.
+input: request text
+output: WorkOrder
+tools: []
+budget: intake
+model_class: either
+prompt: intake.v1
+checklist:
+  - the restatement names the goal and the project
+  - the playbook is one of the built-in playbooks
+stop: a work order that passes the checklist, or a deterministic fallback from request keywords
+failure_modes:
+  - the restatement is empty: retry once with the request text
+  - no playbook fits: use the deterministic fallback

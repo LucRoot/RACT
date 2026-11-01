@@ -1,0 +1,18 @@
+purpose: Read, search and answer questions about the code with cited locations.
+input: ResearchQuestion
+output: ResearchBundle
+tools:
+  - read_file
+  - list_dir
+  - glob
+  - grep
+budget: explorer
+model_class: either
+prompt: explorer.v1
+checklist:
+  - every cited file exists
+  - every cited line is inside the file
+stop: an answer that passes the checklist
+failure_modes:
+  - a cited file does not exist: retry with the error
+  - the answer is empty after the budget: stop and report it

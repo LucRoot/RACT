@@ -1,0 +1,18 @@
+purpose: Read the diff and report findings with a file and a line for each.
+input: ReviewRequest
+output: ReviewFindings
+tools:
+  - read_file
+  - list_dir
+  - glob
+  - grep
+budget: reviewer
+model_class: strong
+prompt: reviewer.v1
+checklist:
+  - every finding names a file and a line that exist
+  - every finding states the failure it causes
+stop: findings that pass the checklist, or the review budget
+failure_modes:
+  - a finding fails the checklist: drop it and say so
+  - the review budget runs out: report the findings so far
