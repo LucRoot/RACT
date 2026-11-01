@@ -80,6 +80,12 @@ class TodoList:
         return item
 
     def drop(self, item_id: int) -> TodoItem:
+        """Drop an open item. An item the plan wrote is not the model's to drop (B-237)."""
+        item = self.get(item_id)
+        if item.origin == "plan":
+            raise ValueError(
+                f"item {item_id} comes from the plan; only the operator or the plan may drop it"
+            )
         item = self.get(item_id)
         if item.state == "done":
             raise ValueError(f"item {item_id} is done; it stays on the list as done")
@@ -151,6 +157,10 @@ def apply_step_todo_facts(project: Path, todo_facts: list[dict[str, Any]]) -> li
 
 def save(todo: TodoList, folder: Path) -> Path:
     """Write the list to ``folder/todo.json`` through a temporary file, so a crash leaves the old list."""
+    from ract.workspace_state import check_state_path
+
+    folder = Path(folder)
+    check_state_path(folder / SAVE_NAME)  # B-237: never through a link
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / SAVE_NAME
     temp = folder / (SAVE_NAME + ".tmp")

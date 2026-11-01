@@ -65,3 +65,34 @@ def test_apply_todo_facts_still_works_on_a_plain_list() -> None:
     todo = TodoList()
     note = apply_todo_facts(todo, {"todo_op": {"op": "add", "text": "x"}})
     assert note == "added item 1"
+
+
+def test_the_model_cannot_drop_an_item_the_plan_wrote(tmp_path: Path) -> None:
+    import pytest
+
+    from ract.todo_list import TodoList, apply_todo_facts
+
+    todo = TodoList()
+    plan_item = todo.add("keep the changelog fresh", origin="plan")
+    model_item = todo.add("a model's own note")
+    with pytest.raises(ValueError, match="comes from the plan"):
+        apply_todo_facts(todo, {"todo_op": {"op": "drop", "id": plan_item.id}})
+    apply_todo_facts(todo, {"todo_op": {"op": "drop", "id": model_item.id}})
+    assert todo.items[0].state == "open"
+    assert todo.items[1].state == "dropped"
+
+
+def test_save_refuses_a_path_through_a_link(tmp_path: Path) -> None:
+    import pytest
+
+    from ract.todo_list import TodoList, save
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    linked = tmp_path / "linked"
+    try:
+        linked.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks are not creatable here")
+    with pytest.raises(Exception):
+        save(TodoList(), linked)
