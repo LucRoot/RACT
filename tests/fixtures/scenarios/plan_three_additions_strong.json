@@ -1,0 +1,55 @@
+{
+ "name": "plan_three_additions_strong",
+ "description": "B-233 strong leg: the same three-step plan as plan_three_additions; the merged agent step writes all three files in one tool-call reply and then answers.",
+ "model": "fake-coder",
+ "tools_supported": true,
+ "turns": [
+  {
+   "reply": {
+    "kind": "text",
+    "content": "{\"assumption\": \"The greeting module, a helper and a test for it are three small new files.\", \"confidence\": 0.85, \"steps\": [{\"action\": \"Add src/greet.py with the GREETING constant\", \"provider_hint\": \"local\", \"expected_artifact\": \"src/greet.py\"}, {\"action\": \"Add src/util.py with the helper function\", \"provider_hint\": \"local\", \"expected_artifact\": \"src/util.py\"}, {\"action\": \"Add tests/test_greet.py that checks GREETING\", \"provider_hint\": \"local\", \"expected_artifact\": \"tests/test_greet.py\"}]}",
+    "chunk_size": 24
+   }
+  },
+  {
+   "reply": {
+    "kind": "tool_calls",
+    "calls": [
+     {
+      "name": "write_file",
+      "arguments": {
+       "path": "src/greet.py",
+       "content": "GREETING = \"hello\"\n",
+       "create": true
+      }
+     },
+     {
+      "name": "write_file",
+      "arguments": {
+       "path": "src/util.py",
+       "content": "def helper():\n    return True\n",
+       "create": true
+      }
+     },
+     {
+      "name": "write_file",
+      "arguments": {
+       "path": "tests/test_greet.py",
+       "content": "from src.greet import GREETING\n\n\ndef test_greet():\n    assert GREETING == \"hello\"\n",
+       "create": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "reply": {
+    "kind": "json_envelope",
+    "envelope": {
+     "final": "All three steps are done."
+    }
+   },
+   "repeat": true
+  }
+ ]
+}

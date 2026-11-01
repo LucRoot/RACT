@@ -1,0 +1,43 @@
+{
+ "name": "plan_three_additions",
+ "description": "B-233 weak leg: a three-step plan that adds three new files; one whole-file reply per step.",
+ "model": "fake-coder",
+ "turns": [
+  {
+   "reply": {
+    "kind": "text",
+    "content": "{\"assumption\": \"The greeting module, a helper and a test for it are three small new files.\", \"confidence\": 0.85, \"steps\": [{\"action\": \"Add src/greet.py with the GREETING constant\", \"provider_hint\": \"local\", \"expected_artifact\": \"src/greet.py\"}, {\"action\": \"Add src/util.py with the helper function\", \"provider_hint\": \"local\", \"expected_artifact\": \"src/util.py\"}, {\"action\": \"Add tests/test_greet.py that checks GREETING\", \"provider_hint\": \"local\", \"expected_artifact\": \"tests/test_greet.py\"}]}",
+    "chunk_size": 24
+   }
+  },
+  {
+   "reply": {
+    "kind": "text",
+    "content": "GREETING = \"hello\"\n",
+    "chunk_size": 12
+   }
+  },
+  {
+   "reply": {
+    "kind": "text",
+    "content": "def helper():\n    return True\n",
+    "chunk_size": 12
+   }
+  },
+  {
+   "reply": {
+    "kind": "text",
+    "content": "from src.greet import GREETING\n\n\ndef test_greet():\n    assert GREETING == \"hello\"\n",
+    "chunk_size": 12
+   }
+  },
+  {
+   "reply": {
+    "kind": "text",
+    "content": "All three steps are done.",
+    "chunk_size": 12
+   },
+   "repeat": true
+  }
+ ]
+}
