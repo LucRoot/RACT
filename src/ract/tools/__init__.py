@@ -215,6 +215,7 @@ from ract.tools.read import READ_TOOLS  # noqa: E402  (needs the names above)
 from ract.tools.git_tools import GIT_TOOLS  # noqa: E402
 from ract.tools.tests_tool import RUN_TESTS  # noqa: E402
 from ract.tools.verifier_tools import VERIFIER_TOOLS  # noqa: E402
+from ract.tools.todo_tool import TODO_TOOL  # noqa: E402
 from ract.tools.web_tools import WEB_TOOLS  # noqa: E402
 from ract.tools.write import WRITE_TOOLS  # noqa: E402
 
@@ -225,6 +226,9 @@ for _spec in (
     *VERIFIER_TOOLS,
     *GIT_TOOLS,
     *WEB_TOOLS,
+    # B-177 wiring: the step agent loop offers the todo tool; its facts are
+    # applied by the harness after the step (executor/steps.py).
+    TODO_TOOL,
 ):
     register(_spec)
 

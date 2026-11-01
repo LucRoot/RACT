@@ -151,7 +151,9 @@ def test_the_read_only_loop_never_offers_a_write_tool() -> None:
     from ract.tools import loop
 
     offered = set(read_only_tools())
-    # B-115: git_status, git_diff and git_log read at tier 0.
+    # B-115: git_status, git_diff and git_log read at tier 0. B-177 wiring:
+    # the todo tool is tier 0 and not mutating; the answer loop filters it
+    # out (tools.loop.answer_tools).
     assert offered == {
         "read_file",
         "list_dir",
@@ -161,6 +163,8 @@ def test_the_read_only_loop_never_offers_a_write_tool() -> None:
         "git_status",
         "git_diff",
         "git_log",
+        # B-177 wiring: the todo tool is tier 0 and not mutating.
+        "todo",
     }
     assert "write_file" not in loop.tool_lines()
     from ract.executor.tool_gate import ToolInvocationRefused
@@ -181,6 +185,8 @@ def test_every_registered_tool_has_its_tier_pinned() -> None:
         "glob": T0,
         "grep": T0,
         "repo_map": T0,
+        # B-177 wiring: the registered todo tool.
+        "todo": T0,
         "write_file": T1,
         "edit_file": T1,
         "delete_file": T1,

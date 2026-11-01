@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Rootknot verified, and the run's trace chain when the run has one; a run
   without a trace is reported as a fact, and every report ends with the
   statement that command records are not part of the signed Rootknot.
+- The to-do tool is wired (B-177): the step agent loop offers `todo`; the harness applies its facts after the step's work ends and keeps the list at `.ract/todo.json` in the workspace; the read-only answer loop does not offer it (it has no list to apply the facts to); `/todo` shows the list with its counts.
 - Text of unknown origin is marked in front of the model (B-149): each tool result arrives
   in a delimiter naming its origin (`file`, `command output`, `fetched page`, `search
   result`) and saying it is data, and text inside it cannot close the delimiter. A tier-2 or
