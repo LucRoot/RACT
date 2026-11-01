@@ -275,6 +275,7 @@ module_10, Lens A M8 closure).
 - `ract rot`: Detect and quarantine rot in the workspace.
 - `ract merge-gate`: Evaluate the mutation-testing merge gate.
 - `ract provenance`: Verify Rootknot signatures for artifacts and workspaces.
+- `ract verify`: Check a commit range and/or a run: every changed line attributed to a signed step, each Rootknot verified, the trace chain when the run has one.
 - `ract receipt`: List, show, or verify receipts.
 - `ract receipt-export`: Print the signed receipts in a directory as JSON.
 - `ract manifest`: Repro-manifest alias + ledger verify/inspect/show/proof.

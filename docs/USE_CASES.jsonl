@@ -70,3 +70,4 @@
 {"title": "setup", "description": "Check this machine, choose a local or cloud model, and write a working ract.yaml.", "status": "accepted", "rationale": "A first-time user had to know a preset, a URL, a key variable and a model size before RACT would run (B-015)."}
 {"title": "undo", "description": "Reverse the last RACT turn: restore the files it replaced, remove the files it created.", "status": "accepted", "rationale": "The turn summary named the previous versions and nothing used them (B-049)."}
 {"title": "redo", "description": "Reverse the last undo.", "status": "accepted", "rationale": "An undo can itself be a mistake; it is reversible once (B-049)."}
+{"title": "verify", "description": "Check a commit range and/or a run: every changed line attributed to a signed step, each Rootknot verified, the trace chain when the run has one.", "status": "accepted", "rationale": "One offline provenance check (ADR-0050 D4, D-174)."}

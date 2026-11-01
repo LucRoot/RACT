@@ -86,6 +86,7 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     "audit": "Audit a workspace or run for anti-rot and provenance issues.",
     "leaderboard": "Print the provider leaderboard by success rate.",
     "source-digest": "Print the SHA-256 digest of a source file or workspace.",
+    "verify": "Check a commit range and/or a run: every changed line attributed to a signed step, each Rootknot verified, the trace chain when the run has one.",
     # Init / project setup
     "init": "Initialize a new RACT project from a template.",
     "docs": "Generate or regenerate documentation for the workspace.",

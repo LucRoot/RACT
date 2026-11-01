@@ -142,6 +142,9 @@ CLI_VERBS: tuple[str, ...] = (
     "trace",
     "provenance",
     "source-digest",
+    # B-039 (ADR-0050 D4 as amended by D-174): one offline check for a
+    # commit range and/or a run.
+    "verify",
     # v0.5.0 memory discipline (module_09 §Integration surface).
     # Three subverbs land under this: ``ract memory init``,
     # ``ract memory apply-narrowings``, and ``ract retrieval query``
@@ -5019,6 +5022,10 @@ def main(argv: list[str] | None = None) -> int:
         from ract.provenance_cli import _provenance_command
 
         return _provenance_command(argv[1:])
+    if argv and argv[0] == "verify":
+        from ract.verify_cli import verify_command
+
+        return verify_command(argv[1:])
     if argv and argv[0] == "source-digest":
         return _source_digest_command(argv[1:])
     # v0.5.1 module_04: operator-signed intent recompile appends a new

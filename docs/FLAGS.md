@@ -138,6 +138,7 @@ Each flag is listed once, with the first command that accepts it and the first l
 | `--spec` | `ract openapi` | Path to OpenAPI spec. |
 | `--store` | `ract session list` | Session store (default .ract/sessions) |
 | `--stream` | `ract run` | Stream provider responses to stdout as they are generated. |
+| `--strict` | `ract verify` | A changed line no step wrote fails the run (default: reported). |
 | `--tag` | `ract release create` | Git tag for the release |
 | `--template` | `ract init` | Project template to use. |
 | `--tier3` | `ract doctor` | One report of the tier-3 state: the grant, the key, the sandbox, the tools, and the command that fixes each problem (B-147). |
