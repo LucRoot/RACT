@@ -71,9 +71,7 @@ import hashlib
 import json
 import logging
 import os
-import sys
 import threading
-import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -81,6 +79,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
 
+from ract import file_lock
 from ract import redaction
 from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
@@ -153,63 +152,22 @@ _LEDGER_OPEN_FLAGS_APPEND = os.O_WRONLY | os.O_CREAT | os.O_APPEND | _BINARY_FLA
 _LEDGER_OPEN_FLAGS_RDWR = os.O_RDWR | os.O_CREAT | os.O_APPEND | _BINARY_FLAG
 
 
-if sys.platform == "win32":
-    import msvcrt  # type: ignore[import-not-found]
+def _lock_exclusive(fd: int) -> None:
+    """Take the exclusive lock on ``fd``, or raise :class:`LedgerLockContended` (B-207)."""
+    file_lock.lock_exclusive(
+        fd,
+        contended=lambda tries: LedgerLockContended(
+            "manifest_ledger.jsonl is locked by another RACT process; "
+            f"gave up after {tries} attempts"
+        ),
+        retries=_LOCK_RETRIES,
+        backoff_s=_LOCK_BACKOFF_S,
+    )
 
-    def _lock_exclusive(fd: int) -> None:
-        """Acquire an exclusive lock on the first byte of ``fd`` (Windows)."""
-        cur = os.lseek(fd, 0, os.SEEK_CUR)
-        os.lseek(fd, 0, os.SEEK_SET)
-        try:
-            for attempt in range(_LOCK_RETRIES):
-                try:
-                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
-                    return
-                except OSError:
-                    if attempt == _LOCK_RETRIES - 1:
-                        raise LedgerLockContended(
-                            "manifest_ledger.jsonl is locked by another RACT "
-                            f"process; gave up after {_LOCK_RETRIES} attempts"
-                        )
-                    time.sleep(_LOCK_BACKOFF_S)
-        finally:
-            os.lseek(fd, cur, os.SEEK_SET)
 
-    def _unlock(fd: int) -> None:
-        """Release the lock previously held on the first byte of ``fd``."""
-        cur = os.lseek(fd, 0, os.SEEK_CUR)
-        os.lseek(fd, 0, os.SEEK_SET)
-        try:
-            try:
-                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
-            except OSError:
-                pass
-        finally:
-            os.lseek(fd, cur, os.SEEK_SET)
-
-else:
-    import fcntl  # type: ignore[import-not-found]
-
-    def _lock_exclusive(fd: int) -> None:
-        """Acquire an exclusive advisory lock on ``fd`` (POSIX)."""
-        for attempt in range(_LOCK_RETRIES):
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                return
-            except OSError:
-                if attempt == _LOCK_RETRIES - 1:
-                    raise LedgerLockContended(
-                        "manifest_ledger.jsonl is locked by another RACT "
-                        f"process; gave up after {_LOCK_RETRIES} attempts"
-                    )
-                time.sleep(_LOCK_BACKOFF_S)
-
-    def _unlock(fd: int) -> None:
-        """Release the advisory lock previously held on ``fd``."""
-        try:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-        except OSError:
-            pass
+def _unlock(fd: int) -> None:
+    """Release the lock on ``fd``; a lock already gone is printed, not raised."""
+    file_lock.unlock(fd, what="manifest_ledger.jsonl")
 
 
 # ---------------------------------------------------------------------------

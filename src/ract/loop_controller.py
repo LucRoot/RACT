@@ -813,56 +813,24 @@ class LoopController:
 
     @staticmethod
     def _acquire_marker_lock(fd: int) -> None:
-        """Cross-platform exclusive lock on the marker lock sidecar."""
-        import os as _os
-        import sys as _sys
-        import time as _time
+        """Exclusive lock on the marker lock sidecar, or ``TimeoutError`` (B-207)."""
+        from ract import file_lock
 
-        if _sys.platform == "win32":
-            import msvcrt  # type: ignore[import-not-found]
-
-            _os.lseek(fd, 0, _os.SEEK_SET)
-            for _attempt in range(50):
-                try:
-                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
-                    return
-                except OSError:
-                    _time.sleep(0.01)
-        else:
-            import fcntl  # type: ignore[import-not-found,unused-ignore,attr-defined,no-redef]
-
-            for _attempt in range(50):
-                try:
-                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)  # type: ignore[attr-defined]
-                    return
-                except OSError:
-                    _time.sleep(0.01)
-        # B-207: three tries and then on without the lock; now a caller knows.
-        raise TimeoutError("the run marker lock is held by another process")
+        file_lock.lock_exclusive(
+            fd,
+            contended=lambda _tries: TimeoutError(
+                "the run marker lock is held by another process"
+            ),
+            retries=50,
+            backoff_s=0.01,
+        )
 
     @staticmethod
     def _release_marker_lock(fd: int) -> None:
-        """Release the exclusive lock acquired via
-        :meth:`_acquire_marker_lock`.
-        """
-        import os as _os
-        import sys as _sys
+        """Release the lock taken by :meth:`_acquire_marker_lock` (B-207)."""
+        from ract import file_lock
 
-        if _sys.platform == "win32":
-            import msvcrt  # type: ignore[import-not-found]
-
-            _os.lseek(fd, 0, _os.SEEK_SET)
-            try:
-                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
-            except OSError as exc:
-                print(f"[loop] the run marker lock was not released: {exc}", flush=True)
-        else:
-            import fcntl  # type: ignore[import-not-found,unused-ignore,attr-defined,no-redef]
-
-            try:
-                fcntl.flock(fd, fcntl.LOCK_UN)  # type: ignore[attr-defined]
-            except OSError as exc:
-                print(f"[loop] the run marker lock was not released: {exc}", flush=True)
+        file_lock.unlock(fd, what="the run marker")
 
     def _run_bound(
         self,

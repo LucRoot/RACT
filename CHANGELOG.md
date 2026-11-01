@@ -285,6 +285,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- One file lock is shared by the assumption log, the suite chain, the workspace chain, the manifest
+  ledger and the run marker (B-207); each still names its own file when another process holds it.
 - The setup wizard's questions and hints use plain words (B-168), and README, QUICKSTART, TIER3 and
   ARCHITECTURE no longer say false things about this build: `--loop` needs `--yolo`, `--yolo` is off by
   default, and no run writes a trace file yet (B-219, B-223).
