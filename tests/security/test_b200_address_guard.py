@@ -86,7 +86,7 @@ def test_setup_refuses_a_typed_address_with_a_query_key(tmp_path: Path) -> None:
     assert wizard.run(tmp_path, interactive=True, io=io_) == 0
     assert all(typed not in extra for extra in probed)
     text = "\n".join(said)
-    assert "holds a key or a token in its query" in text and SHORT not in text
+    assert "that address has a key in it" in text and SHORT not in text
 
 
 @pytest.mark.parametrize(

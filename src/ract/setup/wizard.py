@@ -362,9 +362,9 @@ def _ask_address(
     if address_problem(typed) == QUERY_REFUSED:
         # B-200: a key in the query is a secret in the config too.
         io.say(
-            "  that address holds a key or a token in its query; setup writes "
-            "addresses only, so type it without it and put any key in an "
-            "environment variable"
+            # B-168: short sentences, and "key" for "token" (docs/ux/jargon.txt).
+            "  that address has a key in it. Setup saves addresses only. Type it "
+            "again without the key, and keep the key in an environment variable."
         )
         return None
     if parts.username is not None or parts.password is not None:
