@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from ract.atomic_write import write_atomic
 from ract.ui.spec_screens import (
     QUESTIONS,
     SECTIONS,
@@ -64,10 +65,14 @@ def _load_draft(project: Path) -> SpecDraft:
 
 
 def _save_draft(project: Path, draft: SpecDraft) -> None:
+    from ract.workspace_state import check_state_path
+
     folder = project / ".ract"
+    target = _draft_path(project)
+    check_state_path(target)
     folder.mkdir(parents=True, exist_ok=True)
-    _draft_path(project).write_text(
-        json.dumps(draft.to_dict(), indent=2), encoding="utf-8"
+    write_atomic(
+        target, json.dumps(draft.to_dict(), indent=2).encode("utf-8")
     )
 
 
@@ -87,11 +92,19 @@ def _write_spec(project: Path, draft: SpecDraft) -> Path:
         lines.append(draft.approved[key])
         lines.append("")
     spec = project / SPEC_NAME
-    spec.write_text("\n".join(lines), encoding="utf-8")
-    digest = hashlib.sha256(spec.read_bytes()).hexdigest()
+    # B-238 class: the state files go through the state-path guard and a
+    # fresh temporary file, so a link planted at a name is replaced, not
+    # written through.
+    from ract.workspace_state import check_state_path
+
+    data = "\n".join(lines).encode("utf-8")
+    write_atomic(spec, data)
+    digest = hashlib.sha256(data).hexdigest()
     ract_dir = project / ".ract"
+    hash_path = ract_dir / HASH_NAME
+    check_state_path(hash_path)
     ract_dir.mkdir(parents=True, exist_ok=True)
-    (ract_dir / HASH_NAME).write_text(f"{digest}\n", encoding="utf-8")
+    write_atomic(hash_path, f"{digest}\n".encode("utf-8"))
     _draft_path(project).unlink(missing_ok=True)
     return spec
 

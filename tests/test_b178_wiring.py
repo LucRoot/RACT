@@ -164,3 +164,53 @@ def test_nothing_is_written_until_every_section_is_approved(tmp_path: Path) -> N
     walk(root, ask=ask, width=80)
     assert not (root / SPEC_NAME).exists()
     assert not (root / ".ract" / HASH_NAME).exists()
+
+def test_the_walk_replaces_a_link_planted_at_the_spec_name(tmp_path: Path) -> None:
+    import os
+
+    root = _project(tmp_path)
+    outside = tmp_path / "outside.txt"
+    outside.write_text("sentinel" + chr(10), encoding="utf-8")
+    planted = root / SPEC_NAME
+    try:
+        planted.symlink_to(outside)
+    except OSError:
+        try:
+            os.link(outside, planted)  # a hard link is the same class
+        except OSError:
+            pytest.skip("links are not creatable here")
+    answers = [
+        "A tally app", Y,
+        "Runners log miles", Y,
+        "log and total runs", Y,
+        "no cloud sync", Y,
+        "the command prints the total", Y,
+        "one weekend", Y,
+    ]
+    ask, _seen = _scripted(answers)
+    assert walk(root, ask=ask, width=80) is True
+    assert outside.read_text(encoding="utf-8") == "sentinel" + chr(10)
+    assert (root / SPEC_NAME).read_text(encoding="utf-8").startswith("# SPEC")
+
+
+def test_the_walk_refuses_state_written_through_a_link(tmp_path: Path) -> None:
+    from ract.workspace_state import StateDirRefused
+
+    root = _project(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    try:
+        (root / ".ract").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("links are not creatable here")
+    answers = [
+        "A tally app", Y,
+        "Runners log miles", Y,
+        "log and total runs", Y,
+        "no cloud sync", Y,
+        "the command prints the total", Y,
+        "one weekend", Y,
+    ]
+    ask, _seen = _scripted(answers)
+    with pytest.raises(StateDirRefused):
+        walk(root, ask=ask, width=80)
