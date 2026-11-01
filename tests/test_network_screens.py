@@ -35,7 +35,7 @@ def test_the_fetch_prompt_shows_host_allowlist_cap_and_the_label(width: int) -> 
     for line in lines:
         assert len(line) <= width, line
     text = _flat(lines)
-    assert "fetch from the web (tier 2)" in text
+    assert "fetch from the web (tier 3)" in text
     assert "host: docs.example.org" in text
     assert "allowlist: matches *.example.org" in text
     assert "size cap: 512 KiB; a larger page is cut" in text
@@ -43,11 +43,11 @@ def test_the_fetch_prompt_shows_host_allowlist_cap_and_the_label(width: int) -> 
     assert " ".join(FETCH_CHOICES.split()) in text
 
 
-def test_a_host_outside_the_allowlist_says_it_will_ask() -> None:
+def test_a_host_outside_the_allowlist_is_refused() -> None:
     req = FetchRequest(
         url="https://x.test/", host="x.test", allowlist_match=None, size_cap_kib=64
     )
-    assert "no entry matches this host; it will ask" in _flat(
+    assert "not on the grant's allow_domains: refused; nothing is fetched" in _flat(
         fetch_prompt_lines(req, 80)
     )
 
@@ -93,3 +93,15 @@ def test_a_control_character_in_the_host_is_visible() -> None:
     )
     joined = "\n".join(fetch_prompt_lines(req, 80))
     assert "\x1b" not in joined and "\x07" not in joined
+
+
+def test_a_fetch_that_follows_fetched_text_says_so() -> None:
+    request = FetchRequest(
+        url="https://x.test/", host="x.test", allowlist_match="x.test", size_cap_kib=64,
+        follows_external=True,
+    )
+    assert "this fetch follows fetched text: the question says so, with its origin" in _flat(
+        fetch_prompt_lines(request, 80)
+    )
+    plain = FetchRequest(url="https://x.test/", host="x.test", allowlist_match="x.test", size_cap_kib=64)
+    assert "follows fetched text" not in _flat(fetch_prompt_lines(plain, 80))
