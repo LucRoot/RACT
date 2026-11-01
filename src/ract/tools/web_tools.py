@@ -96,6 +96,16 @@ def domain_allowed(host: str, domains: list[str]) -> bool:
     return False
 
 
+def matched_domain(host: str, domains: list[str]) -> str | None:
+    """The allowlist entry that matches *host*, for the question's screen."""
+    host = host.lower().rstrip(".")
+    for domain in domains:
+        domain = domain.lower().strip().lstrip(".").rstrip(".")
+        if domain and (host == domain or host.endswith("." + domain)):
+            return domain
+    return None
+
+
 def _public(address: str) -> bool:
     try:
         ip = ipaddress.ip_address(address.split("%", 1)[0])
@@ -510,6 +520,12 @@ def web_fetch(root: Any, args: FetchArgs) -> ToolResult:
     if sessions is None or not sessions.covers(asked_for):
         facts: dict[str, Any] = {
             "argv": ["web_fetch", args.url],
+            # B-225 part 3: the network screen's own facts.
+            "url": args.url,
+            "host": host,
+            "allowlist_match": matched_domain(host, rule.allow_domains),
+            "size_cap_kib": _RESULT_CAP // 1024,
+            "follows_external": bool(turn_context.follows_external()),
             "executable": "RACT (the egress ledger's client)",
             "cwd": "none",
             "network": "on, to " + host,

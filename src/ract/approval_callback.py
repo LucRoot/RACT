@@ -219,6 +219,21 @@ def console_proposed_reviewer(path: str, before: bytes | None, after: bytes | No
     return review_proposed_file(path, before, after, ask, print, width)
 
 
+def _tier_3_answer(facts: dict) -> None:
+    """The rule, the follows line and the notes, shared by both screens."""
+    from ract.session_events import safe_text
+
+    _print_wrapped(
+        f"  rule: {safe_text(str(facts.get('rule') or 'none'))} "
+        f"({safe_text(str(facts.get('why', '')))})"
+    )
+    if facts.get("follows"):
+        # B-149: one line, before the notes.
+        _print_wrapped(f"  {safe_text(str(facts['follows']))}")
+    for note in facts.get("notes") or []:
+        _print_wrapped(f"  note: {safe_text(str(note))}")
+
+
 def console_tier_3_prompt(facts: dict) -> bool | str:
     """Ask the operator before a tier-3 command runs (ADR-0048 D6). True on yes.
 
@@ -234,9 +249,59 @@ def console_tier_3_prompt(facts: dict) -> bool | str:
     from ract.session_events import safe_text
     from ract.ui.command_screens import CommandRequest, approval_prompt_lines
 
-    # MASON's view (B-112): argv escaped, executable, cwd, network, sandbox,
-    # limits, the model's reason as model text. The choice is once or no
-    # until slice (d) brings session and always.
+    # B-225 part 3: a web_fetch approval is not a command; it renders the
+    # network screen (the host, the allowlist match, the size cap, the
+    # follows line) and keeps the same once/session/no answer flow.
+    if facts.get("url") and str((facts.get("argv") or [None])[0]) == "web_fetch":
+        from ract.ui.network_screens import FetchRequest, fetch_prompt_lines
+
+        fetch = FetchRequest(
+            url=str(facts["url"]),
+            host=str(facts.get("host") or ""),
+            allowlist_match=(
+                str(facts["allowlist_match"]) if facts.get("allowlist_match") else None
+            ),
+            size_cap_kib=int(facts.get("size_cap_kib") or 0),
+            follows_external=bool(facts.get("follows_external")),
+        )
+        width = max(_terminal_width() - 3, 20)
+        for line in fetch_prompt_lines(fetch, width):
+            print(line)
+    else:
+        return _console_command_tier_3_prompt(facts)
+    return _tier_3_read_answer(bool(facts.get("session_choice")))
+
+
+def _tier_3_read_answer(session: bool) -> bool | str:
+    """The once/session/no question, shared by both tier-3 screens."""
+    question_gate.open_question()
+    try:
+        response = (
+            (
+                read_line("Run it? [y once, s session, N]: ")
+                if session
+                else read_line("Run it once? [y/N]: ")
+            )
+            .strip()
+            .lower()
+        )
+    except EOFError:
+        return False
+    except KeyboardInterrupt:
+        print()
+        raise
+    finally:
+        question_gate.close_question()
+    if session and response in {"s", "session"}:
+        return "session"
+    return response in {"y", "yes"}
+
+
+def _console_command_tier_3_prompt(facts: dict) -> bool | str:
+    """The command screen for a tier-3 command approval (B-112, B-113)."""
+    from ract.session_events import safe_text
+    from ract.ui.command_screens import CommandRequest, approval_prompt_lines
+
     request = CommandRequest(
         argv=tuple(str(a) for a in facts.get("argv", [])),
         executable=str(facts.get("executable") or "not resolved"),
@@ -270,33 +335,8 @@ def console_tier_3_prompt(facts: dict) -> bool | str:
         ),
     ):
         print(line)
-    _print_wrapped(
-        f"  rule: {safe_text(str(facts.get('rule') or 'none'))} "
-        f"({safe_text(str(facts.get('why', '')))})"
-    )
-    if facts.get("follows"):
-        # B-149: one line, before the notes.
-        _print_wrapped(f"  {safe_text(str(facts['follows']))}")
-    for note in facts.get("notes") or []:
-        _print_wrapped(f"  note: {safe_text(str(note))}")
-    question_gate.open_question()
-    try:
-        response = (
-            (
-                read_line("Run it? [y once, s session, N]: ")
-                if session
-                else read_line("Run it once? [y/N]: ")
-            )
-            .strip()
-            .lower()
-        )
-    except EOFError:
-        return False
-    except KeyboardInterrupt:
-        print()
-        raise
-    finally:
-        question_gate.close_question()
+    _tier_3_answer(facts)
+    return _tier_3_read_answer(session)
     if session and response in {"s", "session"}:
         return "session"
     return response in {"y", "yes"}
