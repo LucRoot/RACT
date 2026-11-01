@@ -285,6 +285,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The setup wizard's questions and hints use plain words (B-168), and README, QUICKSTART, TIER3 and
+  ARCHITECTURE no longer say false things about this build: `--loop` needs `--yolo`, `--yolo` is off by
+  default, and no run writes a trace file yet (B-219, B-223).
 - A path sent to a model is checked by what it resolves to (B-211): a junction or symlink
   such as `lnk -> .ract` no longer lets `lnk/sessions/x.json` reach a never-sent file.
 - Two `--loop` runs that start at once no longer both write the run id (B-207): the run-marker
