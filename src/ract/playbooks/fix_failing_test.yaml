@@ -1,0 +1,15 @@
+name: fix_failing_test
+purpose: Make a named failing test pass with one change, without breaking the tests that pass now.
+roles:
+  - intake
+  - explorer
+  - planner
+  - editor
+  - verifier
+acceptance:
+  - the named failing test passes after the change
+  - no test that passed before the change fails after it
+stop: the verifier result passes the acceptance checks, or the step limit is reached
+asks:
+  - the failing test, by its id
+  - permission to make the change, when the editor role needs a tool the grant does not allow

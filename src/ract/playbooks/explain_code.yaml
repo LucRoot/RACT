@@ -1,0 +1,12 @@
+name: explain_code
+purpose: Explain how a part of the code works, with a cited path and line for each claim.
+roles:
+  - intake
+  - explorer
+acceptance:
+  - every cited path and line exists
+  - the answer names the file it explains
+stop: the explorer answer passes the acceptance checks
+asks:
+  - the question to answer
+  - the path or area, when the request names none
