@@ -85,9 +85,9 @@ class LoopBudgets:
 
 
 def tool_lines(tools: dict[str, Any] | None = None) -> str:
-    """One ``- name(args)`` line per tool (the read-only ones by default)."""
+    """One ``- name(args)`` line per tool (the answer loop's set by default)."""
     lines = []
-    for spec in (tools if tools is not None else read_only_tools()).values():
+    for spec in (tools if tools is not None else answer_tools()).values():
         fields = ", ".join(
             f"{name}{'' if info.is_required() else '?'}"
             for name, info in spec.args_model.model_fields.items()
@@ -449,7 +449,7 @@ def answer_with_tools(
         complete,
         messages,
         Path(root),
-        tools=read_only_tools(),
+        tools=answer_tools(),
         budgets=budgets or LoopBudgets(),
         max_tokens=max_tokens,
     )

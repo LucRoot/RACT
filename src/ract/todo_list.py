@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ract.atomic_write import write_atomic
 from ract.cell_wrap import wrap_cells
 from ract.session_events import visible_text
 
@@ -86,7 +87,6 @@ class TodoList:
             raise ValueError(
                 f"item {item_id} comes from the plan; only the operator or the plan may drop it"
             )
-        item = self.get(item_id)
         if item.state == "done":
             raise ValueError(f"item {item_id} is done; it stays on the list as done")
         item.state = "dropped"
@@ -156,16 +156,19 @@ def apply_step_todo_facts(project: Path, todo_facts: list[dict[str, Any]]) -> li
 
 
 def save(todo: TodoList, folder: Path) -> Path:
-    """Write the list to ``folder/todo.json`` through a temporary file, so a crash leaves the old list."""
+    """Write the list to ``folder/todo.json`` atomically, so a crash leaves the old list.
+
+    The bytes go through a fresh temporary file (B-212 class): a link
+    planted at the target's name or at a predictable temporary name is
+    replaced by the rename, never written through.
+    """
     from ract.workspace_state import check_state_path
 
     folder = Path(folder)
-    check_state_path(folder / SAVE_NAME)  # B-237: never through a link
-    folder.mkdir(parents=True, exist_ok=True)
     target = folder / SAVE_NAME
-    temp = folder / (SAVE_NAME + ".tmp")
-    temp.write_text(json.dumps(todo.to_dict(), indent=2), encoding="utf-8")
-    temp.replace(target)
+    check_state_path(target)  # B-237: never through a link
+    folder.mkdir(parents=True, exist_ok=True)
+    write_atomic(target, json.dumps(todo.to_dict(), indent=2).encode("utf-8"))
     return target
 
 
