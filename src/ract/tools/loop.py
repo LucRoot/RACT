@@ -135,6 +135,20 @@ def work_tools() -> dict[str, Any]:
     return dict(REGISTRY)
 
 
+def answer_tools() -> dict[str, Any]:
+    """The read-only answer loop's tools: everything non-mutating but ``todo``.
+
+    B-177 wiring: the answer loop has no list to apply todo facts to
+    (MASON's 00:57 decision), so it does not offer the tool. The step agent
+    loop offers it through :func:`work_tools`.
+    """
+    from ract.tools import read_only_tools
+
+    return {
+        name: spec for name, spec in read_only_tools().items() if name != "todo"
+    }
+
+
 def _signatures(tools: dict[str, Any] | None = None) -> list[ToolSignature]:
     return [
         ToolSignature(spec.name, frozenset(spec.args_model.model_fields))
@@ -175,7 +189,7 @@ def _gate(
     approve_tier_2: Callable[[str, Any], bool] | None = None,
 ) -> ToolInvocationGate:
     """A gate over *tools* (the read-only ones by default), for one step (ADR-0047 D1)."""
-    tools = tools if tools is not None else read_only_tools()
+    tools = tools if tools is not None else answer_tools()
     registry = ToolRegistry()
     for name, spec in tools.items():
         registry.register(
@@ -452,6 +466,9 @@ class StepWork:
 
     summary: str = ""
     changes: list[dict[str, Any]] = field(default_factory=list)
+    # B-177 wiring: every successful todo call's facts, applied by the
+    # harness after the step.
+    todo_facts: list[dict[str, Any]] = field(default_factory=list)
     tool_calls: int = 0
     turns: int = 0
     tokens: int = 0
@@ -479,7 +496,6 @@ def work_with_tools(
         {"role": "system", "content": _work_system_prompt(tools)},
         {"role": "user", "content": instruction},
     ]
-    facts: list[dict[str, Any]] = []
     done = _drive(
         complete,
         messages,
@@ -489,7 +505,7 @@ def work_with_tools(
         max_tokens=max_tokens,
         approve_tier_2=approve_tier_2,
         work=work,
-        facts_out=facts,
+        facts_out=work.todo_facts,
     )
     if not done.is_ok():
         return Rooted(

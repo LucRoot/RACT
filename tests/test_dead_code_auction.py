@@ -169,6 +169,11 @@ def test_ract_auction_reports_zero_dead_modules():
     allowlist.add("read.py")
     # B-112: tools/tests_tool.py holds run_tests, registered the same way (the
     # package fills REGISTRY with RUN_TESTS), so it looks unreferenced too.
+    # B-177 wiring: tools/todo_tool.py is registered through tools/__init__
+    # and its facts are applied by the harness (executor/steps.py); the
+    # symbol graph does not count package-initializer imports, so the entry
+    # stays, as for tests_tool, verifier_tools and web_tools.
+    allowlist.add("todo_tool.py")
     allowlist.add("tests_tool.py")
     # B-023, B-115, B-116: the verifier, git and web tools are registered the same
     # way (the package fills REGISTRY with their specs), so they look unreferenced.
@@ -182,8 +187,6 @@ def test_ract_auction_reports_zero_dead_modules():
     # B-177 (MASON, the first slice): the to-do list and its tool are wired by the next slice (the
     # REPL and the harness hook); the registry must not offer the tool before its facts are applied.
     # Remove these entries when wired; the BUILDER reviews them.
-    allowlist.add("todo_list.py")
-    allowlist.add("todo_tool.py")
     # B-147 (MASON, the screen half): the doctor --tier3 report is pure text; the BUILDER adopts it.
     allowlist.add("tier3_report.py")
     # B-178 (MASON, the first slice): the guided-spec screens are pure text; the spec command wires them

@@ -1924,6 +1924,11 @@ class Executor:
                     ),
                     hint=done.hint,
                 )
+            # B-177 wiring: the step's work ended, so the harness applies
+            # its todo facts to the workspace's list now (.ract/todo.json).
+            from ract.todo_list import apply_step_todo_facts
+
+            apply_step_todo_facts(self.project_dir, work.todo_facts)
             if target is None:
                 # B-137: no single file; every change stays in the worktree and
                 # reaches the operator's files through the substrate's apply.

@@ -81,6 +81,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
         "plan: propose only; default: ask before each change; auto-accept: apply changes.",
     ),
     ("/diff", "Show the last turn's changes, from the copies it saved."),
+    ("/todo", "The to-do list the model wrote and the harness tracks (B-177)."),
     (
         "/review",
         "Go through the last turn's changes hunk by hunk: accept, reject, edit or skip.",
@@ -257,6 +258,8 @@ class ReplSession:
             "restore": self._cmd_restore,
             "rewind": self._cmd_rewind,
             "clear": self._cmd_clear,
+            # B-177 wiring: the to-do list the model writes and the harness tracks.
+            "todo": self._cmd_todo,
         }
         self._events: Any = None
         self._renderer: Any = None
@@ -449,6 +452,17 @@ class ReplSession:
     # B-085: the summary's caps (standard 13).
     _DIFF_FILES = 20
     _DIFF_LINES = 2000
+
+    def _cmd_todo(self, args: list[str]) -> bool:
+        """``/todo``: the to-do list the model wrote and the harness tracks (B-177)."""
+        from ract.todo_list import load as load_todo
+        from ract.todo_list import todo_lines
+
+        folder = self.state.config.resolve().parent / ".ract"
+        todo = load_todo(folder)
+        for line in todo_lines(todo, self._render_width()):
+            print(line)
+        return False
 
     def _cmd_diff(self, args: list[str]) -> bool:
         """The last turn's diff, read from its saved copies (B-085)."""

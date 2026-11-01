@@ -122,6 +122,33 @@ def apply_todo_facts(todo: TodoList, facts: dict[str, Any]) -> str:
     raise ValueError(f"unknown to-do operation {kind!r}")
 
 
+def apply_step_todo_facts(project: Path, todo_facts: list[dict[str, Any]]) -> list[str]:
+    """Apply the ``todo`` facts one step collected, to the workspace's list.
+
+    The list lives at ``<project>/.ract/todo.json``: the executor has no
+    session id, so the list belongs to the workspace (the deviation from
+    MASON's session-folder proposal is stated for review). A step whose
+    facts hold no ``todo`` call touches nothing.
+    """
+    todo_ops = [
+        {key: value for key, value in fact.items() if key != "tool"}
+        for fact in todo_facts
+        if fact.get("tool") == "todo"
+    ]
+    if not todo_ops:
+        return []
+    folder = Path(project) / ".ract"
+    todo = load(folder)
+    notes = []
+    for facts in todo_ops:
+        try:
+            notes.append(apply_todo_facts(todo, facts))
+        except (ValueError, KeyError) as exc:
+            notes.append(f"the to-do call was not applied: {exc}")
+    save(todo, folder)
+    return notes
+
+
 def save(todo: TodoList, folder: Path) -> Path:
     """Write the list to ``folder/todo.json`` through a temporary file, so a crash leaves the old list."""
     folder.mkdir(parents=True, exist_ok=True)
