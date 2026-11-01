@@ -290,6 +290,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The offload store writes the stored output through `check_state_path` and a fresh
+  temporary file (B-238): a hard link planted at the file name is replaced, not
+  written through; the stub's first and last lines pass the outbound scan before they
+  can reach a request; and a handle naming a Windows device (con, nul, com1) is
+  refused on every operating system.
 - Every git command RACT runs for itself (step worktrees and commits, snapshots, reviews, the
   history and policy reads, `ract step diff`) starts with the full hardening (B-206), and the
   tool gate lists no file that no longer starts a process.
