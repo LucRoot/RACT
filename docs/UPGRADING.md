@@ -10,8 +10,9 @@ git tag, with the fake model server; nothing is installed.
 
 - Config. A v0.5.2 `ract.yaml` loads, and `ract doctor` exits 0.
 - Sessions. A session file written by the v0.5.2 session store is read here
-  without error. (The store was written by the old code directly, because a
-  one-shot run does not save a session and no terminal was available.)
+  without error. (The store itself moved; see "What changes" and step 4. The
+  old file was written by the old code directly, because a one-shot run does
+  not save a session and no terminal was available.)
 - History. `ract report --last` prints a plain answer and no traceback. A
   one-shot run leaves no loop report, so it says so.
 - Corrupted files. A session file that is not JSON gives no traceback.
@@ -78,6 +79,11 @@ git tag, with the fake model server; nothing is installed.
   folder. The old places are still read in this release, with a warning on
   stderr; `ract policy migrate-keys` moves them and overwrites nothing
   (ADR-0048 R3).
+- Sessions move into the state folder. The store was `.ract_sessions/` in the
+  project; it is now `.ract/sessions/` (B-079). The first `ract session`
+  command (or any run that uses the default store) copies the old sessions in
+  once and says so on stderr; a session already in the new store is kept. The
+  old folder is left as it was and can be removed once the copy is there.
 
 ### Not yet checked
 
@@ -98,7 +104,12 @@ do not rely on them until they are:
 3. Stop tracking the RACT state folder if an old commit added it:
    `git rm --cached -r .ract` then commit. Add `.ract/` to `.gitignore` so it
    stays out of `git status`.
-4. Move any keys out of the project: `ract policy migrate-keys` in each project
+4. Let the sessions move, then drop the old folder: run any `ract session`
+   command once (for example `ract session list`). It copies `.ract_sessions/`
+   into `.ract/sessions/` once and says so on stderr. Remove
+   `.ract_sessions/` when the copy is there, so `git status` stops listing it
+   as untracked.
+5. Move any keys out of the project: `ract policy migrate-keys` in each project
    that has a `.ract/operator.key`, `.ract/sandbox/` or `.ract/alm/`.
 
 ## v0.5.1 → v0.5.2 (Deep-Audit Hardening)
