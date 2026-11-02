@@ -10,10 +10,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Draft release notes for 0.6.0 in `docs/release/RELEASE_NOTES_0.6.0.md`
-  (B-151): what 0.6.0 is, the Unreleased changes grouped, the experimental
-  label for the sandbox, git and network slices, and the S1 to S7 success
-  conditions as the readiness table states them.
 - `ract verify` checks a commit range and/or a run offline (B-039, ADR-0050
   as amended by D-174): every changed line attributed to a signed step, each
   Rootknot verified, and the run's trace chain when the run has one; a run
@@ -294,110 +290,75 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `.ract_sessions/`. The first time one of them runs with the default store, sessions saved in
   `.ract_sessions/` are copied in (a session already there is kept) and a notice says so; the
   old folder is left as it was and can be removed. `--store` still names any folder.
+
+### Fixed
+
+- `docs/EVENTS.md` documents every kind in the closed `EventKind` vocabulary
+  (audit round 2, seam 1): eight kinds that had live producers but no schema
+  entry (`investigator.report`, `plan.rewritten`, `plan.risk_assessed`,
+  `reversal.suspicious`, `sidecar.header.legacy_fallback`,
+  `trace.incremental_verify_resumed`, `trace.torn_tail_detected`,
+  `trace.verify_completed`) now carry their payload schemas, and
+  `tests/docs/test_every_legal_kind_is_documented.py` fails when a registered
+  kind drifts out of the document again.
+- The small documentation gaps are closed (B-221): the ADR-0049 rollout table records
+  that plan `edit` is built; TIER3.md says how `/permissions allowlist` is reached and
+  loses the internal note and the citation to a walk that was never recorded; the
+  QUICKSTART table lists `/model`, `/diff`, `/context`, `/sessions`, `/resume`, `/queue`,
+  `/clear`, `/help` and `/permissions`; the README exit codes add 4 (budget) and give the
+  Windows virtualenv activation beside the Linux one; PROVENANCE.md says `.ract/` and
+  names the four `provenance verify` results; PROVIDER_SETUP states the retry defaults
+  its example uses; and docs/USE_CASES.md renders the use-case catalog.
+- The docs say what the code does, round 2 (S-017): the trace writer stays
+  unwired (D-166) and `ract trace` names six verbs, `verify` included; the
+  threat model opens with what this build enforces and its tier-2 row matches
+  the runner, which leaves the approver unset for headless and `--yolo` runs;
+  the harness page drops the enricher and signature registry that do not
+  exist and keeps the skill registry the harness loads at `.ract/skills/`;
+  ARCHITECTURE.md's termination contract names T1 to T9, not T1 to T7, and
+  its trace section lists the `verify` verb. Two docs tests pin the contract
+  against `TerminationCause` and the shipped trace subverbs.
+- Draft release notes for 0.6.0 in `docs/release/RELEASE_NOTES_0.6.0.md`
+  (B-151): what 0.6.0 is, the Unreleased changes grouped, the experimental
+  label for the sandbox, git and network slices, and the S1 to S7 success
+  conditions as the readiness table states them.
 - docs/UPGRADING.md walks the upgrade from a real 0.5.2 install: the session-store move
   gets a "What changes" bullet and a "What to run" step, so the walk ends with a clean
   `git status` instead of a stray untracked `.ract_sessions/`. Walked against the tree with
   keys in the old layout; evidence in docs/release/UPGRADING_WALK_2026-11-02.md (G6).
-
-### Fixed
-
 - The CLI wording tests pin the terminal width they assert against (B-138):
   `tests/test_cli_wording_b083.py` sets `COLUMNS` and `NO_COLOR` for the
   child process, so the doctor table folds its cells the same way at any
   ambient width and the next-action phrase survives the flattening.
-- `/todo` and `/spec` no longer end the interactive session (audit round 2,
-  P1): both commands are informational like `/diff` and `/review`, and their
-  handlers now return True so the session continues after showing the list or
-  finishing the walk.
-- The REPL history takes the state-path guard (audit round 2, P2):
-  `.ract/repl_history` is checked with `check_state_path` before the session
-  loads or appends it, so a cloned repository shipping `.ract` as a link no
-  longer receives the operator's typed commands or plants fake history;
-  history degrades to disabled with a one-line stderr note, never a crash or
-  a write through the link.
-- Skipping a plan step says what it drops (audit round 2, P2): `skip <n>`
-  also drops every later step that depends on the skipped step's file, the
-  `[s]kip <n>` question now warns that those dependents are dropped too, and a
-  dropped dependent is reported as "skipped: depends on step N" instead of
-  "skipped by you" (the step the operator named still reports "skipped by
-  you", as do the steps skipped by a resumed run, which remembers numbers
-  only).
-- The step-tools path resolves its target (audit round 2, P2):
-  `_work_with_step_tools` sends `expected_artifact` through
-  `resolve_workspace_path` before it reads, restores or unlinks the file, so
-  a `..` segment or an absolute path ends the step as the normal step failure
-  instead of reaching outside the step worktree ungated.
-- `ract --rollback --session <id>` no longer gives a repo-supplied snapshot write access to
-  config-bearing names (B-8roll, audit round 2 P1): a snapshot file under `.ract/snapshots/`
-  whose session id is not known to the operator-side session store (`.ract/sessions/<id>.json`)
-  is treated as shipped by the cloned repository, and its entries for `ract.yaml`, secret-shaped
-  names (`.env`, `*.key`, `*.pem` ...) and `.github/workflows/*` are refused and named while the
-  remaining entries still restore; a snapshot the store endorses (RACT's own) restores everything
-  as before.
-- Session events and session files stay standard JSON (B-8s, audit round 2 P2):
-  a non-finite float (NaN, Infinity, -Infinity) in event data becomes null at
-  emission, so `--output-format stream-json` keeps its one-JSON-object-per-line
-  contract for strict consumers and `SessionStore.save` writes with
-  `allow_nan=False`, so such a value can never reach `.ract/sessions/<id>.json`.
-  A plan whose model reply carries a non-finite confidence is refused at parse
-  time, like any other malformed plan.
-- The session store, its backup restore and the rollback snapshot capture write
-  through a fresh temporary file and one rename (B-8s, audit round 2 P2), the
-  `write_atomic` convention the other state files already use: a crash or kill
-  mid-save leaves the previous session file whole, and restore keeps the backup's
-  content and metadata while replacing the live file in one step.
+- `ract skills install` writes where the harness reads (S-017 follow-up,
+  B-10skills): installs used to resolve their registry to the `--config`
+  parent and landed in `skills/` at the project root, while the harness, the
+  initializer and `ract doctor` read `.ract/skills/`, so an installed skill
+  was never seen. All install paths now target `.ract/skills/`, skills an
+  older release left in the project-root `skills/` are copied into
+  `.ract/skills/` once with a one-line notice on stderr (the B-079 shape:
+  the old folder is left as it was, a mark in the new store makes it once),
+  and the registry takes the state-path guard so nothing writes through a
+  linked `.ract`.
 - The rollback restore's per-entry project-file writes are atomic too (B-10roll,
   batch-8 follow-up): each entry's payload now goes to a fresh temporary file in
   the target's directory and one rename, so a crash mid-restore leaves the project
   file with its pre-restore content instead of a truncated write.
-- The LSP probe refuses a planted probe file (B-8lsp, audit round 2 P1): the
-  probe's fixture name is fixed, and a cloned repository can ship that name as
-  a symlink or a hard link to a file outside the workspace, so the probe now
-  fails closed and reports the language unavailable when anything already
-  exists at the probe name, instead of truncating the victim and unlinking
-  the plant; a free name keeps the old behavior.
-- The three memory writers that resolved their state path without the
-  B-213 guard now call `check_state_path` like every other `.ract`
-  writer (audit round 2): `failure_records.write` and
-  `failure_records.append_applied_narrowing` check the resolved path
-  before the JSONL append, and `repo_fingerprint.write` and the probe
-  scheduler's capability-record write check it before the mkstemp +
-  replace, so a repository-shipped link at `.ract` (or a folder under
-  it) no longer redirects the failure-records append into an arbitrary
-  file or moves the fingerprint and capability records outside the
-  project.
-- `ract trace verify <path>` no longer crashes on the second run (B-236): a
-  path-shaped run argument is a supported input shape, and once the cold pass
-  persists a sidecar the warm path falls back to cold verify when that run id
-  is not hex, exactly as an invalid sidecar head already did.
-- `ract verify`'s closing statement names where command records actually live
-  (B-236): the user state dir under `keys/<repo-digest>/commands.jsonl`, not
-  the workspace-local `.ract/commands.jsonl` that no writer has ever used.
-- The complexity router and calibrator share one tier policy (B-8c): a
-  `thresholds` dict missing any of `low`, `medium`, or `high` is rejected at
-  load with a `ValueError` naming the missing keys instead of silently falling
-  back to a literal that disagreed with the documented default, and both
-  modules classify every score through a single `tier_for_score` function.
-- The dead-code auction allowlist is honest again (B-8dc, audit round 2):
-  48 stale entries are gone from `tests/test_dead_code_auction.py` (the
-  modules now have real production inbound references the symbol graph
-  counts), the false justifying comments went with them, and the
-  `ract.config` stub (with its paired test) is deleted, as is
-  `ract.ui.colour` (B-179 never adopted it) with `tests/test_colour.py`.
-  The four `memory.languages` parser dispatchers keep their entries
-  because `parser.py` loads them by dynamic name, and `config_validation.py`
-  gains an entry pending a follow-up keep-or-remove decision now that the
-  deleted stub was its only production caller. The golden source hash is
-  re-locked.
+- `ract verify` covers the deleted-file sidecar path with a test (B-236
+  follow-up, N2 batch-7 review): a file a commit deletes is checked against
+  the bytes at the earlier commit, and the report says what is true.
 
-- The fetch question's choices line matches the answers it accepts: with no
-  session to approve into (the one-shot CLI path) the screen offers "y allows
-  it once, N refuses" and no `s`, mirroring the command screen (B-225 part 3,
-  audit round 2).
-- The batch-7 screens (git, network, sandbox posture) render with the canonical
-  `visible_text` escaper instead of a drifted local copy: U+061C and the other
-  direction marks now show as escapes there too, and a carriage return reads
-  as `\r`, as on every other screen (audit round 2).
+- Docs match the code at the round-2 audit (seam 4): docs/HARNESS.md no longer
+  names a `SignatureRegistry` that does not exist (per-file Rootknot sidecars and
+  `ract provenance verify` are what this build ships); docs/EVENTS_SESSION.md says
+  `--json-schema` is refused with exit 2 in this release instead of documenting a
+  `structured_output` field that is never emitted; docs/THREAT_MODEL.md puts the
+  operator key in the user config directory (ADR-0048 D2) with the sandbox and ALM
+  keys under `.ract/`, and carries the env allowlist counts (39 allowlist names,
+  202 NEVER_PASSTHROUGH); README's exit-code list gains 4 (a budget was used up);
+  `VERB_DESCRIPTIONS` drops the undispatchable `loop` alias entry.
+- CHANGELOG history: 153 double-decoded em-dash mojibake sequences in the 0.5.2
+  through 0.2.0 sections restored to "-".
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written
@@ -842,7 +803,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Capability tier 3 matches whole words, so "execute the tests" and the file name `src/ssh.py`
   are no longer refused. `run the shell command`, `exec(`, `curl`, `ssh` and `publish` still are.
 
-## [0.5.2] - 2026-08-22 â€” Deep-Audit Hardening
+## [0.5.2] - 2026-08-22 - Deep-Audit Hardening
 
 Six-module hardening release layered on the v0.5.1 spec-completeness
 tag. Fifteen deep-audit findings from the paired Ox-Alpha-partnered
@@ -863,18 +824,18 @@ a fragment under `_BUILD/ract_v0.5.2_hardening/module_0N.md`
 
 ### Findings closed
 
-- **module_01** (Rootknot v4 signature hardening) â€” `55df494` +
+- **module_01** (Rootknot v4 signature hardening) - `55df494` +
   amendment `f79805a`. Closes DA-A F-1 (v4 fields absent under
   v4-labelled construction), F-2 (canonical bytes emit v4 fields
   only when truthy), F-5 (sidecar reader silently defaults
   ``run_id`` to empty), Ox-M-1 (verifier had no
-  ``min_acceptable_schema_version`` policy â€” DOWNGRADE attack),
+  ``min_acceptable_schema_version`` policy - DOWNGRADE attack),
   Ox-M-2 (``schema_version < 3`` accepted unknown v9 with drifted
-  semantics â€” forward-compat drift). Ships
+  semantics - forward-compat drift). Ships
   ``Rootknot.__post_init__`` v4 gate, authoritative verifier-side
   ``_check_rk3`` cross-check, ``--min-schema=N`` CLI flag, and a
   closed known-versions allowlist ``{1, 2, 3, 4}``.
-- **module_02** (Sandbox env library-injection defense) â€”
+- **module_02** (Sandbox env library-injection defense) -
   `0829758` + `c447aec`. Closes DA-A F-3 (NEVER_PASSTHROUGH
   missed classic library-injection vectors), Ox-M-4 (Windows
   allowlist-key case sensitivity gap); routes Ox-M-3
@@ -885,17 +846,17 @@ a fragment under `_BUILD/ract_v0.5.2_hardening/module_0N.md`
   ``BASH_ENV``, ``GLIBC_TUNABLES`` [CVE-2023-4911],
   ``GIT_SSH_COMMAND``, ``SSL_CERT_FILE``, ``HTTPS_PROXY``,
   ``CARGO_HOME``, ``RUSTFLAGS``, ``PSMODULEPATH``, more).
-- **module_03** (Subagent lifecycle + PID-reuse hardening) â€”
+- **module_03** (Subagent lifecycle + PID-reuse hardening) -
   `53338df` + `06b6f04`. Closes DA-A F-4 (poll-exited short-
   circuit skipped tree-kill; grandchildren leaked) + Ox-M-5 (no
-  PID identity check â€” reused pid could receive a delayed kill
+  PID identity check - reused pid could receive a delayed kill
   intended for the original tenant). Ships spawn-time
   ``creation_time_ns`` capture, ``process_identity.same_process``
   tri-state check (SAME / REUSED / DEAD), unconditional
   ``tree_kill_invoked`` emit on every ``dispose``, and a new
   ``pid_reuse_detected`` event kind for auditors.
-- **module_04** (Run_id continuity â€” sidecar schema + subprocess
-  plumbing) â€” `eefbad0` + `ec33975`. Closes DA-B F-3.1
+- **module_04** (Run_id continuity - sidecar schema + subprocess
+  plumbing) - `eefbad0` + `ec33975`. Closes DA-B F-3.1
   (subprocess subagent had no way to inherit ambient run_id) +
   F-3.2 (sidecar payloads carried no schema binding). Ships
   ``ract.sidecar_header.write_sidecar_header`` primitive
@@ -907,12 +868,12 @@ a fragment under `_BUILD/ract_v0.5.2_hardening/module_0N.md`
   races; RACT_* keys stripped from parent env before re-inject),
   and ``bootstrap_ambient_from_env`` at subagent boot with
   synthetic-orphan fall-through.
-- **module_05** (Trace log durability + honest verify) â€”
+- **module_05** (Trace log durability + honest verify) -
   `b80b3cb` + `c224db5`. Closes DA-B F-4.1 (O(NÂ²) full-file
   reseed on every verify), F-4.2 (``iter_events`` materialised
   the whole file), F-4.4 (strict UTF-8 decode of torn tail
   aborted verify), F-4.5 (``raw.split("\n")`` mishandled CRLF),
-  F-4.6 (verify result shape inconsistent â€” some paths bool,
+  F-4.6 (verify result shape inconsistent - some paths bool,
   some dataclass, some raise). Ships per-run
   ``{run_id}.verify.json`` incremental warm-verify sidecar,
   streaming ``iter_events`` generator, torn-tail UTF-8 replace
@@ -921,9 +882,9 @@ a fragment under `_BUILD/ract_v0.5.2_hardening/module_0N.md`
   ``TraceVerifyResult`` frozen dataclass with closed
   ``Literal["VALID","INVALID","TORN_TAIL","TAMPERED"]`` status
   every verify entry point returns. New CLI verb
-  ``ract trace verify`` â€” warm by default, ``--cold`` for
+  ``ract trace verify`` - warm by default, ``--cold`` for
   full-file replay, ``--json`` for machine-readable output.
-- **module_06** (Memory system polish + docs + release close) â€”
+- **module_06** (Memory system polish + docs + release close) -
   this commit series. Closes DA-B F-5.1 (dataclass grouping
   regex docstring dishonestly claimed foreign aliases would not
   match) + F-5.4 (watcher ``on_moved`` src-delete + dest-create
@@ -955,7 +916,7 @@ SP-amendment source touches). Post-tag CI-fix closure (Ox Alpha Q1
 mypy sweep + type-drift closure + EVENTS.md schema bump to "10")
 re-locked to
 ``52bed4baf4aab67f67b9e52c09123dfe0f6679a95de8365a543ec8d5df8d239a``.
-The tag remains v0.5.2 â€” the source-tree churn is post-release
+The tag remains v0.5.2 - the source-tree churn is post-release
 CI-fix follow-up (the tag object still resolves to the pre-fix
 tree); the constant tracks the post-fix tree so
 ``test_golden_hash_matches_locked`` stays green on ``main``.
@@ -974,13 +935,13 @@ build-tree-tamper vector and MUST NOT be accepted as authorized.
 
 ### New CLI verbs / flags
 
-- ``ract trace verify <run_id>`` â€” warm/cold trace-log chain
+- ``ract trace verify <run_id>`` - warm/cold trace-log chain
   verify. Exit codes 0/1/2/3 (VALID or TORN_TAIL / INVALID /
   TAMPERED / no log).
-- ``ract memory verify-consistency [repo_path]`` â€” cross-index
+- ``ract memory verify-consistency [repo_path]`` - cross-index
   consistency. Exit codes 0/1/2 (CONSISTENT / INCONSISTENT /
   UNAVAILABLE).
-- ``ract provenance verify --min-schema=N`` â€” reject any sidecar
+- ``ract provenance verify --min-schema=N`` - reject any sidecar
   below schema version N.
 
 ### New event kinds (all additive)
@@ -989,7 +950,7 @@ build-tree-tamper vector and MUST NOT be accepted as authorized.
 - ``substrate.subagent.pid_reuse_detected``
 - ``substrate.subagent.orphan_reaped``
 - ``runtime.run_id.env_injected``
-- ``runtime.run_id.env_rejected`` â€” module_06 boundary-regex
+- ``runtime.run_id.env_rejected`` - module_06 boundary-regex
   defense.
 - ``runtime.run_id.env_stripped_from_parent``
 - ``runtime.run_id.orphan_generated``
@@ -999,12 +960,12 @@ build-tree-tamper vector and MUST NOT be accepted as authorized.
 
 ### New exception types
 
-- ``ract.core.rootknot.RootknotSchemaViolation`` â€” v4-label
+- ``ract.core.rootknot.RootknotSchemaViolation`` - v4-label
   without v4-fields (module_01).
-- ``ract.core.provenance.RootknotUnknownSidecarFormat`` â€”
+- ``ract.core.provenance.RootknotUnknownSidecarFormat`` -
   unknown named sidecar ``schema`` (module_06 fold of module_01
   Q3).
-- ``ract.runtime.RunIdFormatError`` â€” path-shape /
+- ``ract.runtime.RunIdFormatError`` - path-shape /
   shell-metacharacter poisoning candidate rejected at the
   ambient boundary (module_06 fold of module_04 C-6).
 
@@ -1034,7 +995,7 @@ backup-v0.5.1-preHardening`` (created at module_06 close).
 
 ---
 
-## [0.5.1] - 2026-08-22 â€” External Review Response + wired + spec-completeness
+## [0.5.1] - 2026-08-22 - External Review Response + wired + spec-completeness
 
 > **Note on cited SHAs (2026-08-22 update).** The plain-text 7-hex
 > tokens below (rendered without backticks) reference
@@ -1053,10 +1014,10 @@ backup-v0.5.1-preHardening`` (created at module_06 close).
 > pipeline HEAD. This release combines three sequential closure
 > pipelines against the same v0.5.1 semver:
 >
-> 1. **External Review Response** (nine modules bb8e013 era) â€”
+> 1. **External Review Response** (nine modules bb8e013 era) -
 >    the trust-chain fixes described in the release body below.
 > 2. **Wiring completion** (eleven modules c78d8b1 .. 53280ff,
->    close at 15e6cb1) â€” closes every zero-caller gap surfaced
+>    close at 15e6cb1) - closes every zero-caller gap surfaced
 >    by the 2026-08-21 8-lens audit
 >    (`_BUILD/audit_2026-08-21/AUDIT_SUMMARY.md`) with production
 >    call chains from runtime entry points. Re-audit at
@@ -1066,7 +1027,7 @@ backup-v0.5.1-preHardening`` (created at module_06 close).
 >    Ox Alpha adversarial review; commits c5ff8ac, a147610,
 >    eb6ba41, 2db7f88 + 769192d, 2b2e5b1 + ea82b54 +
 >    556b2b7, 403d800 + 4569426, plus this release-close
->    commit) â€” closes the source-spec audit gaps
+>    commit) - closes the source-spec audit gaps
 >    (`_BUILD/audit_2026-08-21c/AUDIT_SUMMARY_c.md`, 7 lenses)
 >    where the code did not yet do what the Memory Discipline spec
 >    prescribed, and formalizes deferrals via ADR-0043 (DSPy),
@@ -1099,12 +1060,12 @@ languages via tree-sitter; the sycophancy classifier gains an AST-delta
 signal + WhispererContract event scoring F1=1.000 on a 48-sample
 regression corpus. Tag is `v0.5.1`. Three ADRs added (ADR-0040 for
 T8 PROMPT_DRIFT, ADR-0041 for SubstrateLoop shim closure, and
-ADR-0042 for the sycophancy v2 tuning band â€” six more surfaces
+ADR-0042 for the sycophancy v2 tuning band - six more surfaces
 carry inline ADR-style module docstrings).
 
 ### Per-module surface
 
-- **module_01 â€” RootknotWAL crash-consistency (G1).** New
+- **module_01 - RootknotWAL crash-consistency (G1).** New
   `src/ract/core/assumptions_wal.py` (~475 lines) with append-only
   JSONL write-ahead log at `.ract/assumptions.wal`, cross-platform
   exclusive file lock, fsync per append, truncated-tail tolerance
@@ -1114,20 +1075,20 @@ carry inline ADR-style module docstrings).
   cf829d5; SP amendment fcc23af (WARN emission on truncated tail
   + rotation-atomicity docstring correction).
 
-- **module_02 â€” Rootknot canonical-bytes extension (G2 + G3 +
+- **module_02 - Rootknot canonical-bytes extension (G2 + G3 +
   REVIEW_4_UNKNOWN A2).** Three new opt-in fields on the Rootknot
-  dataclass â€” `workspace_digest`, `prompt_digest`, `run_id` â€” plus
+  dataclass - `workspace_digest`, `prompt_digest`, `run_id` - plus
   `make_rootknot_v4()` factory bumping `schema_version` 3â†’4. New
   `src/ract/core/workspace_digest.py` with pure-hash
   `workspace_digest()` + `compute_prompt_digest()` + `run_id_hex()` +
   `WorkspaceDigestChain` ancestor ledger. `AcceptanceSuite.prompt_digest`
   optional field populated by `IntentCompiler.compile()`. Sacred spine
-  preserved â€” the three signed byte-strings extend, nothing removed.
+  preserved - the three signed byte-strings extend, nothing removed.
   Primary 88c35a6; SP amendment 8dbf452 (strict-JSON metadata_hash
   + `MetadataUnserialisableError`, exclusive-lock on chain read path,
   `require_prompt_digest()` helper).
 
-- **module_03 â€” RFC 8785 JCS canonical JSON.** New `src/ract/canonical.py`
+- **module_03 - RFC 8785 JCS canonical JSON.** New `src/ract/canonical.py`
   (462 lines) with `dumps_jcs`/`loads_jcs`/`is_canonical`/
   `CanonicalJSONError` implementing strict-JSON NFC-normalised codepoint-
   sorted ECMA-262-conformant serialiser. 15-file migration of every
@@ -1145,7 +1106,7 @@ carry inline ADR-style module docstrings).
   number encoding replacing initial log10 + `.17f`, non-ASCII invariant
   tests, look-back window widened 8â†’50).
 
-- **module_04 â€” T8 PROMPT_DRIFT + T9 PROMPT_DIGEST_MISSING + `intent
+- **module_04 - T8 PROMPT_DRIFT + T9 PROMPT_DIGEST_MISSING + `intent
   recompile` CLI verb.** New termination causes T8 (mutation-detected)
   and T9 (opt-in strict-prompt-digest missing) added to the closed
   `TerminationCause` enum with pinned integer values. New
@@ -1165,7 +1126,7 @@ carry inline ADR-style module docstrings).
   `strict_prompt_digest`, Q5a `.recompile_lock`, Q5b eager initial
   entry, Q6b split exit codes 2/3/4/5).
 
-- **module_05 â€” SubstrateLoop shim-wiring closure (SUBSTRATE Â§4-Â§7 +
+- **module_05 - SubstrateLoop shim-wiring closure (SUBSTRATE Â§4-Â§7 +
   B3 + D1).** Four new modules close the executor gap. New
   `src/ract/executor/tool_gate.py` (549 lines) with four-gate
   `ToolInvocationGate` + closed-type `ToolArgSchema` + frozen
@@ -1191,7 +1152,7 @@ carry inline ADR-style module docstrings).
   HEAD-read post-fast-forward gates `parent_snapshot`, Q5c
   `dispose(success=False)` resyncs) + 12d933f + 968fe64.
 
-- **module_06 â€” ambient run_id ContextVar + end-to-end preservation
+- **module_06 - ambient run_id ContextVar + end-to-end preservation
   smoke.** New `src/ract/runtime.py` (140 lines) with ContextVar-
   backed `run_id` accessor + `bind_run_id` context manager +
   `set/reset` primitives + type/empty guards. WAL `_persist` stamps
@@ -1209,7 +1170,7 @@ carry inline ADR-style module docstrings).
   lock on `run_id.txt.lock` sidecar, Q5 WAL reload WARN on
   bound-ambient with legacy no-rid entries).
 
-- **module_07 â€” Historical Manifest Ledger (RK-3 durability).** New
+- **module_07 - Historical Manifest Ledger (RK-3 durability).** New
   `src/ract/security/manifest_ledger.py` (~1000 lines) with
   `ManifestLedger` append-only JSONL at `.ract/manifest_ledger.jsonl`
   + content-addressable snapshot store at
@@ -1226,7 +1187,7 @@ carry inline ADR-style module docstrings).
   `count_wal_entries`. New EventKind `manifest.ledger.appended` in
   closed vocabulary. `Rootknot.attest_environment` wired to call
   `record_environment_attestation` post-signing via local import
-  breaking securityâ†’core cycle â€” signed RK-3 payload unchanged.
+  breaking securityâ†’core cycle - signed RK-3 payload unchanged.
   Primary 2cb42b4; SP amendment dbd0a73 (Q1 `_entry_schema_valid`
   mandatory-field shape check, Q3 per-process/per-thread CAS tmp path
   `.json.tmp.{pid}.{tid}`, Q5 `manifest.ledger.refused` EventKind +
@@ -1234,7 +1195,7 @@ carry inline ADR-style module docstrings).
   raises ValueError when None + new `verify_proof_shape_only` static
   method).
 
-- **module_08 â€” Polyglot G5/G6 via tree-sitter.** New
+- **module_08 - Polyglot G5/G6 via tree-sitter.** New
   `src/ract/parsers/tree_sitter_backend.py` (~340 lines) with
   `Language` enum (PYTHON/JAVASCRIPT/TYPESCRIPT/TSX/RUST/GO) +
   `LANGUAGE_BY_EXTENSION` map covering 10 MVP extensions +
@@ -1264,7 +1225,7 @@ carry inline ADR-style module docstrings).
   = 10_000 + `max_stack_depth=None` opt-out, Q6 `_lang_group_key`
   folds typescript+tsx into one Jaccard group).
 
-- **module_09 â€” Sycophancy classifier v2 (AST-delta + WhispererContract-
+- **module_09 - Sycophancy classifier v2 (AST-delta + WhispererContract-
   event).** New `src/ract/antilazy/sycophancy_v2.py` (~640 lines) with
   two-signal classifier: Signal 1 AST-delta null-op score over fenced-
   block-extracted request/response with identifier-name intersection to
@@ -1289,13 +1250,13 @@ carry inline ADR-style module docstrings).
   Q5 `_STATEMENT_WEIGHT_CAP = 2`, Q6 `_AstStats.func_body_shapes` +
   `corrective_same_name` count).
 
-- **module_10 â€” release close.** This entry, version triple bump
+- **module_10 - release close.** This entry, version triple bump
   0.5.0 â†’ 0.5.1, golden hash re-lock, annotated tag, handshake
   push-commands file. `ract --version` prints `RACT 0.5.1`.
 
 ### Added
 
-- **Three new ADRs** â€” ADR-0040 (T8 PROMPT_DRIFT termination cause +
+- **Three new ADRs** - ADR-0040 (T8 PROMPT_DRIFT termination cause +
   operator-signed intent-recompile), ADR-0041 (SubstrateLoop shim
   closure four-decision bundle), and ADR-0042 (sycophancy v2
   tuning band -- `NULL_OP_SCORE_THRESHOLD = 0.7` +
@@ -1303,7 +1264,7 @@ carry inline ADR-style module docstrings).
   eight-cell sweep test). Six further modules carry inline
   docstring-style ADRs in their primary source files.
 - **New EventKinds** in `src/ract/trace/events.py::EventKind` closed
-  vocabulary â€” `assumption.accepted` (module_01),
+  vocabulary - `assumption.accepted` (module_01),
   `tool.invocation.pre`, `tool.invocation.post`, `tool.invocation.refused`
   (module_05), `manifest.ledger.appended`, `manifest.ledger.refused`
   (module_07), `whisperer.contract_violation` (module_09), plus
@@ -1316,10 +1277,10 @@ carry inline ADR-style module docstrings).
 - **Rootknot schema_version 4** carrying opt-in `workspace_digest` +
   `prompt_digest` + `run_id` fields; older sidecars continue to verify
   under the v3 compatibility reader path.
-- **RFC 8785 JCS canonical JSON** â€” `src/ract/canonical.py` public
+- **RFC 8785 JCS canonical JSON** - `src/ract/canonical.py` public
   surface, importable as `from ract.canonical import dumps_jcs,
   loads_jcs, is_canonical, CanonicalJSONError`.
-- **Ambient run_id ContextVar** at `src/ract/runtime.py` â€” importable
+- **Ambient run_id ContextVar** at `src/ract/runtime.py` - importable
   as `from ract.runtime import bind_run_id, get_current_run_id,
   run_with_ambient`.
 - **Historical Manifest Ledger** at `.ract/manifest_ledger.jsonl` +
@@ -1374,12 +1335,12 @@ carry inline ADR-style module docstrings).
   SP-amendment folds; locked value at tag:
   `7ba823c90711e517f954a65dcbef705f8df94eae460e6b2899d1fb15bba5f4d9`
   (was `74929aa977b717567c39de1216cbe831c5239e48ebab09f38d763102b4bddf3d`
-  at v0.5.0). Shift is legitimate â€” canonical-bytes extension,
+  at v0.5.0). Shift is legitimate - canonical-bytes extension,
   JCS migration, WAL / suite-chain / ledger additions, executor
   shim closure, ambient runtime, polyglot backend, sycophancy v2 all
   land under `src/ract/` inside the digest scope.
 - **Sacred spine.** Rootknot three-signature schema unchanged
-  (extended, not broken â€” schema_version 4 carries opt-in fields
+  (extended, not broken - schema_version 4 carries opt-in fields
   older readers ignore). `__root_author__` audit still refuses re-
   entry. AL-1 property tests green (`tests/test_antilazy_al1.py`).
 - **Closed-IP wordlist scan.** Zero hits outside the two documented
@@ -1397,7 +1358,7 @@ carry inline ADR-style module docstrings).
 
 The 2026-08-21 8-lens audit
 (`_BUILD/audit_2026-08-21/AUDIT_SUMMARY.md`) found that several v0.5.1
-primitives shipped with **zero production callers** â€” clean-tested API
+primitives shipped with **zero production callers** - clean-tested API
 surface, but the runtime paths still called the pre-v0.5.1 shape.
 The wiring-completion pipeline
 (`docs/RACT_v0.5.1_WIRING_COMPLETION_SPEC.md`, modules 01-11) closes
@@ -1405,12 +1366,12 @@ each such gap. The re-audit at
 `_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verifies zero
 CRITICAL/HIGH findings remain OPEN.
 
-- **wiring module_01** (c78d8b1) â€” provenance and docs sync.
+- **wiring module_01** (c78d8b1) - provenance and docs sync.
   CHANGELOG SHAs regenerated post-filter-repo (was: 21 fabricated
   short SHAs);  THREAT_MODEL / PROVENANCE / EVENTS / ROADMAP re-hosted
   at v0.5.1 (were: frozen at v0.4.0); ADR-0042 shipped (was: cited
   in ADR count but missing on disk). Lens B C1-C6 closed.
-- **wiring module_02** (c07f8a8) â€” **wired:** `make_rootknot_v4`
+- **wiring module_02** (c07f8a8) - **wired:** `make_rootknot_v4`
   now called from `src/ract/executor/steps.py:624`; sidecar
   `provenance.py` round-trips v4 fields (`schema_version=4`,
   `workspace_digest`, `prompt_digest`, `run_id`); WAL torn-pair
@@ -1418,26 +1379,26 @@ CRITICAL/HIGH findings remain OPEN.
   readers switched to lock-free `O_APPEND` atomicity;
   `intent_recompile` now auto-scans the workspace to avoid empty
   snapshot regression. Lens D D1-D5 closed.
-- **wiring module_03** (3d039c6) â€” **wired:** tool gate chokepoint.
+- **wiring module_03** (3d039c6) - **wired:** tool gate chokepoint.
   `SubstrateLoop.invoke_tool` now called from `executor/steps.py`
   MCP `tool_call` dispatch with `ToolInvocationRefused` handling
   (was: 0 production callers). SUBSTRATE Â§5 chokepoint claim now
   load-bearing. Lens C C-01 closed.
-- **wiring module_04** (9d3a534) â€” **wired:** `NEVER_PASSTHROUGH`
+- **wiring module_04** (9d3a534) - **wired:** `NEVER_PASSTHROUGH`
   env allowlist. `security/sandbox_linux.py:248` and
   `security/sandbox_macos.py:152` now call `build_sandbox_env` and
   filter env against the scrubbed allowlist (was: enforced sandboxes
   bypassed the deny list entirely). SUBSTRATE Â§4.3 deny surface now
   active on the enforced paths, not just the Windows unenforced stub.
   Lens C C-02 closed.
-- **wiring module_05** (f51af72) â€” **wired:** process-group
+- **wiring module_05** (f51af72) - **wired:** process-group
   tree-kill. `SubstrateLoop.spawn_subprocess` wraps
   `process_group.spawn`; `_reap_active_processes` calls `kill_tree`
   from every rollback path (was: 0 production callers in `src/`).
   `_fast_forward_head` gains `soft: bool` parameter defaulting to a
   `git reset --soft` so the compensator can inspect the tree before
   discarding. Lens C C-03 + C-04 closed.
-- **wiring module_06** (6b48e58) â€” **wired:** ambient run_id +
+- **wiring module_06** (6b48e58) - **wired:** ambient run_id +
   loop-resume. `LoopController._run_with_timeout` wraps
   `executor.submit` in `run_with_ambient` (was: bare
   `ThreadPoolExecutor` at `loop_controller.py:1362` reintroduced the
@@ -1449,7 +1410,7 @@ CRITICAL/HIGH findings remain OPEN.
   re-raises. T8 orphan-file delete now gated on
   `allow_iter1_delete_orphans` kwarg (was: iter-1 T8 wiped tree).
   Lens G G-01 through G-08 closed.
-- **wiring module_07** (3079aa0 + e4258b6) â€” **wired:** anti-lazy
+- **wiring module_07** (3079aa0 + e4258b6) - **wired:** anti-lazy
   dispatch. `_run_sycophancy_v2_check`,  `_run_polyglot_g5_g6`, and
   `_run_canonical_g1_g7_g8` now fire per iteration from
   `loop_controller.py` (was: `classify_sycophancy_v2` and
@@ -1459,7 +1420,7 @@ CRITICAL/HIGH findings remain OPEN.
   `_require_gate_signature` (raises on empty). **AL-1 is now a
   structural invariant, not a convention.** Lens E AL-E-01 through
   AL-E-04 closed.
-- **wiring module_08** (968b7e9 + 6203f60) â€” **wired:** memory
+- **wiring module_08** (968b7e9 + 6203f60) - **wired:** memory
   index watchers. `SymbolIndexWatcher` now holds a cache handle and
   `_reindex_write` / `_reindex_delete` call `cache.invalidate_by_file`
   with TTL (was: silent staleness after first save). Watcher
@@ -1470,14 +1431,14 @@ CRITICAL/HIGH findings remain OPEN.
   Probe scheduler fires once per `run()`;
   `_run_composed_retrieval` dispatches composition. Lens E MEM-E-01
   through MEM-E-04 closed.
-- **wiring module_09** (0879ab0 + a061f3d) â€” JCS + EventChain +
+- **wiring module_09** (0879ab0 + a061f3d) - JCS + EventChain +
   ledger tamper. Three real hash-input sites migrated to `dumps_jcs`
   (`plan_replay.py`, `memory/repo_fingerprint.py`,
   `memory/probes/scheduler.py`); remaining sites documented as
   human-report/storage-only in the JCS grep-gate allowlist; the gate
   now also forbids `sha256(json.dumps(sort_keys=True))` +
   `.encode(...)` on hash inputs. `EventChain` no longer resets on
-  fresh writer construction â€”  `writer.py::_reseed_tip_from_disk`
+  fresh writer construction -  `writer.py::_reseed_tip_from_disk`
   walks the tail, seeds from the last parseable event, refuses on
   UTF-8 decode failure. `EventReader.load` / `iter_events` now
   tail-tolerant + middle-strict + WARN (was: only ledger that
@@ -1485,7 +1446,7 @@ CRITICAL/HIGH findings remain OPEN.
   stamps `entry_index`; `verify_chain` detects middle-excise via
   physical-vs-stamped density check. Lens F H1-H4 + Lens G G-06
   closed.
-- **wiring module_10** (427537c + 53280ff) â€” UX + CLI + retrieval
+- **wiring module_10** (427537c + 53280ff) - UX + CLI + retrieval
   wire + `.ract`/`.rack` unification + manifest-ledger CLI verbs.
   Full-verb `ract --help` catalog via `cli_help.py`;
   `workspace_state.migrate_rack_to_ract` idempotent migration at CLI
@@ -1498,7 +1459,7 @@ CRITICAL/HIGH findings remain OPEN.
   gate; module_02 executor test fixture updated to full v4 dep set;
   distinct exit codes for `verify` chain-valid / broken / crashed.
   Lens A C1-C3 + M1-M9 closed.
-- **wiring module_11** (15e6cb1) â€” release close for the wiring
+- **wiring module_11** (15e6cb1) - release close for the wiring
   pipeline. Golden hash re-locked at that HEAD; 8-lens re-audit at
   `_BUILD/audit_2026-08-21b/AUDIT_SUMMARY_v2.md` verified zero
   CRITICAL/HIGH findings remained OPEN against the wired surface;
@@ -1512,10 +1473,10 @@ CRITICAL/HIGH findings remain OPEN.
 
 The 2026-08-21 source-spec audit
 (`_BUILD/audit_2026-08-21c/AUDIT_SUMMARY_c.md`, 7 lenses) checked
-the wired v0.5.1 surface against two source design documents â€” the
+the wired v0.5.1 surface against two source design documents - the
 Memory Discipline spec and a second internal design document
 (salvage items only). The wiring pipeline had closed every zero-caller
-gap; the source-spec audit surfaced a distinct class of findings â€”
+gap; the source-spec audit surfaced a distinct class of findings -
 places where the code did not yet do what the spec prescribed, or
 where docs claimed a mechanism the code did not ship. The v0.5.1
 spec-completeness pipeline
@@ -1526,7 +1487,7 @@ module_08 (`_BUILD/audit_2026-08-22/AUDIT_SUMMARY_d.md`, 4-vector
 sneak-hardened per Ox Alpha Â§3) verifies every CRITICAL / HIGH
 finding either CLOSED or explicitly DEFERRED via ADR.
 
-- **spec-completeness module_01** (c5ff8ac) â€” docs honesty pass.
+- **spec-completeness module_01** (c5ff8ac) - docs honesty pass.
   `[0.5.1]` CHANGELOG rewrite (this section framing); ROADMAP +
   THREAT_MODEL + PROVENANCE + EVENTS scrub of DSPy / LeWM claims;
   Memory Discipline spec Â§Self-Adjustment items 3 (DSPy) and 4
@@ -1536,7 +1497,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   grep-gates in `tests/test_release_surface.py` refuse `dspy` /
   `lewm` string mentions in the `[0.5.1]` CHANGELOG section
   outside a tight allowlist (window widened per SP amendment).
-- **spec-completeness module_02** (a147610) â€” budget hardening.
+- **spec-completeness module_02** (a147610) - budget hardening.
   New `BudgetInputMaxExceeded` exception subclass carrying
   `function_name` + `budget` + `actual_input_tokens`; new
   `refuse_over_max` wrapper in `provider_adapter.py` wired at all
@@ -1550,7 +1511,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   truncated body (audit-trail truth). New `state.budget_capped`
   EventKind (`schema_version` 5â†’6). Closes Lens 1A A-1 + A-2
   (both CRITICAL).
-- **spec-completeness module_03** (eb6ba41) â€” write-first
+- **spec-completeness module_03** (eb6ba41) - write-first
   invariant hardening + `src/ract/trace/repair.py`. `WriteFirstViolation`
   exception + `_committing` flag guard + fsync-inside-lock in
   `JsonlEventWriter._write_line`; two observer classes explicit
@@ -1560,13 +1521,13 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   compat preserved. New `repair(events)` deterministic (synth id =
   `sha256(_SYNTH_MARKER || open.id || close_kind)[:16]`) and
   idempotent (`repair(repair(x)) == repair(x)` via by-id
-  `source_event_id` pairing) â€” synthesizes close events for the
+  `source_event_id` pairing) - synthesizes close events for the
   5 first-party lifecycle kinds RACT tracks (`run.started`,
   `step.started`, `tool.called`, `prompt.sent`,
   `handshake.requested`). `JsonlEventWriter(..., repair_on_open=True)` opt-in.
   `ract trace repair <run_id> [--apply] [--json]` CLI verb. Closes
   Lens 2 Delta 1.
-- **spec-completeness module_04** (2db7f88 + 769192d) â€” cross-
+- **spec-completeness module_04** (2db7f88 + 769192d) - cross-
   function grouping rules. New `src/ract/memory/grouping.py`
   (`GroupingRules` + `SymbolGroup` + `group_symbols(...)` pure +
   `load_grouping_rules(...)` YAML loader). Four rules per Memory
@@ -1585,7 +1546,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   (`schema_version` 6â†’7). Cache-key distinctness includes
   `grouping_enabled` (SP DEFECT fix). Closes Lens 1C HIGH C-1.
 - **spec-completeness module_05** (2b2e5b1 + ea82b54 +
-  556b2b7) â€” AST-deterministic SUMMARY chunking + Python AST
+  556b2b7) - AST-deterministic SUMMARY chunking + Python AST
   sub-chunker + **ADR-0046** (Bonsai council model-based path
   deferred). New `src/ract/memory/summary.py` with
   `summarize_chunk_deterministic(chunk, language=None)` producing
@@ -1608,7 +1569,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   language inference (`.py/.pyi`, `.ts/.tsx`, `.js/.jsx/.mjs/.cjs`,
   `.rs`, `.go`) so re-hydrated non-Python bodies pick the right
   regex catalogue. Closes Lens 1C MEDIUM findings 4 + 5.
-- **spec-completeness module_07** (403d800 + 4569426) â€” verifier
+- **spec-completeness module_07** (403d800 + 4569426) - verifier
   availability pre-check + `SubagentHandle` compensator cascade
   (with Ox Alpha Â§2 mandatory forced-failure integration test).
   New `VerifierUnavailable` exception in `src/ract/core/predicate.py`;
@@ -1617,7 +1578,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   (per-invocation dispatch: `shutil.which` for pytest / mypy,
   `importlib.util.find_spec` for hypothesis, `_resolve_callable`
   for assertion, always-True for artifact + related_file_coverage,
-  fail-closed for unknown kinds â€” SP D1 amendment wraps unexpected
+  fail-closed for unknown kinds - SP D1 amendment wraps unexpected
   exceptions into `VerifierUnavailable` rather than raw
   tracebacks). `build_loop_state` gains a structural pre-check
   walking `suite.required()` and refusing loop entry on the first
@@ -1640,7 +1601,7 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   (`schema_version` 7â†’8); `docs/EVENTS.md` `kind` field described
   as OPEN VOCABULARY (SP A1 amendment corrects a prior closed-enum
   claim; third-party handles may set any `kind`). **`index_digest()`
-  sub-item CANCELLED** per Ox Alpha Â§2 â€” no named production caller
+  sub-item CANCELLED** per Ox Alpha Â§2 - no named production caller
   exists (verified by pre-build grep of retrieve / cache / watcher
   / composition surface). Closes Lens 2 Delta 2 (verifier
   availability pre-check). Addresses Lens 2 Delta 3 (SubagentHandle
@@ -1653,10 +1614,10 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   `subagent.spawned` EventKind for trace-graph symmetry. SP
   amendment (module_08): pre-amendment wording "Closes Lens 2
   Deltas 2 + 3" overpromised on Delta 3; corrected here.
-- **spec-completeness module_08** (this commit) â€” release close.
+- **spec-completeness module_08** (this commit) - release close.
   **ADR-0045** authored (module_06 cancellation â†’ v0.6 deferral,
   per Ox Alpha Â§1). `[0.5.1]` CHANGELOG rewritten to reflect the
-  final shipped state â€” every spec-completeness module named
+  final shipped state - every spec-completeness module named
   above appears with its behavior change described (Ox Alpha
   CHANGELOG-presence retroactive gate). Golden hash re-locked.
   Full pytest suite: 3139 passed / 21 skipped / 1 deselected / 3
@@ -1665,15 +1626,15 @@ finding either CLOSED or explicitly DEFERRED via ADR.
   five spec-completeness modules that touched `src/ract/` modified
   the affected files):
   `tests/test_cli_retrieval.py::test_retrieval_no_action_prints_help`
-  (the "1 deselected" â€” carried forward from module_01 baseline);
+  (the "1 deselected" - carried forward from module_01 baseline);
   `tests/test_readme_cli_index.py::test_readme_contains_cli_verb_index`
   and `tests/test_readme_version.py::test_readme_verb_index_includes_core_verbs`
   (both stem from the same README verb-index gap flagged as an
-  R10 softbump during wiring module_10 close â€” README missing
+  R10 softbump during wiring module_10 close - README missing
   `ract config validate` and other core verbs). All three carried
   to v0.6 hardening (README verb-index refresh). SP amendment
   (module_08): pre-amendment wording claimed "green modulo the
-  known [one] failure" â€” false-simplification that named a
+  known [one] failure" - false-simplification that named a
   deselected test as the sole known failure while omitting the
   two README failures that actually failed in the run. Correction
   landed in this amendment. 7-lens re-audit
@@ -1725,7 +1686,7 @@ tree to discover the deferral:
 - **Language chunkers for Java / Kotlin / C# / C / C++** (Memory
   Discipline spec Â§AST Chunking Rules; spec explicitly defers
   Java / Kotlin / C# / C / C++ to v0.6). v0.5.1 ships **four
-  chunkers covering five of the ten spec languages** â€” a `python`
+  chunkers covering five of the ten spec languages** - a `python`
   chunker for Python, a shared `typescript_javascript` chunker for
   TypeScript and JavaScript (grouped per spec Â§AST Chunking Rules
   "TypeScript/JavaScript" bullet), a `rust` chunker for Rust, and
@@ -1733,7 +1694,7 @@ tree to discover the deferral:
   Kotlin, C#, C, C++) are deferred to v0.6 as roughly four
   additional chunkers (C and C++ grouped per the spec's "C/C++"
   phrasing). SP amendment (module_08): pre-amendment wording
-  ("chunkers for Python / TypeScript / Rust / Go â€” four of the
+  ("chunkers for Python / TypeScript / Rust / Go - four of the
   nine spec languages") mis-omitted JavaScript from the shipped
   list and mis-counted the spec at nine; both fixed in this
   amendment.
@@ -1741,8 +1702,8 @@ tree to discover the deferral:
   Discipline spec Â§Chunk Overflow item 2). The AST-deterministic
   SUMMARY body producer ships in v0.5.1 via spec-completeness
   module_05 (`format_chunk(SUMMARY, ...)` returns a real
-  deterministic body â€” signature + first-line docstring + control-
-  flow region counts + up-to-ten external-call targets â€” instead
+  deterministic body - signature + first-line docstring + control-
+  flow region counts + up-to-ten external-call targets - instead
   of the pre-pipeline `"summary unavailable"` placeholder). The
   provider hook is preserved as the v0.6 slot for a Bonsai council
   adapter; no shipping caller passes a provider in v0.5.1.
@@ -1766,7 +1727,7 @@ tree to discover the deferral:
   scheduled as module_06 of the v0.5.1 spec-completeness pipeline;
   **module_06 CANCELLED** per Ox Alpha adversarial pipeline review
   2026-08-21 Â§1
-  (`_BUILD/ract_v0.5.1_spec_completeness/ox_alpha_reviews/pipeline_challenge_2026-08-21.md`) â€”
+  (`_BUILD/ract_v0.5.1_spec_completeness/ox_alpha_reviews/pipeline_challenge_2026-08-21.md`) -
   bundling three primitives without an operator workflow was
   identified as the primitive-without-wiring trap pre-committed
   for a point release. Deferred to v0.6 per **ADR-0045**.
@@ -1775,8 +1736,8 @@ tree to discover the deferral:
   Sub-item of spec-completeness module_07; **CANCELLED** per Ox
   Alpha Â§2 rule ("utility functions with green tests + zero
   production callers are the classic residue of wiring pipelines").
-  A named production caller â€” reload cadence that would short-
-  circuit on unchanged digest â€” does not exist in the v0.5.1
+  A named production caller - reload cadence that would short-
+  circuit on unchanged digest - does not exist in the v0.5.1
   retrieve / cache / watcher / composition surface (verified by
   pre-build grep at module_07). Reopens in v0.6 only if a reload
   cadence emerges.
@@ -1857,7 +1818,7 @@ Deferred from the wiring-completion pipeline (see
   require external anchoring (Merkle root pinned in a signed
   Rootknot). Documented in `verify_chain` docstring; defers to v0.6.
 - **Loop-controller L1/L2/L3 low-severity items** (wiring Lens G
-  G-09/G-10/G-11) â€” `OSError` transparency in a specific error
+  G-09/G-10/G-11) - `OSError` transparency in a specific error
   path, dup-digest short-circuit micro-optimisation, and
   `check_t2` docstring polish. Non-blocking.
 
@@ -1865,7 +1826,7 @@ Complete Flagged gaps roll per module is preserved in the pipeline
 fragments at `_BUILD/ract_v0.5.1_external_review_response/module_0N.md`
 and `_BUILD/ract_v0.5.1_wiring_completion/module_0N.md`.
 
-## [0.5.0] - 2026-08-19 â€” Memory Discipline
+## [0.5.0] - 2026-08-19 - Memory Discipline
 
 Minor release for the Memory Discipline pipeline
 (`_BUILD/ract_v0.5.0_memory_discipline/`). This release installs a new
@@ -1881,44 +1842,44 @@ the load-bearing decisions.
 
 ### Per-module surface
 
-- **module_01 â€” token budget system.** `src/ract/memory/budget.py`
+- **module_01 - token budget system.** `src/ract/memory/budget.py`
   ships `BudgetAccountant` + `BudgetDeclaration` with hard-ceiling
   refusal, composition override, and runtime narrowing;
   `budget_defaults.yaml` defines defaults for the four v0.5.0
   functions; ADR-0031 names the ceiling policy.
-- **module_02 â€” symbol index.** `src/ract/memory/symbol_index.py` with
+- **module_02 - symbol index.** `src/ract/memory/symbol_index.py` with
   SQLite schema at `symbol_index_schema.sql`, tree-sitter parsers for
   Python / TypeScript / Rust / Go under `memory/languages/`, and an
   incremental file watcher at `watcher.py`; ADR-0032.
-- **module_03 â€” graph index.** `graph_index.py` with SQLite edge
+- **module_03 - graph index.** `graph_index.py` with SQLite edge
   schema, `multilspy` LSP client at `lsp.py`, `lsp_fallback.py` for
   when a language server is not installed, and a query API covering
   callers / callees / blast_radius / path / orphans / hotspots;
   ADR-0033.
-- **module_04 â€” semantic index.** `semantic_index.py` backed by a
+- **module_04 - semantic index.** `semantic_index.py` backed by a
   LanceDB store at `.rack/index/semantic/`, `bge-small-en-v1.5` as the
   default embedding, and a token-bounded search API; ADR-0034.
-- **module_05 â€” retrieve primitive.** `retrieve.py` with a four-level
+- **module_05 - retrieve primitive.** `retrieve.py` with a four-level
   cascade (symbol â†’ graph â†’ semantic â†’ best-effort), `cache.py`
   keyed on `(query_hash, repo_commit_hash)`, `chunk.py` formatter with
   four formats (FULL / BODY_ONLY / SIGNATURE / SUMMARY), and
   `query_trace.py` for observability; ADR-0035.
-- **module_06 â€” function contracts.** `memory/functions/` package
+- **module_06 - function contracts.** `memory/functions/` package
   ships `intake.py`, `research.py`, `plan.py`, `edit.py` with typed
   contracts, prompts under `functions/prompts/`, a mock provider under
   `functions/testing/`, and a session context at `memory/session.py`;
   ADR-0036.
-- **module_07 â€” playbook composition.** Four YAML playbooks
+- **module_07 - playbook composition.** Four YAML playbooks
   (`refactor_rename`, `refactor_extract`, `bug_fix`, `unit_test`)
   under `memory/playbooks/`, `composition_runner.py` orchestrating
   the four-function stack per playbook step, and `composition.py`
   primitives; ADR-0037.
-- **module_08 â€” self-adjustment probes.** Three probes
+- **module_08 - self-adjustment probes.** Three probes
   (`needle`, `coherence`, `adherence`) under `memory/probes/` with
   `scheduler.py` per-repo dispatch, `failure_records.py` aggregation,
   and `repo_fingerprint.py` for per-repo capability persistence at
   `.rack/probes/capability.json`; ADR-0038.
-- **module_09 â€” integration with existing RACT.** Seven new EventKind
+- **module_09 - integration with existing RACT.** Seven new EventKind
   members (`budget.declared`, `budget.exceeded`, `retrieval.requested`,
   `retrieval.satisfied`, `retrieval.cascaded`, `retrieval.refused`,
   `probe.evaluated`) added to `trace/events.py`; `SubstrateLoop`
@@ -1928,7 +1889,7 @@ the load-bearing decisions.
   `enforce_g7` accept `CandidateDiff | None`; `ract memory init`,
   `ract memory apply-narrowings`, and `ract retrieval query` land as
   CLI subverbs; ADR-0039.
-- **module_10 â€” release close.** This entry, version triple bump
+- **module_10 - release close.** This entry, version triple bump
   0.4.1 â†’ 0.5.0, ROADMAP compilation, combined 56-signal sweep, tag.
 
 ### Fixed (memory-discipline)
@@ -1942,9 +1903,9 @@ Fix commits landed in this pipeline (all under
   additions.
 - `9bc0bb6` memory(v0.5): allowlist module_02 imports in
   public-provenance test.
-- `b38a425` memory(v0.5): fix module_02 SP findings Q1+Q2 â€”
+- `b38a425` memory(v0.5): fix module_02 SP findings Q1+Q2 -
   type-alias and let-arrow chunking.
-- `ede85a9` memory(v0.5): fix module_03 SP findings Q1+Q3 â€”
+- `ede85a9` memory(v0.5): fix module_03 SP findings Q1+Q3 -
   atomicity docstring + probe.
 - `d97d50b` memory(v0.5): fix module_04 SP findings Q1+Q3 +
   closed-IP scan.
@@ -1959,33 +1920,33 @@ Second Pass log; the module fragments record the fold decisions.
 
 ### Added
 
-- **`src/ract/memory/` package** â€” 30+ Python modules covering budget
+- **`src/ract/memory/` package** - 30+ Python modules covering budget
   accountant, three indexes, retrieve primitive, four function
   contracts, playbook composition, and three self-adjustment probes.
-- **Four playbooks** â€” `refactor_rename.yaml`, `refactor_extract.yaml`,
+- **Four playbooks** - `refactor_rename.yaml`, `refactor_extract.yaml`,
   `bug_fix.yaml`, `unit_test.yaml` under
   `src/ract/memory/playbooks/`. Eight further playbooks defer to v0.6.
-- **Four function prompts** â€” `intake_v1.md`, `research_v1.md`,
+- **Four function prompts** - `intake_v1.md`, `research_v1.md`,
   `plan_v1.md`, `edit_v1.md` under
   `src/ract/memory/functions/prompts/` gated by
   `verify_prompt_coverage` at import time.
-- **Budget defaults** â€” `src/ract/memory/budget_defaults.yaml` with a
+- **Budget defaults** - `src/ract/memory/budget_defaults.yaml` with a
   declaration per v0.5.0 function.
-- **Two SQL schemas** â€” `symbol_index_schema.sql` and
+- **Two SQL schemas** - `symbol_index_schema.sql` and
   `graph_index_schema.sql`.
 - **Seven new event kinds** in `src/ract/trace/events.py::EventKind`:
   `budget.declared`, `budget.exceeded`, `retrieval.requested`,
   `retrieval.satisfied`, `retrieval.cascaded`, `retrieval.refused`,
   `probe.evaluated`.
-- **Nine ADRs** â€” ADR-0031 through ADR-0039 under `docs/ADRs/`.
-- **Three CLI subverbs** â€” `ract memory init`,
+- **Nine ADRs** - ADR-0031 through ADR-0039 under `docs/ADRs/`.
+- **Three CLI subverbs** - `ract memory init`,
   `ract memory apply-narrowings`, `ract retrieval query` (skeleton;
   full three-index wiring queued for v0.6 polish).
-- **`docs/ARCHITECTURE.md`** â€” nine new sections describing each
+- **`docs/ARCHITECTURE.md`** - nine new sections describing each
   memory-discipline surface.
-- **`docs/EVENTS.md`** â€” schema_version bumped 2 â†’ 3 with the seven
+- **`docs/EVENTS.md`** - schema_version bumped 2 â†’ 3 with the seven
   new kinds documented.
-- **`tests/memory/`** â€” 450+ new tests across the memory-discipline
+- **`tests/memory/`** - 450+ new tests across the memory-discipline
   surface; five new tests under `tests/contracts/` +
   `tests/test_release_surface.py` covering the integration wiring.
 
@@ -2105,11 +2066,11 @@ module_09 ships the integration *shape* while v0.6 ships the
 - **Fallback-reference inflation** in adherence probe when the
   operator's rejected proposal itself references a fallback
   (module_08 gap #3).
-- **Coherence-probe semantic-diff** â€” probe compares hashes not
+- **Coherence-probe semantic-diff** - probe compares hashes not
   semantic overlap (module_08 gap #5).
-- **Adherence-probe placement variants** â€” probe accepts the operator's
+- **Adherence-probe placement variants** - probe accepts the operator's
   proposal at any position (module_08 gap #6).
-- **Fingerprint git-log purity** â€” probe reads git log fields that are
+- **Fingerprint git-log purity** - probe reads git log fields that are
   not strictly deterministic under concurrent commits (module_08 gap #7).
 - **Second-Pass prompt-must-inline-source convention.** Module_08 SP
   first attempted a description-only prompt and got fully hallucinated
@@ -2121,7 +2082,7 @@ All items compiled into `docs/ROADMAP.md` under
 `## v0.6 hardening (from memory-discipline module_0N)` sections
 per module.
 
-## [0.4.1] - 2026-08-17 â€” Intent-Fidelity
+## [0.4.1] - 2026-08-17 - Intent-Fidelity
 
 Patch release for the Intent-Fidelity pipeline
 (`_BUILD/ract_v0.4.1_intent_fidelity/`, patch-versioned per semver since
@@ -2166,48 +2127,48 @@ commits for drift the audits found. Tag is `v0.4.1`.
 - **Restoration clusters 1 + 2 era (module_07).** Eleven intent statements:
   10 PERSISTS, 1 PARTIAL note-only (primitive lands with 4 green tests but
   zero consumers; a genuine None-vs-unpassed ambiguity is required at a
-  callsite before adoption is warranted). Zero fix commits â€” all persistence
+  callsite before adoption is warranted). Zero fix commits - all persistence
   paths are behavior-gated and hold.
 
 ### Fixed (intent-fidelity)
 
 Ten fix commits landed in this pipeline under `intent-fidelity(v0.5): fix`:
 
-- `755578f` intent-fidelity(v0.5): fix â€” merge-gate `_score` reads current
+- `755578f` intent-fidelity(v0.5): fix - merge-gate `_score` reads current
   value not delta (module_01).
-- `f4598ed` intent-fidelity(v0.5): fix â€” restore `ract manifest` alias for
+- `f4598ed` intent-fidelity(v0.5): fix - restore `ract manifest` alias for
   `repro-manifest` (module_01).
 - `ceeef12` intent-fidelity(v0.5): source-tree golden hash re-lock after
   fix commits (module_01).
-- `84ece29` intent-fidelity(v0.5): fix â€” `ai-sbom` accepts current-shape
+- `84ece29` intent-fidelity(v0.5): fix - `ai-sbom` accepts current-shape
   `Receipt` (module_03, closing module_02 punt gap).
-- `fdd7474` intent-fidelity(v0.5): fix â€” `PROVENANCE.md` names v0.4
+- `fdd7474` intent-fidelity(v0.5): fix - `PROVENANCE.md` names v0.4
   extended attestations (module_03).
 - `9e56078` intent-fidelity(v0.5): source-tree golden hash re-lock after
   module_03 fix commits.
-- `881c5ee` intent-fidelity(v0.5): fix â€” `provenance verify` names unset
+- `881c5ee` intent-fidelity(v0.5): fix - `provenance verify` names unset
   v2/v3 extended fields (module_04, closing module_03 gap 2).
 - `b6cc908` intent-fidelity(v0.5): source-tree golden hash re-lock after
   module_04 fix.
-- `bfecde4` intent-fidelity(v0.5): fix â€” AL-1 property test enumerates all
+- `bfecde4` intent-fidelity(v0.5): fix - AL-1 property test enumerates all
   three sub-clauses independently (module_05).
-- `9e6d0f9` intent-fidelity(v0.5): fix â€” generalize residual dispatcher-name
+- `9e6d0f9` intent-fidelity(v0.5): fix - generalize residual dispatcher-name
   filename references plus pin wordlist regression gate (module_06).
 
 Plus, at module_08 release close:
 
-- `intent-fidelity(v0.5): fix` â€” carried-forward gaps + pre-existing test
+- `intent-fidelity(v0.5): fix` - carried-forward gaps + pre-existing test
   failures (QUICKSTART template scrub, `plan analyze` vs. spec `plan risk`
   naming drift, CHANGELOG retag-addendum cite refresh, four pre-existing
   test failures triaged: two G7/G8 date-drift fixtures refreshed, one
   dead-code allowlist entry for `sentinels.py`, one README `evals/README.md`
   reference).
-- `release(v0.5.0)` â€” initial release-close commit: VERSION triple bump,
+- `release(v0.5.0)` - initial release-close commit: VERSION triple bump,
   release-surface test refresh, initial `[0.5.0]` CHANGELOG entry, README
   refresh, ROADMAP compiled from every era. Version was corrected to
   `0.4.1` by the pivot commit below per semver (drift-audit plus fix
   commits, no new features and no breaking changes â†’ patch, not minor).
-- `release(v0.4.1)` â€” semver pivot: VERSION triple `0.5.0` â†’ `0.4.1`,
+- `release(v0.4.1)` - semver pivot: VERSION triple `0.5.0` â†’ `0.4.1`,
   CHANGELOG heading `[0.5.0]` â†’ `[0.4.1]`, ROADMAP labels
   `v0.6 hardening` â†’ `v0.5 hardening`, tag `v0.5.0` retagged as
   `v0.4.1` on the pivot commit.
@@ -2248,7 +2209,7 @@ Plus, at module_08 release close:
 - **11 Flagged gaps carried forward from intent-fidelity modules 01-07.**
   See `docs/ROADMAP.md` v0.5 hardening sections.
 
-## [0.4.0] - 2026-07-26 â€” Substrate + Anti-Lazy (v0.4.0-rc1)
+## [0.4.0] - 2026-07-26 - Substrate + Anti-Lazy (v0.4.0-rc1)
 
 Combined release close for the SUBSTRATE pipeline (`_BUILD/ract_v0.4.0_substrate/`)
 and the Anti-Lazy Module (ALM) pipeline (`_BUILD/ract_v0.4.0_antilazy/`). Tag is
@@ -2344,11 +2305,11 @@ option added by either pipeline appears in the bullets below.
   helpers. `evals/antilazy/G3-G4/` fixtures (null_patch, solution_leakage,
   coverage_stagnation).
 - **Test integrity (G5) + Symbol-graph under-edit (G6) (module_03, ADR-0021).**
-  `src/ract/antilazy/testintegrity.py` â€” AST diff analyzer denying
+  `src/ract/antilazy/testintegrity.py` - AST diff analyzer denying
   `pytest.skip`, `xfail`, `mark.skip*`, `mark.xfail`, assertion-removal,
   `assert True`, denied-file-edit, monkey-patch, and metaprogramming-escape
   shapes (including `importlib.import_module` and
-  `type().__getattribute__`). `symgraph.py` â€” stdlib-ast symbol graph
+  `type().__getattribute__`). `symgraph.py` - stdlib-ast symbol graph
   with SQLite snapshot-digest cache; `symgraph.db` + `.gitattributes`
   linguist-generated exclusion; `UnderEditReport`. Capability manifest
   extended with a `test_integrity` section (ALM Â§3.5 defaults;
@@ -2360,7 +2321,7 @@ option added by either pipeline appears in the bullets below.
   ADR-0022).** `src/ract/antilazy/companion.py` (`CompanionConfig` +
   `CompanionRedTeamReport` + `run_companion` + `enforce_different_provider`
   + `CompanionProviderCollisionError`). `effort.py` (`EffortEstimate` +
-  `EffortActual` + `EffortReconciliation` â€” deterministic static
+  `EffortActual` + `EffortReconciliation` - deterministic static
   heuristic with keyword-packing defense + small-fix suppressor +
   greenfield fallback). `completion_gate.py` (`CompanionBundle` +
   `CompletionGateOutcome` + `run_completion_gates`). `LoopController`
@@ -2370,7 +2331,7 @@ option added by either pipeline appears in the bullets below.
   threshold (default 0.7). `evals/conformance/COMPANION_MATRIX.md` +
   `evals/leaderboard/update_companion_matrix.py` (idempotent regenerator).
 - **Sycophancy circuit + Investigator + three-signature Rootknot +
-  Invariant AL-1 (module_05, ADR-0023) â€” SACRED-SPINE CHANGE.** Rootknot
+  Invariant AL-1 (module_05, ADR-0023) - SACRED-SPINE CHANGE.** Rootknot
   schema bumped to `sidecar/v3` adding `antilazy_signature`,
   `gate_results` (tuple of eight `GateResult`), and `reversal_taint`
   (`"clean" | "partial"`). `AlmVerifierKey` in
@@ -2429,14 +2390,14 @@ option added by either pipeline appears in the bullets below.
   `src/ract/_about.py`, read only by `ract --about`. Audit grep gate
   enforced by `tests/test_root_author_display_only.py`.
 - **`evals/LEADERBOARD.md` FakeProvider display marker** (ALM module_07)
-  â€” `` `fake` `` renders as `` `fake` (synthetic, mechanism-check only) ``
+  - `` `fake` `` renders as `` `fake` (synthetic, mechanism-check only) ``
   in the provider column.
 
 ### Deprecated
 
-- **`Rootknot.signature` property alias** â€” emits `DeprecationWarning`;
+- **`Rootknot.signature` property alias** - emits `DeprecationWarning`;
   removed in v0.5. Consumers migrate to `Rootknot.generator_signature`.
-- **`sidecar/v1` and `sidecar/v2`** â€” continue to verify at the non-strict
+- **`sidecar/v1` and `sidecar/v2`** - continue to verify at the non-strict
   floor but skip RK-3 (v1) and AL-1 (v1 + v2) with
   `DeprecationWarning`. `strict=True` refuses them. Re-sign under
   v0.4-ALM to lift the bar.
@@ -2452,13 +2413,13 @@ option added by either pipeline appears in the bullets below.
 - **`v0.4.0-rc1` naming convention.** Substrate pipeline's plan referred
   to a `v0.4.0` tag, but substrate module_08 deferred the entire release
   surface (CHANGELOG, README, VERSION, ROADMAP, tag) to this pipeline.
-  ALM's module_08 lands the FIRST v0.4-family tag as `v0.4.0-rc1` â€” the
+  ALM's module_08 lands the FIRST v0.4-family tag as `v0.4.0-rc1` - the
   `rc1` suffix reflects that ALM code is new and the combined shape
   warrants a candidate cycle before `v0.4.0`. VERSION carries the
   human-friendly `v0.4.0-rc1`; `pyproject.toml` and `__init__.py` carry
   the PEP 440 canonical `0.4.0rc1`; `ract --version` prints `RACT
   0.4.0rc1` (PEP 440 normalises `0.4.0-rc1` and `0.4.0rc1` to the same
-  version identity â€” see `tests/test_release_surface.py`
+  version identity - see `tests/test_release_surface.py`
   `test_version_matches_across_files` and
   `test_ract_version_cli_reports_aligned_identity`). The tag itself
   uses the `v0.4.0-rc1` git convention.
@@ -2491,9 +2452,9 @@ option added by either pipeline appears in the bullets below.
   audit sweeps have force-moved the tag since:
   1. **2026-07-27 retroactive endpoints audit** landed two initial
      release-surface fix commits, moving the tag to `8b0a6c5`:
-     - `0c853a9` audit(v0.4.0-rc1): fix â€” remove operator-project name
+     - `0c853a9` audit(v0.4.0-rc1): fix - remove operator-project name
        from shipped docs.
-     - `8b0a6c5` audit(v0.4.0-rc1): fix â€” substrate adapter rebinds
+     - `8b0a6c5` audit(v0.4.0-rc1): fix - substrate adapter rebinds
        every captured helper (enumerated `_HELPER_ATTRS` set plus
        regression test).
   2. **2026-07-27 through 2026-08-17 content-hygiene + functionality
@@ -2517,17 +2478,17 @@ option added by either pipeline appears in the bullets below.
 - Full v0.5 backlog compiled from every module's Flagged gaps and every
   Second Pass deferral: see `docs/ROADMAP.md`.
 
-## [0.3.0] - 2026-07-25 â€” Auditability and Depth
+## [0.3.0] - 2026-07-25 - Auditability and Depth
 
 ### Added
 
-- **Public provenance statement** â€” `docs/PROVENANCE.md` is the single public document describing what a Rootknot attests, how RACT stays independent of private systems, how to verify a Rootknot, and what happens on violation (T3 `PROVENANCE_FAILURE`).
-- **Independence lint** â€” `tests/test_public_provenance.py` AST-scans `src/ract/` and fails the build if any module imports from a root not in the curated allowlist. Adding a third-party dependency is now a conscious, reviewed act.
-- **Failure-mode architecture** â€” `docs/ARCHITECTURE.md` gained a "Failure modes and concurrency" section; every named failure maps to a real `TerminationCause` or the `authorize_action` gate.
-- **Two new ADRs** â€” [ADR-0008](docs/ADRs/ADR-0008-ract-yaml-versioning.md) (`ract.yaml` schema versioning) and [ADR-0009](docs/ADRs/ADR-0009-mcp-tool-execution-boundaries.md) (MCP/tool-execution boundaries), each with rejected alternatives. The repo now carries 9 ADRs.
-- **Benchmark harness** â€” `evals/benchmarks/refactor-token-usage/` compares the milestone-driven loop against a naive fixed-iteration baseline on tokens-to-pass, with a committed `report.md` and a CI `benchmark` job. The contender is strictly better (80% fewer tokens on the refactor task).
-- **Rootknot ergonomics** â€” `SessionKey.rotate()` archives the old key (pre-rotation rootknots still verify); `ract provenance verify <path>` CLI verb prints `valid`/`invalid`; the executor optionally signs and indexes every artifact write (SQLite + sidecar) when configured.
-- **Repo hygiene** â€” `tests/fixtures/` convention with a hygiene lint test (no tracked root JSON, runtime dirs gitignored); CONTRIBUTING documents branch-protection requirements and repository conventions.
+- **Public provenance statement** - `docs/PROVENANCE.md` is the single public document describing what a Rootknot attests, how RACT stays independent of private systems, how to verify a Rootknot, and what happens on violation (T3 `PROVENANCE_FAILURE`).
+- **Independence lint** - `tests/test_public_provenance.py` AST-scans `src/ract/` and fails the build if any module imports from a root not in the curated allowlist. Adding a third-party dependency is now a conscious, reviewed act.
+- **Failure-mode architecture** - `docs/ARCHITECTURE.md` gained a "Failure modes and concurrency" section; every named failure maps to a real `TerminationCause` or the `authorize_action` gate.
+- **Two new ADRs** - [ADR-0008](docs/ADRs/ADR-0008-ract-yaml-versioning.md) (`ract.yaml` schema versioning) and [ADR-0009](docs/ADRs/ADR-0009-mcp-tool-execution-boundaries.md) (MCP/tool-execution boundaries), each with rejected alternatives. The repo now carries 9 ADRs.
+- **Benchmark harness** - `evals/benchmarks/refactor-token-usage/` compares the milestone-driven loop against a naive fixed-iteration baseline on tokens-to-pass, with a committed `report.md` and a CI `benchmark` job. The contender is strictly better (80% fewer tokens on the refactor task).
+- **Rootknot ergonomics** - `SessionKey.rotate()` archives the old key (pre-rotation rootknots still verify); `ract provenance verify <path>` CLI verb prints `valid`/`invalid`; the executor optionally signs and indexes every artifact write (SQLite + sidecar) when configured.
+- **Repo hygiene** - `tests/fixtures/` convention with a hygiene lint test (no tracked root JSON, runtime dirs gitignored); CONTRIBUTING documents branch-protection requirements and repository conventions.
 
 ### Changed
 
@@ -2536,7 +2497,7 @@ option added by either pipeline appears in the bullets below.
 
 ### Removed
 
-- The `_ROOT_KNOT = object()` sentinel deprecation note is retired â€” the sentinel is fully gone from `src/` and `tests/` (verified by grep).
+- The `_ROOT_KNOT = object()` sentinel deprecation note is retired - the sentinel is fully gone from `src/` and `tests/` (verified by grep).
 
 ### Known limitations (carried to the hardening backlog)
 
@@ -2545,19 +2506,19 @@ option added by either pipeline appears in the bullets below.
 - `ract provenance verify` resolves the generator public key from the local key store (the sidecar stores the key *id*, not the raw pubkey); embedding the raw pubkey in the sidecar is queued.
 - Branch protection is documented; applying the GitHub settings is an operator action.
 
-## [0.2.0] - 2026-07-23 â€” Provenance and Invariants
+## [0.2.0] - 2026-07-23 - Provenance and Invariants
 
 ### Added
 
-- **Signed Rootknot provenance** â€” every artifact carries an ed25519-signed `Rootknot` binding it to its plan step, assumption, generator, and parent artifacts. See [ADR-0001](docs/ADRs/ADR-0001-provenance-anchored-artifacts.md).
-- **Provenance workspace verifier** â€” `verify_workspace` checks invariants RK-1 and RK-2 before every recursion step. See `src/ract/core/provenance.py`.
-- **Assumption registry** â€” four-state lifecycle (`proposed`, `active`, `discharged`, `violated`) with transitive violation propagation. See [ADR-0002](docs/ADRs/ADR-0002-assumption-registry.md).
-- **Formal loop termination** â€” recursion halts on T1â€“T7 with a distinct `TerminationCause`. See [ADR-0003](docs/ADRs/ADR-0003-milestone-driven-recursion.md).
-- **Threat model** â€” capability tiers T0â€“T3, sandbox gating, and a published refuse-list. See [ADR-0004](docs/ADRs/ADR-0004-tool-execution-threat-model.md) and [ADR-0007](docs/ADRs/ADR-0007-what-ract-refuses.md).
-- **Capability-based provider routing** â€” router selects providers by capability hint and health. See [ADR-0005](docs/ADRs/ADR-0005-provider-capability-routing.md).
-- **Deferred-approval handshakes** â€” high-risk actions queue for async operator review. See [ADR-0006](docs/ADRs/ADR-0006-deferred-approval-handshakes.md).
-- **Versioned plan schema** â€” `src/ract/core/schemas/plan-v1.json` with migration support.
-- **Eval harness** â€” three reproducible tasks under `evals/tasks/` with committed run reports in `evals/runs/`.
+- **Signed Rootknot provenance** - every artifact carries an ed25519-signed `Rootknot` binding it to its plan step, assumption, generator, and parent artifacts. See [ADR-0001](docs/ADRs/ADR-0001-provenance-anchored-artifacts.md).
+- **Provenance workspace verifier** - `verify_workspace` checks invariants RK-1 and RK-2 before every recursion step. See `src/ract/core/provenance.py`.
+- **Assumption registry** - four-state lifecycle (`proposed`, `active`, `discharged`, `violated`) with transitive violation propagation. See [ADR-0002](docs/ADRs/ADR-0002-assumption-registry.md).
+- **Formal loop termination** - recursion halts on T1-T7 with a distinct `TerminationCause`. See [ADR-0003](docs/ADRs/ADR-0003-milestone-driven-recursion.md).
+- **Threat model** - capability tiers T0-T3, sandbox gating, and a published refuse-list. See [ADR-0004](docs/ADRs/ADR-0004-tool-execution-threat-model.md) and [ADR-0007](docs/ADRs/ADR-0007-what-ract-refuses.md).
+- **Capability-based provider routing** - router selects providers by capability hint and health. See [ADR-0005](docs/ADRs/ADR-0005-provider-capability-routing.md).
+- **Deferred-approval handshakes** - high-risk actions queue for async operator review. See [ADR-0006](docs/ADRs/ADR-0006-deferred-approval-handshakes.md).
+- **Versioned plan schema** - `src/ract/core/schemas/plan-v1.json` with migration support.
+- **Eval harness** - three reproducible tasks under `evals/tasks/` with committed run reports in `evals/runs/`.
 
 ### Changed
 

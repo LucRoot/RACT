@@ -142,7 +142,7 @@ Or from source:
 git clone https://github.com/LucRoot/RACT.git RACT
 cd RACT
 ./scripts/install.sh --local --venv
-source .venv/bin/activate
+source .venv/bin/activate      # Linux and macOS; on Windows: .venv\Scriptsctivate
 ```
 
 See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
