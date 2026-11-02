@@ -293,6 +293,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The three memory writers that resolved their state path without the
+  B-213 guard now call `check_state_path` like every other `.ract`
+  writer (audit round 2): `failure_records.write` and
+  `failure_records.append_applied_narrowing` check the resolved path
+  before the JSONL append, and `repo_fingerprint.write` and the probe
+  scheduler's capability-record write check it before the mkstemp +
+  replace, so a repository-shipped link at `.ract` (or a folder under
+  it) no longer redirects the failure-records append into an arbitrary
+  file or moves the fingerprint and capability records outside the
+  project.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written

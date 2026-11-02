@@ -42,7 +42,10 @@ from typing import Any, Literal
 # :data:`ract.workspace_state.WORKSPACE_STATE_DIR_NAME` so a future
 # rename lands one place. Pre-module_10 records under ``.rack/failures``
 # are migrated in place by :func:`ract.workspace_state.migrate_rack_to_ract`.
-from ract.workspace_state import WORKSPACE_STATE_DIR_NAME as _RACT_DIR
+from ract.workspace_state import (
+    WORKSPACE_STATE_DIR_NAME as _RACT_DIR,
+    check_state_path,
+)
 
 FAILURE_RECORDS_PATH: Path = Path(_RACT_DIR) / "failures" / "records.jsonl"
 """Relative location of the shipped failure records file."""
@@ -242,6 +245,7 @@ def write(record: FailureRecord, root: Path) -> Path:
     created on demand. Each call appends ONE line (JSONL invariant).
     """
     target = root / FAILURE_RECORDS_PATH
+    check_state_path(target)  # B-213: never through a link
     target.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(asdict(record), sort_keys=True) + "\n"
     with open(target, "a", encoding="utf-8") as handle:
@@ -543,6 +547,7 @@ def append_applied_narrowing(
     if live_current_value is not None:
         validate_proposal_against_live_value(proposal, live_current_value)
     target = root / APPLIED_NARROWINGS_PATH
+    check_state_path(target)  # B-213: never through a link
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "function": proposal.function,
@@ -567,6 +572,7 @@ def rewrite_records_atomic(records: list[FailureRecord], root: Path) -> Path:
     (Second Pass Q4).
     """
     target = root / FAILURE_RECORDS_PATH
+    check_state_path(target)  # B-213: never through a link
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(
         prefix="records-",

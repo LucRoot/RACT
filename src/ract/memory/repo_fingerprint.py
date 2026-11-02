@@ -37,9 +37,11 @@ from ract.git_run import run_git
 from ract.canonical import dumps_jcs
 from ract.core.module_identity import _module_knot, register_module_knot
 
-
 # v0.5.1 wiring module_10 (Lens A C2): workspace state unified on ``.ract/``.
-from ract.workspace_state import WORKSPACE_STATE_DIR_NAME as _RACT_DIR
+from ract.workspace_state import (
+    WORKSPACE_STATE_DIR_NAME as _RACT_DIR,
+    check_state_path,
+)
 
 FINGERPRINT_RECORD_PATH: Path = Path(_RACT_DIR) / "fingerprint" / "repo.json"
 """Relative location of the shipped fingerprint record."""
@@ -325,6 +327,7 @@ def write(fingerprint: RepoFingerprint, root: Path) -> Path:
     fsync + ``os.replace`` (Second Pass Q4).
     """
     target = root / FINGERPRINT_RECORD_PATH
+    check_state_path(target)  # B-213: never through a link
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = asdict(fingerprint)
     # v0.5.1 module_09 (Lens F H3 closure): migrated from
