@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Draft release notes for 0.6.0 in `docs/release/RELEASE_NOTES_0.6.0.md`
+  (B-151): what 0.6.0 is, the Unreleased changes grouped, the experimental
+  label for the sandbox, git and network slices, and the S1 to S7 success
+  conditions as the readiness table states them.
 - `ract verify` checks a commit range and/or a run offline (B-039, ADR-0050
   as amended by D-174): every changed line attributed to a signed step, each
   Rootknot verified, and the run's trace chain when the run has one; a run
