@@ -116,9 +116,11 @@ def test_source_writes_escapes_only_from_the_renderer_and_the_console() -> None:
     for path in (ROOT / "src" / "ract").rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         if '"\\033[' in text or '"\\x1b[' in text:
-            # B-179: the named colour styles are the one place outside the
-            # renderer and the console that may hold escape codes; they are stripped
-            # whole when colour is off (colour_on) and never carry meaning alone.
-            if path.name not in {"session_render.py", "tui.py", "colour.py"}:
+            # B-179: the named colour styles were the one place outside the
+            # renderer and the console that held escape codes; they were stripped
+            # whole when colour is off (colour_on) and never carried meaning alone.
+            # The styles module (ui/colour.py) was deleted with the B-8dc dead-code
+            # cleanup; the exemption stays for the two remaining writers.
+            if path.name not in {"session_render.py", "tui.py"}:
                 offenders.append(path.name)
     assert offenders == []

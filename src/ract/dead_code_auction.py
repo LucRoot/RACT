@@ -58,7 +58,6 @@ class DeadCodeAuction:
         "assumption_register.py",
         "coverage_badge.py",
         "cli_tool_creator.py",
-        "config.py",
         "skills.py",
     }
     IGNORE_DIRS = {
