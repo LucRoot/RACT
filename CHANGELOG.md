@@ -293,6 +293,87 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `/todo` and `/spec` no longer end the interactive session (audit round 2,
+  P1): both commands are informational like `/diff` and `/review`, and their
+  handlers now return True so the session continues after showing the list or
+  finishing the walk.
+- The REPL history takes the state-path guard (audit round 2, P2):
+  `.ract/repl_history` is checked with `check_state_path` before the session
+  loads or appends it, so a cloned repository shipping `.ract` as a link no
+  longer receives the operator's typed commands or plants fake history;
+  history degrades to disabled with a one-line stderr note, never a crash or
+  a write through the link.
+- Skipping a plan step says what it drops (audit round 2, P2): `skip <n>`
+  also drops every later step that depends on the skipped step's file, the
+  `[s]kip <n>` question now warns that those dependents are dropped too, and a
+  dropped dependent is reported as "skipped: depends on step N" instead of
+  "skipped by you" (the step the operator named still reports "skipped by
+  you", as do the steps skipped by a resumed run, which remembers numbers
+  only).
+- The step-tools path resolves its target (audit round 2, P2):
+  `_work_with_step_tools` sends `expected_artifact` through
+  `resolve_workspace_path` before it reads, restores or unlinks the file, so
+  a `..` segment or an absolute path ends the step as the normal step failure
+  instead of reaching outside the step worktree ungated.
+- `ract --rollback --session <id>` no longer gives a repo-supplied snapshot write access to
+  config-bearing names (B-8roll, audit round 2 P1): a snapshot file under `.ract/snapshots/`
+  whose session id is not known to the operator-side session store (`.ract/sessions/<id>.json`)
+  is treated as shipped by the cloned repository, and its entries for `ract.yaml`, secret-shaped
+  names (`.env`, `*.key`, `*.pem` ...) and `.github/workflows/*` are refused and named while the
+  remaining entries still restore; a snapshot the store endorses (RACT's own) restores everything
+  as before.
+- Session events and session files stay standard JSON (B-8s, audit round 2 P2):
+  a non-finite float (NaN, Infinity, -Infinity) in event data becomes null at
+  emission, so `--output-format stream-json` keeps its one-JSON-object-per-line
+  contract for strict consumers and `SessionStore.save` writes with
+  `allow_nan=False`, so such a value can never reach `.ract/sessions/<id>.json`.
+  A plan whose model reply carries a non-finite confidence is refused at parse
+  time, like any other malformed plan.
+- The session store, its backup restore and the rollback snapshot capture write
+  through a fresh temporary file and one rename (B-8s, audit round 2 P2), the
+  `write_atomic` convention the other state files already use: a crash or kill
+  mid-save leaves the previous session file whole, and restore keeps the backup's
+  content and metadata while replacing the live file in one step.
+- The LSP probe refuses a planted probe file (B-8lsp, audit round 2 P1): the
+  probe's fixture name is fixed, and a cloned repository can ship that name as
+  a symlink or a hard link to a file outside the workspace, so the probe now
+  fails closed and reports the language unavailable when anything already
+  exists at the probe name, instead of truncating the victim and unlinking
+  the plant; a free name keeps the old behavior.
+- The three memory writers that resolved their state path without the
+  B-213 guard now call `check_state_path` like every other `.ract`
+  writer (audit round 2): `failure_records.write` and
+  `failure_records.append_applied_narrowing` check the resolved path
+  before the JSONL append, and `repo_fingerprint.write` and the probe
+  scheduler's capability-record write check it before the mkstemp +
+  replace, so a repository-shipped link at `.ract` (or a folder under
+  it) no longer redirects the failure-records append into an arbitrary
+  file or moves the fingerprint and capability records outside the
+  project.
+- `ract trace verify <path>` no longer crashes on the second run (B-236): a
+  path-shaped run argument is a supported input shape, and once the cold pass
+  persists a sidecar the warm path falls back to cold verify when that run id
+  is not hex, exactly as an invalid sidecar head already did.
+- `ract verify`'s closing statement names where command records actually live
+  (B-236): the user state dir under `keys/<repo-digest>/commands.jsonl`, not
+  the workspace-local `.ract/commands.jsonl` that no writer has ever used.
+- The complexity router and calibrator share one tier policy (B-8c): a
+  `thresholds` dict missing any of `low`, `medium`, or `high` is rejected at
+  load with a `ValueError` naming the missing keys instead of silently falling
+  back to a literal that disagreed with the documented default, and both
+  modules classify every score through a single `tier_for_score` function.
+- The dead-code auction allowlist is honest again (B-8dc, audit round 2):
+  48 stale entries are gone from `tests/test_dead_code_auction.py` (the
+  modules now have real production inbound references the symbol graph
+  counts), the false justifying comments went with them, and the
+  `ract.config` stub (with its paired test) is deleted, as is
+  `ract.ui.colour` (B-179 never adopted it) with `tests/test_colour.py`.
+  The four `memory.languages` parser dispatchers keep their entries
+  because `parser.py` loads them by dynamic name, and `config_validation.py`
+  gains an entry pending a follow-up keep-or-remove decision now that the
+  deleted stub was its only production caller. The golden source hash is
+  re-locked.
+
 - The fetch question's choices line matches the answers it accepts: with no
   session to approve into (the one-shot CLI path) the screen offers "y allows
   it once, N refuses" and no `s`, mirroring the command screen (B-225 part 3,
