@@ -444,3 +444,53 @@ def test_the_summary_says_to_commit_each_signed_record_with_its_file() -> None:
     assert (
         "signed: commit each record with its file: src/.calc.py.rootknot.json" in text
     )
+
+
+# ------------------------------------------------------- B-8s: strict JSON
+
+
+def _strict_constant(name: str) -> None:
+    raise ValueError(f"non-finite constant {name} reached a session event line")
+
+
+def _strict_loads(line: str) -> dict:
+    return json.loads(line, parse_constant=_strict_constant)
+
+
+def test_non_finite_floats_in_event_data_become_null() -> None:
+    from ract.manager import Plan, Step
+    from ract.session_events import plan_event_data
+
+    stream = _stream()
+    events: list = []
+    stream.subscribe(events.append)
+    plan = Plan(assumption="a", confidence=float("nan"), steps=[Step("x", "", None)])
+    stream.emit("plan.proposed", plan_event_data(plan), turn=1)
+    event = events[0]
+    assert event.data["confidence"] is None
+    assert _strict_loads(event.to_json())["data"]["confidence"] is None
+
+
+def test_non_finite_floats_nested_in_event_data_become_null() -> None:
+    stream = _stream()
+    events: list = []
+    stream.subscribe(events.append)
+    stream.emit(
+        "notice",
+        {
+            "level": "info",
+            "text": "x",
+            "metrics": [float("inf"), 1.5, -float("inf")],
+        },
+    )
+    assert events[0].data["metrics"] == [None, 1.5, None]
+    _strict_loads(events[0].to_json())
+
+
+def test_finite_floats_in_event_data_pass_through() -> None:
+    stream = _stream()
+    events: list = []
+    stream.subscribe(events.append)
+    stream.emit("notice", {"level": "info", "text": "x", "ratio": 0.25})
+    assert events[0].data["ratio"] == 0.25
+    _strict_loads(events[0].to_json())

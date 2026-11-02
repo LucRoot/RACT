@@ -9,6 +9,7 @@ on the assumption that the provider returned well-formed JSON.
 """
 
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -349,6 +350,22 @@ class Manager:
             )
 
         confidence = float(parsed.get("confidence", 1.0))
+        if not math.isfinite(confidence):
+            # B-8s: json.loads and float() both accept NaN and Infinity, and
+            # a non-finite value sails through the floor check below. Such a
+            # plan would poison the event stream and the session file with
+            # literals that are not valid JSON, so it is refused here, like
+            # any other malformed plan.
+            return Rooted(
+                value=None,
+                assumption=parsed.get("assumption", ""),
+                confidence=0.0,
+                provenance=["manager.plan"],
+                error=(
+                    f"Plan confidence {parsed.get('confidence')!r} is not a "
+                    "finite number."
+                ),
+            )
         if confidence < DEFAULT_CONFIDENCE_FLOOR:
             return Rooted(
                 value=None,

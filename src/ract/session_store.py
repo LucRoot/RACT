@@ -10,12 +10,15 @@ class _SentinelType:
 _SENTINEL_DEFAULT: _SentinelType = _SentinelType()
 
 import json
+import os
 import shutil
+import tempfile
 from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+from ract.atomic_write import write_atomic
 from ract.manager import Plan, Step
 
 
@@ -111,6 +114,27 @@ class SessionCorruptedError(SessionStoreError):
     """Raised when a session file exists but cannot be parsed."""
 
 
+def _copy_atomic(source: Path, target: Path) -> None:
+    """``shutil.copy2`` content and metadata, swapped in with one rename.
+
+    B-8s: a crash mid-copy must not truncate the live session file.
+    ``write_atomic`` only carries bytes, so this repeats its contract
+    (a fresh ``mkstemp`` name beside the target, then ``os.replace``) and
+    lets ``copy2`` apply the backup's metadata to the temporary first.
+    """
+    handle, temp_name = tempfile.mkstemp(
+        prefix=f".{target.name}.", suffix=".ract-tmp", dir=target.parent
+    )
+    os.close(handle)
+    temp = Path(temp_name)
+    try:
+        shutil.copy2(source, temp)
+        os.replace(temp, target)
+    except BaseException:
+        temp.unlink(missing_ok=True)
+        raise
+
+
 class SessionStore:
     def __init__(
         self, base_dir: Path | str | _SentinelType = _SENTINEL_DEFAULT
@@ -143,8 +167,12 @@ class SessionStore:
         # B-201: the intent, the plan and the artifacts are model and user
         # text; a key in them is not written to the session file.
         encoded = json.loads(json.dumps(state, cls=_RACTJSONEncoder))
-        with file_path.open("w", encoding="utf-8") as f:
-            json.dump(redact_values(encoded), f, indent=2)
+        # B-8s: allow_nan=False, so a non-finite float can never reach the
+        # session file (event data already carries null instead), and the
+        # write goes through a temporary file plus one rename, so a crash
+        # mid-save leaves the previous session whole.
+        payload = json.dumps(redact_values(encoded), indent=2, allow_nan=False)
+        write_atomic(file_path, payload.encode("utf-8"))
 
     def load(self, session_id: str) -> dict:
         file_path = self._path(session_id)
@@ -192,7 +220,7 @@ class SessionStore:
         copied: list[str] = []
         missing: list[str] = []
         if source.is_file():
-            shutil.copy2(source, target)
+            _copy_atomic(source, target)
             copied.append(source.name)
         else:
             missing.append(source.name)

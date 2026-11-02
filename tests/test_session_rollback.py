@@ -58,3 +58,24 @@ def test_list_snapshots(tmp_path: Path) -> None:
 
 
 # RACT 0.1.1 - Trust and tooling
+
+
+def test_capture_failure_mid_write_leaves_no_snapshot(
+    tmp_path: Path, monkeypatch
+) -> None:
+    rollback = SessionRollback(tmp_path)
+    file_path = tmp_path / "src" / "foo.py"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text("original", encoding="utf-8")
+
+    def boom(path, data):
+        raise OSError("simulated crash between write and rename")
+
+    monkeypatch.setattr("ract.session_rollback.write_atomic", boom, raising=False)
+    try:
+        rollback.capture("s1", [file_path])
+        assert False, "Expected the simulated crash to propagate"
+    except OSError:
+        pass
+    assert not rollback.snapshot_exists("s1")
+    assert list(rollback.snapshot_dir.glob("*.ract-tmp")) == []
