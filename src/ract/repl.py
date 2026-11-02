@@ -465,7 +465,7 @@ class ReplSession:
         todo = load_todo(folder)
         for line in todo_lines(todo, self._render_width()):
             print(line)
-        return False
+        return True
 
     def _cmd_spec(self, args: list[str]) -> bool:
         """``/spec``: the guided walk from an idea to an approved SPEC.md (B-178)."""
@@ -473,7 +473,7 @@ class ReplSession:
 
         project = self.state.config.resolve().parent
         spec_walk(project, ask=self._read_line, width=self._render_width())
-        return False
+        return True
 
     def _cmd_diff(self, args: list[str]) -> bool:
         """The last turn's diff, read from its saved copies (B-085)."""

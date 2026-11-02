@@ -293,6 +293,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `/todo` and `/spec` no longer end the interactive session (audit round 2,
+  P1): both commands are informational like `/diff` and `/review`, and their
+  handlers now return True so the session continues after showing the list or
+  finishing the walk.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written
