@@ -306,6 +306,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract verify`'s deleted-file branch applies the line-ending rule (audit
+  follow-up): a file deleted after a step signed it now verifies in a
+  repository that normalizes line endings (core.autocrlf), where the
+  committed blob is LF while the sidecar signed the CRLF disk bytes. The
+  knot is first checked against the bytes at the earlier commit as before;
+  when those fail, the check retries against the bytes a checkout of that
+  commit would hold under the repository's declared normalization, and the
+  report says plainly which bytes matched. No silent equivalence: a
+  repository without a declared conversion still fails the deletion.
+
 - `docs/EVENTS.md` documents every kind in the closed `EventKind` vocabulary
   (audit round 2, seam 1): eight kinds that had live producers but no schema
   entry (`investigator.report`, `plan.rewritten`, `plan.risk_assessed`,
