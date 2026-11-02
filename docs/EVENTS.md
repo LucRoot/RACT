@@ -1063,6 +1063,160 @@ non-T1 exit: `applied` when the reset ran, `refused` otherwise. Fields:
 
 <!-- schema_version: 10, v0.5.2 CI-fix closure (added 10 kinds already emitted in src/) -->
 
+## Audit round 2 documentation closure (schema_version 11, no new kind)
+
+The round-2 audit (seam 1, events and schemas) found eight kinds that were
+in the closed ``EventKind`` Literal and had live producers but no entry in
+this document, so an auditor reading the schema doc could not learn their
+payload shapes. The payloads below describe what the producers actually
+emit. No new kind is registered, so the schema version does not change; a
+test (``tests/docs/test_every_legal_kind_is_documented.py``) now fails when
+a registered kind drifts out of this document again.
+
+### `reversal.suspicious`
+
+Emitted by `ract.antilazy.sycophancy.emit_reversal_suspicious_event` after
+the reversal scanner (`scan_trace`, same module) surfaces a reversal pair
+between two primary assistant turns: the turns' classified positions differ,
+no accepted evidence landed between them, and the chain holds no
+`investigator.report` (investigator-driven position changes are legitimate
+by design, the pre-completion contract exists to change the model's mind
+with evidence).
+
+Payload:
+
+- `position_1_event_id` (string, hex), id of the earlier assistant turn.
+- `position_2_event_id` (string, hex), id of the later assistant turn.
+- `position_1_label` (string; one of `affirm` / `deny` / `reconsider` /
+  `unknown`), classified position of the first turn.
+- `position_2_label` (string, same vocabulary), classified position of the
+  second turn.
+- `intervening_evidence_events` (list of string, hex), ids of the evidence
+  events that landed between the turns (kinds `predicate.evaluated`,
+  `tool.result`, `response.received` from a companion provider, and
+  `investigator.report`). Empty when the scanner found nothing between the
+  turns.
+- `is_suspicious` (bool), the scanner verdict. `false` marks a reversal an
+  evidence event or an investigator chain absorbed.
+
+### `investigator.report`
+
+Emitted by `ract.antilazy.investigator.run_investigator` (via
+`_emit_investigator_report`) at the end of the pre-completion contract
+sweep: the investigator opened every candidate file, probed each against
+the intent, and publishes what it found before the run may complete.
+
+Payload:
+
+- `run_id` (string, hex), the run under investigation.
+- `files_read` (list of string), every file path the investigator opened,
+  including files it could not read (an unreadable file is not evidence;
+  it counts here and in `no_finding_explicit`).
+- `findings` (list of dict), one entry per probe hit:
+  - `file` (string), path of the file the finding is anchored to.
+  - `line` (int), 1-based line number of the evidence.
+  - `kind` (string; one of `missed_bug` / `missed_call_site_update` /
+    `missed_test`), the finding kind, closed at the type level.
+  - `evidence` (string), short human-readable evidence text (one or two
+    sentences) the operator reads at review time.
+- `no_finding_explicit` (list of string), paths the investigator opened
+  where the probe returned nothing, so the audit trail can distinguish
+  "checked, clean" from "not checked". The invariant:
+  `files_read` equals the union of `findings`' files and
+  `no_finding_explicit`.
+
+### `plan.rewritten`
+
+Emitted by `LoopController._maybe_emit_plan_rewritten`
+(`src/ract/loop_controller.py`, cluster 2 finding 4) when an iteration's
+plan differs from the previous iteration's plan. The diff is content-keyed
+and position-insensitive: a pure reordering of identical steps emits
+nothing. The first iteration has no prior plan, so the emit starts on the
+second.
+
+Payload: `added_step_ids` (list of string), `removed_step_ids` (list of
+string), `modified_step_ids` (list of string). The step ids are synthetic
+content keys (`<sha256-of-step-content>-<occurrence>`) because the
+manager's `Plan` type carries no persistent per-step identity: a content
+mutation surfaces as removed + added, and `modified_step_ids` stays empty
+on this producer. The three lists are pairwise disjoint and sorted
+(`PlanDiff.to_payload` in `src/ract/core/plan.py`).
+
+### `plan.risk_assessed`
+
+Emitted by `IntentCompiler.compile` (`src/ract/core/compile.py`, cluster 2
+finding 3) when the compile call supplies `plan_for_risk`: a static,
+deterministic advisory over the plan's steps, computed before anything runs
+(never a model-graded opinion).
+
+Payload:
+
+- `plan_id` (string, hex; empty when the compiler had no id), the id the
+  report was analysed under.
+- `risk_score` (float, 0.0-1.0), the sum of per-step scores divided by the
+  step count, capped at 1.0; 0.0 when nothing was flagged.
+- `high_risk_steps` (list of dict), one entry per flagged step:
+  - `step_id` (string), position-derived step id.
+  - `risk_kind` (string; one of `destructive` / `irreversible` /
+    `high_capability_tier` / `external_state`).
+  - `score` (float), the step's contribution to the total.
+  - `rationale` (string), short human-readable reason.
+- `suggestions` (list of string), operator-facing mitigations.
+
+The `ract plan analyze` CLI verb reads this event out of
+`evals/runs/<run_id>/events.jsonl` and prints the report.
+
+### `sidecar.header.legacy_fallback`
+
+Emitted by `ract.sidecar_header.read_sidecar_header` when a headerless
+(v0.5.1-and-earlier) sidecar is accepted in non-strict mode with a synthetic
+`RUN-LEGACY-{sha256(path)[:16]}` run stamp and `schema_version` 3 (the last
+pre-header schema). Strict mode raises `SidecarHeaderMissing` instead of
+emitting.
+
+Payload: `path` (string), the sidecar file; `synthetic_run_id` (string),
+the stamp the fallback bound. The reader also logs a WARN naming the path
+and telling the operator to re-write the sidecar with a v0.5.2+ writer.
+
+### `trace.torn_tail_detected`
+
+Emitted by `ract.trace.verify._emit_torn_tail_event` when
+`EventReader.iter_events` or the verify walker (`_walk_verify`) drops a
+torn-write last line: a SIGKILL between the newline write and the fsync, or
+a partial multi-byte UTF-8 sequence at file end. Middle-line corruption is
+NOT covered here; that surface raises `ChainBrokenError` as a hard failure.
+
+Payload: `path` (string), the events file; `offset` (int), byte position
+where the torn line began; `raw_repr` (string, at most 200 chars), preview
+of the partial bytes.
+
+### `trace.incremental_verify_resumed`
+
+Emitted by `ract.trace.verify._emit_incremental_resumed_event` when
+`verify_trace` takes the warm path (sidecar valid, header check passed,
+tail spot-check passed) and is about to replay only the delta past
+`last_verified_offset`. The load-bearing signal that the warm-verify fast
+path is doing work rather than silently cold-verifying.
+
+Payload: `run_id` (string, hex), `last_offset` (int),
+`file_size` (int), `new_bytes` (int; `file_size - last_offset`, floored
+at 0).
+
+### `trace.verify_completed`
+
+Emitted by `ract.trace.verify._emit_verify_completed_event` at the end of
+every verify pass, cold and warm, regardless of status. The
+`spot_check_refused` mode fires BEFORE the follow-up cold verify runs, so
+an auditor sees the refuse-then-cold sequence in the log.
+
+Payload: `run_id` (string, hex; empty when not warm-known), `mode`
+(string; one of `cold` / `warm` / `spot_check_refused`), `status` (string;
+one of `VALID` / `INVALID` / `TORN_TAIL` / `TAMPERED`),
+`events_verified` (int), `events_torn` (int), `events_tampered` (int),
+`verified_offset` (int).
+
+<!-- audit round 2 seam 1 (documented 8 kinds already in the Literal: reversal.suspicious, investigator.report, plan.rewritten, plan.risk_assessed, sidecar.header.legacy_fallback, trace.torn_tail_detected, trace.incremental_verify_resumed, trace.verify_completed) -->
+
 ## Stage to event kind
 
 Each stage of a turn emits the kinds in its row. The session kinds are the closed set in `src/ract/session_events.py` (`KINDS`), documented in `docs/EVENTS_SESSION.md`. The trace kinds are the closed `EventKind` vocabulary in this file, emitted by the run path (`ract run`, `ract trace`).

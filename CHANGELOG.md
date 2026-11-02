@@ -293,6 +293,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `docs/EVENTS.md` documents every kind in the closed `EventKind` vocabulary
+  (audit round 2, seam 1): eight kinds that had live producers but no schema
+  entry (`investigator.report`, `plan.rewritten`, `plan.risk_assessed`,
+  `reversal.suspicious`, `sidecar.header.legacy_fallback`,
+  `trace.incremental_verify_resumed`, `trace.torn_tail_detected`,
+  `trace.verify_completed`) now carry their payload schemas, and
+  `tests/docs/test_every_legal_kind_is_documented.py` fails when a registered
+  kind drifts out of the document again.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written
