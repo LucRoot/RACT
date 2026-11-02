@@ -98,7 +98,7 @@ def git_screen_lines(name: str, args: object, width: int) -> list[str] | None:
     # B-184: the command as it runs, every character kept; wrap_cells would
     # fold a run of spaces in a quoted message into one.
     command = wrap_exact(
-        "command: " + git_screens.escape_controls(shlex.join(command_for(name, args))),
+        "command: " + git_screens.visible_text(shlex.join(command_for(name, args))),
         width,
         subsequent_indent="    ",
     )
@@ -246,9 +246,6 @@ def console_tier_3_prompt(facts: dict) -> bool | str:
     that no sandbox confines it here; the model's reason is labeled as the
     model's. Only "y" or "yes" typed at the console runs it, once.
     """
-    from ract.session_events import safe_text
-    from ract.ui.command_screens import CommandRequest, approval_prompt_lines
-
     # B-225 part 3: a web_fetch approval is not a command; it renders the
     # network screen (the host, the allowlist match, the size cap, the
     # follows line) and keeps the same once/session/no answer flow.
@@ -265,7 +262,9 @@ def console_tier_3_prompt(facts: dict) -> bool | str:
             follows_external=bool(facts.get("follows_external")),
         )
         width = max(_terminal_width() - 3, 20)
-        for line in fetch_prompt_lines(fetch, width):
+        for line in fetch_prompt_lines(
+            fetch, width, session_choice=bool(facts.get("session_choice"))
+        ):
             print(line)
     else:
         return _console_command_tier_3_prompt(facts)
@@ -299,7 +298,6 @@ def _tier_3_read_answer(session: bool) -> bool | str:
 
 def _console_command_tier_3_prompt(facts: dict) -> bool | str:
     """The command screen for a tier-3 command approval (B-112, B-113)."""
-    from ract.session_events import safe_text
     from ract.ui.command_screens import CommandRequest, approval_prompt_lines
 
     request = CommandRequest(
@@ -337,9 +335,6 @@ def _console_command_tier_3_prompt(facts: dict) -> bool | str:
         print(line)
     _tier_3_answer(facts)
     return _tier_3_read_answer(session)
-    if session and response in {"s", "session"}:
-        return "session"
-    return response in {"y", "yes"}
 
 
 def console_git_init_offer(command: str, count: int, left_out: list[str]) -> bool:

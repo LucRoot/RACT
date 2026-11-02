@@ -95,6 +95,24 @@ def test_a_control_character_in_the_host_is_visible() -> None:
     assert "\x1b" not in joined and "\x07" not in joined
 
 
+def _req() -> FetchRequest:
+    return FetchRequest(
+        url="https://docs.example.org/api",
+        host="docs.example.org",
+        allowlist_match="*.example.org",
+        size_cap_kib=512,
+    )
+
+
+def test_the_choices_line_offers_session_only_when_a_session_answer_exists() -> None:
+    with_session = _flat(fetch_prompt_lines(_req(), 80, session_choice=True))
+    assert "s for this session (this URL only)" in with_session
+    no_session = _flat(fetch_prompt_lines(_req(), 80, session_choice=False))
+    assert "s for this session" not in no_session
+    assert "y allows it once" in no_session
+    assert "N refuses" in no_session
+
+
 def test_a_fetch_that_follows_fetched_text_says_so() -> None:
     request = FetchRequest(
         url="https://x.test/", host="x.test", allowlist_match="x.test", size_cap_kib=64,

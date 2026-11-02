@@ -262,17 +262,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- The dead-code auction allowlist is honest again (B-8dc, audit round 2):
-  48 stale entries are gone from `tests/test_dead_code_auction.py` (the
-  modules now have real production inbound references the symbol graph
-  counts), the false justifying comments went with them, and the
-  `ract.config` stub (with its paired test) is deleted, as is
-  `ract.ui.colour` (B-179 never adopted it) with `tests/test_colour.py`.
-  The four `memory.languages` parser dispatchers keep their entries
-  because `parser.py` loads them by dynamic name, and `config_validation.py`
-  gains an entry pending a follow-up keep-or-remove decision now that the
-  deleted stub was its only production caller. The golden source hash is
-  re-locked.
 - A signed file's record sits beside it (`src/.calc.py.rootknot.json`), and the turn
   summary names it: commit it with its file to keep the record (D-143). `turn.finished`
   and the headless result carry `provenance.sidecars`; `/undo` takes it back with its file.
@@ -304,11 +293,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- The complexity router and calibrator share one tier policy (B-8c): a
-  `thresholds` dict missing any of `low`, `medium`, or `high` is rejected at
-  load with a `ValueError` naming the missing keys instead of silently falling
-  back to a literal that disagreed with the documented default, and both
-  modules classify every score through a single `tier_for_score` function.
+- The fetch question's choices line matches the answers it accepts: with no
+  session to approve into (the one-shot CLI path) the screen offers "y allows
+  it once, N refuses" and no `s`, mirroring the command screen (B-225 part 3,
+  audit round 2).
+- The batch-7 screens (git, network, sandbox posture) render with the canonical
+  `visible_text` escaper instead of a drifted local copy: U+061C and the other
+  direction marks now show as escapes there too, and a carriage return reads
+  as `\r`, as on every other screen (audit round 2).
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written
