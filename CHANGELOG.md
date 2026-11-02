@@ -262,6 +262,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The dead-code auction allowlist is honest again (B-8dc, audit round 2):
+  48 stale entries are gone from `tests/test_dead_code_auction.py` (the
+  modules now have real production inbound references the symbol graph
+  counts), the false justifying comments went with them, and the
+  `ract.config` stub (with its paired test) is deleted, as is
+  `ract.ui.colour` (B-179 never adopted it) with `tests/test_colour.py`.
+  The four `memory.languages` parser dispatchers keep their entries
+  because `parser.py` loads them by dynamic name, and `config_validation.py`
+  gains an entry pending a follow-up keep-or-remove decision now that the
+  deleted stub was its only production caller. The golden source hash is
+  re-locked.
 - A signed file's record sits beside it (`src/.calc.py.rootknot.json`), and the turn
   summary names it: commit it with its file to keep the record (D-143). `turn.finished`
   and the headless result carry `provenance.sidecars`; `/undo` takes it back with its file.

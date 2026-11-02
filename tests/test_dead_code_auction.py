@@ -139,61 +139,18 @@ def test_ract_auction_reports_zero_dead_modules():
     project_root = Path(__file__).parent.parent / "src" / "ract"
     allowlist = set(DeadCodeAuction.DEFAULT_ALLOWLIST)
     allowlist.add("runner.py")
-    # v0.4 (module_02): the substrate step-loop lives at
-    # ``src/ract/executor/loop.py``. It is imported explicitly by
-    # ``tests/property/test_transaction_atomicity.py`` and by
-    # ``src/ract/cli.py`` (session ls / diff) but NOT re-exported from
-    # ``ract/executor/__init__.py`` because doing so would trigger a
-    # circular import (executor → core.loop → loop_planner → harness →
-    # executor). The auction sees no inbound production reference;
-    # allowlist here mirrors the pattern used for other transitional
-    # substrate modules until module_03+ wires the substrate into the
-    # live loop.
-    allowlist.add("loop.py")
-    # v0.4 (module_03): the platform-specific sandbox backends
-    # (sandbox_linux, sandbox_macos) are lazily imported by
-    # ``ract.security.sandbox.resolve_backend`` at runtime — the local
-    # import keeps a missing macOS-only or Linux-only import from
-    # crashing the wrong platform at package init time. The auction
-    # cannot see through the lazy import, so both are allowlisted here
-    # (same pattern as ``loop.py`` above).
-    allowlist.add("sandbox_linux.py")
     # S6-0 (sprint 6 landing gate): cli_examples.py is imported locally inside cli.py's help functions,
     # which the auction does not follow. (queue_view.py and plan_approval_view.py had entries too; on the
     # merged tree the REPL and plan_gate import them, so the entries are gone, as ruling 19 says.)
     allowlist.add("cli_examples.py")
-    # B-010a, B-011a: tools/read.py holds the four read-only tools. The answer
-    # loop (tools/loop.py) runs them through ract.tools.REGISTRY, which the
-    # package fills from read.READ_TOOLS; the symbol graph does not follow a
-    # package-level registration, so the module looks unreferenced.
-    allowlist.add("read.py")
-    # B-112: tools/tests_tool.py holds run_tests, registered the same way (the
-    # package fills REGISTRY with RUN_TESTS), so it looks unreferenced too.
     # B-177 wiring: tools/todo_tool.py is registered through tools/__init__
     # and its facts are applied by the harness (executor/steps.py); the
     # symbol graph does not count package-initializer imports, so the entry
-    # stays, as for tests_tool, verifier_tools and web_tools.
+    # stays, as for web_tools below.
     allowlist.add("todo_tool.py")
-    allowlist.add("tests_tool.py")
-    # B-023, B-115, B-116: the verifier, git and web tools are registered the same
-    # way (the package fills REGISTRY with their specs), so they look unreferenced.
-    allowlist.add("verifier_tools.py")
-    allowlist.add("git_tools.py")
+    # B-023, B-115, B-116: the web tools are registered the same way (the
+    # package fills REGISTRY with their specs), so they look unreferenced.
     allowlist.add("web_tools.py")
-    # B-225: posture_screens.py is wired into ract doctor's sandbox section.
-    # B-127 (MASON, PREPARED): the network prompt screens are pure text, wired with B-116 (slice g).
-    # Remove the entry when wired. (B-225: git_screens.py is wired into the git questions.)
-    # B-177 (MASON, the first slice): the to-do list and its tool are wired by the next slice (the
-    # REPL and the harness hook); the registry must not offer the tool before its facts are applied.
-    # Remove these entries when wired; the BUILDER reviews them.
-    # B-147 (MASON, the screen half): the doctor --tier3 report is pure text; the BUILDER adopts it.
-    allowlist.add("tier3_report.py")
-    # B-178 (MASON, the first slice): the guided-spec screens are pure text; the spec command wires them
-    # in the next slice. Remove this entry when wired; the BUILDER reviews it.
-    # B-179 (MASON, the first slice): the named colour styles are pure; the screens use them in the
-    # wiring slice. Remove this entry when wired; the BUILDER reviews it.
-    allowlist.add("colour.py")
-    allowlist.add("sandbox_macos.py")
     # v0.4 (module_04): the router gate is called from the SubstrateLoop
     # provider-selection path (which module_08 will land as the shipped
     # CLI default; today it is exercised through the conformance-gate
@@ -211,41 +168,14 @@ def test_ract_auction_reports_zero_dead_modules():
     # module_08. Allowlist here mirrors the transitional-substrate
     # pattern used above until module_08 wires the run-entry install.
     allowlist.add("otel.py")
-    # v0.4 (module_06): the environment-enforced contract primitives at
-    # ``ract.contracts.{whisperer,fence,auction}`` and the sandbox key
-    # module at ``ract.security.keys`` are exported from their package
-    # __init__ files and consumed by tests today. The shipped CLI
-    # migration to the environment-enforced call sites lands in
-    # module_08 (the CLI wrappers ``ract whisper|fence|auction`` still
-    # route through the v0.3 modules). Allowlist mirrors the
-    # transitional-substrate pattern used above until module_08 wires
-    # the SubstrateLoop-as-default path.
-    allowlist.add("whisperer.py")
-    allowlist.add("fence.py")
-    # ``contracts/auction.py`` shares its filename with the executor's
-    # auction — allowlist the basename to cover the new module. (The
-    # v0.3 dead_code_auction.py already lives in the DEFAULT_ALLOWLIST.)
-    allowlist.add("auction.py")
-    # ``security/keys.py`` — SandboxKey generator; consumed by
-    # module_06 tests and by the RK-3 verify path. No shipped-CLI call
-    # site until module_08 (see module_06 Flagged gaps).
-    allowlist.add("keys.py")
-    # ALM module_01: ``antilazy/pre_commit.py`` is the G2 pre-commit
-    # gate that the loop calls before a ``StepTransaction`` commits.
-    # No shipped-CLI call site until ALM module_08 wires the pre-commit
-    # entry point (see module_01 Flagged gaps).
-    allowlist.add("pre_commit.py")
     # ALM module_05: ``antilazy/sycophancy.py`` and
     # ``antilazy/investigator.py`` land the sycophancy circuit and the
-    # Investigator pre-completion contract respectively;
-    # ``security/alm_verifier_key.py`` lands the ALM verifier signing
-    # key type. All three are consumed by
-    # ``tests/test_antilazy_al1.py`` and by the eventual LoopController
-    # wiring that module_08 lands. Allowlisted mirroring the
-    # module_06 substrate pattern.
+    # Investigator pre-completion contract respectively. Both are
+    # consumed by ``tests/test_antilazy_al1.py`` and by the eventual
+    # LoopController wiring that module_08 lands. Allowlisted mirroring
+    # the module_06 substrate pattern.
     allowlist.add("sycophancy.py")
     allowlist.add("investigator.py")
-    allowlist.add("alm_verifier_key.py")
     # v0.5 restoration cluster 2 / intent-fidelity module_07: the typed
     # ``MISSING`` sentinel primitive at ``ract.core.sentinels`` lands as
     # a production-ready design tool for new APIs where a caller
@@ -258,130 +188,51 @@ def test_ract_auction_reports_zero_dead_modules():
     # of existing callsites (module_07 Flagged gap 9, v0.5 consumer-site
     # design). Allowlist mirrors the transitional-substrate pattern.
     allowlist.add("sentinels.py")
-    # v0.5 memory-discipline module_01: the budget accountant helpers at
-    # ``ract.memory.{budget_registry,composition,events}`` land under a
-    # pre-wired public surface. All three are re-exported from
-    # ``ract.memory.__init__`` and consumed by ``tests/memory/``; the
-    # shipped-CLI call site lands in memory-discipline module_09 (the
-    # SubstrateLoop assembly-to-dispatch wiring). Allowlist mirrors the
+    # v0.5 memory-discipline module_02: the file watcher at
+    # ``ract.memory.watcher`` is consumed by ``tests/memory/``; the
+    # shipped-CLI call site lands in memory-discipline module_09
+    # (SubstrateLoop index-refresh wiring). Allowlist mirrors the
     # transitional-substrate pattern used above until module_09 lands
-    # the live wiring. (``budget.py`` is imported by all three helpers,
-    # so it is not dead.)
-    allowlist.add("budget_registry.py")
-    allowlist.add("composition.py")
-    allowlist.add("events.py")
-    # v0.5 memory-discipline module_02: the symbol-index helpers at
-    # ``ract.memory.{walker,watcher}`` and the per-language parser
-    # dispatchers at ``ract.memory.languages.{python,typescript,rust,go}``
-    # are consumed by ``ract.memory.symbol_index`` + ``ract.memory.parser``
-    # and by ``tests/memory/``; the shipped-CLI call site lands in
-    # memory-discipline module_09 (SubstrateLoop index-refresh wiring).
-    # Allowlist mirrors the transitional-substrate pattern used above
-    # until module_09 lands the live wiring.
-    allowlist.add("walker.py")
+    # the live wiring.
     allowlist.add("watcher.py")
+    # v0.5 memory-discipline module_02: the per-language parser dispatchers
+    # at ``ract.memory.languages.{python,typescript,rust,go}`` are loaded by
+    # dynamic name (``importlib.import_module`` in ``ract.memory.parser``),
+    # so the symbol graph sees no inbound edge even though parser.py calls
+    # them on every index refresh.
     for lang in ("python.py", "typescript.py", "rust.py", "go.py"):
         allowlist.add(lang)
-    # v0.5 memory-discipline module_03: graph-index helpers at
-    # ``ract.memory.{graph_index,graph_populator,lsp,lsp_fallback}``
-    # are consumed by ``tests/memory/`` and by memory-discipline
-    # module_05 (retrieve primitive) + module_09 (SubstrateLoop
-    # wiring) — the shipped-CLI call site lands in module_09.
-    # Allowlist mirrors the transitional-substrate pattern above
-    # until module_09 lands the live wiring.
-    allowlist.add("graph_index.py")
-    allowlist.add("graph_populator.py")
-    allowlist.add("lsp.py")
-    allowlist.add("lsp_fallback.py")
-    # v0.5 memory-discipline module_04 (ADR-0034): semantic-index
-    # helpers at ``ract.memory.{semantic_index,embedding,chunker,
-    # semantic_builder,cpu_fallback}`` are consumed by
-    # ``tests/memory/`` and by memory-discipline module_05
-    # (retrieve primitive) + module_09 (SubstrateLoop wiring). The
-    # shipped-CLI call site (``ract memory rebuild``) lands in
-    # module_09. Allowlist mirrors the transitional-substrate
-    # pattern above until module_09 lands the live wiring.
-    allowlist.add("semantic_index.py")
-    allowlist.add("embedding.py")
-    allowlist.add("chunker.py")
-    allowlist.add("semantic_builder.py")
-    allowlist.add("cpu_fallback.py")
-    # v0.5 memory-discipline module_05 (ADR-0035): retrieve primitive
-    # helpers at ``ract.memory.{retrieve,cache,chunk,query_trace}`` are
-    # consumed by ``tests/memory/`` and by memory-discipline module_06
-    # (four function contracts) + module_09 (SubstrateLoop wiring).
-    # The shipped-CLI call site (``ract memory retrieve``) lands in
+    # v0.5 memory-discipline module_05 (ADR-0035): the cache helper at
+    # ``ract.memory.cache`` is consumed by ``tests/memory/``; the
+    # shipped-CLI call site (``ract memory retrieve``) lands in
     # module_09. Allowlist mirrors the transitional-substrate pattern
     # above until module_09 lands the live wiring.
-    allowlist.add("retrieve.py")
     allowlist.add("cache.py")
-    allowlist.add("chunk.py")
-    allowlist.add("query_trace.py")
-    # v0.5 memory-discipline module_06 (ADR-0036): the four function
-    # contracts + shared plumbing at ``ract.memory.functions.*`` +
-    # ``ract.memory.session`` are consumed by ``tests/memory/`` and by
-    # memory-discipline module_07 (playbook composition) + module_09
-    # (SubstrateLoop wiring). The shipped-CLI call site lands in
-    # module_09. Allowlist mirrors the transitional-substrate pattern
-    # above until module_09 lands the live wiring. The prompt-loader
-    # + provider adapter + errors + mock provider are also allowlisted
-    # here (all consumed by tests today; live wiring in module_09).
-    allowlist.add("contracts.py")
-    allowlist.add("intake.py")
-    allowlist.add("plan.py")
-    allowlist.add("edit.py")
-    allowlist.add("provider_adapter.py")
-    allowlist.add("prompts_loader.py")
-    allowlist.add("mock_provider.py")
-    allowlist.add("session.py")
-    # ``research.py`` is also a memory-discipline module_06 file, but
-    # its basename collides with no other tracked module and it is
-    # imported by ``ract.memory.functions.__init__``. Allowlist it
-    # here for parity with the sibling four verbs.
-    allowlist.add("research.py")
-    # ``errors.py`` is used by ``ract.memory.functions.__init__`` but
-    # basename collides with no other tracked module.
-    allowlist.add("errors.py")
-    # v0.5 memory-discipline module_07 (ADR-0037): the playbook
-    # composition runner at ``ract.memory.composition_runner`` and
-    # the loader package at ``ract.memory.playbooks`` are consumed by
-    # ``tests/memory/`` + module_09 (SubstrateLoop wiring). The
-    # shipped-CLI call site (``ract memory run <playbook>``) lands in
+    # v0.5 memory-discipline module_06 (ADR-0036): the mock provider at
+    # ``ract.memory.functions.testing.mock_provider`` is consumed by
+    # ``tests/memory/`` only; the shipped-CLI call site lands in
     # module_09. Allowlist mirrors the transitional-substrate pattern
     # above until module_09 lands the live wiring.
-    allowlist.add("composition_runner.py")
-    # v0.5 memory-discipline module_08 (ADR-0038): self-adjustment
-    # probes at ``ract.memory.probes.{needle,coherence,adherence,
-    # scheduler}`` plus the two top-level supports
-    # ``ract.memory.failure_records`` and ``ract.memory.repo_fingerprint``
-    # are consumed by ``tests/memory/`` and by memory-discipline
-    # module_09 (SubstrateLoop probe-adjusted budget wiring +
-    # ``ract memory apply-narrowings`` verb). Allowlist mirrors the
+    allowlist.add("mock_provider.py")
+    # v0.5 memory-discipline module_08 (ADR-0038): the repo-fingerprint
+    # helper at ``ract.memory.repo_fingerprint`` is consumed by
+    # ``tests/memory/`` and by memory-discipline module_09 (SubstrateLoop
+    # probe-adjusted budget wiring). Allowlist mirrors the
     # transitional-substrate pattern above until module_09 lands the
     # live wiring.
-    allowlist.add("needle.py")
-    allowlist.add("coherence.py")
-    allowlist.add("adherence.py")
-    allowlist.add("scheduler.py")
-    allowlist.add("failure_records.py")
     allowlist.add("repo_fingerprint.py")
-    # v0.5.1 external-review response (module_05 SubstrateLoop shim
-    # closure + module_09 sycophancy v2). Both modules ship additive
-    # surfaces whose live wire lands via SubstrateLoop internals
-    # (process_group) and via ``ract.antilazy`` re-export
-    # (sycophancy_v2). Neither has an unqualified import inside src/
-    # yet -- process_group is imported lazily in the executor path,
-    # sycophancy_v2 is re-exported from ``ract.antilazy`` but the
-    # dead-code auction scans by unqualified module name. Allowlist
-    # mirrors the transitional-substrate pattern above.
-    allowlist.add("process_group.py")
-    allowlist.add("sycophancy_v2.py")
     # ADR-0049 D2 (B-172): the role loader has no caller until the role wiring cards
     # (B-173 to B-176) land; the playbooks loader (B-173) shares the unqualified name
     # (src/ract/playbooks/loader.py). ADR-0049 D9 (B-174): the offload store has no
     # caller until the tool loop reads it.
     allowlist.add("loader.py")
     allowlist.add("offload.py")
+    # B-8dc (audit round 2, seam 5): the ``ract.config`` stub was deleted as
+    # dead code; its only production caller, ``config_validation.py``, is
+    # now referenced solely by tests. Allowlist it here pending the same
+    # keep-or-remove decision a follow-up card owes the config-document
+    # surface, so the scan stays clean in the meantime.
+    allowlist.add("config_validation.py")
     items = DeadCodeAuction(
         project_root,
         config={"min_age_days": 0, "allowlist": allowlist},
