@@ -37,9 +37,10 @@ from ract.memory.events import EventSink, NullEventSink, emit_probe_evaluated
 from ract.memory.probes.adherence import AdherenceProbe, AdherenceProbeReport
 from ract.memory.probes.coherence import CoherenceProbe, CoherenceProbeReport
 from ract.memory.probes.needle import NeedleProbe, NeedleProbeReport
-
-
-from ract.workspace_state import WORKSPACE_STATE_DIR_NAME as _RACT_DIR
+from ract.workspace_state import (
+    WORKSPACE_STATE_DIR_NAME as _RACT_DIR,
+    check_state_path,
+)
 
 CAPABILITY_RECORD_PATH: Path = Path(_RACT_DIR) / "probes" / "capability.json"
 """Relative location of the shipped capability record.
@@ -192,6 +193,7 @@ def write_capability_record(
     active_sink = sink or NullEventSink()
     capability = reduce_to_capability(reports)
     target = root / CAPABILITY_RECORD_PATH
+    check_state_path(target)  # B-213: never through a link
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = _capability_to_json(capability)
     # Write via tempfile in the same directory so os.replace is
