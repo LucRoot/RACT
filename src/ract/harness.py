@@ -985,6 +985,9 @@ class Harness:
 
         # Steps the operator skipped before a resumed run (L-196 point 2); a fresh approval replaces them.
         skipped: frozenset[int] = skipped_steps
+        # The step the operator named in a fresh ``skip <n>``; a resumed run
+        # remembers numbers only, so every skipped step reports "skipped by you".
+        skipped_typed: int | None = None
         if plan_approval is not None and plan_override is None:
             outcome = plan_approval(plan)
             if outcome is not None and outcome.kind == "refused":
@@ -1006,6 +1009,9 @@ class Harness:
                 )
             if outcome is not None:
                 skipped = frozenset(step.n for step in outcome.skipped)
+                # The named step is the first of the skipped (dependents follow
+                # it in plan order); its dependents report the dependency.
+                skipped_typed = outcome.skipped[0].n if outcome.skipped else None
                 # L-196 point 1: the run takes the text the operator approved, by step number.
                 plan = _plan_with_shown_actions(plan, outcome.shown)
                 if approval_callback is not None:
@@ -1073,7 +1079,7 @@ class Harness:
                 run_via_substrate as _run_via_substrate,
             )
 
-            with plan_gate.skipping(skipped):
+            with plan_gate.skipping(skipped, typed=skipped_typed):
                 report_rooted = _run_via_substrate(
                     self,
                     intent,
@@ -1084,7 +1090,7 @@ class Harness:
                     stream_callback=stream_callback,
                 ).with_step("harness.run")
         else:
-            with plan_gate.skipping(skipped):
+            with plan_gate.skipping(skipped, typed=skipped_typed):
                 report_rooted = self.executor.execute(
                     intent,
                     plan,

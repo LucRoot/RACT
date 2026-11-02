@@ -112,6 +112,41 @@ def _linked_ract(tmp_path: Path) -> tuple[Path, Path]:
     return root, outside
 
 
+def test_repl_history_load_and_save_take_the_state_path_guard(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Audit round 2 (seam 6 P2): the REPL read and appended .ract/repl_history
+    # with no check_state_path, so a repo-shipped link got the operator's typed
+    # commands (which routinely hold keys and paths) on exit, and could plant
+    # fake history that the session loads.
+    from ract import repl
+
+    root, outside = _linked_ract(tmp_path)
+    (outside / "repl_history").write_text("planted fake history\n", encoding="utf-8")
+    monkeypatch.chdir(root)
+    session = repl.ReplSession.__new__(repl.ReplSession)
+    session._history_path = Path(".ract") / "repl_history"
+    session._save_history()
+    note = capsys.readouterr().err
+    assert "history" in note  # one-line stderr note; the feature degrades, no crash
+    assert repl._history_path_or_disabled(Path(".ract") / "repl_history") is None
+    assert (outside / "repl_history").read_text(encoding="utf-8") == (
+        "planted fake history\n"
+    )
+
+
+def test_repl_history_path_is_kept_in_a_plain_ract_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ract import repl
+
+    root = tmp_path / "project"
+    root.mkdir()
+    monkeypatch.chdir(root)
+    kept = repl._history_path_or_disabled(Path(".ract") / "repl_history")
+    assert kept == Path(".ract") / "repl_history"
+
+
 def test_the_other_state_writers_refuse_a_linked_ract(tmp_path: Path) -> None:
     # B-213 part 2: the error memory, the refactor ledger and the session
     # snapshots write directly under .ract.

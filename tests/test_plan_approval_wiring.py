@@ -137,6 +137,34 @@ def test_skip_drops_the_step_and_reports_it_skipped_by_you(
     assert answered["skipped"] == [{"n": 1, "reason": "user"}]
 
 
+THREE_STEP_SHARED_FILE = (
+    '{"assumption": "a", "confidence": 0.9, "steps": ['
+    '{"action": "Create a", "provider_hint": "local", "expected_artifact": "a.txt"},'
+    '{"action": "Create b", "provider_hint": "local", "expected_artifact": "b.txt"},'
+    '{"action": "Extend b", "provider_hint": "local", "expected_artifact": "b.txt"}]}'
+)
+
+
+def test_skip_drops_the_dependent_step_and_reports_it_as_such(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    harness = _harness(tmp_path, THREE_STEP_SHARED_FILE, "aaa")
+    result, events, _, _ = _run(harness, monkeypatch, ["skip 2"])
+
+    assert result.is_ok(), result.error
+    assert (tmp_path / "a.txt").read_text(encoding="utf-8") == "aaa"
+    assert not (tmp_path / "b.txt").exists()
+    finished = [d for k, d in events if k == "step.finished"]
+    hints = {d["n"]: d["hint"] for d in finished}
+    assert hints[2] == "skipped by you"
+    assert hints[3] == "skipped: depends on step 2"
+    answered = dict(events)["plan.approval_answered"]
+    assert answered["skipped"] == [
+        {"n": 2, "reason": "user"},
+        {"n": 3, "reason": "depends on step 2"},
+    ]
+
+
 def test_cancel_runs_nothing_and_changes_no_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

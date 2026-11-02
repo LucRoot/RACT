@@ -1849,7 +1849,31 @@ class Executor:
 
         agent = bool(getattr(step, "agent", False))
         assert self.project_dir is not None and (step.expected_artifact or agent)
-        target = None if agent else self.project_dir / step.expected_artifact
+        target: Path | None = None
+        if not agent:
+            # Audit round 2 (seam 6 P2): expected_artifact is plan-controlled,
+            # so the join is not raw. '..' reached the operator's .git/
+            # internals and an absolute segment won the join; the read, the
+            # before-bytes restore and the unlink all happened ungated (the
+            # eventual write was gated). Resolve first and end the step as a
+            # normal step failure when the path refuses, before any touch.
+            resolved = resolve_workspace_path(
+                self.project_dir, step.expected_artifact, purpose="write"
+            )
+            if resolved.value is None:
+                return Rooted(
+                    value=None,
+                    assumption=f"Step {self._shown(index)} writes "
+                    f"{step.expected_artifact}.",
+                    confidence=0.0,
+                    provenance=[f"executor.step:{index}", "step_agent"],
+                    error=(
+                        f"Step {self._shown(index)}: {resolved.error} "
+                        "Nothing was applied to your files."
+                    ),
+                    hint=resolved.hint,
+                )
+            target = resolved.value
         before = (
             target.read_bytes() if target is not None and target.is_file() else None
         )
@@ -2172,9 +2196,12 @@ class Executor:
         return index + int(getattr(self, "step_number_offset", 0))
 
     def report_skipped(self, n: int, step: Step) -> None:
-        """Report step *n* as skipped by the operator at plan approval (D12).
+        """Report step *n* as skipped at plan approval (D12).
 
-        The run checkpoint records it too, so a resumed run does not run it.
+        The hint follows the reason: the step the operator named is "skipped
+        by you"; a step dropped with it as a dependency says which step it
+        depends on. The run checkpoint records it too, so a resumed run does
+        not run it.
         """
         run_checkpoint.step_finished(n)
         turn_context.report(
@@ -2185,7 +2212,7 @@ class Executor:
                 "artifact": None,
                 "confidence": None,
                 "duration_ms": 0,
-                "hint": plan_gate.SKIPPED_BY_YOU,
+                "hint": plan_gate.skipped_hint(n),
             },
         )
 

@@ -23,25 +23,45 @@ ASK_MODES = frozenset({"default"})
 CANCELLED = "Plan cancelled: nothing was run and no file changed."
 # How a step the operator skipped is reported in its ``step.finished`` (D12).
 SKIPPED_BY_YOU = "skipped by you"
+# How a step dropped because it depends on a skipped step is reported.
+SKIPPED_DEPENDS = "skipped: depends on step {n}"
 
 _skipped: ContextVar[frozenset[int]] = ContextVar(
     "ract_plan_skipped", default=frozenset()
 )
+# The step the operator named in ``skip <n>`` (None on a resumed run, where
+# only the numbers are remembered): its dependents are reported as such.
+_skip_typed: ContextVar[int | None] = ContextVar("ract_plan_skip_typed", default=None)
 
 
 @contextmanager
-def skipping(numbers: frozenset[int]) -> Iterator[None]:
-    """The step numbers the operator skipped, for the steps of this run."""
+def skipping(numbers: frozenset[int], *, typed: int | None = None) -> Iterator[None]:
+    """The step numbers the operator skipped, for the steps of this run.
+
+    ``typed`` is the step the operator named; every other skipped step was
+    dropped with it as a dependent.
+    """
     token = _skipped.set(numbers)
+    token_typed = _skip_typed.set(typed)
     try:
         yield
     finally:
         _skipped.reset(token)
+        _skip_typed.reset(token_typed)
 
 
 def is_skipped(n: int) -> bool:
     """True when the operator skipped step *n* of the plan that is running."""
     return n in _skipped.get()
+
+
+def skipped_hint(n: int) -> str:
+    """The ``step.finished`` hint for a skipped step: what the operator typed
+    for the named step, and the dependency for the steps dropped with it."""
+    typed = _skip_typed.get()
+    if typed is not None and n != typed:
+        return SKIPPED_DEPENDS.format(n=typed)
+    return SKIPPED_BY_YOU
 
 
 def _changes_files(steps: list[Step]) -> bool:

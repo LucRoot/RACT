@@ -293,6 +293,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The REPL history takes the state-path guard (audit round 2, P2):
+  `.ract/repl_history` is checked with `check_state_path` before the session
+  loads or appends it, so a cloned repository shipping `.ract` as a link no
+  longer receives the operator's typed commands or plants fake history;
+  history degrades to disabled with a one-line stderr note, never a crash or
+  a write through the link.
+- Skipping a plan step says what it drops (audit round 2, P2): `skip <n>`
+  also drops every later step that depends on the skipped step's file, the
+  `[s]kip <n>` question now warns that those dependents are dropped too, and a
+  dropped dependent is reported as "skipped: depends on step N" instead of
+  "skipped by you" (the step the operator named still reports "skipped by
+  you", as do the steps skipped by a resumed run, which remembers numbers
+  only).
+- The step-tools path resolves its target (audit round 2, P2):
+  `_work_with_step_tools` sends `expected_artifact` through
+  `resolve_workspace_path` before it reads, restores or unlinks the file, so
+  a `..` segment or an absolute path ends the step as the normal step failure
+  instead of reaching outside the step worktree ungated.
 - `/todo` and `/spec` no longer end the interactive session (audit round 2,
   P1): both commands are informational like `/diff` and `/review`, and their
   handlers now return True so the session continues after showing the list or

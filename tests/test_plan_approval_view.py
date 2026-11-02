@@ -75,6 +75,30 @@ def test_a_bad_answer_is_an_error_and_never_an_approval(line, message):
     assert answer.error and message in answer.error
 
 
+def test_the_skip_question_warns_that_dependent_steps_are_dropped_too():
+    lines = pav.screen_lines(PLAN, 80)
+    joined = " ".join(lines)  # the question may fold onto two lines
+    assert "drops" in joined and "depend" in joined
+
+
+def test_a_dependent_drop_is_reported_as_such_not_as_skipped_by_you():
+    from ract.plan_gate import skipped_hint, skipping
+
+    with skipping(frozenset({2, 3}), typed=2):
+        assert skipped_hint(2) == "skipped by you"
+        assert skipped_hint(3) == "skipped: depends on step 2"
+
+
+def test_without_a_typed_step_every_skipped_step_stays_skipped_by_you():
+    # Resumed runs reuse the numbers only: no typed step is known, so the
+    # wording keeps the plain "skipped by you" it has always used.
+    from ract.plan_gate import skipped_hint, skipping
+
+    with skipping(frozenset({2, 3})):
+        assert skipped_hint(2) == "skipped by you"
+        assert skipped_hint(3) == "skipped by you"
+
+
 def test_skip_and_edit_change_only_the_named_step():
     skipped = pav.skip(PLAN, 2)
     assert [s.state for s in skipped] == ["pending", "skipped", "pending"]

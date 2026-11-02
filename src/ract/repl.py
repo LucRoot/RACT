@@ -40,6 +40,7 @@ from ract.session_events import safe_text
 from ract.cell_wrap import wrap_cells
 from ract.console_interrupt import read_line as console_read_line
 from ract.tui import terminal_width
+from ract.workspace_state import StateDirRefused, check_state_path
 
 # Verbs that accept ``--config`` and should follow the session's config path
 # when the operator did not pass one.
@@ -1899,6 +1900,7 @@ class ReplSession:
         except Exception as exc:  # noqa: BLE001
             print(f"[repl] Esc Esc not bound: {exc}", flush=True)
         rl.parse_and_bind("tab: complete")
+        self._history_path = _history_path_or_disabled(self._history_path)
         if self._history_path is not None:
             try:
                 self._history_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1908,14 +1910,15 @@ class ReplSession:
             rl.set_history_length(1000)
 
     def _save_history(self) -> None:
-        if self._history_path is None:
+        history_path = _history_path_or_disabled(self._history_path)
+        if history_path is None:
             return
         try:
             import readline
 
-            self._history_path.parent.mkdir(parents=True, exist_ok=True)
+            history_path.parent.mkdir(parents=True, exist_ok=True)
             rl_save: Any = readline
-            rl_save.write_history_file(str(self._history_path))
+            rl_save.write_history_file(str(history_path))
         except (ImportError, OSError):
             pass
 
@@ -1972,6 +1975,27 @@ def _readline_start_inputrc():  # type: ignore[no-untyped-def]
             print(f"[repl] the inputrc copy stays: {exc}", flush=True)
 
     return undo
+
+
+def _history_path_or_disabled(history_path: Path | None) -> Path | None:
+    """The history path when RACT's state is no link (B-213); else None.
+
+    LR:: ``.ract`` lives in the workspace, so a cloned repository can ship
+    it, or ``repl_history`` inside it, as a link or junction. The session
+    would then load a planted fake history and, worse, append what the
+    operator types (which routinely holds keys and paths) to a file outside
+    the project on exit. Every other writer of RACT's state refuses a link
+    with ``check_state_path``; history does the same and degrades to
+    disabled with a one-line stderr note instead of touching the link.
+    """
+    if history_path is None:
+        return None
+    try:
+        check_state_path(history_path)
+    except StateDirRefused as exc:
+        print(f"[repl] history disabled: {exc}", file=sys.stderr, flush=True)
+        return None
+    return history_path
 
 
 def _flag(value: bool) -> str:

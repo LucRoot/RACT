@@ -20,7 +20,7 @@ from dataclasses import dataclass, replace
 from ract.canonical import dumps_jcs
 from ract.cell_wrap import wrap_cells
 
-QUESTION = "Run it? [a]pprove  [s]kip <n>  [e]dit <n>  [c]ancel"
+QUESTION = "Run it? [a]pprove  [s]kip <n> (also drops dependents)  [e]dit <n>  [c]ancel"
 CHOICES = "type a, s <n>, e <n> or c"
 _APPROVE = {"a", "approve", "run", "yes"}
 _CANCEL = {"c", "cancel", "stop", "no"}
