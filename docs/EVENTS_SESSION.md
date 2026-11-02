@@ -290,7 +290,7 @@ sequences, so `ract -p "..." > out.txt` gives a clean file.
 | `notices` | list of strings | The text of every `notice` event, so a log of stdout alone shows them (for example a question answered instead of written). |
 | `plan` | list of objects | The steps of the run, in order. Each object has `step` (integer, one-based), `title` (text), `state` (pending, running, done, failed, refused or skipped), `file` (text or null) and `verdict` (passed, failed, refused or skipped; null before the harness has spoken). An ask-mode run has an empty list. |
 | `events_path` | string or null | Path of the full event stream, when it was written to a file. |
-| `structured_output` | any | Present only when `--json-schema` was given and the reply validates. An invalid reply leaves the field out and the exit code is 1. |
+| `structured_output` | any | Not emitted in this release. `--json-schema` is not supported: giving it ends the run before any turn with exit code 2 (a usage error), so the key never appears. |
 
 `error.kind` and the exit code it comes with:
 

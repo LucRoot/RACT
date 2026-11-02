@@ -75,7 +75,6 @@ VERB_DESCRIPTIONS: dict[str, str] = {
     "run": "Execute an intent as a planned-and-verified RACT run.",
     "plan": "Load, save, replay, diff, or analyse a serialized plan.",
     "session": "List, export, import, backup, or restore saved sessions.",
-    "loop": "(alias) Same as run --loop; execute a loop-controlled run.",
     # Discovery / status
     "doctor": (
         "Diagnose RACT installation, config, and workspace state; `--sandbox` "

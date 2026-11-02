@@ -203,7 +203,8 @@ ract -p --accept-edits "fix the failing test" --output-format stream-json   # ev
 ```
 
 Exit codes: 0 done, 1 the task failed, 2 usage or configuration error, 3
-refused, 5 interrupted, 6 the provider was unavailable, 143 terminated. The
+refused, 4 a budget was used up, 5 interrupted, 6 the provider was
+unavailable, 143 terminated. The
 JSON schema is in `docs/EVENTS_SESSION.md`.
 
 A headless run does not run the repository's own commands (hooks, MCP

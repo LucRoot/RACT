@@ -65,7 +65,7 @@ Every harness operation returns a `Rooted` result. Common failure modes:
 - Replace `prompts/manager.txt` to change management LM behavior.
 - Add provider adapters via `register_adapter(name, AdapterClass)`.
 - Register skills in `.ract/skills/` via `SkillRegistry`.
-- Register author signatures in `.ract/signatures/` via `SignatureRegistry`.
+- Audit per-file signature records: the harness signs each changed artifact with a Rootknot whose record sits beside it as a sidecar (`.<file>.rootknot.json`, also indexed in a SQLite `ProvenanceIndex`); `ract provenance verify <path>` checks a record offline (docs/PROVENANCE.md).
 - Register pre/post-step hooks via `HookManager`.
 - Wrap `Harness` in a UI, scheduler, or CI step.
 
