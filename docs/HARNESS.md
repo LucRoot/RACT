@@ -38,7 +38,7 @@ The `project.name` field is required. `PreflightValidator` checks for it before 
 4. Before execution, the plan is validated structurally by `PlanValidator` and checked for dependency cycles by `DependencyGraph`.
 5. `Executor` runs each step through the provider `Router`, applies `SafetyGuardrail` checks, and records provenance and artifacts.
 6. Every step returns an `Assumed` result; failures short-circuit with a clear assumption.
-7. Callers can wrap `Harness.run` with `HarnessReportEnricher.enrich_harness_run` to attach a diff summary and file-level diff to successful reports.
+7. A finished turn reports what changed in the turn summary and, headless, in the `ract.result/1` object (see `EVENTS_SESSION.md`); there is no separate report enricher to wrap.
 
 ## Local Provider Note
 
@@ -64,8 +64,7 @@ Every harness operation returns a `Rooted` result. Common failure modes:
 
 - Replace `prompts/manager.txt` to change management LM behavior.
 - Add provider adapters via `register_adapter(name, AdapterClass)`.
-- Register skills in `.ract/skills/` via `SkillRegistry`.
-- Audit per-file signature records: the harness signs each changed artifact with a Rootknot whose record sits beside it as a sidecar (`.<file>.rootknot.json`, also indexed in a SQLite `ProvenanceIndex`); `ract provenance verify <path>` checks a record offline (docs/PROVENANCE.md).
+- Register skills in `.ract/skills/` via `SkillRegistry` (the harness loads that directory at construction).
 - Register pre/post-step hooks via `HookManager`.
 - Wrap `Harness` in a UI, scheduler, or CI step.
 

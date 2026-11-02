@@ -1,9 +1,11 @@
 # RACT Threat Model
 
-RACT enforces safety at the operating-system layer via a per-run
-**capability manifest** and a per-step OS-enforced sandbox. This
-document is the operator-facing overview; ADR-0012 carries the design
-rationale.
+RACT's design enforces safety at the operating-system layer via a per-run
+**capability manifest** and a per-step OS-enforced sandbox. In this build
+no sandbox backend executes anything and the production run path carries
+no manifest: read "What the code enforces today" below before relying on
+any statement here. This document is the operator-facing overview; ADR-0012
+carries the design rationale.
 
 ## Manifest-first framing
 
@@ -388,7 +390,7 @@ Read this before relying on any statement above.
   that local model servers work, which means a repository can still aim
   chat requests at any port on this machine; whatever listens there gets a
   JSON chat body it did not expect.
-- Designed for v0.6, before any loader exists (S-033): role files are data
+- Shipped in v0.6 for built-in roles, and designed for repository roles (S-033): role files are data
   (ADR-0049), and a role file inside a cloned repository is written by the
   repository's author, so it is the same class of input as a hook file. A
   role carries a prompt, a tool allowlist, a tier and a model. The rules
@@ -398,7 +400,10 @@ Read this before relying on any statement above.
   tools, lower the tier) and never add a tool, raise a tier, change the
   model or turn off a gate; every file has a 16 KiB limit, a closed set of
   keys and `yaml.safe_load`; no field is ever run as a command; the loader
-  reads one fixed directory through the workspace path rules. Its prompt
+  reads one fixed directory through the workspace path rules. In this
+  build the built-in loader ships (six roles, pinned by the source
+  digest) and a repository's role files are not read by anything: that
+  reader is carded for 0.6.1 (B-176). Its prompt
   text is labeled data that never overrides the system rules. Residual: a
   trusted repository's role prompt still reaches the model as text, which
   is prompt injection the operator accepted by trusting the repository; the
@@ -417,7 +422,7 @@ decision for each item above.
 |---|---|---|
 | T0 | `read_file`, `list_dir`, `glob`, `grep`, `repo_map`, git status, diff, log, show, blame | Allow |
 | T1 | `write_file`, `edit_file`, `apply_patch`, `delete_file`, `move_file`, `git_add` (step worktree only) | Allow with Rootknot, after review |
-| T2 | Writes to control files and executable configuration, `git_commit`, branch and worktree creation, `git init` | Ask in a session; handshake when headless |
+| T2 | Writes to control files and executable configuration, `git_commit`, branch and worktree creation, `git init` | Ask in a session at a terminal (remembered approvals per session); refused in headless runs and under `--yolo` (the approver is left unset, so nobody can answer) |
 | T3 | `run_command`, `run_tests`, `build`, `lint`, `typecheck`, `format`, remote git, `web_fetch`, `web_search`, unmapped MCP tools | Refused unless a signed operator grant opens it for this project; then asked or matched against signed rules |
 
 ### Changes to the tier-3 rule

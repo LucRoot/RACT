@@ -16,8 +16,8 @@ person or a program. Some facts appear in both: a tool call is a
 `tool.invocation.*` trace event and a `tool.call.*` session event.
 
 Status: version 2, proposed with ADR-0047 D7. The kinds for tool calls,
-diffs and approvals are defined now; until the tool layer exists only the
-fake model server produces them, in tests. The headless result object
+diffs and approvals are emitted by real sessions (the plan, step and tool
+events) as well as by the fake model server in tests. The headless result object
 `ract.result/1` is defined at the end of this document, so the session
 schema and the headless schema live in one place.
 
