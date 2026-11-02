@@ -142,8 +142,8 @@ operator-facing threat model.
 Sandbox init is deny-by-default over the process env. The loader
 computes a strict allowlist over
 ``manifest.env.passthrough ∪ .ract/sandbox_env.allowlist ∪
-DEFAULT_ALLOWLIST`` (44 POSIX + Windows + locale names), minus a
-hardcoded ``NEVER_PASSTHROUGH`` set (17 credential-shaped names
+DEFAULT_ALLOWLIST`` (39 POSIX + Windows + locale names), minus a
+hardcoded ``NEVER_PASSTHROUGH`` set (202 credential-shaped names
 including ``AWS_*``, ``GITHUB_TOKEN``, ``OPENAI_API_KEY``,
 ``ANTHROPIC_API_KEY``, plus SP-Q3a NEVER_PASSTHROUGH_PREFIXES for
 credential-shaped prefixes). Names not on the union are dropped;
@@ -356,8 +356,10 @@ Read this before relying on any statement above.
 - A tier-2 action is treated as allowed and creates no handshake.
 - `.ract/handshakes.json` is unsigned, and `ract handshakes approve`
   authenticates nobody.
-- The operator key, the per-run sandbox keys and the ALM verifier keys live
-  under `.ract/` inside the workspace.
+- The operator key lives in the user config directory
+  (`<config>/operator/operator.key.json`, outside every workspace, ADR-0048 D2);
+  the per-run sandbox keys and the ALM verifier keys live under `.ract/`
+  inside the workspace.
 - Fixed in v0.6: `.ract/hooks/*.json` commands ran with the full
   environment; they now get the scrubbed default allowlist.
 - Fixed in v0.6: a repository's own commands and endpoints ran with no
