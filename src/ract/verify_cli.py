@@ -18,7 +18,11 @@ A range is checked against the commits: the bytes come from the later
 commit and, when the later commit is not HEAD, the knot records are read
 from it too (``git show <to>:<sidecar>``); a record then read from the
 working tree is said so in the report. The working-tree line-ending
-fallback runs only when the later commit is HEAD. Only sidecar files
+fallback runs only when the later commit is HEAD. A deleted file is
+checked against the bytes at the earlier commit; when those fail, the
+check retries against the bytes a checkout of that commit would hold
+under the repository's declared line-ending normalization, and the
+report says so. Only sidecar files
 are RACT's own record; any other path under ``.ract/`` is checked like
 a step's file.
 """
@@ -261,6 +265,22 @@ def _commit_bytes(repo: Path, commit: str, path: str) -> bytes | None:
     return result.stdout
 
 
+def _checkout_bytes(repo: Path, commit: str, path: str) -> bytes | None:
+    """Bytes a checkout of ``commit:path`` would hold on disk.
+
+    ``git cat-file --filters`` applies the repository's declared
+    conversion (core.autocrlf, eol attributes, smudge filters), so the
+    result is what ``git checkout`` would write, not the blob itself.
+    None when the path is not at the commit or the read failed.
+    """
+    result = run_git(
+        "-C", str(repo), "cat-file", "--filters", f"{commit}:{path}"
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
 def _clean_paths(repo: Path, paths: list[str]) -> set[str] | None:
     """Paths among ``paths`` the working tree holds clean at the tip.
 
@@ -428,6 +448,30 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
                 )
             else:
                 verdict, kind, _detail = _check_knot_bytes(knot, data)
+                if kind == _FAIL:
+                    # The blob can differ from the signed bytes by the
+                    # repository's declared line-ending normalization
+                    # (core.autocrlf): the sidecar signed the CRLF disk
+                    # bytes while the commit stores LF. Retry against the
+                    # bytes a checkout of the earlier commit would hold;
+                    # git itself declares those the same content. This
+                    # reads only the earlier commit through the
+                    # repository's filters and never the working tree, so
+                    # unlike the A/M fallback it holds for any later
+                    # commit; the report says which bytes matched.
+                    checkout = _checkout_bytes(repo, from_c, path)
+                    if checkout is not None and checkout != data:
+                        verdict2, kind2, _d2 = _check_knot_bytes(
+                            knot, checkout
+                        )
+                        if kind2 == _OK:
+                            verdict, kind = (
+                                verdict2 + " (the repository normalizes "
+                                "line endings; the digest matches the bytes "
+                                "as a checkout of the earlier commit "
+                                f"{from_c[:12]} holds them)",
+                                kind2,
+                            )
                 verdict += _tree_source_note(source, later_is_head)
                 report.files.append(
                     FileVerdict(

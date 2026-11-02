@@ -330,6 +330,37 @@ def test_a_deleted_signed_file_is_attributed_at_the_earlier_commit(
     assert out.rstrip().endswith(CLOSE_STATEMENT)
 
 
+def test_a_deleted_signed_file_verifies_under_crlf_normalization(
+    tmp_path: Path, fake_model_server, capsys
+) -> None:
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+    if not (ws / ".git").is_dir():
+        _git(ws, "init", "-q", "-b", "main")
+    # The repository normalizes line endings on commit: under
+    # core.autocrlf true the committed blob is LF while the sidecar signs
+    # the CRLF disk bytes the step wrote.
+    _git(ws, "config", "core.autocrlf", "true")
+    _commit_all(ws, "base")
+    _run_signed_turn(ws, server)
+    after = _commit_all(ws, "turn")
+    disk = (ws / "src" / "calc.py").read_bytes()
+    blob = _git(ws, "show", f"{after}:src/calc.py").stdout
+    if b"\r\n" not in disk or "\r" in blob:
+        pytest.skip(
+            "this platform stored the signed bytes as LF, so the CRLF "
+            "premise of the defect does not arise here"
+        )
+    (ws / "src" / "calc.py").unlink()
+    deleted_at = _commit_all(ws, "delete calc")
+    code = verify_command(["--repo", str(ws), f"{after}..{deleted_at}"])
+    out = capsys.readouterr().out
+    assert code == 0, out
+    assert "D src/calc.py" in out
+    assert "attributed and verified" in out
+    assert out.rstrip().endswith(CLOSE_STATEMENT)
+
+
 def test_a_working_tree_record_is_named_when_not_at_head(
     tmp_path: Path, fake_model_server, capsys
 ) -> None:
