@@ -293,6 +293,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The docs say what the code does, round 2 (S-017): the trace writer stays
+  unwired (D-166) and `ract trace` names six verbs, `verify` included; the
+  threat model opens with what this build enforces and its tier-2 row matches
+  the runner, which leaves the approver unset for headless and `--yolo` runs;
+  the harness page drops the enricher and signature registry that do not
+  exist and keeps the skill registry the harness loads at `.ract/skills/`;
+  ARCHITECTURE.md's termination contract names T1 to T9, not T1 to T7, and
+  its trace section lists the `verify` verb. Two docs tests pin the contract
+  against `TerminationCause` and the shipped trace subverbs.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written

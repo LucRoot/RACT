@@ -33,7 +33,7 @@ The planner emits a versioned plan. The manager recurses through steps. The exec
 2. **Provenance contract.** Every written artifact carries a signed `Rootknot` that binds it to its plan step, assumption, generator, and parent artifacts. `verify_workspace` checks RK-1 and RK-2 before each recursion step. The public statement of what a Rootknot attests and how RACT stays independent of private systems lives in [`docs/PROVENANCE.md`](PROVENANCE.md).
 3. **Assumption contract.** Every step declares the assumptions it depends on. The `AssumptionRegistry` tracks the lifecycle (`proposed`, `active`, `discharged`, `violated`) and propagates violations through the dependency graph.
 4. **Threat-model contract.** Every workspace-mutating action passes through `authorize_action` in `src/ract/core/threat_model.py`. Tier-3 actions are refused by default; tier-2 actions require an operator handshake.
-5. **Termination contract.** The recursion loop halts on one of T1–T7, each with a distinct `TerminationCause`: success, regression, provenance violation, assumption cascade, budget exhaustion, handshake block, or provider fault.
+5. **Termination contract.** The recursion loop halts on one of T1–T9, each with a distinct `TerminationCause`: success, regression, provenance violation, assumption cascade, budget exhaustion, handshake block, provider fault, prompt drift, or a missing prompt digest under strict mode (ADR-0040).
 
 ### No third-party code in the RACT process
 
@@ -48,7 +48,9 @@ RACT does not run third-party code inside its own process. Extensions are one of
 
 RACT is specified by what it refuses to do silently. Every failure has a named
 halt cause, checked in a fixed order by `evaluate_termination`
-(`src/ract/core/loop.py`): T1 → T7, first match wins.
+(`src/ract/core/loop.py`): T1 → T8, first match wins; the prompt-digest
+check is a fallback after T7 and returns T9 instead of T8 when strict
+mode is on and the suite carries no `prompt_digest` (ADR-0040).
 
 - **Malformed or unknown-version plan JSON.** `PlanValidator.validate_schema`
   rejects any plan missing `schema_version` or carrying an unknown version
@@ -257,7 +259,7 @@ opt-in, a run with no endpoint configured still writes the JSONL log.
 `RunReporter` reads only the event log and derives its summary from
 it. The report is derived data; the log is the source of truth.
 
-Five CLI verbs operate on the log:
+Six CLI verbs operate on the log:
 
 - `ract trace replay <run_id> [--until step:<step_id>]`: reconstruct
   workspace state from cached responses.
@@ -271,6 +273,9 @@ Five CLI verbs operate on the log:
 - `ract trace repair <run_id> [--apply] [--json]`: inspect + optionally
   extend a run's log with synthesized close events for open handles
   (see "Write-first invariant + repair", below).
+- `ract trace verify <run_id> [--cold] [--json]`: verify a run's
+  event-log hash chain (warm sidecar by default; `--cold` for
+  full-file replay from GENESIS).
 
 See ADR-0015 for the design rationale and rejected alternatives, and
 `docs/RACT_v0.4.0_SUBSTRATE_SPEC.md` §6 (Substrate Layer 5) plus §11

@@ -64,6 +64,7 @@ Every harness operation returns a `Rooted` result. Common failure modes:
 
 - Replace `prompts/manager.txt` to change management LM behavior.
 - Add provider adapters via `register_adapter(name, AdapterClass)`.
+- Register skills in `.ract/skills/` via `SkillRegistry` (the harness loads that directory at construction).
 - Register pre/post-step hooks via `HookManager`.
 - Wrap `Harness` in a UI, scheduler, or CI step.
 
