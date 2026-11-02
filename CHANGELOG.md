@@ -293,25 +293,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- Session events and session files stay standard JSON (B-8s, audit round 2 P2):
-  a non-finite float (NaN, Infinity, -Infinity) in event data becomes null at
-  emission, so `--output-format stream-json` keeps its one-JSON-object-per-line
-  contract for strict consumers and `SessionStore.save` writes with
-  `allow_nan=False`, so such a value can never reach `.ract/sessions/<id>.json`.
-  A plan whose model reply carries a non-finite confidence is refused at parse
-  time, like any other malformed plan.
-- The session store, its backup restore and the rollback snapshot capture write
-  through a fresh temporary file and one rename (B-8s, audit round 2 P2), the
-  `write_atomic` convention the other state files already use: a crash or kill
-  mid-save leaves the previous session file whole, and restore keeps the backup's
-  content and metadata while replacing the live file in one step.
-- `ract --rollback --session <id>` no longer gives a repo-supplied snapshot write access to
-  config-bearing names (B-8roll, audit round 2 P1): a snapshot file under `.ract/snapshots/`
-  whose session id is not known to the operator-side session store (`.ract/sessions/<id>.json`)
-  is treated as shipped by the cloned repository, and its entries for `ract.yaml`, secret-shaped
-  names (`.env`, `*.key`, `*.pem` ...) and `.github/workflows/*` are refused and named while the
-  remaining entries still restore; a snapshot the store endorses (RACT's own) restores everything
-  as before.
+- The LSP probe refuses a planted probe file (B-8lsp, audit round 2 P1): the
+  probe's fixture name is fixed, and a cloned repository can ship that name as
+  a symlink or a hard link to a file outside the workspace, so the probe now
+  fails closed and reports the language unavailable when anything already
+  exists at the probe name, instead of truncating the victim and unlinking
+  the plant; a free name keeps the old behavior.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written

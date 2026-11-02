@@ -36,6 +36,7 @@ The multilspy API stabilised to ``SyncLanguageServer.create`` /
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import time
 from dataclasses import dataclass, field
@@ -407,6 +408,23 @@ def probe_lsp(language: str, repo_root: Path | str | None = None) -> LspProbeRes
         # specific error_message.
         rel, content = _PROBE_FILE.get(language, ("___ract_lsp_probe___.tmp", "x\n"))
         probe_path = root / rel
+        # B-8lsp (audit round 2 P1): the probe name is fixed, so a cloned
+        # repository can ship it as a symlink or a hard link to a file
+        # outside the workspace; writing through it would truncate the
+        # victim and unlinking would remove the plant. Fail closed: any
+        # entry already at the probe name (lexists does not follow links)
+        # makes the probe unavailable, and only a file this run created
+        # is ever unlinked.
+        if os.path.lexists(probe_path):
+            return LspProbeResult(
+                language=language,
+                available=False,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                error_message=(
+                    f"probe_lsp: probe file {probe_path} already exists; "
+                    "refusing to write through a planted file"
+                ),
+            )
         probe_path.write_text(content, encoding="utf-8")
         try:
             with client._server.open_file(rel):

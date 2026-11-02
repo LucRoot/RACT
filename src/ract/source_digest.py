@@ -131,7 +131,7 @@ def compute_golden_hash(repo_root: Path | None = None) -> str:
 
 
 # The pinned value. Update through ``ract source-digest --lock``.
-GOLDEN_HASH_CONSTANT: str = "feeaec091e4e9c49fe5cc7ad63aa9445efddd6f72aa33aaea98bbfe15fa4925d"  # fmt: skip
+GOLDEN_HASH_CONSTANT: str = "4250dee9f21472ac3197e5acf810e731f123ee4cb651a30b48d1290ea480d653"  # fmt: skip
 
 
 def rewrite_golden_hash_constant(new_hash: str) -> Path:
