@@ -19,6 +19,11 @@ from ract.session_turn import hint_for
 
 def _ract(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
+    # B-138: pin the terminal the child sees; the doctor table folds its
+    # cells to the width, so an ambient COLUMNS/TERM decides whether a
+    # phrase survives the flattening below.
+    env["NO_COLOR"] = "1"
+    env["COLUMNS"] = "64"
     proc = subprocess.run(
         [sys.executable, "-m", "ract.cli", *args],
         cwd=cwd,

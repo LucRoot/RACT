@@ -293,6 +293,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The CLI wording tests pin the terminal width they assert against (B-138):
+  `tests/test_cli_wording_b083.py` sets `COLUMNS` and `NO_COLOR` for the
+  child process, so the doctor table folds its cells the same way at any
+  ambient width and the next-action phrase survives the flattening.
 - `/todo` and `/spec` no longer end the interactive session (audit round 2,
   P1): both commands are informational like `/diff` and `/review`, and their
   handlers now return True so the session continues after showing the list or
