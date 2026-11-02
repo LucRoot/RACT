@@ -299,6 +299,37 @@ def test_the_sidecar_is_read_from_the_later_commit(signed_repo, capsys) -> None:
     assert out.rstrip().endswith(CLOSE_STATEMENT)
 
 
+def test_a_deleted_signed_file_is_attributed_at_the_earlier_commit(
+    tmp_path: Path, fake_model_server, capsys
+) -> None:
+    server = fake_model_server("baseline_j4_today")
+    ws = _repo(tmp_path, server.base_url)
+    if not (ws / ".git").is_dir():
+        _git(ws, "init", "-q", "-b", "main")
+    # No line-ending normalization, so the committed blob is exactly the
+    # bytes the turn signed and the deleted-file check has no CRLF
+    # conversion to account for.
+    _git(ws, "config", "core.autocrlf", "false")
+    _commit_all(ws, "base")
+    _run_signed_turn(ws, server)
+    # The earlier commit holds exactly what the turn signed; the later
+    # commit deletes the file while its sidecar stays committed (only the
+    # attested file is removed). The ADR's rule compares the bytes at the
+    # later commit; a deleted file has none there, so the knot is checked
+    # against the bytes at the earlier commit and the report says so.
+    after = _commit_all(ws, "turn")
+    (ws / "src" / "calc.py").unlink()
+    deleted_at = _commit_all(ws, "delete calc")
+    code = verify_command(["--repo", str(ws), f"{after}..{deleted_at}"])
+    out = capsys.readouterr().out
+    assert code == 0, out
+    assert "D src/calc.py" in out
+    assert f"deleted at {deleted_at[:12]}" in out
+    assert f"content at {after[:12]}" in out
+    assert "attributed and verified" in out
+    assert out.rstrip().endswith(CLOSE_STATEMENT)
+
+
 def test_a_working_tree_record_is_named_when_not_at_head(
     tmp_path: Path, fake_model_server, capsys
 ) -> None:
