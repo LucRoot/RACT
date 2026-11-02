@@ -290,6 +290,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `.ract_sessions/`. The first time one of them runs with the default store, sessions saved in
   `.ract_sessions/` are copied in (a session already there is kept) and a notice says so; the
   old folder is left as it was and can be removed. `--store` still names any folder.
+- docs/UPGRADING.md walks the upgrade from a real 0.5.2 install: the session-store move
+  gets a "What changes" bullet and a "What to run" step, so the walk ends with a clean
+  `git status` instead of a stray untracked `.ract_sessions/`. Walked against the tree with
+  keys in the old layout; evidence in docs/release/UPGRADING_WALK_2026-11-02.md (G6).
 
 ### Fixed
 
