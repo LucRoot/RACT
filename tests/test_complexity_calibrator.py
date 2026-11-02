@@ -135,3 +135,29 @@ def test_calibration_record_tier_and_task_id():
     rec = CalibrationRecord.from_dict({"tier": "local", "task_id": "task-42"})
     assert rec.tier == "local"
     assert rec.task_id == "task-42"
+
+
+def test_router_calibrator_tier_agreement_default():
+    # The calibrator summaries and the router must classify every score
+    # identically for the default thresholds (B-8c: the router's missing-key
+    # fallback used to disagree with the calibrator at scores like 0.28).
+    router = ComplexityRouter(tiers={"local": {"endpoint": {}}})
+    calibrator = ComplexityCalibrator()
+    for score in (0.0, 0.15, 0.28, 0.30, 0.45, 0.55, 0.70, 0.80, 0.95, 1.0):
+        assert calibrator._tier_for_score(score, router.thresholds) == (
+            router._tier_for_score(score)
+        )
+
+
+def test_router_calibrator_tier_agreement_custom():
+    # Agreement must also hold for every fully specified custom thresholds
+    # config, not just the defaults.
+    router = ComplexityRouter(
+        tiers={"local": {"endpoint": {}}},
+        thresholds={"low": 0.2, "medium": 0.5, "high": 0.75},
+    )
+    calibrator = ComplexityCalibrator()
+    for score in (0.0, 0.15, 0.28, 0.30, 0.45, 0.55, 0.70, 0.80, 0.95, 1.0):
+        assert calibrator._tier_for_score(score, router.thresholds) == (
+            router._tier_for_score(score)
+        )

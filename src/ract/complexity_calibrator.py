@@ -13,7 +13,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from ract.complexity_router import ComplexityRouter
+from ract.complexity_router import ComplexityRouter, tier_for_score
 
 
 @dataclass
@@ -148,13 +148,8 @@ class ComplexityCalibrator:
         router.thresholds = self.recommend_thresholds()
 
     def _tier_for_score(self, score: float, thresholds: Dict[str, float]) -> str:
-        if score <= thresholds.get("low", 0.30):
-            return "low"
-        if score <= thresholds.get("medium", 0.55):
-            return "medium"
-        if score <= thresholds.get("high", 0.80):
-            return "high"
-        return "frontier"
+        """Map a score to a tier with the router's single tier policy."""
+        return tier_for_score(score, thresholds)
 
     def per_tier_summary(self) -> Dict[str, TierSummary]:
         """Summarise historical records grouped by their recommended tier."""

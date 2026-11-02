@@ -14,6 +14,22 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional
 
 
+def tier_for_score(score: float, thresholds: Dict[str, float]) -> str:
+    """Map a 0-1 score to a tier name.
+
+    ``thresholds`` must contain the low, medium, and high keys; configs that
+    build it from user input validate completeness at load time so the two
+    owners of this policy (router and calibrator) can never disagree.
+    """
+    if score <= thresholds["low"]:
+        return "low"
+    if score <= thresholds["medium"]:
+        return "medium"
+    if score <= thresholds["high"]:
+        return "high"
+    return "frontier"
+
+
 @dataclass
 class ComplexityScore:
     """Score and tier assignment for a task."""
@@ -105,9 +121,18 @@ class ComplexityRouter:
         health_check_fn: Optional[Callable[[Dict[str, object]], bool]] = None,
     ) -> None:
         self.tiers = dict(tiers) if tiers else {}
-        self.thresholds = (
-            dict(thresholds) if thresholds else dict(self.DEFAULT_THRESHOLDS)
-        )
+        if thresholds is None:
+            self.thresholds = dict(self.DEFAULT_THRESHOLDS)
+        else:
+            if not isinstance(thresholds, dict):
+                raise ValueError("thresholds must be a dict")
+            missing = sorted(set(self.DEFAULT_THRESHOLDS) - set(thresholds))
+            if missing:
+                raise ValueError(
+                    "thresholds must define low, medium, and high; "
+                    f"missing: {', '.join(missing)}"
+                )
+            self.thresholds = dict(thresholds)
         self.tier_map = dict(tier_map) if tier_map else dict(self.DEFAULT_TIER_MAP)
         self.health_check_fn = health_check_fn
 
@@ -152,13 +177,7 @@ class ComplexityRouter:
 
     def _tier_for_score(self, score: float) -> str:
         """Map a 0-1 score to a tier name."""
-        if score <= self.thresholds.get("low", 0.25):
-            return "low"
-        if score <= self.thresholds.get("medium", 0.55):
-            return "medium"
-        if score <= self.thresholds.get("high", 0.80):
-            return "high"
-        return "frontier"
+        return tier_for_score(score, self.thresholds)
 
     def _is_healthy(self, endpoint: Dict[str, object]) -> bool:
         """Return True if the endpoint passes the optional health check."""

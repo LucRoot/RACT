@@ -293,6 +293,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The complexity router and calibrator share one tier policy (B-8c): a
+  `thresholds` dict missing any of `low`, `medium`, or `high` is rejected at
+  load with a `ValueError` naming the missing keys instead of silently falling
+  back to a literal that disagreed with the documented default, and both
+  modules classify every score through a single `tier_for_score` function.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written

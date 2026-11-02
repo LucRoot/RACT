@@ -126,6 +126,23 @@ def test_from_config_bad_thresholds():
         )
 
 
+def test_from_config_partial_thresholds_rejected():
+    # A thresholds dict missing a key used to load with a silent fallback
+    # that disagreed with the calibrator's tier policy; it must be rejected.
+    with pytest.raises(ValueError, match="thresholds"):
+        ComplexityRouter.from_config(
+            {"tiers": {"local": {"endpoint": {}}}, "thresholds": {"medium": 0.6}}
+        )
+
+
+def test_constructor_partial_thresholds_rejected():
+    with pytest.raises(ValueError, match="thresholds"):
+        ComplexityRouter(
+            tiers={"local": {"endpoint": {}}},
+            thresholds={"medium": 0.6, "high": 0.9},
+        )
+
+
 def test_override_health_check_fn():
     router = _make_router(health_fn=lambda _ep: True)
     selection = router.select_endpoint(
