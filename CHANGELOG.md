@@ -293,6 +293,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract verify`'s deleted-file branch applies the line-ending rule (audit
+  follow-up): a file deleted after a step signed it now verifies in a
+  repository that normalizes line endings (core.autocrlf), where the
+  committed blob is LF while the sidecar signed the CRLF disk bytes. The
+  knot is first checked against the bytes at the earlier commit as before;
+  when those fail, the check retries against the bytes a checkout of that
+  commit would hold under the repository's declared normalization, and the
+  report says plainly which bytes matched. No silent equivalence: a
+  repository without a declared conversion still fails the deletion.
 - `/todo` and `/spec` no longer end the interactive session (audit round 2,
   P1): both commands are informational like `/diff` and `/review`, and their
   handlers now return True so the session continues after showing the list or
