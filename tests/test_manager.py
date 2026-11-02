@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ract.manager import Manager, Plan, _extract_json
 from ract.rooted import Rooted
 from ract.temperature_router import TemperatureRouter
@@ -350,3 +352,34 @@ def test_extract_json_balanced_brace_fallback():
 
 
 # RACT 0.1.1 - Trust and tooling
+
+
+@pytest.mark.parametrize("literal", ["NaN", "Infinity", "-Infinity"])
+def test_plan_rejects_non_finite_confidence(literal):
+    # B-8s: Python's json and float() both accept NaN/Infinity, and a
+    # non-finite value sails through the floor check; the plan is refused
+    # like any other malformed model output.
+    provider = MagicMock()
+    provider.complete.return_value = Rooted(
+        value={
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"assumption": "ok", "confidence": '
+                            + literal
+                            + ', "steps": [{"action": "write tests", '
+                            '"provider_hint": "chat", '
+                            '"expected_artifact": "tests/test_x.py"}]}'
+                        )
+                    }
+                }
+            ]
+        },
+        assumption="ok",
+        confidence=1.0,
+    )
+    manager = Manager(provider, "You are the manager.")
+    plan_rooted = manager.plan("write tests")
+    assert not plan_rooted.is_ok()
+    assert "finite" in (plan_rooted.error or "").lower()

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+from ract.atomic_write import write_atomic
 from ract.workspace_state import check_state_path
 from ract.workspace_path import NEVER_SENT_NAMES, is_secret_shaped, secret_kind
 
@@ -110,9 +111,11 @@ class SessionRollback:
             files=files,
         )
         check_state_path(self._snapshot_path(session_id))  # B-213: never through a link
-        self._snapshot_path(session_id).write_text(
-            json.dumps(asdict(snapshot), indent=2),
-            encoding="utf-8",
+        # B-8s: a temporary file plus one rename, so a crash mid-capture
+        # cannot leave a truncated snapshot behind.
+        write_atomic(
+            self._snapshot_path(session_id),
+            json.dumps(asdict(snapshot), indent=2).encode("utf-8"),
         )
         return snapshot
 

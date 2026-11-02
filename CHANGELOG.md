@@ -293,6 +293,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Session events and session files stay standard JSON (B-8s, audit round 2 P2):
+  a non-finite float (NaN, Infinity, -Infinity) in event data becomes null at
+  emission, so `--output-format stream-json` keeps its one-JSON-object-per-line
+  contract for strict consumers and `SessionStore.save` writes with
+  `allow_nan=False`, so such a value can never reach `.ract/sessions/<id>.json`.
+  A plan whose model reply carries a non-finite confidence is refused at parse
+  time, like any other malformed plan.
+- The session store, its backup restore and the rollback snapshot capture write
+  through a fresh temporary file and one rename (B-8s, audit round 2 P2), the
+  `write_atomic` convention the other state files already use: a crash or kill
+  mid-save leaves the previous session file whole, and restore keeps the backup's
+  content and metadata while replacing the live file in one step.
 - `ract --rollback --session <id>` no longer gives a repo-supplied snapshot write access to
   config-bearing names (B-8roll, audit round 2 P1): a snapshot file under `.ract/snapshots/`
   whose session id is not known to the operator-side session store (`.ract/sessions/<id>.json`)

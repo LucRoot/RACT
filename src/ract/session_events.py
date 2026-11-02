@@ -18,6 +18,7 @@ still caught. Producers call ``EventStream.emit``; nothing here prints.
 from __future__ import annotations
 
 import json
+import math
 import re
 import threading
 import time
@@ -174,13 +175,23 @@ def split_text(text: str, limit: int = MAX_DELTA_BYTES) -> list[str]:
 
 
 def _clean(value: Any) -> Any:
+    """One JSON value, redacted and print-safe.
+
+    B-8s: a non-finite float (NaN, Infinity, -Infinity) becomes None. Those
+    literals are not valid JSON, so ``to_json`` would emit a line strict
+    consumers of the stream cannot parse and the session file would hold
+    non-standard JSON; the key stays, with null, and every renderer
+    tolerates a null where a number was expected.
+    """
     if isinstance(value, str):
         return safe_text(redact(value))
     if isinstance(value, dict):
         return {str(k): _clean(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [_clean(v) for v in value]
-    if value is None or isinstance(value, (bool, int, float)):
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if value is None or isinstance(value, (bool, int)):
         return value
     raise TypeError(
         f"session event data must be JSON values, got {type(value).__name__}"
