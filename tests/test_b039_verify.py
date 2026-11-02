@@ -27,6 +27,7 @@ from ract.verify_cli import (
     verify_command,
 )
 from tests.test_session_turn import _repo
+from tests.ux import run_baseline as rb
 
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -308,7 +309,14 @@ def test_a_deleted_signed_file_is_attributed_at_the_earlier_commit(
         _git(ws, "init", "-q", "-b", "main")
     # No line-ending normalization, so the committed blob is exactly the
     # bytes the turn signed and the deleted-file check has no CRLF
-    # conversion to account for.
+    # conversion to account for. The workspace fixture writes the file with
+    # the platform's line endings; pin it to the exact declared bytes first,
+    # or the file on disk and the blob the index caches for it are two
+    # different contents, and whether the base snapshot sees the one or the
+    # other then depends on git's same-second stat-cache race.
+    (ws / "src" / "calc.py").write_bytes(
+        rb.CALC_FILES["src/calc.py"].encode("utf-8")
+    )
     _git(ws, "config", "core.autocrlf", "false")
     _commit_all(ws, "base")
     _run_signed_turn(ws, server)

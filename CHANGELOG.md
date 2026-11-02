@@ -306,6 +306,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `test_a_deleted_signed_file_is_attributed_at_the_earlier_commit` no longer
+  flakes under load: the workspace fixture writes `src/calc.py` with the
+  platform's line endings, and this test turns `core.autocrlf` off, so the
+  CRLF file on disk and the LF blob the index cached for it were two
+  different contents. Whether the base snapshot restaged the file then
+  depended on git's same-second stat-cache race, and when it did not, the
+  apply-time guard saw the working file's blob differ from the step's base
+  blob on a file nobody touched. The test now pins the file to its exact
+  declared bytes before it commits the base, so the tree it builds matches
+  what its own premise says it holds.
+
 - `ract verify`'s deleted-file branch applies the line-ending rule (audit
   follow-up): a file deleted after a step signed it now verifies in a
   repository that normalizes line endings (core.autocrlf), where the
