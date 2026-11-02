@@ -20,7 +20,7 @@ import yaml
 from ract.builtin_skill_library import BuiltinSkillLibrary
 from ract.harness import _default_manager_prompt_path
 from ract.provider_presets import get_preset
-from ract.skills_registry import SkillRegistry
+from ract.skills_registry import project_registry
 
 
 @dataclass
@@ -128,7 +128,7 @@ class ProjectInitializer:
         if not skill_name:
             return []
         library = BuiltinSkillLibrary()
-        registry = SkillRegistry(self.project_dir)
+        registry = project_registry(self.project_dir)
         try:
             path = library.install(skill_name, registry)
         except KeyError:

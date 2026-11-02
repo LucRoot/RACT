@@ -45,7 +45,10 @@ def test_cli_skills_install_without_dry_run_writes_file(tmp_path):
         cwd=str(tmp_path),
     )
     assert result.returncode == 0, result.stderr
-    assert (tmp_path / "skills" / "library-refactor.json").is_file()
+    # B-10skills: the install must land where the harness reads,
+    # <project>/.ract/skills/, not <project>/skills/.
+    assert (tmp_path / ".ract" / "skills" / "library-refactor.json").is_file()
+    assert not (tmp_path / "skills" / "library-refactor.json").exists()
 
 
 # RACT 0.1.2 - Trust and tooling

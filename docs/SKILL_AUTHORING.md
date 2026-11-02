@@ -4,14 +4,17 @@ Skills are reusable prompt templates that prepend context to an intent. They let
 
 ## Where skills live
 
-Skills are stored as JSON files under `skills/` inside your project directory (usually `.ract/skills/` once installed, or `skills/` at the project root). Each JSON file contains a name, a template string, and an optional list of tools.
+Skills are stored as JSON files under `.ract/skills/` in your project directory. `ract skills install` writes them there and the harness reads them from there, so an installed skill is visible to every run. Each JSON file contains a name, a template string, and an optional list of tools.
+
+Skills an older release left in `skills/` at the project root are copied into `.ract/skills/` once, the first time an install or a run looks, and a one-line notice says so; the old folder is left as it was.
 
 ```
 my_project/
   ract.yaml
-  skills/
-    terse.json
-    pytest_only.json
+  .ract/
+    skills/
+      terse.json
+      pytest_only.json
 ```
 
 Reference the skill in `ract.yaml`:
@@ -79,7 +82,7 @@ RACT selects one skill per run via the `skill` config key. To combine behaviors,
 
 ## Install and test a skill
 
-Place the JSON file in `skills/` or install it with:
+Place the JSON file in `.ract/skills/` or install it with:
 
 ```bash
 ract skills install my_skill
@@ -101,7 +104,7 @@ RACT ships with signed templates in `src/ract/builtin_skills/`. Inspect them wit
 ract skills list
 ```
 
-They are ordinary JSON skill files, so you can copy one into your project `skills/` directory and customize it.
+They are ordinary JSON skill files, so you can copy one into your project's `.ract/skills/` directory and customize it.
 
 ## Best practices
 
