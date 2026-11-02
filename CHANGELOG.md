@@ -293,6 +293,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract --rollback --session <id>` no longer gives a repo-supplied snapshot write access to
+  config-bearing names (B-8roll, audit round 2 P1): a snapshot file under `.ract/snapshots/`
+  whose session id is not known to the operator-side session store (`.ract/sessions/<id>.json`)
+  is treated as shipped by the cloned repository, and its entries for `ract.yaml`, secret-shaped
+  names (`.env`, `*.key`, `*.pem` ...) and `.github/workflows/*` are refused and named while the
+  remaining entries still restore; a snapshot the store endorses (RACT's own) restores everything
+  as before.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written
