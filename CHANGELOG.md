@@ -293,6 +293,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The LSP probe refuses a planted probe file (B-8lsp, audit round 2 P1): the
+  probe's fixture name is fixed, and a cloned repository can ship that name as
+  a symlink or a hard link to a file outside the workspace, so the probe now
+  fails closed and reports the language unavailable when anything already
+  exists at the probe name, instead of truncating the victim and unlinking
+  the plant; a free name keeps the old behavior.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written
