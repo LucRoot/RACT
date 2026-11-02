@@ -16,6 +16,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the mirror backup, the repair kit, a clean closed-terms gate, operator-only
   authorship on `main..HEAD` and a clean tree, and a `--dry-run` that prints
   the plan and runs nothing.
+
+- `scripts/release_060.py` is the release script (B-167): the ordered steps
+  of RELEASE_COMMANDS.md sections A to C, a typed `yes` required before
+  every machine-leaving step, a pre-flight that refuses to start without
+  the mirror backup, the repair kit, a clean closed-terms gate, operator-only
+  authorship on `main..HEAD` and a clean tree, and a `--dry-run` that prints
+  the plan and runs nothing.
 - `ract verify` checks a commit range and/or a run offline (B-039, ADR-0050
   as amended by D-174): every changed line attributed to a signed step, each
   Rootknot verified, and the run's trace chain when the run has one; a run
