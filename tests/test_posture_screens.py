@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from ract.session_events import visible_text
 from ract.ui.posture_screens import (
     BEST_EFFORT,
     ENFORCED,
@@ -14,7 +15,6 @@ from ract.ui.posture_screens import (
     SandboxPosture,
     approval_sandbox_line,
     doctor_sandbox_lines,
-    escape_controls,
     permissions_sandbox_line,
     sandbox_line,
 )
@@ -98,4 +98,4 @@ def test_the_approval_line_says_enforced_only_when_enforced() -> None:
 
 def test_backend_names_are_escaped() -> None:
     assert "\x1b" not in sandbox_line(SandboxPosture("evil\x1b[31m", ENFORCED))
-    assert escape_controls("a\x07b") == "a\\x07b"
+    assert visible_text("a\x07b") == "a\\x07b"

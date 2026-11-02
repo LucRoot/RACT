@@ -12,35 +12,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ract.cell_wrap import wrap_cells
+from ract.session_events import visible_text
 
 COMMIT_CHOICES = "[y]es, commit  [n]o, leave it staged"
 BRANCH_CHOICES = "[y]es, do it  [n]o"
 PUSH_CHOICES = "[n]o, do not push"
 
 
-def escape_controls(text: str) -> str:
-    out: list[str] = []
-    for ch in text:
-        code = ord(ch)
-        if ch == "\n":
-            out.append("\\n")
-        elif ch == "\t":
-            out.append("\\t")
-        elif code < 0x20 or 0x7F <= code <= 0x9F:
-            out.append(f"\\x{code:02x}")
-        elif (
-            0x200E <= code <= 0x200F
-            or 0x202A <= code <= 0x202E
-            or 0x2066 <= code <= 0x2069
-        ):
-            out.append(f"\\u{code:04x}")
-        else:
-            out.append(ch)
-    return "".join(out)
-
-
 def _fold(text: str, width: int, indent: str = "    ") -> list[str]:
-    return wrap_cells(escape_controls(text), width, subsequent_indent=indent) or [""]
+    return wrap_cells(visible_text(text), width, subsequent_indent=indent) or [""]
 
 
 @dataclass(frozen=True)
@@ -61,16 +41,16 @@ def commit_prompt_lines(request: CommitRequest, width: int) -> list[str]:
     out = _fold("commit (tier 2)", width, indent="  ")
     out += _fold(f"files: {len(request.files)}", width)
     for path in request.files:
-        out += _fold(f"  {escape_controls(path)}", width, indent="    ")
+        out += _fold(f"  {visible_text(path)}", width, indent="    ")
     out += _fold(
-        f"message (the model wrote this text): {escape_controls(request.message)}",
+        f"message (the model wrote this text): {visible_text(request.message)}",
         width,
     )
     if request.findings:
         out += _fold("secret scan: blocked; the commit is refused", width, indent="  ")
         for finding in request.findings:
             out += _fold(
-                f"  {escape_controls(finding.path)}: {escape_controls(finding.kind)}",
+                f"  {visible_text(finding.path)}: {visible_text(finding.kind)}",
                 width,
                 indent="    ",
             )
@@ -88,14 +68,14 @@ def commit_prompt_lines(request: CommitRequest, width: int) -> list[str]:
 def branch_prompt_lines(action: str, name: str, width: int) -> list[str]:
     """A branch change (create, switch, delete): what it does, in words, then the choice."""
     out = _fold("branch (tier 2)", width, indent="  ")
-    out += _fold(f"{escape_controls(action)} branch {escape_controls(name)}", width)
+    out += _fold(f"{visible_text(action)} branch {visible_text(name)}", width)
     out += _fold(BRANCH_CHOICES, width, indent="  ")
     return out
 
 
 def worktree_prompt_lines(path: str, width: int) -> list[str]:
     out = _fold("worktree (tier 2)", width, indent="  ")
-    out += _fold(f"add a worktree at {escape_controls(path)}", width)
+    out += _fold(f"add a worktree at {visible_text(path)}", width)
     out += _fold(BRANCH_CHOICES, width, indent="  ")
     return out
 
@@ -103,7 +83,7 @@ def worktree_prompt_lines(path: str, width: int) -> list[str]:
 def push_prompt_lines(remote: str, branch: str, width: int) -> list[str]:
     """A push is remote git: tier 3, and the screen names the handshake it needs."""
     out = _fold("push (tier 3, remote git)", width, indent="  ")
-    out += _fold(f"push {escape_controls(branch)} to {escape_controls(remote)}", width)
+    out += _fold(f"push {visible_text(branch)} to {visible_text(remote)}", width)
     out += _fold(
         "this needs a handshake: an operator's signed approval, not a yes here alone",
         width,

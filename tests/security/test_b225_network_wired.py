@@ -8,8 +8,6 @@ of the command screen; a command keeps the command screen.
 
 from __future__ import annotations
 
-import pytest
-
 from ract.approval_callback import console_tier_3_prompt
 
 FETCH_FACTS = {
@@ -67,6 +65,25 @@ def test_a_fetch_question_uses_the_network_screen(monkeypatch, capsys) -> None:
     assert "allowlist: matches example.invalid" in out
     assert "size cap: 256 KiB" in out
     assert "follows fetched text" in out  # B-149
+
+
+def test_a_fetch_without_a_session_answer_never_advertises_one(
+    monkeypatch, capsys
+) -> None:
+    facts = dict(FETCH_FACTS)
+    facts["session_choice"] = False  # the one-shot CLI path (no SessionApprovals)
+    prompts: list[str] = []
+
+    def ask(prompt: str) -> str:
+        prompts.append(prompt)
+        return "n"
+
+    monkeypatch.setattr("ract.approval_callback.read_line", ask)
+    code = console_tier_3_prompt(facts)
+    out = capsys.readouterr().out
+    assert code is False
+    assert "s for this session" not in out  # the no-session prompt accepts only y/yes
+    assert prompts == ["Run it once? [y/N]: "]  # and offers no session answer
 
 
 def test_a_command_question_still_uses_the_command_screen(

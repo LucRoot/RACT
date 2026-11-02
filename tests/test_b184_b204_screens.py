@@ -18,8 +18,9 @@ from rich.cells import cell_len
 
 from ract import approval_callback
 from ract.cell_wrap import wrap_cells, wrap_exact
-from ract.session_events import screen_text
+from ract.session_events import screen_text, visible_text
 from ract.ui import allow_screens, command_screens, grant_screens, tier3_report
+from ract.ui import git_screens, network_screens, posture_screens
 
 WIDTHS = (80, 60, 40)
 
@@ -126,6 +127,47 @@ def test_the_screens_show_no_raw_character(ch: str) -> None:
     ]
     for lines in screens:
         assert ch not in "".join(lines), lines
+
+
+# Round-2 audit (seam 5): the batch-7 screens carried a fourth copy of the
+# pre-B-204 escaper, drifted from ``visible_text`` (U+061C passed through
+# raw, ``\r`` shown as ``\x0d``). They render with the canonical escaper.
+DRIFTED = [git_screens, network_screens, posture_screens]
+DRIFT_CHARS = ["\u061c", "\r"]
+
+
+def _drifted_screen(module, ch: str) -> str:  # type: ignore[no-untyped-def]
+    if module is git_screens:
+        lines = module.commit_prompt_lines(
+            module.CommitRequest(message=f"msg{ch}body", files=("f.py",)), 80
+        )
+    elif module is network_screens:
+        lines = module.fetch_prompt_lines(
+            module.FetchRequest(
+                url=f"https://x.test/{ch}",
+                host="x.test",
+                allowlist_match=None,
+                size_cap_kib=64,
+            ),
+            80,
+        )
+    else:
+        lines = [
+            module.sandbox_line(
+                module.SandboxPosture(
+                    backend=f"back{ch}end", posture=module.BEST_EFFORT
+                )
+            )
+        ]
+    return "".join(lines)
+
+
+@pytest.mark.parametrize("ch", DRIFT_CHARS, ids=lambda c: f"U+{ord(c):04X}")
+@pytest.mark.parametrize("module", DRIFTED, ids=lambda m: m.__name__.rsplit(".", 1)[-1])
+def test_the_batch_7_screens_render_the_canonical_escape(module, ch: str) -> None:  # type: ignore[no-untyped-def]
+    shown = _drifted_screen(module, ch)
+    assert ch not in shown
+    assert visible_text(ch) in shown  # U+061C as \u061c, \r as \r
 
 
 def test_a_break_falls_after_a_space_when_one_fits() -> None:

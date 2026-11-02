@@ -293,6 +293,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The fetch question's choices line matches the answers it accepts: with no
+  session to approve into (the one-shot CLI path) the screen offers "y allows
+  it once, N refuses" and no `s`, mirroring the command screen (B-225 part 3,
+  audit round 2).
+- The batch-7 screens (git, network, sandbox posture) render with the canonical
+  `visible_text` escaper instead of a drifted local copy: U+061C and the other
+  direction marks now show as escapes there too, and a carriage return reads
+  as `\r`, as on every other screen (audit round 2).
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written
