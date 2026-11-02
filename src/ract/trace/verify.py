@@ -1181,10 +1181,14 @@ def verify_trace(
         # run_id_hex up front).
         try:
             run_id_bytes = bytes.fromhex(run_id_hex)
-        except ValueError as exc:
-            raise ValueError(
-                f"verify_trace: run_id_hex {run_id_hex!r} is not valid hex"
-            ) from exc
+        except ValueError:
+            # run_id_hex is not hex (a path-shaped run argument, B-220);
+            # fall back to cold, exactly as an invalid head_hex does.
+            _LOG.warning(
+                "trace verify run_id %r is not valid hex; cold-verify fallback",
+                run_id_hex,
+            )
+            return cold_verify(p)
         if len(run_id_bytes) != 16:
             raise ValueError(
                 f"verify_trace: run_id_hex must decode to 16 bytes; "

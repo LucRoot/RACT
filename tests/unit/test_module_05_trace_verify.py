@@ -374,6 +374,23 @@ def test_warm_verify_falls_back_when_file_shrank(tmp_path: Path) -> None:
     assert r.status in ("VALID", "TORN_TAIL")
 
 
+def test_warm_verify_falls_back_when_run_id_is_a_path(tmp_path: Path) -> None:
+    """B-220: a path argument is a supported input shape; cmd_verify passes
+    it verbatim as run_id_hex. The first (cold) pass persists a sidecar
+    named after that path string, so the second pass takes the warm path
+    and must fall back to cold verify instead of raising on
+    ``bytes.fromhex`` (a path is not hex).
+    """
+    events_path = tmp_path / "events.jsonl"
+    w = JsonlEventWriter(events_path, run_id=bytes.fromhex(RUN_ID_HEX))
+    w.emit("run.started", {"i": 0})
+    path_arg = str(events_path)
+    r1 = verify_trace(events_path, run_id_hex=path_arg)
+    assert r1.status in ("VALID", "TORN_TAIL")
+    r2 = verify_trace(events_path, run_id_hex=path_arg)
+    assert r2.status in ("VALID", "TORN_TAIL")
+
+
 # ---- Fork 1 (b) spot-check catches near-tail tamper ----------------------
 
 

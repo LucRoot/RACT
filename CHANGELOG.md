@@ -293,6 +293,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract trace verify <path>` no longer crashes on the second run (B-236): a
+  path-shaped run argument is a supported input shape, and once the cold pass
+  persists a sidecar the warm path falls back to cold verify when that run id
+  is not hex, exactly as an invalid sidecar head already did.
+- `ract verify`'s closing statement names where command records actually live
+  (B-236): the user state dir under `keys/<repo-digest>/commands.jsonl`, not
+  the workspace-local `.ract/commands.jsonl` that no writer has ever used.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written
