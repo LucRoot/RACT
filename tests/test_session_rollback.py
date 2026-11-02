@@ -79,3 +79,30 @@ def test_capture_failure_mid_write_leaves_no_snapshot(
         pass
     assert not rollback.snapshot_exists("s1")
     assert list(rollback.snapshot_dir.glob("*.ract-tmp")) == []
+
+
+def test_restore_failure_mid_write_keeps_pre_restore_content(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """B-10roll: a per-entry restore writes through ``write_atomic``; a crash
+    between the payload write and the rename must leave the target with its
+    pre-restore content, never a truncated write."""
+    rollback = SessionRollback(tmp_path)
+    file_path = tmp_path / "src" / "foo.py"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text("original", encoding="utf-8")
+
+    rollback.capture("s1", [file_path])
+    file_path.write_text("changed", encoding="utf-8")
+
+    def boom(path, data):
+        raise OSError("simulated crash between write and rename")
+
+    monkeypatch.setattr("ract.session_rollback.write_atomic", boom, raising=False)
+    try:
+        rollback.restore("s1")
+        assert False, "Expected the simulated crash to propagate"
+    except OSError:
+        pass
+    assert file_path.read_text(encoding="utf-8") == "changed"
+    assert list((tmp_path / "src").glob("*.ract-tmp")) == []

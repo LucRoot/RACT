@@ -346,6 +346,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `write_atomic` convention the other state files already use: a crash or kill
   mid-save leaves the previous session file whole, and restore keeps the backup's
   content and metadata while replacing the live file in one step.
+- The rollback restore's per-entry project-file writes are atomic too (B-10roll,
+  batch-8 follow-up): each entry's payload now goes to a fresh temporary file in
+  the target's directory and one rename, so a crash mid-restore leaves the project
+  file with its pre-restore content instead of a truncated write.
 - The LSP probe refuses a planted probe file (B-8lsp, audit round 2 P1): the
   probe's fixture name is fixed, and a cloned repository can ship that name as
   a symlink or a hard link to a file outside the workspace, so the probe now

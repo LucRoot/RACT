@@ -172,8 +172,10 @@ class SessionRollback:
                 continue
             target = self.project_dir / rel
             if target.is_file() or not target.exists():
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(content, encoding="utf-8")
+                # B-10roll: a temporary file plus one rename, so a crash
+                # mid-restore cannot leave a truncated project file behind
+                # (the batch-8 pattern capture and the store already use).
+                write_atomic(target, content.encode("utf-8"))
                 restored.append(rel)
             else:
                 missing.append(rel)
