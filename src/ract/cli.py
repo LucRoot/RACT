@@ -48,7 +48,7 @@ from ract.ract_runner import run_ract
 from ract.run_reporter import RunReporter, render_html_report, render_markdown
 from ract.self_test_benchmark_mode import SelfTestBenchmarkMode
 from ract.session_store import SessionStore
-from ract.skills_registry import SkillRegistry
+from ract.skills_registry import project_registry
 from ract.symbol_renamer import SymbolRenamer
 from ract.handshake import answer as op_answer
 from ract.handshake import list_pending as op_list_pending
@@ -1028,7 +1028,7 @@ def _skills_command(args: list[str]) -> int:
         return 0
 
     if parsed.action == "install":
-        registry = SkillRegistry(parsed.config.parent)
+        registry = project_registry(parsed.config.parent)
         if parsed.dry_run:
             try:
                 preview = library.preview_install(parsed.name, registry)
@@ -1048,7 +1048,7 @@ def _skills_command(args: list[str]) -> int:
         return 0
 
     if parsed.action == "install-all":
-        registry = SkillRegistry(parsed.config.parent)
+        registry = project_registry(parsed.config.parent)
         installed = library.install_all(registry)
         print(
             f"[ract] installed {len(installed)} built-in skills: {', '.join(installed)}"
@@ -1125,7 +1125,7 @@ def _skills_marketplace_command(args: list[str]) -> int:
                 file=sys.stderr,
             )
             return 1
-        registry = SkillRegistry(parsed.project_dir)
+        registry = project_registry(parsed.project_dir)
         import httpx  # B-087b: only this command needs it; not at start
 
         try:

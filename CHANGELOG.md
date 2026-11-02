@@ -293,6 +293,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract skills install` writes where the harness reads (S-017 follow-up,
+  B-10skills): installs used to resolve their registry to the `--config`
+  parent and landed in `skills/` at the project root, while the harness, the
+  initializer and `ract doctor` read `.ract/skills/`, so an installed skill
+  was never seen. All install paths now target `.ract/skills/`, skills an
+  older release left in the project-root `skills/` are copied into
+  `.ract/skills/` once with a one-line notice on stderr (the B-079 shape:
+  the old folder is left as it was, a mark in the new store makes it once),
+  and the registry takes the state-path guard so nothing writes through a
+  linked `.ract`.
 - `/todo` and `/spec` no longer end the interactive session (audit round 2,
   P1): both commands are informational like `/diff` and `/review`, and their
   handlers now return True so the session continues after showing the list or

@@ -253,4 +253,30 @@ def test_doctor_skill_missing(tmp_path):
     assert "missing_skill" in check.message
 
 
+def test_doctor_skill_found_under_ract_skills(tmp_path):
+    # B-10skills: the harness reads .ract/skills/, so doctor must too.
+    skills_dir = tmp_path / ".ract" / "skills"
+    skills_dir.mkdir(parents=True)
+    (skills_dir / "terse.json").write_text("{}", encoding="utf-8")
+    config = tmp_path / "ract.yaml"
+    config.write_text(SAMPLE_CONFIG + "\nskill: terse\n", encoding="utf-8")
+
+    results = RactDoctor(config).diagnose()
+    check = next(r for r in results if r.name == "skills")
+    assert check.passed
+
+
+def test_doctor_skill_found_at_legacy_root_skills(tmp_path):
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    (skills_dir / "terse.json").write_text("{}", encoding="utf-8")
+    config = tmp_path / "ract.yaml"
+    config.write_text(SAMPLE_CONFIG + "\nskill: terse\n", encoding="utf-8")
+
+    results = RactDoctor(config).diagnose()
+    check = next(r for r in results if r.name == "skills")
+    assert check.passed
+    assert ".ract" in check.message
+
+
 # RACT 0.1.1 - Trust and tooling

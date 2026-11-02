@@ -49,7 +49,7 @@ from ract.retrieval_adapter import (
     WebSearchAdapter,
 )
 from ract.plan_validator import PlanValidator
-from ract.skills_registry import SkillRegistry
+from ract.skills_registry import project_registry
 from ract.temperature_router import TemperatureRouter
 from ract.planner import Planner
 from ract.providers.router import ProviderRouter
@@ -310,7 +310,7 @@ class Harness:
         self.hook_manager: HookManager | None = (
             None if untrusted else HookManager(hooks_dir)
         )
-        self.skills_registry = SkillRegistry(project_dir / ".ract")
+        self.skills_registry = project_registry(project_dir)
         self.git_mode = GitMode()
         if config.get("git_mode"):
             self.git_mode.enable()

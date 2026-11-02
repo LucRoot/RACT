@@ -165,7 +165,9 @@ def test_cli_skills_marketplace_install(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "installed marketplace skill 'demo'" in result.stdout
-    assert (project_dir / "skills" / "demo.json").is_file()
+    # B-10skills: installs land where the harness reads, .ract/skills/.
+    assert (project_dir / ".ract" / "skills" / "demo.json").is_file()
+    assert not (project_dir / "skills" / "demo.json").exists()
 
 
 # RACT 0.1.1 - Trust and tooling

@@ -52,7 +52,8 @@ def test_initialize_installs_skill(tmp_path):
     project_dir = tmp_path / "pkgskill"
     initializer = ProjectInitializer(project_dir, "python-package", "local")
     result = initializer.initialize()
-    skill_path = project_dir / "skills" / "python-package.json"
+    # B-10skills: installs land where the harness reads, .ract/skills/.
+    skill_path = project_dir / ".ract" / "skills" / "python-package.json"
     assert skill_path.is_file()
     assert skill_path in result.files_written
 

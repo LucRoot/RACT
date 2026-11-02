@@ -328,6 +328,44 @@ def test_harness_uses_configured_skill(tmp_project):
     assert any("Focus on write tests" in content for content in captured_intents)
 
 
+def test_installed_skill_is_seen_by_harness(tmp_project):
+    """B-10skills: `ract skills install` writes where the harness reads.
+
+    S-017 follow-up: the install path resolved its registry to the
+    ``--config`` parent, so skills landed in ``skills/`` at the project
+    root while the harness loads from ``.ract/skills/``; the installed
+    skill was never seen. Install through the real CLI path, then assert
+    the harness construction for the same ract.yaml lists the skill.
+    """
+    config = {
+        "manager_provider": "local",
+        "providers": {
+            "local": {
+                "adapter": "local_http",
+                "url": "http://127.0.0.1:11434/v1",
+                "model": "local-model",
+            },
+        },
+        "prompts_dir": "prompts",
+    }
+    config_path = tmp_project / "ract.yaml"
+    import yaml
+
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    from ract.cli import _skills_command
+
+    rc = _skills_command(
+        ["install", "python-package", "--config", str(config_path)]
+    )
+    assert rc == 0
+
+    harness_rooted = Harness.from_config_path(config_path)
+    assert harness_rooted.is_ok(), harness_rooted.error
+    harness = harness_rooted.unwrap()
+    assert "python-package" in harness.skills_registry.list_skills()
+
+
 def test_harness_git_mode_commits_artifacts(tmp_project):
     config = {
         "manager_provider": "local",

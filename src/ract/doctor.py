@@ -323,12 +323,25 @@ class RactDoctor:
                 passed=True,
                 message="No skill configured; optional.",
             )
-        skill_path = self.project_dir / "skills" / f"{skill}.json"
+        # B-10skills: the harness reads .ract/skills/; a skill still in the
+        # pre-fix location (skills/ at the project root) passes too, and is
+        # migrated into .ract/skills/ on the next install or run.
+        skill_path = self.project_dir / ".ract" / "skills" / f"{skill}.json"
         if skill_path.is_file():
             return CheckResult(
                 name="skills",
                 passed=True,
                 message=f"Configured skill '{skill}' found.",
+            )
+        legacy_path = self.project_dir / "skills" / f"{skill}.json"
+        if legacy_path.is_file():
+            return CheckResult(
+                name="skills",
+                passed=True,
+                message=(
+                    f"Configured skill '{skill}' found at {legacy_path}; "
+                    "it moves to .ract/skills/ on the next install or run."
+                ),
             )
         return CheckResult(
             name="skills",
