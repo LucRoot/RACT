@@ -52,7 +52,7 @@ RACT depends only on its declared, public dependencies (`pyproject.toml`):
 - **No private endpoints.** Providers are configured in `ract.yaml`; the
   default `local` adapter points at `127.0.0.1`.
 - **No shared state.** All runtime state lives under the operator's XDG
-  state directory or the workspace's gitignored `.rack/`. Nothing leaves
+  state directory or the workspace's gitignored `.ract/`. Nothing leaves
   the machine.
 
 ## How to verify a Rootknot without the tool
@@ -74,8 +74,10 @@ ract provenance verify <path>
 
 automates this: loads the sidecar, recomputes the artifact digest,
 resolves the generator's public key from the local key store (including
-archived keys), checks the signature, and prints `valid` / `invalid`
-with exit code 0 / 1. Session public keys live in `<state_dir>/ract/keys/*.pem`.
+archived keys), checks the signature, and prints `valid`, `partial`
+(some promised fields are unset), `unsigned` (no Rootknot recorded) or
+`invalid`, with exit code 0 for `valid` or `partial` and 1 otherwise.
+Session public keys live in `<state_dir>/ract/keys/*.pem`.
 
 ## What happens if a Rootknot is missing or invalid
 
@@ -134,7 +136,7 @@ the registered set.
 **Authorship bound.** The sidecar proves its own consistency. Whether
 the embedded pubkeys are the ones the operator expected is out-of-band
 work. The v0.4-ALM design REQUIRES cross-checking the ALM verifier
-pubkey against `.rack/alm/archive/` or an operator registry (see
+pubkey against `.ract/alm/archive/` or an operator registry (see
 ADR-0023).
 
 | Sidecar | RK-1 | RK-2 | RK-3 | AL-1 | `--strict` |

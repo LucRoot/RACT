@@ -142,7 +142,7 @@ Or from source:
 git clone https://github.com/LucRoot/RACT.git RACT
 cd RACT
 ./scripts/install.sh --local --venv
-source .venv/bin/activate
+source .venv/bin/activate      # Linux and macOS; on Windows: .venv\Scripts\activate
 ```
 
 See [`docs/QUICKSTART.md`](docs/QUICKSTART.md) for a step-by-step tutorial.
@@ -203,8 +203,8 @@ ract -p --accept-edits "fix the failing test" --output-format stream-json   # ev
 ```
 
 Exit codes: 0 done, 1 the task failed, 2 usage or configuration error, 3
-refused, 5 interrupted, 6 the provider was unavailable, 143 terminated. The
-JSON schema is in `docs/EVENTS_SESSION.md`.
+refused, 4 the budget was exhausted, 5 interrupted, 6 the provider was
+unavailable, 143 terminated. The JSON schema is in `docs/EVENTS_SESSION.md`.
 
 A headless run does not run the repository's own commands (hooks, MCP
 servers, test gates) unless the repository is trusted: run `ract trust` as an

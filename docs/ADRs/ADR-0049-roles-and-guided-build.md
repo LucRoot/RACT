@@ -654,7 +654,7 @@ calls that send diffs to a second provider, and anything at tier 2 or 3.
 | `read_slice` (D9) | B-010a (the read-only slice's tools) | after B-010a |
 | The loop-limit stop (D10) | the loop runner and the VERIFIER record | ungated design; code with the loop |
 | Repository roles (D11) | S-025 trust store; the role loader | rules accepted first; loader after |
-| Plan approval (D12) | decision O: yes (D-051); B-053a checklist renderer | approve, skip, cancel, the two events and the headless refusal are wired; `edit` is not built yet (it asks again) |
+| Plan approval (D12) | decision O: yes (D-051); B-053a checklist renderer | approve, skip, cancel and `edit` are wired, with the two events and the headless refusal; an edit replaces one step's text (path check, length limit) and the edited plan is shown again |
 | Step checkpoints and resume (D13) | nothing gated; undo helpers (S-028) and the D12 plan hash | built (B-070) |
 | VERIFIER result type (D3, D4) | the existing coverage and mutation gates | ungated |
 | VERIFIER running tests, lint, type checks | ADR-0048 D5 `run_command` and tier 3 | gated |

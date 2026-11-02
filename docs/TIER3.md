@@ -46,8 +46,7 @@ The flow does these steps, in order, and prints each one:
    Without a terminal it says `no terminal to type a passphrase at: nothing was signed`.
 7. The result reads `signed: rule <id> expires <date>`, then `status line now: T3 ask`.
 
-A new user with a test runner should reach the signed result in under two minutes. The walk that
-measures this is recorded under `docs/ux/grant_walk/` when it has been run.
+A new user with a test runner should reach the signed result in under two minutes.
 
 ## The status line
 
@@ -100,11 +99,15 @@ an allow rule does not answer for it
 
 ### When a proposal follows fetched text
 
-Every tool result reaches the model inside a delimiter that names where it came from (`file`, `command output`, `fetched page`, `search result`) and says it is data, not instructions. When a page RACT fetched was in front of the model before a proposal, the prompt shows one line, `follows fetched page from <host>`, and the proposal always asks: an allow rule or a "for this session" answer does not run it. Your yes clears the line for the proposals after it. (Wording for MASON.)
+Every tool result reaches the model inside a delimiter that names where it came from (`file`, `command output`, `fetched page`, `search result`) and says it is data, not instructions. When a page RACT fetched was in front of the model before a proposal, the prompt shows one line, `follows fetched page from <host>`, and the proposal always asks: an allow rule or a "for this session" answer does not run it. Your yes clears the line for the proposals after it.
 
 ## The commands
 
 - `/permissions` shows the rules, the deny rules, the largest mode, the expiry, and the sandbox line.
+- `/permissions allowlist` sets the session so a command that matches an allow rule runs
+  without asking. It needs a grant that holds with `max_mode: allowlist`; with a grant whose
+  largest mode is `ask`, the command says so and the session stays in `ask`.
+  `/permissions ask` sets the session back to asking before each tier 3 command.
 - `/permissions lock` closes the signing key that is unlocked in memory. The key line then reads
   `Signing key: locked; signing asks for the passphrase.`
 - `/permissions resume` shows what changed in the policy file after a suspension and asks you to

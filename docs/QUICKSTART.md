@@ -79,6 +79,13 @@ ract> /exit
 | `/loop <intent>` | Run the quality-anchored loop. |
 | `/set dry-run\|stream on\|off` | Change how turns run. `/set task` and `/set iterations` also work. File changes are set with `/mode`, tier-3 commands with `/permissions ask\|allowlist`. |
 | `/settings`, `/session [new\|id]` | Show settings, or restart or switch the session that carries context. |
+| `/model [name]` | Show the configured models, or switch the manager for this session. |
+| `/diff` | Show the last turn's changes, from the copies it saved. |
+| `/context` | What the last request sent, and the room the model has. |
+| `/sessions`, `/resume <id\|latest>` | List recent sessions (id, time, turns, cost, last request), or switch to one and show its last request. |
+| `/queue [drop <n>]` | List the lines typed during a turn; `drop <n>` withdraws one. |
+| `/permissions [ask\|allowlist]` | Show what RACT may change or send, in one screen; `ask` and `allowlist` set the tier-3 mode, up to the grant's largest mode. |
+| `/clear`, `/help` | Clear the screen, or show the list of commands. |
 | `/providers`, `/config`, `/doctor`, `/report` | Inspect the setup and the last run. |
 | `/<verb>` | Any other RACT verb, for example `/whisper` or `/fence`. |
 

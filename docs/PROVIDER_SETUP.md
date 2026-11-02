@@ -234,15 +234,18 @@ providers:
     max_retries: 3
     retry_delay: 1.0
     retry_backoff: 2.0
-    retry_max_delay: 30.0
+    retry_max_delay: 60.0
     retry_on_429: true
 ```
 
-- `max_retries`: how many times to retry a failed request.
-- `retry_delay`: initial delay in seconds.
-- `retry_backoff`: multiplier applied after each retry.
-- `retry_max_delay`: cap on the delay between retries.
-- `retry_on_429`: whether to retry HTTP 429 rate-limit responses.
+The values above are the defaults: every one of these keys can be left out
+and the retry block omitted entirely.
+
+- `max_retries`: how many times to retry a failed request (default 3).
+- `retry_delay`: initial delay in seconds (default 1.0).
+- `retry_backoff`: multiplier applied after each retry (default 2.0).
+- `retry_max_delay`: cap on the delay between retries, in seconds (default 60.0).
+- `retry_on_429`: whether to retry HTTP 429 rate-limit responses (default true).
 
 Server errors (5xx), 408 and 429 are retried. Other 4xx errors are not, because
 a retry will not fix a wrong key or a bad request. When the server sends a

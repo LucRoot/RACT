@@ -293,6 +293,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The small documentation gaps are closed (B-221): the ADR-0049 rollout table records
+  that plan `edit` is built; TIER3.md says how `/permissions allowlist` is reached and
+  loses the internal note and the citation to a walk that was never recorded; the
+  QUICKSTART table lists `/model`, `/diff`, `/context`, `/sessions`, `/resume`, `/queue`,
+  `/clear`, `/help` and `/permissions`; the README exit codes add 4 (budget) and give the
+  Windows virtualenv activation beside the Linux one; PROVENANCE.md says `.ract/` and
+  names the four `provenance verify` results; PROVIDER_SETUP states the retry defaults
+  its example uses; and docs/USE_CASES.md renders the use-case catalog.
 - `ract verify` reads the commits, not the working tree (B-236): the line-ending
   fallback runs only when the later commit is HEAD; only sidecar files count as
   RACT's own record, so any other path under `.ract/` is reported as not written
