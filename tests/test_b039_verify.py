@@ -155,6 +155,16 @@ def test_a_range_and_a_run_are_required() -> None:
     assert exc.value.code == 2
 
 
+def test_close_statement_names_the_state_dir_command_records() -> None:
+    # B-236: the only writer is tools/command.py:_record, which appends to
+    # <state>/keys/<repo-digest>/commands.jsonl in the user state dir. No
+    # writer has ever put records at a workspace-local .ract/commands.jsonl,
+    # so the statement must not name it.
+    assert ".ract/commands.jsonl" not in CLOSE_STATEMENT
+    assert "keys/<repo-digest>/commands.jsonl" in CLOSE_STATEMENT
+    assert "user state dir" in CLOSE_STATEMENT
+
+
 # B-236: the clean-working-tree fallback applies only when the later
 # commit is HEAD; a path under .ract/ is not RACT's own record; sidecars
 # are read from the later commit when it is not HEAD.

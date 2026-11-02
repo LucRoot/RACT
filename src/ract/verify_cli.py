@@ -46,7 +46,8 @@ from ract.provenance_cli import (
 
 CLOSE_STATEMENT = (
     "command records are not part of the signed Rootknot; in this version "
-    "they are in .ract/commands.jsonl, which is not signed"
+    "they are in the user state dir under keys/<repo-digest>/commands.jsonl, "
+    "which is not signed"
 )
 TRACE_NONE = "trace: none recorded for this run"
 NOT_WRITTEN = "not written by RACT"
