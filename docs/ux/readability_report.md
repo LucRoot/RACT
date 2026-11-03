@@ -42,6 +42,7 @@ Grade is Flesch-Kincaid, target about 6; above 8.0 is a failure to card.
 | 5.8 | This directory is not a git repository. RACT records each step on its own branch, so it works best in one. Command: git init |
 | 5.2 | Opening the session. Try: x |
 | 5.2 | Next: run `ract` to open a session here, or try: ract -p --ask "what does this project do?" |
+| 2.9 | no test runner found here, so there is nothing to grant yet. |
 | 7.6 | okay. To do it later: ract policy init --guided |
 | -0.3 | done: RACT can run your tests when you ask. |
 | 3.7 | x is rewritten whole, so comments in it are not kept. |
