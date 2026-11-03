@@ -65,6 +65,11 @@ ract> /doctor --check-providers
 ract> /exit
 ```
 
+The prompt reads `ract>` in a normal terminal. In a plain session (`--plain`,
+or `TERM=dumb`, or a screen reader) the same lines carry `you:` and `ract:`
+labels instead, so a log of a plain session shows `you:` where this capture
+shows `ract>`. Both are the same session.
+
 | Command | What it does |
 |---------|--------------|
 | `<text>` or `/run <intent>` | Plan and execute the intent. |
