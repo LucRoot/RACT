@@ -354,11 +354,13 @@ class RactDoctor:
 class SandboxStatus:
     """What command sandboxing this build provides on this machine.
 
-    LR:: The Linux and macOS backends render a bubblewrap command or a
-    Seatbelt profile and never execute it, and no Landlock or seccomp call
-    exists (THREAT_MODEL, "What the code enforces today"). ``ract doctor``
-    reports that from facts rather than from the design, and is written so
-    the report changes by itself when a backend starts executing.
+    LR:: Tier-3 commands run inside the bubblewrap backend when, and only
+    when, its live self-test proves this machine confines them
+    (``security.command_sandbox.enforcing_backend``; B-114, ADR-0048 D7).
+    ``ract doctor`` takes that fact from the same self-test as
+    ``ract doctor --sandbox`` and ``/permissions`` (B-025), so the three
+    screens cannot disagree. No Landlock or seccomp call exists
+    (THREAT_MODEL, "What the code enforces today").
     """
 
     platform: str
@@ -367,14 +369,6 @@ class SandboxStatus:
     executes_commands: bool
     properties: dict[str, str]
 
-
-# Flip a backend here only in the commit that makes it execute the rendered
-# command; the doctor output and its tests follow from this table.
-_BACKEND_EXECUTES: dict[str, bool] = {
-    "linux-bwrap": False,
-    "macos-sandbox-exec": False,
-    "none": False,
-}
 
 # Flip only in the commit that makes `ract run` give the substrate loop a
 # manifest and a sandbox backend. Until then step subprocesses, like the
@@ -386,7 +380,11 @@ _RUN_PATH_SCRUBS_STEP_ENV = False
 def sandbox_status(system: str | None = None) -> SandboxStatus:
     """Return the sandbox facts for ``system`` (default: this machine).
 
-    Only looks for binaries on PATH. Starts no process.
+    Looks for binaries on PATH. The confinement fact itself comes from the
+    backend's self-test (``enforcing_backend``), run once per process: on
+    Linux with ``bwrap`` present that starts one probe process, as it does
+    for ``ract doctor --sandbox``; on platforms without an enforcing
+    backend it starts none.
     """
     import platform as _platform
     import shutil
@@ -398,12 +396,18 @@ def sandbox_status(system: str | None = None) -> SandboxStatus:
         backend, binary = "macos-sandbox-exec", shutil.which("sandbox-exec")
     else:
         backend, binary = "none", None
-    executes = _BACKEND_EXECUTES[backend] and binary is not None
+    from ract.security.command_sandbox import enforcing_backend
+
+    live, _why = enforcing_backend(system=name)
+    executes = live is not None
     state = "enforced" if executes else "not enforced in this build"
     properties = {
         "filesystem": state,
         "network": state,
-        "process limits": state,
+        # The bwrap render applies no rlimits, so even a machine whose
+        # self-test passed confines files and network, never process
+        # limits (the --sandbox screen lists them as never enforced).
+        "process limits": "not enforced in this build",
         "environment": (
             "scrubbed by allowlist for every command RACT starts"
             if executes and _RUN_PATH_SCRUBS_STEP_ENV
@@ -411,7 +415,8 @@ def sandbox_status(system: str | None = None) -> SandboxStatus:
             "shell for test, lint and step commands"
         ),
         # B-114: tier-3 commands (run_tests, the verifiers, git push) run inside
-        # the backend once its self-test passes; doctor itself starts no process.
+        # the backend once its self-test passes; doctor itself runs no command
+        # (the self-test probe above is the only process it starts).
         "tier-3 commands": (
             f"run inside {backend} when its self-test passes at the first command; "
             "otherwise not confined"
