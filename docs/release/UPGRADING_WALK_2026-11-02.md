@@ -30,8 +30,8 @@ with the env overrides the code honors (`src/ract/core/keys.py:109`
   `tests/integration/test_upgrade_from_v052.py`)
 
 No run could touch the real `%APPDATA%\ract` or `%LOCALAPPDATA%\ract`; nothing
-was written outside the temp dir. The repository at `C:\RootClaw\RACT` was not
-touched; all work happened in the `F:/RACT_wt/n3_b9upg` worktree.
+was written outside the temp dir. The main checkout was not touched;
+all work happened in a dedicated worktree on a separate drive.
 
 ## What the old layout is (from the migration code)
 

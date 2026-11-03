@@ -74,9 +74,8 @@ ract provenance verify <path>
 
 automates this: loads the sidecar, recomputes the artifact digest,
 resolves the generator's public key from the local key store (including
-archived keys), checks the signature, and prints `valid`, `partial`
-(some promised fields are unset), `unsigned` (no Rootknot recorded) or
-`invalid`, with exit code 0 for `valid` or `partial` and 1 otherwise.
+archived keys), checks the signature, and prints `valid`, `partial`, `unsigned`,
+or `invalid`; exit 0 for `valid`/`partial`, else 1.
 Session public keys live in `<state_dir>/ract/keys/*.pem`.
 
 ## What happens if a Rootknot is missing or invalid
