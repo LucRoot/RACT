@@ -54,6 +54,10 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/ask <question>", "Answer a question. No plan, and no file is written."),
     ("/loop <intent>", "Run the quality-anchored loop until done or regressed."),
     (
+        "/test [selectors]",
+        "Run the granted test command and show the result; the next turn can act on it.",
+    ),
+    (
         "/set <name> <value>",
         "Change a setting: dry-run, stream, auto, mode, iterations.",
     ),
@@ -264,6 +268,8 @@ class ReplSession:
             "todo": self._cmd_todo,
             # B-178 wiring: the guided spec, from an idea to an approved SPEC.md.
             "spec": self._cmd_spec,
+            # Operator order 2026-11-03 A3: the granted test command, no shortcut.
+            "test": self._cmd_test,
         }
         self._events: Any = None
         self._renderer: Any = None
@@ -466,6 +472,79 @@ class ReplSession:
         todo = load_todo(folder)
         for line in todo_lines(todo, self._render_width()):
             print(line)
+        return True
+
+    def _cmd_test(self, args: list[str]) -> bool:
+        """``/test``: run the granted test command; the result feeds the next turn.
+
+        The run goes through the same tier-3 path as a model-requested
+        command (operator order 2026-11-03 A3): the same grant and pin
+        checks, the same test rule, the same sandbox and the same command
+        record. The operator typing ``/test`` is the approval, and
+        ``run_tests`` can only run the grant's test rule. With no grant,
+        nothing runs and the on-ramp prints instead.
+        """
+        from ract.policy import tier3
+        from ract.tools import ToolRefused
+        from ract.tools.tests_tool import RunTestsArgs, run_tests
+
+        project = self.state.config.resolve().parent
+        grant = getattr(self, "_grant_state", None)
+        if grant is None or not getattr(grant, "holds", False):
+            self._print_wrapped(
+                "no grant yet, so /test has nothing to run. Turn it on once: "
+                "`ract policy init --guided` asks, then RACT can run your "
+                "tests when you ask."
+            )
+            return True
+
+        def approve(facts: dict) -> bool:  # noqa: ARG001 - the keystroke answered
+            # The operator asked with /test; run_tests still only allows the
+            # grant's test rule, so this approves that and nothing else.
+            return True
+
+        try:
+            ctx = tier3.for_project(
+                project,
+                approve=approve,
+                expected_pin=self._grant_pin,
+                mode=self._tier3_mode,
+                session_approvals=getattr(self, "_session_approvals", None),
+            )
+            with tier3.bound(ctx):
+                result = run_tests(
+                    project,
+                    RunTestsArgs(
+                        selectors=args,
+                        reason="the operator asked with /test",
+                    ),
+                )
+        except ToolRefused as exc:
+            self._print_wrapped(f"not run: {exc}")
+            if getattr(exc, "hint", ""):
+                self._print_wrapped(f"hint: {exc.hint}")
+            return True
+        except ValueError as exc:
+            self._print_wrapped(f"not run: {exc}")
+            return True
+        except Exception as exc:  # noqa: BLE001 - /test never ends the session
+            self._print_wrapped(f"/test failed: {type(exc).__name__}: {exc}")
+            return True
+        facts = result.facts
+        for line in result.text.splitlines()[:40]:
+            print(line)
+        if result.truncated:
+            print("... (output trimmed; the full record is in the command record)")
+        passed = facts.get("passed")
+        exit_code = facts.get("exit_code")
+        if passed is True:
+            word = "passed"
+        elif passed is False:
+            word = "FAILED"
+        else:
+            word = "finished"
+        print(f"tests: {word} (exit {exit_code})")
+        self._pending_test_fact = f"[tests from /test: {word} (exit {exit_code})]"
         return True
 
     def _cmd_spec(self, args: list[str]) -> bool:
@@ -1418,6 +1497,24 @@ class ReplSession:
             return {"tier3": "off", "tier3_status": "T3 off (no grant)"}
         if why and why != "no grant":
             self._tier3_notes.append(f"tier 3 is off: {why}")
+        # Operator order 2026-11-03 A2: name the one command that turns it on
+        # when a test runner exists; with a grant, say what may run.
+        from ract.policy.guided import detect_runner
+
+        if not grant.holds and detect_runner(project) is not None:
+            self._tier3_notes.append(
+                "tests found: run `ract policy init --guided` once and RACT "
+                "can run them when you ask (for example /test)."
+            )
+        if grant.holds and grant.policy is not None:
+            rules = [
+                rule.id
+                for rule in getattr(grant.policy.commands, "allow", []) or []
+            ]
+            if rules:
+                self._tier3_notes.append(
+                    "this grant lets RACT run: " + ", ".join(sorted(rules))
+                )
         notice = expiry_notice(state, date.today())
         if notice:
             self._tier3_notes.append(notice)
@@ -1786,6 +1883,12 @@ class ReplSession:
             if code == 0 and not dry:
                 self.state.session_started = True
             return code
+        pending = getattr(self, "_pending_test_fact", None)
+        if pending and not loop and not ask:
+            # Operator order 2026-11-03 A3: the /test result rides the next
+            # turn so the model can act on a failure.
+            intent = pending + "\n" + intent
+            self._pending_test_fact = None
         argv = self.build_run_argv(intent, dry_run=dry, loop=loop, ask=ask)
         code = self._invoke(argv)
         self.state.turns += 1

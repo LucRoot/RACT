@@ -48,6 +48,15 @@ The flow does these steps, in order, and prints each one:
 
 A new user with a test runner should reach the signed result in under two minutes.
 
+## Let RACT run your tests
+
+The shortest path: run `ract setup` and say yes to the last question, or run
+`ract policy init --guided` any time. Both write the same signed grant, and
+both say plainly what the sandbox on this machine does and does not
+enforce. Then, in a session, `/test` runs the granted test command and shows
+the result; the session status line says what the grant lets RACT run. You
+can take it back with `ract policy revoke`.
+
 ## The status line
 
 The status line shows the state of tier 3. These are the states, in the words RACT prints:

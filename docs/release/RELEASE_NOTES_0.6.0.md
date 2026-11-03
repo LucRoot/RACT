@@ -208,6 +208,12 @@ now, and what to run. The one command to start with is
 `ract policy init --guided` at a terminal, which proposes and signs your first
 grant; `ract doctor --tier3` then shows the whole state in one place.
 
+- In a session the model cannot run your tests by itself: command
+  execution is tier 3 and stays off without a signed grant. RACT's loop runs
+  your test command, a signed grant runs commands under your rules, and
+  `/test` runs the granted test command on your keystroke. The slice is on
+  the release tip with the J11 evidence row below.
+
 ## Not claimed
 
 - That S2 is met: it is not, until the 2B and 8B legs and the ten-journey

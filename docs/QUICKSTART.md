@@ -102,6 +102,29 @@ running turn takes effect only when the turn ends. Line history and tab completi
 Linux and macOS, where Python has `readline`; on Windows the session has neither yet.
 Ctrl-D or `/exit` leaves. Scripts and CI use `ract -p '<intent>' --accept-edits`, or `ract run '<intent>' --yolo`: with no terminal to ask, a run without one of those flags does not change files.
 
+## Let RACT run your tests
+
+RACT can run your tests when you ask, for example with `/test` in a session
+or when the model needs them. Setup asks once at the end (say yes, or run
+`ract policy init --guided` later). What RACT prints:
+
+```text
+One more thing. RACT can run your tests when you ask, for example with
+/test in a session or when the model needs them. It would run one command,
+the test runner this setup found.
+Let RACT run your tests when you ask? [Y/n]
+```
+
+The grant names one command. The network stays off where this machine can
+enforce it, each run has a time limit, and you can take it back any time:
+`ract policy revoke`. In a session, `/test` runs the granted command and
+shows the result; the next turn can act on a failure.
+
+One honest limit: in a session the model cannot run your tests by itself.
+RACT's loop (`/loop`) runs your test command, and tier 3 lets a signed
+grant run commands under your rules; the model can also tell you the command
+to run.
+
 ## Set up a project
 
 In the directory you want to work in:
