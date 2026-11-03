@@ -149,7 +149,7 @@ next turn (`turn.started` with `queued: true`).
 
 | Field | Type | Meaning |
 |---|---|---|
-| `signed` | boolean | True only when every changed file has a signed Rootknot record. Until S-015b lands this is false. |
+| `signed` | boolean | True only when every changed file has a signed Rootknot record; a run that could not sign reports false. |
 | `unsigned_files` | list of paths | Changed files without a signed record. |
 | `sidecars` | list of paths | The signed record beside each signed file (`src/.calc.py.rootknot.json`); commit it with the file to keep the record (D-143). |
 
