@@ -18,6 +18,7 @@ from pathlib import Path
 
 from ract.workspace_path import resolve_workspace_path
 from ract import run_checkpoint, undo_backup
+from ract.workspace_state import StateDirRefused, check_state_path
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,7 @@ class DiffApplier:
 
     def _backup_path(self, target: Path) -> Path:
         """Return a unique backup path for *target*."""
+        check_state_path(self.snapshot_dir)  # B-213: never through a link
         self.snapshot_dir.mkdir(parents=True, exist_ok=True)
         stem = target.name
         counter = 0
@@ -230,7 +232,17 @@ class DiffApplier:
         if original_text.endswith(newline):
             merged_text += newline
 
-        backup = self._backup_path(target)
+        try:
+            backup = self._backup_path(target)
+        except StateDirRefused as exc:
+            # B-213: a repo-shipped link at .ract/diff_snapshots must not
+            # receive the target's prior bytes; refuse the hunk, write nothing.
+            return DiffApplyResult(
+                path=target,
+                applied=False,
+                backup=None,
+                message=str(exc),
+            )
         shutil.copy2(target, backup)
         undo_backup.save_before_replace(self.project_dir, [target])
         # Write without newline translation so the detected convention survives.

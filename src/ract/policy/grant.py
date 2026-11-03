@@ -401,10 +401,18 @@ def sign(project: Path | str, private_key: Any, key: PublicKey) -> str:
         "signature": base64.b64encode(signature).decode("ascii"),
     }
     from ract.atomic_write import write_atomic
+    from ract.workspace_state import StateDirRefused, check_state_path
 
+    # B-213: refuse a repo-shipped link at .ract before the atomic write;
+    # mkdir/mkstemp in write_atomic would both follow the junction.
+    sig_path = project / ".ract" / SIGNATURE_FILE
+    try:
+        check_state_path(sig_path)
+    except StateDirRefused as exc:
+        raise PolicyInvalid([f"{SIGNATURE_FILE}: {exc}"]) from exc
     # B-207: a fresh temporary name (no collision between two writers) and a
     # sync before the rename (a crash never leaves an empty signature).
-    write_atomic(project / ".ract" / SIGNATURE_FILE, json.dumps(sig, indent=2).encode("utf-8"))
+    write_atomic(sig_path, json.dumps(sig, indent=2).encode("utf-8"))
     # B-113 (G-214): what the entry points were at signing, kept outside the
     # project, so a later change to one puts its command back to the question.
     from ract.policy import allowlist

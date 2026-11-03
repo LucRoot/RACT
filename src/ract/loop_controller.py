@@ -50,6 +50,7 @@ from ract.refactor_ledger import RefactorLedger
 from ract.ract_runner import run_ract
 from ract.rooted import Rooted
 from ract.test_failure_diagnoser import TestFailureDiagnoser
+from ract.workspace_state import check_state_path
 
 
 @dataclass(frozen=True)
@@ -2632,6 +2633,7 @@ class LoopController:
     def write_report(self, result: LoopResult, path: Path | str | None = None) -> Path:
         """Serialize the loop result to JSON for later review."""
         target = Path(path) if path else self.project_dir / ".ract" / "loop_report.json"
+        check_state_path(target)  # B-213: never through a link
         target.parent.mkdir(parents=True, exist_ok=True)
         iterations_data = [
             {
@@ -2674,7 +2676,12 @@ class LoopController:
             "metrics": rollup,
             "iterations": iterations_data,
         }
-        target.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        # One writer for .ract/loop_report.json: the run_reporter export helper
+        # (which re-checks the state path) writes the same JSON the old
+        # write_text produced, so the two writers cannot disagree (B-213).
+        from ract import run_reporter
+
+        run_reporter.export_report(data, target)
         return target
 
 

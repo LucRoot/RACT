@@ -30,6 +30,7 @@ import sys
 from pathlib import Path
 
 from ract.core.module_identity import _module_knot, register_module_knot
+from ract.workspace_state import StateDirRefused, check_state_path
 
 
 def memory_command(args: list[str]) -> int:
@@ -290,6 +291,17 @@ def _memory_init(args: list[str]) -> int:
         "warnings": warnings,
     }
 
+    # B-213: a cloned repository can ship .ract/ (or a folder in it) as a
+    # link or junction; refuse before any sqlite connection or mkdir writes
+    # through it, instead of landing the indexes outside the workspace.
+    memory_dir = repo_path / ".ract" / "memory"
+    for state_target in (memory_dir / "symbols.db", memory_dir / "semantic"):
+        try:
+            check_state_path(state_target)
+        except StateDirRefused as exc:
+            print(f"[ract] memory init: {exc}", file=sys.stderr)
+            return 1
+
     symbol_idx = None
     graph_idx = None
     try:
@@ -460,6 +472,7 @@ def _memory_apply_narrowings(args: list[str]) -> int:
     # override file so subsequent runs pick them up.
     try:
         override_path = repo_path / ".ract" / "memory" / "budget_overrides.yaml"
+        check_state_path(override_path)  # B-213: never through a link
         override_path.parent.mkdir(parents=True, exist_ok=True)
         _write_narrowing_overrides(override_path, proposals)
     except OSError as exc:

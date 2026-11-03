@@ -17,6 +17,7 @@ from ract.ast_normalizer import normalize_python, structural_similarity_normaliz
 from ract.compression_novelty_detector import CompressionNoveltyDetector
 from ract.handshake_registry import HandshakeRegistry
 from ract.symbol_graph import SymbolGraph
+from ract.workspace_state import check_state_path
 
 
 @dataclass(frozen=True)
@@ -499,8 +500,13 @@ class ConsolidationApplier:
                 error="refused: paths outside the workspace: " + ", ".join(refused),
             )
 
+        deleted: list[str] = []
+        shims: list[str] = []
         try:
             if not dry_run:
+                # B-213: a repo-shipped link at .ract/consolidate_backups must
+                # not receive the proposal's backups; refuse before mkdir.
+                check_state_path(backup_dir)
                 backup_dir.mkdir(parents=True, exist_ok=True)
                 for rel in files_to_backup:
                     src = self.project_dir / rel
@@ -509,8 +515,6 @@ class ConsolidationApplier:
                         dst.write_bytes(src.read_bytes())
                         backed_up[rel] = dst
 
-            deleted: list[str] = []
-            shims: list[str] = []
             for source in proposal.sources:
                 # Overwrite the source file with a deprecation shim. The original
                 # content is already in the backup directory, so rollback can

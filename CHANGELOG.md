@@ -10,6 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The six `.ract/` state writers that skipped `check_state_path` now take
+  the B-213 link guard, closing the junction escape the G3 seam-6 re-check
+  confirmed dynamically: `ract memory init` guards the memory dir before
+  any sqlite connection, `ract memory apply-narrowings` guards
+  `budget_overrides.yaml`, `policy.grant.sign()` guards `policy.yaml.sig`,
+  `DiffApplier` guards `.ract/diff_snapshots` before the rollback backup
+  `copy2`, `ConsolidationApplier` guards `.ract/consolidate_backups`, and
+  `LoopController.write_report` routes `.ract/loop_report.json` through
+  the same guarded `run_reporter.export_report` helper so both writers of
+  that file agree. Each refuses loudly with the module's existing error,
+  writes nothing to the link target, and keeps the free-path behavior.
+
 ### Fixed
 
 - `ract trace verify` reports TAMPERED for an event whose
