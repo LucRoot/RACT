@@ -10,6 +10,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+### Fixed
+
+- `ract trace verify` reports TAMPERED for an event whose
+  `timestamp_ns` is out of uint64 range (negative or >= 2**64)
+  instead of crashing with an unhandled `OverflowError`; the bounds
+  check lives in `Event.__post_init__`, so `EventReader.load`,
+  `ract trace replay/diff/to-test` and `ract verify --run` surface
+  the same invalid-content verdicts and the CLI exit-code contract
+  (2 for TAMPERED) holds.
+
+- `ract config diff` redacts values the way the setup wizard's diff does
+  (B-202, G3-P1): the verb flattened both ract.yaml files and printed the
+  raw added/removed/changed values to stdout, so a literal `api_key` in
+  ract.yaml, an explicitly supported configuration, reached CI logs in
+  cleartext. Credential-named values from both files are now registered as
+  known and every printed value is redacted; `${VAR}` references stay
+  readable, non-secret values print unchanged, and the diff data itself
+  stays raw.
+
+- `ract doctor`'s sandbox posture comes from the live backend self-test
+  (`security.command_sandbox.enforcing_backend`), the same fact
+  `ract doctor --sandbox` and `/permissions` report, instead of a
+  hardcoded all-False table: on a machine whose bwrap self-test passes the
+  doctor now says "sandbox: enforced on this machine (linux-bwrap)" and no
+  longer advises a best_effort grant there. The other property rows keep
+  their meaning; process limits stay "not enforced" because the bwrap
+  render applies no rlimits.
+
+- The headless `--allowed-tools` refusal states the true reason: the tool
+  layer has shipped, so the exit-2 message no longer claims RACT has no
+  tools; it says a headless run has no interactive approver, so per-tool
+  approvals cannot be scoped to an allowlist and the flag is not supported
+  in headless mode (a session at a terminal approves tools per call), and
+  the wording test asserts the new string with the exit code still 2.
+
 - `ract trace verify` reports TAMPERED for an event whose
   `timestamp_ns` is out of uint64 range (negative or >= 2**64)
   instead of crashing with an unhandled `OverflowError`; the bounds
