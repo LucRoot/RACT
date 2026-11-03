@@ -151,29 +151,26 @@ def test_ract_auction_reports_zero_dead_modules():
     # B-023, B-115, B-116: the web tools are registered the same way (the
     # package fills REGISTRY with their specs), so they look unreferenced.
     allowlist.add("web_tools.py")
-    # v0.4 (module_04): the router gate is called from the SubstrateLoop
-    # provider-selection path (which module_08 will land as the shipped
-    # CLI default; today it is exercised through the conformance-gate
-    # tests). It is exported from ``ract.providers.__init__`` and
-    # imported by tests, but no v0.4 production call site imports it
-    # directly — the plan says module_08 is where that wiring lands.
-    # Allowlist mirrors the transitional-substrate pattern used above.
+    # G3 (audit round 3, seam 5): the router gate has no production
+    # caller — module_08's SubstrateLoop migration landed without the
+    # gate call this comment used to assert, and only tests and the
+    # package re-export reference it. The entry stays because the
+    # auction would otherwise flag the module; the wiring claim does
+    # not.
     allowlist.add("gate.py")
-    # v0.4 (module_05): the OTLP mirror in ``ract.trace.otel`` uses lazy
-    # local imports (opentelemetry-api / sdk / exporter-otlp are runtime
-    # deps declared in pyproject.toml per ADR-0015) so the module
-    # imports cleanly without live OTLP installed at test time. It is
-    # exported from ``ract.trace.__init__`` and installed via
-    # ``install_otlp_exporter`` from a shipped CLI code path lands in
-    # module_08. Allowlist here mirrors the transitional-substrate
-    # pattern used above until module_08 wires the run-entry install.
+    # G3 (audit round 3, seam 5): the OTLP mirror in ``ract.trace.otel``
+    # has no run-entry install — the module_08 CLI wiring this comment
+    # promised never landed; only the definition, the package
+    # re-export, and tests reference ``install_otlp_exporter``. The
+    # entry stays to keep the auction quiet; the install claim was
+    # stale.
     allowlist.add("otel.py")
-    # ALM module_05: ``antilazy/sycophancy.py`` and
-    # ``antilazy/investigator.py`` land the sycophancy circuit and the
-    # Investigator pre-completion contract respectively. Both are
-    # consumed by ``tests/test_antilazy_al1.py`` and by the eventual
-    # LoopController wiring that module_08 lands. Allowlisted mirroring
-    # the module_06 substrate pattern.
+    # G3 (audit round 3, seam 5): the legacy ``antilazy/sycophancy.py``
+    # and ``antilazy/investigator.py`` are test-only — the LoopController
+    # wiring that landed uses ``sycophancy_v2``, and
+    # ``tests/architecture/test_no_sycophancy_bypass.py`` bans the
+    # legacy scanner from production modules. The entries stay because
+    # both are exercised by ``tests/test_antilazy_al1.py`` only.
     allowlist.add("sycophancy.py")
     allowlist.add("investigator.py")
     # v0.5 restoration cluster 2 / intent-fidelity module_07: the typed
@@ -221,10 +218,13 @@ def test_ract_auction_reports_zero_dead_modules():
     # transitional-substrate pattern above until module_09 lands the
     # live wiring.
     allowlist.add("repo_fingerprint.py")
-    # ADR-0049 D2 (B-172): the role loader has no caller until the role wiring cards
-    # (B-173 to B-176) land; the playbooks loader (B-173) shares the unqualified name
-    # (src/ract/playbooks/loader.py). ADR-0049 D9 (B-174): the offload store has no
-    # caller until the tool loop reads it.
+    # G3 (audit round 3, seam 5): B-173 landed and ``playbooks/loader.py``
+    # now calls ``roles/loader.py`` (TOOL_TIERS, load_builtin_roles), so
+    # the role loader stays wired; the entry is needed for the
+    # playbooks loader, which still has no production importer — the
+    # auction matches by bare basename, so one entry covers both.
+    # ADR-0049 D9 (B-174): the offload store has no caller until the
+    # tool loop reads it.
     allowlist.add("loader.py")
     allowlist.add("offload.py")
     # B-8dc (audit round 2, seam 5): the ``ract.config`` stub was deleted as
