@@ -672,12 +672,83 @@ def _run(
             run_git("init", "-q", cwd=directory, check=False)
             io.say("  ran: git init")
 
+    # Operator order 2026-11-03 A1: at the end, in an interactive terminal
+    # only, offer the guided grant so RACT can run the project's tests.
+    if interactive:
+        code = _offer_test_grant(directory, io, code)
+
     if opens_session:
         io.say(f"Opening the session. Try: {_first_request(directory)}")
     else:
         io.say(
             'Next: run `ract` to open a session here, or try: ract -p --ask "what does this project do?"'
         )
+    return code
+
+
+def _offer_test_grant(directory: Path, io: Any, code: int) -> int:
+    'The closing offer: let RACT run your tests (the guided grant, reused).'
+    # Interactive terminals only; headless runs, CI and pipes never see the
+    # question. A yes runs the same guided flow as `ract policy init
+    # --guided` (no second signing path); an explicit no prints one line on
+    # how to do it later.
+    from ract.policy.grant import load_grant
+
+    try:
+        grant = load_grant(directory)
+    except Exception:  # noqa: BLE001 - a broken grant file skips the offer
+        return code
+    if getattr(grant, "holds", False):
+        return code
+
+    from ract.policy.guided import detect_runner
+
+    if detect_runner(directory) is None:
+        io.say("")
+        io.say("no test runner found here, so there is nothing to grant yet.")
+        return code
+
+    io.say("")
+    io.say(
+        "One more thing. RACT can run your tests when you ask, for example "
+        "with /test in a session or when the model needs them. It would run "
+        "one command, the test runner this setup found."
+    )
+    io.say(
+        "The network stays off where this machine can enforce it. Each run "
+        "has a time limit. You can take it back any time: ract policy revoke."
+    )
+    def ask(question: str) -> "str | None":
+        # The wizard's own ask: same wrapping and EOF behavior as every
+        # other setup question.
+        return io.ask(question)
+
+    def show(line: str) -> None:
+        io.say(line)
+
+    answer = ask("Let RACT run your tests when you ask? [Y/n] ")
+    if answer is not None and answer.strip().lower() not in ("", "y", "yes"):
+        io.say("okay. To do it later: ract policy init --guided")
+        return code
+
+    from ract.policy.guided import guided_init
+    from ract.policy.operator_key import read_passphrase
+
+    io.say(
+        "Signing one grant now. The passphrase protects your operator key; "
+        "you type it here and it never appears in any log or file."
+    )
+    result = guided_init(
+        directory,
+        ask=ask,
+        show=show,
+        read_passphrase=read_passphrase,
+        width=io.width(),
+    )
+    if result == 0:
+        io.say("done: RACT can run your tests when you ask.")
+    elif result == 2:
+        io.say("no test runner found here, so there is nothing to grant yet.")
     return code
 
 

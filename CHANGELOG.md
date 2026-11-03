@@ -84,6 +84,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `/test` runs the granted test command from a session and puts the
+  result into the next turn (operator order 2026-11-03 A): the run goes
+  through the same tier-3 grant, pin, sandbox and command record as a
+  model-requested command, with the operator's keystroke as the approval;
+  with no grant it prints the on-ramp and runs nothing. At the end of an
+  interactive setup, RACT now offers the guided grant once (default yes),
+  and the session names the one command that turns it on.
 - `scripts/release_060.py` is the release script (B-167): the ordered steps
   of RELEASE_COMMANDS.md sections A to C, a typed `yes` required before
   every machine-leaving step, a pre-flight that refuses to start without
