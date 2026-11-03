@@ -509,7 +509,7 @@ class ReplSession:
                 approve=approve,
                 expected_pin=self._grant_pin,
                 mode=self._tier3_mode,
-                session_approvals=getattr(self, "_session_approvals", None),
+                session_approvals=self._tier3_session,
             )
             with tier3.bound(ctx):
                 result = run_tests(
@@ -1877,18 +1877,18 @@ class ReplSession:
     ) -> int:
         # An asked question has no plan to show, so dry-run does not apply.
         dry = False if ask else (self.state.dry_run if dry_run is None else dry_run)
-        if self._event_mode and not loop and self._events is not None:
-            code = self._event_turn(intent, dry=dry, ask=ask)
-            self.state.turns += 1
-            if code == 0 and not dry:
-                self.state.session_started = True
-            return code
         pending = getattr(self, "_pending_test_fact", None)
         if pending and not loop and not ask:
             # Operator order 2026-11-03 A3: the /test result rides the next
             # turn so the model can act on a failure.
             intent = pending + "\n" + intent
             self._pending_test_fact = None
+        if self._event_mode and not loop and self._events is not None:
+            code = self._event_turn(intent, dry=dry, ask=ask)
+            self.state.turns += 1
+            if code == 0 and not dry:
+                self.state.session_started = True
+            return code
         argv = self.build_run_argv(intent, dry_run=dry, loop=loop, ask=ask)
         code = self._invoke(argv)
         self.state.turns += 1

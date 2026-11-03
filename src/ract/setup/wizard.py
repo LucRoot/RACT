@@ -701,6 +701,13 @@ def _offer_test_grant(directory: Path, io: Any, code: int) -> int:
     if getattr(grant, "holds", False):
         return code
 
+    from ract.policy.guided import detect_runner
+
+    if detect_runner(directory) is None:
+        io.say("")
+        io.say("no test runner found here, so there is nothing to grant yet.")
+        return code
+
     io.say("")
     io.say(
         "One more thing. RACT can run your tests when you ask, for example "

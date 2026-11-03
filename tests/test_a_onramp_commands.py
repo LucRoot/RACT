@@ -286,3 +286,27 @@ def test_setup_offer_with_no_test_runner_names_that(
     io = _Io(answers=["y", "y", "y", "y"])
     _offer_test_grant(root, io, 0)
     assert any("no test runner" in line for line in io.lines)
+
+def test_the_test_result_rides_the_next_turn_in_event_mode(
+    project: Path, user_config: Path, monkeypatch
+) -> None:
+    """The reader's blocker: real sessions are event mode (no dispatch), so
+    the injection must run before the event branch. This builds the session
+    the way run_repl does and captures what _event_turn receives."""
+    _sign_grant(project, monkeypatch)
+    session = ReplSession(
+        project / "ract.yaml",
+        dispatch=None,  # production construction: event mode
+        read_line=lambda prompt: "",
+        console=_Console(),
+        verbs=cli.CLI_VERBS,
+    )
+    session._tier3_facts()  # noqa: SLF001
+    session._events = object()  # run_repl sets the real event stream
+    seen: list[str] = []
+    session._event_turn = lambda intent, dry=False, ask=False: seen.append(intent) or 0  # noqa: SLF001
+    session.handle("/test")
+    assert session._pending_test_fact is not None
+    session._run_intent("fix the failing test")  # noqa: SLF001
+    assert seen and "tests from /test" in seen[0]
+    assert "fix the failing test" in seen[0]
