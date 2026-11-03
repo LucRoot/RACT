@@ -26,11 +26,20 @@ PINNED = [
     'is an answer step: set expected_artifact to "". Nothing is written; the reply '
     "is the answer shown to the user.",
     "Never name a file you only want to read: the step would overwrite it with its reply.",
-    "RACT cannot run tests or commands in this release.",
+    "with a signed grant, RACT runs the granted test command and asks the "
+    "user before every run",
+    "RACT runs nothing that is not granted.",
+    "With no grant, do not plan a step that runs tests or commands or writes "
+    "their results",
     "When the intent is only a question, the plan is a single answer step.",
 ]
 
-FORBIDDEN = ["must not be empty", "test_results.txt", "for reads use the target file"]
+FORBIDDEN = [
+    "must not be empty",
+    "test_results.txt",
+    "for reads use the target file",
+    "cannot run tests or commands in this release",
+]
 
 
 @pytest.mark.parametrize("path", PROMPTS, ids=lambda p: p.parent.name)

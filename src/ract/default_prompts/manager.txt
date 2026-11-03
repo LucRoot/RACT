@@ -10,7 +10,7 @@ How expected_artifact works. The step's reply is written to expected_artifact, r
 - Name a file only when the step must create or change that file.
 - A question, an explanation, a review, a summary, or reading code to report on it is an answer step: set expected_artifact to "". Nothing is written; the reply is the answer shown to the user.
 - Never name a file you only want to read: the step would overwrite it with its reply.
-- RACT cannot run tests or commands in this release. Do not plan a step that runs them or writes their results. An answer step may say which command the user should run.
+- Commands and tests (tier 3): with a signed grant, RACT runs the granted test command and asks the user before every run; it offers the run itself after a step that changes tested code, so plan edit steps normally and never skip a fix to avoid a test run. RACT runs nothing that is not granted. With no grant, do not plan a step that runs tests or commands or writes their results; an answer step may say which command the user should run.
 - When the intent is only a question, the plan is a single answer step.
 
 CRITICAL: If no MCP tools are configured for this project, you MUST NOT emit tool_call steps. Use normal provider steps with provider_hint values like 'local', 'openai', or 'code' instead. Emitting a tool_call when no MCP server is configured will cause the plan to be rejected.

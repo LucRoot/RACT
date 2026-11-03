@@ -10,6 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The manager prompt no longer teaches the pre-command world (J11, the
+  command slice's real-model evidence): `prompts/manager.txt` told every
+  model "RACT cannot run tests or commands in this release", and on the
+  hosted leg the model quoted that sentence in its plan, talked itself out
+  of the granted `run_tests` path, and explained the fix instead of making
+  it. The line now says the tier-3 truth: with a signed grant RACT runs the
+  granted test command and asks the user before every run (offering the run
+  itself after a step that changes tested code), RACT runs nothing that is
+  not granted, and with no grant a step must not run tests or commands — an
+  answer step may say which command the user should run. The golden-prompt
+  test now pins the new sentences and forbids the old one, in both the
+  repository copy and the bundled default.
 - The write gate strips a Python step reply's think blocks and one outer
   code fence before the parse check (B-095, the S2 floor leg, operator
   ruling): a reply that wrapped the file in `<think>...</think>` and one
