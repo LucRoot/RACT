@@ -12,4 +12,5 @@ def test_config_diff_html_export(tmp_path):
     cmd.append("--config")
     cmd.append(str(config))
     result = subprocess.run(cmd, cwd=str(tmp_path), capture_output=True, text=True)
-    assert result.returncode in (0, 1, 2)
+    assert result.returncode == 0
+    assert "<html>" in result.stdout
