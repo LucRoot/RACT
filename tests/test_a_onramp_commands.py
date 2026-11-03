@@ -83,6 +83,7 @@ def user_config(tmp_path: Path, monkeypatch) -> Path:
     monkeypatch.setenv("APPDATA", str(folder))
     monkeypatch.setenv("LOCALAPPDATA", str(folder))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(folder))
+    monkeypatch.setenv("XDG_STATE_HOME", str(folder))
     return folder / "ract"
 
 
@@ -92,6 +93,7 @@ def _sign_grant(project: Path, monkeypatch) -> None:
     monkeypatch.setenv("APPDATA", str(folder))
     monkeypatch.setenv("LOCALAPPDATA", str(folder))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(folder))
+    monkeypatch.setenv("XDG_STATE_HOME", str(folder))
 
     def read_passphrase(prompt: str = "", *, confirm: bool = False) -> str:
         return PASS
