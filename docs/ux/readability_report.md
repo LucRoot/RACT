@@ -13,9 +13,6 @@ Grade is Flesch-Kincaid, target about 6; above 8.0 is a failure to card.
 | 8.4 | Machine: |
 | 7.6 | network: not tested. Setup talks only to this machine's usual server addresses and to the provider you pick. |
 | 2.5 | Wrote x and prompts/manager.txt. |
-| 2.8 | One more thing. RACT can run your tests when you ask, for example with /test in a session or when the model needs them. It would run one command, the test runner this setup found. |
-| 3.2 | The network stays off where this machine can enforce it. Each run has a time limit. You can take it back any time: ract policy revoke. |
-| 5.3 | Signing one grant now. The passphrase protects your operator key; you type it here and it never appears in any log or file. |
 | 2.5 | Adds the provider 'x' to x: |
 | 5.7 | Wrote x; the manager provider stays 'x'. |
 | 4.5 | Checking x with one tiny request: |
@@ -42,9 +39,6 @@ Grade is Flesch-Kincaid, target about 6; above 8.0 is a failure to card.
 | 5.8 | This directory is not a git repository. RACT records each step on its own branch, so it works best in one. Command: git init |
 | 5.2 | Opening the session. Try: x |
 | 5.2 | Next: run `ract` to open a session here, or try: ract -p --ask "what does this project do?" |
-| 2.9 | no test runner found here, so there is nothing to grant yet. |
-| 7.6 | okay. To do it later: ract policy init --guided |
-| -0.3 | done: RACT can run your tests when you ask. |
 | 3.7 | x is rewritten whole, so comments in it are not kept. |
 | 5.2 | Nothing was changed. |
 | 0.5 | Skipped the health check (check: false). |
@@ -63,7 +57,6 @@ Grade is Flesch-Kincaid, target about 6; above 8.0 is a failure to card.
 | 6.9 | Skipped the health check: the key variable is not set yet. Then run: ract doctor --check-providers |
 | 4.5 | Checking x with one tiny request: |
 | 1.3 | ran: git init |
-| 2.9 | no test runner found here, so there is nothing to grant yet. |
 | 0.6 | Use the server at x? [Y/n] |
 | 6.8 | Start the server, then press Enter to look again. Or type skip for Ollama's address: |
 | -1.8 | ok: x in x s |
