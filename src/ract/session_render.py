@@ -580,6 +580,14 @@ class PlainRenderer:
             )
         else:
             self._line("  changed: nothing")
+        if d.get("formatting_removed_chars"):
+            # S2 floor leg: the strip ran before the write, so the diff and
+            # the file hold the stripped bytes; the line says so, once.
+            from ract.write_gate import formatting_notice
+
+            self._line(
+                "  " + formatting_notice(int(d["formatting_removed_chars"]))
+            )
         for line in self._turn_diff(d):
             self._line("  " + line)
         if d.get("undo"):

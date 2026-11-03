@@ -48,6 +48,11 @@ _runs: ContextVar[list[Any] | None] = ContextVar("ract_turn_runs", default=None)
 # for it last: a second edit of one file counts again, and the same content
 # arriving in another tree (a step's worktree, then the apply) does not.
 _changes: ContextVar[list[int] | None] = ContextVar("ract_turn_changes", default=None)
+# S2 floor leg: characters of reply formatting the write gate stripped this
+# turn, one entry per stripped write, for the turn summary line.
+_formatting_removed: ContextVar[list[int] | None] = ContextVar(
+    "ract_turn_formatting_removed", default=None
+)
 _contents: ContextVar[dict[str, str | None] | None] = ContextVar(
     "ract_turn_contents", default=None
 )
@@ -126,6 +131,7 @@ def bind(
     _runs.set(runs)
     _changes.set([0])
     _contents.set({})
+    _formatting_removed.set([])
     _write_lock.set(write_lock)
     _queued.set(queued)
     _external.set([])
@@ -286,6 +292,19 @@ def changes_made() -> int:
     """How many writes the turn has made so far (B-192)."""
     counter = _changes.get()
     return counter[0] if counter is not None else 0
+
+
+def note_formatting_removed(chars: int) -> None:
+    """The write gate stripped *chars* characters of formatting from a reply."""
+    counts = _formatting_removed.get()
+    if counts is not None:
+        counts.append(chars)
+
+
+def formatting_removed_total() -> int:
+    """Characters of reply formatting the write gate stripped this turn."""
+    counts = _formatting_removed.get()
+    return sum(counts) if counts else 0
 
 
 def record_run(kind: str, result: Any) -> None:

@@ -9,6 +9,8 @@ that still name a file. It refuses a replacement that is plainly not the
 file:
 
 - a step whose action reads like a question never replaces an existing file;
+- before the parse check, a Python reply's think blocks and one outer code
+  fence are stripped, and the body between the fences is what is written;
 - a file RACT can parse that parsed before must still parse after;
 - a new Python file must parse (B-095: a new file was written with a
   syntax error and the run reported done);
@@ -75,6 +77,11 @@ _SHRINK_WORDS = ("delete", "remove", "truncate", "clear", "empty", "shorten")
 
 _SIZE_RULE_MIN_LINES = 50
 _SIZE_RULE_FRACTION = 0.1
+
+# A model's reasoning wrapped in <think>...</think>, inline in the reply
+# (the same block strip_reasoning removes earlier in the executor; the gate
+# removes it too so a direct call still judges the visible answer).
+_THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 
 
 class ReplacementRefused(Exception):
@@ -215,8 +222,84 @@ def check_new_file(path: str, new: str) -> None:
         )
 
 
-def check_replacement(path: str, old: bytes, new: str, action: str) -> None:
-    """Raise ReplacementRefused when *new* should not replace *old* at *path*."""
+def _strip_outer_fence(text: str) -> str | None:
+    """The body between one outer code fence pair, or None when there is no
+    single fenced block (S2 floor leg).
+
+    LR:: The 3B replay's reply carried the file between one ```python fence
+    with prose before and after it, and the parse check refused the whole
+    reply. The ruling: the outer fence runs from the FIRST opening fence to
+    the LAST closing fence; the prose around it is dropped and every fence
+    line inside the body stays as content. A fence not at the start of its
+    line is prose. No fence, a lone fence, or more than one separate fenced
+    block (a second fence line that carries a language) strips nothing, so
+    the unchanged refusal stands.
+    """
+    lines = text.split("\n")
+    fence_at = [i for i, line in enumerate(lines) if line.startswith("```")]
+    if len(fence_at) < 2:
+        return None
+    openings = sum(1 for i in fence_at if lines[i][3:].strip(" `\t\r"))
+    if openings > 1:
+        return None  # more than one separate fenced block
+    first, last = fence_at[0], fence_at[-1]
+    # Character offsets of the body's span: after the opening fence line,
+    # up to the closing fence line. Bytes between the fences are kept as
+    # they are, including the newline that ends the last body line.
+    offset = 0
+    line_start = []
+    for line in lines:
+        line_start.append(offset)
+        offset += len(line) + 1
+    body_from = line_start[first] + len(lines[first]) + 1
+    body_to = line_start[last]
+    if body_from >= body_to:
+        return None  # an empty body is never a file
+    return text[body_from:body_to]
+
+
+def _strip_formatting(kind: str, text: str) -> tuple[str, int] | None:
+    """A Python reply's think blocks and one outer code fence, with the count.
+
+    LR:: Only a target RACT parses as Python gets this treatment; for any
+    other file type a fence is content and None is returned. Think blocks
+    go first, then the fence logic runs on the remainder. Returns the
+    stripped text and how many characters were removed, or None when there
+    is nothing to strip or the fences do not form one outer block.
+    """
+    if kind != "python":
+        return None
+    result = _THINK_BLOCK.sub("", text)
+    fenced = _strip_outer_fence(result)
+    if fenced is not None:
+        result = fenced
+    if result == text:
+        return None
+    return result, len(text) - len(result)
+
+
+def formatting_notice(removed_chars: int) -> str:
+    """The one plain line the change screen and the turn summary say.
+
+    The strip happens before the parse check and the write, so the diff and
+    the file hold the stripped bytes; the line says so.
+    """
+    unit = "character" if removed_chars == 1 else "characters"
+    return (
+        f"RACT removed {removed_chars} {unit} of formatting from the reply; "
+        "the diff shows the stripped bytes."
+    )
+
+
+def check_replacement(
+    path: str, old: bytes, new: str, action: str
+) -> tuple[str, int]:
+    """Check *new* against *old* and return the text to write and the count.
+
+    The returned text is *new* with the formatting strip applied when the
+    target parses as Python; it is what gets written and shown. The count
+    is how many characters the strip removed (0 when nothing was stripped).
+    """
     if reads_like_a_question(action):
         raise ReplacementRefused(
             path,
@@ -228,9 +311,13 @@ def check_replacement(path: str, old: bytes, new: str, action: str) -> None:
         # A leading BOM is not content (B-092); ast.parse refuses U+FEFF.
         old_text = old.decode("utf-8").lstrip(BOM)
     except UnicodeDecodeError:
-        return  # not a text file RACT can judge; the backup still keeps it
+        return new, 0  # not a text file RACT can judge; the backup still keeps it
     kind = _KINDS.get(PurePosixPath(path.replace("\\", "/")).suffix.lower())
+    removed = 0
     if kind is not None:
+        stripped = _strip_formatting(kind, new)
+        if stripped is not None:
+            new, removed = stripped
         if _parses(kind, old_text) and not _parses(kind, new):
             error = python_error(new) if kind == "python" else None
             where = f" ({_where(error)})" if error is not None else ""
@@ -239,7 +326,7 @@ def check_replacement(path: str, old: bytes, new: str, action: str) -> None:
                 f"the reply is not a valid {kind} file, and the current one is{where}",
                 "parse",
             )
-        return
+        return new, removed
     lowered = action.lower()
     if (
         old_text.count("\n") > _SIZE_RULE_MIN_LINES
@@ -252,6 +339,7 @@ def check_replacement(path: str, old: bytes, new: str, action: str) -> None:
             f"{len(old_text)}; the step does not say it deletes or truncates",
             "size",
         )
+    return new, removed
 
 
 __all__ = [
@@ -262,6 +350,7 @@ __all__ = [
     "BOM",
     "check_new_file",
     "check_replacement",
+    "formatting_notice",
     "python_error",
     "with_bom_of",
     "reads_like_a_question",

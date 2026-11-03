@@ -10,6 +10,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The write gate strips a Python step reply's think blocks and one outer
+  code fence before the parse check (B-095, the S2 floor leg, operator
+  ruling): a reply that wrapped the file in `<think>...</think>` and one
+  ```python fence with prose before and after it was refused as "not a
+  valid python file" and the turn died. For a target RACT parses as
+  Python, the gate now removes the think blocks, then takes the body
+  between the first opening fence and the last closing fence (inner
+  fences stay as content), and writes those bytes byte for byte; the
+  change screen and the turn summary say in one plain line how many
+  characters were removed, the step event records `stripped: true` and
+  `removed_chars`, and the diff shows the stripped bytes. A reply with
+  no fence, an unclosed fence, or more than one separate fenced block
+  is refused exactly as before, and non-Python targets strip nothing.
 - The to-do store refuses a folder that is itself a link, not only paths
   under a linked `.ract` (G5, the WSL rerun): `todo_list.save` raised nothing
   when its folder was a symlink to elsewhere, so the list could be written

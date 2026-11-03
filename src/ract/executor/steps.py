@@ -172,6 +172,12 @@ class Executor:
     # release_held_step once the apply result is known.
     hold_step_report: bool = False
     _held_step: tuple[int, Step, float, float | None] | None
+    # Characters of formatting the write gate stripped from this step's
+    # reply, for the step.finished event; None when the reply was written
+    # as it came. Set by _write_artifact, consumed by _step_done (or by
+    # release_held_step when the step's report is held), reset at each
+    # step start.
+    _stripped_chars: int | None = None
     # B-011a: the budgets of the read-only tools loop for answer steps, set by
     # the harness from ract.yaml (``agent``); None keeps the single completion.
     read_tools: Any = None
@@ -703,12 +709,17 @@ class Executor:
         old = full_path.read_bytes() if full_path.is_file() else None
         # B-092: a leading BOM is kept on a rewrite, never added or doubled.
         cleaned = write_gate.with_bom_of(old, cleaned)
+        removed = 0
         if old is not None:
             # S-026: refuse a reply that is plainly not the file (raises
-            # ReplacementRefused).
-            write_gate.check_replacement(
+            # ReplacementRefused). The gate strips a think block and one
+            # outer code fence from a Python reply before its parse check
+            # (S2 floor leg); the text it returns is what is written and
+            # shown. The count is reported once the write has landed.
+            checked, removed = write_gate.check_replacement(
                 expected_artifact, old, cleaned.lstrip(write_gate.BOM), action
             )
+            cleaned = write_gate.with_bom_of(old, checked)
         else:
             # B-095: a new Python file must parse too.
             write_gate.check_new_file(expected_artifact, cleaned)
@@ -741,6 +752,18 @@ class Executor:
         full_path.write_text(cleaned, encoding="utf-8")
         run_checkpoint.note_written(self.project_dir, [full_path])
         turn_context.record_written(self.project_dir, [full_path])
+        if removed:
+            # The write landed: now the strip is reported, on the change
+            # screen and on the step event, with the character count.
+            self._stripped_chars = removed
+            turn_context.note_formatting_removed(removed)
+            turn_context.report(
+                "notice",
+                {
+                    "level": "info",
+                    "text": write_gate.formatting_notice(removed),
+                },
+            )
         return self._record_provenance(full_path, cleaned)
 
     def _record_provenance(self, full_path: Path, content: str) -> bool:
@@ -2221,10 +2244,35 @@ class Executor:
         # D13: the run's checkpoint names the step before it touches a file.
         run_checkpoint.step_started(n)
         self._open_step = (n, step, time.monotonic())
+        self._stripped_chars = None
         turn_context.report(
             "step.started",
             {"n": n, "action": step.action, "target": step.expected_artifact or None},
         )
+
+    def _step_finished_data(
+        self,
+        n: int,
+        step: Step,
+        started: float,
+        outcome: str,
+        confidence: float | None,
+        hint: str | None,
+    ) -> dict[str, Any]:
+        """The step.finished event data; a stripped reply carries its counts."""
+        data: dict[str, Any] = {
+            "n": n,
+            "outcome": outcome,
+            "artifact": self._disk_spelling(step.expected_artifact),
+            "confidence": confidence,
+            "duration_ms": int((time.monotonic() - started) * 1000),
+            "hint": hint,
+        }
+        if self._stripped_chars is not None:
+            data["stripped"] = True
+            data["removed_chars"] = self._stripped_chars
+            self._stripped_chars = None
+        return data
 
     def _step_done(self, confidence: float | None) -> None:
         if self._open_step is None:
@@ -2237,14 +2285,7 @@ class Executor:
         run_checkpoint.step_finished(n)
         turn_context.report(
             "step.finished",
-            {
-                "n": n,
-                "outcome": "done",
-                "artifact": self._disk_spelling(step.expected_artifact),
-                "confidence": confidence,
-                "duration_ms": int((time.monotonic() - started) * 1000),
-                "hint": None,
-            },
+            self._step_finished_data(n, step, started, "done", confidence, None),
         )
 
     def release_held_step(self, outcome: str, error: str | None = None) -> None:
@@ -2263,14 +2304,7 @@ class Executor:
             run_checkpoint.step_finished(n)
         turn_context.report(
             "step.finished",
-            {
-                "n": n,
-                "outcome": outcome,
-                "artifact": self._disk_spelling(step.expected_artifact),
-                "confidence": confidence,
-                "duration_ms": int((time.monotonic() - started) * 1000),
-                "hint": None if outcome == "done" else error,
-            },
+            self._step_finished_data(n, step, started, outcome, confidence, error),
         )
 
     def _disk_spelling(self, expected_artifact: str | None) -> str | None:

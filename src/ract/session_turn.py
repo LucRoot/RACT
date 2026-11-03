@@ -529,6 +529,8 @@ def run_turn(
         reporter.close()
         # B-192: unbinding resets the count, so it is read first.
         turn_changes = turn_context.changes_made()
+        # Same for the formatting the write gate stripped from step replies.
+        formatting_removed = turn_context.formatting_removed_total()
         turn_context.bind(None)
 
     # What RACT wrote is the answer; the before/after comparison is only a
@@ -636,6 +638,9 @@ def run_turn(
                 "backup_id": backup_id,
                 "checkpoint": None,
                 "verification": verification,
+                # S2 floor leg: characters of reply formatting the write gate
+                # stripped before the parse check; the summary line says so.
+                "formatting_removed_chars": formatting_removed or None,
                 # B-090 (H5): the unsigned list names files as the disk spells them.
                 "provenance": _provenance(
                     [_on_disk_name(project, name) for name in unsigned],
