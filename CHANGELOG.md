@@ -306,6 +306,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract doctor`'s sandbox posture comes from the live backend self-test
+  (`security.command_sandbox.enforcing_backend`), the same fact
+  `ract doctor --sandbox` and `/permissions` report, instead of a
+  hardcoded all-False table: on a machine whose bwrap self-test passes the
+  doctor now says "sandbox: enforced on this machine (linux-bwrap)" and no
+  longer advises a best_effort grant there. The other property rows keep
+  their meaning; process limits stay "not enforced" because the bwrap
+  render applies no rlimits.
+
 - `test_a_deleted_signed_file_is_attributed_at_the_earlier_commit` no longer
   flakes under load: the workspace fixture writes `src/calc.py` with the
   platform's line endings, and this test turns `core.autocrlf` off, so the
