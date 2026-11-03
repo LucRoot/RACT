@@ -162,9 +162,15 @@ def save(todo: TodoList, folder: Path) -> Path:
     planted at the target's name or at a predictable temporary name is
     replaced by the rename, never written through.
     """
-    from ract.workspace_state import check_state_path
+    from ract.workspace_path import _is_link_or_junction
+    from ract.workspace_state import StateDirRefused, check_state_path
 
     folder = Path(folder)
+    if _is_link_or_junction(folder):
+        raise StateDirRefused(
+            f"{folder} is a link or a junction, and RACT does not write its "
+            "state through one; remove it and RACT makes a plain folder"
+        )
     target = folder / SAVE_NAME
     check_state_path(target)  # B-237: never through a link
     folder.mkdir(parents=True, exist_ok=True)

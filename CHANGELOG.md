@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The to-do store refuses a folder that is itself a link, not only paths
+  under a linked `.ract` (G5, the WSL rerun): `todo_list.save` raised nothing
+  when its folder was a symlink to elsewhere, so the list could be written
+  outside the workspace; the folder now gets the same link refusal as every
+  other state writer. Found by `test_save_refuses_a_path_through_a_link`,
+  which only runs where symlinks are creatable (it skips on Windows).
 - The six `.ract/` state writers that skipped `check_state_path` now take
   the B-213 link guard, closing the junction escape the G3 seam-6 re-check
   confirmed dynamically: `ract memory init` guards the memory dir before

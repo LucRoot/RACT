@@ -281,8 +281,24 @@ def test_a_path_under_dot_ract_is_not_racts_own_record(signed_repo, capsys) -> N
     assert out.rstrip().endswith(CLOSE_STATEMENT)
 
 
+
+def _crlf_premise_or_skip(ws: Path, after: str) -> None:
+    """These two tests calibrate on Windows: the turn signs CRLF disk bytes
+    while the commit stores LF, so the strict bytes-at-commit check fails and
+    the report names the committed record. On POSIX the disk holds LF and
+    the blob is identical, the strict check correctly passes, and the
+    expected refusal never arises. Skip where the premise cannot hold
+    (the G5 WSL rerun)."""
+    import pytest
+
+    disk = (ws / "src" / "calc.py").read_bytes()
+    blob = _git(ws, "show", f"{after}:src/calc.py").stdout
+    if b"\r\n" not in disk or "\r" in blob:
+        pytest.skip("the CRLF premise of this test cannot arise on POSIX")
+
 def test_the_sidecar_is_read_from_the_later_commit(signed_repo, capsys) -> None:
     ws, before, after, _run_id = signed_repo
+    _crlf_premise_or_skip(ws, after)
     # Move HEAD so `after` is not HEAD, then corrupt the working-tree
     # sidecar. The commit's copy is intact and must be the one read: the
     # verdict is the strict bytes-at-commit check, not the tree's
@@ -384,6 +400,7 @@ def test_a_working_tree_record_is_named_when_not_at_head(
     with (ws / ".git" / "info" / "exclude").open("a", encoding="utf-8") as fh:
         fh.write("src/.calc.py.rootknot.json\n")
     after = _commit_all(ws, "turn")
+    _crlf_premise_or_skip(ws, after)
     (ws / "NOTES.md").write_text("later\n", encoding="utf-8")
     _commit_all(ws, "later")
     code = verify_command(["--repo", str(ws), f"{before}..{after}"])
