@@ -25,12 +25,24 @@ Also locks:
 - **Fork 4 (b) read_all_events:** deliberate materialization
   helper with WARN threshold above 16 MiB.
 - Observability events emit through the trace sink.
+- **G3-P1 (out-of-range timestamp_ns):** a hostile or damaged
+  line with ``timestamp_ns`` outside uint64 previously escaped
+  as a raw ``OverflowError`` from ``hash_event`` (``to_bytes``)
+  out of ``cold_verify`` / ``EventReader.load`` / the CLI,
+  bypassing the documented exit codes. Post-fix the bounds check
+  lives in ``Event.__post_init__`` (the module's existing
+  invalid-content ``ValueError``), so verify reports TAMPERED,
+  the reader reports the tampered line (WARN-drop at tail,
+  ``ChainBrokenError`` in the middle), and the CLI exits 2.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
+import logging
 import types
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -428,3 +440,126 @@ def test_trace_verify_sidecar_type_registered(tmp_path: Path) -> None:
 
     versions = known_versions_for(TRACE_VERIFY_SIDECAR_TYPE)
     assert TRACE_VERIFY_SIDECAR_SCHEMA in versions
+
+
+# ---- G3-P1: out-of-range timestamp_ns is TAMPERED, never a crash ---------
+
+
+def _append_crafted_timestamp_tail(events_path: Path, bad_ts: int) -> None:
+    """Append a line identical to the first event except for the
+    crafted ``timestamp_ns`` -- the G3 seam-1 P1 hostile-log shape."""
+    first = json.loads(events_path.read_bytes().split(b"\n")[0])
+    first["timestamp_ns"] = bad_ts
+    with events_path.open("ab") as fp:
+        fp.write(
+            json.dumps(first, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+        )
+
+
+@pytest.mark.parametrize("bad_ts", [-1, 2**64])
+def test_cold_verify_reports_tampered_for_out_of_range_timestamp(
+    tmp_path: Path, bad_ts: int
+) -> None:
+    """A line whose timestamp_ns cannot be hashed (negative or
+    >= 2**64) must surface as TAMPERED per the verify contract,
+    not as a raw OverflowError out of hash_event."""
+    events_path = tmp_path / "events.jsonl"
+    _write_events(events_path, 1)
+    _append_crafted_timestamp_tail(events_path, bad_ts)
+    r = cold_verify(events_path)
+    assert r.status == "TAMPERED"
+    assert r.events_tampered == 1
+    assert r.events_verified == 1
+    assert r.tamper_details is not None
+    assert r.tamper_details["kind"] == "event_shape_invalid"
+
+
+@pytest.mark.parametrize("bad_ts", [-1, 2**64])
+def test_warm_verify_reports_tampered_for_out_of_range_timestamp(
+    tmp_path: Path, bad_ts: int
+) -> None:
+    """Same hostile line through the warm path: the tail spot-check
+    finds the window inconclusive and the cold fallback reports
+    TAMPERED."""
+    events_path = tmp_path / "events.jsonl"
+    _write_events(events_path, 5)
+    verify_trace(events_path, run_id_hex=RUN_ID_HEX)  # prime sidecar
+    _append_crafted_timestamp_tail(events_path, bad_ts)
+    r = verify_trace(events_path, run_id_hex=RUN_ID_HEX)
+    assert r.status == "TAMPERED"
+    assert r.events_tampered == 1
+
+
+@pytest.mark.parametrize("bad_ts", [-1, 2**64, True])
+def test_event_rejects_out_of_range_timestamp_ns(bad_ts: int) -> None:
+    """Event.__post_init__ is the single gate every parser passes
+    through; out-of-uint64 (or bool) timestamps are invalid content,
+    same ValueError taxonomy as the other field-shape checks."""
+    from ract.trace.events import EventChain
+
+    chain = EventChain(run_id=bytes.fromhex(RUN_ID_HEX))
+    good = chain.build_next(kind="run.started", payload={"i": 0})
+    with pytest.raises(ValueError, match="timestamp_ns"):
+        replace(good, timestamp_ns=bad_ts)
+
+
+def test_eventreader_load_drops_out_of_range_timestamp_tail(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Tail-appended crafted line: load must not raise; the tampered
+    line is reported via WARN-drop and the valid prefix survives."""
+    events_path = tmp_path / "events.jsonl"
+    _write_events(events_path, 1)
+    _append_crafted_timestamp_tail(events_path, -1)
+    with caplog.at_level(logging.WARNING, logger="ract.trace.writer"):
+        chain = EventReader.load(events_path)
+    assert len(chain.events) == 1
+    assert any(
+        "dropped" in rec.message and "shape invalid" in rec.message
+        for rec in caplog.records
+    ), "tail WARN-drop report missing"
+
+
+@pytest.mark.parametrize("bad_ts", [-1, 2**64])
+def test_eventreader_load_reports_middle_out_of_range_timestamp(
+    tmp_path: Path, bad_ts: int
+) -> None:
+    """A crafted line in the middle of the log is reported as the
+    module's invalid-content exception (ChainBrokenError), never as
+    an unhandled OverflowError."""
+    from ract.trace.events import ChainBrokenError
+
+    events_path = tmp_path / "events.jsonl"
+    _write_events(events_path, 2)
+    first = json.loads(events_path.read_bytes().split(b"\n")[0])
+    first["timestamp_ns"] = bad_ts
+    # Chain the crafted line to event 0 so the ONLY defect is the
+    # timestamp -- pre-fix the raw OverflowError fires in
+    # EventChain.append's rehash; post-fix the shape refusal fires
+    # in the reader with "malformed middle event".
+    first["prev_hash"] = first["hash"]
+    crafted = json.dumps(first, sort_keys=True, separators=(",", ":")).encode()
+    lines = events_path.read_bytes().split(b"\n")
+    events_path.write_bytes(b"\n".join([lines[0], crafted] + lines[1:]))
+    with pytest.raises(ChainBrokenError, match="malformed middle event"):
+        EventReader.load(events_path)
+
+
+@pytest.mark.parametrize("bad_ts", [-1, 2**64])
+def test_trace_verify_cli_exit_2_for_out_of_range_timestamp(
+    tmp_path: Path, bad_ts: int
+) -> None:
+    """The CLI exit-code contract (0/1/2/3) holds: TAMPERED is exit 2,
+    not a traceback bypassing every documented code."""
+    from ract.trace.cli_trace import cmd_verify
+
+    events_path = tmp_path / "events.jsonl"
+    _write_events(events_path, 1)
+    _append_crafted_timestamp_tail(events_path, bad_ts)
+    args = argparse.Namespace(
+        runs_root=tmp_path,
+        run_id=str(events_path),
+        cold=False,
+        json_output=False,
+    )
+    assert cmd_verify(args) == 2

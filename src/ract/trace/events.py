@@ -486,6 +486,8 @@ class Event:
     - ``id`` / ``run_id`` / ``step_id`` / ``parent_id`` are 16-byte
       UUIDs; the two nullable fields are ``None`` for run-level or
       root-caused events respectively.
+    - ``timestamp_ns`` is an int in ``[0, 2**64)`` -- the uint64 range
+      :func:`hash_event` serialises; anything else is invalid content.
     - ``payload`` is a JSON-serialisable dict; per-kind schemas live in
       ``docs/EVENTS.md``.
     - ``hash`` and ``prev_hash`` are 32-byte SHA-256 digests.
@@ -512,6 +514,20 @@ class Event:
             raise ValueError("step_id must be 16 bytes or None")
         if self.parent_id is not None and len(self.parent_id) != 16:
             raise ValueError("parent_id must be 16 bytes or None")
+        # G3-P1: timestamp_ns feeds ``to_bytes(8, "big", signed=False)``
+        # in hash_event; an out-of-uint64 value escaped as a raw
+        # OverflowError out of verify/readers instead of the module's
+        # invalid-content signal. bool is rejected explicitly (it is an
+        # int subclass; matches the sidecar strictness idiom).
+        if (
+            isinstance(self.timestamp_ns, bool)
+            or not isinstance(self.timestamp_ns, int)
+            or not 0 <= self.timestamp_ns < 2**64
+        ):
+            raise ValueError(
+                f"timestamp_ns must be an int in [0, 2**64); "
+                f"got {self.timestamp_ns!r}"
+            )
         if self.kind not in LEGAL_EVENT_KINDS:
             raise ValueError(
                 f"unknown event kind {self.kind!r}; "

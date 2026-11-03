@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `ract trace verify` reports TAMPERED for an event whose
+  `timestamp_ns` is out of uint64 range (negative or >= 2**64)
+  instead of crashing with an unhandled `OverflowError`; the bounds
+  check lives in `Event.__post_init__`, so `EventReader.load`,
+  `ract trace replay/diff/to-test` and `ract verify --run` surface
+  the same invalid-content verdicts and the CLI exit-code contract
+  (2 for TAMPERED) holds.
+
 ### Added
 
 - `scripts/release_060.py` is the release script (B-167): the ordered steps
