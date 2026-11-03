@@ -33,6 +33,12 @@ LAST_LINE = "not verified: tier 3 is off: no grant"
         "fix the failing tests",
         "tests are red since yesterday",
         "make tests/test_calc.py pass",
+        # J11 (operator order 2026-11-03 A6): a plain ask to run the tests
+        # is a request RACT can answer with the granted run, not a vague
+        # mention of tests.
+        "run the tests",
+        "run the tests and tell me exactly what failed",
+        "please run all unit tests",
     ],
 )
 def test_requests_that_name_a_test(intent: str) -> None:
@@ -41,7 +47,15 @@ def test_requests_that_name_a_test(intent: str) -> None:
 
 @pytest.mark.parametrize(
     "intent",
-    ["fix add", "explain this project", "rename calc to arithmetic", "", "latest news"],
+    [
+        "fix add",
+        "explain this project",
+        "rename calc to arithmetic",
+        "",
+        "latest news",
+        "the tests are slow",
+        "add a script that runs tests in CI",
+    ],
 )
 def test_requests_that_name_no_test(intent: str) -> None:
     assert not names_a_test(intent)

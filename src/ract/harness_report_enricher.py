@@ -31,6 +31,7 @@ def enrich_harness_run(
     plan_override: Plan | None = None,
     plan_approval: Callable[[Plan], Any] | None = None,
     skipped_steps: frozenset[int] = frozenset(),
+    tier3_facts: str | None = None,
 ) -> Rooted[ExecutionReport]:
     """
     Run the harness with the given intent and attach a diff summary.
@@ -40,8 +41,8 @@ def enrich_harness_run(
     On failure the original error is returned unchanged.
 
     *pre_execute_callback*, *approval_callback*, *memory_arena*, *stream*,
-    *stream_callback*, *ask* and *plan_override* are forwarded to
-    ``Harness.run``.
+    *stream_callback*, *ask*, *plan_override* and *tier3_facts* are forwarded
+    to ``Harness.run``.
     """
     try:
         rooted_result = harness.run(
@@ -56,6 +57,7 @@ def enrich_harness_run(
             plan_override=plan_override,
             plan_approval=plan_approval,
             skipped_steps=skipped_steps,
+            tier3_facts=tier3_facts,
         )
     except Exception as exc:
         # Package 5 (handoff 7): one line on stderr; the traceback goes to debug level.

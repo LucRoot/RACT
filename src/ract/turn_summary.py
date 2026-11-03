@@ -50,11 +50,17 @@ _NOT_A_CLAIM = re.compile(
 
 
 # A request that names a test (a test file, a test function, a node id) or
-# says a test fails (B-121, hosted FOUND 3).
+# says a test fails (B-121, hosted FOUND 3). J11 (operator order
+# 2026-11-03 A6) adds an explicit ask to run the tests: "run the tests" is a
+# request RACT can answer with the granted run, not a vague mention, and
+# without it the granted test run never offered on the plainest wording a
+# beginner uses. The ask still goes through the tier-3 gate (no grant, or
+# nobody to answer, runs nothing), so the wider match only widens the offer.
 _NAMES_A_TEST = re.compile(
     r"(?:\btests?/[\w./-]*\.py\b|::test_\w+|\btest_\w+"
     r"|\b(?:failing|broken|red)\s+tests?\b"
-    r"|\btests?\s+(?:is\s+|are\s+)?(?:fail\w*|broken|red)\b)",
+    r"|\btests?\s+(?:is\s+|are\s+)?(?:fail\w*|broken|red)\b"
+    r"|\b(?:run|execute)\s+(?:the\s+|all\s+|my\s+|these\s+|unit\s+)*tests?\b)",
     re.I,
 )
 

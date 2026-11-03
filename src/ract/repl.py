@@ -1589,7 +1589,7 @@ class ReplSession:
         }
 
     def _event_turn(self, intent: str, *, dry: bool, ask: bool = False) -> int:
-        from ract.session_turn import TurnRequest, run_turn
+        from ract.session_turn import TurnRequest, run_turn, tier3_facts_block
 
         from ract.turn_context import CancelSignal
 
@@ -1617,6 +1617,8 @@ class ReplSession:
             terminal=sys.stdin.isatty(),
             tier3_mode=self._tier3_mode,
             tier3_session_approvals=self._tier3_session,
+            # J11: the manager plans against the grant the session verified.
+            tier3_facts=tier3_facts_block(self._grant_state),
         )
         turn_no = s.turns + 1
         cancel = CancelSignal()

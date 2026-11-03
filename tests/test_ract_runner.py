@@ -119,6 +119,8 @@ def test_run_ract_execution_success(tmp_path: Path) -> None:
         plan_approval=None,
         # A fresh run carries no remembered skips (L-196 point 2).
         skipped_steps=frozenset(),
+        # J11: no session facts on a one-shot run.
+        tier3_facts=None,
     )
 
 

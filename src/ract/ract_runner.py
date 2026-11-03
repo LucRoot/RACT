@@ -375,6 +375,7 @@ def _run_ract(
     terminal: bool = False,
     tier3_mode: str = "ask",
     tier3_session_approvals: Any = None,
+    tier3_facts: str | None = None,
 ) -> Rooted[ExecutionReport | Plan]:
     """
     Run a complete RACT cycle for *intent* using the configuration at *config_path*.
@@ -725,6 +726,7 @@ def _run_ract(
                 skipped_steps=_approvals_for_resume(
                     config_path, session_id, resume, plan
                 ),
+                tier3_facts=tier3_facts,
             ),
         )
 

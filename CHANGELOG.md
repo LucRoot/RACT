@@ -10,6 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The manager now sees the project's grant at plan time, and a plain "run
+  the tests" ask triggers the granted test run (J11, the command slice's
+  evidence row, operator order 2026-11-03 A6): the session's status line
+  always knew ("this grant lets RACT run: tests") but the planning request
+  did not, so on the hosted leg the model assumed the no-grant branch of the
+  manager prompt and answered by inspection — twice — instead of planning the
+  fix. The session now sends one facts line with the planning request (the
+  grant's rule ids and the ask-first rule, never key material), next to the
+  memory and retrieval blocks, and `names_a_test` also matches an explicit
+  "run the tests" request, so the tier-3 offer reaches the plainest wording a
+  beginner uses. Without a grant, or with nobody to answer the ask, nothing
+  runs, exactly as before.
 - The manager prompt no longer teaches the pre-command world (J11, the
   command slice's real-model evidence): `prompts/manager.txt` told every
   model "RACT cannot run tests or commands in this release", and on the

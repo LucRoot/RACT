@@ -802,6 +802,7 @@ class Harness:
         plan_override: Plan | None = None,
         plan_approval: Callable[["Plan"], Any] | None = None,
         skipped_steps: frozenset[int] = frozenset(),
+        tier3_facts: str | None = None,
     ) -> Rooted[ExecutionReport]:
         """Plan and execute the intent.
 
@@ -834,6 +835,10 @@ class Harness:
         block is prepended to the prompt and the outcome of this run is stored
         back into the arena for future sessions.
 
+        *tier3_facts* is an optional one-line grant summary (J11) appended to
+        the planning request next to the memory and retrieval blocks, so the
+        manager plans against the grant the session verified. Facts only.
+
         *stream* enables streaming completions when the selected provider
         supports it.  *stream_callback* receives each content delta as it
         arrives.
@@ -860,6 +865,8 @@ class Harness:
             intent_parts.append(context_block)
         if retrieval_block:
             intent_parts.append(retrieval_block)
+        if tier3_facts:
+            intent_parts.append(tier3_facts)
         if whisper_block:
             intent_parts.append(f"Legacy Whisperer brief (cite it):\n{whisper_block}")
 

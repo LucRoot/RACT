@@ -508,6 +508,57 @@ def test_harness_includes_retrieval_block(tmp_project):
     assert "retrieval_target.py" in user_content
 
 
+def test_harness_includes_tier3_facts_block(tmp_project):
+    """J11 follow-up: the grant facts ride the planning request when given."""
+    config = {
+        "manager_provider": "local",
+        "providers": {
+            "local": {
+                "adapter": "local_http",
+                "url": "http://127.0.0.1:11434/v1",
+                "model": "local-model",
+            },
+        },
+        "prompts_dir": "prompts",
+    }
+    config_path = tmp_project / "ract.yaml"
+    import yaml
+
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    harness_rooted = Harness.from_config_path(config_path)
+    assert harness_rooted.is_ok(), harness_rooted.error
+    harness = harness_rooted.unwrap()
+
+    fake_plan_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": (
+                        '{"assumption": "test assumption", "confidence": 0.95, '
+                        '"steps": [{"action": "answer", "provider_hint": "chat", "expected_artifact": ""}]}'
+                    )
+                }
+            }
+        ]
+    }
+    harness.manager.provider.complete = MagicMock(
+        return_value=Rooted(
+            value=fake_plan_response, assumption="ok", confidence=1.0
+        )
+    )
+
+    facts = "Tier 3 facts: a signed grant covers: tests."
+    harness.run("what can run here", tier3_facts=facts)
+
+    plan_call = harness.manager.provider.complete.call_args_list[0]
+    messages = plan_call.kwargs.get(
+        "messages", plan_call.args[0] if plan_call.args else []
+    )
+    user_content = messages[-1]["content"]
+    assert facts in user_content
+
+
 def test_harness_from_config_uses_bundled_prompt_when_project_prompt_missing(tmp_path):
     config_path = tmp_path / "ract.yaml"
     config_path.write_text(

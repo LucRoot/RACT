@@ -68,6 +68,36 @@ class TurnRequest:
     # B-113: the session's tier-3 mode and its session approvals.
     tier3_mode: str = "ask"
     tier3_session_approvals: Any = None
+    # J11 (operator order 2026-11-03 A6): one plain line of grant facts for
+    # the manager's planning request, or "" when no grant holds. Facts only:
+    # rule ids, never key material, passphrases or paths.
+    tier3_facts: str = ""
+
+
+def tier3_facts_block(grant: Any) -> str:
+    """The manager-facing line about this project's grant, or "" without one.
+
+    The session's status line has always known ("this grant lets RACT run:
+    tests"); the planning request did not, and on the hosted J11 run the model
+    assumed the no-grant branch of the manager prompt and answered by
+    inspection instead of planning the fix. The line names the grant's rules
+    and the ask-first rule, nothing else.
+    """
+    if grant is None or not getattr(grant, "holds", False):
+        return ""
+    policy = getattr(grant, "policy", None)
+    rules = [
+        rule.id
+        for rule in (getattr(getattr(policy, "commands", None), "allow", []) or [])
+    ]
+    if not rules:
+        return ""
+    return (
+        "Tier 3 facts: this project has a signed grant; RACT may run: "
+        + ", ".join(sorted(rules))
+        + ". RACT asks the user before every run; plan steps normally and "
+        "RACT offers the granted run where it applies."
+    )
 
 
 def _on_disk_name(root: Path, name: str) -> str:
@@ -514,6 +544,7 @@ def run_turn(
                 terminal=request.terminal,
                 tier3_mode=request.tier3_mode,
                 tier3_session_approvals=request.tier3_session_approvals,
+                tier3_facts=request.tier3_facts,
             )
     except Exception as exc:  # noqa: BLE001 -- the session must survive; detail goes to the hint
         result = None
