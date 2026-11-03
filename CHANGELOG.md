@@ -22,8 +22,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that file agree. Each refuses loudly with the module's existing error,
   writes nothing to the link target, and keeps the free-path behavior.
 
-### Fixed
-
 - `ract trace verify` reports TAMPERED for an event whose
   `timestamp_ns` is out of uint64 range (negative or >= 2**64)
   instead of crashing with an unhandled `OverflowError`; the bounds
