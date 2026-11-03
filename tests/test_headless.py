@@ -358,7 +358,7 @@ def test_the_same_hook_runs_on_the_interactive_run_path(
 @pytest.mark.parametrize(
     "flags, reason",
     [
-        (["--allowed-tools", "read_file"], "no tools in this release"),
+        (["--allowed-tools", "read_file"], "no interactive approver"),
         (["--json-schema", "s.json"], "structured output is not supported"),
         (["--max-budget-usd", "1"], "cost is not measured"),
         (["--max-turns", "0"], "--max-turns must be 1 or more"),
