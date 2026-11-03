@@ -306,6 +306,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- `ract config diff` redacts values the way the setup wizard's diff does
+  (B-202, G3-P1): the verb flattened both ract.yaml files and printed the
+  raw added/removed/changed values to stdout, so a literal `api_key` in
+  ract.yaml, an explicitly supported configuration, reached CI logs in
+  cleartext. Credential-named values from both files are now registered as
+  known and every printed value is redacted; `${VAR}` references stay
+  readable, non-secret values print unchanged, and the diff data itself
+  stays raw.
+
 - `test_a_deleted_signed_file_is_attributed_at_the_earlier_commit` no longer
   flakes under load: the workspace fixture writes `src/calc.py` with the
   platform's line endings, and this test turns `core.autocrlf` off, so the

@@ -59,7 +59,7 @@ from ract.receipt_export import export_receipts
 from ract.policy_gate import evaluate_policy
 from ract.run_fingerprint import fingerprint_run, diff_fingerprints
 
-from ract.config_diff import diff_configs
+from ract.config_diff import diff_configs, register_config_credentials
 from ract.preflight_validator import PreflightValidator
 from ract.git_run import run_git
 
@@ -3781,6 +3781,17 @@ def _config_command(args: list[str]) -> int:
         except FileNotFoundError as exc:
             print(f"[ract] {exc}", file=sys.stderr)
             return 1
+        # B-202 (G3-P1): a literal key in either file is masked in this
+        # output the way setup's diff masks it. Credential-named values are
+        # registered as known, then every value is redacted; the diff data
+        # itself stays raw.
+        for cfg_path in (Path(baseline), Path(parsed.config)):
+            try:
+                loaded_cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+            except (OSError, yaml.YAMLError):
+                continue
+            register_config_credentials(loaded_cfg)
+        result = redaction.redact_values(result)
         if parsed.json_output:
             print(json.dumps(result, indent=2))
         elif parsed.html_output:
