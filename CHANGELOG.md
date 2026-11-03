@@ -306,6 +306,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The headless `--allowed-tools` refusal states the true reason: the tool
+  layer has shipped, so the exit-2 message no longer claims RACT has no
+  tools; it says a headless run has no interactive approver, so per-tool
+  approvals cannot be scoped to an allowlist and the flag is not supported
+  in headless mode (a session at a terminal approves tools per call), and
+  the wording test asserts the new string with the exit code still 2.
+
 - `test_a_deleted_signed_file_is_attributed_at_the_earlier_commit` no longer
   flakes under load: the workspace fixture writes `src/calc.py` with the
   platform's line endings, and this test turns `core.autocrlf` off, so the

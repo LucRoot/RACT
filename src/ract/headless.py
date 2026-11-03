@@ -265,8 +265,10 @@ def _unsupported(args: argparse.Namespace) -> str | None:
         return "--max-turns must be 1 or more"
     if args.allowed_tools is not None:
         return (
-            "--allowed-tools: RACT has no tools in this release (the tool layer "
-            "waits for ADR-0047), so no tool name can be allowed"
+            "--allowed-tools: a headless run has no interactive approver, so "
+            "per-tool approvals cannot be scoped to an allowlist; the flag is "
+            "not supported in headless mode (run in a session at a terminal "
+            "to approve tools per call)"
         )
     if args.json_schema is not None:
         return (
