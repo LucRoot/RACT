@@ -102,7 +102,7 @@ approve them at the ask screen (see "Let RACT run your tests" below for the one 
 that matters most).
 
 Project instructions: RACT reads the project's small text files into the request
-context — README first, and any `.md` file at the top level (so a file named
+context: README first, and any `.md` file at the top level (so a file named
 `AGENTS.md`, `CLAUDE.md`, or `ract.md` works; keep them short and plain).
 
 Fetching web pages is a tier-3 tool (see `docs/TIER3.md`): it asks before every fetch,
