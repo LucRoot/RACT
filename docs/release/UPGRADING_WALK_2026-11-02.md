@@ -20,10 +20,10 @@ Every `python -m ract.cli` run had the user state redirected into the temp dir
 with the env overrides the code honors (`src/ract/core/keys.py:109`
 `_default_state_dir` and `src/ract/policy/__init__.py:16` `config_dir`):
 
-- `LOCALAPPDATA=C:/Users/rootl/AppData/Local/Temp/n3_upgwalk_rewalk/localappdata`
+- `LOCALAPPDATA=C:/Users/you/AppData/Local/Temp/n3_upgwalk_rewalk/localappdata`
   (the user state dir, `%LOCALAPPDATA%\ract`: per-repo keys at
   `keys/<repo digest>/{sandbox,alm}/...`)
-- `APPDATA=C:/Users/rootl/AppData/Local/Temp/n3_upgwalk_rewalk/appdata`
+- `APPDATA=C:/Users/you/AppData/Local/Temp/n3_upgwalk_rewalk/appdata`
   (the user config dir, `%APPDATA%\ract`: `operator/recompile.key`)
 - `PYTHONPATH=F:/RACT_wt/n3_b9upg/src` (the branch's tree)
 - all `RACT_*` variables stripped (same hygiene as
@@ -53,7 +53,7 @@ all work happened in a dedicated worktree on a separate drive.
 
 ## Fabricated 0.5.2-era state (setup, not a doc step)
 
-Temp dir `C:/Users/rootl/AppData/Local/Temp/n3_upgwalk{,_rewalk}/ws`, a fresh
+Temp dir `C:/Users/you/AppData/Local/Temp/n3_upgwalk{,_rewalk}/ws`, a fresh
 git repository:
 
 - commit `init`: `src/calc.py` (buggy `add`), `ract.yaml` (a v0.5.2-style

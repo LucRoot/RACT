@@ -5,7 +5,7 @@ RACT session fake-coder via local |
   master | default | T3 off
 you: /cost
 no requests left this machine
-ledger: C:\Users\rootl\AppData\Local\rac
+ledger: C:\Users\you\AppData\Local\rac
   t\egress.jsonl (ract doctor --egress
   for history)
 you: /exit

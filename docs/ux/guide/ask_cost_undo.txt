@@ -9,7 +9,7 @@ ract> /mode
 default: RACT asks before each step that changes a file
 ract> /cost
 no requests left this machine
-ledger: C:\Users\rootl\AppData\Local\ract\egress.jsonl (ract doctor --egress for history)
+ledger: C:\Users\you\AppData\Local\ract\egress.jsonl (ract doctor --egress for history)
 ract> /undo
 nothing to undo: no turn RACT can reverse is recorded here
 ract> /ask what does add() do in src/calc.py?
