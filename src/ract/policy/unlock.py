@@ -12,6 +12,8 @@ an approval, which is asked at the terminal every time.
 
 from __future__ import annotations
 
+import sys
+
 import time
 from collections.abc import Callable
 from typing import Any
@@ -35,7 +37,12 @@ def window_minutes(sandbox: str, config: Any = None) -> float:
         try:
             data = yaml.safe_load(path.read_text(encoding="utf-8"))
         except (OSError, yaml.YAMLError) as exc:
-            print(f"[unlock] the user config cannot be read: {exc}", flush=True)
+            # stdout belongs to the --json runs; diagnostics go to stderr.
+            print(
+                f"[unlock] the user config cannot be read: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
             data = None
         value = data.get("unlock_window_minutes") if isinstance(data, dict) else None
         if (

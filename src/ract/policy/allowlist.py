@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -148,7 +149,7 @@ def _bound_hit(what: str) -> None:
         f"the project's entry points were not all read ({what}); every tier-3 "
         "command asks this turn"
     )
-    print(f"[allowlist] {text}", flush=True)
+    print(f"[allowlist] {text}", file=sys.stderr, flush=True)
     if turn_context.has_reporter():
         turn_context.report("notice", {"level": "warning", "text": text})
 
@@ -169,7 +170,11 @@ def entry_point_digests(project: Path | str) -> dict[str, str] | None:
             timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        print(f"[allowlist] the project's files were not listed: {exc}", flush=True)
+        print(
+            f"[allowlist] the project's files were not listed: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
         return None
     if done.returncode != 0:
         # Not a git repository, or git refused: the entry points are unknown.
@@ -203,7 +208,7 @@ def entry_point_digests(project: Path | str) -> dict[str, str] | None:
             read_bytes += size
             digests[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
         except OSError as exc:
-            print(f"[allowlist] {rel} was not read: {exc}", flush=True)
+            print(f"[allowlist] {rel} was not read: {exc}", file=sys.stderr, flush=True)
     return digests
 
 
@@ -228,7 +233,11 @@ def record_signed(project: Path | str, grant_digest: str) -> None:
         # B-224: a fresh temporary file, never the predictable ".tmp" name.
         write_atomic(path, dumps_jcs(digests))
     except OSError as exc:
-        print(f"[allowlist] the entry points were not recorded: {exc}", flush=True)
+        print(
+            f"[allowlist] the entry points were not recorded: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def _signed_digests(
@@ -242,7 +251,11 @@ def _signed_digests(
     except FileNotFoundError:
         return None
     except (OSError, ValueError) as exc:
-        print(f"[allowlist] the entry-point record cannot be read: {exc}", flush=True)
+        print(
+            f"[allowlist] the entry-point record cannot be read: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
         return None
     return data if isinstance(data, dict) else None
 

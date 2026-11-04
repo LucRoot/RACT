@@ -2002,7 +2002,7 @@ class ReplSession:
                 f"{self.state.config} not found. "
                 "Run ract setup in another terminal to create one (it checks this machine and asks a few questions)."
             )
-            warning_pieces = textwrap.wrap(raw_warning, width=self._render_width() - 2)
+            warning_pieces = textwrap.wrap(raw_warning, width=self._render_width() - 3)
             self._console.warning(escape(warning_pieces[0]))
             for piece in warning_pieces[1:]:
                 self._console.print("  " + escape(piece))
