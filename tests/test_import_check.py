@@ -14,7 +14,7 @@ from ract.import_check import missing_names
 from ract.manager import Plan, Step
 from tests.test_reasoning_model_handling import _Adapter, _response, _Router
 
-the lane = "from src import NOTE\n\n\ndef test_note():\n    assert NOTE == 'two'\n"
+bad_src = "from src import NOTE\n\n\ndef test_note():\n    assert NOTE == 'two'\n"
 
 
 @pytest.fixture
@@ -30,8 +30,8 @@ def _names(repo: Path, text: str, path: str = "tests/test_notes.py") -> list[str
     return [m.describe() for m in missing_names(repo, path, text)]
 
 
-def test_wrights_case_is_found(repo: Path) -> None:
-    assert _names(repo, the lane) == [
+def test_a_missing_symbol_case_is_found(repo: Path) -> None:
+    assert _names(repo, bad_src) == [
         "line 1: imports NOTE from src, which does not define it"
     ]
 
@@ -44,7 +44,7 @@ def test_a_package_that_reexports_the_name_passes(repo: Path) -> None:
     (repo / "src" / "__init__.py").write_text(
         "from .notes import NOTE\n", encoding="utf-8"
     )
-    assert _names(repo, the lane) == []
+    assert _names(repo, bad_src) == []
 
 
 def test_a_relative_import(repo: Path) -> None:
@@ -75,12 +75,12 @@ def test_a_module_that_cannot_be_read_with_certainty_is_not_checked(
     repo: Path, module_text: str
 ) -> None:
     (repo / "src" / "__init__.py").write_text(module_text, encoding="utf-8")
-    assert _names(repo, the lane) == []
+    assert _names(repo, bad_src) == []
 
 
 def test_a_namespace_package_is_not_checked(repo: Path) -> None:
     (repo / "src" / "__init__.py").unlink()
-    assert _names(repo, the lane) == []
+    assert _names(repo, bad_src) == []
 
 
 def test_a_name_bound_under_a_guard_counts(repo: Path) -> None:
@@ -88,10 +88,10 @@ def test_a_name_bound_under_a_guard_counts(repo: Path) -> None:
         "try:\n    from .notes import NOTE\nexcept ImportError:\n    NOTE = None\n",
         encoding="utf-8",
     )
-    assert _names(repo, the lane) == []
+    assert _names(repo, bad_src) == []
 
 
-def test_a_step_that_writes_wrights_file_is_refused(repo: Path) -> None:
+def test_a_step_that_writes_the_lanes_file_is_refused(repo: Path) -> None:
     plan = Plan(
         assumption="a",
         confidence=0.9,
@@ -103,7 +103,7 @@ def test_a_step_that_writes_wrights_file_is_refused(repo: Path) -> None:
             )
         ],
     )
-    result = Executor(_Router(_Adapter(_response(the lane))), project_dir=repo).execute(
+    result = Executor(_Router(_Adapter(_response(bad_src))), project_dir=repo).execute(
         intent="i", plan=plan
     )
     assert not result.is_ok()
