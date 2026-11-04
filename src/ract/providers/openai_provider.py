@@ -467,7 +467,13 @@ class OpenAICompatibleProvider(ProviderAdapter):
         """The plain reason for a failed request, with no OS error text (B-043)."""
         if self._nothing_listening(exc):
             if _is_loopback(self.url):
-                return f"nothing is answering at {shown_url(self.url)} (connection refused)"
+                if isinstance(exc, httpx.ConnectError):
+                    return f"nothing is answering at {shown_url(self.url)} (connection refused)"
+                # A loopback connect timeout: on Windows a refused connect is
+                # reported late, so this is usually a refusal; it can also be a
+                # host that accepts but never answers. The parenthetical would
+                # guess, so it says neither (CLI_EXPECTATIONS.md row 17).
+                return f"nothing is answering at {shown_url(self.url)}"
             return f"could not connect to {shown_url(self.url)}"
         if isinstance(exc, httpx.TimeoutException):
             return f"{shown_url(self.url)} did not answer within {self.timeout:g} s"

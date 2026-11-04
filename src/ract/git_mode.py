@@ -11,6 +11,13 @@ from typing import List
 from ract.manager import Plan, Step
 from ract.git_run import run_git
 
+# The expectations audit (CLI_EXPECTATIONS.md, row 12): the bare sentence
+# named no way to turn the mode on, in the error, the help, or the docs.
+_NOT_ENABLED = (
+    "Git mode is not enabled: add `git_mode: true` to ract.yaml, then "
+    "RACT stages and commits what a run produced."
+)
+
 
 @dataclass
 class GitMode:
@@ -31,7 +38,7 @@ class GitMode:
     def stage(self, paths: List[str]) -> Plan:
         """Stage files and return a Plan describing the action."""
         if not self._enabled:
-            raise RuntimeError("Git mode is not enabled")
+            raise RuntimeError(_NOT_ENABLED)
         return Plan(
             assumption="Stage files for commit",
             confidence=0.95,
@@ -47,7 +54,7 @@ class GitMode:
     def commit(self, message: str = "Automated commit") -> Plan:
         """Commit staged changes with a message and return a Plan."""
         if not self._enabled:
-            raise RuntimeError("Git mode is not enabled")
+            raise RuntimeError(_NOT_ENABLED)
         return Plan(
             assumption=f"Commit with message: {message}",
             confidence=0.97,
@@ -77,7 +84,7 @@ class GitMode:
         or if the commit fails.
         """
         if not self._enabled:
-            raise RuntimeError("Git mode is not enabled")
+            raise RuntimeError(_NOT_ENABLED)
         if not paths:
             return subprocess.CompletedProcess(
                 args=[], returncode=0, stdout="No paths provided; nothing to commit."

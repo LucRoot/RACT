@@ -29,6 +29,9 @@ def test_stage_raises_when_disabled():
     mode = GitMode()
     with pytest.raises(RuntimeError, match="Git mode is not enabled"):
         mode.stage(["src/main.py"])
+    # CLI_EXPECTATIONS.md row 12: the bare sentence named no way to enable it.
+    with pytest.raises(RuntimeError, match=r"git_mode: true"):
+        mode.stage(["src/main.py"])
 
 
 def test_stage_returns_plan_with_correct_assumption_and_steps():

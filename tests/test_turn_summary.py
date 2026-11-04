@@ -100,6 +100,7 @@ FINISHED = {
     "workspace": "1 file changed",
     "changed": ["src/calc.py"],
     "diffstat": {"src/calc.py": {"added": 1, "removed": 1}},
+    "repository": True,
     "undo": ".ract/undo/20261022T000000Z-abc123/",
     "checkpoint": None,
     "verification": {"status": "not-run", "runs": [], "claims": ["tests pass"]},
@@ -130,6 +131,36 @@ def test_the_summary_is_assembled_from_events() -> None:
     assert '  the reply says "tests pass"; nothing in this turn checked that\n' in text
     assert "  assumed: add() subtracts (planner confidence 0.85, not checked)\n" in text
     assert "  2 model requests, 3.2 s, 1068 tokens in / 85 out\n" in text
+
+
+def test_a_changed_turn_outside_a_repository_does_not_speak_of_staging() -> None:
+    # CLI_EXPECTATIONS.md row 20(c): the audit saw "unstaged, review with git
+    # diff" in a folder with no git repository.
+    finished = dict(FINISHED, repository=False)
+    text = _render(
+        [
+            (
+                "plan.proposed",
+                {"assumption": "add() subtracts", "confidence": 0.85, "steps": []},
+            ),
+            (
+                "cost.updated",
+                {
+                    "tokens_in": 1068,
+                    "tokens_out": 85,
+                    "requests": 2,
+                    "by_purpose": {},
+                },
+            ),
+            ("turn.finished", finished),
+        ]
+    )
+
+    assert (
+        "  changed: src/calc.py (+1 -1); "
+        "review with /diff (no git repository here, so nothing is staged)\n"
+    ) in text
+    assert "unstaged" not in text
 
 
 def test_a_turn_that_changed_nothing_has_a_short_summary() -> None:

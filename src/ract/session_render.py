@@ -575,9 +575,11 @@ class PlainRenderer:
             stats = d.get("diffstat") or {}
             shown = [describe_change(p, stats.get(p)) for p in changed[:10]]
             more = f" and {len(changed) - 10} more" if len(changed) > 10 else ""
-            self._line(
-                f"  changed: {', '.join(shown)}{more}; unstaged, review with git diff"
-            )
+            if d.get("repository", True):
+                tail = "unstaged, review with git diff"
+            else:
+                tail = "review with /diff (no git repository here, so nothing is staged)"
+            self._line(f"  changed: {', '.join(shown)}{more}; {tail}")
         else:
             self._line("  changed: nothing")
         if d.get("formatting_removed_chars"):

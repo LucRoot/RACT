@@ -49,9 +49,12 @@ def test_a_refused_local_server_fails_in_under_3_s(
 
     assert not result.is_ok()
     assert elapsed < 3.0, elapsed
-    assert (
-        result.error
-        == f"Request failed: nothing is answering at {url} (connection refused)."
+    # Windows reports a refused loopback connect late (as a connect timeout),
+    # so the wording is either the labeled refusal or the unlabeled
+    # nothing-is-answering line — never OS error text (B-043, row 17).
+    assert result.error in (
+        f"Request failed: nothing is answering at {url} (connection refused).",
+        f"Request failed: nothing is answering at {url}.",
     )
     assert len(retries) == 1  # one quick retry
     attempt, limit, reason, wait = retries[0]
@@ -113,6 +116,21 @@ def test_what_counts_as_nothing_listening() -> None:
     assert not remote._nothing_listening(httpx.ConnectTimeout("t", request=request))
     assert remote.describe_error(httpx.ReadTimeout("t", request=request)) == (
         "https://api.example.invalid/v1 did not answer within 60 s"
+    )
+
+
+def test_a_loopback_connect_timeout_is_not_called_a_refusal() -> None:
+    # CLI_EXPECTATIONS.md row 17: a host that accepts but never answers was
+    # reported as "(connection refused)". A loopback connect timeout can be a
+    # late-reported refusal (Windows) or a hung host, so it carries no label.
+    local = OpenAICompatibleProvider({"url": "http://127.0.0.1:9/v1", "model": "m"})
+    request = httpx.Request("POST", "http://x")
+
+    assert local.describe_error(httpx.ConnectTimeout("t", request=request)) == (
+        "nothing is answering at http://127.0.0.1:9/v1"
+    )
+    assert local.describe_error(httpx.ConnectError("refused", request=request)) == (
+        "nothing is answering at http://127.0.0.1:9/v1 (connection refused)"
     )
 
 

@@ -667,6 +667,9 @@ def run_turn(
                 "workspace": workspace,
                 "changed": changed,
                 "diffstat": stats,
+                # CLI_EXPECTATIONS.md row 20(c): the change line must not
+                # speak of staging where there is no repository.
+                "repository": (project / ".git").exists(),
                 "undo": undo_folder,
                 "backup_id": backup_id,
                 "checkpoint": None,

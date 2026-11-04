@@ -87,6 +87,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ),
     ("/diff", "Show the last turn's changes, from the copies it saved."),
     ("/todo", "The to-do list the model wrote and the harness tracks (B-177)."),
+    ("/queue [drop <n>]", "Lines typed during a turn; drop one before it sends."),
     ("/spec", "A guided walk from an idea to an approved SPEC.md (B-178)."),
     (
         "/review",

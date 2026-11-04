@@ -97,6 +97,17 @@ shows `ract>`. Both are the same session.
 Each turn after the first resumes the same session, so a follow-up like "now add a test for
 it" has the earlier work as context.
 
+No shell escape: RACT has no `!command` prefix. The model proposes commands and you
+approve them at the ask screen (see "Let RACT run your tests" below for the one command
+that matters most).
+
+Project instructions: RACT reads the project's small text files into the request
+context — README first, and any `.md` file at the top level (so a file named
+`AGENTS.md`, `CLAUDE.md`, or `ract.md` works; keep them short and plain).
+
+Fetching web pages is a tier-3 tool (see `docs/TIER3.md`): it asks before every fetch,
+only over https, and only to domains a grant names; with no grant it never runs.
+
 Known limits in this release: Ctrl-C at the prompt clears the line, but Ctrl-C during a
 running turn takes effect only when the turn ends. Line history and tab completion work on
 Linux and macOS, where Python has `readline`; on Windows the session has neither yet.
@@ -260,6 +271,7 @@ ract run "implement the greeting tool" --config ract.yaml --project-doc project.
 - **default**: normal execution.
 - **documentation**: rewrite the intent to prioritize docs before code.
 - **git**: stage and commit produced artifacts after a successful run.
+  Git mode is off until you enable it: add `git_mode: true` to ract.yaml.
 
 ```bash
 ract run "document the greeting tool" --config ract.yaml --mode documentation
