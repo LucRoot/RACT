@@ -151,4 +151,4 @@ if [[ -n "$VENV_DIR" ]]; then
     # `source` above only affected this script's shell, not the caller's.
     log "activate it in your shell with: source $VENV_DIR/bin/activate"
 fi
-# RACT 0.1.1 - Trust and tooling
+# RACT v0.6.0 - Interactive Session

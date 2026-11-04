@@ -3,6 +3,10 @@
 # DO NOT PIPE THIS FILE TO A SHELL. DO NOT AUTOMATE THIS.
 # No push has been performed. Operator authorization is required per RACT invariant five.
 
+# SUPERSEDED 2026-11-04: v0.6.0 (Interactive Session) is released; these were the
+# v0.5.2 push commands, kept for the historical record of that cut only. The 0.6.0
+# release used the GitHub release skill's flow (tag + release + CI monitor).
+
 # v0.5.2 (Deep-Audit Hardening) handshake-gated push commands
 
 ## Not yet authorized

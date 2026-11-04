@@ -142,4 +142,4 @@ def list_templates() -> list[str]:
     return sorted(p.stem for p in templates_dir.glob("*.json"))
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT v0.6.0 - Interactive Session

@@ -49,4 +49,4 @@ RACT is licensed under the **PolyForm Noncommercial License 1.0.0**: free for pe
 
 Commercial use requires a separate agreement. See [`COMMERCIAL.md`](../COMMERCIAL.md) for details.
 
-<!-- RACT 0.5.1 -->
+<!-- RACT v0.6.0 - Interactive Session -->

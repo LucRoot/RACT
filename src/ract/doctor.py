@@ -427,7 +427,7 @@ def sandbox_status(system: str | None = None) -> SandboxStatus:
     return SandboxStatus(name, backend, binary, executes, properties)
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT v0.6.0 - Interactive Session
 
 
 GB = 1024**3

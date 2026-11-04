@@ -42,4 +42,4 @@ By submitting a pull request or other Contribution to the Project, You agree to 
 
 ---
 
-*RACT v0.2.0 - Provenance and Invariants*
+*RACT v0.6.0 - Interactive Session*

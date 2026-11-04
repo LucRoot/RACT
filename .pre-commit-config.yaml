@@ -26,4 +26,4 @@ repos:
         pass_filenames: false
         always_run: true
 
-# RACT v0.2.0 - Provenance and Invariants
+# RACT v0.6.0 - Interactive Session

@@ -60,4 +60,4 @@ When configuring cla-assistant.io, use the raw URL of `CLA.md`:
 
 By contributing, you agree that your contributions will be licensed under the PolyForm Noncommercial License 1.0.0.
 
-<!-- RACT v0.2.0 - Provenance and Invariants -->
+<!-- RACT v0.6.0 - Interactive Session -->

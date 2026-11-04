@@ -130,4 +130,4 @@ def root_assert(condition: bool, assumption: str, score: float = 1.0) -> Rooted[
     )
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT v0.6.0 - Interactive Session

@@ -480,4 +480,4 @@ def export_report(report: dict[str, Any], path: Path | str) -> None:
     Path(path).write_text(json.dumps(report, indent=2), encoding="utf-8")
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT v0.6.0 - Interactive Session

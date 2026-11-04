@@ -1485,4 +1485,4 @@ the module fragment.
   via `_resolve_or_mint_run_id` (marker file + basename + fresh-
   mint fallback for compaction survival). See v0.5.1 module_06.
 
-<!-- RACT 0.5.1 -->
+<!-- RACT v0.6.0 - Interactive Session -->

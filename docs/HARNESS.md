@@ -72,4 +72,4 @@ Every harness operation returns a `Rooted` result. Common failure modes:
 
 The harness is the primary integration surface and is covered by end-to-end CLI and unit tests. See `docs/ARCHITECTURE.md` for the system boundaries and contracts.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT v0.6.0 - Interactive Session -->

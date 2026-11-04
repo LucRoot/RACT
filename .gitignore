@@ -40,7 +40,7 @@ novelty_report.json
 
 # Build artifacts generated during development. Not part of the release.
 _BUILD/
-# RACT v0.2.0 - Provenance and Invariants
+# RACT v0.6.0 - Interactive Session
 .hypothesis/
 
 # Contributor-local editor / assistant settings (never shipped)
@@ -50,3 +50,5 @@ _BUILD/
 evals/conformance/RESULTS.md
 evals/conformance/cache/
 evals/conformance/results/
+
+# RACT v0.6.0 - Interactive Session

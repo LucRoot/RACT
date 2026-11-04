@@ -381,4 +381,4 @@ License: PolyForm Noncommercial 1.0.0. Measurements: take them as one data point
 
 **Author:** Dr. Lucas Root, Ph.D., [info@lucasroot.com](mailto:info@lucasroot.com)
 
-<!-- RACT 0.5.1 -->
+<!-- RACT v0.6.0 - Interactive Session -->

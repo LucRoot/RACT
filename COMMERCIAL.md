@@ -27,4 +27,4 @@ To discuss a commercial license, reach out directly:
 Please include a brief description of how you plan to use RACT, the size of your organization, and any support or customization needs. We'll respond with terms tailored to your situation.
 ---
 
-*RACT v0.2.0 - Provenance and Invariants*
+*RACT v0.6.0 - Interactive Session*

@@ -454,4 +454,4 @@ def health_check(adapter: McpAdapter) -> dict[str, Any]:
     return {"ok": False, "tools": 0, "error": "no tools configured"}
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT v0.6.0 - Interactive Session

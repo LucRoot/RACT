@@ -8,4 +8,4 @@ No pressure. Use RACT however it helps you build better software.
 
 — Dr. Lucas Root, Ph.D.
 
-<!-- RACT v0.2.0 - Provenance and Invariants -->
+<!-- RACT v0.6.0 - Interactive Session -->

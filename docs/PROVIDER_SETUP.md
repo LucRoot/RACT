@@ -354,4 +354,4 @@ The router scores providers by how well they match a step's hint. A provider nam
   and sends nothing, so a walk never falls through to the real provider.
 - RACT's safety guardrails block `eval()`, `exec()`, `subprocess...shell=True`, and bare `except:` in generated content.
 
-<!-- RACT 0.1.1 - Trust and tooling -->
+<!-- RACT v0.6.0 - Interactive Session -->

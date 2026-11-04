@@ -226,4 +226,4 @@ def preset_url_override(name: str) -> str | None:
     return preset_url_overrides().get(name)
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT v0.6.0 - Interactive Session

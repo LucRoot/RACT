@@ -888,4 +888,4 @@ ADR pins.
   flagged gap). v0.5.1 emits `subagent.disposed` only; v0.6 lands
   the spawn / dispose pair together for trace-graph symmetry.
 
-<!-- RACT 0.5.1 -->
+<!-- RACT v0.6.0 - Interactive Session -->

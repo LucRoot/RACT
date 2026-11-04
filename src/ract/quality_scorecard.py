@@ -195,4 +195,4 @@ def export_scorecard(scorecard: dict[str, Any], path: str) -> None:
         json.dump(scorecard, f, indent=2)
 
 
-# RACT 0.1.1 - Trust and tooling
+# RACT v0.6.0 - Interactive Session

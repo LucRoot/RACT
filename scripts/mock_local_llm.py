@@ -101,4 +101,4 @@ if __name__ == "__main__":
     server = HTTPServer(("127.0.0.1", 18080), Handler)
     print("Mock local LLM on http://127.0.0.1:18080")
     server.serve_forever()
-# RACT 0.1.1 - Trust and tooling
+# RACT v0.6.0 - Interactive Session
