@@ -740,12 +740,15 @@ def _offer_test_grant(directory: Path, io: Any, code: int) -> int:
 
     # The post-A beginner walk (BEGINNER_WALK_AGENT_2026-11-03.md, F-3): the
     # file preview alone read as "it could do ANYTHING on my computer" and
-    # the walk declined out of fear. One plain sentence first, in A's grammar.
+    # the walk declined out of fear. Plain sentences first, in A's grammar,
+    # each inside the readability grade.
     io.say(
-        "What this is: permission for RACT to run the one test command above "
-        "when you ask (for example with /test). It asks you before every run, "
-        "it never runs anything else, and you can take it back any time with "
-        "ract policy revoke."
+        "What this is: permission for RACT to run your one test command "
+        "when you ask, for example with /test."
+    )
+    io.say(
+        "It asks you before every run and never runs anything else. You "
+        "can take it back any time: ract policy revoke."
     )
     io.say(
         "Signing one grant now. The passphrase protects your operator key; "

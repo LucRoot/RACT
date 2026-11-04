@@ -658,6 +658,14 @@ _EXEMPT_SITES: dict[str, str] = {
         "(pre/post step callbacks). Not a model tool_use. v0.6: "
         "per-hook capability declaration in manifest."
     ),
+    "repl.py": (
+        "operator-invoked-diagnostic: the session's ! shell escape "
+        "(CLI_EXPECTATIONS.md row 2, 2026-11-03) runs a command the "
+        "operator typed at the prompt, in the project folder. Only "
+        "operator keystrokes reach ReplSession.handle; the model "
+        "never does, so there is no tool_use to gate. The single "
+        "subprocess.run in this file is that escape."
+    ),
     "test_failure_diagnoser.py": (
         "operator-invoked-diagnostic: pytest re-run for failure "
         "diagnosis. Operator-invoked, not model tool_use."
