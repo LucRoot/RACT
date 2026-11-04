@@ -4,7 +4,7 @@
 ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/LucRoot/RACT/main/docs/coverage-badge.json)
 ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
-![Version](https://img.shields.io/badge/version-0.5.2-blue)
+![Version](https://img.shields.io/badge/version-0.6.0-blue)
 
 RACT is a model-agnostic, local-first agentic coding tool built around three ideas: signed provenance capabilities (*rootknots*) on every artifact (see `docs/PROVENANCE.md`), explicit assumptions for every plan step, and milestone-halting recursion instead of fixed iteration counts.
 

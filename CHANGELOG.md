@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-04
+
+The Interactive Session release: the interactive session and its controls,
+the command on-ramp (signed grants, `/test`, the session's `!` escape), the
+write gate's formatting strip, and the audit hardening of the week. The
+release notes are `docs/release/RELEASE_NOTES_0.6.0.md`; the
+success-condition evidence stands on the real-model legs recorded there.
+
 ### Fixed
 
 - The session has a shell escape (CLI_EXPECTATIONS.md row 2, operator ruling

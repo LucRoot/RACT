@@ -1,13 +1,12 @@
-# Release notes for RACT 0.6.0 (draft, B-151)
+# Release notes for RACT 0.6.0
 
-Draft for the MANAGER to finalize at the cut. Rewritten 2026-11-03 on the
-release tip `4a1ee874` from the final evidence: the ten-journey real-model
-legs on two local models and a hosted frontier model, the J11 command-slice
-runs, the beginner walks, and the expectations audit
-(`audit/phase-8/CLI_EXPECTATIONS.md`). `VERSION` stays 0.5.2 and the
-operator cuts the release. Where a statement below depends on evidence that
-does not exist (the real beginner walk by a person, macOS in CI), it says so
-as a fact; it promises nothing.
+Final at the cut, on the release tip. Written from the final evidence: the
+ten-journey real-model legs on two local models and a hosted frontier
+model, the J11 command-slice runs, the beginner walks, the live hands-on
+user test, and the expectations audit (`audit/phase-8/CLI_EXPECTATIONS.md`,
+board folder). Where a statement below depends on evidence that does not
+exist (the real beginner walk by a person, macOS in CI), it says so as a
+fact; it promises nothing.
 
 ## Where RACT goes past the usual
 
@@ -235,9 +234,10 @@ calibration, rev4; the journeys' product steps all passed); the 8B could not
 carry the J11 fix journey in four attempts (the command mechanism fired
 correctly every time; the model's plans were malformed or misdirected); and
 on the scripted two-intent hosted journey the frontier models (DeepSeek on
-NIM across three samples, Nemotron 3 Ultra 550B on OpenRouter across two,
-both free-tier endpoints verified live) planned report steps instead of the
-edit in five of five samples — while RACT's command mechanism stayed green
+NIM across three samples, a 550B-parameter flagship reasoner on OpenRouter
+across two, both free-tier endpoints verified live) planned report steps
+instead of the edit in five of five samples — while RACT's command
+mechanism stayed green
 throughout: the granted run fired under the ask every time it was asked, the
 command record was written, claim checks flagged unverified "passes" claims,
 and the verdicts came from the real exit codes. The fix-and-verify journey
