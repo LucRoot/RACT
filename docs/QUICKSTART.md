@@ -131,6 +131,10 @@ enforce it, each run has a time limit, and you can take it back any time:
 `ract policy revoke`. In a session, `/test` runs the granted command and
 shows the result; the next turn can act on a failure.
 
+At the ask screen, `y` runs the command once. Where the question offers it,
+`s` remembers that command for the rest of the session and stops asking
+about it.
+
 One honest limit: in a session the model cannot run your tests by itself.
 RACT's loop (`/loop`) runs your test command, and tier 3 lets a signed
 grant run commands under your rules; the model can also tell you the command

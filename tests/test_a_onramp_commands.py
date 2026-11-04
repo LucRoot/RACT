@@ -234,6 +234,11 @@ def test_setup_offer_yes_signs_the_grant_and_never_shows_the_passphrase(
     shown = "\n".join(io.lines)
     assert "run your tests" in shown
     assert "ract policy revoke" in shown
+    # F-3 (BEGINNER_WALK_AGENT_2026-11-03.md): one plain sentence says what
+    # the grant is for BEFORE the file preview, or a beginner declines out
+    # of fear.
+    assert shown.index("What this is:") < shown.index("Signing one grant now")
+    assert "asks you before every run" in shown
     assert PASS not in shown
 
 

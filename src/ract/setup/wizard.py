@@ -738,6 +738,15 @@ def _offer_test_grant(directory: Path, io: Any, code: int) -> int:
     from ract.policy.guided import guided_init
     from ract.policy.operator_key import read_passphrase
 
+    # The post-A beginner walk (BEGINNER_WALK_AGENT_2026-11-03.md, F-3): the
+    # file preview alone read as "it could do ANYTHING on my computer" and
+    # the walk declined out of fear. One plain sentence first, in A's grammar.
+    io.say(
+        "What this is: permission for RACT to run the one test command above "
+        "when you ask (for example with /test). It asks you before every run, "
+        "it never runs anything else, and you can take it back any time with "
+        "ract policy revoke."
+    )
     io.say(
         "Signing one grant now. The passphrase protects your operator key; "
         "you type it here and it never appears in any log or file."

@@ -88,6 +88,7 @@ HELP_ROWS: tuple[tuple[str, str], ...] = (
     ("/diff", "Show the last turn's changes, from the copies it saved."),
     ("/todo", "The to-do list the model wrote and the harness tracks (B-177)."),
     ("/queue [drop <n>]", "Lines typed during a turn; drop one before it sends."),
+    ("!<command>", "Run a command you type, as you, in this project."),
     ("/spec", "A guided walk from an idea to an approved SPEC.md (B-178)."),
     (
         "/review",
@@ -364,6 +365,8 @@ class ReplSession:
             return True
         if text.startswith("/"):
             return self._handle_command(text)
+        if text.startswith("!"):
+            return self._cmd_shell(text[1:].strip())
         if text in {"exit", "quit"}:
             return False
         if text.lower() in _STRAY_ANSWERS:
@@ -373,6 +376,51 @@ class ReplSession:
             )
             return True
         self._run_intent(text)
+        return True
+
+    def _cmd_shell(self, command: str) -> bool:
+        """``!<command>``: run a command the operator typed, as the operator.
+
+        CLI_EXPECTATIONS.md row 2 (operator ruling 2026-11-03): a daily CLI
+        user expects a shell escape. Only a line typed at the prompt reaches
+        this path — the model never does — so no plan, no approval question
+        and no grant stand between the keystrokes and the run; the
+        keystrokes are the consent. Where this machine cannot confine
+        commands the line says so, as it does for every command RACT runs.
+        """
+        if not command:
+            self._console.print("usage: !<command>  (runs it in this project, as you)")
+            return True
+        import subprocess
+
+        project = self.state.config.resolve().parent
+        self._console.print(
+            f"running as you, in {project}: {command}"
+        )
+        print("[ract] best effort here: this machine cannot confine the command")
+        try:
+            proc = subprocess.run(
+                command,
+                shell=True,
+                cwd=str(project),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+        except OSError as exc:
+            self._console.print(f"not run: {exc}")
+            return True
+        if proc.stdout:
+            for out_line in proc.stdout.splitlines()[:60]:
+                print(out_line)
+        if proc.stderr:
+            for err_line in proc.stderr.splitlines()[:20]:
+                print(err_line, file=sys.stderr)
+        if proc.returncode:
+            self._console.print(f"exit {proc.returncode}")
+        else:
+            self._console.print("exit 0")
         return True
 
     # -------------------------------------------------------------- commands

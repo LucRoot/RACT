@@ -10,6 +10,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- The session has a shell escape (CLI_EXPECTATIONS.md row 2, operator ruling
+  2026-11-03): `!<command>` runs a command the operator typed, in the
+  project, with the operator's authority. Only a line typed at the prompt
+  reaches this path — the model never does — so no plan, no approval
+  question and no grant stand between the keystrokes and the run, and the
+  line says where the machine cannot confine commands. Output and the exit
+  code print plainly.
+- The guided-grant screen says what the grant is for before the file
+  preview (F-3, the post-A beginner walk: the preview alone read as "it
+  could do ANYTHING on my computer" and the walk declined out of fear; the
+  one plain sentence names the one command, the ask-first rule and
+  `ract policy revoke`). The ask screen's `s` (this session) choice is
+  named in QUICKSTART, and `!` joins `/help`.
 - The manager now sees the project's grant at plan time, and a plain "run
   the tests" ask triggers the granted test run (J11, the command slice's
   evidence row, operator order 2026-11-03 A6): the session's status line
