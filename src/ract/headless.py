@@ -365,11 +365,10 @@ def _bytes_ready(fd: int) -> int | None:
         import msvcrt
         from ctypes import wintypes
 
-        handle = msvcrt.get_osfhandle(fd)
+        handle = msvcrt.get_osfhandle(fd)  # type: ignore[attr-defined]
         avail = wintypes.DWORD(0)
-        ok = ctypes.windll.kernel32.PeekNamedPipe(
-            wintypes.HANDLE(handle), None, 0, None, ctypes.byref(avail), None
-        )
+        peek = ctypes.windll.kernel32.PeekNamedPipe  # type: ignore[attr-defined]
+        ok = peek(wintypes.HANDLE(handle), None, 0, None, ctypes.byref(avail), None)
         if not ok:
             return None  # the writer closed the pipe (ERROR_BROKEN_PIPE)
         return int(avail.value)

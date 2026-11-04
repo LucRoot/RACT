@@ -69,15 +69,12 @@ def stdin_is_terminal() -> bool:
     from ctypes import wintypes
 
     try:
-        handle = msvcrt.get_osfhandle(sys.stdin.fileno())
+        handle = msvcrt.get_osfhandle(sys.stdin.fileno())  # type: ignore[attr-defined]
     except (OSError, ValueError, AttributeError):
         return False
     mode = wintypes.DWORD()
-    return bool(
-        ctypes.windll.kernel32.GetConsoleMode(
-            wintypes.HANDLE(handle), ctypes.byref(mode)
-        )
-    )
+    get_mode = ctypes.windll.kernel32.GetConsoleMode  # type: ignore[attr-defined]
+    return bool(get_mode(wintypes.HANDLE(handle), ctypes.byref(mode)))
 
 
 def terminal_width() -> int:

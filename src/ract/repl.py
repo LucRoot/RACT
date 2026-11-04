@@ -592,7 +592,9 @@ class ReplSession:
         else:
             word = "finished"
         print(f"tests: {word} (exit {exit_code})")
-        self._pending_test_fact = f"[tests from /test: {word} (exit {exit_code})]"
+        self._pending_test_fact: str | None = (
+            f"[tests from /test: {word} (exit {exit_code})]"
+        )
         return True
 
     def _cmd_spec(self, args: list[str]) -> bool:
@@ -1769,8 +1771,8 @@ class ReplSession:
         # The reader reads every key, so Ctrl-C is handed to the main thread as an interrupt.
         # While an approval question is open its input() owns the console: no key is read here.
         source = ConsoleLineSource(
-            msvcrt.kbhit,
-            msvcrt.getwch,
+            msvcrt.kbhit,  # type: ignore[attr-defined]
+            msvcrt.getwch,  # type: ignore[attr-defined]
             on_ctrl_c=_thread.interrupt_main,
             paused=question_gate.question_open,
         )

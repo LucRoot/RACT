@@ -33,7 +33,7 @@ def run_todo(root: Path, args: TodoArgs) -> ToolResult:
     if args.op == "add":
         if not args.text or not args.text.strip():
             raise ToolRefused("add needs the text of the item", "say what the item is")
-        op = {"op": "add", "text": args.text}
+        op: dict[str, object] = {"op": "add", "text": args.text}
         text = "to-do: the item is added; the list shows it as open"
     else:
         if args.id is None:

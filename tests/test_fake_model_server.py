@@ -703,11 +703,23 @@ def test_overlapping_requests_never_take_the_same_turn() -> None:
         *({"kind": "text", "content": f"turn {n}"} for n in range(count))
     )
     contents: list[str] = []
+    errors: list[str] = []
     lock = threading.Lock()
     with FakeModelServer(scenario) as server:
 
         def ask() -> None:
-            content = _post(server).json()["choices"][0]["message"]["content"]
+            # CI runners are slow under the 24-thread thundering herd: a short
+            # per-request timeout used to kill threads silently and the final
+            # assert read like a turn race. Errors are recorded and re-raised
+            # by the asserts below.
+            try:
+                content = _post(server, timeout=60).json()["choices"][0]["message"][
+                    "content"
+                ]
+            except Exception as exc:  # noqa: BLE001 - reported below, not swallowed
+                with lock:
+                    errors.append(f"{type(exc).__name__}: {exc}")
+                return
             with lock:
                 contents.append(content)
 
@@ -715,5 +727,9 @@ def test_overlapping_requests_never_take_the_same_turn() -> None:
         for thread in threads:
             thread.start()
         for thread in threads:
-            thread.join(timeout=60)
+            thread.join(timeout=120)
+    assert not any(t.is_alive() for t in threads), (
+        "a request thread is still running after 120 s; the runner is too loaded"
+    )
+    assert not errors, errors
     assert sorted(contents) == sorted(f"turn {n}" for n in range(count))

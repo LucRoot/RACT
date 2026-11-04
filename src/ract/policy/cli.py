@@ -9,6 +9,8 @@ by itself: a grant holds only when ``load_grant`` says so.
 
 from __future__ import annotations
 
+from typing import Literal
+
 import argparse
 from pathlib import Path
 from typing import Any
@@ -51,7 +53,7 @@ def tier_state_of(state: Any, session_mode: str | None = None) -> tuple[TierStat
     the status only ever said ask or off.
     """
     if state.holds and state.policy is not None:
-        mode = "ask"
+        mode: Literal["off", "ask", "allowlist", "unrestricted"] = "ask"
         if session_mode == "allowlist" and state.policy.max_mode == "allowlist":
             mode = "allowlist"
         return TierState(mode, state.policy.expires_at.date()), ""

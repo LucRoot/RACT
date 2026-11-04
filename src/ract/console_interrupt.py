@@ -39,8 +39,10 @@ def _install() -> None:
     import ctypes
     from ctypes import wintypes
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    handler_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    handler_type = ctypes.WINFUNCTYPE(  # type: ignore[attr-defined]
+        wintypes.BOOL, wintypes.DWORD
+    )
     kernel32.SetConsoleCtrlHandler.argtypes = [handler_type, wintypes.BOOL]
 
     def on_ctrl(kind: int) -> bool:
@@ -50,10 +52,8 @@ def _install() -> None:
 
     _handler = handler_type(on_ctrl)  # kept alive for the life of the process
     if not kernel32.SetConsoleCtrlHandler(_handler, True):
-        print(
-            f"[console_interrupt] SetConsoleCtrlHandler failed: {ctypes.get_last_error()}",
-            flush=True,
-        )
+        err = ctypes.get_last_error()  # type: ignore[attr-defined]
+        print(f"[console_interrupt] SetConsoleCtrlHandler failed: {err}", flush=True)
         return
     _installed = True
 
@@ -78,7 +78,7 @@ def _cancel_if_stuck(n: int) -> None:
 def _cancel(handle: Any) -> None:
     import ctypes
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
     kernel32.CancelSynchronousIo.argtypes = [ctypes.c_void_p]
     kernel32.CancelSynchronousIo(
         handle
@@ -89,7 +89,7 @@ def _open_current_thread() -> Any:
     import ctypes
     from ctypes import wintypes
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
     kernel32.OpenThread.restype = ctypes.c_void_p
     kernel32.OpenThread.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     # CancelSynchronousIo needs THREAD_TERMINATE on the handle.
@@ -99,7 +99,8 @@ def _open_current_thread() -> Any:
 def _close(handle: Any) -> None:
     import ctypes
 
-    ctypes.WinDLL("kernel32").CloseHandle(ctypes.c_void_p(handle))
+    kernel32 = ctypes.WinDLL("kernel32")  # type: ignore[attr-defined]
+    kernel32.CloseHandle(ctypes.c_void_p(handle))
 
 
 def read_line(prompt: str = "") -> str:

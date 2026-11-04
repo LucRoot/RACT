@@ -63,7 +63,7 @@ def write_atomic(path: Path | str, data: bytes) -> None:
     try:
         with os.fdopen(handle, "wb") as out:
             if os.name != "nt":
-                os.fchmod(out.fileno(), _mode_for(target))
+                os.fchmod(out.fileno(), _mode_for(target))  # type: ignore[attr-defined]
             out.write(data)
             out.flush()
             os.fsync(out.fileno())
