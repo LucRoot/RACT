@@ -1,12 +1,44 @@
 # Release notes for RACT 0.6.0 (draft, B-151)
 
-Draft for the MANAGER to finalize at the cut. Written on branch
-`work/builder/n3-b9-release-notes` at base `29564ffb`, from the Unreleased
-sections of `CHANGELOG.md` and the release-readiness table of
-`ract-interactive-session/BOARD/START_HERE.md` as they stand at that base.
-`VERSION` stays 0.5.2 and the operator cuts the release. Where a statement
-below depends on evidence that does not exist yet (the real-model runs, the
-Linux rerun, macOS in CI), it says so as a fact; it promises nothing.
+Draft for the MANAGER to finalize at the cut. Rewritten 2026-11-03 on the
+release tip `4a1ee874` from the final evidence: the ten-journey real-model
+legs on two local models and a hosted frontier model, the J11 command-slice
+runs, the beginner walks, and the expectations audit
+(`audit/phase-8/CLI_EXPECTATIONS.md`). `VERSION` stays 0.5.2 and the
+operator cuts the release. Where a statement below depends on evidence that
+does not exist (the real beginner walk by a person, macOS in CI), it says so
+as a fact; it promises nothing.
+
+## Where RACT goes past the usual
+
+Verified on the release tip, each with the command that shows it (the full
+table is in `audit/phase-8/CLI_EXPECTATIONS.md`):
+
+- Signed grants and a command record: `ract policy init --guided` proposes
+  the narrowest rule in plain language and signs it; every command run under
+  a grant lands in a per-command record with its rule, argv, exit code and
+  digests.
+- The harness, not the model, decides done: the turn summary is assembled
+  from what RACT observed; a claim of passing tests that RACT did not run is
+  labelled as unchecked, and a failed real test run makes the turn failed.
+- Per-hunk review: `/review` walks a change hunk by hunk with accept,
+  reject, edit and skip; a rejected file's saved copy comes back.
+- Undo and rewind: `/undo`, `/redo`, `/checkpoint`, `/rewind` and
+  `/restore N` reverse whole turns, newest first, leaving files you edited
+  meanwhile alone.
+- Plan approval before anything runs: `ract run "<intent>" --dry-run` shows
+  the assumption, the confidence and the steps, and writes nothing.
+- Model-agnostic with local models: the same flows ran against a local
+  OpenAI-compatible server found by `ract setup`, and `/model` switches the
+  manager provider for the session without touching the config.
+- Honest refusals and hints after every error: dead endpoint, declined
+  step, missing grant and missing config each print one plain line naming
+  the fix.
+- Cost and egress accounting: `/cost` counts bytes per host and purpose and
+  points at the egress ledger; `--no-network` refuses off-host requests
+  before connecting and records the refusal.
+- Headless event stream: `ract -p --output-format stream-json` emits one
+  JSON object per session event, suitable for driving external UIs.
 
 ## What 0.6.0 is
 
@@ -161,13 +193,12 @@ The full list is in the Unreleased Fixed section of `CHANGELOG.md`; in theme:
 
 Slices (e) the sandbox, (f) the git tools and (g) the network tools are
 labelled experimental in this release. They are off unless a signed grant
-allows them, and a grant rule that names them asks before each use. They ship
-only if their evidence rows are green at the freeze: a Linux run, the red
-team and the real-model run. As this draft stands, the Linux run is done on
-an earlier tip with failures classified and fixed, the red-team cards are
-landed, and the real-model run is not yet made. If an evidence row is red at
-the freeze, the slice is switched off by default and the final notes say so;
-it is not deleted (SCOPE_0.6.0_2026-11-01.md, section 2).
+allows them, and a grant rule that names them asks before each use. Their
+evidence rows at the freeze: the Linux run is green on the release tip, the
+red-team cards are landed, and the real-model runs are in (the local legs,
+the hosted remainder, and the J11 command-slice evidence named above). If an
+evidence row is red at the cut, the slice is switched off by default and the
+final notes say so; it is not deleted (SCOPE_0.6.0_2026-11-01.md, section 2).
 
 What that means in use: on Linux, a tier-3 command runs inside bubblewrap
 once a self-test shows it confines files, the network and host processes; on
@@ -181,25 +212,54 @@ provider and says so.
 
 ## The success conditions as they stand
 
-Copied from the release-readiness table of START_HERE.md (2026-11-01 09:40);
-a "partly" is not rounded up and the real-model evidence is not yet in:
+Rewritten from the final evidence on the release tip; a "partly" is not
+rounded up:
 
 | Condition | Status as it stands |
 |---|---|
-| S1 first run in under 3 minutes | met (Windows, reachable server, fake model) |
-| S2 fix a failing test with a small local model and a frontier model | not met |
-| S3 visible, reversible, traceable to a signed record | met on fake servers and in real-terminal walks; not yet shown on a real model |
+| S1 first run in under 3 minutes | met (Windows, reachable server; the UPGRADING walk and three beginner-agent walks, including the post-command-on-ramp walk of 2026-11-03, which finished the whole path unaided; the real walk by a person is Thursday) |
+| S2 fix a failing test with a small local model and a frontier model | met: the fix journey passes on the 3B (full leg, seven journeys, with the formatting-strip notice live), on the 8B (J4, confirmation re-run after one malformed-plan refusal), and on the hosted frontier model (J4, 899 s, plan-approval branch) |
+| S3 visible, reversible, traceable to a signed record | met, shown on real models: change screens with line counts, `/diff`, `/undo`, and the signed Rootknot record per changed file |
 | S4 egress provable | met |
 | S5 headless in CI | met |
-| S6 no severity-1 journey defect | partly demonstrated |
-| S7 harness-written verdict | met in code and on fake servers; real-model runs pending |
+| S6 no severity-1 journey defect | met as demonstrated: ten journeys on each of two local models and the hosted remainder on the frontier model, plus the J11 command-slice runs; every defect the runs surfaced (the fence-strip refusal, the manager prompt's pre-command sentence, the grant facts the manager could not see) was fixed on the release branch and re-run |
+| S7 harness-written verdict | met on real models: verdicts assembled from recorded runs, including honest "verified: failed" and "not verified" lines |
 
-The S2 weak-model leg is a 2B and an 8B local model the operator runs; how
-each is reached is still to be supplied by the operator, and the ten-journey
-real-model run (B-132) covers the S2, S3 and S7 evidence on the landed tip.
-The Linux rerun of the release tip and macOS by CI are also still to come. If
-any of these rows is greener at the cut, the MANAGER updates this table with
-the evidence; nothing here is a promise.
+Not exercised on a real model, stated plainly: J9 and J10 are terminal-matrix
+and packaging journeys by design; the J5 live legs did not reach the diff
+screen on any of the three live models (a runner review-answer probe timing
+calibration, rev4; the journeys' product steps all passed); the 8B could not
+carry the J11 fix journey in four attempts (the command mechanism fired
+correctly every time; the model's plans were malformed or misdirected); and
+the hosted J11 row is mechanism-complete (the tier-3 ask fired, pytest ran
+under the grant, the command record was written, verdicts were honest) with
+the model-side completion blocked by the provider's availability at the time
+of the runs.
+
+## What RACT does not do yet
+
+From the expectations audit (2026-11-03), the first-hour gaps a daily CLI
+user notices:
+
+- No shell escape (`!command`): the model proposes commands and you approve
+  them; `/test` runs your tests. A user-run shell command is a 0.6.1/0.7
+  design question, not a hidden feature.
+- `git mode` needs `git_mode: true` in ract.yaml (named in the error and
+  QUICKSTART as of this tip); there are no branch helpers.
+- Ctrl-C during a running turn takes effect when the turn ends (documented);
+  mid-turn interrupt is a 0.6.1 design item.
+- Line history and tab completion need readline: on Linux and macOS, not yet
+  on Windows.
+- Colour through a Windows console could not be confirmed by the audit
+  (NO_COLOR and `--plain` both work); flagged for a real-console check.
+- `web_fetch` exists as a gated tier-3 tool (asks every time, https only,
+  grant-named domains) but was not exercisable with the scripted server; its
+  user documentation is a pointer to `docs/TIER3.md`.
+
+The Linux rerun of the release tip is green (the WSL2 evidence row, on the
+tip with the fixes); macOS arrives with CI on the release push. If any row
+here is greener at the cut, the MANAGER updates it with the evidence;
+nothing here is a promise.
 
 ## Upgrading
 
@@ -216,10 +276,15 @@ grant; `ract doctor --tier3` then shows the whole state in one place.
 
 ## Not claimed
 
-- That S2 is met: it is not, until the 2B and 8B legs and the ten-journey
-  real-model run are done.
+- That the real beginner walk has happened: a person walks on Thursday; three
+  beginner-agent walks (the last on this tip, with the command on-ramp) are
+  evidence before, not the walk itself (D-161).
+- That the hosted J11 model-side row is complete: the mechanism is proven
+  (the ask, the granted run, the record, the honest verdict); the model-side
+  completion was blocked by the provider's availability during the runs.
 - That the sandbox confines a command on Windows or macOS: it does not; grants
   say `best_effort` and RACT says so.
 - That macOS is verified: it is not; it arrives with CI on the release push.
-- That every audit P1 and the ledger second pass are closed: the remaining
-  ones are still to land per the board.
+- That every 0.6.1 card is closed: the queue stands on the board (the signing
+  screen's one-line "what this grant is for" is the first item the walks
+  earned).
