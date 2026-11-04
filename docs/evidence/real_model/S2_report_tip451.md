@@ -1,10 +1,10 @@
-# S2 real-model re-run on the feature tip 451f11c (decision D-120, D-121)
+# S2 real-model re-run on the feature tip 7bedea6 (decision D-120, D-121)
 
 Status: partly run. One hosted provider (the structurer role). The local 7B-class leg is not run (decision E). S2 stays not met.
 
 ## Scope
 
-- Code under test: the feature branch at 451f11c, exported in a detached worktree. Nothing in src/ was changed for these runs.
+- Code under test: the feature branch at 7bedea6, exported in a detached worktree. Nothing in src/ was changed for these runs.
 - Provider: the hosted provider, through the OpenAI-compatible adapter, with a scratch ract.yaml (no preset, D-086). The endpoint address, the model name and the key are not in this file or in the captures. The key was provided to the RACT process from the provider's environment file for each run, and never printed, logged or written.
 - One process at a time. No test suite was run during the runs. The runs happened while a BUILDER gate held QUIET.md, under D-121.
 - Dates: 2026-10-30, between 10:24 and 10:40 PT.
@@ -41,7 +41,7 @@ Endpoint totals are in RACT's egress ledger for the runs. Not reproduced here.
 
 ## Verdict
 
-On tip 451f11c, against the hosted provider:
+On tip 7bedea6, against the hosted provider:
 - B-104 holds: no terminal and no --yolo exits 3 and changes no file.
 - B-101 holds for default mode: the approval prompt appears before any write.
 - B-102 does not hold: a test file that imports an undefined name is written and reported done.

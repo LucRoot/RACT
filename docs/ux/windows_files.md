@@ -4,7 +4,7 @@ Run date: 2026-10-26. Harness: the scratch script that drives `ract -p ... --acc
 against the fake model server in a fresh git repository, once per case. The raw record for
 each case is in [windows_files/results.json](windows_files/results.json) (exit code, the
 output tail, and the state of the target file afterwards). The run used this worktree's own
-`ract.exe` (commit 1763abc and the work() guard), so the messages below are the ones the
+`ract.exe` (commit e189bad and the work() guard), so the messages below are the ones the
 committed code prints.
 
 Verdict key: **OK** = the message and the file state agree and the hint helps.
@@ -105,12 +105,12 @@ The table above is the sprint 5 record. These are the sprint 6 fixes, each on it
 
 | Handoff | Verdict | Commit and branch |
 |---|---|---|
-| H1 (long path reports done) | FIXED: refused with the Windows limit sentence; step fails; no file | 2dd4d9a on work/H1-H4 |
-| H2 (trailing space dropped) | FIXED: the planner name keeps the space; the path check refuses it | 90e240c on work/S6-5 |
+| H1 (long path reports done) | FIXED: refused with the Windows limit sentence; step fails; no file | 7cc95af on work/H1-H4 |
+| H2 (trailing space dropped) | FIXED: the planner name keeps the space; the path check refuses it | a4afd82 on work/S6-5 |
 | H3 (BOM on rewrite) | ESCALATE: default keeps the BOM; not implemented | none |
-| H4 ("done" before refusal) | FIXED: a held step is reported only after the apply result | cd6e52e, 6233683 on work/H1-H4 |
-| H5 (case-variant report) | CORRECTED: the changed line already named the disk spelling; the changed list now uses the disk spelling | 3996dad on work/S6-5 |
-| H6 (snapshot raise) | FIXED: a repository check or snapshot failure is a failed result | ca4b530 on work/S6-5 |
-| H7 (headless traceback) | FIXED: one line on stderr; the traceback is at debug level | 43028e8 on work/S6-5 |
-| Ctrl-C at approval recorded as failed | FIXED: an interrupted step is skipped | 17354fb on work/S6-5 |
-| session.started "?" placeholders | FIXED: null, and the renderer's workaround removed | cdc8784 on work/S6-5 |
+| H4 ("done" before refusal) | FIXED: a held step is reported only after the apply result | 0ff2d0d, f02fa02 on work/H1-H4 |
+| H5 (case-variant report) | CORRECTED: the changed line already named the disk spelling; the changed list now uses the disk spelling | 28414f5 on work/S6-5 |
+| H6 (snapshot raise) | FIXED: a repository check or snapshot failure is a failed result | 062a8d2 on work/S6-5 |
+| H7 (headless traceback) | FIXED: one line on stderr; the traceback is at debug level | 1bd5bef on work/S6-5 |
+| Ctrl-C at approval recorded as failed | FIXED: an interrupted step is skipped | 2c727bb on work/S6-5 |
+| session.started "?" placeholders | FIXED: null, and the renderer's workaround removed | d261a31 on work/S6-5 |

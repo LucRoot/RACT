@@ -1,6 +1,6 @@
 # J5 walkthrough: review a change hunk by hunk (B-117)
 
-Recorded 2026-10-30 in a real pseudo-terminal (`tests/ux/run_baseline.py --only J5`, RACT_UX_COLS 80 and 60) against the fake model server (scenario `baseline_j4_today`, one file, one hunk). Build: `6dd6924` (B-105 on the feature tip `ee20d3a`, which carries `/review`).
+Recorded 2026-10-30 in a real pseudo-terminal (`tests/ux/run_baseline.py --only J5`, RACT_UX_COLS 80 and 60) against the fake model server (scenario `baseline_j4_today`, one file, one hunk). Build: `9f8df35` (B-105 on the feature tip `18e610f`, which carries `/review`).
 
 Files: `J5_80.txt` and `J5_60.txt`. The header of `J5_60.txt` says "80x40" because the runner writes that label for every run; the terminal in that run was 60 columns (the wrapping shows it).
 
@@ -24,7 +24,7 @@ Files: `J5_80.txt` and `J5_60.txt`. The header of `J5_60.txt` says "80x40" becau
 3. **The prompt after the review has no space:** `ract>/diff` (`J5_80.txt` line 51; `J5_60.txt` line 54), where every other prompt reads `ract> /exit`. The line after the review answer `r` also carries the answer on the same line (`file:r`). Unexplained from the capture alone: it may be the driver's echo at the end of the review loop. The BUILDER should check it in a real terminal before it changes anything.
 4. **Minor:** `changed: ... review with git` / `    diff` splits the words `git diff` at 60 columns (`J5_60.txt` lines 24-25).
 
-## The three-file walk on the landed tip 1a7d33d (D-145), 80 and 60 columns
+## The three-file walk on the landed tip a624192 (D-145), 80 and 60 columns
 
 The same scenario (`j5_three_files`) and the same keys as the walk above, run on the feature tip after the B-137 batch and D-145 landed: `landed_80.txt` and `landed_60.txt`. Every terminal line is within its width.
 

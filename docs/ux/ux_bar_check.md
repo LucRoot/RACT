@@ -1,4 +1,4 @@
-# UX bar check (B-054 sweep, integ-check 994bb6f)
+# UX bar check (B-054 sweep, integ-check "Merge commit B-054f into work/mason/integ-check")
 
 One line per numbered item in `BOARD/UX_BAR.md`: standards 1 to 13 and journeys J1 to J10.
 Each status is backed by a capture or a test, named on the line. Where neither exists,
@@ -110,7 +110,7 @@ walked in this batch, with the reason.
   which does not check keys; a read-only directory cannot be made on Windows without an ACL deny; a
   budget stop was not run.
 
-## Column checks (real terminal, final tip d6f70ee)
+## Column checks (real terminal, final tip 71f6109)
 
 Widest line per capture, in characters (`docs/ux/width_a/`, package A; `docs/ux/soak_g/` for the soak).
 A capture fits when its widest RACT output line is at or under the column count.
@@ -129,7 +129,7 @@ Soak at 80 and 60 columns (`docs/ux/soak_g/`): every transcript fits its width, 
 question at 80 columns, which carries the heartbeat tick on the same line (the known B-033s
 condition, handoff below).
 
-## Soak (package G, final tip 16f812e; code as ac755f5, the last change is a test)
+## Soak (package G, final tip ebde7f3; code as 8296148, the last change is a test)
 
 Time to first feedback in seconds, against the first run in `docs/ux/b054/timings.txt`. The first
 number for J1 includes the setup probe in the first run and is not comparable.

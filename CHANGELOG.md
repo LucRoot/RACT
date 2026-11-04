@@ -1166,11 +1166,11 @@ backup-v0.5.1-preHardening`` (created at module_06 close).
 > obliterated on 2026-08-22 when a history rewrite replaced every
 > object in the tree. The current-history equivalents live under the
 > `release(v0.5.1): ...` commits reachable from `origin/main`
-> (30 primary release commits, from `89300cd` back through `ab1367a`),
+> (30 primary release commits, from `194a12d` back through `ab1367a`),
 > discoverable via `git log --grep='release(v0.5.1)'`. The narrative
 > descriptions below are preserved verbatim so the release story
 > continues to read as authored; the leading-index anchors
-> `89300cd`, `4093643`, and `ab1367a` are resolvable under the current
+> `194a12d`, `f35afbe`, and `ab1367a` are resolvable under the current
 > tree and satisfy `test_changelog_v051_shas_resolve_in_git`.
 
 > **Third re-tag.** Tag re-issued 2026-08-22 at the spec-completeness

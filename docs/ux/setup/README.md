@@ -1,4 +1,4 @@
-# Setup walks (B-160), on the feature tip 1a7d33d, fake servers, throwaway HOME
+# Setup walks (B-160), on the feature tip a624192, fake servers, throwaway HOME
 
 Three walks, real pseudo-terminal, `ract setup` in an empty temporary folder with a throwaway HOME. The
 transcripts are verbatim (escape sequences removed by the driver).

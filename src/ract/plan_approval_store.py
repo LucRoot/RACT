@@ -12,7 +12,6 @@ import hashlib
 import json
 
 from ract.atomic_write import write_atomic
-import os
 from pathlib import Path
 
 

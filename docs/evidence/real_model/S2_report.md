@@ -6,7 +6,7 @@ Status: partial. One hosted model leg was run. The local 7B-class leg is not run
 
 - Provider and model: the hosted provider service, a large hosted model (its structurer role), through the `openai_compatible` adapter at `[hosted endpoint, held on the operator board]`. The model's name is withheld from tracked evidence: the repository's closed-terms release check (`tests/test_release_surface.py`) rejects it. The name is recorded in the operator's board.
 - The repository has no provider preset. The scratch `ract.yaml` carries the URL and model above and reads the key from the environment (`api_key: ${PROVIDER_API_KEY}`). A preset is a change to key handling, which is senior-only, so none was added.
-- Code under test: `work/integrated` at `e2cb4b6`, exported read-only. It is not landed (the BUILDER's log has only a "to review" entry for it). The feature tip on this branch's base is `35af968`.
+- Code under test: `work/integrated` at `"[S6-I] INDEX and LANDING_KIT: the merged tip 0cadecd, its co"`, exported read-only. It is not landed (the BUILDER's log has only a "to review" entry for it). The feature tip on this branch's base is `081d4a5`.
 - Date of the runs: 2026-10-28, between 12:08 and 12:35 PDT.
 - Key handling: the key was loaded into the environment of each RACT process and never written to a file, a capture or this report. Each capture was scanned for the key prefix and the first eight characters of the key before commit: no hits.
 
@@ -113,6 +113,6 @@ So S2 is not met. The hosted model reaches a passing change on clean replies, an
 ## Record at landing
 
 - This commit is the final one on the branch. It replaces the endpoint address with a placeholder in every evidence file (16 files) and records the state at landing. Earlier commits stay as they were.
-- Code under test: `work/integrated` at `e2cb4b6`, not landed then. The runs predate the feature tip `e00e991`. They are the evidence of record for what was run; no judgment of model behavior is made beyond these runs.
+- Code under test: `work/integrated` at `"[S6-I] INDEX and LANDING_KIT: the merged tip 0cadecd, its co"`, not landed then. The runs predate the feature tip `3503e96`. They are the evidence of record for what was run; no judgment of model behavior is made beyond these runs.
 - Checks at this commit: closed-terms release check, no endpoint address, key or hosted model name in tracked files, no em-dashes, author and committer exactly `Dr. Lucas Root, Ph.D.`.
 

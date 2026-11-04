@@ -74,6 +74,12 @@ def v052_workspace(
     ws = tmp_path / "ws"
     ws.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=ws, check=True)
+    # CI runners carry no global identity; the old RACT's own worktree git
+    # calls inherit this repo-local one (CI fix, the release's red run).
+    subprocess.run([*GIT, "config", "user.name", "demo"], cwd=ws, check=True)
+    subprocess.run(
+        [*GIT, "config", "user.email", "demo@example.invalid"], cwd=ws, check=True
+    )
     (ws / "src").mkdir()
     (ws / "src" / "calc.py").write_text(
         "def add(a, b):\n    return a - b\n", encoding="utf-8"

@@ -58,7 +58,7 @@ from ract.tool_calls import (
     extract,
     next_action,
 )
-from ract.tools import ToolResult, read_only_tools, run_tool
+from ract.tools import ToolResult, run_tool
 
 Complete = Callable[[list[dict[str, Any]]], Rooted[dict[str, Any]]]
 

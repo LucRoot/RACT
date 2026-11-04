@@ -1,8 +1,8 @@
-# B-054r: walkthrough re-run on the merged tip (integ-check, 994bb6f)
+# B-054r: walkthrough re-run on the merged tip (integ-check, "Merge commit B-054f into work/mason/integ-check")
 
 Run: real ConPTY terminal (80x40) against the fake server, Windows 11, Python 3.11.15.
-Full run on 45ad0db with `walk_b054r.py` (J1, J2, J4, J6, J8, J8 with stdin, J9, J10).
-J1 and J2 re-captured on 994bb6f after the D11 fix (e2a0474). Transcripts beside this
+Full run on "Merge commit B-054-rerun into work/mason/integ-check" with `walk_b054r.py` (J1, J2, J4, J6, J8, J8 with stdin, J9, J10).
+J1 and J2 re-captured on "Merge commit B-054f into work/mason/integ-check" after the D11 fix (c14fb95). Transcripts beside this
 file. Quotes are copied from the captures. Severity words as in `../b054/defects.md`.
 
 Not runnable, unchanged from the first run (not defects): J3 (no read-tool scenario),
@@ -22,7 +22,7 @@ J5 (per-hunk accept or reject, B-014c), J7 (Esc Esc rewind not built).
 | D8 | S3 | raw JSON body in the error | fixed | J10: `error: Planning failed: Provider call failed: HTTP 503: fake server error 503` |
 | D9 | S3 | `tokens not reported` | fixed | J10: `4 model requests, 6.4 s, tokens not reported by the provider` |
 | D10 | S3 | `Leave and run ract setup` | fixed | J1: `ract.yaml not found. Run ract setup in another terminal to create one` |
-| D11 | S3 | `RACT session ? via ?` | fixed (renderer; the event keeps its placeholder) | J1 on 994bb6f: `RACT session no model via no provider` |
+| D11 | S3 | `RACT session ? via ?` | fixed (renderer; the event keeps its placeholder) | J1 on "Merge commit B-054f into work/mason/integ-check": `RACT session no model via no provider` |
 
 ## New or still-open items seen in this run
 
@@ -41,4 +41,4 @@ J5 (per-hunk accept or reject, B-014c), J7 (Esc Esc rewind not built).
 ## Timing
 
 First feedback: J1 2.25 s, J2 1.72 s, J4 1.87 s, J6 3.71 s, J9 2.25 s, J10 2.68 s (run
-timings in `timings.txt`; J1 and J2 from the 994bb6f re-capture).
+timings in `timings.txt`; J1 and J2 from the "Merge commit B-054f into work/mason/integ-check" re-capture).

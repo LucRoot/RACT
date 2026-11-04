@@ -4,7 +4,7 @@ Status: partial. One hosted provider was used for the runs below. The local 7B-c
 
 ## Scope
 
-- Code under test: the feature tip `d5dbda0` (the BUILDER's LANDED entry, 13:38 PT on 2026-10-29), exported read-only from git. The landed tip includes the S2 fixes for D1, D2, D3, D7 and D9 (B-095, B-096, B-097) and the probe changes (B-094).
+- Code under test: the feature tip `390c96c` (the BUILDER's LANDED entry, 13:38 PT on 2026-10-29), exported read-only from git. The landed tip includes the S2 fixes for D1, D2, D3, D7 and D9 (B-095, B-096, B-097) and the probe changes (B-094).
 - Provider: the hosted provider, a large hosted model (its structurer role), through the OpenAI-compatible adapter. The repository has no preset for it. The scratch `ract.yaml` names the endpoint and reads the key from the environment. The endpoint address, the key and the model name are held on the operator board, not in this file.
 - Date: 2026-10-29, between 13:50 and 14:35 PT. One request at a time.
 - Key: loaded into the environment of each RACT process for that run only. Captures were scanned before commit: no key prefix, no endpoint address, no model name.

@@ -1,6 +1,6 @@
 # B-139: headless and session parity
 
-Status: first pass, 2026-10-30, BUILDER. Each row is read from the code at the B-137 batch tip (`b2875af`); file and function names are given so a reader can check them.
+Status: first pass, 2026-10-30, BUILDER. Each row is read from the code at the B-137 batch tip (`72b8c19`); file and function names are given so a reader can check them.
 
 ## One path, three switches
 

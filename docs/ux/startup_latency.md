@@ -43,7 +43,7 @@ above are the handoffs.
 
 Ten runs of `python -m ract.cli --version` each, same machine, same day, before and after.
 
-| Measure | Before (`de3fb1c`) | After |
+| Measure | Before (`9ee05d9`) | After |
 |---|---|---|
 | `ract --version`, median | 1.155 s | 0.975 s |
 | `ract --version`, fastest and slowest | 1.131 s, 1.369 s | 0.930 s, 1.007 s |

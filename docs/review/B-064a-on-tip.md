@@ -1,12 +1,12 @@
 # B-064a on the feature tip (sprint 7, package 1, re-entry)
 
-Branch `work/s7-on-tip`, based on the feature tip `e00e991` (LANDED base `5dd8098`, L-174).
+Branch `work/s7-on-tip`, based on the feature tip `3503e96` (LANDED base `d34fef9`, L-174).
 Status: NOT GATED. The gate on this tip has not run; no READY-SENIOR exists until it has.
 
 ## Why this is not a replay of the sprint 7 package 1 commits
 
-The feature tip already carries a separately written B-064a (`6331c84`, approve, skip, cancel,
-headless refusal with exit 3) and the row 6 fix (`8a70840`, Ctrl-C at the approval prompt ends the
+The feature tip already carries a separately written B-064a (`f793d52`, approve, skip, cancel,
+headless refusal with exit 3) and the row 6 fix (`945ceca`, Ctrl-C at the approval prompt ends the
 step skipped). My package 1 commits implement the same card. Replaying them conflicts in six files
 (`src/ract/harness.py` two hunks, `src/ract/harness_report_enricher.py` two hunks,
 `src/ract/plan_gate.py`, `src/ract/ract_runner.py`, `tests/test_dead_code_auction.py`,
@@ -17,18 +17,18 @@ review fixes that the BUILDER landed (L-170 to L-182), so the landed version is 
 
 | Old (s7-b064a) | New (on this branch) | What |
 |---|---|---|
-| a799cd3 | 8777938 | raw keys in the pseudo-terminal runner (replayed cleanly) |
-| 736082f | fa1bbe8 | package 3: queued notes at the model request (replayed cleanly) |
-| 87a3c0c | 70c8878 | fix: the decorator moved to the right function (replayed cleanly) |
-| 83f1a9b | 93685d2 | plan gate events registered on the session stream (replayed cleanly) |
-| ad7565f, 2027e3e, 0b0f7be (in part), 1ce2f01 | not replayed | superseded by landed 6331c84 and 8a70840 |
-| fd53a27 | ported (see below) | approvals persist with the session |
+| 3422fe7 | 8777938 | raw keys in the pseudo-terminal runner (replayed cleanly) |
+| 8f83bdb | (unlanded replay fix) | package 3: queued notes at the model request (replayed cleanly) |
+| fec9018 | (unlanded replay fix) | fix: the decorator moved to the right function (replayed cleanly) |
+| 7645871 | (unlanded replay fix) | plan gate events registered on the session stream (replayed cleanly) |
+| "[S7-1] B-064a wiring: the plan is approved once before its first step", "[S7-1] Ctrl-C at the approval question ends the open step as declined", "[S7-1] Red team B-064a: step text in the approval event" (in part), "[S7-1] Red team tests: a def instead of a lambda (lint)" | not replayed | superseded by landed f793d52 and 945ceca |
+| "[S7-1] Plan approvals persist with the session: a resumed se" | ported (see below) | approvals persist with the session |
 
 ## Ported onto the landed version (new commits, test first)
 
 1. `edit n` (D12). The landed `resolve_answer` answered "edit is not available yet". It now
    returns `Resolution("edit", n=...)`; `apply_edit` (one line, limit 2000 characters, a new path
-   must pass the path check) is copied from `ad7565f`; `console_plan_approval` asks for the new text
+   must pass the path check) is copied from "[S7-1] B-064a wiring: the plan is approved once before its first step"; `console_plan_approval` asks for the new text
    and shows the plan again. Conservative choice: the console has no project root, so any path the
    new text names that the plan did not list is refused.
 2. Approvals persist with the session (D12). `SessionState.plan_approvals` (default empty),
@@ -39,13 +39,13 @@ review fixes that the BUILDER landed (L-170 to L-182), so the landed version is 
 
 ## Conflicts and resolutions (every hunk; nothing chosen silently)
 
-These are the hunks the replay of `ad7565f` hit. Resolution: keep the landed text and port only
+These are the hunks the replay of "[S7-1] B-064a wiring: the plan is approved once before its first step" hit. Resolution: keep the landed text and port only
 what the landed text lacks.
 
 - `src/ract/plan_gate.py` (add/add): landed kept; `Resolution` gains `n`; `resolve_answer` returns
   `edit`; helpers ported.
 - `src/ract/harness.py` (2 hunks): landed kept; my `_report_renumbered` not ported (the landed
-  `skipped by you` events come from `6331c84`).
+  `skipped by you` events come from `f793d52`).
 - `src/ract/harness_report_enricher.py` (2 hunks): landed kept (`plan_gate` passthrough is in the
   landed text).
 - `src/ract/ract_runner.py` (1 hunk, then the persistence port): landed wiring kept; the wrapper and

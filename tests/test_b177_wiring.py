@@ -124,14 +124,11 @@ def test_save_does_not_write_through_a_link_at_the_temp_name(tmp_path: Path) -> 
     outside = tmp_path / "outside.txt"
     outside.write_text("sentinel\n", encoding="utf-8")
     planted = state / "todo.json.tmp"
-    linked = False
     try:
         planted.symlink_to(outside)
-        linked = True
     except OSError:
         try:
             os.link(outside, planted)  # a hard link is the same class
-            linked = True
         except OSError:
             pytest.skip("links are not creatable here")
     save(TodoList(), state)

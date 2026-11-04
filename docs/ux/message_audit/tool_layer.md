@@ -2,7 +2,7 @@
 
 A reader of a refusal, an error or a hint should be able to answer three questions: what happened,
 why, and what to do next. This audit reads the printed messages of the tool layer
-(`src/ract/tools/`, the tool registry, the loop's refusal path) on the feature tip `163e9be` and
+(`src/ract/tools/`, the tool registry, the loop's refusal path) on the feature tip `b48f815` and
 checks each against those three questions. It proposes a rewording where one is missing. The BUILDER
 decides and lands; nothing here changes code.
 

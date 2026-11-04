@@ -973,19 +973,26 @@ def apply_commit_to_working_tree(
         pending = repo / ".ract" / "pending"
         target = pending / f"{after[:12]}.patch"
         check_state_path(target)  # B-213: never through a link
-        pending.mkdir(parents=True, exist_ok=True)
-        diff = _git_bytes(
-            repo,
-            "--literal-pathspecs",
-            "diff",
-            "--binary",
-            before,
-            after,
-            "--",
-            *real_skips,
-        )
-        target.write_bytes(diff.stdout)
-        patch_path = target.relative_to(repo).as_posix()
+        try:
+            pending.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            # AUD-009: a path error never stops the others. When even the
+            # pending folder cannot be made (a read-only repository, say),
+            # the apply stands and the unsaved patch is reported, not raised.
+            skipped["(pending patch)"] = f"could not save it: {exc.strerror or exc}"
+        else:
+            diff = _git_bytes(
+                repo,
+                "--literal-pathspecs",
+                "diff",
+                "--binary",
+                before,
+                after,
+                "--",
+                *real_skips,
+            )
+            target.write_bytes(diff.stdout)
+            patch_path = target.relative_to(repo).as_posix()
     created = {path for status, path in changes if status.startswith("A")}
     return WorkingTreeApply(
         tuple(applied), skipped, patch_path, frozenset(created & set(applied))

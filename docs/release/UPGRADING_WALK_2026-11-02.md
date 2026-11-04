@@ -1,6 +1,6 @@
 # G6 evidence: UPGRADING walked from a 0.5.2 install with keys in the old layout
 
-Date: 2026-11-02. Base: `29564ffb` (branch `work/builder/n3-b9-upgrading-walk`).
+Date: 2026-11-02. Base: `5085226` (branch `work/builder/n3-b9-upgrading-walk`).
 Scope item: SCOPE_0.6.0 section 5 (G6) - "UPGRADING walked from a 0.5.2 install
 with keys in the old layout". A full gate was running on this machine, so no
 test suite was run; the evidence is the walked commands themselves, run against

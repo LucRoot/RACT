@@ -250,7 +250,7 @@ def test_setup_offer_no_prints_one_line_on_how_to_do_it_later(
     from ract.policy.grant import load_grant
 
     assert not load_grant(project).holds
-    later = [l for l in io.lines if "guided" in l]
+    later = [line for line in io.lines if "guided" in line]
     assert later and "policy init" in later[-1]
 
 
