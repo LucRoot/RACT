@@ -144,9 +144,7 @@ def answer_tools() -> dict[str, Any]:
     """
     from ract.tools import read_only_tools
 
-    return {
-        name: spec for name, spec in read_only_tools().items() if name != "todo"
-    }
+    return {name: spec for name, spec in read_only_tools().items() if name != "todo"}
 
 
 def _signatures(tools: dict[str, Any] | None = None) -> list[ToolSignature]:
@@ -657,9 +655,7 @@ def _drive(
                     blocks.append(_result_block(call, False, stop))
                     summarize = True
                     break
-                wrong = _malformed(
-                    call, tools if tools is not None else answer_tools()
-                )
+                wrong = _malformed(call, tools if tools is not None else answer_tools())
                 if wrong is not None:
                     # B-140: said to the model once, plainly; three end the step.
                     _report_malformed(call, ids, wrong)

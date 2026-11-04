@@ -101,7 +101,9 @@ class OffloadStore:
                 f"{egress_scan.describe(counts)}"
             )
         summary = _cap_text(summary, SUMMARY_CAP)
-        return Placed(text=f"{UNTRUSTED_LABEL}\n{summary}", handle=handle, offloaded=True)
+        return Placed(
+            text=f"{UNTRUSTED_LABEL}\n{summary}", handle=handle, offloaded=True
+        )
 
     def read_slice(self, handle: str, *, start_line: int, count: int) -> Slice:
         """Return at most SLICE_MAX_LINES lines and SLICE_MAX_BYTES bytes, from start_line."""
@@ -127,15 +129,21 @@ class OffloadStore:
             )
         picked: list[str] = []
         size = 0
-        for line in lines[start_line - 1 : start_line - 1 + min(count, SLICE_MAX_LINES)]:
+        for line in lines[
+            start_line - 1 : start_line - 1 + min(count, SLICE_MAX_LINES)
+        ]:
             encoded = len((line + "\n").encode("utf-8"))
             if size + encoded > SLICE_MAX_BYTES:
                 break
             picked.append(line)
             size += encoded
-        body, counts = egress_scan.scan_text("\n".join(picked) + ("\n" if picked else ""))
+        body, counts = egress_scan.scan_text(
+            "\n".join(picked) + ("\n" if picked else "")
+        )
         note = egress_scan.describe(counts) if counts else ""
-        return Slice(text=f"{UNTRUSTED_LABEL}\n{body}", lines_returned=len(picked), note=note)
+        return Slice(
+            text=f"{UNTRUSTED_LABEL}\n{body}", lines_returned=len(picked), note=note
+        )
 
     def _path(self, handle: str) -> Path:
         match = HANDLE_PATTERN.match(handle)

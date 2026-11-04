@@ -18,7 +18,6 @@ from ract.rooted import Rooted
 COVERAGE_RUN_LIMIT_S = 240.0
 
 
-
 @pytest.fixture
 def tmp_coverage_project(tmp_path_factory):
     """Build a minimal project that pytest-cov can measure."""
@@ -65,7 +64,9 @@ def test_gate_establishes_baseline(tmp_coverage_project):
 
 def test_gate_detects_regress(tmp_coverage_project):
     project_dir = tmp_coverage_project
-    coverage_delta.gate(project_dir, pytest_args=["tests/", "-q"], timeout=COVERAGE_RUN_LIMIT_S)
+    coverage_delta.gate(
+        project_dir, pytest_args=["tests/", "-q"], timeout=COVERAGE_RUN_LIMIT_S
+    )
 
     # Add an uncovered function.
     core_path = project_dir / "src" / "pkg" / "core.py"
@@ -86,7 +87,9 @@ def test_gate_detects_regress(tmp_coverage_project):
 
 def test_gate_detects_earn(tmp_coverage_project):
     project_dir = tmp_coverage_project
-    coverage_delta.gate(project_dir, pytest_args=["tests/", "-q"], timeout=COVERAGE_RUN_LIMIT_S)
+    coverage_delta.gate(
+        project_dir, pytest_args=["tests/", "-q"], timeout=COVERAGE_RUN_LIMIT_S
+    )
 
     # Cover the missing branch.
     test_path = project_dir / "tests" / "test_core.py"

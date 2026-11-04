@@ -44,7 +44,11 @@ def _plan(*steps: Step) -> Plan:
     "roles,strength,expected",
     [
         (["planner", "editor", "verifier"], WEAK, ["planner", "editor", "verifier"]),
-        (["planner", "editor", "verifier"], "either", ["planner", "editor", "verifier"]),
+        (
+            ["planner", "editor", "verifier"],
+            "either",
+            ["planner", "editor", "verifier"],
+        ),
         (
             ["planner", "editor", "verifier"],
             STRONG,
@@ -91,20 +95,35 @@ def test_a_full_probe_promotes_a_model() -> None:
     "findings",
     [
         # No tool calling.
-        [("chat", "works", None), ("reasoning text", "returned", None),
-         ("context window", "works", 131072)],
+        [
+            ("chat", "works", None),
+            ("reasoning text", "returned", None),
+            ("context window", "works", 131072),
+        ],
         # Tool calling seen but not supported.
-        [("tool calling", "not supported", None), ("reasoning text", "returned", None),
-         ("context window", "works", 131072)],
+        [
+            ("tool calling", "not supported", None),
+            ("reasoning text", "returned", None),
+            ("context window", "works", 131072),
+        ],
         # No reasoning text.
-        [("tool calling", "works", None), ("reasoning text", "not returned", None),
-         ("context window", "works", 131072)],
+        [
+            ("tool calling", "works", None),
+            ("reasoning text", "not returned", None),
+            ("context window", "works", 131072),
+        ],
         # Context window under the floor.
-        [("tool calling", "works", None), ("reasoning text", "returned", None),
-         ("context window", "works", 8192)],
+        [
+            ("tool calling", "works", None),
+            ("reasoning text", "returned", None),
+            ("context window", "works", 8192),
+        ],
         # Context window unknown.
-        [("tool calling", "works", None), ("reasoning text", "returned", None),
-         ("context window", "not tried", None)],
+        [
+            ("tool calling", "works", None),
+            ("reasoning text", "returned", None),
+            ("context window", "not tried", None),
+        ],
     ],
 )
 def test_a_partial_probe_keeps_a_model_weak(findings) -> None:
@@ -136,7 +155,11 @@ def test_strong_collapses_the_plan_to_one_agent_step() -> None:
         (
             _plan(
                 Step(action="answer only", provider_hint="", expected_artifact=""),
-                Step(action="and another question", provider_hint="", expected_artifact=""),
+                Step(
+                    action="and another question",
+                    provider_hint="",
+                    expected_artifact="",
+                ),
             ),
             STRONG,
         ),
@@ -150,13 +173,14 @@ def test_strength_for_harness_defaults_to_weak() -> None:
     from types import SimpleNamespace
 
     assert strong_path.strength_for_harness(SimpleNamespace()) == WEAK
-    assert strong_path.strength_for_harness(
-        SimpleNamespace(model_strength=STRONG)
-    ) == STRONG
+    assert (
+        strong_path.strength_for_harness(SimpleNamespace(model_strength=STRONG))
+        == STRONG
+    )
     # A value outside the closed set fails closed.
-    assert strong_path.strength_for_harness(
-        SimpleNamespace(model_strength="huge")
-    ) == WEAK
+    assert (
+        strong_path.strength_for_harness(SimpleNamespace(model_strength="huge")) == WEAK
+    )
 
 
 # explore_in_parallel
@@ -204,7 +228,11 @@ def test_a_write_attempt_in_a_parallel_explorer_is_refused(tmp_path: Path) -> No
                 json.dumps(
                     {
                         "tool": "write_file",
-                        "arguments": {"path": "pwned.txt", "content": "x", "create": True},
+                        "arguments": {
+                            "path": "pwned.txt",
+                            "content": "x",
+                            "create": True,
+                        },
                     }
                 ),
                 json.dumps({"final": "the write did not go through"}),
@@ -247,9 +275,7 @@ def _run_scenario(tmp_path: Path, fake_model_server, scenario: str, monkeypatch)
                 return ProposedDecision(path, None, 1, 0, answers={1: "accepted"})
             return ProposedDecision(path, after, 1, 0, answers={1: "accepted"})
 
-        monkeypatch.setattr(
-            "ract.ract_runner.console_proposed_reviewer", _accept_all
-        )
+        monkeypatch.setattr("ract.ract_runner.console_proposed_reviewer", _accept_all)
     monkeypatch.setattr("builtins.input", lambda prompt="": "approve")
     events = []
     stream = EventStream(session=f"s-{scenario}")
@@ -276,19 +302,16 @@ def test_the_strong_path_makes_fewer_calls_for_the_same_result(
     )
     assert weak_code == 0
     assert len(weak_server.chat_requests) == 4  # the plan, then one per step
-    weak_files = {
-        name: (weak_ws / name).read_text(encoding="utf-8") for name in FILES
-    }
+    weak_files = {name: (weak_ws / name).read_text(encoding="utf-8") for name in FILES}
 
-    monkeypatch.setattr(
-        strong_path, "strength_for_harness", lambda harness: STRONG
-    )
+    monkeypatch.setattr(strong_path, "strength_for_harness", lambda harness: STRONG)
     strong_code, strong_server, strong_ws, events = _run_scenario(
-        tmp_path / "strong", fake_model_server, "plan_three_additions_strong", monkeypatch
+        tmp_path / "strong",
+        fake_model_server,
+        "plan_three_additions_strong",
+        monkeypatch,
     )
-    assert strong_code == 0, [
-        e.data for e in events if e.kind == "error.surfaced"
-    ]
+    assert strong_code == 0, [e.data for e in events if e.kind == "error.surfaced"]
     # The plan plus one tool-call reply plus the final answer: fewer than 4.
     assert len(strong_server.chat_requests) == 3
     # The same verified result: identical bytes in every file.

@@ -259,7 +259,8 @@ class _ExecutorSucceeded:
             return PredicateResult(ok=True, reason="the step's executor call succeeded")
         error = str(snapshot.metadata.get("executor_error") or "")
         return PredicateResult(
-            ok=False, reason=f"the step's executor call failed: {redaction.body(error, 200)}"
+            ok=False,
+            reason=f"the step's executor call failed: {redaction.body(error, 200)}",
         )
 
 

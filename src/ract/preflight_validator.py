@@ -55,7 +55,10 @@ class PreflightValidator:
             config = yaml.safe_load(raw)
         except yaml.YAMLError as exc:
             errors.append(
-                {"field": "config", "message": f"invalid YAML: {config_errors.yaml_problem(exc)}"}
+                {
+                    "field": "config",
+                    "message": f"invalid YAML: {config_errors.yaml_problem(exc)}",
+                }
             )
             return errors
 

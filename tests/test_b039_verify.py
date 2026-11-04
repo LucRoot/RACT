@@ -39,8 +39,15 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 def _commit_all(ws: Path, message: str) -> str:
     _git(ws, "add", "-A")
     _git(
-        ws, "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-        "commit", "-q", "-m", message,
+        ws,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.invalid",
+        "commit",
+        "-q",
+        "-m",
+        message,
     )
     return _git(ws, "rev-parse", "HEAD").stdout.strip()
 
@@ -105,8 +112,16 @@ def test_a_tampered_file_fails(signed_repo, capsys) -> None:
 def _commit_all_amend(ws: Path) -> str:
     _git(ws, "add", "-A")
     _git(
-        ws, "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-        "commit", "-q", "--amend", "-m", "turn",
+        ws,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.invalid",
+        "commit",
+        "-q",
+        "--amend",
+        "-m",
+        "turn",
     )
     return _git(ws, "rev-parse", "HEAD").stdout.strip()
 
@@ -188,9 +203,7 @@ def _run_signed_turn(ws: Path, server) -> None:
 
 
 @pytest.fixture
-def filtered_repo(
-    tmp_path: Path, fake_model_server
-) -> tuple[Path, str, str]:
+def filtered_repo(tmp_path: Path, fake_model_server) -> tuple[Path, str, str]:
     """A signed turn whose commit blob differs from the signed bytes.
 
     A clean filter rewrites what git stores (``return a + b`` becomes
@@ -219,11 +232,15 @@ def filtered_repo(
         encoding="utf-8",
     )
     _git(
-        ws, "config", "filter.tamper.clean",
+        ws,
+        "config",
+        "filter.tamper.clean",
         f'"{sys.executable}" "{filter_script}"',
     )
     _git(
-        ws, "config", "filter.tamper.smudge",
+        ws,
+        "config",
+        "filter.tamper.smudge",
         f'"{sys.executable}" "{unfilter_script}"',
     )
     (ws / ".gitattributes").write_text("src/calc.py filter=tamper\n")
@@ -233,7 +250,9 @@ def filtered_repo(
     return ws, before, after
 
 
-def test_the_line_ending_fallback_never_fires_before_head(filtered_repo, capsys) -> None:
+def test_the_line_ending_fallback_never_fires_before_head(
+    filtered_repo, capsys
+) -> None:
     ws, before, after = filtered_repo
     # A later commit, so `after` is not HEAD and the working tree still
     # holds the signed bytes, clean against HEAD.
@@ -281,7 +300,6 @@ def test_a_path_under_dot_ract_is_not_racts_own_record(signed_repo, capsys) -> N
     assert out.rstrip().endswith(CLOSE_STATEMENT)
 
 
-
 def _crlf_premise_or_skip(ws: Path, after: str) -> None:
     """These two tests calibrate on Windows: the turn signs CRLF disk bytes
     while the commit stores LF, so the strict bytes-at-commit check fails and
@@ -296,6 +314,7 @@ def _crlf_premise_or_skip(ws: Path, after: str) -> None:
     if b"\r\n" not in disk or "\r" in blob:
         pytest.skip("the CRLF premise of this test cannot arise on POSIX")
 
+
 def test_the_sidecar_is_read_from_the_later_commit(signed_repo, capsys) -> None:
     ws, before, after, _run_id = signed_repo
     _crlf_premise_or_skip(ws, after)
@@ -305,9 +324,7 @@ def test_the_sidecar_is_read_from_the_later_commit(signed_repo, capsys) -> None:
     # "unparseable".
     (ws / "NOTES.md").write_text("later\n", encoding="utf-8")
     _commit_all(ws, "later")
-    (ws / "src" / ".calc.py.rootknot.json").write_text(
-        "{not json", encoding="utf-8"
-    )
+    (ws / "src" / ".calc.py.rootknot.json").write_text("{not json", encoding="utf-8")
     code = verify_command(["--repo", str(ws), f"{before}..{after}"])
     out = capsys.readouterr().out
     assert code == 1, out
@@ -330,9 +347,7 @@ def test_a_deleted_signed_file_is_attributed_at_the_earlier_commit(
     # or the file on disk and the blob the index caches for it are two
     # different contents, and whether the base snapshot sees the one or the
     # other then depends on git's same-second stat-cache race.
-    (ws / "src" / "calc.py").write_bytes(
-        rb.CALC_FILES["src/calc.py"].encode("utf-8")
-    )
+    (ws / "src" / "calc.py").write_bytes(rb.CALC_FILES["src/calc.py"].encode("utf-8"))
     _git(ws, "config", "core.autocrlf", "false")
     _commit_all(ws, "base")
     _run_signed_turn(ws, server)

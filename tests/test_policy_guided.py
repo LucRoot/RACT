@@ -79,7 +79,9 @@ def test_a_new_user_reaches_a_signed_pytest_rule(
     # on-ramp names this verb, not the setup offer). The item-by-item rule
     # view above them is itself plain.
     what = next(i for i, line in enumerate(shown) if line.startswith("What this is:"))
-    first_diff = next(i for i, line in enumerate(shown) if line.startswith("+") or " + " in line)
+    first_diff = next(
+        i for i, line in enumerate(shown) if line.startswith("+") or " + " in line
+    )
     assert what < first_diff
     assert any("asks you before every run" in line for line in shown)
     state = load_grant(project, now=NOW)

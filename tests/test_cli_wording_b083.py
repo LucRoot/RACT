@@ -75,7 +75,9 @@ def test_fence_without_a_config_names_ract_setup(tmp_path: Path) -> None:
     assert "hint: run `ract setup` here" in proc.stderr
 
 
-def test_bare_ract_without_a_config_points_a_first_timer_at_setup(tmp_path: Path) -> None:
+def test_bare_ract_without_a_config_points_a_first_timer_at_setup(
+    tmp_path: Path,
+) -> None:
     proc = _ract(tmp_path)
     assert "first time here? Run ract setup" in proc.stderr
     # The advanced no-terminal path stays for scripts.

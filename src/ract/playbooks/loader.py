@@ -31,7 +31,9 @@ REQUIRED_KEYS = frozenset({"name", "purpose", "roles", "acceptance", "stop", "as
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 # The grant: the tools a playbook's roles may use. Only T0 is ratified today (ADR-0048).
-DEFAULT_GRANT_TOOLS = frozenset(name for name, tier in roles_loader.TOOL_TIERS.items() if tier == 0)
+DEFAULT_GRANT_TOOLS = frozenset(
+    name for name, tier in roles_loader.TOOL_TIERS.items() if tier == 0
+)
 
 
 class PlaybookError(ValueError):
@@ -54,7 +56,9 @@ def parse_playbook(
     if not NAME_PATTERN.match(name):
         raise PlaybookError(f"playbook name {name!r} is not a plain lower-case name")
     if len(text.encode("utf-8")) > MAX_BYTES:
-        raise PlaybookError(f"playbook {name}: file is over the size limit of {MAX_BYTES} bytes")
+        raise PlaybookError(
+            f"playbook {name}: file is over the size limit of {MAX_BYTES} bytes"
+        )
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
@@ -74,9 +78,15 @@ def parse_playbook(
             raise PlaybookError(f"playbook {name}: unknown role {role_name!r}")
         for tool in built_in[role_name].data["tools"]:
             if tool not in grant_tools:
-                raise PlaybookError(f"playbook {name}: role {role_name} needs tool {tool!r}, not in the grant")
-    if not isinstance(data["acceptance"], list) or not all(isinstance(item, str) for item in data["acceptance"]):
-        raise PlaybookError(f"playbook {name}: acceptance must be a list of text checks")
+                raise PlaybookError(
+                    f"playbook {name}: role {role_name} needs tool {tool!r}, not in the grant"
+                )
+    if not isinstance(data["acceptance"], list) or not all(
+        isinstance(item, str) for item in data["acceptance"]
+    ):
+        raise PlaybookError(
+            f"playbook {name}: acceptance must be a list of text checks"
+        )
     return Playbook(name=name, data=data)
 
 

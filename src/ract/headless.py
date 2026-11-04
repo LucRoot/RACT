@@ -121,9 +121,7 @@ def error_object(
 
 def denials(events: list[SessionEvent]) -> list[dict[str, str]]:
     """The approvals this run resolved as denied because nobody could answer (B-193)."""
-    asked = {
-        e.data.get("id"): e.data for e in events if e.kind == "approval.requested"
-    }
+    asked = {e.data.get("id"): e.data for e in events if e.kind == "approval.requested"}
     out: list[dict[str, str]] = []
     for event in events:
         data = event.data
@@ -751,11 +749,7 @@ def _run(
         )
     if first_denial:
         action = next(
-            (
-                d["action"]
-                for d in denials(events)
-                if d["action"]
-            ),
+            (d["action"] for d in denials(events) if d["action"]),
             "an action",
         )
         stream.error(

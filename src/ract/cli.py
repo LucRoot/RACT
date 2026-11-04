@@ -296,7 +296,6 @@ def _offer_setup(ask: Any = read_line) -> bool:
     """
     from ract.setup import wizard
 
-
     from ract.tui import terminal_width
 
     # Wrapped to the terminal, so the question fits 60 columns too (package F).
@@ -629,7 +628,9 @@ def _mcp_invoke(registry: McpToolRegistry, tool: str | None, input_json: str) ->
 
     result = registry.call_tool(tool, arguments)
     if result.error is not None:
-        print(f"[ract] MCP tool failed: {redaction.redact(result.error)}", file=sys.stderr)
+        print(
+            f"[ract] MCP tool failed: {redaction.redact(result.error)}", file=sys.stderr
+        )
         return 1
 
     tool_result = result.unwrap()
@@ -4204,7 +4205,11 @@ def _session_substrate_command(parsed: argparse.Namespace) -> int:
             )
             return 1
         diff = run_git(
-            "-C", str(repo), "diff", parent, branch,
+            "-C",
+            str(repo),
+            "diff",
+            parent,
+            branch,
             capture_output=True,
             text=True,
             check=False,

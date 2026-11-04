@@ -77,7 +77,10 @@ def _events_up_to_step(events: list[Event], step_hex: str) -> list[Event]:
 def _repo_head(repo: Path) -> str | None:
     """Return the current HEAD sha of ``repo``, or ``None`` if not a git repo."""
     result = run_git(
-        "-C", str(repo), "rev-parse", "HEAD",
+        "-C",
+        str(repo),
+        "rev-parse",
+        "HEAD",
         capture_output=True,
         text=True,
         check=False,

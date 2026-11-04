@@ -110,7 +110,9 @@ def test_the_step_snapshot_leaves_out_exactly_the_secret_names(tmp_path: Path) -
         (repo / name).write_text("x\n", encoding="utf-8")
     (repo / ".env").write_text("x\n", encoding="utf-8")
     assert git("add", "-A", "--force").returncode == 0
-    removed = git("rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", *_SNAPSHOT_EXCLUDES)
+    removed = git(
+        "rm", "-r", "-q", "--cached", "--ignore-unmatch", "--", *_SNAPSHOT_EXCLUDES
+    )
     assert removed.returncode == 0, removed.stderr
     kept = set(git("ls-files").stdout.split())
     expected = {n for n in unique.values() if not is_secret_shaped(n)}

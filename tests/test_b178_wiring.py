@@ -49,18 +49,30 @@ def _project(tmp_path: Path) -> Path:
 def test_the_walk_asks_six_questions_and_writes_the_spec(tmp_path: Path) -> None:
     root = _project(tmp_path)
     answers = [
-        "A tally app", Y,
-        "Runners log miles", Y,
-        "log and total runs", Y,
-        "no cloud sync", Y,
-        "the command prints the total", Y,
-        "one weekend", Y,
+        "A tally app",
+        Y,
+        "Runners log miles",
+        Y,
+        "log and total runs",
+        Y,
+        "no cloud sync",
+        Y,
+        "the command prints the total",
+        Y,
+        "one weekend",
+        Y,
     ]
     ask, _seen = _scripted(answers)
     assert walk(root, ask=ask, width=80) is True
     spec = (root / SPEC_NAME).read_text(encoding="utf-8")
-    for section in ("Goal", "Users", "Must do", "Must not do",
-                    "How we will know", "Limits"):
+    for section in (
+        "Goal",
+        "Users",
+        "Must do",
+        "Must not do",
+        "How we will know",
+        "Limits",
+    ):
         assert section in spec
     assert "A tally app" in spec
     digest = (root / ".ract" / HASH_NAME).read_text(encoding="utf-8").strip()
@@ -71,12 +83,19 @@ def test_the_walk_asks_six_questions_and_writes_the_spec(tmp_path: Path) -> None
 def test_a_blank_answer_is_asked_again_with_the_example(tmp_path: Path) -> None:
     root = _project(tmp_path)
     answers = [
-        "", "A tally app", Y,
-        "Runners log miles", Y,
-        "log and total runs", Y,
-        "no cloud sync", Y,
-        "the command prints the total", Y,
-        "one weekend", Y,
+        "",
+        "A tally app",
+        Y,
+        "Runners log miles",
+        Y,
+        "log and total runs",
+        Y,
+        "no cloud sync",
+        Y,
+        "the command prints the total",
+        Y,
+        "one weekend",
+        Y,
     ]
     ask, seen = _scripted(answers)
     assert walk(root, ask=ask, width=80) is True
@@ -87,12 +106,18 @@ def test_a_blank_answer_is_asked_again_with_the_example(tmp_path: Path) -> None:
 def test_question_six_may_be_skipped(tmp_path: Path) -> None:
     root = _project(tmp_path)
     answers = [
-        "A tally app", Y,
-        "Runners", Y,
-        "log runs", Y,
-        "no sync", Y,
-        "the command prints the total", Y,
-        "", Y,
+        "A tally app",
+        Y,
+        "Runners",
+        Y,
+        "log runs",
+        Y,
+        "no sync",
+        Y,
+        "the command prints the total",
+        Y,
+        "",
+        Y,
     ]
     ask, _seen = _scripted(answers)
     assert walk(root, ask=ask, width=80) is True
@@ -104,13 +129,20 @@ def test_an_uncheckable_acceptance_line_is_named(tmp_path: Path) -> None:
     root = _project(tmp_path)
     # "it is fast" is not checkable: the walk names it and asks again.
     answers = [
-        "A tally app", Y,
-        "Runners", Y,
-        "log runs", Y,
-        "no sync", Y,
-        "it is fast", Y,
-        "one weekend", Y,
-        "the command prints the total in under 2 seconds", Y,
+        "A tally app",
+        Y,
+        "Runners",
+        Y,
+        "log runs",
+        Y,
+        "no sync",
+        Y,
+        "it is fast",
+        Y,
+        "one weekend",
+        Y,
+        "the command prints the total in under 2 seconds",
+        Y,
     ]
     ask, _seen = _scripted(answers)
     assert walk(root, ask=ask, width=80) is True
@@ -121,13 +153,20 @@ def test_an_uncheckable_acceptance_line_is_named(tmp_path: Path) -> None:
 def test_a_rejected_section_is_asked_again(tmp_path: Path) -> None:
     root = _project(tmp_path)
     answers = [
-        "A tally app", Y,
-        "wrong", "n",
-        "Runners log miles", Y,
-        "log and total runs", Y,
-        "no cloud sync", Y,
-        "the command prints the total", Y,
-        "one weekend", Y,
+        "A tally app",
+        Y,
+        "wrong",
+        "n",
+        "Runners log miles",
+        Y,
+        "log and total runs",
+        Y,
+        "no cloud sync",
+        Y,
+        "the command prints the total",
+        Y,
+        "one weekend",
+        Y,
     ]
     ask, _seen = _scripted(answers)
     assert walk(root, ask=ask, width=80) is True
@@ -146,11 +185,16 @@ def test_an_abandoned_walk_keeps_its_draft_and_resumes(tmp_path: Path) -> None:
     assert not (root / SPEC_NAME).exists()
     # The next /spec continues: the approved sections stand, the rest are asked.
     answers = [
-        "Runners log miles", Y,
-        "log and total runs", Y,
-        "no cloud sync", Y,
-        "the command prints the total", Y,
-        "one weekend", Y,
+        "Runners log miles",
+        Y,
+        "log and total runs",
+        Y,
+        "no cloud sync",
+        Y,
+        "the command prints the total",
+        Y,
+        "one weekend",
+        Y,
     ]
     ask2, seen2 = _scripted(answers)
     assert walk(root, ask=ask2, width=80) is True
@@ -164,6 +208,7 @@ def test_nothing_is_written_until_every_section_is_approved(tmp_path: Path) -> N
     walk(root, ask=ask, width=80)
     assert not (root / SPEC_NAME).exists()
     assert not (root / ".ract" / HASH_NAME).exists()
+
 
 def test_the_walk_replaces_a_link_planted_at_the_spec_name(tmp_path: Path) -> None:
     import os
@@ -180,12 +225,18 @@ def test_the_walk_replaces_a_link_planted_at_the_spec_name(tmp_path: Path) -> No
         except OSError:
             pytest.skip("links are not creatable here")
     answers = [
-        "A tally app", Y,
-        "Runners log miles", Y,
-        "log and total runs", Y,
-        "no cloud sync", Y,
-        "the command prints the total", Y,
-        "one weekend", Y,
+        "A tally app",
+        Y,
+        "Runners log miles",
+        Y,
+        "log and total runs",
+        Y,
+        "no cloud sync",
+        Y,
+        "the command prints the total",
+        Y,
+        "one weekend",
+        Y,
     ]
     ask, _seen = _scripted(answers)
     assert walk(root, ask=ask, width=80) is True
@@ -204,12 +255,18 @@ def test_the_walk_refuses_state_written_through_a_link(tmp_path: Path) -> None:
     except OSError:
         pytest.skip("links are not creatable here")
     answers = [
-        "A tally app", Y,
-        "Runners log miles", Y,
-        "log and total runs", Y,
-        "no cloud sync", Y,
-        "the command prints the total", Y,
-        "one weekend", Y,
+        "A tally app",
+        Y,
+        "Runners log miles",
+        Y,
+        "log and total runs",
+        Y,
+        "no cloud sync",
+        Y,
+        "the command prints the total",
+        Y,
+        "one weekend",
+        Y,
     ]
     ask, _seen = _scripted(answers)
     with pytest.raises(StateDirRefused):

@@ -45,10 +45,14 @@ def test_a_second_holder_gets_the_callers_error_after_the_tries(tmp_path: Path) 
     try:
         file_lock.lock_exclusive(first, contended=contended)
         with pytest.raises(_Held, match="held after 4"):
-            file_lock.lock_exclusive(second, contended=contended, retries=4, backoff_s=0)
+            file_lock.lock_exclusive(
+                second, contended=contended, retries=4, backoff_s=0
+            )
         assert tries == [4]
         file_lock.unlock(first)
-        file_lock.lock_exclusive(second, contended=contended, retries=1)  # free: at once
+        file_lock.lock_exclusive(
+            second, contended=contended, retries=1
+        )  # free: at once
         file_lock.unlock(second)
     finally:
         os.close(first)
@@ -82,7 +86,9 @@ def test_releasing_a_lock_not_held_is_reported_not_raised(tmp_path: Path) -> Non
         (chain_lock, chain_unlock, SuiteChainLockContended, "suite_chain.jsonl"),
     ],
 )
-def test_each_state_file_keeps_its_own_error(tmp_path, lock, unlock, error, name) -> None:  # type: ignore[no-untyped-def]
+def test_each_state_file_keeps_its_own_error(
+    tmp_path, lock, unlock, error, name
+) -> None:  # type: ignore[no-untyped-def]
     first, second = _two(tmp_path / "state.lock")
     try:
         lock(first)

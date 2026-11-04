@@ -54,7 +54,9 @@ def collect_strings() -> list[str]:
                 text = _text(node.value)
                 if text:
                     found.append(text)
-    return [line.strip() for text in found for line in text.splitlines() if line.strip()]
+    return [
+        line.strip() for text in found for line in text.splitlines() if line.strip()
+    ]
 
 
 def syllables(word: str) -> int:
@@ -106,8 +108,15 @@ def test_the_wizard_has_strings_to_score() -> None:
 
 def test_every_string_is_scored_and_the_report_is_written() -> None:
     rows = [(grade(text), text) for text in STRINGS]
-    lines = ["# Readability report (B-168)", "", "Grade is Flesch-Kincaid, target about 6; above "
-             f"{FAIL_ABOVE} is a failure to card.", "", "| grade | string |", "| --- | --- |"]
+    lines = [
+        "# Readability report (B-168)",
+        "",
+        "Grade is Flesch-Kincaid, target about 6; above "
+        f"{FAIL_ABOVE} is a failure to card.",
+        "",
+        "| grade | string |",
+        "| --- | --- |",
+    ]
     for value, text in rows:
         lines.append(f"| {value:.1f} | {text.replace('|', '/')} |")
     REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -191,7 +191,9 @@ class WhispererContract:
     def _recent_commits_from_git(self) -> tuple[str, ...]:
         try:
             proc = run_git(
-                "log", "-n5", "--pretty=format:%s",
+                "log",
+                "-n5",
+                "--pretty=format:%s",
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,

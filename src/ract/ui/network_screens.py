@@ -51,14 +51,19 @@ def fetch_prompt_lines(
             width,
         )
     else:
-        out += _fold("not on the grant's allow_domains: refused; nothing is fetched", width)
+        out += _fold(
+            "not on the grant's allow_domains: refused; nothing is fetched", width
+        )
     out += _fold(f"size cap: {request.size_cap_kib} KiB; a larger page is cut", width)
     out += _fold(
         "what comes back is untrusted content: later steps in this turn ask before a change or a command",
         width,
     )
     if request.follows_external:
-        out += _fold("this fetch follows fetched text: the question says so, with its origin", width)
+        out += _fold(
+            "this fetch follows fetched text: the question says so, with its origin",
+            width,
+        )
     choices = FETCH_CHOICES if session_choice else FETCH_CHOICES_NO_SESSION
     out += _fold(choices, width, indent="  ")
     return out

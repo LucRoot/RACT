@@ -104,7 +104,9 @@ def memory() -> tuple[int | None, int | None]:
 
 
 def _git_version() -> str | None:
-    if programs.git() == "git":  # B-214: not on PATH (the current folder is not searched)
+    if (
+        programs.git() == "git"
+    ):  # B-214: not on PATH (the current folder is not searched)
         return None
     try:
         out = run_git("--version", capture_output=True, text=True, timeout=10)

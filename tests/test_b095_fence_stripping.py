@@ -77,12 +77,7 @@ TWO_BLOCKS = (
     "That is the whole change."
 )
 
-UNCLOSED = (
-    "Here is the file:\n\n"
-    "```python\n"
-    "def one():\n"
-    "    return 1\n"
-)
+UNCLOSED = "Here is the file:\n\n```python\ndef one():\n    return 1\n"
 
 # A Python file whose docstring shows a fenced example. The fence lines are
 # indented inside the docstring: content, not an outer fence.
@@ -98,11 +93,7 @@ DOCSTRING_FENCE = (
 )
 
 THINK_HIDES_FENCE = (
-    "<think>the fix is one function</think>\n"
-    "```python\n"
-    "def one():\n"
-    "    return 1\n"
-    "```\n"
+    "<think>the fix is one function</think>\n```python\ndef one():\n    return 1\n```\n"
 )
 
 FAKE_FENCE_MID_PROSE = (
@@ -110,11 +101,7 @@ FAKE_FENCE_MID_PROSE = (
     "Nothing here is code.\n"
 )
 
-LONE_FENCE_LINE = (
-    "Some prose before.\n"
-    "```\n"
-    "More prose after, with no closing fence.\n"
-)
+LONE_FENCE_LINE = "Some prose before.\n```\nMore prose after, with no closing fence.\n"
 
 
 def _one_step(action: str, artifact: str, reply: str) -> Scenario:

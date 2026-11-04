@@ -70,7 +70,9 @@ def test_a_name_with_a_dot_still_gets_its_extension(tmp_path: Path) -> None:
     assert found is not None and found.casefold() == str(exe.absolute()).casefold()
 
 
-@pytest.mark.skipif(os.name != "nt", reason="the variable is read by Windows CreateProcess")
+@pytest.mark.skipif(
+    os.name != "nt", reason="the variable is read by Windows CreateProcess"
+)
 def test_the_cli_sets_the_guard_variable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NoDefaultCurrentDirectoryInExePath", raising=False)
     from ract.cli import main

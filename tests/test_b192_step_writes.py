@@ -66,7 +66,10 @@ def _status(events: list[SessionEvent]) -> str:
 
 
 def test_a_tool_write_then_a_passing_run_is_verified(
-    tmp_path: Path, fake_model_server, monkeypatch, env  # noqa: F811
+    tmp_path: Path,
+    fake_model_server,
+    monkeypatch,
+    env,  # noqa: F811
 ) -> None:
     ws = _workspace(
         tmp_path,
@@ -80,7 +83,10 @@ def test_a_tool_write_then_a_passing_run_is_verified(
 
 
 def test_a_tool_write_after_a_passing_run_is_stale(
-    tmp_path: Path, fake_model_server, monkeypatch, env  # noqa: F811
+    tmp_path: Path,
+    fake_model_server,
+    monkeypatch,
+    env,  # noqa: F811
 ) -> None:
     ws = _workspace(
         tmp_path,
@@ -93,7 +99,10 @@ def test_a_tool_write_after_a_passing_run_is_stale(
 
 
 def test_a_new_file_written_after_the_run_is_stale(
-    tmp_path: Path, fake_model_server, monkeypatch, env  # noqa: F811
+    tmp_path: Path,
+    fake_model_server,
+    monkeypatch,
+    env,  # noqa: F811
 ) -> None:
     ws = _workspace(
         tmp_path,
@@ -112,7 +121,10 @@ def test_a_new_file_written_after_the_run_is_stale(
 
 
 def test_a_run_that_collects_no_tests_is_no_tests(
-    tmp_path: Path, fake_model_server, monkeypatch, env  # noqa: F811
+    tmp_path: Path,
+    fake_model_server,
+    monkeypatch,
+    env,  # noqa: F811
 ) -> None:
     ws = _workspace(
         tmp_path,
@@ -125,7 +137,10 @@ def test_a_run_that_collects_no_tests_is_no_tests(
 
 
 def test_the_headless_result_carries_stale(
-    tmp_path: Path, fake_model_server, monkeypatch, env  # noqa: F811
+    tmp_path: Path,
+    fake_model_server,
+    monkeypatch,
+    env,  # noqa: F811
 ) -> None:
     # `ract -p` runs this same turn (headless._run calls run_turn) and builds
     # ract.result/1 from its events.

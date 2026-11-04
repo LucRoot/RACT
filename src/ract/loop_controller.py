@@ -778,7 +778,10 @@ class LoopController:
                 try:
                     marker.write_text(candidate, encoding="utf-8")
                 except OSError as write_exc:
-                    print(f"[loop] the run marker was not written: {write_exc}", flush=True)
+                    print(
+                        f"[loop] the run marker was not written: {write_exc}",
+                        flush=True,
+                    )
                 return candidate
             try:
                 try:
@@ -804,7 +807,9 @@ class LoopController:
                     try:
                         marker.write_text(candidate, encoding="utf-8")
                     except OSError as exc:
-                        print(f"[loop] the run marker was not written: {exc}", flush=True)
+                        print(
+                            f"[loop] the run marker was not written: {exc}", flush=True
+                        )
                     return candidate
                 finally:
                     self._release_marker_lock(fd)
@@ -812,7 +817,9 @@ class LoopController:
                 try:
                     _os.close(fd)
                 except OSError as exc:
-                    print(f"[loop] the marker lock file was not closed: {exc}", flush=True)
+                    print(
+                        f"[loop] the marker lock file was not closed: {exc}", flush=True
+                    )
         return run_id_hex()
 
     @staticmethod
@@ -1134,7 +1141,9 @@ class LoopController:
                     cause=self._cause_of(decision, iteration),
                     summary=self._summarize(iterations),
                     handshake_milestones=list(self.handshake_milestones),
-                    limit_question=self._limit_question(iterations) if at_limit else None,
+                    limit_question=self._limit_question(iterations)
+                    if at_limit
+                    else None,
                 )
 
             if decision == "stagnant":
@@ -1238,11 +1247,18 @@ class LoopController:
         last = iterations[-1] if iterations else None
         before = iterations[-2].content_snapshot if len(iterations) > 1 else {}
         touched = (
-            sorted(path for path, text in last.content_snapshot.items() if before.get(path) != text)
+            sorted(
+                path
+                for path, text in last.content_snapshot.items()
+                if before.get(path) != text
+            )
             if last is not None
             else []
         )
-        shown = ", ".join(touched[:20]) + (" and more" if len(touched) > 20 else "") or "none"
+        shown = (
+            ", ".join(touched[:20]) + (" and more" if len(touched) > 20 else "")
+            or "none"
+        )
         return (
             f"Reached max iterations ({self.max_iterations}): {len(iterations)} rounds ran, "
             f"the last ended with decision {last.decision if last else 'none'}. "
@@ -1798,7 +1814,10 @@ class LoopController:
 
                 _emit_event(
                     "whisperer.classifier_error",
-                    {"error_type": type(exc).__name__, "message": redaction.body(str(exc), 512)},
+                    {
+                        "error_type": type(exc).__name__,
+                        "message": redaction.body(str(exc), 512),
+                    },
                 )
             except Exception:  # noqa: BLE001
                 pass

@@ -1085,7 +1085,10 @@ def _resolve_head_safe(repo_root: Path) -> str:
     the compensator install skips when this returns ``""``.
     """
     result = run_git(
-        "-C", str(repo_root), "rev-parse", "HEAD",
+        "-C",
+        str(repo_root),
+        "rev-parse",
+        "HEAD",
         capture_output=True,
         text=True,
         check=False,
@@ -1098,7 +1101,11 @@ def _resolve_head_safe(repo_root: Path) -> str:
 def _current_branch_name_of(repo_root: Path) -> str:
     """Return the currently checked-out branch name (or ``"HEAD"`` on detach)."""
     result = run_git(
-        "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD",
+        "-C",
+        str(repo_root),
+        "rev-parse",
+        "--abbrev-ref",
+        "HEAD",
         capture_output=True,
         text=True,
         check=False,
@@ -1160,7 +1167,11 @@ def _fast_forward_head(
         return
     reset_mode = "--soft" if soft else "--hard"
     result = run_git(
-        "-C", str(repo_root), "reset", reset_mode, new_sha,
+        "-C",
+        str(repo_root),
+        "reset",
+        reset_mode,
+        new_sha,
         capture_output=True,
         text=True,
         check=False,

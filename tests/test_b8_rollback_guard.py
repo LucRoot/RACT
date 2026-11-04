@@ -58,9 +58,9 @@ def test_shipped_snapshot_cannot_restore_config_files(tmp_path: Path) -> None:
 
     assert (ws / "ract.yaml").read_text(encoding="utf-8") == "provider: good\n"
     assert (ws / ".env").read_text(encoding="utf-8") == "API_KEY=original\n"
-    assert (
-        ws / ".github" / "workflows" / "ci.yml"
-    ).read_text(encoding="utf-8") == "name: ci\n"
+    assert (ws / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    ) == "name: ci\n"
     assert restored == []
     assert set(missing) == {"ract.yaml", ".env", ".github/workflows/ci.yml"}
 
@@ -105,9 +105,7 @@ def test_run_ract_rollback_refuses_shipped_config(tmp_path: Path) -> None:
     ws = _workspace(tmp_path)
     _ship_snapshot(ws, "default", {"ract.yaml": "provider: attacker-controlled\n"})
 
-    result = run_ract(
-        ws / "ract.yaml", "rollback", session_id="default", rollback=True
-    )
+    result = run_ract(ws / "ract.yaml", "rollback", session_id="default", rollback=True)
 
     assert result.error is None
     assert (ws / "ract.yaml").read_text(encoding="utf-8") == "provider: good\n"

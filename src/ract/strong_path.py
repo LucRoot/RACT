@@ -105,8 +105,7 @@ def apply_strong_path(plan: Plan, *, strength: str, agent_loop: bool = True) -> 
     if not any(step.expected_artifact for step in plan.steps):
         return plan
     instruction = "Do every step of the approved plan, in order." + "".join(
-        f" Step {i}: {step.action}"
-        for i, step in enumerate(plan.steps, start=1)
+        f" Step {i}: {step.action}" for i, step in enumerate(plan.steps, start=1)
     )
     merged = replace(
         plan.steps[-1],
@@ -160,11 +159,8 @@ def explore_in_parallel(
             budgets=budgets or LoopBudgets(),
         )
 
-    with ThreadPoolExecutor(
-        max_workers=max_workers or min(len(questions), 4)
-    ) as pool:
+    with ThreadPoolExecutor(max_workers=max_workers or min(len(questions), 4)) as pool:
         futures = [
-            pool.submit(run_with_ambient(run_one, question))
-            for question in questions
+            pool.submit(run_with_ambient(run_one, question)) for question in questions
         ]
         return [future.result() for future in futures]

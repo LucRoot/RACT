@@ -291,9 +291,7 @@ def formatting_notice(removed_chars: int) -> str:
     )
 
 
-def check_replacement(
-    path: str, old: bytes, new: str, action: str
-) -> tuple[str, int]:
+def check_replacement(path: str, old: bytes, new: str, action: str) -> tuple[str, int]:
     """Check *new* against *old* and return the text to write and the count.
 
     The returned text is *new* with the formatting strip applied when the

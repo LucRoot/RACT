@@ -62,7 +62,9 @@ def _words(text: str) -> list[str]:
     return words
 
 
-def wrap_exact(text: str, width: int, *, subsequent_indent: str | None = None) -> list[str]:
+def wrap_exact(
+    text: str, width: int, *, subsequent_indent: str | None = None
+) -> list[str]:
     """``text`` cut into lines of at most ``width`` columns, every character kept (B-184).
 
     Runs of spaces and leading spaces stay; a tab is shown as ``\\t``. A line
@@ -87,7 +89,11 @@ def wrap_exact(text: str, width: int, *, subsequent_indent: str | None = None) -
             cut = line.rfind(" ")
             while cut > 0 and cut + 1 < len(line) and _zero_width(line[cut + 1]):
                 cut = line.rfind(" ", 0, cut)  # a space carrying a mark is not a break
-            if cut >= len(base) and line[len(base) : cut].strip() and not piece.isspace():
+            if (
+                cut >= len(base)
+                and line[len(base) : cut].strip()
+                and not piece.isspace()
+            ):
                 lines.append(line[: cut + 1])
                 line = subsequent_indent + line[cut + 1 :]
             else:

@@ -242,7 +242,8 @@ def health_check(config_path: Path) -> Health:
 
 def _is_git_repository(directory: Path) -> bool:
     out = run_git(
-        "rev-parse", "--is-inside-work-tree",
+        "rev-parse",
+        "--is-inside-work-tree",
         cwd=directory,
         capture_output=True,
         text=True,
@@ -691,7 +692,7 @@ def _run(
 
 
 def _offer_test_grant(directory: Path, io: Any, code: int) -> int:
-    'The closing offer: let RACT run your tests (the guided grant, reused).'
+    "The closing offer: let RACT run your tests (the guided grant, reused)."
     # Interactive terminals only; headless runs, CI and pipes never see the
     # question. A yes runs the same guided flow as `ract policy init
     # --guided` (no second signing path); an explicit no prints one line on
@@ -722,6 +723,7 @@ def _offer_test_grant(directory: Path, io: Any, code: int) -> int:
         "The network stays off where this machine can enforce it. Each run "
         "has a time limit. You can take it back any time: ract policy revoke."
     )
+
     def ask(question: str) -> "str | None":
         # The wizard's own ask: same wrapping and EOF behavior as every
         # other setup question.

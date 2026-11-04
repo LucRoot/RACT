@@ -293,7 +293,10 @@ class CompensatorStack:
 def _resolve_head(repo_root: Path) -> str:
     """Return HEAD sha for ``repo_root`` or ``""`` on failure."""
     result = run_git(
-        "-C", str(repo_root), "rev-parse", "HEAD",
+        "-C",
+        str(repo_root),
+        "rev-parse",
+        "HEAD",
         capture_output=True,
         text=True,
         check=False,
@@ -311,7 +314,10 @@ def _resolve_branch(repo_root: Path, branch: str) -> str:
     not spuriously refuse the compensator.
     """
     result = run_git(
-        "-C", str(repo_root), "rev-parse", branch,
+        "-C",
+        str(repo_root),
+        "rev-parse",
+        branch,
         capture_output=True,
         text=True,
         check=False,
@@ -324,7 +330,11 @@ def _resolve_branch(repo_root: Path, branch: str) -> str:
 def _current_branch(repo_root: Path) -> str:
     """Return the currently checked-out branch (or ``"HEAD"`` if detached)."""
     result = run_git(
-        "-C", str(repo_root), "rev-parse", "--abbrev-ref", "HEAD",
+        "-C",
+        str(repo_root),
+        "rev-parse",
+        "--abbrev-ref",
+        "HEAD",
         capture_output=True,
         text=True,
         check=False,
@@ -343,7 +353,12 @@ def check_pushed(repo_root: Path, sha: str) -> bool:
     compensator is free to run.
     """
     result = run_git(
-        "-C", str(repo_root), "branch", "-r", "--contains", sha,
+        "-C",
+        str(repo_root),
+        "branch",
+        "-r",
+        "--contains",
+        sha,
         capture_output=True,
         text=True,
         check=False,

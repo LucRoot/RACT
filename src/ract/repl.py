@@ -394,9 +394,7 @@ class ReplSession:
         import subprocess
 
         project = self.state.config.resolve().parent
-        self._console.print(
-            f"running as you, in {project}: {command}"
-        )
+        self._console.print(f"running as you, in {project}: {command}")
         print("[ract] best effort here: this machine cannot confine the command")
         print("[ract] its output is not redacted; do not print secrets with it")
         try:
@@ -1309,7 +1307,9 @@ class ReplSession:
         import json
 
         try:
-            data = json.loads((directory / f"{session_id}.json").read_text(encoding="utf-8"))
+            data = json.loads(
+                (directory / f"{session_id}.json").read_text(encoding="utf-8")
+            )
         except (OSError, ValueError) as exc:
             print(f"[repl] the session's turns were not counted: {exc}", flush=True)
             return 0
@@ -1558,8 +1558,7 @@ class ReplSession:
             )
         if grant.holds and grant.policy is not None:
             rules = [
-                rule.id
-                for rule in getattr(grant.policy.commands, "allow", []) or []
+                rule.id for rule in getattr(grant.policy.commands, "allow", []) or []
             ]
             if rules:
                 self._tier3_notes.append(

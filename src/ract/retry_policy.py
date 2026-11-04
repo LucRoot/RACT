@@ -206,7 +206,9 @@ class RetryPolicy:
                     reason = (
                         describe(exc)
                         if describe is not None
-                        else redaction.body(" ".join(f"{type(exc).__name__}: {exc}".split()), 120)
+                        else redaction.body(
+                            " ".join(f"{type(exc).__name__}: {exc}".split()), 120
+                        )
                     )
                     on_retry(attempt + 1, limit, reason, delay)
                 if cancelled is None:

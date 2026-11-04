@@ -96,7 +96,10 @@ def ensure_git_repo(root: Path) -> None:
             f"workspace root does not exist or is not a directory: {root}"
         )
     result = run_git(
-        "-C", str(root), "rev-parse", "--show-toplevel",
+        "-C",
+        str(root),
+        "rev-parse",
+        "--show-toplevel",
         capture_output=True,
         text=True,
         check=False,
@@ -122,7 +125,10 @@ def ensure_clean_tracked_tree(root: Path) -> None:
     # ``--porcelain=v1`` gives one line per changed path with a two-column
     # status prefix. ``?? `` lines are untracked; anything else is tracked.
     result = run_git(
-        "-C", str(root), "status", "--porcelain=v1",
+        "-C",
+        str(root),
+        "status",
+        "--porcelain=v1",
         capture_output=True,
         text=True,
         check=False,
@@ -150,7 +156,10 @@ def ensure_clean_tracked_tree(root: Path) -> None:
 def resolve_head_sha(root: Path) -> str:
     """Return the full commit sha for ``HEAD`` at ``root``."""
     result = run_git(
-        "-C", str(root), "rev-parse", "HEAD",
+        "-C",
+        str(root),
+        "rev-parse",
+        "HEAD",
         capture_output=True,
         text=True,
         check=False,
@@ -240,7 +249,13 @@ class WorktreeManager:
         _assert_case_match(target)
         branch = _branch_name(step_id)
         result = run_git(
-            "-C", str(self.repo_root), "worktree", "add", str(target), "-b", branch,
+            "-C",
+            str(self.repo_root),
+            "worktree",
+            "add",
+            str(target),
+            "-b",
+            branch,
             parent_snapshot,
             text=True,
         )
@@ -267,7 +282,11 @@ class WorktreeManager:
         branch C, deferred).
         """
         result = run_git(
-            "-C", str(self.repo_root), "branch", "--list", "rootact/step/*",
+            "-C",
+            str(self.repo_root),
+            "branch",
+            "--list",
+            "rootact/step/*",
             capture_output=True,
             text=True,
             check=False,
@@ -284,7 +303,11 @@ class WorktreeManager:
     def worktree_list(self) -> list[dict[str, str]]:
         """Return ``git worktree list --porcelain`` parsed into records."""
         result = run_git(
-            "-C", str(self.repo_root), "worktree", "list", "--porcelain",
+            "-C",
+            str(self.repo_root),
+            "worktree",
+            "list",
+            "--porcelain",
             capture_output=True,
             text=True,
             check=False,
@@ -310,7 +333,10 @@ class WorktreeManager:
     def commit(self, wt: Worktree, message: str) -> str:
         """Stage all changes in the worktree and commit; return the new sha."""
         add = run_git(
-            "-C", str(wt.path), "add", "-A",
+            "-C",
+            str(wt.path),
+            "add",
+            "-A",
             capture_output=True,
             text=True,
             check=False,
@@ -339,7 +365,10 @@ class WorktreeManager:
                 f"git commit failed in {wt.path}: {commit.stderr.strip()}"
             )
         sha_result = run_git(
-            "-C", str(wt.path), "rev-parse", "HEAD",
+            "-C",
+            str(wt.path),
+            "rev-parse",
+            "HEAD",
             capture_output=True,
             text=True,
             check=False,
@@ -432,7 +461,12 @@ class WorktreeManager:
         namespace.
         """
         remove = run_git(
-            "-C", str(self.repo_root), "worktree", "remove", "--force", str(wt.path),
+            "-C",
+            str(self.repo_root),
+            "worktree",
+            "remove",
+            "--force",
+            str(wt.path),
             text=True,
         )
         # Missing worktree is not fatal — the caller may have already
@@ -452,7 +486,11 @@ class WorktreeManager:
             )
         if abandon:
             rename = run_git(
-                "-C", str(self.repo_root), "branch", "-M", wt.branch,
+                "-C",
+                str(self.repo_root),
+                "branch",
+                "-M",
+                wt.branch,
                 _abandoned_branch_name(wt.step_id),
                 text=True,
             )
@@ -465,7 +503,11 @@ class WorktreeManager:
             # Drop the branch entirely; a rolled-back step must leave no
             # dangling branch per DoD ("rolled-back steps leave no branch").
             delete = run_git(
-                "-C", str(self.repo_root), "branch", "-D", wt.branch,
+                "-C",
+                str(self.repo_root),
+                "branch",
+                "-D",
+                wt.branch,
                 text=True,
             )
             # A missing branch is fine — the transaction may never have
@@ -481,7 +523,9 @@ class WorktreeManager:
 
 def _git_in(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return run_git(
-        "-C", str(repo), *args,
+        "-C",
+        str(repo),
+        *args,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -678,7 +722,13 @@ def take_snapshot(
             excludes = [f":(exclude,literal){name}" for name in tracked_large]
             try:
                 add = run_git(
-                    "-C", str(repo), "add", "-u", "--", ".", *excludes,
+                    "-C",
+                    str(repo),
+                    "add",
+                    "-u",
+                    "--",
+                    ".",
+                    *excludes,
                     extra_env=env,
                     timeout=max(remaining(), 1.0),
                 )
@@ -1147,14 +1197,23 @@ def init_repository(root: Path) -> list[str]:
     env = ract_commit_env()
     for start in range(0, len(keep), 200):
         added = run_git(
-            "-C", str(root), "add", "--", *keep[start : start + 200],
+            "-C",
+            str(root),
+            "add",
+            "--",
+            *keep[start : start + 200],
             text=True,
             extra_env=env,
         )
         if added.returncode != 0:
             raise WorktreeError(f"git add failed: {added.stderr.strip()}")
     committed = run_git(
-        "-C", str(root), "commit", "-q", "--allow-empty", "-m",
+        "-C",
+        str(root),
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
         "ract: initial commit of the current files",
         text=True,
         extra_env=env,
@@ -1314,7 +1373,9 @@ def other_system_path(text: str) -> bool:
     text = text.strip().replace("\\", "/")
     windows_form = len(text) > 2 and text[1] == ":" and text[0].isalpha()
     if os.name == "nt":
-        return not windows_form and (text.startswith("/") or text.lower().startswith("//wsl"))
+        return not windows_form and (
+            text.startswith("/") or text.lower().startswith("//wsl")
+        )
     return windows_form
 
 

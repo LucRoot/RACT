@@ -112,7 +112,9 @@ def url_credential_problems(config: dict[str, Any]) -> list[str]:
             value = settings.get(field)
             # B-200: the one address check (credentials in the userinfo or
             # the query); an empty or missing url is left to the provider.
-            problem = address_problem(value) if isinstance(value, str) and value else None
+            problem = (
+                address_problem(value) if isinstance(value, str) and value else None
+            )
             if problem is not None and problem != SCHEME_REFUSED:
                 problems.append(f"provider '{name}': {problem}")
                 break

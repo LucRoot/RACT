@@ -43,7 +43,9 @@ def _synced_before(order: list[object], name: str) -> bool:
     return index > 0 and order[index - 1] == "fsync"
 
 
-def test_write_atomic_syncs_before_the_rename(tmp_path: Path, order: list[object]) -> None:
+def test_write_atomic_syncs_before_the_rename(
+    tmp_path: Path, order: list[object]
+) -> None:
     write_atomic(tmp_path / "f.json", b"{}")
     assert _synced_before(order, "f.json")
 

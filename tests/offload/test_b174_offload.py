@@ -54,7 +54,10 @@ def test_read_slice_returns_at_most_200_lines_and_16_kib(tmp_path: Path) -> None
     sliced = store.read_slice(placed.handle, start_line=1, count=5000)
     body = sliced.text[len(UNTRUSTED_LABEL) + 1 :]
     assert body.count("\n") <= offload.SLICE_MAX_LINES
-    assert len(sliced.text.encode("utf-8")) <= offload.SLICE_MAX_BYTES + len(UNTRUSTED_LABEL) + 200
+    assert (
+        len(sliced.text.encode("utf-8"))
+        <= offload.SLICE_MAX_BYTES + len(UNTRUSTED_LABEL) + 200
+    )
 
 
 def test_a_slice_past_the_end_is_empty_and_says_so(tmp_path: Path) -> None:

@@ -75,7 +75,9 @@ def test_the_denial_is_emitted_as_requested_and_resolved_unattended(
 def test_fail_on_denial_stops_the_run_with_exit_3(
     tmp_path: Path, fake_model_server: Any, monkeypatch
 ) -> None:
-    code, out, ws = _headless(tmp_path, fake_model_server, monkeypatch, "--fail-on-denial")
+    code, out, ws = _headless(
+        tmp_path, fake_model_server, monkeypatch, "--fail-on-denial"
+    )
     result = json.loads(out)
     assert code == result["exit_code"] == 3
     assert result["error"]["kind"] == "refused"
@@ -94,7 +96,9 @@ def test_record_denial_emits_both_events(tier: str) -> None:
         threading.Event(), lambda kind, data: stream.emit(kind, data, turn=1)
     )
     try:
-        turn_context.record_denial(tier, "pytest -q\x1b[2J", rule="tests", reason="check")
+        turn_context.record_denial(
+            tier, "pytest -q\x1b[2J", rule="tests", reason="check"
+        )
     finally:
         turn_context.bind(None)
     assert [e.kind for e in seen] == ["approval.requested", "approval.resolved"]

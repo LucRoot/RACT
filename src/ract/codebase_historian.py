@@ -121,7 +121,10 @@ class CodebaseHistorian:
             return cheap
         try:
             result = run_git(
-                "rev-parse", "-q", "--verify", "HEAD",
+                "rev-parse",
+                "-q",
+                "--verify",
+                "HEAD",
                 cwd=self.project_dir,
                 capture_output=True,
                 text=True,

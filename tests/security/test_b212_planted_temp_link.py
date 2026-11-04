@@ -32,7 +32,9 @@ def _plant(tmp_path: Path) -> tuple[Path, Path, Path]:
     return root, target, outside
 
 
-def test_the_write_tool_does_not_write_through_a_planted_temp_link(tmp_path: Path) -> None:
+def test_the_write_tool_does_not_write_through_a_planted_temp_link(
+    tmp_path: Path,
+) -> None:
     _root, target, outside = _plant(tmp_path)
     write_tool._replace(target, b"x = 2\n")
     assert target.read_bytes() == b"x = 2\n"
@@ -47,7 +49,9 @@ def test_write_atomic_leaves_no_temporary_file(tmp_path: Path) -> None:
     assert [p.name for p in tmp_path.iterdir()] == ["f.txt"]
 
 
-def test_write_atomic_cleans_up_when_the_rename_fails(tmp_path: Path, monkeypatch) -> None:
+def test_write_atomic_cleans_up_when_the_rename_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
     def refuse(src: object, dst: object) -> None:
         raise OSError("rename refused")
 

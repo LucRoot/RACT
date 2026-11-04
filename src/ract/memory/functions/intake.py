@@ -235,7 +235,12 @@ def _git_recent_commits(repo_root: Path) -> list[str]:
         return []
     try:
         completed = run_git(
-            "-C", str(repo_root), "log", "--oneline", "-n", "10",
+            "-C",
+            str(repo_root),
+            "log",
+            "--oneline",
+            "-n",
+            "10",
             capture_output=True,
             text=True,
             check=False,

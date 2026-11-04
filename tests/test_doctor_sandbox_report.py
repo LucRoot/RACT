@@ -125,7 +125,9 @@ def test_doctor_agrees_with_sandbox_report_and_permissions(
     if confined:
         assert line == "sandbox: enforced on this machine (linux-bwrap)"
     else:
-        assert line == "sandbox: best effort, not enforced on this machine (linux-bwrap)"
+        assert (
+            line == "sandbox: best effort, not enforced on this machine (linux-bwrap)"
+        )
     # The naming and the advice sentence follow the same fact.
     assert posture.backend == "linux-bwrap"
     text = "\n".join(lines)

@@ -71,7 +71,9 @@ def parse_role(text: str, *, name: str) -> Role:
     if not NAME_PATTERN.match(name):
         raise RoleError(f"role name {name!r} is not a plain lower-case name")
     if len(text.encode("utf-8")) > MAX_BYTES:
-        raise RoleError(f"role {name}: file is over the size limit of {MAX_BYTES} bytes")
+        raise RoleError(
+            f"role {name}: file is over the size limit of {MAX_BYTES} bytes"
+        )
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
@@ -83,7 +85,9 @@ def parse_role(text: str, *, name: str) -> Role:
     for key in sorted(REQUIRED_KEYS - set(data)):
         raise RoleError(f"role {name}: missing field {key!r}")
     if data["model_class"] not in MODEL_CLASSES:
-        raise RoleError(f"role {name}: model_class must be one of {sorted(MODEL_CLASSES)}")
+        raise RoleError(
+            f"role {name}: model_class must be one of {sorted(MODEL_CLASSES)}"
+        )
     if not isinstance(data["tools"], list):
         raise RoleError(f"role {name}: tools must be a list")
     for tool in data["tools"]:

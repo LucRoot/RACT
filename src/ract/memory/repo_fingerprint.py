@@ -250,7 +250,9 @@ def _commit_frequency_per_week(
         return 0.0
     try:
         completed = run_git(
-            "log", "--format=%at", "--since=4.weeks.ago",
+            "log",
+            "--format=%at",
+            "--since=4.weeks.ago",
             cwd=str(root),
             capture_output=True,
             text=True,

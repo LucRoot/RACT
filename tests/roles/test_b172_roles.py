@@ -42,7 +42,9 @@ def _minimal_role(extra: str = "", drop: str = "") -> str:
         "stop: an answer that passes the checklist",
         "failure_modes: [retry with the error]",
     ]
-    lines = [line for line in lines if not line.startswith(drop + ":")] if drop else lines
+    lines = (
+        [line for line in lines if not line.startswith(drop + ":")] if drop else lines
+    )
     return "\n".join(lines) + ("\n" + extra if extra else "") + "\n"
 
 
@@ -53,7 +55,9 @@ def test_the_six_built_in_roles_load_from_the_package() -> None:
 
 def test_each_role_carries_every_d2_key() -> None:
     for name, role in loader.load_builtin_roles().items():
-        assert D2_KEYS <= set(role.data), f"{name} is missing {sorted(D2_KEYS - set(role.data))}"
+        assert D2_KEYS <= set(role.data), (
+            f"{name} is missing {sorted(D2_KEYS - set(role.data))}"
+        )
 
 
 def test_the_verifier_is_not_a_model_role() -> None:

@@ -578,7 +578,9 @@ class PlainRenderer:
             if d.get("repository", True):
                 tail = "unstaged, review with git diff"
             else:
-                tail = "review with /diff (no git repository here, so nothing is staged)"
+                tail = (
+                    "review with /diff (no git repository here, so nothing is staged)"
+                )
             self._line(f"  changed: {', '.join(shown)}{more}; {tail}")
         else:
             self._line("  changed: nothing")
@@ -587,9 +589,7 @@ class PlainRenderer:
             # the file hold the stripped bytes; the line says so, once.
             from ract.write_gate import formatting_notice
 
-            self._line(
-                "  " + formatting_notice(int(d["formatting_removed_chars"]))
-            )
+            self._line("  " + formatting_notice(int(d["formatting_removed_chars"])))
         for line in self._turn_diff(d):
             self._line("  " + line)
         if d.get("undo"):

@@ -60,8 +60,12 @@ def test_only_rACTs_own_dead_registration_in_this_form_is_dropped(repo: Path) ->
     alive_folder = own_root / "w-alive"
     alive_folder.mkdir()
     alive = _register(repo, "w-alive", (alive_folder / ".git").as_posix())
-    locked = _register(repo, "w-locked", (own_root / "w-locked" / ".git").as_posix(), locked=True)
-    operators = _register(repo, "w-mine", (repo.parent / "elsewhere" / ".git").as_posix())
+    locked = _register(
+        repo, "w-locked", (own_root / "w-locked" / ".git").as_posix(), locked=True
+    )
+    operators = _register(
+        repo, "w-mine", (repo.parent / "elsewhere" / ".git").as_posix()
+    )
 
     assert prune_dead_own(repo) == ["w-dead"]
     assert not dead.exists()

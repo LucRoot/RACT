@@ -25,7 +25,13 @@ def _plant(target: Path, outside: Path) -> None:
         os.link(outside, target)
 
 
-def _check(target: Path, outside: Path, sentinel: str, read: Callable[[Path], Any], expected: Any) -> None:
+def _check(
+    target: Path,
+    outside: Path,
+    sentinel: str,
+    read: Callable[[Path], Any],
+    expected: Any,
+) -> None:
     assert outside.read_text(encoding="utf-8") == sentinel
     assert read(target) == expected
     assert not target.is_symlink()
@@ -93,7 +99,13 @@ def test_the_plan_approval_store_replaces_a_planted_link(tmp_path: Path) -> None
     _plant(target, outside)
 
     plan_approval_store.remember(root, "sess1", "digest1", [2])
-    _check(target, outside, "sentinel\n", lambda p: plan_approval_store.load(root, "sess1"), {"digest1": [2]})
+    _check(
+        target,
+        outside,
+        "sentinel\n",
+        lambda p: plan_approval_store.load(root, "sess1"),
+        {"digest1": [2]},
+    )
 
 
 def test_a_sidecar_write_replaces_a_planted_link(tmp_path: Path) -> None:

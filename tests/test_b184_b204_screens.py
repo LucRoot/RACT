@@ -30,7 +30,9 @@ WIDTHS = (80, 60, 40)
 
 def test_the_audit_example_keeps_its_spaces() -> None:
     assert wrap_exact("+        return  1", 60) == ["+        return  1"]
-    assert wrap_cells("+        return  1", 60) == ["+ return 1"]  # prose wrap, unchanged
+    assert wrap_cells("+        return  1", 60) == [
+        "+ return 1"
+    ]  # prose wrap, unchanged
 
 
 @pytest.mark.parametrize("width", WIDTHS)
@@ -118,10 +120,15 @@ def test_the_screens_show_no_raw_character(ch: str) -> None:
             ("git", f"st{ch}atus"), allow_screens.AllowRule(f"r{ch}1", ("git",)), 60
         ),
         allow_screens.entry_point_question_lines(
-            allow_screens.EntryPointChange(path=f"scripts/ru{ch}n.sh", reason="written"), 60
+            allow_screens.EntryPointChange(
+                path=f"scripts/ru{ch}n.sh", reason="written"
+            ),
+            60,
         ),
         grant_screens.detected_runner_lines(
-            grant_screens.DetectedRunner("pytest", ("pytest", f"-k{ch}x"), f"pyproject{ch}.toml"),
+            grant_screens.DetectedRunner(
+                "pytest", ("pytest", f"-k{ch}x"), f"pyproject{ch}.toml"
+            ),
             60,
         ),
     ]

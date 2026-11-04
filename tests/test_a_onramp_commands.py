@@ -192,6 +192,7 @@ def test_the_test_result_rides_the_next_intent(
     intents = [a for argv in seen for a in argv if "fix it please" in a]
     assert intents and "tests from /test" in intents[0]
 
+
 class _Io:
     """The wizard Io shape: say, ask, width."""
 
@@ -279,7 +280,9 @@ def test_setup_offer_with_no_test_runner_names_that(
     monkeypatch.chdir(tmp_path)
     root = tmp_path / "empty"
     root.mkdir()
-    (root / "ract.yaml").write_text("project:" + chr(10) + "  name: e" + chr(10), encoding="utf-8")
+    (root / "ract.yaml").write_text(
+        "project:" + chr(10) + "  name: e" + chr(10), encoding="utf-8"
+    )
     folder = tmp_path / "user-config"
     monkeypatch.setenv("APPDATA", str(folder))
     monkeypatch.setenv("LOCALAPPDATA", str(folder))
@@ -293,6 +296,7 @@ def test_setup_offer_with_no_test_runner_names_that(
     io = _Io(answers=["y", "y", "y", "y"])
     _offer_test_grant(root, io, 0)
     assert any("no test runner" in line for line in io.lines)
+
 
 def test_the_test_result_rides_the_next_turn_in_event_mode(
     project: Path, user_config: Path, monkeypatch

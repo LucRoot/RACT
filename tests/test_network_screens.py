@@ -115,11 +115,17 @@ def test_the_choices_line_offers_session_only_when_a_session_answer_exists() -> 
 
 def test_a_fetch_that_follows_fetched_text_says_so() -> None:
     request = FetchRequest(
-        url="https://x.test/", host="x.test", allowlist_match="x.test", size_cap_kib=64,
+        url="https://x.test/",
+        host="x.test",
+        allowlist_match="x.test",
+        size_cap_kib=64,
         follows_external=True,
     )
-    assert "this fetch follows fetched text: the question says so, with its origin" in _flat(
-        fetch_prompt_lines(request, 80)
+    assert (
+        "this fetch follows fetched text: the question says so, with its origin"
+        in _flat(fetch_prompt_lines(request, 80))
     )
-    plain = FetchRequest(url="https://x.test/", host="x.test", allowlist_match="x.test", size_cap_kib=64)
+    plain = FetchRequest(
+        url="https://x.test/", host="x.test", allowlist_match="x.test", size_cap_kib=64
+    )
     assert "follows fetched text" not in _flat(fetch_prompt_lines(plain, 80))

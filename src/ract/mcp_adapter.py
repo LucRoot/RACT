@@ -28,7 +28,15 @@ from ract import egress_ledger, egress_scan, redaction
 from ract.rooted import Rooted
 
 
-_CREDENTIAL_NAME = ("key", "token", "secret", "password", "passwd", "auth", "credential")
+_CREDENTIAL_NAME = (
+    "key",
+    "token",
+    "secret",
+    "password",
+    "passwd",
+    "auth",
+    "credential",
+)
 
 
 def _register_credentials(values: Any) -> None:
@@ -40,7 +48,9 @@ def _register_credentials(values: Any) -> None:
     if not isinstance(values, dict):
         return
     for name, value in values.items():
-        if isinstance(value, str) and any(w in str(name).lower() for w in _CREDENTIAL_NAME):
+        if isinstance(value, str) and any(
+            w in str(name).lower() for w in _CREDENTIAL_NAME
+        ):
             redaction.register_known(value)
             if " " in value:  # "Bearer <token>": the token alone too
                 redaction.register_known(value.split(" ", 1)[1])
@@ -134,7 +144,8 @@ class StdioMcpClient(McpAdapter):
                 confidence=0.0,
                 provenance=["mcp_adapter.stdio"],
                 # B-202: a server's stderr can print its own credentials.
-                error=redaction.redact(proc.stderr.strip()) or f"exit code {proc.returncode}",
+                error=redaction.redact(proc.stderr.strip())
+                or f"exit code {proc.returncode}",
             )
         try:
             response = json.loads(proc.stdout.strip().splitlines()[-1])

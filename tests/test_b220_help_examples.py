@@ -23,10 +23,16 @@ class _Parsed(Exception):
 
 
 @pytest.mark.parametrize("verb", sorted(VERB_EXAMPLES))
-def test_the_example_parses(verb: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_example_parses(
+    verb: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     example = VERB_EXAMPLES[verb]
     if "<" in example:
-        example = example.replace("<events.jsonl>", "events.jsonl").replace("<", "").replace(">", "")
+        example = (
+            example.replace("<events.jsonl>", "events.jsonl")
+            .replace("<", "")
+            .replace(">", "")
+        )
     argv = shlex.split(example)[1:]
     real_parse = argparse.ArgumentParser.parse_args
     real_known = argparse.ArgumentParser.parse_known_args
@@ -53,7 +59,9 @@ def test_the_example_parses(verb: str, tmp_path: Path, monkeypatch: pytest.Monke
         assert exc.code != 2, f"{example!r} did not parse"
 
 
-def test_the_bare_help_names_the_global_flags(capsys: pytest.CaptureFixture[str]) -> None:
+def test_the_bare_help_names_the_global_flags(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     from ract.cli_help import print_discovery_help
 
     print_discovery_help(cli.CLI_VERBS)
@@ -69,4 +77,6 @@ def test_trace_takes_a_run_id_or_an_events_file(tmp_path: Path) -> None:
     events.write_text("", encoding="utf-8")
     assert _run_events_path(Path("evals/runs"), str(events)) == events
     assert _run_events_path(Path("evals/runs"), str(tmp_path)) == events
-    assert _run_events_path(Path("evals/runs"), "r1") == Path("evals/runs/r1/events.jsonl")
+    assert _run_events_path(Path("evals/runs"), "r1") == Path(
+        "evals/runs/r1/events.jsonl"
+    )

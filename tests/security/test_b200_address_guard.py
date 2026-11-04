@@ -55,7 +55,10 @@ def test_the_one_address_check(url: str, problem: str | None) -> None:
 
 
 def test_shown_url_drops_the_user_name_and_the_query() -> None:
-    assert shown_url(f"https://svc:{TOKEN}@h.invalid/v1?key={SHORT}") == "https://h.invalid/v1"
+    assert (
+        shown_url(f"https://svc:{TOKEN}@h.invalid/v1?key={SHORT}")
+        == "https://h.invalid/v1"
+    )
 
 
 @pytest.mark.parametrize("variable", local_probe.ADDRESS_VARIABLES)
@@ -93,11 +96,19 @@ def test_setup_refuses_a_typed_address_with_a_query_key(tmp_path: Path) -> None:
     "url",
     [f"http://{TOKEN}@127.0.0.1:9/v1", f"http://127.0.0.1:9/v1?api_key={SHORT}"],
 )
-def test_the_config_load_and_the_probe_refuse_it(url: str, tmp_path: Path, monkeypatch) -> None:
+def test_the_config_load_and_the_probe_refuse_it(
+    url: str, tmp_path: Path, monkeypatch
+) -> None:
     config = tmp_path / "ract.yaml"
-    config.write_text(f"providers:\n  local:\n    url: {url}\n    model: m\n", encoding="utf-8")
+    config.write_text(
+        f"providers:\n  local:\n    url: {url}\n    model: m\n", encoding="utf-8"
+    )
     loaded = harness._load_config(config)
-    assert not loaded.is_ok() and TOKEN not in (loaded.error or "") and SHORT not in (loaded.error or "")
+    assert (
+        not loaded.is_ok()
+        and TOKEN not in (loaded.error or "")
+        and SHORT not in (loaded.error or "")
+    )
 
     def forbidden(*_a: object, **_k: object) -> None:
         raise AssertionError("not contacted")

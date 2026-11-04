@@ -15,7 +15,14 @@ import pytest
 from ract.policy.allowlist import is_entry_point
 from ract.policy.matcher import classify
 
-NAMES = ["pytest.ini", "pyproject.toml", "tox.ini", "makefile", "package.json", "sub/conftest.py"]
+NAMES = [
+    "pytest.ini",
+    "pyproject.toml",
+    "tox.ini",
+    "makefile",
+    "package.json",
+    "sub/conftest.py",
+]
 
 
 def _cases(name: str) -> list[str]:
@@ -29,7 +36,9 @@ def test_an_entry_point_in_any_case_is_an_entry_point(name: str) -> None:
     assert is_entry_point(name)
 
 
-@pytest.mark.parametrize("name", ["TESTS/TEST_CALC.PY", "Jest.Config.JS", "SRC/App.Test.TS"])
+@pytest.mark.parametrize(
+    "name", ["TESTS/TEST_CALC.PY", "Jest.Config.JS", "SRC/App.Test.TS"]
+)
 def test_test_files_and_config_families_in_any_case(name: str) -> None:
     assert is_entry_point(name)
 

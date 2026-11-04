@@ -169,7 +169,11 @@ class FenceGate:
     def _recent_commits(self, path: Path) -> list[str]:
         try:
             proc = run_git(
-                "log", "-n10", "--pretty=format:%h %s", "--", str(path),
+                "log",
+                "-n10",
+                "--pretty=format:%h %s",
+                "--",
+                str(path),
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,
@@ -187,7 +191,11 @@ class FenceGate:
             return []
         try:
             proc = run_git(
-                "blame", "--date=short", "-l", "--", str(path),
+                "blame",
+                "--date=short",
+                "-l",
+                "--",
+                str(path),
                 cwd=self.workspace_root,
                 capture_output=True,
                 text=True,

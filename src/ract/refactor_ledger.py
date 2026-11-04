@@ -110,7 +110,9 @@ class RefactorLedger:
         if self.project_dir is None:
             raise ValueError("Cannot save RefactorLedger without a project_dir.")
         ledger_dir = self.project_dir / ".ract"
-        check_state_path(ledger_dir / "refactor_ledger.json")  # B-213: never through a link
+        check_state_path(
+            ledger_dir / "refactor_ledger.json"
+        )  # B-213: never through a link
         ledger_dir.mkdir(parents=True, exist_ok=True)
         path = ledger_dir / "refactor_ledger.json"
         payload = {

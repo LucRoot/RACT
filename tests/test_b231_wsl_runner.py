@@ -26,8 +26,18 @@ def _wsl(text: str) -> bytes:
 @pytest.mark.parametrize(
     ("out", "names"),
     [
-        (_wsl("Windows Subsystem for Linux Distributions:\nUbuntu-24.04 (Default)\n"), ["Ubuntu-24.04"]),
-        (_wsl("Windows Subsystem for Linux Distributions:\nUbuntu (Default)\nDebian\n"), ["Ubuntu", "Debian"]),
+        (
+            _wsl(
+                "Windows Subsystem for Linux Distributions:\nUbuntu-24.04 (Default)\n"
+            ),
+            ["Ubuntu-24.04"],
+        ),
+        (
+            _wsl(
+                "Windows Subsystem for Linux Distributions:\nUbuntu (Default)\nDebian\n"
+            ),
+            ["Ubuntu", "Debian"],
+        ),
         (_wsl("Ubuntu\ndocker-desktop\n"), ["Ubuntu", "docker-desktop"]),
         (_wsl("* Ubuntu\n"), ["Ubuntu"]),
         (_wsl("\n\n"), []),
@@ -45,7 +55,9 @@ def test_paths_with_a_prefix_or_a_share() -> None:
         _to_wsl_path(Path("\\\\server\\share\\run.sh"))
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="the WSL runner is the Windows path")
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="the WSL runner is the Windows path"
+)
 def test_no_distribution_is_a_sentence_and_no_run(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     script = tmp_path / "run.sh"
     script.write_text("echo\n", encoding="utf-8")
@@ -57,7 +69,9 @@ def test_no_distribution_is_a_sentence_and_no_run(tmp_path: Path, monkeypatch) -
 
     monkeypatch.setattr(subprocess, "run", forbidden)
     result = mutation_runner.run_mutation_tests(tmp_path, script_path=script)
-    assert not result.is_ok() and "no running Linux distribution" in (result.error or "")
+    assert not result.is_ok() and "no running Linux distribution" in (
+        result.error or ""
+    )
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="WSLENV is read by wsl.exe")
@@ -73,7 +87,15 @@ def test_the_variables_are_named_in_wslenv(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("WSLENV", "EXISTING/p")
     monkeypatch.setattr(subprocess, "run", capture)
     mutation_runner.run_mutation_tests(
-        tmp_path, script_path=script, wsl_distro="Ubuntu", targets=["src/a.py"], test_runner="pytest -x"
+        tmp_path,
+        script_path=script,
+        wsl_distro="Ubuntu",
+        targets=["src/a.py"],
+        test_runner="pytest -x",
     )
     assert seen["cmd"][:3] == ["wsl", "-d", "Ubuntu"]
-    assert seen["env"]["WSLENV"].split(":") == ["EXISTING/p", "RACT_MUTATION_TARGETS", "RACT_TEST_RUNNER"]
+    assert seen["env"]["WSLENV"].split(":") == [
+        "EXISTING/p",
+        "RACT_MUTATION_TARGETS",
+        "RACT_TEST_RUNNER",
+    ]

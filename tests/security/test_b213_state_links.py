@@ -31,7 +31,9 @@ def _dir_link(link: Path, target: Path) -> None:
             check=False,
         )
         if done.returncode != 0:
-            pytest.skip(f"no junction here: {done.stdout.strip()} {done.stderr.strip()}")
+            pytest.skip(
+                f"no junction here: {done.stdout.strip()} {done.stderr.strip()}"
+            )
     else:
         link.symlink_to(target, target_is_directory=True)
 
@@ -63,7 +65,11 @@ def test_the_memory_arena_is_not_saved_through_a_link(linked) -> None:  # type: 
 
 def test_a_plan_is_not_saved_through_a_link(linked) -> None:  # type: ignore[no-untyped-def]
     root, outside, _ = linked
-    plan = Plan(assumption="a", confidence=1.0, steps=[Step(action="x", provider_hint="", expected_artifact="")])
+    plan = Plan(
+        assumption="a",
+        confidence=1.0,
+        steps=[Step(action="x", provider_hint="", expected_artifact="")],
+    )
     with pytest.raises(StateDirRefused):
         PlanReplay().save(plan, root / ".ract" / "memory" / "plan.json")
     _nothing_outside(outside)
@@ -85,13 +91,17 @@ def test_a_session_is_not_saved_through_a_link(linked) -> None:  # type: ignore[
         ".ract/memory/s1.json",
     ],
 )
-def test_every_state_path_under_a_linked_ract_is_refused(tmp_path: Path, rel: str) -> None:
+def test_every_state_path_under_a_linked_ract_is_refused(
+    tmp_path: Path, rel: str
+) -> None:
     root = tmp_path / "project"
     outside = tmp_path / "outside"
     root.mkdir()
     outside.mkdir()
     _dir_link(root / ".ract", outside)
-    with pytest.raises(StateDirRefused, match="remove it and RACT makes a plain folder"):
+    with pytest.raises(
+        StateDirRefused, match="remove it and RACT makes a plain folder"
+    ):
         check_state_path(root / rel)
 
 
@@ -155,7 +165,9 @@ def test_the_other_state_writers_refuse_a_linked_ract(tmp_path: Path) -> None:
     from ract.session_rollback import SessionRollback
 
     root, outside = _linked_ract(tmp_path)
-    (outside / "error_memory.jsonl").write_text('{"pattern": "kept"}\n', encoding="utf-8")
+    (outside / "error_memory.jsonl").write_text(
+        '{"pattern": "kept"}\n', encoding="utf-8"
+    )
     with pytest.raises(StateDirRefused):
         ErrorMemory(root).clear()
     assert (outside / "error_memory.jsonl").read_text(encoding="utf-8") != ""

@@ -355,9 +355,7 @@ def test_installed_skill_is_seen_by_harness(tmp_project):
 
     from ract.cli import _skills_command
 
-    rc = _skills_command(
-        ["install", "python-package", "--config", str(config_path)]
-    )
+    rc = _skills_command(["install", "python-package", "--config", str(config_path)])
     assert rc == 0
 
     harness_rooted = Harness.from_config_path(config_path)
@@ -543,9 +541,7 @@ def test_harness_includes_tier3_facts_block(tmp_project):
         ]
     }
     harness.manager.provider.complete = MagicMock(
-        return_value=Rooted(
-            value=fake_plan_response, assumption="ok", confidence=1.0
-        )
+        return_value=Rooted(value=fake_plan_response, assumption="ok", confidence=1.0)
     )
 
     facts = "Tier 3 facts: a signed grant covers: tests."

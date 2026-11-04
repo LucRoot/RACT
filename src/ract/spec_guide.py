@@ -71,9 +71,7 @@ def _save_draft(project: Path, draft: SpecDraft) -> None:
     target = _draft_path(project)
     check_state_path(target)
     folder.mkdir(parents=True, exist_ok=True)
-    write_atomic(
-        target, json.dumps(draft.to_dict(), indent=2).encode("utf-8")
-    )
+    write_atomic(target, json.dumps(draft.to_dict(), indent=2).encode("utf-8"))
 
 
 def _is_checkable(line: str) -> bool:
@@ -152,9 +150,11 @@ def walk(
             say("")
             for line in approval_lines(SECTIONS[index], body, width):
                 say(line)
-            reply = ask(
-                "[y] keep it, [e] type a replacement, [n] ask again: "
-            ).strip().lower()
+            reply = (
+                ask("[y] keep it, [e] type a replacement, [n] ask again: ")
+                .strip()
+                .lower()
+            )
             if not reply:
                 # End of input at the approval: the walk is abandoned, and
                 # nothing is approved by a missing answer.

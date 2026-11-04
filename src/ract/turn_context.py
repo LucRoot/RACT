@@ -278,7 +278,9 @@ def note_changed(rel: str, data: bytes | None) -> None:
     if name.startswith(".") and name.endswith(".rootknot.json"):
         return  # S-015b: RACT's signed record of a file, not a change to it
     digest = (
-        None if data is None else hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+        None
+        if data is None
+        else hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
     )
     contents = _contents.get()
     if contents is not None:

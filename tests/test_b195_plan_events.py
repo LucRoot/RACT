@@ -10,7 +10,9 @@ from __future__ import annotations
 from tests.test_plan_approval_review_points import PLAN, _harness, _run
 
 
-def test_the_edited_plan_keeps_assumption_confidence_and_planned(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_the_edited_plan_keeps_assumption_confidence_and_planned(
+    tmp_path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
     harness = _harness(tmp_path, PLAN, "aaa", "bbb")
     _, events, _, _ = _run(
         harness,
@@ -32,11 +34,23 @@ def test_an_agent_step_has_no_target_and_the_hash_ignores_the_shown_words() -> N
     from ract import plan_gate
     from ract.approval_callback import _plan_steps
     from ract.manager import Plan, Step
-    from ract.ui.plan_approval_view import AGENT_TARGET_TEXT, Step as PlanStep, screen_lines
+    from ract.ui.plan_approval_view import (
+        AGENT_TARGET_TEXT,
+        Step as PlanStep,
+        screen_lines,
+    )
 
     plan = Plan(
-        assumption="a", confidence=1.0,
-        steps=[Step(action="fix the test", provider_hint="", expected_artifact="", agent=True)],
+        assumption="a",
+        confidence=1.0,
+        steps=[
+            Step(
+                action="fix the test",
+                provider_hint="",
+                expected_artifact="",
+                agent=True,
+            )
+        ],
     )
     steps = _plan_steps(plan)
     assert steps[0].target is None and steps[0].agent
@@ -63,8 +77,12 @@ def test_an_interrupted_turn_says_so_and_not_that_git_is_missing() -> None:
         stream.subscribe(PlainRenderer(out.write, width=80))
         stream.emit(
             "turn.finished",
-            {"outcome": outcome, "verdict": "Stopped.", "changed": None,
-             "verification": {"status": "not-run", "runs": []}},
+            {
+                "outcome": outcome,
+                "verdict": "Stopped.",
+                "changed": None,
+                "verification": {"status": "not-run", "runs": []},
+            },
             turn=1,
         )
         assert expected in out.getvalue(), out.getvalue()
@@ -126,7 +144,9 @@ def test_the_stream_follows_the_session_and_resume_is_emitted(tmp_path) -> None:
     directory = tmp_path / ".ract" / "sessions"
     directory.mkdir(parents=True)
     (directory / "s-old.json").write_text(
-        json.dumps({"intent": "fix it", "plan": {}, "artifacts": {}, "outcomes": [{}, {}]}),
+        json.dumps(
+            {"intent": "fix it", "plan": {}, "artifacts": {}, "outcomes": [{}, {}]}
+        ),
         encoding="utf-8",
     )
     session, _console = _named_session(tmp_path)
@@ -141,7 +161,9 @@ def test_the_stream_follows_the_session_and_resume_is_emitted(tmp_path) -> None:
     session.handle("/resume s-old")
     assert stream.session == "s-old"
     resumed = [e.data for e in seen if e.kind == "session.resumed"]
-    assert resumed and resumed[-1]["turns"] == 2 and resumed[-1]["resumed_from"] != "s-old"
+    assert (
+        resumed and resumed[-1]["turns"] == 2 and resumed[-1]["resumed_from"] != "s-old"
+    )
 
 
 def test_permissions_allowlist_is_an_event_with_the_status_words() -> None:
@@ -159,7 +181,8 @@ def test_permissions_allowlist_is_an_event_with_the_status_words() -> None:
         status="ok",
         reason="",
         policy=SimpleNamespace(
-            max_mode="allowlist", expires_at=datetime.now(timezone.utc) + timedelta(days=9)
+            max_mode="allowlist",
+            expires_at=datetime.now(timezone.utc) + timedelta(days=9),
         ),
     )
     assert tier_state_of(grant, "allowlist")[0].mode == "allowlist"

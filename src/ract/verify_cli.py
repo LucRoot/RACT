@@ -66,6 +66,7 @@ def _json_load(line: str) -> dict:
         return {}
     return data if isinstance(data, dict) else {}
 
+
 # Statuses a changed file can get. ``fail`` entries decide the exit code
 # (with --strict, ``unattributed`` entries fail too).
 _OK = "ok"
@@ -149,11 +150,15 @@ def _load_knot(
                     "commit",
                 )
             except RootknotUnknownSidecarFormat as exc:
-                return None, (
-                    f"unknown sidecar schema literal: {exc}; known values are "
-                    "'sidecar/v2', 'sidecar/v3', 'sidecar/v4' (or absent for the "
-                    "legacy v0.3 v1 shape)"
-                ), "commit"
+                return (
+                    None,
+                    (
+                        f"unknown sidecar schema literal: {exc}; known values are "
+                        "'sidecar/v2', 'sidecar/v3', 'sidecar/v4' (or absent for the "
+                        "legacy v0.3 v1 shape)"
+                    ),
+                    "commit",
+                )
             except Exception as exc:  # noqa: BLE001 - malformed sidecar is a failure
                 return None, f"sidecar unparseable: {exc}", "commit"
     if sidecar.is_file():
@@ -164,11 +169,15 @@ def _load_knot(
                 "working tree",
             )
         except RootknotUnknownSidecarFormat as exc:
-            return None, (
-                f"unknown sidecar schema literal: {exc}; known values are "
-                "'sidecar/v2', 'sidecar/v3', 'sidecar/v4' (or absent for the "
-                "legacy v0.3 v1 shape)"
-            ), "working tree"
+            return (
+                None,
+                (
+                    f"unknown sidecar schema literal: {exc}; known values are "
+                    "'sidecar/v2', 'sidecar/v3', 'sidecar/v4' (or absent for the "
+                    "legacy v0.3 v1 shape)"
+                ),
+                "working tree",
+            )
         except Exception as exc:  # noqa: BLE001 - malformed sidecar is a failure
             return None, f"sidecar unparseable: {exc}", "working tree"
     try:
@@ -205,8 +214,7 @@ def _check_knot_bytes(knot, data: bytes) -> tuple[str, str, str]:
             missing.append("run_id")
         if missing:
             return (
-                f"refused at read: v4 schema-label but v4 fields empty: "
-                f"{missing}",
+                f"refused at read: v4 schema-label but v4 fields empty: {missing}",
                 _FAIL,
                 "",
             )
@@ -244,17 +252,21 @@ def _check_knot_bytes(knot, data: bytes) -> tuple[str, str, str]:
 def _changed_files(repo: Path, from_c: str, to_c: str) -> list[tuple[str, str]]:
     """``[(status, path)]`` between two commits, renames split, NUL-safe."""
     result = run_git(
-        "-C", str(repo), "diff", "--name-status", "-z", "--no-renames",
-        from_c, to_c,
+        "-C",
+        str(repo),
+        "diff",
+        "--name-status",
+        "-z",
+        "--no-renames",
+        from_c,
+        to_c,
     )
     if result.returncode != 0:
         raise SystemExit(
             f"ract verify: git could not diff {from_c}..{to_c}: "
             f"{result.stderr.decode('utf-8', 'replace').strip()}"
         )
-    fields = [
-        f for f in result.stdout.decode("utf-8", "replace").split("\0") if f
-    ]
+    fields = [f for f in result.stdout.decode("utf-8", "replace").split("\0") if f]
     return list(zip(fields[0::2], fields[1::2]))
 
 
@@ -273,9 +285,7 @@ def _checkout_bytes(repo: Path, commit: str, path: str) -> bytes | None:
     result is what ``git checkout`` would write, not the blob itself.
     None when the path is not at the commit or the read failed.
     """
-    result = run_git(
-        "-C", str(repo), "cat-file", "--filters", f"{commit}:{path}"
-    )
+    result = run_git("-C", str(repo), "cat-file", "--filters", f"{commit}:{path}")
     if result.returncode != 0:
         return None
     return result.stdout
@@ -291,9 +301,7 @@ def _clean_paths(repo: Path, paths: list[str]) -> set[str] | None:
     result = run_git("-C", str(repo), "status", "--porcelain", "-z")
     if result.returncode != 0:
         return None
-    fields = [
-        f for f in result.stdout.decode("utf-8", "replace").split("\0") if f
-    ]
+    fields = [f for f in result.stdout.decode("utf-8", "replace").split("\0") if f]
     dirty: set[str] = set()
     for entry in fields:
         marker, _, rest = entry.partition(" ")
@@ -345,16 +353,16 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
     # only when the later commit resolves to HEAD; for a range ending
     # before HEAD the working tree can hold bytes the commit never had.
     to_resolved = _rev_parse(repo, to_c)
-    later_is_head = (
-        to_resolved is not None
-        and to_resolved == _rev_parse(repo, "HEAD")
-    )
+    later_is_head = to_resolved is not None and to_resolved == _rev_parse(repo, "HEAD")
     for status, path in changed:
         if _is_ract_record(path):
             report.files.append(
                 FileVerdict(
-                    status, path, "RACT's own sidecar record (D-143); the file "
-                    "it attests is checked on its own line", _OK
+                    status,
+                    path,
+                    "RACT's own sidecar record (D-143); the file "
+                    "it attests is checked on its own line",
+                    _OK,
                 )
             )
             continue
@@ -362,8 +370,12 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
             data = _commit_bytes(repo, to_c, path)
             if data is None:
                 report.files.append(
-                    FileVerdict(status, path, "could not read the bytes at the "
-                                "later commit", _COULD_NOT_CHECK)
+                    FileVerdict(
+                        status,
+                        path,
+                        "could not read the bytes at the later commit",
+                        _COULD_NOT_CHECK,
+                    )
                 )
                 report.could_not_check.append(f"{path}: bytes at {to_c[:12]}")
                 continue
@@ -425,8 +437,12 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
             )
             if data is None:
                 report.files.append(
-                    FileVerdict(status, path, "deleted; could not read the "
-                                "bytes at the earlier commit", _COULD_NOT_CHECK)
+                    FileVerdict(
+                        status,
+                        path,
+                        "deleted; could not read the bytes at the earlier commit",
+                        _COULD_NOT_CHECK,
+                    )
                 )
                 report.could_not_check.append(f"{path}: bytes at {from_c[:12]}")
             elif error:
@@ -441,7 +457,8 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
             elif knot is None:
                 report.files.append(
                     FileVerdict(
-                        status, path,
+                        status,
+                        path,
                         f"deleted at {to_c[:12]}; {NOT_WRITTEN}",
                         _UNATTRIBUTED,
                     )
@@ -461,9 +478,7 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
                     # commit; the report says which bytes matched.
                     checkout = _checkout_bytes(repo, from_c, path)
                     if checkout is not None and checkout != data:
-                        verdict2, kind2, _d2 = _check_knot_bytes(
-                            knot, checkout
-                        )
+                        verdict2, kind2, _d2 = _check_knot_bytes(knot, checkout)
                         if kind2 == _OK:
                             verdict, kind = (
                                 verdict2 + " (the repository normalizes "
@@ -475,16 +490,17 @@ def verify_range(repo: Path, range_expr: str, report: VerifyReport) -> None:
                 verdict += _tree_source_note(source, later_is_head)
                 report.files.append(
                     FileVerdict(
-                        status, path,
-                        f"deleted at {to_c[:12]}; content at "
-                        f"{from_c[:12]}: {verdict}",
+                        status,
+                        path,
+                        f"deleted at {to_c[:12]}; content at {from_c[:12]}: {verdict}",
                         kind,
                     )
                 )
         else:  # U, X and friends: an unmerged or exotic entry
             report.files.append(
-                FileVerdict(status, path, "could not check this entry kind",
-                            _COULD_NOT_CHECK)
+                FileVerdict(
+                    status, path, "could not check this entry kind", _COULD_NOT_CHECK
+                )
             )
             report.could_not_check.append(f"{path}: entry kind {status}")
 
@@ -558,17 +574,22 @@ def verify_command(argv: list[str]) -> int:
         help="A changed line no step wrote fails the run (default: reported).",
     )
     parser.add_argument(
-        "--json", dest="json_output", action="store_true",
+        "--json",
+        dest="json_output",
+        action="store_true",
         help="Print the report as JSON.",
     )
     parser.add_argument(
-        "--repo", default=".", type=Path, help="The repository (default: the "
-        "working directory)."
+        "--repo",
+        default=".",
+        type=Path,
+        help="The repository (default: the working directory).",
     )
     parser.add_argument(
-        "--runs-root", default=Path("evals/runs"), type=Path,
-        help="Root directory holding <run_id>/events.jsonl (default: "
-        "evals/runs).",
+        "--runs-root",
+        default=Path("evals/runs"),
+        type=Path,
+        help="Root directory holding <run_id>/events.jsonl (default: evals/runs).",
     )
     args = parser.parse_args(argv)
     if not args.range_expr and not args.run_id:
@@ -584,8 +605,7 @@ def verify_command(argv: list[str]) -> int:
         checked_anything = True
     if args.run_id:
         checked_anything = (
-            verify_run(repo, args.run_id, args.runs_root, report)
-            or checked_anything
+            verify_run(repo, args.run_id, args.runs_root, report) or checked_anything
         )
 
     if args.json_output:
@@ -597,8 +617,12 @@ def verify_command(argv: list[str]) -> int:
                     "range": report.range_expr,
                     "run": report.run_id,
                     "files": [
-                        {"status": f.status, "path": f.path, "verdict": f.verdict,
-                         "kind": f.kind}
+                        {
+                            "status": f.status,
+                            "path": f.path,
+                            "verdict": f.verdict,
+                            "kind": f.kind,
+                        }
                         for f in report.files
                     ],
                     "trace": report.trace_line,

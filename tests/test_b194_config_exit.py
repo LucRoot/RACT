@@ -33,7 +33,11 @@ def _unset(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _real_sentences(tmp_path: Path) -> list[str]:
     provider = OpenAICompatibleProvider(
-        {"url": "http://127.0.0.1:9/v1", "api_key": "${" + UNSET + "}", "max_retries": 0}
+        {
+            "url": "http://127.0.0.1:9/v1",
+            "api_key": "${" + UNSET + "}",
+            "max_retries": 0,
+        }
     )
     refused = provider.complete([{"role": "user", "content": "hi"}])
     router = ProviderRouter({})

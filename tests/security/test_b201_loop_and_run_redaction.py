@@ -34,7 +34,9 @@ def registered(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
 
 def _tests_printing(tmp_path: Path, code: str) -> str:
     fake = SimpleNamespace(
-        python_executable=sys.executable, test_command=["-c", code], project_dir=tmp_path
+        python_executable=sys.executable,
+        test_command=["-c", code],
+        project_dir=tmp_path,
     )
     _code, summary, output = LoopController._run_tests(fake)  # type: ignore[arg-type]
     return summary + "\n" + output
@@ -68,7 +70,9 @@ def test_the_error_memory_holds_no_key(tmp_path: Path) -> None:
     assert json.loads(text.splitlines()[0])["count"] == 1
 
 
-def test_the_command_record_holds_no_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_command_record_holds_no_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # G-292: .../commands.jsonl kept the raw argv (tools/command.py _record).
     from ract.key_paths import repo_key_dir
     from ract.tools.command import CommandResult, _record
@@ -77,15 +81,36 @@ def test_the_command_record_holds_no_key(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     result = CommandResult(
         argv=["curl", "-H", f"Authorization: Bearer {KEY}", "https://x.invalid"],
-        executable="curl", executable_sha256=None, cwd=".", env_names=[],
-        env_allowlist_digest="d", grant_digest=None, rule_id="r1", approval_id=None,
-        approver=None, sandbox="best_effort", enforced=False, limits={}, network="on",
-        runner="process", exit_code=0, duration_ms=1, killed_by=None, stdout="",
-        stderr="", stdout_bytes=0, stderr_bytes=0, stdout_sha256="", stderr_sha256="",
-        stdout_truncated=False, stderr_truncated=False,
+        executable="curl",
+        executable_sha256=None,
+        cwd=".",
+        env_names=[],
+        env_allowlist_digest="d",
+        grant_digest=None,
+        rule_id="r1",
+        approval_id=None,
+        approver=None,
+        sandbox="best_effort",
+        enforced=False,
+        limits={},
+        network="on",
+        runner="process",
+        exit_code=0,
+        duration_ms=1,
+        killed_by=None,
+        stdout="",
+        stderr="",
+        stdout_bytes=0,
+        stderr_bytes=0,
+        stdout_sha256="",
+        stderr_sha256="",
+        stdout_truncated=False,
+        stderr_truncated=False,
     )
     project = tmp_path / "project"
     project.mkdir()
     _record(project, result)
-    text = (repo_key_dir(project, "commands").parent / "commands.jsonl").read_text(encoding="utf-8")
+    text = (repo_key_dir(project, "commands").parent / "commands.jsonl").read_text(
+        encoding="utf-8"
+    )
     assert KEY not in text and "curl" in text

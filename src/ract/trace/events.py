@@ -525,8 +525,7 @@ class Event:
             or not 0 <= self.timestamp_ns < 2**64
         ):
             raise ValueError(
-                f"timestamp_ns must be an int in [0, 2**64); "
-                f"got {self.timestamp_ns!r}"
+                f"timestamp_ns must be an int in [0, 2**64); got {self.timestamp_ns!r}"
             )
         if self.kind not in LEGAL_EVENT_KINDS:
             raise ValueError(

@@ -110,7 +110,9 @@ def git_screen_lines(name: str, args: object, width: int) -> list[str] | None:
         )
         return lines[:1] + command + lines[1:]
     if name == "git_branch":
-        lines = git_screens.branch_prompt_lines("create", str(getattr(args, "name", "")), width)
+        lines = git_screens.branch_prompt_lines(
+            "create", str(getattr(args, "name", "")), width
+        )
         return lines[:1] + command + lines[1:]
     if name == "git_worktree" and getattr(args, "action", "") == "add":
         where = f".ract/worktrees/{getattr(args, 'name', '')}"
@@ -387,7 +389,9 @@ def _plan_steps(plan: Plan) -> list:
         PlanStep(
             n=n,
             action=step.action,
-            target=None if getattr(step, "agent", False) else (step.expected_artifact or None),
+            target=None
+            if getattr(step, "agent", False)
+            else (step.expected_artifact or None),
             agent=bool(getattr(step, "agent", False)),
         )
         for n, step in enumerate(plan.steps, start=1)

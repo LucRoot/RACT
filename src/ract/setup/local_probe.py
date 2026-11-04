@@ -47,7 +47,9 @@ def candidates(extra: tuple[str, ...] = ()) -> list[tuple[str, str]]:
     """
     from ract.providers.openai_provider import address_problem
 
-    given = [("the address in your answers", url.strip().rstrip("/")) for url in extra if url]
+    given = [
+        ("the address in your answers", url.strip().rstrip("/")) for url in extra if url
+    ]
     for name in ADDRESS_VARIABLES:
         value = os.environ.get(name, "").strip().rstrip("/")
         if value:

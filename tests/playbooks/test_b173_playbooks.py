@@ -30,7 +30,9 @@ def _minimal(extra: str = "", drop: str = "") -> str:
         "asks:",
         "  - the question to answer",
     ]
-    lines = [line for line in lines if not line.startswith(drop + ":")] if drop else lines
+    lines = (
+        [line for line in lines if not line.startswith(drop + ":")] if drop else lines
+    )
     return "\n".join(lines) + ("\n" + extra if extra else "") + "\n"
 
 
@@ -41,7 +43,9 @@ def test_the_two_built_in_playbooks_load() -> None:
 
 def test_each_playbook_carries_every_key() -> None:
     for name, playbook in loader.load_builtin_playbooks().items():
-        assert REQUIRED_KEYS <= set(playbook.data), f"{name} is missing {sorted(REQUIRED_KEYS - set(playbook.data))}"
+        assert REQUIRED_KEYS <= set(playbook.data), (
+            f"{name} is missing {sorted(REQUIRED_KEYS - set(playbook.data))}"
+        )
 
 
 def test_explain_code_needs_only_intake_and_explorer() -> None:
@@ -68,7 +72,9 @@ def test_acceptance_checks_are_text_and_not_run(tmp_path: Path) -> None:
 
 def test_an_unknown_role_is_refused() -> None:
     with pytest.raises(loader.PlaybookError, match="unknown role"):
-        loader.parse_playbook(_minimal().replace("  - explorer", "  - wizard"), name="explain_code")
+        loader.parse_playbook(
+            _minimal().replace("  - explorer", "  - wizard"), name="explain_code"
+        )
 
 
 def test_a_role_needing_a_tool_the_grant_lacks_is_refused() -> None:
@@ -89,7 +95,9 @@ def test_a_missing_field_is_refused() -> None:
 
 def test_a_huge_file_is_refused() -> None:
     with pytest.raises(loader.PlaybookError, match="size"):
-        loader.parse_playbook("purpose: " + "x" * (loader.MAX_BYTES + 1), name="explain_code")
+        loader.parse_playbook(
+            "purpose: " + "x" * (loader.MAX_BYTES + 1), name="explain_code"
+        )
 
 
 @pytest.mark.parametrize("bad", ["../x", ".hidden", "a/b", ""])

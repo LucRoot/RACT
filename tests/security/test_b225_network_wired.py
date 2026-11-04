@@ -86,9 +86,7 @@ def test_a_fetch_without_a_session_answer_never_advertises_one(
     assert prompts == ["Run it once? [y/N]: "]  # and offers no session answer
 
 
-def test_a_command_question_still_uses_the_command_screen(
-    monkeypatch, capsys
-) -> None:
+def test_a_command_question_still_uses_the_command_screen(monkeypatch, capsys) -> None:
     monkeypatch.setattr("ract.approval_callback.read_line", _ask("n"))
     code = console_tier_3_prompt(dict(COMMAND_FACTS))
     out = capsys.readouterr().out

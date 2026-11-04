@@ -16,12 +16,18 @@ from ract.setup import wizard
 KEY = "sk-proj-" + "B202" * 8
 
 
-def test_the_reconfigure_diff_masks_a_literal_key_and_keeps_references(tmp_path: Path) -> None:
+def test_the_reconfigure_diff_masks_a_literal_key_and_keeps_references(
+    tmp_path: Path,
+) -> None:
     (tmp_path / "ract.yaml").write_text(
         f"providers:\n  local:\n    url: http://127.0.0.1:9/v1\n    api_key: {KEY}\n",
         encoding="utf-8",
     )
-    config = {"providers": {"local": {"url": "http://127.0.0.1:9/v1", "api_key": "${OPENAI_API_KEY}"}}}
+    config = {
+        "providers": {
+            "local": {"url": "http://127.0.0.1:9/v1", "api_key": "${OPENAI_API_KEY}"}
+        }
+    }
     _draft, diff = wizard.write_config(tmp_path, config, reconfigure=True)
     assert KEY not in diff
     assert "${OPENAI_API_KEY}" in diff
@@ -36,7 +42,9 @@ def test_the_mcp_sse_error_names_no_credentials() -> None:
         is_closed = False
 
         def stream(self, *_a: object, **_k: object) -> None:
-            raise httpx.ConnectError(f"cannot connect to https://svc:{KEY}@mcp.invalid/sse")
+            raise httpx.ConnectError(
+                f"cannot connect to https://svc:{KEY}@mcp.invalid/sse"
+            )
 
         def close(self) -> None:
             pass
@@ -57,7 +65,10 @@ def test_mcp_credentials_from_config_are_registered() -> None:
         McpToolRegistry.from_config(
             {
                 "mcp_servers": {
-                    "local": {"command": "srv", "env": {"API_TOKEN": token, "PATH": path_value}},
+                    "local": {
+                        "command": "srv",
+                        "env": {"API_TOKEN": token, "PATH": path_value},
+                    },
                     "web": {
                         "transport": "sse",
                         "url": "https://mcp.invalid/sse",

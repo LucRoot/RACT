@@ -23,9 +23,7 @@ def _grant(holds: bool, rules: tuple[str, ...] = ("tests",)) -> Any:
     return SimpleNamespace(
         holds=holds,
         policy=SimpleNamespace(
-            commands=SimpleNamespace(
-                allow=[SimpleNamespace(id=rule) for rule in rules]
-            )
+            commands=SimpleNamespace(allow=[SimpleNamespace(id=rule) for rule in rules])
         ),
     )
 

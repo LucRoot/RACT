@@ -10,29 +10,24 @@ RACT is a model-agnostic, local-first agentic coding tool built around three ide
 
 ## What 0.6.0 is
 
-v0.6.0 is the Interactive Session release: a developer hands real
-coding work to a model, local or hosted, inside a policy they control,
-and can show afterwards what changed, why, under which permission, and
-how to undo it. Highlights:
+v0.6.0 is the Interactive Session release: hand real coding work to a
+model, local or hosted, inside a policy you control, and show afterwards
+what changed, why, under which permission, and how to undo it. Highlights:
 
-- The interactive session (`ract`): intents, slash commands, plans
-  shown before anything runs, per-hunk review, `/diff`, `/undo`,
-  checkpoints and rewind, and a harness-written turn summary that
-  labels unchecked claims.
-- The command on-ramp: setup offers a signed grant for the test
-  command, `/test` runs it through the same tier-3 checks as any
-  model-requested command, and `!<command>` runs what you type, as
-  you.
-- Honest surfaces everywhere: what the sandbox does and does not
-  enforce, what a dead endpoint means, what the model claimed versus
-  what RACT verified.
-- Run identity: `RACT_RUN_ID` passes the run id to child processes;
-  the sandbox keeps it.
+- `ract` on a terminal: intents, slash commands, plans before anything
+  runs, per-hunk review, `/diff`, `/undo`, checkpoints and rewind, and a
+  turn summary that labels unchecked claims.
+- The command on-ramp: setup offers a signed grant for the test command,
+  `/test` runs it through the tier-3 checks, `!<command>` runs what you
+  type, as you.
+- Honest surfaces: what the sandbox does not enforce, what a dead
+  endpoint means, what the model claimed versus what RACT verified.
+- Run identity: `RACT_RUN_ID` passes the run id to child processes.
 
 Full change list: [CHANGELOG.md](./CHANGELOG.md#060---2026-11-04).
 Release notes with the success-condition evidence:
 [docs/release/RELEASE_NOTES_0.6.0.md](./docs/release/RELEASE_NOTES_0.6.0.md).
-Migration walk-through: [docs/UPGRADING.md](./docs/UPGRADING.md).
+Migration: [docs/UPGRADING.md](./docs/UPGRADING.md).
 
 The previous release, v0.5.2 Deep-Audit Hardening, is described in
 [CHANGELOG.md](./CHANGELOG.md#052---2026-08-22--deep-audit-hardening).

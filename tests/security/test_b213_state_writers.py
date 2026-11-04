@@ -40,7 +40,9 @@ def _dir_link(link: Path, target: Path) -> None:
             check=False,
         )
         if done.returncode != 0:
-            pytest.skip(f"no junction here: {done.stdout.strip()} {done.stderr.strip()}")
+            pytest.skip(
+                f"no junction here: {done.stdout.strip()} {done.stderr.strip()}"
+            )
     else:
         link.symlink_to(target, target_is_directory=True)
 

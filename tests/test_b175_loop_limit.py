@@ -31,7 +31,9 @@ def _config(tmp_path: Path) -> Path:
 def _report_with_claim(project: Path, round_no: int) -> ExecutionReport:
     base = _make_report({"src/foo.py": f"# version {round_no}\n"}, project_dir=project)
     claim = StepResult(
-        step=Step(action="say it is finished", provider_hint="chat", expected_artifact="claim"),
+        step=Step(
+            action="say it is finished", provider_hint="chat", expected_artifact="claim"
+        ),
         raw_response={},
         content="TASK_COMPLETE. All tests pass. The task is done.",
     )
@@ -41,7 +43,11 @@ def _report_with_claim(project: Path, round_no: int) -> ExecutionReport:
         assumptions=base.assumptions,
         provenance={},
         artifacts={},
-        plan=Plan(assumption="ok", confidence=0.9, steps=[sr.step for sr in base.step_results] + [claim.step]),
+        plan=Plan(
+            assumption="ok",
+            confidence=0.9,
+            steps=[sr.step for sr in base.step_results] + [claim.step],
+        ),
     )
 
 
@@ -50,14 +56,20 @@ def _run(controller: LoopController, project: Path, *, done_callback) -> object:
 
     def scripted_model(*_args, **_kwargs) -> Rooted:
         rounds["n"] += 1
-        return Rooted(value=_report_with_claim(project, rounds["n"]), assumption="ok", confidence=0.9)
+        return Rooted(
+            value=_report_with_claim(project, rounds["n"]),
+            assumption="ok",
+            confidence=0.9,
+        )
 
     with patch("ract.loop_controller.run_ract", MagicMock(side_effect=scripted_model)):
         with patch.object(controller, "_run_tests", return_value=(0, "1 passed", "")):
             return controller.run("add a feature", done_callback=done_callback)
 
 
-def test_a_completion_claim_at_step_2_of_5_does_not_end_the_loop(tmp_path: Path) -> None:
+def test_a_completion_claim_at_step_2_of_5_does_not_end_the_loop(
+    tmp_path: Path,
+) -> None:
     controller = LoopController(_config(tmp_path), max_iterations=5)
     seen: list[int] = []
 
