@@ -633,6 +633,11 @@ class _Handler(BaseHTTPRequestHandler):
 class _FakeHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False
+    # BaseHTTPServer's default backlog is 5; the overlap test fires 24
+    # near-simultaneous connections, and on loaded CI runners the backlog
+    # overflow resets the excess (Errno 104 on the client). 64 covers the
+    # herd with headroom.
+    request_queue_size = 64
 
     def __init__(self, owner: FakeModelServer) -> None:
         self.owner = owner
