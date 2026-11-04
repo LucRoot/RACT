@@ -19,7 +19,9 @@ from ract import config_errors, harness
 from ract.preflight_validator import PreflightValidator
 
 KEY = "sk-b202-" + "V" * 28
-BROKEN = f"providers:\n  local:\n    api_key: {KEY}: oops\n    url: http://127.0.0.1:9/v1\n"
+BROKEN = (
+    f"providers:\n  local:\n    api_key: {KEY}: oops\n    url: http://127.0.0.1:9/v1\n"
+)
 
 
 def _error() -> yaml.YAMLError:
@@ -59,8 +61,13 @@ def test_doctor_never_prints_the_broken_line(tmp_path: Path) -> None:
     env.update(NO_COLOR="1", RACT_NO_NETWORK="1")
     done = subprocess.run(
         [sys.executable, "-m", "ract.cli", "doctor", "--config", "ract.yaml"],
-        cwd=tmp_path, capture_output=True, text=True, encoding="utf-8",
-        errors="replace", timeout=120, env=env,
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        env=env,
     )
     assert KEY[5:] not in done.stdout + done.stderr
     assert "line 3" in done.stdout + done.stderr

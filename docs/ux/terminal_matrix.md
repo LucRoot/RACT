@@ -54,7 +54,7 @@ duplication guard because the fixture wrote a copy of `calc.py`, a fixture artif
    (`docs/ux/errors_check.md` row 14; `src/ract/executor/steps.py`).
 4. **Partly fixed: the duplication guard's hint.** The legacy transcript showed
    `hint: run ract doctor --check-providers`, which did not match the cause
-   (`docs/ux/terminal_matrix/legacy_cmd_cp437.txt`). Package R (ced3553) fixed the hint: it now
+   (`docs/ux/terminal_matrix/legacy_cmd_cp437.txt`). Package R (9c27911) fixed the hint: it now
    reads "the change repeats code that already exists in the project; ask for something new, or
    name the existing code you want reused" (`src/ract/session_turn.py`, tests in
    `tests/test_duplication_hint.py`). The message's jargon (`sub (src.calc) similarity=0.974`) is

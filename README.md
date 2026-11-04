@@ -26,6 +26,8 @@ how to undo it. Highlights:
 - Honest surfaces everywhere: what the sandbox does and does not
   enforce, what a dead endpoint means, what the model claimed versus
   what RACT verified.
+- Run identity: `RACT_RUN_ID` passes the run id to child processes;
+  the sandbox keeps it.
 
 Full change list: [CHANGELOG.md](./CHANGELOG.md#060---2026-11-04).
 Release notes with the success-condition evidence:

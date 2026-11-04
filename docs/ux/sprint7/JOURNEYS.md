@@ -1,7 +1,7 @@
 # Sprint 7 journeys (package 5)
 
 Run: `python -m tests.ux.run_baseline --only J1,J1b,J2,J3,J4,J6,J7,J8,J9,J10` with `RACT_UX_COLS=80`
-and `RACT_UX_COLS=60`, on the landed feature tip `91d8d86` (BUILDER's landing, L-216), from a detached
+and `RACT_UX_COLS=60`, on the landed feature tip `"[S7] Rebased onto the landed feature tip (L-21): format the"` (BUILDER's landing, L-216), from a detached
 worktree. Captures: `docs/ux/sprint7/journeys/80/` and `docs/ux/sprint7/journeys/60/` (the rendered
 `.txt`, plus the raw and timeline files the runner writes beside them).
 
