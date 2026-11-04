@@ -175,9 +175,11 @@ def write_config(
     if target.exists():
         if not reconfigure:
             raise SetupError(
-                f"{CONFIG_NAME} already exists here; nothing was changed. To draft a new "
-                f"one next to it: ract setup --reconfigure. To check this one: ract doctor "
-                "--check-providers"
+                f"{CONFIG_NAME} already exists here; nothing was changed. To use it "
+                "as it is, just run ract. Started over halfway? Delete "
+                f"{CONFIG_NAME} and run ract setup again. To change one answer "
+                "keeping this file: ract setup --reconfigure (writes a draft to "
+                "compare). To check this file: ract doctor --check-providers"
             )
         draft = directory / DRAFT_NAME
         _atomic_write(draft, text)
@@ -616,9 +618,11 @@ def _run(
         return _add_provider(directory, answers, interactive, io)
     if (directory / CONFIG_NAME).exists() and not answers.reconfigure:
         raise SetupError(
-            f"{CONFIG_NAME} already exists here; nothing was changed. To draft a new one "
-            "next to it: ract setup --reconfigure. To check this one: ract doctor "
-            "--check-providers"
+            f"{CONFIG_NAME} already exists here; nothing was changed. To use it "
+            "as it is, just run ract. Started over halfway? Delete "
+            f"{CONFIG_NAME} and run ract setup again. To change one answer "
+            "keeping this file: ract setup --reconfigure (writes a draft to "
+            "compare). To check this file: ract doctor --check-providers"
         )
     chosen = _choose_provider(io, answers, interactive)
     if isinstance(chosen, int):

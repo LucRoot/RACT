@@ -212,7 +212,14 @@ def test_an_existing_config_is_never_overwritten(tmp_path: Path) -> None:
 
     assert wizard.run(tmp_path, interactive=False, io=io) == 2
     assert (tmp_path / "ract.yaml").read_text(encoding="utf-8") == "mine: true\n"
-    assert "ract setup --reconfigure" in "\n".join(said)
+    text = "\n".join(said)
+    assert "ract setup --reconfigure" in text
+    # The post-A beginner walk (BEGINNER_WALK_AGENT_2026-11-03.md, F-1): a
+    # setup rerun after a half-finished setup said only "nothing was
+    # changed", and the beginner recovered by deleting ract.yaml by trial
+    # and error. The line now says how to continue and how to start over.
+    assert "just run ract" in text
+    assert "run ract setup again" in text
 
 
 def test_reconfigure_writes_a_draft_and_shows_the_diff(tmp_path: Path) -> None:

@@ -75,6 +75,13 @@ def test_fence_without_a_config_names_ract_setup(tmp_path: Path) -> None:
     assert "hint: run `ract setup` here" in proc.stderr
 
 
+def test_bare_ract_without_a_config_points_a_first_timer_at_setup(tmp_path: Path) -> None:
+    proc = _ract(tmp_path)
+    assert "first time here? Run ract setup" in proc.stderr
+    # The advanced no-terminal path stays for scripts.
+    assert "ract setup --answers FILE" in proc.stderr
+
+
 def test_fence_on_a_missing_file_names_it(tmp_path: Path) -> None:
     _config(tmp_path)
     proc = _ract(tmp_path, "fence", "inspect", "--file", "src/hello.py")

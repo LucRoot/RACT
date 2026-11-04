@@ -4883,6 +4883,11 @@ def main(argv: list[str] | None = None) -> int:
         return _repl_command([])
     elif not argv and not Path("ract.yaml").exists():
         print(
+            "[ract] first time here? Run ract setup and it asks a few "
+            "questions, then run ract to start.",
+            file=sys.stderr,
+        )
+        print(
             "[ract] no ract.yaml here. To create one without a terminal: "
             "ract setup --answers FILE (template: ract setup --print-defaults)",
             file=sys.stderr,
