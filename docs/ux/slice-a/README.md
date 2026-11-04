@@ -56,11 +56,11 @@ Counted by the harness: lines typed in answer to a question, not commands.
 
 ## Not in this walk
 
-- The hosted model (WRIGHT's evidence run follows).
+- The hosted model (the evidence run follows).
 - Esc Esc on Windows: the Windows console's line editor clears the line on Esc
   and RACT never sees the key, so SA3 uses `/rewind` (escalated to the MANAGER).
 - The not-a-git-repository offer and an unanswered review are covered by
   real-turn tests (`tests/test_git_init_offer.py`, `tests/test_proposed_review.py`),
   not by this walk.
-- MASON's screens for the slice (the diff.proposed screen with hunk ids, the
+- the screens for the slice (the diff.proposed screen with hunk ids, the
   apply result, the `/checkpoint` and `/restore` listings, the git init offer).

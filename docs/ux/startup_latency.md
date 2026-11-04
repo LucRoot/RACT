@@ -17,15 +17,15 @@ These are the imports that `ract --version` triggers (the same chain the REPL st
 
 | Module (cumulative) | Owner | Saving if lazy |
 |---|---|---|
-| `httpx` (293 ms, via `ract`) | providers (not MASON's lane) | up to about 290 ms at start for commands that never call a provider |
-| `ract.providers.schema` (214 ms, via `ract.providers.conformance`) | providers (not MASON's lane) | about 210 ms |
-| `ract.core.keys` (161 ms) | core (not MASON's lane) | about 160 ms |
+| `httpx` (293 ms, via `ract`) | providers (not the lane) | up to about 290 ms at start for commands that never call a provider |
+| `ract.providers.schema` (214 ms, via `ract.providers.conformance`) | providers (not the lane) | about 210 ms |
+| `ract.core.keys` (161 ms) | core (not the lane) | about 160 ms |
 | `ract.builtin_skill_library` and `ract.skills_registry` (275 ms, shared with `ract.manager`, imported at the top of `src/ract/cli.py` lines 16 and 52) | CLI verbs (BUILDER) | about 270 ms if the skill library loads on first use |
 | `ract.harness` (145 ms) | harness (senior-only) | about 140 ms |
 
-## What is in MASON's lane
+## What is in the lane
 
-The modules MASON owns (`ract.tui` 4 ms, the renderer, the REPL command text) cost nothing
+The modules the lane owns (`ract.tui` 4 ms, the renderer, the REPL command text) cost nothing
 at startup: `ract.repl` and `ract.session_render` are not imported by `ract --version`.
 No lazy import in the lane saves more than 100 ms, so none was made. The measured savings
 above are the handoffs.

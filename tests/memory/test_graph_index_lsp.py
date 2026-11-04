@@ -50,7 +50,7 @@ def test_lsp_binary_hints_cover_every_adapter():
 
 
 def test_available_languages_returns_probe_per_language(tmp_path: Path, monkeypatch):
-    # B-134 (WRIGHT's FOUND): this test started a real python language server
+    # B-134 (the FOUND): this test started a real python language server
     # where multilspy is installed, and it never answered. The probe's own
     # behaviour is tested below; here no server is started.
     # G-240: the probe runs in a child process; the stub child starts nothing.

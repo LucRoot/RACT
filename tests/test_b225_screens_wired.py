@@ -1,4 +1,4 @@
-"""B-225: MASON's git screens reach the terminal in the real tier-2 git questions.
+"""B-225: the git screens reach the terminal in the real tier-2 git questions.
 
 ``ui/git_screens.py`` was in the tree and imported by nothing; the operator saw
 the older question. The commit, branch and worktree questions now print the

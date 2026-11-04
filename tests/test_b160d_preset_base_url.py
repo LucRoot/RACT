@@ -30,7 +30,7 @@ def test_the_override_replaces_only_the_named_preset(monkeypatch) -> None:
 @pytest.mark.parametrize(
     "value",
     [
-        "http://127.0.0.1:18099/v1",  # bare: names no preset (WRIGHT's control)
+        "http://127.0.0.1:18099/v1",  # bare: names no preset (the control)
         "nosuch=http://127.0.0.1:18099/v1",  # an unknown preset
         "openrouter=",  # an empty address
         "openrouter=http://127.0.0.1:18099/v1,",  # an empty pair

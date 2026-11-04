@@ -106,7 +106,7 @@ def field_explanation_lines(rule: ProposedRule, width: int) -> list[str]:
         else f"home: {escape_controls(rule.home)}: the command sees this home folder"
     )
     # G-242 G1: every kind runs the project's own code (tests, a build backend,
-    # a package.json script), not only the test rule. MASON words it.
+    # a package.json script), not only the test rule. the lane words it.
     lines.append(
         "it runs the project's own code (its tests, build backend or scripts), "
         "as written in the project when it runs"

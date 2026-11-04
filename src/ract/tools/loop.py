@@ -139,7 +139,7 @@ def answer_tools() -> dict[str, Any]:
     """The read-only answer loop's tools: everything non-mutating but ``todo``.
 
     B-177 wiring: the answer loop has no list to apply todo facts to
-    (MASON's 00:57 decision), so it does not offer the tool. The step agent
+    (the 00:57 decision), so it does not offer the tool. The step agent
     loop offers it through :func:`work_tools`.
     """
     from ract.tools import read_only_tools

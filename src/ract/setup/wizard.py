@@ -540,7 +540,7 @@ def _wrapping(io: Io) -> Io:
     """``io`` whose ``say`` wraps each line to ``io.width()``; ``say_raw`` does not.
 
     LR:: Setup printed its lines whole, so at 60 columns five of them ran to
-    64 to 124 characters (MASON's walk, G-260). A diff keeps its lines as they
+    64 to 124 characters (the walk, G-260). A diff keeps its lines as they
     are (``say_raw``): wrapped, it would no longer be a diff.
     """
     from dataclasses import replace

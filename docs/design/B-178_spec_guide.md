@@ -1,6 +1,6 @@
 # B-178: a guided spec, first slice (design)
 
-Status: proposal by MASON for the MANAGER, 2026-11-01. Where the MANAGER has not decided, this slice builds the proposal below.
+Status: proposal by the lane for the MANAGER, 2026-11-01. Where the MANAGER has not decided, this slice builds the proposal below.
 
 ## What this is, in one paragraph
 

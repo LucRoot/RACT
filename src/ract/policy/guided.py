@@ -309,7 +309,7 @@ def guided_init(
     # B-142: the linter, type checker, formatter and build too, one signature.
     runners = ([runner] if runner is not None else []) + detect_verifiers(project)
     if not runners:
-        # MASON's view (B-111), then where to go from here.
+        # the view (B-111), then where to go from here.
         for line in detected_runner_lines(None, width):
             show(line)
         show("hint: write .ract/policy.yaml by hand, then run `ract policy sign`")
@@ -332,7 +332,7 @@ def guided_init(
     # G-217 G2: a policy that cannot hold fails here, before the question and
     # before any key is made.
     parse_policy(text)
-    # MASON's rule view for each rule, then the grant-wide fields D13 also
+    # the rule view for each rule, then the grant-wide fields D13 also
     # asks to explain.
     for each in runners:
         for line in proposed_rule_lines(_proposed(each), width):

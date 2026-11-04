@@ -29,7 +29,7 @@ J5 (per-hunk accept or reject, B-014c), J7 (Esc Esc rewind not built).
 - **Heartbeat on the approval question (out of lane, B-033s).** J4 at 80 columns:
   `src/calc.py? [y/N]:   ... waiting on model (4 s)`. The first tick is appended to the open
   input prompt. Same condition as the 60-column rich-mode capture in the 18:10 FOUND of
-  the MASON log. Owner: BUILDER (B-033s).
+  the lane log. Owner: BUILDER (B-033s).
 - **J8 with stdin (new).** `ract -p --accept-edits --config ract.yaml --output-format json`
   with the intent on stdin exits 0 and prints `"schema": "ract.result/1"`, `"outcome": "done"`,
   and `"changed": ["src/calc.py", "src/notes.py", "tests/test_notes.py"]`. The intent

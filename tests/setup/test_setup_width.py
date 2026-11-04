@@ -17,7 +17,7 @@ def _longest(said: list[str]) -> int:
 
 @pytest.mark.parametrize("width", [80, 60, 40])
 def test_the_detected_server_path_fits_the_width(tmp_path: Path, width: int) -> None:
-    # Not a git repository: the notice MASON measured at 124 characters is printed.
+    # Not a git repository: the notice the lane measured at 124 characters is printed.
     io, said, _ = _io(["", "n"], [SERVER])
     io.width = lambda: width
 
@@ -37,7 +37,7 @@ def test_the_no_server_local_path_fits_the_width(tmp_path: Path, width: int) -> 
 
 @pytest.mark.parametrize("width", [60, 40])
 def test_the_questions_fit_the_width(tmp_path: Path, width: int) -> None:
-    # B-164: MASON measured the address question at 87 and [L/c] at 64.
+    # B-164: the lane measured the address question at 87 and [L/c] at 64.
     _git_init(tmp_path)
     io, said, asked = _io(["", "l", "", "skip"], [])
     io.width = lambda: width
@@ -50,7 +50,7 @@ def test_the_questions_fit_the_width(tmp_path: Path, width: int) -> None:
 
 
 def test_the_withheld_key_note_wraps(monkeypatch, capsys) -> None:
-    # B-164: MASON's preset walk printed it as one line of 227 characters.
+    # B-164: the preset walk printed it as one line of 227 characters.
     from ract.providers.openai_provider import OpenAICompatibleProvider
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-throwaway-" + "W" * 32)

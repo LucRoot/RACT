@@ -1,4 +1,4 @@
-"""J5 defects 1 and 2 (MASON's B-117 walk): fold between items, never inside one.
+"""J5 defects 1 and 2 (the B-117 walk): fold between items, never inside one.
 
 The status line folded inside "T3 off" at 60 columns, and the review's
 choice prompt folded in the middle of "R reject the rest of the file".

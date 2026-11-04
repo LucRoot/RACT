@@ -1,4 +1,4 @@
-"""B-175 (WRIGHT, ADR-0049 D10): the model never ends the loop; the limit stops and asks.
+"""B-175 (the lane, ADR-0049 D10): the model never ends the loop; the limit stops and asks.
 
 Slice 1. A model's completion claim (a step that says TASK_COMPLETE) does not end the loop: only the
 harness's done predicate does. At the iteration limit the result carries a question for the operator

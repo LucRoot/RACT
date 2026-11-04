@@ -217,7 +217,7 @@ def test_rewind_needs_two_turns(tmp_path: Path) -> None:
 def test_the_restore_preview_says_what_goes_back_and_writes_nothing(
     tmp_path: Path,
 ) -> None:
-    """MASON's restore preview (B-110 D6), from undo_backup.restore_preview."""
+    """the restore preview (B-110 D6), from undo_backup.restore_preview."""
     turns = _three_turns(tmp_path)
     before = {name: _read(tmp_path, name) for name in ("a.txt", "b.txt", "c.txt")}
     back, left = undo_backup.restore_preview(tmp_path, turns[0].turn_id)

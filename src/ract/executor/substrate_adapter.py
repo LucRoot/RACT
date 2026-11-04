@@ -451,7 +451,7 @@ def _run_via_substrate_steps(
     started = time.monotonic()
     if shows_workspace:
         # B-110 D6: the first visible line of a step that changes files, before
-        # the snapshot and the worktree (MASON's preparing line, L-298 item 5).
+        # the snapshot and the worktree (the preparing line, L-298 item 5).
         print(preparing_line(0, width), flush=True)
     try:
         snapshot = take_snapshot(

@@ -1,11 +1,11 @@
-"""G-249: WRIGHT's two Linux findings on the landed tip.
+"""G-249: the two Linux findings on the landed tip.
 
 J7: Esc Esc did nothing on a POSIX pty until the next key (the system inputrc's
 "\\e\\e[C" makes Esc Esc a prefix, and CPython's readline never times the wait
 out). B-146: after a mid-stream Ctrl-C and /exit a step worktree stayed
 registered (the Ctrl-C also cut short the step's git, leaving a registration
 whose folder is gone, which a remove cannot clear and only a prune does).
-The real-pty checks are WRIGHT's (WSL); these pin the pieces on any system.
+The real-pty checks are the (WSL); these pin the pieces on any system.
 """
 
 from __future__ import annotations

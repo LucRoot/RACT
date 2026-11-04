@@ -233,7 +233,7 @@ def permission_lines(project: Path) -> list[str]:
         if why and why != "no grant" and tier.grant_expires is None
         else f"Tier 3: {status_line(tier)}"
     ]
-    # MASON's permissions view (B-111): the rules, the deny rules, the largest
+    # the permissions view (B-111): the rules, the deny rules, the largest
     # mode, the expiry, and the sandbox as this machine runs it.
     from ract.ui.grant_screens import PermissionsView, ProposedRule, permissions_lines
 

@@ -1,5 +1,5 @@
 # capture: f_ask_run2
-# commit: e2cb4b6 (work/mason/integrated, NOT LANDED; code under test is that export)
+# commit: e2cb4b6 (work/integrated, NOT LANDED; code under test is that export)
 # date: 2026-10-28 12:27 PDT
 # provider: hosted, model [large hosted model, structurer role] (the repository has no provider preset; ract.yaml is scratch)
 # settings: openai_compatible, url [hosted endpoint, held on the operator board], key from environment (not printed)

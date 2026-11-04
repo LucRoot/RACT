@@ -420,7 +420,7 @@ class PlainRenderer:
             self._line(f"    hint: {d['hint']}")
 
     def _on_diff_proposed(self, d: dict[str, Any]) -> None:
-        # One line (MASON's header, L-298 item 1): the review question that
+        # One line (the header, L-298 item 1): the review question that
         # follows draws each hunk (B-110), so drawing them here showed them twice.
         from ract.ui.workspace_screens import proposed_header_lines
 
@@ -445,7 +445,7 @@ class PlainRenderer:
         self._line(f"    {d.get('path')} hunk {d.get('hunk')}: {d.get('decision')}")
 
     def _on_change_applied(self, d: dict[str, Any]) -> None:
-        # MASON's apply-result view (L-298 item 2), then the checkpoint.
+        # the apply-result view (L-298 item 2), then the checkpoint.
         from ract.ui.workspace_screens import ApplyResult, apply_result_lines
 
         paths = [str(p) for p in d.get("paths", [])]
@@ -553,7 +553,7 @@ class PlainRenderer:
             self._line(f"Plan ({len(self._checklist)} steps), final:")
             for n in self._checklist:
                 self._line(self._checklist_line(n))
-        # MASON's verdict view (L-298 item 4): the verdict once, and where the
+        # the verdict view (L-298 item 4): the verdict once, and where the
         # turn's command records bind when it ran any.
         from ract.ui.command_screens import verdict_lines
 

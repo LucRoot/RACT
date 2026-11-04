@@ -1,6 +1,6 @@
 """B-138: the needs_repository and needs_history markers read the checkout correctly.
 
-The cases are the ones WRIGHT's Linux run met: a full repository, a depth-1
+The cases are the ones the Linux run met: a full repository, a depth-1
 clone (CI), a plain folder, and a copied worktree whose ``.git`` file names a
 path git cannot open. The clone is of a local temporary repository; nothing
 is downloaded.

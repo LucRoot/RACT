@@ -226,7 +226,7 @@ def body(text: str, limit: int | None = 200) -> str:
 
     LR:: A server that echoes the request's credentials in its error body
     (a 401 repeating the Authorization header) put the key into RACT's error
-    text, and setup printed it (MASON's wrong-key walk). Known values are
+    text, and setup printed it (the wrong-key walk). Known values are
     matched whole, so the body is redacted before it is cut: cut first, a key
     at the cut would pass half masked. ``limit`` None keeps the whole body.
     """

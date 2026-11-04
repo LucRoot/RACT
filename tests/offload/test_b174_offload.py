@@ -1,4 +1,4 @@
-"""B-174 (WRIGHT, ADR-0049 D9): large outputs are offloaded; the model reads slices.
+"""B-174 (the lane, ADR-0049 D9): large outputs are offloaded; the model reads slices.
 
 The module (ract.offload) does not exist yet, so these tests fail first. A stored output is whole
 under the run's folder. The model gets a labelled stub with a harness summary and a handle. A slice

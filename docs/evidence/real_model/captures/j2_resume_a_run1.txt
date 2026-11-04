@@ -1,5 +1,5 @@
 # capture: j2_resume_a_run1
-# commit: e2cb4b6 (work/mason/integrated, NOT LANDED)
+# commit: e2cb4b6 (work/integrated, NOT LANDED)
 # provider: hosted, model [large hosted model, structurer role]
 # args: --session <id> --resume --yolo (resume of the refused task (a), run 1)
 # ---

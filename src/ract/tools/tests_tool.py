@@ -120,7 +120,7 @@ _FAILED = re.compile(r"^FAILED (\S+)(?: - (.*))?$")
 
 
 def pytest_summary(stdout: str, duration_ms: int, exit_code: int | None) -> Any:
-    """MASON's RunSummary from pytest's own last summary line; None counts otherwise."""
+    """the RunSummary from pytest's own last summary line; None counts otherwise."""
     from ract.ui.command_screens import FailingTest, RunSummary
 
     counts: dict[str, int] | None = None
@@ -348,7 +348,7 @@ def run_under_rule(
     tail = result.stdout[-4000:] if result.stdout else ""
     summary_text = ""
     if kind == "tests":
-        # MASON's result view (L-298 item 3): the counts first, each failure after.
+        # the result view (L-298 item 3): the counts first, each failure after.
         from ract.ui.command_screens import result_lines
 
         summary = pytest_summary(result.stdout, result.duration_ms, result.exit_code)

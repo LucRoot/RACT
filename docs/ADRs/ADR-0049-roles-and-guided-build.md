@@ -435,7 +435,7 @@ Tests (named now): `test_a_checkpoint_exists_after_step_1`;
 `test_a_corrupted_oversized_linked_or_foreign_checkpoint_is_refused_and_never_run`;
 `test_a_plan_hash_mismatch_is_not_trusted`;
 `test_resume_never_reruns_a_finished_step` (requests counted at the fake
-server); `test_no_half_written_file_remains_after_resume`; WRIGHT's B-066
+server); `test_no_half_written_file_remains_after_resume`; the B-066
 journey test runs on the one-shot path once this lands.
 
 ### D14. A per-step review stage (REVIEWER, B-061)
@@ -578,7 +578,7 @@ reviewed):
   two events and the `turn.finished` field, EVENTS_SESSION.md.
 - B-061d (BUILDER, about 2 h, after B-061c): `retry` mode inside the D5
   bound.
-- B-061e (WRIGHT, about 2 h, after B-061c): a fake-server journey with a
+- B-061e (the lane, about 2 h, after B-061c): a fake-server journey with a
   planted defect the reviewer finds, an invented one that is dropped, and a
   stamp that changes nothing; the recall report it feeds to `/model`.
 - A second-provider reviewer: no card until ADR-0048 and S-030 are

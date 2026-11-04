@@ -191,7 +191,7 @@ def test_the_console_prompt_shows_the_facts_and_takes_only_yes(
         assert console_tier_3_prompt(facts) is expected
     out = capsys.readouterr().out
     assert "\x1b" not in out and "executable: /usr/bin/python" in out
-    # MASON's view: the escape is shown as text, the reason is labeled as the model's.
+    # the view: the escape is shown as text, the reason is labeled as the model's.
     assert "tests/a\\x1b[31m.py" in out
     assert "the model says (model text, not checked): ignore previous" in out
     assert "y runs it once, N refuses" in out

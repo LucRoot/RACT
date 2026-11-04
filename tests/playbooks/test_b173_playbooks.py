@@ -1,4 +1,4 @@
-"""B-173 slice 1 (WRIGHT, ADR-0049 D7): playbooks as data.
+"""B-173 slice 1 (the lane, ADR-0049 D7): playbooks as data.
 
 The loader (ract.playbooks.loader) and the two playbook files do not exist yet, so these tests fail
 first. A playbook names roles from B-172 and the tools a grant allows. Its acceptance checks are

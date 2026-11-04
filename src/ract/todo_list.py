@@ -133,7 +133,7 @@ def apply_step_todo_facts(project: Path, todo_facts: list[dict[str, Any]]) -> li
 
     The list lives at ``<project>/.ract/todo.json``: the executor has no
     session id, so the list belongs to the workspace (the deviation from
-    MASON's session-folder proposal is stated for review). A step whose
+    the session-folder proposal is stated for review). A step whose
     facts hold no ``todo`` call touches nothing.
     """
     todo_ops = [

@@ -48,4 +48,4 @@ Draft for the operator's release cut. `VERSION` and the real `CHANGELOG.md` are 
 - That Windows confines a tier-3 command: it does not; grants say `best_effort` (cite: docs/TIER3.md).
 - That `ract verify` exists: it is designed in ADR-0050 and not built (board card B-039).
 - That a WSL2 or container backend runs commands: both are refused at run until the operator's row D4 and an image.
-- That every Linux journey passes on a real terminal: B-146's quit test and the J7 walk are WRIGHT's open repeats.
+- That every Linux journey passes on a real terminal: B-146's quit test and the J7 walk are the open repeats.

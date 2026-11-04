@@ -84,7 +84,7 @@ def _tier_2_change(name: str, args: object) -> list[str]:
 
 
 def git_screen_lines(name: str, args: object, width: int) -> list[str] | None:
-    """MASON's screen for a tier-2 git call (B-225), with the command quoted, or None.
+    """the screen for a tier-2 git call (B-225), with the command quoted, or None.
 
     The commit, branch and worktree questions are the slice (f) screens; the
     exact command stays on them, quoted (G-239 D8). ``git_add`` has no screen
@@ -238,7 +238,7 @@ def console_tier_3_prompt(facts: dict) -> bool | str:
     """Ask the operator before a tier-3 command runs (ADR-0048 D6). True on yes.
 
     B-113: where a session answer is offered (``session_choice``), ``s``
-    returns ``"session"``; a changed entry point is shown first with MASON's
+    returns ``"session"``; a changed entry point is shown first with the
     screen, and then only once or no is offered.
 
     LR:: The prompt shows the full argv with control characters made
@@ -341,7 +341,7 @@ def console_git_init_offer(command: str, count: int, left_out: list[str]) -> boo
     """Offer ``git init`` at the console, as a tier-2 action (B-110 D6). True on yes."""
     from ract.ui.workspace_screens import not_git_offer_lines
 
-    # MASON's view (B-110): the exact command as a tier-2 action, the
+    # the view (B-110): the exact command as a tier-2 action, the
     # sensitive names left out, then the choice; the file count first.
     _print_wrapped(
         f"Tier 2: {count} file{'s' if count != 1 else ''} would be committed."

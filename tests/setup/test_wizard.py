@@ -418,7 +418,7 @@ def test_a_typed_address_that_does_not_answer_writes_nothing_for_it(
 
 
 def test_looking_again_and_finding_nothing_writes_no_config(tmp_path: Path) -> None:
-    # MASON's walk: Enter at "look again" with nothing answering wrote an Ollama
+    # the walk: Enter at "look again" with nothing answering wrote an Ollama
     # default whose check then said connection refused.
     _git_init(tmp_path)
     io, said, _ = _io(["", "l", "", ""], [])

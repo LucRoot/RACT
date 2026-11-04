@@ -1,6 +1,6 @@
 """B-225 part 3: the fetch question uses the network screen.
 
-MASON's B-227 reworked ``network_screens.fetch_prompt_lines`` against the
+the B-227 reworked ``network_screens.fetch_prompt_lines`` against the
 live question's facts (tier 3, the once-or-no choice, the follows line).
 This wires it: a ``web_fetch`` approval renders the network screen instead
 of the command screen; a command keeps the command screen.

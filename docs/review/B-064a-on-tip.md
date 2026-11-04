@@ -1,6 +1,6 @@
 # B-064a on the feature tip (sprint 7, package 1, re-entry)
 
-Branch `work/mason/s7-on-tip`, based on the feature tip `e00e991` (LANDED base `5dd8098`, L-174).
+Branch `work/s7-on-tip`, based on the feature tip `e00e991` (LANDED base `5dd8098`, L-174).
 Status: NOT GATED. The gate on this tip has not run; no READY-SENIOR exists until it has.
 
 ## Why this is not a replay of the sprint 7 package 1 commits
@@ -13,7 +13,7 @@ step skipped). My package 1 commits implement the same card. Replaying them conf
 `tests/test_ract_runner.py`). Choosing one implementation over the other would silently drop
 review fixes that the BUILDER landed (L-170 to L-182), so the landed version is the base.
 
-## Commits and hashes (old, from work/mason/s7-b064a, then new on this branch)
+## Commits and hashes (old, from work/s7-b064a, then new on this branch)
 
 | Old (s7-b064a) | New (on this branch) | What |
 |---|---|---|

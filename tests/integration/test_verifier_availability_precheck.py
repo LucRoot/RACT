@@ -280,7 +280,7 @@ def test_build_loop_state_admits_healthy_predicates(
     """
     # B-138: the pre-check looks for pytest and mypy on PATH; the dev
     # environment's are beside the interpreter running the tests, which is on
-    # PATH only when the venv is activated (WRIGHT's Linux run, B-046).
+    # PATH only when the venv is activated (the Linux run, B-046).
     import os
     import sys
     from pathlib import Path

@@ -99,6 +99,6 @@ def test_a_killed_process_leaves_a_worktree_the_next_sweep_removes(
     finally:
         child.kill()
         child.wait(timeout=30)
-    assert _registered(ws) == 2  # the kill left it, as WRIGHT saw after /exit
+    assert _registered(ws) == 2  # the kill left it, as the lane saw after /exit
     assert sweep_orphan_worktrees(ws) == [(b"\x03" * 16).hex()]
     assert _registered(ws) == 1

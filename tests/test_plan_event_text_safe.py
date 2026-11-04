@@ -1,6 +1,6 @@
 """Plan events carry printable text (EVENTS_SESSION.md: "Text is safe to print").
 
-The attack is MASON's (red team of B-064a, 0b0f7be): a step whose text carries
+The attack is the (red team of B-064a, 0b0f7be): a step whose text carries
 terminal escapes and an injected answer reached ``plan.approval_requested``
 as raw bytes. ``plan.proposed`` had the same gap.
 """

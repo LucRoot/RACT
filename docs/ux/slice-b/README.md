@@ -52,4 +52,4 @@ read is one page at 80 columns.
   (`tests/test_tier3_status_session.py`), the keys leaving the workspace with
   `ract policy migrate-keys` (`tests/test_keys_leave_the_workspace.py`), and
   signed approvals (`tests/test_signed_approvals.py`).
-- MASON's screens for the slice.
+- the screens for the slice.

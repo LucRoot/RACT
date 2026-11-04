@@ -1,4 +1,4 @@
-"""B-172 slice 1 (WRIGHT, ADR-0049 D1, D2): roles as data.
+"""B-172 slice 1 (the lane, ADR-0049 D1, D2): roles as data.
 
 The loader (ract.roles.loader) and the six role files do not exist yet, so these tests fail first.
 The golden tests pin the prompt text the product sends today (the reviewer and the planner), so that

@@ -2,7 +2,7 @@
 
 A fake backend stands in for bubblewrap: its render returns a Python child
 that prints what the self-test would print. The real Linux evidence is
-WRIGHT's run (B-046, decision D1).
+the run (B-046, decision D1).
 """
 
 from __future__ import annotations

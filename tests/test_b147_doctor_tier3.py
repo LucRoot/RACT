@@ -145,7 +145,7 @@ def test_the_sandbox_as_this_machine_runs_it(
     }
     monkeypatch.setattr(cli, "sandbox_report", lambda system=None: fake)
     text = "\n".join(tier3_lines(tier3_report(project), 80))
-    # MASON's screen (ui/tier3_report.py) words it.
+    # the screen (ui/tier3_report.py) words it.
     assert f"backend: {fake['backend']} ({fake['tier3_commands']})" in text
     assert ("does not confine: files and network" in text) is not confined
 

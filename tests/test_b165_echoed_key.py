@@ -1,6 +1,6 @@
 """B-165: a server that echoes the key in its error body never gets the key printed.
 
-MASON's wrong-key setup walk: the fake server's 401 body repeated the
+the wrong-key setup walk: the fake server's 401 body repeated the
 Authorization header, and setup printed it in full inside ``failed: HTTP 401``.
 The key here is a throwaway value; the server is on loopback.
 """

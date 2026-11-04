@@ -182,7 +182,7 @@ def tier3_report(project: Path) -> dict[str, Any]:
 
 
 def tier3_lines(report: dict[str, Any], width: int = 80) -> list[str]:
-    """The report as text: MASON's screen (``ui/tier3_report.py``) says it in words."""
+    """The report as text: the screen (``ui/tier3_report.py``) says it in words."""
     from ract.ui.tier3_report import GrantFacts, Tier3Facts, tier3_report_lines
 
     grant = report["grant"]

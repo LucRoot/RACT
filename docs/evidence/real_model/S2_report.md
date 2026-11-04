@@ -6,7 +6,7 @@ Status: partial. One hosted model leg was run. The local 7B-class leg is not run
 
 - Provider and model: the hosted provider service, a large hosted model (its structurer role), through the `openai_compatible` adapter at `[hosted endpoint, held on the operator board]`. The model's name is withheld from tracked evidence: the repository's closed-terms release check (`tests/test_release_surface.py`) rejects it. The name is recorded in the operator's board.
 - The repository has no provider preset. The scratch `ract.yaml` carries the URL and model above and reads the key from the environment (`api_key: ${PROVIDER_API_KEY}`). A preset is a change to key handling, which is senior-only, so none was added.
-- Code under test: `work/mason/integrated` at `e2cb4b6`, exported read-only. It is not landed (the BUILDER's log has only a "to review" entry for it). The feature tip on this branch's base is `35af968`.
+- Code under test: `work/integrated` at `e2cb4b6`, exported read-only. It is not landed (the BUILDER's log has only a "to review" entry for it). The feature tip on this branch's base is `35af968`.
 - Date of the runs: 2026-10-28, between 12:08 and 12:35 PDT.
 - Key handling: the key was loaded into the environment of each RACT process and never written to a file, a capture or this report. Each capture was scanned for the key prefix and the first eight characters of the key before commit: no hits.
 
@@ -22,9 +22,9 @@ Status: partial. One hosted model leg was run. The local 7B-class leg is not run
 
 The docs' "configuration checked only" entries stay as they are. This preset is not in the table, so no table row changes.
 
-Defect in the probe's advice: the advice estimates the model's memory needs against this machine (63 GB total, 9 GB free). That estimate does not apply to a remote endpoint. Severity S3, owner WRIGHT (`doctor_advice.py`).
+Defect in the probe's advice: the advice estimates the model's memory needs against this machine (63 GB total, 9 GB free). That estimate does not apply to a remote endpoint. Severity S3, owner the lane (`doctor_advice.py`).
 
-Defect in the probe's classification: a tool-calling request that gets no answer within 15 s is reported as "failed". It is a timeout, which is closer to "unknown". Severity S3, owner WRIGHT (`capability_probe.py`).
+Defect in the probe's classification: a tool-calling request that gets no answer within 15 s is reported as "failed". It is a timeout, which is closer to "unknown". Severity S3, owner the lane (`capability_probe.py`).
 
 ## Task by run
 
@@ -66,10 +66,10 @@ Severity follows the repository's scale. Owners follow the senior-only list: a d
 | D2 | S1 | A new file is written without a syntax check, so invalid python is accepted and the run reports done. The write gate checks only a replacement of an existing file. | `captures/b_three_steps_run1..3.txt`: `notes.py` does not parse; pytest reports one collection error in each run | BUILDER: the write path (`executor/steps.py`, the write gate). Senior: the harness gates |
 | D3 | S2 | The model copies the context label (`--- path ---`) into its reply, and RACT writes the label into the file or refuses the step because of it. | Seen in refusals (a, e) and in the written files (b, e) | BUILDER for the label strip in the step path; the Manager prompt text is senior and would need its own card |
 | D4 | S2 | Default mode (no flag) in a real terminal wrote three files with no approval prompt. The approval prompt is attached only with `--auto`. The approval callback's docstring describes default mode as asking before changes. | `captures/d_default_mode_pty.txt`; `src/ract/ract_runner.py` (callback chosen per mode) | BUILDER: the approval gate. Senior: session modes (B-034); flagged, not changed |
-| D5 | S3 | The probe's advice applies a local memory estimate to a hosted endpoint. | `captures/probe_doctor.txt` | WRIGHT (`doctor_advice.py`) |
+| D5 | S3 | The probe's advice applies a local memory estimate to a hosted endpoint. | `captures/probe_doctor.txt` | the lane (`doctor_advice.py`) |
 | D6 | S3 | `/ask` answers in markdown with a code block, not in plain words. Already on the adjudication page as row 7. | `captures/f_ask.txt` | BUILDER, card B-010a and B-011a |
 | D7 | S3 | A resumed step that was refused is reported as "interrupted". | `captures/j2_resume_a_run1.txt` (the note line and the refusal) | BUILDER |
-| D8 | S3 | A tool-calling timeout is reported as "failed". | `captures/probe_doctor.txt` | WRIGHT (`capability_probe.py`) |
+| D8 | S3 | A tool-calling timeout is reported as "failed". | `captures/probe_doctor.txt` | the lane (`capability_probe.py`) |
 | D9 | S3 | The approval-denied message names the wrong step: it says "step 1" with the action of plan step 2. | `captures/d_terminal_auto_pty.txt`, the "Approval denied for step 1" line | BUILDER (the step numbering fixed in B-073; this is the approval path) |
 
 ## Gate
@@ -113,6 +113,6 @@ So S2 is not met. The hosted model reaches a passing change on clean replies, an
 ## Record at landing
 
 - This commit is the final one on the branch. It replaces the endpoint address with a placeholder in every evidence file (16 files) and records the state at landing. Earlier commits stay as they were.
-- Code under test: `work/mason/integrated` at `e2cb4b6`, not landed then. The runs predate the feature tip `e00e991`. They are the evidence of record for what was run; no judgment of model behavior is made beyond these runs.
+- Code under test: `work/integrated` at `e2cb4b6`, not landed then. The runs predate the feature tip `e00e991`. They are the evidence of record for what was run; no judgment of model behavior is made beyond these runs.
 - Checks at this commit: closed-terms release check, no endpoint address, key or hosted model name in tracked files, no em-dashes, author and committer exactly `Dr. Lucas Root, Ph.D.`.
 

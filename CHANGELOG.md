@@ -150,7 +150,7 @@ success-condition evidence stands on the real-model legs recorded there.
   statement that command records are not part of the signed Rootknot.
 - The to-do tool is wired (B-177): the step agent loop offers `todo`; the harness applies its facts after the step's work ends and keeps the list at `.ract/todo.json` in the workspace; the read-only answer loop does not offer it (it has no list to apply the facts to); `/todo` shows the list with its counts.
 - The guided spec is wired (B-178): `/spec` walks the six questions one at a time, keeps each answer as written, asks for approval per section (keep it, type a replacement, ask again), checks that every acceptance line names something checkable before the file is written, and saves `SPEC.md` with the SHA-256 of the approved bytes in `.ract/spec_hash.txt`; an abandoned walk keeps its draft in `.ract/spec_draft.json` and the next `/spec` continues it. The sections are drafted from the person's own words in this slice; the model-drafted redraft needs a model call and is the stated next piece.
-- The fetch question uses the network screen (B-225 part 3): a `web_fetch` approval shows the host, the allowlist entry it matches, the size cap and the follows line (MASON's B-227 screen), with the same once/session/no answer flow; a command approval keeps the command screen. The fetch's facts carry the screen's fields, and the network screens' auction entry is gone (they have a caller).
+- The fetch question uses the network screen (B-225 part 3): a `web_fetch` approval shows the host, the allowlist entry it matches, the size cap and the follows line (the B-227 screen), with the same once/session/no answer flow; a command approval keeps the command screen. The fetch's facts carry the screen's fields, and the network screens' auction entry is gone (they have a caller).
 - Text of unknown origin is marked in front of the model (B-149): each tool result arrives
   in a delimiter naming its origin (`file`, `command output`, `fetched page`, `search
   result`) and saying it is data, and text inside it cannot close the delimiter. A tier-2 or
@@ -398,7 +398,7 @@ success-condition evidence stands on the real-model legs recorded there.
 - A signed file's record sits beside it (`src/.calc.py.rootknot.json`), and the turn
   summary names it: commit it with its file to keep the record (D-143). `turn.finished`
   and the headless result carry `provenance.sidecars`; `/undo` takes it back with its file.
-- The session's screens come from MASON's views: the guided grant flow, `/permissions`,
+- The session's screens come from the views: the guided grant flow, `/permissions`,
   `/checkpoint`, the `/restore` preview (what goes back and what is left alone, shown before
   it runs), the proposed-change line, the apply result, the test-run summary, the verdict and
   the workspace lines.

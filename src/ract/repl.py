@@ -740,7 +740,7 @@ class ReplSession:
         from ract.ui.workspace_screens import Checkpoint, checkpoint_lines
 
         rows = self._turn_checkpoints()
-        # MASON's view (B-110 D6); 1 is the newest, as /restore N counts.
+        # the view (B-110 D6); 1 is the newest, as /restore N counts.
         for line in checkpoint_lines(
             [
                 Checkpoint(
@@ -818,7 +818,7 @@ class ReplSession:
 
         root = self.state.config.resolve().parent
         try:
-            # MASON's view (B-110 D6): what goes back and what is left alone, first.
+            # the view (B-110 D6): what goes back and what is left alone, first.
             back, left_alone = undo_backup.restore_preview(
                 root, rows[n - 1]["turn"], force="--force" in args
             )

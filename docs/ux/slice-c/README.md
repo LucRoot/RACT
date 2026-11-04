@@ -39,7 +39,7 @@ that executes nothing.
 
 ## Not in this walk
 
-- The hosted model (WRIGHT's run, with a real grant and the real runner on the
+- The hosted model (the run, with a real grant and the real runner on the
   operator's machine).
 - The allowlist mode (slice d), shell mode, enforced limits (slice e).
-- MASON's screens for the slice.
+- the screens for the slice.

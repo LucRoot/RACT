@@ -1,4 +1,4 @@
-"""G-118: the screens WRIGHT owns never print a raw control character from a
+"""G-118: the screens the lane owns never print a raw control character from a
 repository's ract.yaml or from a server's reply.
 
 The provider probe printer and the doctor's capability row are the two places

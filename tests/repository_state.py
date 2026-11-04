@@ -2,7 +2,7 @@
 
 A test that reads this repository's own history (its tags, the commits a
 document cites) cannot pass in a shallow clone, which CI starts from, or in a
-copied tree with no repository at all (WRIGHT's Linux run, B-046: the copy's
+copied tree with no repository at all (the Linux run, B-046: the copy's
 ``.git`` named a Windows worktree, so every git command exited 128). Such a
 test is marked, and skipped with the reason when its need is not met:
 

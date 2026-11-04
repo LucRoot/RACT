@@ -2,10 +2,10 @@
 
 A repository used from Windows and WSL records each worktree in the form of
 the system that made it; from the other side it looks dead, and a bare
-``git worktree prune`` dropped it (WRIGHT's B-216). ``prune_dead_own`` drops
+``git worktree prune`` dropped it (the B-216). ``prune_dead_own`` drops
 only RACT's own dead registrations in this system's form. The registrations
 here are written by hand (the path text simulates the other system); no
-worktree is created. WRIGHT runs the same file in WSL.
+worktree is created. the lane runs the same file in WSL.
 """
 
 from __future__ import annotations

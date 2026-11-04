@@ -474,7 +474,7 @@ def available_languages(
     return bounded_probes(langs, repo_root)
 
 
-# B-134 (WRIGHT's FOUND of 18:15): a language server that starts and never
+# B-134 (the FOUND of 18:15): a language server that starts and never
 # answers held the caller, and a whole test run, without end. A probe gets
 # this long; past it the language is reported unavailable.
 # One budget for all the languages together: the probes run side by side

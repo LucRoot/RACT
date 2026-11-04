@@ -68,7 +68,7 @@ def test_a_new_user_reaches_a_signed_pytest_rule(
     assert code == 0
     # One passphrase entry (confirmed once), for the new key and the signature.
     assert passphrases == ["New passphrase (8 characters or more, 12 is better): "]
-    # MASON's detected-runner view (B-111).
+    # the detected-runner view (B-111).
     assert shown[0].startswith("found the test runner: python -m pytest")
     assert any("seen in: tests/test_*.py" in line for line in shown)
     assert any("there is no operator key" in line.lower() for line in shown)
@@ -88,7 +88,7 @@ def test_a_new_user_reaches_a_signed_pytest_rule(
     assert rule.argv == ["python", "-m", "pytest"] and rule.network is False
     assert rule.timeout_s == 900 and state.policy.max_mode == "ask"
     assert state.policy.key_id == load_public().key_id
-    # MASON's signed-result view (B-111): the status line it now shows.
+    # the signed-result view (B-111): the status line it now shows.
     assert any("status line now: T3 ask" in line for line in shown)
 
 

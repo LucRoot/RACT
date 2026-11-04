@@ -1895,7 +1895,7 @@ def _doctor_command(args: list[str]) -> int:
         "verify <file>` checks it. When signing cannot be set up, the run names "
         "the files it left unsigned and says why. See docs/PROVENANCE.md."
     )
-    # B-225: MASON's slice (e) posture screen. A machine whose backend does
+    # B-225: the slice (e) posture screen. A machine whose backend does
     # not run commands is best effort, never "none": a Windows grant says
     # sandbox: best_effort and tier 3 can still be granted there.
     from ract.tui import terminal_width

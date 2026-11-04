@@ -1,6 +1,6 @@
 """B-177 wiring: the ``todo`` tool reaches the step loop, the harness applies its facts, ``/todo`` shows the list.
 
-MASON's first slice built the list, the tool (returning facts, writing nothing)
+the first slice built the list, the tool (returning facts, writing nothing)
 and the view. The wiring registers the tool for the step agent loop only (the
 read-only answer loop has no list to apply facts to), applies the facts after
 each step to the workspace's to-do list (``.ract/todo.json``), and gives the
@@ -21,7 +21,7 @@ from ract.tools.loop import StepWork, answer_tools, work_tools
 def test_the_todo_tool_is_offered_to_the_step_loop_only(monkeypatch) -> None:
     assert "todo" in REGISTRY
     assert "todo" in work_tools()
-    # The read-only answer loop has no list to apply the facts to (MASON's
+    # The read-only answer loop has no list to apply the facts to (the
     # 00:57 decision), so it does not offer the tool.
     assert "todo" not in answer_tools()
     # The live loop, not only the helper: answer_with_tools drives _drive

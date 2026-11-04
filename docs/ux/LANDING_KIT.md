@@ -1,13 +1,13 @@
-# Landing kit (MASON, sprint 5, package N)
+# Landing kit (the lane, sprint 5, package N)
 
-Read this first. The BUILDER lands one branch in one pass: `work/mason/landing`.
+Read this first. The BUILDER lands one branch in one pass: `work/landing`.
 
 ## The branch to land
 
-- **Landing branch:** `work/mason/landing`, tip **`79cf45f`**: the 49 commits of the first landing tip (`01b3cf0`) plus the 25 commits of `7097054..work/mason/ux-more` (no merges), replayed in order. **74 commits** on base `35af968`.
-- **Current work tip:** `work/mason/ux-more` (this file's commit is the tip; it differs from the landing tip only in this file). **82 commits** on base `35af968`.
+- **Landing branch:** `work/landing`, tip **`79cf45f`**: the 49 commits of the first landing tip (`01b3cf0`) plus the 25 commits of `7097054..work/ux-more` (no merges), replayed in order. **74 commits** on base `35af968`.
+- **Current work tip:** `work/ux-more` (this file's commit is the tip; it differs from the landing tip only in this file). **82 commits** on base `35af968`.
 - **Base:** the feature tip `35af968` (`feat/interactive-session-and-setup-fixes`). Not checked out in the main checkout.
-- **Tree check (`git diff --stat 79cf45f work/mason/ux-more`):** the replayed tree was identical to ux-more before this commit (empty diff, logged at 11:58 PT). This commit adds only `docs/ux/LANDING_KIT.md`.
+- **Tree check (`git diff --stat 79cf45f work/ux-more`):** the replayed tree was identical to ux-more before this commit (empty diff, logged at 11:58 PT). This commit adds only `docs/ux/LANDING_KIT.md`.
 - **Known noise, not content:** under `core.autocrlf=true` the `docs/ux/terminal_matrix/*.raw.txt` captures show as modified on checkout (CRLF in the working copy, LF in the commit). Do not commit those files from a checkout.
 
 ### Gate on the landing tip `79cf45f` (run 2026-10-26, 11:58 to 12:35 PT)
@@ -35,7 +35,7 @@ Read this first. The BUILDER lands one branch in one pass: `work/mason/landing`.
 
 ## The commits, in landing order (the 01b3cf0 landing branch, 49 commits)
 
-Each row is one commit on `work/mason/landing`. Source branch in brackets.
+Each row is one commit on `work/landing`. Source branch in brackets.
 
 | # | Landing hash | Source | One sentence |
 |---|---|---|---|
@@ -96,10 +96,10 @@ Each row is one commit on `work/mason/landing`. Source branch in brackets.
 
 ## Branches of mine that are not in the landing branch
 
-- **Already in the feature tip by patch content:** `work/mason/B-014b` (e7a8da1), `work/mason/B-076` (e7647e6), `work/mason/B-076-env` (8ecb557). No action.
-- **Older READY branches, features present in the landing tree, commits not replayed:** `work/mason/B-014a` (ccf9ff4), `work/mason/B-014b-fixes` (8049f01), `work/mason/B-032a` (3490a60), `work/mason/B-032b` (366b1d0), `work/mason/B-041a` (86e9174), `work/mason/B-041b` (e5bd4ad), `work/mason/B-053a` (6e39b3a). Their test files exist in the landing tree and pass on its tip (`tests/test_diff_render.py`, `tests/test_summary_diff.py`, `tests/test_turn_diff_wiring.py`, `tests/test_context_command.py`, `tests/test_session_commands.py`, `tests/test_no_color.py`, `tests/test_plain_mode.py`, `tests/test_session_render_checklist.py`). Replaying their old commits would overwrite newer code. **ESCALATE** (default: not replayed; the BUILDER may land them history-only if the team wants the commits on the record).
-- **Throwaway:** `work/mason/integ-check` (31085cd). Not to land.
-- **Constituents of the landing branch, for reference:** `work/mason/B-053b` 3a00f12, `work/mason/B-041c` d7fa898, `work/mason/B-048` b606b47, `work/mason/B-054` 0e0d14b, `work/mason/B-054f` e2a0474, `work/mason/ux-gap` 492beef, `work/mason/ux-next` b0b3f1c, `work/mason/ux-more` b0b3f1c.
+- **Already in the feature tip by patch content:** `work/B-014b` (e7a8da1), `work/B-076` (e7647e6), `work/B-076-env` (8ecb557). No action.
+- **Older READY branches, features present in the landing tree, commits not replayed:** `work/B-014a` (ccf9ff4), `work/B-014b-fixes` (8049f01), `work/B-032a` (3490a60), `work/B-032b` (366b1d0), `work/B-041a` (86e9174), `work/B-041b` (e5bd4ad), `work/B-053a` (6e39b3a). Their test files exist in the landing tree and pass on its tip (`tests/test_diff_render.py`, `tests/test_summary_diff.py`, `tests/test_turn_diff_wiring.py`, `tests/test_context_command.py`, `tests/test_session_commands.py`, `tests/test_no_color.py`, `tests/test_plain_mode.py`, `tests/test_session_render_checklist.py`). Replaying their old commits would overwrite newer code. **ESCALATE** (default: not replayed; the BUILDER may land them history-only if the team wants the commits on the record).
+- **Throwaway:** `work/integ-check` (31085cd). Not to land.
+- **Constituents of the landing branch, for reference:** `work/B-053b` 3a00f12, `work/B-041c` d7fa898, `work/B-048` b606b47, `work/B-054` 0e0d14b, `work/B-054f` e2a0474, `work/ux-gap` 492beef, `work/ux-next` b0b3f1c, `work/ux-more` b0b3f1c.
 
 ## Handoffs from package T (Windows file edge cases), by severity
 
@@ -115,7 +115,7 @@ Ordered so that the handoffs which print success that did not happen come first 
 
 ## Earlier BUILDER handoffs (sprints 4 and 5)
 
-These are the defects found by MASON that the branch does not fix. Each names where the fix goes. These line numbers are as recorded in sprints 4 and 5 and were not re-checked on `56fa5d0`; H1 to H7 above were.
+These are the defects found by the lane that the branch does not fix. Each names where the fix goes. These line numbers are as recorded in sprints 4 and 5 and were not re-checked on `56fa5d0`; H1 to H7 above were.
 
 1. **Ctrl-C at the approval prompt is recorded as a failed step.** `src/ract/executor/steps.py` line 1091 (`error = result.error or "the step did not finish"`) and the step's exception path. The renderer already shows a stopped step as skipped when the stop comes first. Test to add: a Ctrl-C at an approval prompt resets the step to skipped.
 2. **Duplication guard: the message and the hint.** `src/ract/executor/steps.py` line 1481 (`error=f"Duplication guard blocked write: {summary}"`), `src/ract/duplication_guard.py` line 28 (the wording), and `hint="duplication"` at `steps.py` line 1484. The category word is dropped by `_advice` (B-062), so the user gets the provider-check hint. Proposed wording is in package R of sprint 5 (`docs/ux/errors_check.md`, row 23).
@@ -137,13 +137,13 @@ These are the defects found by MASON that the branch does not fix. Each names wh
 ## What the BUILDER does, in order
 
 1. Decide the conflict in `src/ract/repl.py` and `tests/test_render_width.py` (commit `3ab850d`), then rebuild the landing branch from `35af968` with the 27 missing commits. `git fetch` is not needed; the branch is local.
-2. Land `work/mason/landing` as one branch.
+2. Land `work/landing` as one branch.
 3. Run `ract source-digest --lock` on the result and commit the lock if it changed.
 4. Read the handoffs above; the MANAGER turns them into cards.
 
 ## Merged tip (sprint 6 close, 2026-10-27)
 
-- Landing tip: work/mason/integrated at 61640e1 (built from the feature tip 35af968; hygiene, B-033s, H1-H4, S6-5, B-064a merged).
+- Landing tip: work/integrated at 61640e1 (built from the feature tip 35af968; hygiene, B-033s, H1-H4, S6-5, B-064a merged).
 - Full tests tree on eef25c5: 5146 passed, 43 skipped, 1 xfailed, 2 failed (novelty baseline; dead-code auction for plan_gate.py,
   fixed in 30698fb). Targeted re-runs on 61640e1: 124 passed, 1 skipped.
 - Details and the order: docs/review/INDEX.md.

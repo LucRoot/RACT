@@ -18,7 +18,7 @@ Owner is the card that would fix it, or "unassigned" when no card covers it yet.
 
 | ID | Journey | Sev | Finding (captured text) | Owner |
 |---|---|---|---|---|
-| D1 | J6 | S2 | After Ctrl-C the final checklist still shows steps 2 and 3 as `[ ]` (pending): `[ ] 2. Add src/notes.py with the NOTE constant`. They never ran and were not marked skipped (`[-]`). | B-053b (MASON) |
+| D1 | J6 | S2 | After Ctrl-C the final checklist still shows steps 2 and 3 as `[ ]` (pending): `[ ] 2. Add src/notes.py with the NOTE constant`. They never ran and were not marked skipped (`[-]`). | B-053b (the lane) |
 | D2 | J6 | S1 (known) | Ctrl-C during a turn works (`Stopped. The model call is still finishing in the background; nothing it returns will be written.`), but no queue or working indicator is shown while the call finishes. | B-033 (waits) |
 | D3 | J9 | S2 | A weak-model reply with no steps prints `error: Planning failed: Plan contains no steps.` followed by `hint: run ract doctor --check-providers to check the setup`. The provider answered, so the hint points at the wrong cause. | unassigned |
 | D4 | J9 | S2 | With no pending question on screen, the runner typed `y` at the REPL, and RACT sent it as a new intent: `ract> y` then `error: Planning failed: Plan contains no steps.` A second model request was made (`1 model request, 0.5 s`). | unassigned |

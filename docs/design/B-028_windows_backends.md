@@ -9,7 +9,7 @@ promise.
 ## What is on this machine
 
 A read-only check is the first step of the card, and it waits for the B-046
-slot to end (it starts `wsl.exe`). What WRIGHT reported for B-046: WSL 2 with
+slot to end (it starts `wsl.exe`). What the lane reported for B-046: WSL 2 with
 Ubuntu-24.04, stopped. Docker Desktop's data lives on F:. Neither is installed
 or changed by B-028.
 
