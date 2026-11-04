@@ -225,7 +225,7 @@ rounded up:
 | S3 visible, reversible, traceable to a signed record | met, shown on real models: change screens with line counts, `/diff`, `/undo`, and the signed Rootknot record per changed file |
 | S4 egress provable | met |
 | S5 headless in CI | met |
-| S6 no severity-1 journey defect | met as demonstrated: ten journeys on each of two local models and the hosted remainder on the frontier model, plus the J11 command-slice runs; every defect the runs surfaced (the fence-strip refusal, the manager prompt's pre-command sentence, the grant facts the manager could not see) was fixed on the release branch and re-run |
+| S6 no severity-1 journey defect | met as demonstrated: ten journeys on each of two local models and the hosted remainder on the frontier model, plus the J11 command-slice runs and a live hands-on user test (an agent driving a real session against the local model, the full fix-and-verify journey completed); every defect the runs surfaced (the fence-strip refusal, the manager prompt's pre-command sentence, the grant facts the manager could not see) was fixed on the release branch and re-run |
 | S7 harness-written verdict | met on real models: verdicts assembled from recorded runs, including honest "verified: failed" and "not verified" lines |
 
 Not exercised on a real model, stated plainly: J9 and J10 are terminal-matrix
@@ -234,10 +234,18 @@ screen on any of the three live models (a runner review-answer probe timing
 calibration, rev4; the journeys' product steps all passed); the 8B could not
 carry the J11 fix journey in four attempts (the command mechanism fired
 correctly every time; the model's plans were malformed or misdirected); and
-the hosted J11 row is mechanism-complete (the tier-3 ask fired, pytest ran
-under the grant, the command record was written, verdicts were honest) with
-the model-side completion blocked by the provider's availability at the time
-of the runs.
+on the scripted two-intent hosted journey the frontier models (DeepSeek on
+NIM across three samples, Nemotron 3 Ultra 550B on OpenRouter across two,
+both free-tier endpoints verified live) planned report steps instead of the
+edit in five of five samples — while RACT's command mechanism stayed green
+throughout: the granted run fired under the ask every time it was asked, the
+command record was written, claim checks flagged unverified "passes" claims,
+and the verdicts came from the real exit codes. The fix-and-verify journey
+IS completed end to end with a live model where a user drives the session
+(the hands-on test against the local model: plan approved, edit landed with
+the formatting-strip notice, granted /test printed "2 passed", verified
+independently). The hosted model-side scripted completion remains open with
+counts, as a model-behavior observation rather than a product defect.
 
 ## What RACT does not do yet
 
