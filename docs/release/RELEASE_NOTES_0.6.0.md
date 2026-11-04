@@ -75,6 +75,9 @@ The interactive session and its controls:
 - Ask mode: `/ask`, `ract run --ask` and `ract -p --ask` answer a question in
   one step, with no plan and no file written. A step with no target file is an
   answer step; nothing is written.
+- `!<command>` in a session runs what you type, as you, in the project: the
+  model never reaches this path, the output is not redacted, and where the
+  machine cannot confine commands the line says so.
 - `ract setup`, the first-run flow: it finds a model server already running,
   suggests a local model that fits the memory you give it, or names the key's
   environment variable for a cloud provider. It writes `ract.yaml` atomically,
@@ -238,12 +241,9 @@ of the runs.
 
 ## What RACT does not do yet
 
-From the expectations audit (2026-11-03), the first-hour gaps a daily CLI
-user notices:
+From the expectations audit (2026-11-03, updated the same night), the
+first-hour gaps a daily CLI user notices:
 
-- No shell escape (`!command`): the model proposes commands and you approve
-  them; `/test` runs your tests. A user-run shell command is a 0.6.1/0.7
-  design question, not a hidden feature.
 - `git mode` needs `git_mode: true` in ract.yaml (named in the error and
   QUICKSTART as of this tip); there are no branch helpers.
 - Ctrl-C during a running turn takes effect when the turn ends (documented);
