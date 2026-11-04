@@ -73,6 +73,15 @@ def test_a_new_user_reaches_a_signed_pytest_rule(
     assert any("seen in: tests/test_*.py" in line for line in shown)
     assert any("there is no operator key" in line.lower() for line in shown)
     assert any(line.startswith("+") or " + " in line for line in shown)  # the diff
+    # F-3 on the on-ramp path too: the plain "what this is" sentences come
+    # before the policy diff (BEGINNER_WALK_AGENT_2026-11-03.md and the live
+    # user test of the same night both found the preview alone scary; /test's
+    # on-ramp names this verb, not the setup offer). The item-by-item rule
+    # view above them is itself plain.
+    what = next(i for i, line in enumerate(shown) if line.startswith("What this is:"))
+    first_diff = next(i for i, line in enumerate(shown) if line.startswith("+") or " + " in line)
+    assert what < first_diff
+    assert any("asks you before every run" in line for line in shown)
     state = load_grant(project, now=NOW)
     assert state.holds
     rule = state.policy.commands.allow[0]

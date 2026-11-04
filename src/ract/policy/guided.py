@@ -342,6 +342,19 @@ def guided_init(
             show(f"  {line}")
     path = project / ".ract" / POLICY_FILE
     old = path.read_text(encoding="utf-8") if path.is_file() else None
+    # The beginner walk (BEGINNER_WALK_AGENT_2026-11-03.md, F-3) and the live
+    # user test of the same night: the rule view plus diff read as "it could
+    # do ANYTHING on my computer" and a beginner declined out of fear. The
+    # setup offer says what the grant is for first; the on-ramp path (this
+    # verb is what /test names) must say it too.
+    show(
+        "What this is: permission for RACT to run your one test command "
+        "when you ask, for example with /test."
+    )
+    show(
+        "It asks you before every run and never runs anything else. You "
+        "can take it back any time: ract policy revoke."
+    )
     # With no key yet, its id is unknown until the yes: say so in the preview.
     preview = (
         text
