@@ -35,7 +35,13 @@ from tests.fixtures.fake_model_server import FakeModelServer
 from tests.ux.terminal_driver import Recording, spawn, strip_ansi
 
 REPO = Path(__file__).resolve().parents[2]
-RACT = Path(sys.executable).with_name("ract.exe" if os.name == "nt" else "ract")
+# The console script lives in the environment's scripts dir: venvs and
+# toolcache layouts keep it beside python.exe, but some installers (the
+# GitHub toolcache on Windows) put it in a Scripts/ sibling - resolve it
+# via sysconfig instead of deriving it from sys.executable (CI: WinError 2).
+import sysconfig
+
+RACT = Path(sysconfig.get_path("scripts")) / ("ract.exe" if os.name == "nt" else "ract")
 
 
 def _env() -> dict[str, str]:

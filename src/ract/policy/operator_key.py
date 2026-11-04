@@ -213,6 +213,7 @@ def _restrict_windows_acl(path: Path) -> bool:
     if not user:
         print(
             "[operator_key] no USERNAME: the key file's ACL is left as inherited",
+            file=sys.stderr,
             flush=True,
         )
         return False
@@ -225,6 +226,7 @@ def _restrict_windows_acl(path: Path) -> bool:
     if done.returncode != 0:
         print(
             f"[operator_key] the key file's ACL was not set: {done.stderr.strip()}",
+            file=sys.stderr,
             flush=True,
         )
         return False
@@ -454,7 +456,11 @@ def pinned(config: Path | None = None) -> PublicKey | None:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
-        print(f"[operator_key] the user config cannot be read: {exc}", flush=True)
+        print(
+            f"[operator_key] the user config cannot be read: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
         return None
     entry = data.get("operator_key") if isinstance(data, dict) else None
     if not isinstance(entry, dict):
@@ -462,7 +468,7 @@ def pinned(config: Path | None = None) -> PublicKey | None:
     try:
         public = _unb64(entry.get("public_key"), "pinned public key")
     except OperatorKeyError as exc:
-        print(f"[operator_key] {exc}", flush=True)
+        print(f"[operator_key] {exc}", file=sys.stderr, flush=True)
         return None
     if key_id(public) != entry.get("key_id") or len(public) != 32:
         return None

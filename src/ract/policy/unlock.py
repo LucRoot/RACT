@@ -115,7 +115,11 @@ def window_note(config: Any = None) -> str | None:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
-        print(f"[unlock] the user config cannot be read: {exc}", flush=True)
+        print(
+            f"[unlock] the user config cannot be read: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
         return None
     value = data.get("unlock_window_minutes") if isinstance(data, dict) else None
     if (
