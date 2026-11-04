@@ -14,6 +14,7 @@ from ract.manager import Step
 from tests.test_repl import _session
 from tests.test_session_turn import _repo
 from tests.ux.terminal_driver import spawn
+from tests.ux import run_baseline as rb
 
 
 def test_mode_shows_and_switches(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,9 +69,7 @@ def test_answer_steps_are_not_asked_about(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def _ract_exe() -> str:
-    return str(
-        Path(sys.executable).with_name("ract.exe" if os.name == "nt" else "ract")
-    )
+    return str(rb.RACT)
 
 
 @pytest.mark.parametrize(("reply", "written"), [("y", True), ("n", False)])

@@ -6,7 +6,6 @@ Runs the installed ``ract`` in a pseudo-terminal against the fake server.
 from __future__ import annotations
 
 import os
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -15,12 +14,11 @@ import pytest
 
 from tests.test_session_turn import _repo
 from tests.ux.terminal_driver import spawn
+from tests.ux import run_baseline as rb
 
 
 def _ract_exe() -> str:
-    return str(
-        Path(sys.executable).with_name("ract.exe" if os.name == "nt" else "ract")
-    )
+    return str(rb.RACT)
 
 
 @pytest.mark.parametrize("cols", [80, 60, 40])
@@ -31,6 +29,10 @@ def test_review_rejects_the_fix_and_undo_stays_true(
     ws = _repo(tmp_path, server.base_url)
     before = (ws / "src" / "calc.py").read_text(encoding="utf-8")
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
+    # The test asserts the chrome prompt ("ract>"), which only renders
+    # outside plain mode; pin TERM so an ambient TERM=dumb (Git Bash, some
+    # CI shells) cannot flip the session into the "you:" plain labels.
+    env["TERM"] = "xterm"
     session = spawn([_ract_exe()], cwd=str(ws), env=env, cols=cols, rows=40)
     try:
         # The status line folds between its items at 60 and 40 columns (J5 fix).

@@ -11,15 +11,14 @@ import json
 import os
 import stat
 import subprocess
-import sys
-from pathlib import Path
 
 import pytest
 
 from tests.fixtures.fake_model_server import FakeModelServer, Scenario
 from tests.ux.run_baseline import _configure
+from tests.ux import run_baseline as rb
 
-RACT = Path(sys.executable).with_name("ract.exe" if os.name == "nt" else "ract")
+RACT = rb.RACT
 ORIGINAL = "def add(a, b):\n    return a + b\n"
 NEW = "print('hello from RACT')\n"
 

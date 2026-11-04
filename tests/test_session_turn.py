@@ -229,7 +229,7 @@ def test_ctrl_c_returns_to_the_prompt_within_two_seconds(
     )
     server = fake_model_server(slow)
     ws = _repo(tmp_path, server.base_url)
-    ract = Path(sys.executable).with_name("ract.exe" if os.name == "nt" else "ract")
+    ract = rb.RACT
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
     session = spawn([str(ract)], cwd=str(ws), env=env, cols=80, rows=30)
     try:
@@ -284,7 +284,7 @@ def test_after_ctrl_c_the_next_request_starts_at_once(
     )
     server = fake_model_server(scenario)
     ws = _repo(tmp_path, server.base_url)
-    ract = Path(sys.executable).with_name("ract.exe" if os.name == "nt" else "ract")
+    ract = rb.RACT
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
     session = spawn([str(ract)], cwd=str(ws), env=env, cols=100, rows=40)
     try:
@@ -348,7 +348,7 @@ def test_quitting_right_after_a_mid_stream_interrupt_leaves_no_step_state(
     )
     server = fake_model_server(scenario)
     ws = _repo(tmp_path, server.base_url)
-    ract = Path(sys.executable).with_name("ract.exe" if os.name == "nt" else "ract")
+    ract = rb.RACT
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("RACT_")}
     session = spawn([str(ract)], cwd=str(ws), env=env, cols=100, rows=40)
     try:
