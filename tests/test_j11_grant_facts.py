@@ -35,6 +35,10 @@ def test_facts_block_names_the_rules_when_the_grant_holds() -> None:
     assert "signed grant" in block
     assert "tests" in block
     assert "asks" in block
+    # J11 run 5 (hosted): the model read the earlier "plan steps normally"
+    # as licence to answer instead of editing; the line now says an intent
+    # that asks for a change gets the edit step.
+    assert "edit step" in block
 
 
 def test_facts_block_names_every_rule() -> None:

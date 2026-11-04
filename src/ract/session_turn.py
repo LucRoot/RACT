@@ -95,8 +95,10 @@ def tier3_facts_block(grant: Any) -> str:
     return (
         "Tier 3 facts: this project has a signed grant; RACT may run: "
         + ", ".join(sorted(rules))
-        + ". RACT asks the user before every run; plan steps normally and "
-        "RACT offers the granted run where it applies."
+        + ". RACT asks the user before every run, and offers the granted "
+        "test run after a step that changes tested code. Plan exactly as "
+        "without these facts: when the intent asks for a change, the plan "
+        "includes the edit step naming the file."
     )
 
 
