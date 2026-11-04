@@ -8,35 +8,32 @@
 
 RACT is a model-agnostic, local-first agentic coding tool built around three ideas: signed provenance capabilities (*rootknots*) on every artifact (see `docs/PROVENANCE.md`), explicit assumptions for every plan step, and milestone-halting recursion instead of fixed iteration counts.
 
-## What v0.5.2 changes
+## What 0.6.0 is
 
-v0.5.2 is the Deep-Audit Hardening release. Six modules layered on
-v0.5.1 close fifteen paired Ox-Alpha-partnered deep-audit findings
-without breaking wire compatibility. Highlights:
+v0.6.0 is the Interactive Session release: a developer hands real
+coding work to a model, local or hosted, inside a policy they control,
+and can show afterwards what changed, why, under which permission, and
+how to undo it. Highlights:
 
-- **Rootknot v4 signature hardening**: `Rootknot.__post_init__` v4
-  gate + authoritative verifier v4-label check +
-  `min_acceptable_schema_version` policy + closed known-versions
-  allowlist (`--min-schema=N` CLI flag).
-- **Sandbox env library-injection defense**: 40+ new env vars added
-  to NEVER_PASSTHROUGH (LD_PRELOAD, DYLD_INSERT_LIBRARIES, PYTHONPATH,
-  NODE_OPTIONS, BASH_ENV, GLIBC_TUNABLES, GIT_SSH_COMMAND,
-  HTTPS_PROXY, more).
-- **Subagent lifecycle + PID-reuse hardening**: spawn-time
-  `creation_time_ns` capture, tri-state PID identity check.
-- **Run_id continuity**: new `write_sidecar_header` primitive +
-  `RACT_RUN_ID` env plumbing across subprocess subagents.
-- **Trace log durability + honest verify**: per-run
-  `{run_id}.verify.json` warm-verify sidecar + streaming
-  `iter_events` + torn-tail UTF-8 replace. New CLI verb
-  `ract trace verify` (warm/cold, `--json`).
-- **Memory system polish**: honest dataclass grouping docstring +
-  on_moved reorder-race defense + new CLI verb
-  `ract memory verify-consistency`.
+- The interactive session (`ract`): intents, slash commands, plans
+  shown before anything runs, per-hunk review, `/diff`, `/undo`,
+  checkpoints and rewind, and a harness-written turn summary that
+  labels unchecked claims.
+- The command on-ramp: setup offers a signed grant for the test
+  command, `/test` runs it through the same tier-3 checks as any
+  model-requested command, and `!<command>` runs what you type, as
+  you.
+- Honest surfaces everywhere: what the sandbox does and does not
+  enforce, what a dead endpoint means, what the model claimed versus
+  what RACT verified.
 
-Full change list: [CHANGELOG.md](./CHANGELOG.md#052---2026-08-22--deep-audit-hardening).
+Full change list: [CHANGELOG.md](./CHANGELOG.md#060---2026-11-04).
+Release notes with the success-condition evidence:
+[docs/release/RELEASE_NOTES_0.6.0.md](./docs/release/RELEASE_NOTES_0.6.0.md).
 Migration walk-through: [docs/UPGRADING.md](./docs/UPGRADING.md).
-Deferred backlog: [docs/RACT_v0.6_BACKLOG.md](./docs/RACT_v0.6_BACKLOG.md).
+
+The previous release, v0.5.2 Deep-Audit Hardening, is described in
+[CHANGELOG.md](./CHANGELOG.md#052---2026-08-22--deep-audit-hardening).
 
 ## What v0.5.1 changes
 
