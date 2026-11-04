@@ -245,11 +245,22 @@ def protection(config: Path | None = None) -> str:
         return f"the key file's mode is {mode:o}, not 0600; it is encrypted"
     import subprocess
 
+    user = (os.environ.get("USERNAME") or "").lower()
     done = subprocess.run(
         ["icacls", str(path)], capture_output=True, text=True, check=False
     )
     entries = [line for line in done.stdout.splitlines() if ":" in line and "(" in line]
-    if done.returncode == 0 and len(entries) == 1:
+    # CI runners and domain machines can show the one principal twice (a user
+    # entry plus a group-derived one); the claim that matters is that no
+    # entry grants anyone who is not the current user.
+    others = [
+        line
+        for line in entries
+        if user
+        and f"{user}:" not in line.lower().replace(" ", "")
+        and f"{user}\\" not in line.lower()
+    ]
+    if done.returncode == 0 and entries and not others:
         return (
             "the key file's ACL grants only you, and it is encrypted; any program "
             "running as you can still read it, so the passphrase is what protects it"

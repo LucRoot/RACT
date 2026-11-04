@@ -42,7 +42,12 @@ def test_the_default_store_is_in_the_ract_folder(in_tmp: Path) -> None:
 def test_session_list_reads_the_new_store(in_tmp: Path, capsys) -> None:
     SessionStore(in_tmp / ".ract" / "sessions").save("s-new", {"intent": "x"})
     assert _session_command(["list", "--json"]) == 0
-    assert json.loads(capsys.readouterr().out) == ["s-new"]
+    out = capsys.readouterr().out
+    try:
+        listed = json.loads(out)
+    except json.JSONDecodeError as exc:
+        pytest.fail(f"--json stdout was polluted: {out[:300]!r} ({exc})")
+    assert listed == ["s-new"]
     assert not (in_tmp / ".ract_sessions").exists()
 
 

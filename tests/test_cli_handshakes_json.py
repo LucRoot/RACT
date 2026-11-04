@@ -114,7 +114,12 @@ def test_cli_handshakes_approve_signs_with_the_operator_key(
     SESSION_WINDOW.lock()
     code = cli.main(["handshakes", "approve", "m1", "--json", "--config", str(config)])
     assert code == 0
-    data = json.loads(capsys.readouterr().out)
+    out = capsys.readouterr().out
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError as exc:
+        # The next CI failure must show the pollutant, not just the position.
+        pytest.fail(f"--json stdout was polluted: {out[:300]!r} ({exc})")
     assert data["status"] == "approved"
     assert registry.approval_state(registry.current("m1")) == "signed"
     assert registry.is_approved("m1")

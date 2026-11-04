@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 
 """Operator Handshake Registry.
 
@@ -188,7 +190,11 @@ class HandshakeRegistry:
                 return None
             data = json.loads(mark.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
-            print(f"[handshakes] the signed approval cannot be read: {exc}", flush=True)
+            print(
+                f"[handshakes] the signed approval cannot be read: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
             return None
         return data if isinstance(data, dict) else None
 
