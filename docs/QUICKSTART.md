@@ -97,9 +97,9 @@ shows `ract>`. Both are the same session.
 Each turn after the first resumes the same session, so a follow-up like "now add a test for
 it" has the earlier work as context.
 
-No shell escape: RACT has no `!command` prefix. The model proposes commands and you
-approve them at the ask screen (see "Let RACT run your tests" below for the one command
-that matters most).
+Run your own command: `!command` in a session runs what you type, as you, in the
+project. The model never reaches this path, its output is not redacted, and the model's
+own commands still go through the ask screen (see "Let RACT run your tests" below).
 
 Project instructions: RACT reads the project's small text files into the request
 context: README first, and any `.md` file at the top level (so a file named

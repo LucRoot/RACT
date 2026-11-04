@@ -398,6 +398,7 @@ class ReplSession:
             f"running as you, in {project}: {command}"
         )
         print("[ract] best effort here: this machine cannot confine the command")
+        print("[ract] its output is not redacted; do not print secrets with it")
         try:
             proc = subprocess.run(
                 command,
