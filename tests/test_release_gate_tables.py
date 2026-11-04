@@ -224,7 +224,12 @@ def test_a_gate_with_a_bad_severity_exits_1_even_with_no_open_s1(
 
 
 def test_the_real_tree_is_held_by_the_two_gated_journey_rows() -> None:
-    # G-098: UX-07 (J3) and UX-08 (J4) are severity 1 and blocked by the tool layer.
+    # G-098: UX-07 (J3) and UX-08 (J4) were severity 1, blocked by the tool
+    # layer. The interactive session shipped the fix (read tools and checked
+    # citations; change screens, /diff, /undo, granted test runs), re-verified
+    # on the release tip by the expectations audit and the live user test, and
+    # the rows were closed for the v0.6.0 cut (release(v0.6.0)-prep). The pin
+    # now holds the closed state: the gate exits 0 and no S1 row is open.
     code, out = _run_gate(REPO)
-    assert code == 1
-    assert "OPEN S1 UX-07" in out and "OPEN S1 UX-08" in out
+    assert code == 0, out
+    assert "OPEN S1" not in out
