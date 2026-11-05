@@ -19,6 +19,7 @@ the target's name (the signed grant and the handshake registry use this).
 from __future__ import annotations
 
 import os
+import sys
 import stat
 import tempfile
 import threading
@@ -34,7 +35,12 @@ def _umask() -> int:
             if line.startswith("Umask:"):
                 return int(line.split()[1], 8)
     except (OSError, ValueError) as exc:
-        print(f"[atomic_write] umask read the slow way: {exc}", flush=True)
+        # Diagnostics never touch stdout: --json runs parse it.
+        print(
+            f"[atomic_write] umask read the slow way: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
     with _UMASK_LOCK:
         mask = os.umask(0o022)
         os.umask(mask)

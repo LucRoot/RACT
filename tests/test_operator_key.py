@@ -277,6 +277,21 @@ def test_doctor_says_how_the_key_file_is_kept(cfg: Path) -> None:
     said = protection(config=cfg)
     assert "encrypted" in said
     if os.name == "nt":
-        assert "grants only you" in said and "passphrase is what protects it" in said
+        if "grants only you" not in said:
+            # Name the raw ACL on failure: CI images vary in how icacls
+            # spells the principal (short vs long name), and the next
+            # failure should show it.
+            import subprocess
+
+            from ract.policy.operator_key import KEY_FILE, operator_dir
+
+            raw = subprocess.run(
+                ["icacls", str(operator_dir(cfg) / KEY_FILE)],
+                capture_output=True,
+                text=True,
+                check=False,
+            ).stdout
+            pytest.fail("protection said: %r\nicacls:\n%s" % (said, raw))
+        assert "passphrase is what protects it" in said
     else:
         assert "0600" in said
